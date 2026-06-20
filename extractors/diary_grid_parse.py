@@ -31,14 +31,20 @@ _MONTHS = {
 }
 _MONTHS |= {m[:3]: n for m, n in list(_MONTHS.items())}
 
-# header like "4 - 8 January 2021" or "28 June - 2 July 2021" (OCR may prefix junk on the day)
-_WEEK_HDR = re.compile(
-    r"(\d{1,2})\s*[-–]\s*\d{1,2}\s+([A-Za-z]{3,9})(?:\s*[-–]\s*\d{1,2}\s+[A-Za-z]{3,9})?\s+(\d{4})"
-)
+# Week header — two real layouts, both yielding (day1, month1, year):
+#   single-month "4 - 8 January 2021"   → day-dash-day month year
+#   cross-month  "28 June - 2 July 2021" → day month - day month year (week spans a month boundary)
+_WEEK_HDR = re.compile(r"(\d{1,2})\s*[-–]\s*\d{1,2}\s+([A-Za-z]{3,9})\s+(\d{4})")
+_WEEK_HDR_X = re.compile(r"(\d{1,2})\s+([A-Za-z]{3,9})\s*[-–]\s*\d{1,2}\s+[A-Za-z]{3,9}\s+(\d{4})")
 _EVENT_GAP = 70  # px: cells within this vertical gap in a column = one engagement block
 _VENUE_RE = re.compile(r"^(online|microsoft teams.*|zoom.*|https?://.*|teams meeting|phone|video call)$", re.IGNORECASE)
-# repeated page/column chrome from the Outlook export (footer/header watermark) — drop, not an engagement
-_CHROME_RE = re.compile(r"^(minister of state.*|search minister.*|.*\(ctrl\s*\+\s*e\).*|.*- calendar)$", re.IGNORECASE)
+# repeated page/column chrome from the Outlook export (footer/header watermark) — drop, not an engagement.
+# Includes the all-caps "DFIN Diary" department-code header (case-sensitive code so it can't eat a
+# real mixed-case "Press Diary" subject).
+_CHROME_RE = re.compile(
+    r"^(minister of state.*|search minister.*|.*\(ctrl\s*\+\s*e\).*|.*- calendar|(?-i:[A-Z]{2,6}) diary)$",
+    re.IGNORECASE,
+)
 
 
 def _norm(t: str) -> str:
@@ -47,7 +53,7 @@ def _norm(t: str) -> str:
 
 def _week_start(cells: list[dict], year_hint: int | None) -> date | None:
     for c in sorted(cells, key=lambda c: c["y0"]):  # header is near the top
-        m = _WEEK_HDR.search(c["t"])
+        m = _WEEK_HDR.search(c["t"]) or _WEEK_HDR_X.search(c["t"])
         if m:
             mon = _MONTHS.get(m.group(2).lower()[:3])
             if mon:
