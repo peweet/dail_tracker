@@ -23,7 +23,7 @@ from ui.page_analytics import log_page_view
 from ui.spa_links import install_spa_links
 
 st.set_page_config(
-    page_title="Oireachtas Explorer",
+    page_title="Dáil Tracker",
     page_icon=":material/account_balance:",
     layout="wide",
     # Sidebar→filter-bar migration: all filters live in main-panel bars now;
