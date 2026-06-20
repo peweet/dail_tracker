@@ -83,7 +83,7 @@ SOURCES: list[dict] = [
         "check": "auto",
         "listing_urls": ["https://newchildrenshospital.ie/freedom-of-information/procurement/"],
         "must_match": r"\bpo|purchase|listing|quarter|q[1-4]",
-        "held_through": [2025, 2],
+        "held_through": [2025, 4],  # 2026-06-21: ingested Q3+Q4 2025 (silver 260->368 rows)
         "coverage": "data/_meta/nphdb_payments_coverage.json",
         "parser": "extractors/procurement_nphdb_parser.py",
     },

@@ -128,3 +128,25 @@ def test_taoiseach_attributed_by_date_across_rotation():
     assert resolve_minister(f, "TAOISEACH", date(2022, 6, 1)) == "Martin"
     assert resolve_minister(f, "TAOISEACH", date(2023, 5, 1)) == "Varadkar"
     assert resolve_minister(f, "TAOISEACH", date(2024, 9, 1)) == "Harris"
+
+
+def test_dfheris_acronym_not_a_surname():
+    # "Minister_DFHERIS_Calendar" must NOT coin the surname "Dfheri"; attribute by date instead.
+    f = "Minister_DFHERIS_Calendar_2025.pdf"
+    assert resolve_minister(f, "DFHERIS", date(2025, 6, 1)) == "Lawless"
+    assert resolve_minister(f, "DFHERIS", date(2023, 6, 1)) == "Harris"
+    # a file that DOES carry the surname still wins over the date rule
+    assert resolve_minister("Minister_ODonovan_Calendar_2024.pdf", "DFHERIS", date(2024, 9, 1)) == "O'Donovan"
+
+
+def test_minical_titles_do_not_drift_year():
+    # Outlook export (has the "Mo Tu We Th" mini-cal grid): a January-2026 mini-cal title must NOT
+    # roll the running year forward — the entry stays in the file's year.
+    export = "\n".join(["Mo Tu We Th Fr Sa Su", "January 2026", "15 December 2025", "10:00 – 10:30", "Briefing"])
+    out = parse_entries(export, default_year=2025, default_month=None)
+    assert len(out) == 1
+    assert out[0]["entry_date"] == date(2025, 12, 15)
+    # but a weekday-LIST (no grid) DOES use the section header to date its yearless lines
+    weeklist = "\n".join(["January 2026", "Thu 15 Jan", "10:00 – 10:30", "Briefing"])
+    out2 = parse_entries(weeklist, default_year=2025, default_month=None)
+    assert out2[0]["entry_date"] == date(2026, 1, 15)
