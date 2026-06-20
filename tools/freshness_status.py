@@ -71,6 +71,12 @@ LANES: dict[str, dict] = {
         "publishes": False,
         "desc": "Full local pipeline.py run -> local gold + freshness.json",
     },
+    "procurement_poller": {
+        "cadence_hours": 168,  # weekly watch of the orphan procurement publishers
+        "runner": "local",
+        "publishes": False,
+        "desc": "Orphan procurement source poll (NTA/NPHDB/SEAI/depts) -> procurement_source_poll.json",
+    },
 }
 
 # A beat is only LATE once it exceeds cadence * GRACE — absorbs a run that fires a

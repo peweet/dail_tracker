@@ -45,6 +45,38 @@ jobs:
       - name: Report refresh-lane freshness
         if: always()
         run: python tools/freshness_status.py
+      # Watch the ORPHAN procurement publishers (NTA/NPHDB/SEAI/depts) — bespoke
+      # parsers NOT in pipeline.py, so a new quarter upstream goes unnoticed and gold
+      # stays stale. Network probe; --no-beat (a read-only checkout can't persist the
+      # heartbeat) and `|| true` so a flaky external site never breaks the canary.
+      - name: Poll orphan procurement sources
+        id: procpoll
+        if: always()
+        run: |
+          python tools/procurement_source_poller.py --no-beat --json > poll.json || true
+          python - <<'PY'
+          import json, os
+          try:
+              r = json.load(open("poll.json"))
+          except Exception:
+              r = {"sources": [], "fresh_sources": []}
+          for s in r["sources"]:
+              print(f"  {s['id']:<22}{s['status']}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write("fresh=" + ",".join(r.get("fresh_sources", [])) + "\n")
+          PY
+      - name: Open issue on fresh procurement data (scheduled runs only)
+        if: github.event_name == 'schedule' && steps.procpoll.outputs.fresh != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fresh = "${{ steps.procpoll.outputs.fresh }}";
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Procurement: fresh upstream data to ingest (${fresh})`,
+              body: `The orphan-source poller found newer periods upstream than we hold for: **${fresh}**.\n\nThese publishers are ingested by bespoke parsers NOT in \`pipeline.py\`, so gold will stay stale until each is re-run and re-promoted. See \`data/_meta/procurement_source_poll.json\` (job artifact) for the exact periods.\n\nTo refresh: run the relevant parser (e.g. \`extractors/procurement_nphdb_parser.py\`), then \`procurement_payments_consolidate.py\`, then bump \`held_through\` in \`tools/procurement_source_poller.py\`.\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}`,
+              labels: ["data", "procurement"],
+            });
       - name: Open issue on staleness (scheduled runs only)
         if: failure() && github.event_name == 'schedule'
         uses: actions/github-script@v7

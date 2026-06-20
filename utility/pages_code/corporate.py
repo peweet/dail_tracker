@@ -36,7 +36,6 @@ import datetime
 import html
 import re
 import sys
-import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -46,7 +45,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.corporate_data import (
     fetch_brand_aliases,
-    fetch_cbi_notice_matches,
     fetch_cbi_repeat_distress,
     fetch_corporate_notices,
     fetch_receiver_appointers,
@@ -1407,7 +1405,7 @@ def _render_firm_view(df: pd.DataFrame, firm: str) -> None:
     )
 
     # Case list — year-grouped, Iris-linked (reuses the feed renderer).
-    _render_feed(fdf, cbi_badges, group_by_year=True)
+    _render_feed(fdf, group_by_year=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1854,7 +1852,7 @@ def _render_facets(full_df: pd.DataFrame) -> int:
 # ──────────────────────────────────────────────────────────────────────────────
 # Feed
 # ──────────────────────────────────────────────────────────────────────────────
-def _render_card(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = None) -> str:
+def _render_card(row: pd.Series) -> str:
     ref = html.escape(_safe(row.get("display_ref")) or "", quote=True)
     subtype = _safe(row.get("notice_subtype"))
     subtype_label = _pretty_subtype(subtype)
@@ -1905,7 +1903,6 @@ def _render_card(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = Non
 
 def _render_feed(
     df: pd.DataFrame,
-    cbi_badges: list[tuple[str, dict]] | None = None,
     group_by_year: bool = False,
 ) -> None:
     if df.empty:
@@ -1965,7 +1962,7 @@ def _render_feed(
         if group_key != last_key:
             parts.append(f'<div class="corp-month-h">{html.escape(group_key)}</div>')
             last_key = group_key
-        parts.append(_render_card(r, cbi_badges))
+        parts.append(_render_card(r))
 
     st.html("".join(parts))
 
@@ -1981,7 +1978,7 @@ def _render_feed(
 # ──────────────────────────────────────────────────────────────────────────────
 # Detail
 # ──────────────────────────────────────────────────────────────────────────────
-def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = None) -> None:
+def _render_detail(row: pd.Series) -> None:
     if back_button("← Back to corporate notices", key="corp_detail"):
         st.session_state.pop("corp_selected_ref", None)
         st.query_params.clear()
@@ -2092,7 +2089,6 @@ def corporate_page() -> None:
     _inject_corp_css()
 
     df = load_corporate()
-    cbi_badges = load_cbi_badges()
     cbi_repeat = load_cbi_repeat_distress()
     brand_aliases = load_brand_aliases()
 
@@ -2159,7 +2155,7 @@ def corporate_page() -> None:
                 st.query_params.clear()
                 st.rerun()
             return
-        _render_detail(match.iloc[0], cbi_badges)
+        _render_detail(match.iloc[0])
         return
 
     # Firm view (?firm=) — dedicated receiver/insolvency-firm landing.
@@ -2171,7 +2167,7 @@ def corporate_page() -> None:
                 "The underlying gold parquet did not load.",
             )
             return
-        _render_firm_view(df, firm_view, cbi_badges)
+        _render_firm_view(df, firm_view)
         return
 
     # Index — pure-data lede. No interpretive framing per the no-inference
@@ -2276,7 +2272,7 @@ def corporate_page() -> None:
         )
 
     fund_active = (st.session_state.get("corp_fund_filter") or "All") != "All"
-    _render_feed(filtered, cbi_badges, group_by_year=fund_active)
+    _render_feed(filtered, group_by_year=fund_active)
 
     # ── Provenance ────────────────────────────────────────────────────────
     provenance_expander(
