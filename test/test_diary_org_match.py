@@ -235,3 +235,32 @@ def test_curated_central_bank_is_not_bank_of_ireland() -> None:
     # "Central Bank of Ireland" (the regulator) must not match curated "Bank of Ireland"
     assert _matches("Meeting with Central Bank of Ireland officials") == []
     assert {m["matched_org_name"] for m in _matches("Meeting with Bank of Ireland")} == {"Bank of Ireland"}
+
+
+# ── curated additions 2026-06-21 (doc/DIARY_GAZETTEER_CANDIDATES.md) — pin the adds AND the
+#    deliberately-DROPPED false positives so a future re-add of a colliding key trips a test ──
+
+
+def test_curated_cisco_matches_but_not_san_francisco() -> None:
+    # Cisco was added; the word-boundary guard must keep "san francisco" from matching it
+    assert {m["matched_org_name"] for m in _matches("Meeting w/Cisco re jobs")} == {"Cisco"}
+    assert _matches("Aer Lingus flight to San Francisco") == []
+
+
+def test_curated_merck_and_coca_cola_match() -> None:
+    assert {m["matched_org_name"] for m in _matches("Announcement of Merck expansion")} == {"Merck"}
+    assert {m["matched_org_name"] for m in _matches("Visit to Coca Cola plant")} == {"Coca-Cola"}
+
+
+def test_curated_kerry_group_phrase_only_not_the_county() -> None:
+    # "Kerry Group" (food multinational) added as a PHRASE; bare county "Kerry" must NOT match
+    assert {m["matched_org_name"] for m in _matches("Meeting with Kerry Group")} == {"Kerry Group"}
+    assert _matches("Interview with Radio Kerry") == []
+    assert _matches("Kerry Babies Briefing") == []
+
+
+def test_curated_drops_collision_prone_names() -> None:
+    # these were SCANNED but DROPPED as false positives — must stay unmatched
+    assert _matches("FYI - Stephen Roche San Fran Police - Dáil Tour") == []  # cyclist, not Roche pharma
+    assert _matches("Fianna Fáil Think-In (Rochestown Park Hotel, Cork)") == []  # hotel, not Roche
+    assert _matches("Peter Baxter (The Burnaby, Greystones)") == []  # a person, not Baxter healthcare
