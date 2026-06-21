@@ -173,35 +173,45 @@ def bid_signal(
     conn: duckdb.DuckDBPyConnection,
     *,
     trade_code: str | None = None,
+    sector_code: str | None = None,
     min_awards: int = 20,
     limit: int | None = None,
 ) -> QueryResult:
-    """EXPERIMENTAL "Should I bid?" signals per CPV trade from ``v_procurement_bid_signal``.
+    """EXPERIMENTAL "Should I bid?" signals per CPV trade from ``v_procurement_bid_signal``,
+    grouped by CPV sector (division) — applies the same logic to EVERY sector, not just
+    construction.
 
-    NOT a price. The pricing-by-comparable investigation proved this data cannot quote a job
-    (4.5x–15x intra-trade spread; headline value mixes framework ceilings 14x–79x above real
-    awards). This returns FACTS for a bidder to reason from, each with its own n so a thin
-    sample is visible: the contract-award band (p25/median/p75, ceilings excluded), the
-    ceiling context shown separately, competition (median bids + single-bid rate), and SME
-    win rate. All aggregation lives in the view; the page renders, never computes. A high
-    single-bid rate is a prompt to look, never a verdict (niche/specialist/urgent are legit).
+    NOT a price, and known LOW-VALUE: the pricing-by-comparable investigation proved this data
+    cannot quote a job (4.5x–15x intra-trade spread; headline value mixes framework ceilings
+    14x–79x above real awards) and there is NO size/area (e.g. m²/GFA) anywhere to normalise it,
+    so two contracts in the same trade can differ purely by project size. This returns FACTS for
+    a bidder to reason from, each with its own n so a thin sample is visible: the contract-award
+    band (p25/median/p75, ceilings excluded), the ceiling context shown separately, competition
+    (median bids + single-bid rate), and SME win rate. All aggregation lives in the view; the
+    page renders, never computes. A high single-bid rate is a prompt to look, never a verdict.
 
-    ``trade_code`` filters to one 4-digit CPV trade; ``min_awards`` drops noisy small trades
-    (ignored when a specific ``trade_code`` is requested)."""
+    ``trade_code`` filters to one 4-digit CPV trade; ``sector_code`` to one 2-digit CPV sector;
+    ``min_awards`` drops noisy small trades (ignored when a specific ``trade_code`` is asked)."""
     cols = (
-        "trade_code, trade_label, n_awards_total, n_contract_awards, award_p25_eur,"
-        " award_median_eur, award_p75_eur, n_recent_contract_awards, n_framework_ceilings,"
-        " ceiling_median_eur, n_with_bid_data, median_bids, n_single_bid, single_bid_pct,"
-        " n_with_sme_data, n_sme_won, sme_win_pct"
+        "trade_code, sector_code, sector_label, trade_label, n_awards_total, n_contract_awards,"
+        " award_p25_eur, award_median_eur, award_p75_eur, n_recent_contract_awards,"
+        " n_framework_ceilings, ceiling_median_eur, n_with_bid_data, median_bids, n_single_bid,"
+        " single_bid_pct, n_with_sme_data, n_sme_won, sme_win_pct"
     )
+    where = []
     params: list = []
     if trade_code:
-        sql = f"SELECT {cols} FROM v_procurement_bid_signal WHERE trade_code = ?"
+        where.append("trade_code = ?")
         params.append(str(trade_code))
     else:
-        sql = f"SELECT {cols} FROM v_procurement_bid_signal WHERE n_awards_total >= ?"
+        where.append("n_awards_total >= ?")
         params.append(int(min_awards))
-    sql += " ORDER BY n_awards_total DESC"
+    if sector_code:
+        where.append("sector_code = ?")
+        params.append(str(sector_code))
+    sql = f"SELECT {cols} FROM v_procurement_bid_signal WHERE {' AND '.join(where)}"
+    # Group sectors together, biggest trade first within each (the page renders sector headers).
+    sql += " ORDER BY sector_label, n_awards_total DESC"
     if limit is not None:
         sql += " LIMIT ?"
         params.append(int(limit))
@@ -951,11 +961,17 @@ def payment_lines_for_pair(
     file. One row per published line, biggest first. Sum-safe euro flag rides along so the page
     can mark a line that is not safe to total; never summed across vat_status. paid_status carries
     the body's own per-line payment status (Paid / Part paid / Not paid) where it published one —
-    canonicalised in the view from a strict allowlist; NULL for the majority that publish none."""
+    canonicalised in the view from a strict allowlist; NULL for the majority that publish none.
+
+    ``recurring_years`` counts the distinct years in which this body published an IDENTICAL amount
+    to this firm — the signature of a recurring availability / unitary charge (e.g. a PPP annual
+    payment), as opposed to distinct one-off purchases. ≥2 means the same figure repeats yearly, so
+    the page can flag it as not meaningful to sum. Computed over all the pair's lines (pre-LIMIT)."""
     return _run(
         conn,
         "SELECT period, year, description, po_number, amount_eur, value_kind,"
-        " value_safe_to_sum, vat_status, paid_status, source_file_url"
+        " value_safe_to_sum, vat_status, paid_status, source_file_url,"
+        " COUNT(DISTINCT year) OVER (PARTITION BY round(amount_eur, 2)) AS recurring_years"
         " FROM v_procurement_payments"
         " WHERE supplier_normalised = ? AND publisher_name = ? AND realisation_tier = ?"
         " ORDER BY amount_eur DESC NULLS LAST LIMIT ?",
@@ -972,11 +988,16 @@ def payment_lines_for_supplier(
     drill into; this lists the constituent records directly, each carrying its paying body
     (period, description, PO number, amount, source). One row per line, biggest first. Sum-safe
     flag rides along; never summed across vat_status. Mirrors ``payment_lines_for_pair`` but with
-    no publisher filter and the body name selected so the page can label each line."""
+    no publisher filter and the body name selected so the page can label each line.
+
+    ``recurring_years`` (see ``payment_lines_for_pair``) is partitioned by body here too — the same
+    amount from the SAME body across ≥2 years marks a recurring availability/unitary charge, so the
+    page can flag PPP-style repeating lines that must not be read as distinct spend."""
     return _run(
         conn,
         "SELECT publisher_name, period, year, description, po_number, amount_eur, value_kind,"
-        " value_safe_to_sum, vat_status, paid_status, source_file_url"
+        " value_safe_to_sum, vat_status, paid_status, source_file_url,"
+        " COUNT(DISTINCT year) OVER (PARTITION BY publisher_name, round(amount_eur, 2)) AS recurring_years"
         " FROM v_procurement_payments"
         " WHERE supplier_normalised = ? AND realisation_tier = ?"
         " ORDER BY amount_eur DESC NULLS LAST LIMIT ?",

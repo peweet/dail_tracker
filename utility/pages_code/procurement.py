@@ -1415,7 +1415,23 @@ def _payment_line_row(r, tier: str, *, show_publisher: bool = False) -> str:
         if paid_status in _PAID_CLASS
         else ""
     )
-    title_html = f'<div class="pr-award-title">{desc}{status_html}</div>' if (desc or status_html) else ""
+    # Recurring-charge flag: this exact amount was published by the body in ≥2 distinct years (the
+    # signature of a PPP availability / unitary charge, not a one-off purchase). A factual marker so
+    # an annually-repeating charge is not read as distinct spend that should be totalled.
+    recurring_years = _n(getattr(r, "recurring_years", None))
+    is_recurring = recurring_years >= 2 and getattr(r, "amount_eur", None) is not None
+    recurring_html = (
+        f'<span class="pr-paid-tag is-recurring" title="The same amount appears in {recurring_years} '
+        'different years — a recurring annual charge, not distinct one-off spend.">'
+        f"recurring · same amount in {recurring_years} years</span>"
+        if is_recurring
+        else ""
+    )
+    title_html = (
+        f'<div class="pr-award-title">{desc}{status_html}{recurring_html}</div>'
+        if (desc or status_html or recurring_html)
+        else ""
+    )
     meta_parts = []
     po = _coalesce(getattr(r, "po_number", None))
     if po:
@@ -1500,11 +1516,23 @@ def _render_payment_lines(
         )
         return
     where = "across every public body that published them" if all_bodies else "naming this firm"
-    st.caption(
+    caption = (
         f"{len(df):,} published {_paid_verb(tier)} line{'s' if len(df) != 1 else ''} {where}, biggest first. "
         "Each is the body's own reported figure (over €20,000), not an award ceiling — never summed across "
         "bodies with different VAT bases. Open a line's source ↗ for the body's published disclosure."
     )
+    # Recurring-charge caution: count the lines whose exact amount repeats across ≥2 years (a PPP
+    # availability / unitary charge). These are flagged inline; warn up front that totalling them
+    # overstates spend, since the same charge recurs annually rather than being distinct purchases.
+    if "recurring_years" in df.columns:
+        n_recurring = int(((df["recurring_years"] >= 2) & df["amount_eur"].notna()).sum())
+        if n_recurring:
+            caption += (
+                f" ⚠️ {n_recurring} line{'s' if n_recurring != 1 else ''} marked **recurring** are an "
+                "identical amount repeating across years (a recurring annual / PPP charge) — shown "
+                "individually but not meaningful to total as one-off spend."
+            )
+    st.caption(caption)
     st.html("".join(_payment_line_row(r, tier, show_publisher=all_bodies) for r in df.itertuples()))
     st.html(_PAY_FOOT_HTML)
 
@@ -3480,14 +3508,27 @@ def _render_bid_signal() -> None:
     st.html('<div class="pr-register-rule"><span>Should I bid? &nbsp;⚗ experimental</span></div>')
     finding_lede(
         [
-            "This data <strong>can't quote a job</strong> — every trade's award range is "
-            "<strong>4.5–15×</strong> wide, and headline values mix framework ceilings far above "
-            "real awards.",
-            "What it can give you, per category: how competitive the work is, how often a "
-            "<strong>single</strong> bidder showed up, whether <strong>SMEs</strong> actually win "
-            "it, and the real contract-award band — each with its sample size so you weigh it "
-            "yourself.",
+            "Same logic, <strong>every sector</strong> — not just construction: how competitive "
+            "the work is, how often a <strong>single</strong> bidder showed up, whether "
+            "<strong>SMEs</strong> win it, and the real contract-award band, each with its "
+            "sample size so you weigh it yourself.",
+            "It is <strong>not a price</strong>: every trade's award range is "
+            "<strong>4.5–15×</strong> wide and headline values mix framework ceilings far above "
+            "real awards — so treat the band as orientation, never a quote.",
         ]
+    )
+    # Honesty rail, made prominent at the user's instruction: this feature is low-value because
+    # the data has no project SIZE. Two contracts in the same trade can differ purely by scale
+    # (a small rewire vs a hospital wing) and nothing here normalises that — no floor area / m² /
+    # GFA / unit count exists anywhere in the source. So the band reflects job size as much as
+    # job rate; it cannot tell you whether YOUR job is dear or cheap.
+    st.warning(
+        "**Low-value by design — read with care.** These bands are **not size-adjusted**: the "
+        "source carries no floor area, m², GFA or unit count, so a small job and a large one in "
+        "the same category land in the same band. The spread you see is mostly *project size*, "
+        "not *price per unit* — this orients you on competition and typical deal size, it cannot "
+        "tell you if a specific job is priced right.",
+        icon="⚠️",
     )
     st.caption("⚗ Experimental · local only — not shown in the published app.")
 
@@ -3500,18 +3541,37 @@ def _render_bid_signal() -> None:
         empty_state("No categories", "No CPV trades met the minimum sample size.")
         return
 
-    q = st.text_input(
-        "Find your trade (CPV category name)", value="", key="bs_filter",
-        placeholder="e.g. electrical, road, building, cleaning…",
-    )
+    sectors = ["All sectors"] + sorted(df["sector_label"].dropna().unique().tolist())
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        sector = st.selectbox("Sector", sectors, index=0, key="bs_sector")
+    with c2:
+        q = st.text_input(
+            "Find your trade (CPV category name)", value="", key="bs_filter",
+            placeholder="e.g. electrical, road, cleaning, software…",
+        )
     view = df
+    if sector != "All sectors":
+        view = view[view["sector_label"] == sector]
     if q.strip():
-        view = df[df["trade_label"].fillna("").str.contains(q.strip(), case=False, na=False)]
+        view = view[view["trade_label"].fillna("").str.contains(q.strip(), case=False, na=False)]
     if view.empty:
-        empty_state("No match", f"No category name contains “{html.escape(q)}”.")
+        empty_state("No match", "No category matches that sector / name filter.")
         return
 
-    st.html("".join(_bid_signal_card(r) for _, r in view.head(40).iterrows()))
+    # Render sector by sector: a quiet sector header, then its trade cards (already ordered
+    # biggest-first within the sector by the view). Cap total cards so the page stays light.
+    shown = 0
+    for sector_label, grp in view.groupby("sector_label", sort=True):
+        if shown >= 60:
+            break
+        st.html(
+            f'<div class="pr-register-rule"><span>{html.escape(str(sector_label))} '
+            f'&middot; {len(grp)} categor{"y" if len(grp) == 1 else "ies"}</span></div>'
+        )
+        rows = grp.head(60 - shown)
+        st.html("".join(_bid_signal_card(r) for _, r in rows.iterrows()))
+        shown += len(rows)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

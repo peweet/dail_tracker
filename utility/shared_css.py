@@ -5704,6 +5704,10 @@ def inject_css() -> None:
             border-color: var(--signal-bad-border); }
         .pr-paid-tag.is-partpaid { background: var(--surface-deep); color: var(--text-meta);
             border-color: var(--border); }
+        /* Recurring annual / PPP charge — a literacy caution (this amount repeats yearly, do not
+           total it as one-off spend), not a verdict. Calm amber-neutral, distinct from paid tints. */
+        .pr-paid-tag.is-recurring { background: var(--surface-deep); color: #9c5b2e;
+            border-color: var(--border); white-space: normal; }
         /* TED cross-reference block on a supplier profile — a quiet, clearly-separate
            "other register" callout. Neutral surface, left rule in accent (informational,
            never alarm); the copy says "not added" so it can't read as a bigger total. */

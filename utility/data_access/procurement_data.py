@@ -64,13 +64,21 @@ def fetch_awards_by_year_result() -> QueryResult:
 
 @st.cache_data(ttl=600)
 def fetch_bid_signal_result(
-    trade_code: str | None = None, min_awards: int = 20, limit: int | None = None
+    trade_code: str | None = None,
+    sector_code: str | None = None,
+    min_awards: int = 20,
+    limit: int | None = None,
 ) -> QueryResult:
-    """EXPERIMENTAL "Should I bid?" signals per CPV trade (v_procurement_bid_signal).
-    Facts a bidder reasons from — award band, ceiling context, competition, SME-win rate —
-    never a price. All aggregation in the view; this is a cached pass-through."""
+    """EXPERIMENTAL "Should I bid?" signals per CPV trade, grouped by sector
+    (v_procurement_bid_signal). Facts a bidder reasons from — award band, ceiling context,
+    competition, SME-win rate — never a price, and known low-value (no area/size to normalise
+    project scale). All aggregation in the view; this is a cached pass-through."""
     return _q.bid_signal(
-        get_procurement_conn(), trade_code=trade_code, min_awards=min_awards, limit=limit
+        get_procurement_conn(),
+        trade_code=trade_code,
+        sector_code=sector_code,
+        min_awards=min_awards,
+        limit=limit,
     )
 
 

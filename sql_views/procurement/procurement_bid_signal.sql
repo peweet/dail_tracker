@@ -42,6 +42,23 @@ WITH base AS (
 )
 SELECT
     trade_code,
+    substr(trade_code, 1, 2)                                                                  AS sector_code,
+    -- Sector = CPV 2-digit division, labelled from the canonical CPV_DIV map used across the
+    -- TED extractors (extractors/ted_ireland_extract.py) so sector names match the rest of the
+    -- app. Anything outside the common divisions falls to 'Other/Unknown' — an honest bucket.
+    CASE substr(trade_code, 1, 2)
+        WHEN '45' THEN 'Construction'              WHEN '71' THEN 'Architecture/Engineering'
+        WHEN '79' THEN 'Business/Consulting'       WHEN '72' THEN 'IT services'
+        WHEN '85' THEN 'Health/Social'             WHEN '80' THEN 'Education'
+        WHEN '90' THEN 'Environment/Waste'         WHEN '50' THEN 'Repair/Maintenance'
+        WHEN '48' THEN 'Software'                  WHEN '33' THEN 'Medical equipment'
+        WHEN '34' THEN 'Transport equipment'       WHEN '09' THEN 'Energy/Fuel'
+        WHEN '73' THEN 'R&D'                       WHEN '55' THEN 'Hotel/Catering'
+        WHEN '60' THEN 'Transport services'        WHEN '92' THEN 'Recreation/Culture'
+        WHEN '30' THEN 'Office/IT equipment'       WHEN '98' THEN 'Other services'
+        WHEN '70' THEN 'Real estate'               WHEN '66' THEN 'Financial/Insurance'
+        ELSE 'Other/Unknown'
+    END                                                                                       AS sector_label,
     mode(cpv_description)                                                                     AS trade_label,
     COUNT(*)                                                                                  AS n_awards_total,
 
