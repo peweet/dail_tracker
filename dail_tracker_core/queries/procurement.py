@@ -195,7 +195,8 @@ def bid_signal(
     cols = (
         "trade_code, sector_code, sector_label, trade_label, n_awards_total, n_contract_awards,"
         " award_p25_eur, award_median_eur, award_p75_eur, n_recent_contract_awards,"
-        " n_framework_ceilings, ceiling_median_eur, n_with_bid_data, median_bids, n_single_bid,"
+        " n_framework_ceilings, ceiling_p25_eur, ceiling_median_eur, ceiling_p75_eur,"
+        " n_with_bid_data, median_bids, n_single_bid,"
         " single_bid_pct, n_with_sme_data, n_sme_won, sme_win_pct"
     )
     where = []

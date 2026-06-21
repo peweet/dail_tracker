@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-20T07:58:20Z",
-  "as_of_utc_date": "2026-06-20",
+  "generated_at": "2026-06-21T07:56:09Z",
+  "as_of_utc_date": "2026-06-21",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
   "stale_datasets": [],
   "datasets": {
@@ -8,7 +8,7 @@
       "measure": "fetch_mtime",
       "source": "data/bronze/members/members.json",
       "latest_fetch_at": "2026-06-18T17:33:20Z",
-      "age_days": 2,
+      "age_days": 3,
       "stale_after_days": 14,
       "status": "ok"
     },
@@ -18,7 +18,7 @@
       "status": "ok",
       "latest_record_date": "2026-06-17",
       "fetched_at": "2026-06-18T17:34:34Z",
-      "fetch_age_days": 2,
+      "fetch_age_days": 3,
       "stale_after_days": 14
     },
     "questions": {
@@ -27,7 +27,7 @@
       "status": "ok",
       "latest_record_date": "2026-06-18",
       "fetched_at": "2026-06-18T17:34:21Z",
-      "fetch_age_days": 2,
+      "fetch_age_days": 3,
       "stale_after_days": 14
     },
     "lobbying": {
@@ -36,7 +36,7 @@
       "status": "ok",
       "latest_period_end_date": "2026-05-01",
       "period_label": "Q2 2026",
-      "age_days": 50,
+      "age_days": 51,
       "stale_after_days": null
     },
     "iris": {
@@ -47,16 +47,16 @@
         "data/gold/parquet/statutory_instruments.parquet"
       ],
       "status": "ok",
-      "latest_record_date": "2026-06-16",
-      "age_days": 4,
+      "latest_record_date": "2026-06-19",
+      "age_days": 2,
       "stale_after_days": 14
     },
     "corporate": {
       "measure": "record_date",
       "source": "data/gold/parquet/corporate_notices.parquet",
       "status": "ok",
-      "latest_record_date": "2026-06-16",
-      "age_days": 4,
+      "latest_record_date": "2026-06-19",
+      "age_days": 2,
       "stale_after_days": 14
     },
     "stateboards": {
@@ -64,15 +64,15 @@
       "source": "data/gold/parquet/stateboards_roster.parquet",
       "status": "ok",
       "latest_record_date": "2026-06-14",
-      "age_days": 6,
+      "age_days": 7,
       "stale_after_days": 120
     },
     "statutory_instruments": {
       "measure": "record_date",
       "source": "data/gold/parquet/statutory_instruments.parquet",
       "status": "ok",
-      "latest_record_date": "2026-06-16",
-      "age_days": 4,
+      "latest_record_date": "2026-06-19",
+      "age_days": 2,
       "stale_after_days": 21
     },
     "procurement": {
@@ -80,15 +80,15 @@
       "source": "data/gold/parquet/procurement_awards.parquet",
       "status": "ok",
       "latest_record_date": "2026-03-31",
-      "fetched_at": "2026-06-18T17:57:52Z",
-      "fetch_age_days": 2,
+      "fetched_at": "2026-06-20T23:23:07Z",
+      "fetch_age_days": 1,
       "stale_after_days": 120
     },
     "ssha_waiting_list": {
       "measure": "fetch_mtime",
       "source": "doc/source_pdfs/SSHA_2025_FINAL.pdf",
       "latest_fetch_at": "2026-05-29T10:05:17Z",
-      "age_days": 22,
+      "age_days": 23,
       "stale_after_days": 400,
       "status": "ok"
     },
@@ -96,7 +96,7 @@
       "measure": "fetch_mtime",
       "source": "doc/source_pdfs/NOAC_LA_PerfInd_2024.pdf",
       "latest_fetch_at": "2026-05-30T19:27:06Z",
-      "age_days": 21,
+      "age_days": 22,
       "stale_after_days": 400,
       "status": "ok"
     },
@@ -104,7 +104,7 @@
       "measure": "fetch_mtime",
       "source": "doc/source_pdfs/2024_Derelict_Sites_Statistics.xlsx",
       "latest_fetch_at": "2026-06-20T07:51:24Z",
-      "age_days": 0,
+      "age_days": 1,
       "stale_after_days": 400,
       "status": "ok"
     }

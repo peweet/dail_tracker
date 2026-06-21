@@ -77,6 +77,11 @@ NOTABLE_SENATORS: list[str] = []
 # the denominator. See root config.py for the full rationale; keep the two in sync
 # (test_config_parity.py tripwire).
 #
+# AUTHORITATIVE per-year denominator: data/_meta/official_sitting_days.csv
+# (source-derived, built by tools/curate_official_sitting_days.py; pinned by
+# test/pipeline/test_attendance_official_sitting_days.py). This dict is a loose
+# Commission cross-check only.
+#
 # 2025 is intentionally ABSENT: the old value (82, copied from 2020) was a stale
 # placeholder while the record holds 94 distinct sitting dates — the "82 vs 94"
 # contradiction this rework fixes.
