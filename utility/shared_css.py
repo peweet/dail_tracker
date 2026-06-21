@@ -5984,6 +5984,13 @@ def inject_css() -> None:
             border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.3rem;
         }
         .lg-card-src { font-size: 0.74rem; color: var(--text-meta); margin-top: 0.55rem; }
+        /* council-money card -> Council Spending dossier drill-down (internal nav, not external) */
+        .lg-card-cta {
+            display: inline-block; margin-top: 0.6rem; font-size: 0.84rem; font-weight: 700;
+            color: #8d4f24; text-decoration: none; border-bottom: 1px solid transparent;
+        }
+        .lg-card-cta:hover { border-bottom-color: #8d4f24; }
+        .lg-card-cta:focus-visible { outline: 2px solid #8d4f24; outline-offset: 2px; border-radius: 2px; }
         /* council card -> by-division drill-down */
         .con-div-wrap { display: flex; flex-direction: column; gap: 1.1rem; margin: 0.3rem 0 0.4rem; }
         .con-div-head {
