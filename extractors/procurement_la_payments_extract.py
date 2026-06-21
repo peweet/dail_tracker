@@ -128,6 +128,7 @@ def la(
     neg_abs=False,
     supplier_is_id=False,
     aggregate_guard=False,
+    anchor_listing=False,
     status="READY",
     caveat="",
 ) -> dict:
@@ -145,6 +146,7 @@ def la(
         "neg_abs": neg_abs,
         "supplier_is_id": supplier_is_id,
         "aggregate_guard": aggregate_guard,
+        "anchor_listing": anchor_listing,
         "status": status,
         "caveat": caveat,
     }
@@ -528,12 +530,11 @@ SCHEMA_MAP: list[dict] = [
         fmt="pdf",
         listing="https://www.mayo.ie/financial-documents/purchase-orders",
         value_kind="po_committed",
-        status="DIRECT",
-        direct=[
-            "https://www.mayo.ie/getattachment/6a915b4f-ab78-4b69-8ba6-d07569222e03/attachment.aspx",
-            "https://www.mayo.ie/getattachment/00705716-9095-410a-a719-9305e0a37f4f/attachment.aspx",
-        ],
-        caveat="JS file list → direct URLs; leading PO#/ID prefix stripped",
+        status="READY",
+        anchor_listing=True,
+        caveat="getattachment/{GUID}/attachment.aspx (dateless URL, basename collides) → "
+        "anchor_listing harvest: enumerate all quarterly PDFs from listing HTML, period from "
+        "link text 'Quarter N YYYY'. Full back-catalogue (2016+); leading PO#/ID prefix stripped",
     ),
     la(
         "donegal",
@@ -675,7 +676,13 @@ def fetch_text(url: str) -> str | None:
 def fetch_to_bronze(slug: str, url: str, ext: str) -> bytes | None:
     """Self-fetch a source file to bronze/pdfs/la_procurement/<slug>/ and reuse the cached
     copy on re-runs (immutable, re-derivable medallion bronze; same shape as afs)."""
-    dest = BRONZE / slug / (re.sub(r"[^A-Za-z0-9._-]", "_", unquote(url.rsplit("/", 1)[-1]))[:80] or "file")
+    # Opaque getattachment URLs all share the basename "attachment.aspx" — key the bronze cache
+    # by the GUID path segment instead, or every file would collide onto one cached copy.
+    if "/getattachment/" in url:
+        guid = url.split("/getattachment/", 1)[1].split("/", 1)[0]
+        dest = BRONZE / slug / f"getattachment_{re.sub(r'[^A-Za-z0-9]', '', guid)[:40]}.pdf"
+    else:
+        dest = BRONZE / slug / (re.sub(r"[^A-Za-z0-9._-]", "_", unquote(url.rsplit("/", 1)[-1]))[:80] or "file")
     if not dest.suffix:
         dest = dest.with_suffix(ext if ext in DATA_EXT else ".pdf")
     if dest.exists() and dest.stat().st_size > 1500:
@@ -694,6 +701,27 @@ def harvest_files(cf: dict, crawl_cap: int = 8) -> list[str]:
     one-hop crawl, minus policy/aggregate docs. Honours an optional `include` filter."""
     found: list[str] = list(cf["direct_files"])
     html = fetch_text(cf["listing_url"])
+
+    # anchor_listing: the council serves files from opaque, dateless URLs (e.g. Mayo's
+    # /getattachment/{GUID}/attachment.aspx) but the listing's LINK TEXT carries the period.
+    # Enumerate (url, anchor-text) straight from the listing HTML — the normal scan() can't
+    # (these hrefs aren't *.pdf and every basename is "attachment.aspx", so it filters + dedups
+    # them away). Period is derived from the text and stashed per-url for emit_file to consume.
+    if cf.get("anchor_listing") and html:
+        cf["_period_by_url"] = {}
+        seen_period: set[str] = set()
+        for href, inner in re.findall(r'<a[^>]+href="([^"]*getattachment[^"]*)"[^>]*>(.*?)</a>', html, re.I | re.S):
+            url = urljoin(cf["listing_url"], href)
+            text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", inner)).strip()
+            per, yr, q = period_from_text(text)
+            if yr is None or yr < 2016:  # corpus convention: defer pre-2016 layouts
+                continue
+            if per in seen_period:  # one file per period (newest listed first wins)
+                continue
+            seen_period.add(per)
+            cf["_period_by_url"][url] = (per, yr, q)
+            found.append(url)
+        return found
 
     def scan(page_html: str, base: str) -> list[str]:
         out = []
@@ -970,11 +998,30 @@ def period_from_url(url: str) -> tuple[str | None, int | None, int | None]:
     return period, year, quarter
 
 
+def period_from_text(text: str) -> tuple[str | None, int | None, int | None]:
+    """Period from a listing's anchor/link TEXT (not the URL). For councils that serve files
+    from opaque, dateless URLs (e.g. Mayo's /getattachment/{GUID}/attachment.aspx) but whose
+    link title states the period — 'Quarter 1 2024', 'Quarter-1-2024', 'Q1 2024'. Punctuation-
+    tolerant. Falls back to a bare year. The published date (dd/mm/yyyy) is intentionally NOT
+    matched — the PO period differs from the upload date."""
+    m = re.search(r"Quarter[\s\-]*([1-4])[\s\-,]*?(20[12]\d)", text, re.I) or re.search(
+        r"\bQ[\s\-]*([1-4])[\s\-,]*?(20[12]\d)", text, re.I
+    )
+    if m:
+        year, quarter = int(m.group(2)), int(m.group(1))
+        return f"{year}-Q{quarter}", year, quarter
+    y = re.search(r"\b(20[12]\d)\b", text)
+    return (y.group(1), int(y.group(1)), None) if y else (None, None, None)
+
+
 # ============================================================================ extract
 def emit_file(cf: dict, file_url: str, b: bytes, ext: str) -> tuple[list[dict], dict]:
     """Parse one file → fact-schema row dicts (pre-classification) + a per-file stat block."""
     fhash = hashlib.sha256(b).hexdigest()[:16]
-    period, year, quarter = period_from_url(file_url)
+    # anchor_listing councils carry a period derived from the listing TEXT (their URL is dateless);
+    # use it when present, else fall back to the URL.
+    override = cf.get("_period_by_url", {}).get(file_url)
+    period, year, quarter = override if override else period_from_url(file_url)
     recs, scanned_hint = READERS[ext](b)
     digital = scanned_hint > 200 if ext == ".pdf" else True
 
