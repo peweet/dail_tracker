@@ -47,3 +47,37 @@ def test_canonicalise_supplier_raw_noop_without_required_columns():
     df = pl.DataFrame({"supplier_raw": ["A Ltd"]})
     assert canonicalise_supplier_raw(df).equals(df)
     assert canonicalise_supplier_raw(pl.DataFrame()).is_empty()
+
+
+# ── reading-order reader (DCEDIY / dept_children layout) ──────────────────────
+def test_read_reading_order_both_column_orders():
+    """The DCEDIY PO PDFs publish records as a 'ref supplier' line + a payment date + an
+    '€amount description' line, in EITHER order (two layouts). The reader must parse both,
+    carry a per-row payment date, and ignore page-header lines."""
+    import fitz
+
+    from extractors.procurement_public_body_extract import read_reading_order
+
+    doc = fitz.open()
+    # layout A: ref / date / amount+desc
+    doc.new_page().insert_text(
+        (40, 50),
+        "Reference\nName\nPayment Date\nTotal Paid\nDescription\n"
+        "70111 CAPE WRATH HOTEL UNLIMITED\n12/12/2024\n€4,028,036.00 IP Accommodation\n",
+    )
+    # layout B: ref / amount+desc / date (date last)
+    doc.new_page().insert_text(
+        (40, 50),
+        "Reference\nSupplier Name\nAmount\nDescription\nPayment\nDate\n"
+        "42958 MOSNEY HOLIDAYS PLC\n€3,255,828.09 Ukraine Accommodation\n06/07/2023\n",
+    )
+    recs = read_reading_order(doc.tobytes(), None)
+    doc.close()
+
+    by_ref = {r["ref"]: r for r in recs}
+    assert by_ref["70111"]["supplier"] == "CAPE WRATH HOTEL UNLIMITED"
+    assert by_ref["70111"]["amount"] == 4028036.00
+    assert by_ref["70111"]["date"] == "2024-12-12"
+    assert by_ref["42958"]["supplier"] == "MOSNEY HOLIDAYS PLC"  # date-last layout still pairs
+    assert by_ref["42958"]["amount"] == 3255828.09
+    assert by_ref["42958"]["date"] == "2023-07-06"
