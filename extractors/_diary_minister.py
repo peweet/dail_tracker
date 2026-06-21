@@ -163,7 +163,10 @@ _DEPT_WORDS = {
     "dfheris",  # dept acronym in generic "Minister_DFHERIS_Calendar" files — not a surname ("Dfheri")
 }
 # Minister-of-State files without a surname must NOT inherit the SENIOR minister's date rule.
-_MOS_RE = re.compile(r"\bmos\b|minister[-_ ]of[-_ ]state|of[-_ ]state", re.IGNORECASE)
+# The "mos" token is delimited by LETTERS only: `\bmos\b` fails on "Q4_2025_MoS_Diary" because the
+# underscores are word chars (no \b between "_" and "M"), so use letter-lookarounds — matches "_MoS_",
+# "-mos", " mos " but never "mostly"/"chamos".
+_MOS_RE = re.compile(r"(?<![a-z])mos(?![a-z])|minister[-_ ]of[-_ ]state|of[-_ ]state", re.IGNORECASE)
 _MONTHS = {
     "january",
     "february",

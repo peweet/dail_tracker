@@ -60,6 +60,23 @@ def member_detail(conn: duckdb.DuckDBPyConnection, chamber: str) -> QueryResult:
     )
 
 
+def meetings(conn: duckdb.DuckDBPyConnection, committee: str, limit: int = 60) -> QueryResult:
+    """Reverse-chron meeting history for one committee (the timeline spine).
+
+    Crosswalk to the membership page is case-insensitive: the page selects a
+    committee by its human-readable name, the API records the same committee in a
+    different case — so we match on the view's `committee_key` (= lower(name)).
+    """
+    return _run(
+        conn,
+        "SELECT committee_name, date, transcript_url, source_xml, topics, n_topics, n_orgs, n_persons,"
+        " witness_orgs, witness_persons"
+        " FROM v_committee_meetings WHERE committee_key = lower(?)"
+        " ORDER BY date DESC LIMIT ?",
+        [committee, limit],
+    )
+
+
 def party_seats(conn: duckdb.DuckDBPyConnection, chamber: str, committee: str | None = None) -> QueryResult:
     """Long-format party seats per committee; optionally filtered to one committee."""
     if committee is not None:

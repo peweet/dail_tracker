@@ -50,6 +50,7 @@ from ui.components import (
 )
 from data_access.committees_data import (
     fetch_committee_assignments,
+    fetch_committee_meetings,
     fetch_committee_summary,
     fetch_office_holders,
     fetch_party_seats,
@@ -273,6 +274,114 @@ def _stage_register(
     _provenance(chamber)
 
 
+# ── meeting history (timeline within the committee record) ────────────
+
+
+def _as_list(v) -> list:
+    """Coerce a DuckDB LIST cell (numpy array | list | None) to a Python list.
+
+    The view's witness_orgs/witness_persons/topics arrive as numpy arrays via
+    duckdb→pandas; `array or []` raises ('truth value of an array is ambiguous'),
+    so coerce explicitly rather than relying on truthiness."""
+    if v is None:
+        return []
+    try:
+        return list(v)
+    except TypeError:
+        return []
+
+
+def _fmt_meeting_date(raw) -> str:
+    """ISO meeting date → '18 Jun 2026' (falls back to the raw string)."""
+    try:
+        return pd.to_datetime(raw).strftime("%-d %b %Y")
+    except (ValueError, TypeError):
+        try:  # Windows strftime has no %-d
+            return pd.to_datetime(raw).strftime("%#d %b %Y")
+        except (ValueError, TypeError):
+            return str(raw or "—")
+
+
+def _witness_line(orgs: list[str], persons: list[str]) -> str:
+    """One escaped 'who appeared' line: organisations + a capped people list.
+
+    Display-only — orgs/persons are exactly as extracted from the transcript;
+    the page does no inference about who they are ([[feedback_no_inference_in_app]]).
+    """
+    parts: list[str] = []
+    if orgs:
+        parts.append(
+            '<span class="cmt-w-label">Evidence from:</span> ' + _h(", ".join(orgs))
+        )
+    if persons:
+        shown = ", ".join(persons[:6])
+        more = f" +{len(persons) - 6} more" if len(persons) > 6 else ""
+        parts.append(
+            f'<span class="cmt-w-label">{len(persons)} witness'
+            f'{"es" if len(persons) != 1 else ""}:</span> {_h(shown)}{_h(more)}'
+        )
+    if not parts:
+        return '<span class="cmt-w-none">No witnesses recorded in the transcript.</span>'
+    return " &nbsp;·&nbsp; ".join(parts)
+
+
+def _meeting_history(committee_name: str) -> None:
+    """Reverse-chron meeting-history timeline for the selected committee.
+
+    The meeting is the primary unit; topics are the session headings and the
+    witnesses are a detail within each entry. Honest boundary: the transcript is
+    what was DISCUSSED, not formal committee outcomes (surfaced in the caption,
+    not implied). Only a subset of committees is in scope so far — committees
+    without extracted meetings show a neutral "not yet available" note rather
+    than an error ([[feedback_gold_layer_quarantine]])."""
+    evidence_heading("Meeting history")
+    meetings = fetch_committee_meetings(committee_name)
+    if meetings.empty:
+        empty_state(
+            "Meeting history not yet available",
+            "Recent meetings, topics and witnesses are being added committee by "
+            "committee. This committee isn't in the current set.",
+        )
+        return
+
+    st.caption(
+        f"The {len(meetings)} most recent meetings on record — the topics discussed "
+        "and who gave evidence. Shows what was discussed (from the official "
+        "transcript), not formal committee decisions."
+    )
+
+    cards: list[str] = []
+    for _, row in meetings.iterrows():
+        date_disp = _fmt_meeting_date(row.get("date"))
+        topics = [str(t) for t in _as_list(row.get("topics")) if str(t).strip()]
+        orgs = [str(o) for o in _as_list(row.get("witness_orgs")) if str(o).strip()]
+        persons = [str(p) for p in _as_list(row.get("witness_persons")) if str(p).strip()]
+        url = str(row.get("transcript_url") or "").strip()
+
+        topics_html = (
+            '<ul class="cmt-topic-list">' + "".join(f"<li>{_h(t)}</li>" for t in topics) + "</ul>"
+            if topics
+            else '<p class="cmt-meeting-witnesses cmt-w-none">No agenda topics recorded.</p>'
+        )
+        transcript_html = (
+            f'<a class="cmt-meeting-transcript" href="{_h(url)}" target="_blank" rel="noopener">'
+            f"Transcript ↗</a>"
+            if url.startswith("http")
+            else ""
+        )
+        cards.append(
+            '<div class="cmt-meeting-card">'
+            '<div class="cmt-meeting-head">'
+            f'<span class="cmt-meeting-date">{_h(date_disp)}</span>'
+            f"{transcript_html}"
+            "</div>"
+            f"{topics_html}"
+            f'<div class="cmt-meeting-witnesses">{_witness_line(orgs, persons)}</div>'
+            "</div>"
+        )
+    st.html('<div class="cmt-meeting-list">' + "".join(cards) + "</div>")
+
+
 # ── stage 2a: committee record ────────────────────────────────────────
 
 
@@ -320,14 +429,13 @@ def _stage_committee(
         oireachtas_url=url,
         source_document_url=None,  # TODO_PIPELINE_VIEW_REQUIRED below
     )
-    # P1-1 audit fix: the bare TODO token produced "Coming soon. More data
-    # coming soon." after the round-3 P1-A helper rewrite — vacuous and
-    # took prime above-the-fold space. Give the helper an em-dash split
-    # point so it extracts a real citizen sentence.
+    # Meeting transcripts are now linked per meeting in the Meeting history
+    # section below; the remaining gap is the committee's terms-of-reference
+    # source document. todo_callout extracts a citizen sentence after the em-dash.
     todo_callout(
         "source_document_url column on v_committee_sources — "
-        "Source documents will link here in a future release: the official "
-        "terms of reference and meeting transcripts for every committee."
+        "The committee's official terms of reference will link here in a future "
+        "release. (Meeting transcripts are already linked under Meeting history.)"
     )
 
     # ── Composition + Roster (two evidence sections) ──────────────────
@@ -419,6 +527,9 @@ def _stage_committee(
                 f"{selected[:60].replace(' ', '_')}_roster.csv",
                 "cmt_roster_export",
             )
+
+    # ── Meeting history (timeline) — replaces the v_committee_sources TODO ──
+    _meeting_history(selected)
 
     _provenance(chamber)
 
@@ -682,14 +793,23 @@ def _provenance(chamber: str) -> None:
             queries those views directly — it does no counting or classification
             of its own.
 
+            **Meeting history.** Each committee's recent meetings, the topics
+            discussed and the witnesses who appeared are read from the official
+            Oireachtas debate transcripts (committee meeting records). A transcript
+            shows what was *discussed*; formal committee reports and recommendations
+            are a separate source, not shown here. Meeting history currently covers
+            a subset of committees and is being widened.
+
             **Caveats.**
             - A committee is shown as "Active" while it is sitting and "Ended" once
               it has been dissolved.
             - Chair is the member recorded as Cathaoirleach of the committee.
+            - Witness organisations are parsed from the transcript headings and the
+              chair's opening welcome; named witnesses are the non-member speakers.
 
             **Still to come.**
-            - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_sources` — a per-year link to
-              the official membership source document.
+            - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_sources` — a link to the
+              committee's official terms-of-reference document.
             - `TODO_PIPELINE_VIEW_REQUIRED: unique_member_code` on the committee views,
               to link each member straight to their profile.
             """

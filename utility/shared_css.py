@@ -6019,6 +6019,41 @@ def inject_css() -> None:
             .con-div-row { grid-template-columns: 8rem 1fr 5rem; font-size: 0.78rem; }
         }
 
+        /* ── Committee meeting-history timeline (committees page) ───────── */
+        .cmt-meeting-list { display: flex; flex-direction: column; gap: 0.6rem; margin: 0.2rem 0 0.4rem; }
+        .cmt-meeting-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 2px;
+            padding: 0.7rem 0.9rem;
+        }
+        .cmt-meeting-head {
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.35rem;
+        }
+        .cmt-meeting-date {
+            font-weight: 700; color: var(--ink-strong);
+            font-variant-numeric: tabular-nums; font-size: 0.95rem;
+        }
+        .cmt-meeting-transcript {
+            font-size: 0.8rem; font-weight: 600; color: var(--accent);
+            text-decoration: none; white-space: nowrap;
+        }
+        .cmt-meeting-transcript:hover { text-decoration: underline; }
+        .cmt-topic-list { list-style: none; margin: 0 0 0.45rem; padding: 0; }
+        .cmt-topic-list li {
+            position: relative; padding-left: 0.85rem; margin: 0.12rem 0;
+            font-size: 0.9rem; color: var(--ink-strong); line-height: 1.35;
+        }
+        .cmt-topic-list li::before {
+            content: ""; position: absolute; left: 0; top: 0.52em;
+            width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
+        }
+        .cmt-meeting-witnesses { font-size: 0.82rem; color: var(--text-meta); line-height: 1.45; }
+        .cmt-meeting-witnesses .cmt-w-label { font-weight: 600; color: var(--text-secondary); }
+        .cmt-meeting-witnesses .cmt-w-none { font-style: italic; }
+
         </style>
         """,
         unsafe_allow_html=True,

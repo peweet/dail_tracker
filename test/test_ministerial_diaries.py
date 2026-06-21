@@ -220,6 +220,32 @@ def test_education_mos_surname_in_filename_wins_over_date_rule():
     assert resolve_minister("ministers-diary-august-2025.pdf", "EDUCATION", date(2025, 8, 1)) == "McEntee"
 
 
+def test_batch_dept_lineage_rules():
+    # The 2026-06 batch added the senior-minister date rules for the OCR'd/recovered departments
+    # (who_was_minister-verified). Generic surname-less files attribute by entry date.
+    # FINANCE: Donohoe predates McGrath (the Dec-2022 handover).
+    assert resolve_minister("ministers-diary-december-2022.pdf", "FINANCE", date(2022, 12, 1)) == "Donohoe"
+    assert resolve_minister("ministers-diary-december-2022.pdf", "FINANCE", date(2022, 12, 20)) == "McGrath"
+    # HEALTH lineage: Harris -> Donnelly -> Carroll MacNeill.
+    assert resolve_minister("ministers-diary-2018.pdf", "HEALTH", date(2018, 4, 1)) == "Harris"
+    assert resolve_minister("ministers-diary-2022.pdf", "HEALTH", date(2022, 4, 1)) == "Donnelly"
+    assert resolve_minister("Ministers_Diary_Jan_25_to_Aug_25.pdf", "HEALTH", date(2025, 4, 1)) == "Carroll MacNeill"
+    # JUSTICE: Flanagan predates McEntee.
+    assert resolve_minister("ministers-diary-2020.pdf", "JUSTICE", date(2020, 3, 1)) == "Flanagan"
+    # DCCS: surname-less senior file -> O'Donovan (the current minister, 2025-).
+    assert resolve_minister("Ministers_Diary_Q4.pdf", "DCCS", date(2025, 11, 1)) == "O'Donovan"
+
+
+def test_mos_guard_handles_underscore_delimited_filename():
+    # REGRESSION (2026-06): `\bmos\b` fails on "Q4_2025_MoS_Diary" because the underscores are word
+    # chars (no \b between "_" and "M"), so the Minister-of-State guard silently let a DCCS MoS file
+    # inherit the senior O'Donovan date rule. The letter-lookaround _MOS_RE keeps MoS files None.
+    assert resolve_minister("Q4_2025_MoS_Diary_2.pdf", "DCCS", date(2025, 11, 1)) is None
+    assert resolve_minister("minister-of-state-diary-2025.pdf", "DCCS", date(2025, 11, 1)) is None
+    # ...but "mos" inside a real word must NOT trip the guard (no false MoS match)
+    assert resolve_minister("ministers-diary-2025.pdf", "DCCS", date(2025, 11, 1)) == "O'Donovan"
+
+
 def test_minical_titles_do_not_drift_year():
     # Outlook export (has the "Mo Tu We Th" mini-cal grid): a January-2026 mini-cal title must NOT
     # roll the running year forward — the entry stays in the file's year.
