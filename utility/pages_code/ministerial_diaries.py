@@ -254,7 +254,7 @@ def ministerial_diaries_page() -> None:
         "Browse", ["Search meetings", "By minister", "By organisation"], default="Search meetings", key="diary_mode"
     )
     if mode == "Search meetings":
-        _render_search(meetings)
+        _render_search(meetings, _search_suggestions(overlap))
     elif mode == "By minister":
         _render_by_minister(meetings)
     else:
@@ -262,12 +262,27 @@ def ministerial_diaries_page() -> None:
     _provenance()
 
 
-def _render_search(meetings: pd.DataFrame) -> None:
-    q = st.text_input(
-        "Search every meeting", "", placeholder="any name or topic — e.g. Apple, golf, data centre, Davos…"
+def _search_suggestions(overlap: pd.DataFrame) -> list[str]:
+    """Most-met organisations as click-to-search suggestions (real names that appear in subjects,
+    ordered by how many meetings name them) — the dropdown proposes these but free text is still
+    accepted via accept_new_options."""
+    if overlap is None or overlap.empty or "organisation" not in overlap.columns:
+        return []
+    return overlap.sort_values("meetings", ascending=False)["organisation"].dropna().astype(str).head(40).tolist()
+
+
+def _render_search(meetings: pd.DataFrame, suggestions: list[str]) -> None:
+    pick = st.selectbox(
+        "Search every meeting",
+        suggestions,
+        index=None,
+        placeholder="any name or topic — e.g. Apple, golf, data centre, Davos…",
+        accept_new_options=True,
+        key="diary_search_q",
     )
+    q = "" if pick is None else str(pick)
     if not q.strip():
-        st.caption("Type a name or topic to search the subject of every logged meeting.")
+        st.caption("Pick a suggested organisation or type any name or topic to search every logged meeting.")
         return
     rows = meetings[meetings["subject"].str.contains(_re_escape(q.strip()), case=False, na=False, regex=True)]
     rows = rows.sort_values("entry_date", ascending=False)
@@ -288,7 +303,7 @@ def _render_by_minister(meetings: pd.DataFrame) -> None:
     )
     q = st.text_input("Search minister", "", placeholder="e.g. Burke, Martin, Ryan…")
     if q.strip():
-        agg = agg[agg["minister"].str.contains(q.strip(), case=False, na=False)]
+        agg = agg[agg["minister"].str.contains(_re_escape(q.strip()), case=False, na=False, regex=True)]
     if agg.empty:
         empty_state("No matches", "No ministers match that search.")
         return
@@ -320,7 +335,7 @@ def _render_by_org(overlap: pd.DataFrame, meetings: pd.DataFrame, period_active:
     elif view == "State bodies":
         df = df[df["is_state_body"]]
     if q.strip():
-        df = df[df["organisation"].str.contains(q.strip(), case=False, na=False)]
+        df = df[df["organisation"].str.contains(_re_escape(q.strip()), case=False, na=False, regex=True)]
     if df.empty:
         empty_state("No matches", "No organisations match that filter.")
     else:
