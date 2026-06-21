@@ -12,8 +12,11 @@ regressed more than once:
     raw concat is 3-9x duplicated and must be deduped on
     (member, sitting_date, other_date) before any counting.
 
-These tests pin both rules on synthetic data so a future refactor of
-``_build_fact_table`` / ``_build_silver_csv`` can't silently re-inflate counts.
+These tests pin both rules so a future refactor of ``_build_fact_table`` can't
+silently re-inflate counts. The first group uses synthetic silver rows; the
+second group runs the real x-coordinate extractor against the bronze PDFs and
+reconciles it with the PDFs' own published per-member Sub-totals — the direct
+guard for the continuation-page truncation bug (sitting days capped at ~72/page).
 """
 
 from __future__ import annotations
@@ -22,9 +25,11 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 from attendance import attendance as att
+from config import ATTENDANCE_PDF_DIR
 
 
 def _write_silver(tmp_path: Path, rows: list[dict]) -> Path:
@@ -132,27 +137,47 @@ def test_house_tag_is_applied_when_given(tmp_path):
     assert set(fact["house"]) == {"Seanad"}
 
 
-# ── silver dedup (cumulative restatement at the silver layer) ─────────────────
+# ── x-coordinate extraction vs the PDFs' own published totals ─────────────────
+# These run against the real bronze TAA PDFs and are the direct regression guard
+# for the continuation-page truncation bug: the x-coordinate extractor must
+# reproduce each PDF's printed per-member "Sub-total:" figures exactly. They skip
+# cleanly when the bronze PDFs aren't in the checkout.
+
+def _verification_pdfs():
+    if not ATTENDANCE_PDF_DIR.is_dir():
+        return []
+    return [p for p in sorted(ATTENDANCE_PDF_DIR.glob("*.pdf")) if att._ATTENDANCE_PDF_MARKER in p.name.lower()]
 
 
-def test_build_silver_csv_dedups_cumulative_rows(tmp_path):
-    """_build_silver_csv must collapse the 3-9x cumulative duplication the raw PDF
-    concat produces, keyed on (member, sitting_date, other_date)."""
-    # PDF-shaped frame: identifier, first/last name, then the two raw date columns
-    # named exactly as the PDFs publish them (so the rename path is exercised).
-    raw = pd.DataFrame(
-        {
-            "identifier": ["H_TD"] * 4,
-            "first_name": ["Hugh"] * 4,
-            "last_name": ["TD"] * 4,
-            "Sitting days attendance": ["01/01/2025", "01/01/2025", "02/01/2025", "02/01/2025"],
-            "Other days attendance": ["03/01/2025", "03/01/2025", "04/01/2025", "04/01/2025"],
-        }
+@pytest.mark.integration
+def test_extraction_reconciles_with_published_subtotals_every_pdf():
+    """For every verification PDF, extracted distinct (sitting, other) date counts
+    equal that PDF's own published Sub-totals — the truncation bug cannot pass."""
+    pdfs = _verification_pdfs()
+    if not pdfs:
+        pytest.skip(f"no verification PDFs in {ATTENDANCE_PDF_DIR}")
+    mismatches = att._reconcile_against_published(ATTENDANCE_PDF_DIR)
+    assert mismatches == 0, f"{mismatches} member(s) disagree with published Sub-totals"
+
+
+@pytest.mark.integration
+def test_extraction_recovers_continuation_page_sitting_days():
+    """A high-attendance member's sitting days must exceed one page (~72) — the exact
+    symptom of the old bug, where every busy TD capped at the first page's row count."""
+    import fitz
+
+    pdf = next(
+        (p for p in _verification_pdfs() if "01-january-2023-to-31-december-2023" in p.name),
+        None,
     )
-    out = tmp_path / "silver.csv"
-    att._build_silver_csv([raw], out)
-    silver = pd.read_csv(out)
-    # 4 raw rows → 2 distinct (sitting, other) pairs after dedup.
-    assert len(silver) == 2
-    assert set(silver["year"].astype(str)) == {"2025"}
-    assert silver["iso_sitting_days_attendance"].nunique() == 2
+    if pdf is None:
+        pytest.skip("2023 full-year verification PDF not present")
+    per_member: dict[str, set] = {}
+    for ident, _fn, _ln, _text, kind, iso in att._extract_pdf_member_dates(fitz.open(str(pdf))):
+        if kind == "sitting":
+            per_member.setdefault(ident, set()).add(iso)
+    top = max(len(v) for v in per_member.values())
+    assert top > 80, (
+        f"top 2023 sitting-day count is only {top}; the continuation-page rows are "
+        "being dropped again (the ~72-per-page truncation bug)."
+    )

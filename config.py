@@ -95,11 +95,19 @@ NOTABLE_TDS: list[str] = [
 ]
 
 # Official plenary sitting-day counts (Houses of the Oireachtas Commission
-# reports). Used ONLY as a cross-check against the data-derived count — the UI
-# denominator now comes from v_attendance_chamber_sitting_days (distinct sitting
+# reports). Used ONLY as a loose cross-check against the data-derived count — the
+# UI denominator now comes from v_attendance_chamber_sitting_days (distinct sitting
 # dates actually in the TAA record) for BOTH chambers, so a member can never show
 # more sitting days than the denominator. test_attendance_data_consistency.py
 # reconciles this dict against the data and would have caught the old 2025 entry.
+#
+# NOTE: the AUTHORITATIVE per-year sitting-day denominator now lives in the
+# committed, source-derived reference data/_meta/official_sitting_days.csv (built
+# by tools/curate_official_sitting_days.py from the TAA PDFs; the union of distinct
+# sitting dates). test/pipeline/test_attendance_official_sitting_days.py pins the
+# live pipeline to it. This Commission dict may legitimately run a few days higher
+# (a scheduled sitting day where no member's attendance was captured won't appear
+# in the TAA record), which is why it stays a tolerance cross-check, not the value.
 #
 # 2025 is intentionally ABSENT: the prior value (82, copied from 2020) was a
 # stale placeholder, while the record holds 94 distinct sitting dates — the exact
