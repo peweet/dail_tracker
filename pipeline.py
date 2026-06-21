@@ -74,6 +74,16 @@ CHAINS: list[tuple[str, str]] = [
     ("lobbying", "lobbying_refresh.py"),
     ("iris", "iris_refresh.py"),
     ("legislation", "legislation_refresh.py"),
+    # committee_evidence: committee MEETING HISTORY (the Committees-page timeline:
+    # date · topics · witnesses · transcript link). Two steps — extract enumerates
+    # every committee meeting via the Oireachtas /v1/debates feed in a single pass
+    # and parses each AKN-XML transcript (~1k meetings / 74 committees since
+    # 2024-09 → silver); promote writes the three gold tables the v_committee_meetings
+    # view reads. Standalone (Oireachtas API only, no deps, headless-safe); each XML
+    # fetch retries+continues so a transient outage degrades, not fails. NOTE:
+    # re-fetches the full window each run (no incremental-since guard yet) — ~3-4 min.
+    ("committee_evidence", "extractors/committee_witnesses_extract.py"),
+    ("committee_evidence_promote", "extractors/committee_evidence_promote_gold.py"),
     # judiciary_bench: promote the validated judiciary sandbox (data/sandbox/judiciary/, pulled +
     # pressure-tested once by extractors/persist_judiciary_data.py — a manual one-off that reads
     # scratch PDFs, NOT a pipeline chain) into the gold bench/appointments/nominations/clearance/
@@ -229,6 +239,8 @@ _CHAIN_BLURBS: dict[str, str] = {
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
+    "committee_evidence": "committee meeting history: enumerate meetings + parse transcripts (topics/witnesses) -> silver",
+    "committee_evidence_promote": "promote committee meetings/witnesses silver -> gold (v_committee_meetings)",
     "judiciary_bench": "promote validated judiciary sandbox -> gold bench/appointments/clearance/waiting/courthouses (transform, no network)",
     "legal_diary_poller": "archive the Courts Service daily Legal Diary .docx (forward-accumulating, day-or-lost)",
     "legal_diary_extract": "Legal Diary archive -> privacy-tiered judiciary gold (schedule/counts/cases)",
