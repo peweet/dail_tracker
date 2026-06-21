@@ -258,15 +258,20 @@ def rows_for_member(m: dict, items: list[dict], fetched_at: datetime) -> list[di
 
 
 def accumulate(new: pl.DataFrame) -> pl.DataFrame:
-    """Append new rows to the existing silver parquet and dedup on (article_url, member), keeping the
-    EARLIEST fetched copy so first-seen dates stay stable across refreshes."""
+    """Append new rows to the existing silver parquet and dedup on (article_id, member), keeping the
+    EARLIEST fetched copy so first-seen dates stay stable across refreshes.
+
+    Dedup is keyed on ``article_id`` (a stable hash of the Google-News link), NOT
+    ``article_url`` — the url is later rewritten from the opaque Google redirect to the
+    real publisher URL by news_url_resolve.py, so keying on the url would re-add the
+    redirect copy of an already-resolved article on every run."""
     if OUT.exists():
         try:
             new = pl.concat([pl.read_parquet(OUT), new], how="diagonal_relaxed")
         except Exception as e:  # noqa: BLE001 — a corrupt parquet must not lose the new pull
             print(f"  WARN could not read existing parquet ({type(e).__name__}); writing fresh")
     if new.height:
-        new = new.sort("fetched_at").unique(subset=["article_url", "unique_member_code"], keep="first")
+        new = new.sort("fetched_at").unique(subset=["article_id", "unique_member_code"], keep="first")
     return new
 
 
