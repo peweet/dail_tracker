@@ -102,7 +102,7 @@ from data_access.procurement_data import (
     fetch_ted_tenders_stats_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
-from ui.entity_links import authority_profile_url, company_profile_url, council_accountability_url
+from ui.entity_links import authority_profile_url, company_profile_url, council_accountability_url, entity_cta_html
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -1532,6 +1532,20 @@ def _render_payment_lines(
         f'<h1 class="pr-prof-name">{sup_name or "—"}</h1>'
         f'<div class="pr-prof-sub">{sub}</div></div>'
     )
+
+    # Forward edge: this leaf is company-class only, so always offer the firm's
+    # canonical /company dossier (awards, lobbying, CRO). Closes the council /
+    # follow-the-money → supplier → ledger → company path (the line items here are
+    # one body × one firm; the dossier is the firm's whole public-money footprint).
+    if supplier_norm:
+        st.html(
+            '<div style="margin:-0.2rem 0 0.85rem">'
+            + entity_cta_html(
+                company_profile_url(str(supplier_norm)),
+                "View full company dossier — awards, lobbying & CRO →",
+            )
+            + "</div>"
+        )
 
     if df.empty:
         empty_state(
@@ -3337,7 +3351,19 @@ def _render_patterns() -> None:
             pills = []
             if _eur(getattr(r, "paid_safe_eur", None)) != "—":
                 pills.append(f'<span class="pr-pill pr-pill-val">{_eur(r.paid_safe_eur)} paid (floor)</span>')
-            cards.append(_card(f"<span>{_esc(r.supplier_normalised)}</span>", meta, pills))
+            inner = _card(f"<span>{_esc(r.supplier_normalised)}</span>", meta, pills)
+            # Forward edge: these cards were a dead-end though the row carries the
+            # supplier_normalised key — link each to its canonical /company dossier.
+            norm = _coalesce(getattr(r, "supplier_normalised", None))
+            cards.append(
+                clickable_card_link(
+                    href=company_profile_url(str(norm)),
+                    inner_html=inner,
+                    aria_label=f"View company dossier for {r.supplier_normalised}",
+                )
+                if norm
+                else inner
+            )
         st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
     st.html(
