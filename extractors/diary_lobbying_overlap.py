@@ -114,7 +114,12 @@ SECTOR_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "state-semi-state",
         re.compile(
-            r"(ida ireland|enterprise ireland|health service executive|\bhse\b|transport infrastructure|sustainable energy authority|\bseai\b|eirgrid|commission for regulation|standards authority|\bnsai\b|tailte|strategic banking|low pay commission|human rights and equality|legal aid board|treasury management|\bntma\b|housing finance agency|inland fisheries|legal services regulat|health information and quality|\bhiqa\b|parole board|coimisiun pleanala|western development|injuries resolution|injuries board|digital hub|valuation tribunal|residential tenancies|marine institute|private security authority|road safety authority|oversight and audit|\bgaisce\b|failte ireland)"
+            r"(ida ireland|enterprise ireland|health service executive|\bhse\b|transport infrastructure|sustainable energy authority|\bseai\b|eirgrid|commission for regulation|standards authority|\bnsai\b|tailte|strategic banking|low pay commission|human rights and equality|legal aid board|treasury management|\bntma\b|housing finance agency|inland fisheries|legal services regulat|health information and quality|\bhiqa\b|parole board|coimisiun pleanala|western development|injuries resolution|injuries board|digital hub|valuation tribunal|residential tenancies|marine institute|private security authority|road safety authority|oversight and audit|\bgaisce\b|failte ireland|"
+            # non-commercial agencies/regulators that FIRST-MATCH-WINS otherwise mis-sorts into a
+            # civic bucket (EPA→'environmental'→charity-ngo; HEA→'education'; NTA→'national transport')
+            # — these are state bodies, so is_state_body must flag them. (Commercial semi-states that
+            # TRADE — ESB/Dublin Port/LDA — deliberately stay in their industry sector per the rule above.)
+            r"environmental protection|higher education authority|national transport authority)"
         ),
     ),
     (
@@ -307,18 +312,41 @@ _ACR_TAG = {
 }
 
 
+# Curated NON-ACRONYM aliases: residual diary↔register misses the acronym bridge can't reach,
+# where the register files under a fuller legal entity / alternate name than the diary's brand
+# form. Keys are the org_key() OUTPUT of the REGISTER variant (post-norm); values the diary
+# canonical key. Hand-vetted (lobbying register, verified a real entry with returns exists), same
+# idiom as ACRONYMS/CURATED_ORGS. PRECISION: each maps ONE specific register entity, never a
+# substring — "Dublin Chamber of Commerce"→"dublin chamber" does NOT pull in "South Dublin Chamber";
+# "Trinity College Dublin Students' Union" is deliberately ABSENT (a distinct body, not the college).
+DIARY_REGISTER_ALIASES: dict[str, str] = {
+    "dublin chamber of commerce": "dublin chamber",
+    "microsoft operations": "microsoft",
+    "apple distribution international": "apple",
+    "siptu services industrial professional trade union": "siptu",
+    "pricewaterhousecoopers": "pwc",
+    "cisco international": "cisco",
+    "lidl gmbh": "lidl",
+    "cumann peile na h eireann football association of": "football association of",
+}
+
+
 def org_key(name: str | None) -> str:
-    """Normalised org-identity key that bridges register acronym-tagged names to the diary
-    canonical (see comment above). Falls back to norm(). Safe to apply to either side."""
+    """Normalised org-identity key bridging register names to the diary canonical: folds an
+    acronym-tagged/bare-acronym register name onto its ACRONYMS canonical, then applies the
+    curated non-acronym alias map. Falls back to norm(). Applied IDENTICALLY to either side."""
     if not name:
         return ""
     s = name.strip()
     if s.upper() in ACRONYMS:  # whole name IS the acronym: "Ibec", "SIPTU"
-        return norm(ACRONYMS[s.upper()])
-    for acr, rx in _ACR_TAG.items():  # "Full Name (ACR)" / "Full Name - ACR": fold only its OWN acronym
-        if rx.search(s) and norm(rx.sub(" ", s)) == norm(ACRONYMS[acr]):
-            return norm(ACRONYMS[acr])
-    return norm(s)
+        key = norm(ACRONYMS[s.upper()])
+    else:
+        key = norm(s)
+        for acr, rx in _ACR_TAG.items():  # "Full Name (ACR)" / "Full Name - ACR": fold only its OWN acronym
+            if rx.search(s) and norm(rx.sub(" ", s)) == norm(ACRONYMS[acr]):
+                key = norm(ACRONYMS[acr])
+                break
+    return DIARY_REGISTER_ALIASES.get(key, key)
 
 
 def surname_key(name: str | None) -> str:

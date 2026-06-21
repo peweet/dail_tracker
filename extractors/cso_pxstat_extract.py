@@ -73,7 +73,15 @@ TABLES = [
     "GFA01",  # General Govt revenue/expenditure/financing/deficit, annual 1995–2025
     "GFQ01",  # Same, quarterly 2000Q1–2025Q4
     "NA012",  # Current Income & Expenditure of Central AND Local Government →2024
+    # Added 2026-06-21 — CPI deflator source. CPA07 = CPI by commodity group,
+    # ANNUAL average, All Items, 1975–2025. The raw table feeds build_cpi_deflator()
+    # which writes the derived cso_cpi_deflator.parquet (chain-linked index + factor
+    # to 2025) — the inflation deflator for every cross-year € comparison.
+    "CPA07",
 ]
+
+# Derived reference table built from CPA07 (not a raw PxStat dump).
+DEFLATOR_BASE_YEAR = 2025
 
 
 def fetch_csv(code: str) -> pl.DataFrame:
@@ -138,6 +146,11 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
         # National general-government finance tables (GFA01/GFQ01/NA012)
         # split only by transaction "Item" (revenue/expenditure/deficit lines).
         "Item",
+        # National price-index tables (CPA07 CPI, WPM* WPI) split only by the
+        # commodity / material category — treat that as the de-facto "geo" so the
+        # extraction check passes on these national time series.
+        "Commodity Group",
+        "Type of Material",
     }
     time_cols = {"Year", "Quarter", "Month", "CensusYear", "Census Year"}
     has_geo = any(c in have for c in geo_cols)
@@ -233,6 +246,60 @@ def _write_parquet(df: pl.DataFrame, path: Path) -> None:
     save_parquet(df, path)
 
 
+def build_cpi_deflator(cpa07: pl.DataFrame, base_year: int = DEFLATOR_BASE_YEAR) -> pl.DataFrame:
+    """Build the chain-linked CPI deflator from the raw CPA07 frame.
+
+    CSO splits the CPI index level across multiple base-month rebasings (Dec 2011 /
+    2016 / 2023 = 100), each NULL outside its own window — so no single index level
+    spans our 2012–2025 fact window. We therefore reconstruct ONE continuous index by
+    chain-linking the annual "Percentage Change over 12 months" series for All Items,
+    then express a multiplicative deflator to ``base_year``.
+
+    Output grain: one row per year. Columns:
+      year               (Int32)   calendar year
+      cpi_pct_change     (Float64) CSO annual % change, All Items
+      cpi_index_chained  (Float64) chain-linked index (first year = 100.0)
+      deflator_to_base   (Float64) base-year_index / year_index  (== 1.0 at base_year)
+      base_year          (Int32)   the constant-price base (e.g. 2025)
+
+    A nominal € from year Y becomes real ``base_year`` € by multiplying by
+    ``deflator_to_base``. Pure extraction + arithmetic; no inference.
+    """
+    label_col = next((c for c in ("Statistic Label", "STATISTIC Label", "Statistic") if c in cpa07.columns), None)
+    if label_col is None:
+        raise ValueError("CPA07: no Statistic label column found")
+    pct_label = next(l for l in cpa07[label_col].unique().to_list() if "Percentage Change" in l)
+    pct = (
+        cpa07.filter((pl.col("Commodity Group") == "All Items") & (pl.col(label_col) == pct_label))
+        .select(
+            pl.col("Year").cast(pl.Int32),
+            pl.col("VALUE").cast(pl.Float64, strict=False).alias("cpi_pct_change"),
+        )
+        .drop_nulls()
+        .sort("Year")
+    )
+    if pct.height == 0:
+        raise ValueError("CPA07: no All-Items percentage-change rows after filter")
+
+    # Chain-link into a continuous index (first available year = 100.0).
+    level = 100.0
+    rows = []
+    for yr, p in zip(pct["Year"].to_list(), pct["cpi_pct_change"].to_list()):
+        level *= 1 + p / 100.0
+        rows.append({"year": yr, "cpi_pct_change": p, "cpi_index_chained": round(level, 6)})
+    idx = pl.DataFrame(rows)
+
+    base = idx.filter(pl.col("year") == base_year)["cpi_index_chained"]
+    if base.len() == 0:
+        raise ValueError(f"CPA07: base year {base_year} not present in series")
+    base_idx = base[0]
+    return idx.with_columns(
+        (base_idx / pl.col("cpi_index_chained")).alias("deflator_to_base"),
+        pl.lit(base_year, dtype=pl.Int32).alias("base_year"),
+        pl.col("year").cast(pl.Int32),
+    )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -264,6 +331,19 @@ def main() -> None:
             path = _OUT / f"cso_{code.lower()}.parquet"
             _write_parquet(df, path)
             print(f"  Wrote {path.relative_to(_ROOT)}")
+
+        # CPA07 also feeds the derived CPI deflator (one row per year).
+        if code == "CPA07" and green:
+            try:
+                defl = build_cpi_deflator(df)
+                if not args.dry_run:
+                    dpath = _OUT / "cso_cpi_deflator.parquet"
+                    _write_parquet(defl, dpath)
+                    print(f"  Wrote {dpath.relative_to(_ROOT)}  ({defl.height} years, base {DEFLATOR_BASE_YEAR})")
+                else:
+                    print(f"  [dry-run] cso_cpi_deflator: {defl.height} years, base {DEFLATOR_BASE_YEAR}")
+            except Exception as e:
+                print(f"  CPI deflator build FAILED: {type(e).__name__}: {e}")
 
         summary.append((code, "ok" if green else "amber", len(df), green))
         time.sleep(0.5)
