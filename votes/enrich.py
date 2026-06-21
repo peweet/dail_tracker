@@ -88,10 +88,45 @@ def _build_enriched_attendance(members_wide_df: pl.DataFrame, fact_csv: Path) ->
     return enriched_df
 
 
-def _build_attendance_by_year(enriched_df: pl.DataFrame, csv_path: Path, parquet_path: Path) -> None:
-    """Gold attendance summary — one row per (member, year)."""
+# Junk "member" rows the PDF name-detection occasionally emits (e.g. a
+# "Member Services" administrative footer parsed as a person). Excluded from the
+# attendance gold — they are not TDs/Senators.
+_NON_MEMBER_IDENTIFIER = "memberservices"
+
+
+def _build_attendance_by_year(
+    members_wide_df: pl.DataFrame, fact_csv: Path, csv_path: Path, parquet_path: Path
+) -> None:
+    """Gold attendance summary — one row per (member, year).
+
+    The ATTENDANCE FACT is the spine (left side), with member metadata joined on.
+    A member who sat in a given year but is NOT on the current roster — a former
+    TD who lost their seat or retired (e.g. at the 2024 election) — was a real
+    member that year and must still appear; a members-spine join silently dropped
+    them, leaving e.g. only 74 of the 126 TDs who sat in 2023. Roster fields
+    (party, constituency, unique_member_code, ministerial office) are null for the
+    unmatched, and full_name is reconstructed from the PDF identifier.
+
+    Decoupled from the votes-feeding ``enriched_td_attendance`` frame on purpose:
+    vote history is correctly scoped to current members, attendance is not.
+    """
+    fact = pl.read_csv(fact_csv)
+    fact = fact.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
+    fact = normalise_join_key.normalise_df_td_name(fact, "join_key")
+
+    meta = members_wide_df.select(
+        ["join_key", "unique_member_code", "full_name", "party", "constituency_name", "ministerial_office"]
+    ).unique(subset=["join_key"], keep="first")
+
+    joined = fact.join(meta, on="join_key", how="left").with_columns(
+        # Former/unmatched members have no roster full_name — reconstruct from the
+        # PDF identifier ("Lastname_Firstname") so they render with a real name.
+        pl.coalesce([pl.col("full_name"), pl.col("identifier").str.replace_all("_", " ")]).alias("full_name")
+    )
+    joined = joined.filter(~pl.col("identifier").str.to_lowercase().str.contains(_NON_MEMBER_IDENTIFIER))
+
     attendance_year = (
-        enriched_df.filter(pl.col("year").is_not_null())
+        joined.filter(pl.col("year").is_not_null())
         .group_by(["full_name", "year"])
         .agg(
             pl.col("unique_member_code").first().alias("unique_member_code"),
@@ -112,7 +147,7 @@ def _build_attendance_by_year(enriched_df: pl.DataFrame, csv_path: Path, parquet
     )
     attendance_year.write_csv(csv_path)
     save_parquet(attendance_year, parquet_path)
-    logging.info("Gold attendance_by_td_year.csv + parquet written.")
+    logging.info("Gold attendance_by_td_year.csv + parquet written (%d member-years).", attendance_year.height)
 
 
 def _build_vote_history(
@@ -229,7 +264,7 @@ def main() -> int:
         enriched_df = _build_enriched_attendance(members_wide_df, fact_csv)
         enriched_df.write_csv(enriched_csv_out)
         logging.info("Enriched TD attendance CSV created successfully.")
-        _build_attendance_by_year(enriched_df, attendance_year_csv, attendance_year_parquet)
+        _build_attendance_by_year(members_wide_df, fact_csv, attendance_year_csv, attendance_year_parquet)
     else:
         logger.warning(
             "%s missing — skipping enriched_td_attendance + attendance_by_td_year.",
@@ -293,7 +328,7 @@ def main_seanad() -> int:
     if fact_csv.exists():
         enriched_df = _build_enriched_attendance(members_wide_df, fact_csv)
         enriched_df.write_csv(enriched_csv_out)
-        _build_attendance_by_year(enriched_df, attendance_year_csv, attendance_year_parquet)
+        _build_attendance_by_year(members_wide_df, fact_csv, attendance_year_csv, attendance_year_parquet)
     else:
         logger.warning("%s missing — skipping Seanad enriched + attendance_by_year.", fact_csv)
         print(f"WARN: {fact_csv} missing — skipping Seanad enrichment + attendance_by_year.")
