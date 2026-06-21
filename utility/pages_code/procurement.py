@@ -280,6 +280,17 @@ def _year_label(year: int | None) -> str:
     return f" in {year}" if year else ""
 
 
+def _yr_axis(df: pd.DataFrame, col: str = "year") -> pd.DataFrame:
+    """Render a year column as strings for chart x-axes. st.bar_chart treats an integer year
+    as a quantitative axis and labels it '2,016' (thousands separator); a string column is
+    nominal, so it shows '2016'. Copy-on-write: never mutates the caller's frame."""
+    if col not in getattr(df, "columns", ()):
+        return df
+    out = df.copy()
+    out[col] = out[col].map(lambda v: str(int(v)) if pd.notna(v) else "")
+    return out
+
+
 def _award_year_pills(awards: pd.DataFrame, key: str) -> int | None:
     """Year-pill filter for an award-history list. DISPLAY-ONLY (same posture as the supplier
     search and pagination slice): it derives the distinct award years present in the
@@ -420,7 +431,7 @@ def _concentration_and_trend() -> None:
     tr = fetch_awards_by_year_result()
     if tr.ok and not tr.data.empty and len(tr.data) > 1:
         with st.expander("Award activity over time"):
-            st.bar_chart(tr.data, x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e")
+            st.bar_chart(_yr_axis(tr.data), x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e")
 
 
 def _render_suppliers(year: int | None) -> None:
@@ -1045,7 +1056,7 @@ def _render_council_running_lane(council: str, active_tier: str, *, po_max_year:
     if len(ay) > 1:
         st.caption("Total operating spending per year (revenue account, audited gross €)")
         st.bar_chart(
-            ay,
+            _yr_axis(ay),
             x="year",
             y="gross_expenditure_eur",
             x_label="Year",
@@ -1113,7 +1124,7 @@ def _render_council_building_lane(council: str, *, accounts_latest: int | None) 
     if len(cy) > 1:
         st.caption("Capital invested per year (audited €)")
         st.bar_chart(
-            cy, x="year", y="capital_expenditure_eur", x_label="Year", y_label="€ invested", height=180, color="#2f7d5b"
+            _yr_axis(cy), x="year", y="capital_expenditure_eur", x_label="Year", y_label="€ invested", height=180, color="#2f7d5b"
         )
 
     # Capital by service in the latest year — bars, largest investment first (view pre-orders).
@@ -1233,7 +1244,7 @@ def _render_payments_publisher_profile(
     if by_year.ok and len(by_year.data) > 1:
         st.caption(f"Money {_paid_verb(active)} per year (sum-safe)")
         st.bar_chart(
-            by_year.data,
+            _yr_axis(by_year.data),
             x="year",
             y="total_safe_eur",
             x_label="Year",
@@ -1636,7 +1647,7 @@ def _render_paid_supplier_panel(supplier_norm: str) -> None:
         if float(ydf["paid_safe_eur"].sum()) > 0:
             st.caption("Money actually paid to this firm per year (sum-safe €) — a later stage than an award")
             st.bar_chart(
-                ydf,
+                _yr_axis(ydf),
                 x="year",
                 y="paid_safe_eur",
                 x_label="Year",
@@ -1647,7 +1658,7 @@ def _render_paid_supplier_panel(supplier_norm: str) -> None:
         if float(ydf["ordered_safe_eur"].sum()) > 0:
             st.caption("Money ordered from this firm per year (sum-safe €) — purchase-order commitments, not yet paid")
             st.bar_chart(
-                ydf,
+                _yr_axis(ydf),
                 x="year",
                 y="ordered_safe_eur",
                 x_label="Year",
@@ -1747,7 +1758,7 @@ def _render_ted() -> None:
     tr = fetch_ted_awards_by_year_result()
     if tr.ok and not tr.data.empty and len(tr.data) > 1:
         with st.expander("EU awards over time"):
-            st.bar_chart(tr.data, x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e")
+            st.bar_chart(_yr_axis(tr.data), x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e")
 
     res = fetch_ted_supplier_summary_result(limit=_TOP, order_by="awards")
     df = res.data if res.ok else pd.DataFrame()
@@ -2763,7 +2774,7 @@ def _supplier_secured_trend(supplier_norm: str) -> None:
     )
     st.caption("Sum-safe awarded value secured per year (€)")
     st.bar_chart(
-        df,
+        _yr_axis(df),
         x="year",
         y="awarded_value_safe_eur",
         x_label="Year",
@@ -3207,7 +3218,7 @@ def _render_patterns() -> None:
                 "register only began in 2013, so earlier years are not comparable and are omitted."
             )
             st.bar_chart(
-                shown,
+                _yr_axis(shown),
                 x="year",
                 y="pct_awards_to_new_entrants",
                 x_label="Year",

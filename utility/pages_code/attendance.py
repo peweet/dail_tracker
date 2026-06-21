@@ -40,7 +40,7 @@ from ui.components import (
 )
 from data_access.identity_resolver import resolve_member_code
 from ui.components import member_moved_callout
-from ui.entity_links import member_profile_url
+from ui.entity_links import member_link_html, member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import ATTENDANCE, provenance_expander
 
@@ -221,7 +221,12 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, house: str = "Dáil") 
 
 
 def _name_pill(row: pd.Series, *, with_office: bool) -> str:
-    name = _h(str(row["member_name"]))
+    raw_name = str(row["member_name"])
+    # Forward edge: link the absent/office-holder TD to their profile so the
+    # list isn't a dead-end. Graceful — resolve_member_code returns "" on a miss
+    # (e.g. the Taoiseach / upstream name-match gaps) and member_link_html then
+    # renders the plain (escaped) name.
+    name = member_link_html(resolve_member_code(raw_name), raw_name)
     party = str(row.get("party_name", "") or "")
     const = str(row.get("constituency", "") or "")
     meta = _h(clean_meta(party, const))

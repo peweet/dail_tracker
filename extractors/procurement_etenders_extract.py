@@ -39,6 +39,7 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
+from services.deflator import value_plausible_expr  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -502,6 +503,14 @@ def main() -> None:
     aw = coerce_null_sentinels(aw)
     n_cpv = aw["Main Cpv Code"].is_not_null().sum() if "Main Cpv Code" in aw.columns else 0
     print(f"  coerced literal 'NULL' strings -> null across text cols; real CPV now: {n_cpv:,}")
+
+    # Magnitude-plausibility flag (parse-artefact guard) — sits alongside value_safe_to_sum so a
+    # downstream real-terms / sum view can exclude sub-€100 noise and €50m+ review values before
+    # any deflator scales them. Additive; never alters value_eur. Shared def: services.deflator.
+    aw = aw.with_columns(
+        value_plausible_expr("value_eur", hi=LARGE_AWARD_REVIEW_EUR).alias("value_plausible")
+    )
+    print(f"  value_plausible: {aw['value_plausible'].sum():,} of {aw['value_eur'].is_not_null().sum():,} valued rows")
 
     save_parquet(aw, OUT_AWARDS)
     hr("AWARD-SUPPLIER ROWS")

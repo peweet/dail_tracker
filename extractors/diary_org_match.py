@@ -497,13 +497,55 @@ def build_token_index(gaz: dict[str, tuple[str, str, str]]) -> dict[str, set[str
     return idx
 
 
+# Video-conference PLATFORM noise. Outlook calendar exports tag the joining platform onto the
+# subject — "(Microsoft Teams Meeting)", a trailing "- Cisco" (which is Cisco WEBEX, not Cisco
+# the company), "Cisco Webex", "Zoom", "Google Meet". These ride venue/joining lines and are
+# NEVER the org being met, so a bare-name match coins false engagements (2 live "Cisco Webex"
+# rows already leaked into gold; the EDUCATION export's "- Cisco" tags would add ~57 more). Strip
+# them BEFORE matching. Whole-word webex/zoom are always the platform; "teams" only as MS Teams
+# (bare "teams" is legit — "Special Education Teams"). Meeting-TYPE words are deliberately NOT
+# stripped here (and denoise is NOT applied to the classifier, where losing "meeting" would
+# demote a real engagement to 'other').
+_STATUS_PREFIX = re.compile(
+    r"^\s*(?:scheduled|changed|cancelled|canceled|accepted|declined|tentative|updated|new time proposed)\s*:\s*",
+    re.I,
+)
+_MEET_URL = re.compile(r"https?://\S+|meet\.google\.com\S*|\S*webex\.com\S*|teams\.microsoft\S*", re.I)
+_PLATFORM_PHRASE = re.compile(
+    r"\b(?:microsoft teams|ms ?teams|cisco webex|webex|zoom|google meet|google hangout|skype for business)\b", re.I
+)
+_PLATFORM_TAG = re.compile(r"\s*[-–(]\s*(?:cisco|webex|teams|zoom|skype|ms ?teams)\b\s*\)?\s*$", re.I)
+
+
+def denoise_subject(subject: str | None) -> str:
+    """Strip video-conference platform names/tags + Outlook status prefixes from a diary subject.
+
+    Removes the venue/joining noise (Cisco Webex / Microsoft Teams / Zoom / Google Meet, the
+    trailing "- Cisco" platform tag, and "scheduled:"/"changed:" export prefixes) so it can never
+    be mis-matched as the company. Conservative: only platform BRAND names — keeps meeting-type
+    words and all real org text intact.
+    """
+    if not subject:
+        return ""
+    s = _MEET_URL.sub(" ", subject)
+    s = _STATUS_PREFIX.sub("", s)
+    for _ in range(2):  # a tag can stack ("... - Cisco - Zoom")
+        s2 = _PLATFORM_TAG.sub("", s)
+        if s2 == s:
+            break
+        s = s2
+    s = _PLATFORM_PHRASE.sub(" ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
 def match_subject(
     subject: str | None,
     minister: str | None,
     gaz: dict[str, tuple[str, str, str]],
     token_index: dict[str, set[str]],
 ) -> list[dict]:
-    """Return org-mention dicts for one subject (guards applied)."""
+    """Return org-mention dicts for one subject (platform-denoised; guards applied)."""
+    subject = denoise_subject(subject)
     if not subject:
         return []
     subj_n = " " + norm(subject) + " "

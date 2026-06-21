@@ -52,7 +52,7 @@ from ui.components import (
     stat_item,
     text_search_mask,
 )
-from ui.entity_links import member_profile_url, source_link_html
+from ui.entity_links import bill_detail_url, member_profile_url, source_link_html
 from ui.source_pdfs import provenance_expander
 
 # ── Page config ────────────────────────────────────────────────────────────────
@@ -1306,9 +1306,20 @@ def _render_si_detail(row: pd.Series) -> None:
             if is_pre2014
             else "↪ Made under (matched Act in the Oireachtas index)"
         )
+        # Post-2014 bill_ids are the canonical Oireachtas reference that the
+        # Legislation page resolves; link those via the canonical helper (the
+        # old hand-rolled "/legislation?bill=" used an UNREGISTERED slug — the
+        # registered path is "rankings-legislation" — so every such link was a
+        # dead "page not found"). Pre-2014 ids are curated internal slugs
+        # ('act_1993_statistics') that the Oireachtas-indexed Legislation page
+        # cannot resolve, so we show the curated card without a (broken) link.
         local_link = (
-            f'<a class="dt-source-link" href="/legislation?bill={html.escape(bill_id)}" '
-            f'target="_self">View {ref_label} detail →</a>'
+            ""
+            if is_pre2014
+            else (
+                f'<a class="dt-source-link" href="{html.escape(bill_detail_url(bill_id), quote=True)}" '
+                f'target="_self">View {ref_label} detail →</a>'
+            )
         )
         # Pre-2014 bill_ids are internal slugs ('act_1993_statistics') — not
         # useful to the reader. Only show the meta line when bill_id is the

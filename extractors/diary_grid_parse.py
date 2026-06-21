@@ -26,7 +26,20 @@ _WEEKDAYS = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
 _MONTHS = {
     m: i + 1
     for i, m in enumerate(
-        ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+        [
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ]
     )
 }
 _MONTHS |= {m[:3]: n for m, n in list(_MONTHS.items())}
@@ -154,4 +167,113 @@ def parse_grid(pages: list[list[dict]], year_hint: int | None) -> list[dict]:
     out: list[dict] = []
     for cells in pages:
         out.extend(parse_grid_page(cells, year_hint))
+    return out
+
+
+# ── second Outlook layout: the 2-column DAY-PAIR weekly print (Education scans) ──────────
+# Unlike the 5-column week grid above, this prints a week as stacked day-pair rows: each day
+# owns an explicit header cell ("8 January" / "9 January"), days run left-column then
+# right-column down the page, and every event cell carries its OWN inline time
+# ("14:00 - 15:00 Min_Cal: <subject>"). So we anchor each event to the nearest day-header
+# ABOVE it in the SAME column — no fragile column-width geometry needed. Continuation cells
+# (venue / overflow, no leading time) append to the current event.
+# day section header: "8 January", "8 January 2018 -", or weekday-prefixed "Monday 31 May"
+# (the rotated 2021-2022 Education scans print the weekday name first).
+_DAY_HDR = re.compile(
+    r"^\s*(?:(?:mon|tue|tues|wed|wednes|thu|thur|thurs|fri|sat|sun)[a-z]*\.?,?\s+)?"
+    r"(\d{1,2})\s+([A-Za-z]{3,9})(?:\s+(\d{4}))?\s*[-–]?\s*$",
+    re.IGNORECASE,
+)
+_TIME_LEAD = re.compile(r"^[\s+←→|]*(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})\s*(.*)$", re.DOTALL)
+_MINCAL = re.compile(r"m[i1l]n[_\s]*ca[il]\s*[:.]?", re.IGNORECASE)  # "Min_Cal:" + OCR variants
+_COL_GAP = 700  # px between day-header x-centres that starts a new column
+
+
+def _clean_subject(s: str) -> str:
+    s = _MINCAL.sub("", s)
+    s = re.sub(r"^[\s+←→|·-]+", "", s)
+    return re.sub(r"\s+", " ", s).strip(" -·,|")
+
+
+def parse_day_grid_page(cells: list[dict], year_hint: int | None) -> list[dict]:
+    # 1. day-header cells ("8 January", "8 January 2018 -"); a year token sets the page year
+    year = year_hint
+    headers: list[dict] = []
+    for c in cells:
+        m = _DAY_HDR.match(c["t"])
+        if not m:
+            continue
+        mon = _MONTHS.get(m.group(2).lower()[:3])
+        if not mon:
+            continue  # "January 2018" mini-cal label has no leading day → won't reach here
+        if m.group(3):
+            year = int(m.group(3))
+        headers.append({"day": int(m.group(1)), "mon": mon, "xc": (c["x0"] + c["x1"]) / 2, "y0": c["y0"]})
+    if len(headers) < 2 or year is None:
+        return []  # not this layout (or no year to anchor) → caller falls back to linear
+
+    # 2. day columns from the header x-centres (gap-split; this layout has 2)
+    xs = sorted(h["xc"] for h in headers)
+    col_means: list[float] = []
+    run = [xs[0]]
+    for x in xs[1:]:
+        if x - run[-1] > _COL_GAP:
+            col_means.append(sum(run) / len(run))
+            run = [x]
+        else:
+            run.append(x)
+    col_means.append(sum(run) / len(run))
+    if len(col_means) < 2:
+        return []  # single column = a daily-LIST scan, not the day-pair grid → leave it to linear
+
+    def col_of(xc: float) -> int:
+        return min(range(len(col_means)), key=lambda i: abs(col_means[i] - xc))
+
+    body_top = min(h["y0"] for h in headers)  # everything above the first day header is mini-cal chrome
+
+    # 3. drop each event/continuation cell into a (column, day) bucket by nearest header above
+    by_day: dict[tuple[int, date], list[dict]] = {}
+    for c in cells:
+        if c["y0"] < body_top or _DAY_HDR.match(c["t"]):
+            continue
+        xc = (c["x0"] + c["x1"]) / 2
+        col = col_of(xc)
+        above = [h for h in headers if col_of(h["xc"]) == col and h["y0"] <= c["y0"]]
+        if not above:
+            continue
+        h = max(above, key=lambda h: h["y0"])
+        try:
+            day = date(year, h["mon"], h["day"])
+        except ValueError:
+            continue
+        by_day.setdefault((col, day), []).append(c)
+
+    # 4. within a day, a timed cell starts an event; untimed cells continue the current one
+    entries: list[dict] = []
+    for (_, day), ccells in by_day.items():
+        ccells.sort(key=lambda c: c["y0"])
+        cur: dict | None = None
+        for c in ccells:
+            tm = _TIME_LEAD.match(c["t"])
+            if tm:
+                if cur:
+                    entries.append(cur)
+                cur = {
+                    "entry_date": day,
+                    "time_slot": f"{int(tm.group(1)):02d}:{tm.group(2)}-{int(tm.group(3)):02d}:{tm.group(4)}",
+                    "subject": _clean_subject(tm.group(5)),
+                }
+            elif cur:  # continuation (venue / overflow) — no leading time, no preceding event = drop
+                extra = _clean_subject(c["t"])
+                if extra:
+                    cur["subject"] = f"{cur['subject']} {extra}".strip()
+        if cur:
+            entries.append(cur)
+    return [e for e in entries if len(e["subject"]) >= 3]
+
+
+def parse_day_grid(pages: list[list[dict]], year_hint: int | None) -> list[dict]:
+    out: list[dict] = []
+    for cells in pages:
+        out.extend(parse_day_grid_page(cells, year_hint))
     return out

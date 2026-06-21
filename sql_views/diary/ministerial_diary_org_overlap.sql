@@ -13,11 +13,15 @@
 --   * meeting COUNTS are coverage-driven (more departments ingested over time), never a trend.
 -- `corroborated` is the ONLY register-cross-ref flag exposed, and deliberately so: it is a
 -- POSITIVE join (true = the org both met AND filed a return naming that minister — reliable).
--- The NEGATIVE ("met but never lobbied") is NOT exposed — `total_lobbying_returns = 0` is
--- contaminated by name-join misses (an org matched via the acronym/curated tier as e.g. "Irish
--- Business and Employers Confederation" never joins the register's "IBEC"), so a 0 means
--- "unknown", not "did not lobby". Surfacing it would defame heavy lobbyists. Re-introduce only
--- after org-identity resolution (diary org name <-> register name alias map).
+-- The NEGATIVE ("met but never lobbied") is still NOT exposed — `total_lobbying_returns = 0`
+-- can mean "unknown" (a residual name-join miss), not "did not lobby", and surfacing it would
+-- defame heavy lobbyists. NOTE (2026-06-21): the worst miss class — orgs whose register name
+-- tags the acronym ("Construction Industry Federation (CIF)", "The Irish Farmers' Association -
+-- IFA") or files under the bare acronym ("Ibec") while the diary carries the expanded name — is
+-- now RESOLVED by org_key() in extractors/diary_lobbying_overlap.py (reuses the curated ACRONYMS
+-- map to converge both sides), so CIF/IFA/Ibec now corroborate correctly. Other name forms
+-- (e.g. "Dublin Chamber" vs "Dublin Chamber of Commerce") remain unbridged → keep negative hidden
+-- until a fuller org-identity alias map lands.
 CREATE OR REPLACE VIEW v_ministerial_diary_org_overlap AS
 SELECT
     matched_org_name AS organisation,

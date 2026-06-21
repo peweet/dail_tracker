@@ -47,7 +47,7 @@ from data_access.constituency_data import (
     fetch_council_capital_divisions_result,
     fetch_council_revenue_divisions_result,
 )
-from ui.entity_links import council_accountability_url
+from ui.entity_links import council_accountability_url, council_spending_url
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -765,7 +765,7 @@ def _render_council_detail(constituency: str, council: str) -> None:
             src = f'<a class="dt-source-link" href="{_h(url)}" target="_blank" rel="noopener">Audited accounts (PDF)</a> · '
     st.html(
         f'<p class="con-section-note" style="margin-top:0.6rem">{src}'
-        f'<a class="dt-source-link" href="/rankings-council-spending?paid_publisher={quote(council)}&paid_tier=COMMITTED" '
+        f'<a class="dt-source-link" href="{_h(council_spending_url(council, "COMMITTED"))}" '
         f'target="_self">Full {_h(council)} dossier (suppliers, multi-year)</a> · '
         f'<a class="dt-source-link" href="{_h(council_accountability_url(council))}" '
         f'target="_self">Who runs {_h(council)} →</a></p>'

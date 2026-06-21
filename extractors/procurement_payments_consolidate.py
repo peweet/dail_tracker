@@ -60,6 +60,7 @@ from _publisher_regime import regime_for  # noqa: E402
 
 from services.data_contracts import guard_payment_fact, reconciliation_violations  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
+from services.deflator import value_plausible_expr  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
 with contextlib.suppress(Exception):
@@ -733,6 +734,10 @@ def main() -> None:
             f"privacy quarantine breached: {leaked.height} likely-person rows left "
             "public_display=True; refusing to write procurement_payments_fact"
         )
+
+    # Magnitude-plausibility flag (parse-artefact guard) — additive, never alters amount_eur.
+    # Lets a real-terms / sum view exclude sub-€100 noise before any deflator scales it.
+    df = df.with_columns(value_plausible_expr("amount_eur").alias("value_plausible"))
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT, min_rows=MIN_FACT_ROWS)
