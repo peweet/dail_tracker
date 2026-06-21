@@ -46,7 +46,6 @@ from ui.components import (
     render_stat_strip,
     stat_item,
     text_search_mask,
-    todo_callout,
 )
 from data_access.committees_data import (
     fetch_committee_assignments,
@@ -427,16 +426,12 @@ def _stage_committee(
         chair_html=chair_html,
         member_count=int(len(members)),
         oireachtas_url=url,
-        source_document_url=None,  # TODO_PIPELINE_VIEW_REQUIRED below
+        source_document_url=None,  # terms-of-reference doc not yet sourced (provenance notes it)
     )
-    # Meeting transcripts are now linked per meeting in the Meeting history
-    # section below; the remaining gap is the committee's terms-of-reference
-    # source document. todo_callout extracts a citizen sentence after the em-dash.
-    todo_callout(
-        "source_document_url column on v_committee_sources — "
-        "The committee's official terms of reference will link here in a future "
-        "release. (Meeting transcripts are already linked under Meeting history.)"
-    )
+    # No "coming soon" callout: the Oireachtas committee page link is in the
+    # identity strip and per-meeting transcripts are linked under Meeting history,
+    # so the only remaining gap (terms-of-reference doc) lives in provenance, not
+    # an above-the-fold banner.
 
     # ── Composition + Roster (two evidence sections) ──────────────────
     comp_col, roster_col = st.columns([1, 2], gap="large")
