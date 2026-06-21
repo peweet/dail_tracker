@@ -33,7 +33,7 @@ import duckdb
 import fitz
 
 from extractors._diary_minister import resolve_minister
-from extractors.diary_grid_parse import parse_grid
+from extractors.diary_grid_parse import parse_day_grid, parse_grid
 from extractors.ministerial_diaries_extract import _infer_default_year, parse_entries
 from services.logging_setup import setup_standalone_logging
 
@@ -50,14 +50,19 @@ def _cache_name(file_name: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", file_name)[-100:]
 
 
-def make_ocr():
+def make_ocr(orient: bool = False):
+    """Build the PaddleOCR pipeline. ``orient=True`` enables document-orientation +
+    text-line-orientation + unwarping — needed ONLY for the minority of scans saved
+    rotated/skewed (e.g. the Education 2021-2022 files OCR'd to mirrored garbage with
+    these off). It is slower, so it's opt-in for a targeted re-OCR of those files; the
+    bulk of clean upright scans use the fast path (all three off)."""
     from paddleocr import PaddleOCR
 
     return PaddleOCR(
         lang="en",
-        use_doc_orientation_classify=False,
-        use_doc_unwarping=False,
-        use_textline_orientation=False,
+        use_doc_orientation_classify=orient,
+        use_doc_unwarping=orient,
+        use_textline_orientation=orient,
         enable_mkldnn=False,  # paddle 3.3.1 oneDNN/PIR bug on Windows
         text_det_limit_side_len=1280,  # full A4 @300 DPI segfaults the detector
         text_det_limit_type="max",
@@ -130,7 +135,13 @@ def _clamp_year_to_file(e: dict, file_year: int) -> dict:
     return e
 
 
-def run(depts: set[str] | None, only_file: str | None, max_files: int | None, max_pages: int | None) -> int:
+def run(
+    depts: set[str] | None,
+    only_file: str | None,
+    max_files: int | None,
+    max_pages: int | None,
+    orient: bool = False,
+) -> int:
     setup_standalone_logging("diary_ocr")
     files = _scanned_files(depts)
     if only_file:
@@ -142,7 +153,7 @@ def run(depts: set[str] | None, only_file: str | None, max_files: int | None, ma
         return 1
 
     OCR_TXT.mkdir(parents=True, exist_ok=True)
-    ocr = make_ocr()
+    ocr = make_ocr(orient)
     all_entries: list[dict] = []
     for f in files:
         pdf = PDF_CACHE / _cache_name(f["file_name"])
@@ -152,9 +163,12 @@ def run(depts: set[str] | None, only_file: str | None, max_files: int | None, ma
         pages = ocr_file_cells(ocr, pdf, _cache_name(f["file_name"]), max_pages=max_pages)
         text = cells_to_text(pages)
         year = f["year"] or _infer_default_year(text)
-        # week-grid first (DPER/Taoiseach/older-DCCS Outlook exports); else linear daily-list
+        # week-grid first (DPER/Taoiseach/older-DCCS 5-column Outlook exports); then the
+        # 2-column day-pair weekly print (Education scans); else linear daily-list.
         entries = parse_grid(pages, year)
         mode = "grid"
+        if not entries:
+            entries, mode = parse_day_grid(pages, year), "day_grid"
         if not entries:
             entries, mode = parse_entries(text, year, f["month"]), "linear"
         # OCR sometimes misreads a date header's year (a "2024" Q4 scan read as "2025"), which
@@ -188,6 +202,11 @@ if __name__ == "__main__":
     ap.add_argument("--file", help="single cached file_name to OCR (smoke test)")
     ap.add_argument("--max-files", type=int, default=None)
     ap.add_argument("--max-pages", type=int, default=None, help="cap pages per file (smoke test)")
+    ap.add_argument(
+        "--orient",
+        action="store_true",
+        help="enable orientation/unwarp (slow) — for re-OCR of rotated scans; delete their cell cache first",
+    )
     a = ap.parse_args()
     depts = {d.strip().upper() for d in a.depts.split(",")} if a.depts else None
-    raise SystemExit(run(depts, a.file, a.max_files, a.max_pages))
+    raise SystemExit(run(depts, a.file, a.max_files, a.max_pages, a.orient))

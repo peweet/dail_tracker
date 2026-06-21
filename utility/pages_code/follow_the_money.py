@@ -292,7 +292,7 @@ def _render_group(slug: str, tier: str, *, on_back) -> None:
     )
     st.html(
         '<div class="mf-wall">This is a <strong>curated</strong> grouping of the published payment '
-        f"entities under {label}{struct_clause}.{cro_clause} Combined figures sum sum-safe euros across "
+        f"entities under {label}{struct_clause}.{cro_clause} Combined figures are sum-safe euros totalled across "
         "these entities and are an indicative <strong>floor</strong>, never an audited total — paid and "
         "ordered are never added, nor are euros summed across bodies with different VAT bases.</div>"
     )
