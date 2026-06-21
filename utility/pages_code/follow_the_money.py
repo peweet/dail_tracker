@@ -101,6 +101,16 @@ def _current_node(params) -> dict | None:
             "params": {"flow_group": fg, "paid_tier": _norm_tier(params.get("paid_tier"))},
             "group": fg,
         }
+    fsl = params.get("flow_supplier_lines")
+    if fsl:
+        return {
+            "kind": "supplier_lines",
+            "key": ("supplier_lines", fsl),
+            "label": _pretty_supplier(fsl),
+            "tier": _norm_tier(params.get("paid_tier")),
+            "params": {"flow_supplier_lines": fsl, "paid_tier": _norm_tier(params.get("paid_tier"))},
+            "supplier": fsl,
+        }
     ps = params.get("paid_supplier")
     pp = params.get("paid_publisher")
     tier = _norm_tier(params.get("paid_tier"))
@@ -325,14 +335,15 @@ def _render_group(slug: str, tier: str, *, on_back) -> None:
         if cro:
             pills.append(cro)
         inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, [p for p in pills if p], rank=i)
-        # Company-class members drill into their own paid-supplier profile (the existing supplier
-        # node — one rung finer in the same trail). Individuals stay static (privacy quarantine).
+        # Company-class members open the line items behind their figure directly — every record
+        # across all the bodies in this tier (one click, no intervening body-list hop). Individuals
+        # stay static (privacy quarantine).
         if _coalesce(getattr(r, "supplier_class", None)) == "company":
             cards.append(
                 clickable_card_link(
-                    href=_rail_href({"paid_supplier": r.supplier_normalised, "paid_tier": active}),
+                    href=_rail_href({"flow_supplier_lines": r.supplier_normalised, "paid_tier": active}),
                     inner_html=inner,
-                    aria_label=f"Follow {r.supplier} into the public bodies that {_paid_verb(active)} it",
+                    aria_label=f"See the published {_paid_verb(active)} line items behind {r.supplier}'s figure",
                 )
             )
         else:
@@ -417,6 +428,10 @@ def follow_the_money_page() -> None:
         _render_group(node["group"], tier, on_back=_back_one)
     elif node["kind"] == "ledger":
         _render_payment_lines(node["supplier"], node["publisher"], tier, on_back=_back_one, back_label="← Back")
+    elif node["kind"] == "supplier_lines":
+        # The 'what comprised this' leaf for a group member: every line behind the firm's figure,
+        # across all bodies in the tier (publisher_name=None). One click from the group member card.
+        _render_payment_lines(node["supplier"], None, tier, on_back=_back_one, back_label="← Back")
     elif node["kind"] == "body":
         _render_payments_publisher_profile(node["publisher"], tier, on_back=_back_one, back_label="← Back")
     else:  # supplier

@@ -25,6 +25,7 @@ supplier's profile and full award history. CSS lives in shared_css.py (``pr-*``)
 from __future__ import annotations
 
 import html
+import os
 import sys
 import urllib.parse
 from pathlib import Path
@@ -43,6 +44,7 @@ from data_access.procurement_data import (
     fetch_afs_vs_po_coverage_result,
     fetch_authority_summary_result,
     fetch_available_years,
+    fetch_bid_signal_result,
     fetch_call_offs_for_supplier_result,
     fetch_charity_overlap_result,
     fetch_council_summary_result,
@@ -63,6 +65,7 @@ from data_access.procurement_data import (
     fetch_epa_compliance_result,
     fetch_new_entrants_result,
     fetch_payment_lines_for_pair_result,
+    fetch_payment_lines_for_supplier_result,
     fetch_payments_corpus_stats_result,
     fetch_payments_for_publisher_result,
     fetch_payments_for_supplier_result,
@@ -304,12 +307,22 @@ def _filter_awards_by_year(awards: pd.DataFrame, year: int | None) -> pd.DataFra
 # reset to the first tab on every rerun (the cause of "my selection disappeared
 # when I came back from a drill-down"); a URL-backed segmented control does not.
 # ──────────────────────────────────────────────────────────────────────────────
+# EXPERIMENTAL, LOCAL-ONLY gate. The "Should I bid?" signal section is shown only when
+# DAIL_EXPERIMENTAL=1 is set in the environment (set on the local box, never in cloud), so
+# it ships nowhere until it's been vetted. Whole feature is self-contained — this flag, the
+# v_procurement_bid_signal view, one query fn + cached wrapper, and _render_bid_signal below —
+# so it can be promoted or deleted in one pass. See the pricing-by-comparable investigation:
+# this surfaces FACTS for a bidder to reason from, never a price (no-inference rule).
+_EXPERIMENTAL = os.getenv("DAIL_EXPERIMENTAL") == "1"
+
 _SECTION_LABELS = {
     "Who wins contracts?": "wins",
     "Who actually gets paid?": "paid",
     "Open right now": "open",
     "Patterns": "patterns",
 }
+if _EXPERIMENTAL:
+    _SECTION_LABELS["Should I bid? ⚗"] = "bidsignal"
 
 
 def _section_picker() -> str:
@@ -1382,10 +1395,14 @@ def _render_payments_supplier_profile(
     st.html(_PAY_FOOT_HTML)
 
 
-def _payment_line_row(r, tier: str) -> str:
+def _payment_line_row(r, tier: str, *, show_publisher: bool = False) -> str:
     """One published payment line as a list row (the leaf of the payments drill-down): the
     period, the body's own description, PO number, and the amount — with a link to the body's
-    source file where it published one. Display-only; the amount is the body's reported figure."""
+    source file where it published one. Display-only; the amount is the body's reported figure.
+
+    ``show_publisher`` (the all-bodies leaf — one firm across many bodies): the row's top label
+    becomes the paying body and the period folds into the meta line, so each constituent record
+    of the firm's total is attributed to the body that published it."""
     period = _esc(_coalesce(getattr(r, "period", None))) or _esc(_n(getattr(r, "year", None)) or "")
     desc = _esc(_coalesce(getattr(r, "description", None)))
     # Per-line payment status, where the body published one (canonicalised in the view from a
@@ -1408,27 +1425,36 @@ def _payment_line_row(r, tier: str) -> str:
     src = _coalesce(getattr(r, "source_file_url", None))
     if src.startswith("http"):
         meta_parts.append(f'<a href="{_esc(src)}" target="_blank" rel="noopener">source ↗</a>')
+    if show_publisher and period:
+        meta_parts.insert(0, period)  # period folds into the meta when the body takes the top label
     meta = " · ".join(p for p in meta_parts if p)
     val = _eur(getattr(r, "amount_eur", None))
     val_html = f'<div class="pr-award-val">{val}<small>{_paid_verb(tier)}</small></div>' if val != "—" else ""
+    auth = _esc(_coalesce(getattr(r, "publisher_name", None))) if show_publisher else (period or "—")
     return (
         f'<div class="pr-award"><div class="pr-award-body">'
-        f'<div class="pr-award-auth">{period or "—"}</div>{title_html}'
+        f'<div class="pr-award-auth">{auth or "—"}</div>{title_html}'
         f'<div class="pr-award-meta">{meta or "—"}</div></div>{val_html}</div>'
     )
 
 
 def _render_payment_lines(
-    supplier_norm: str, publisher_name: str, tier: str = "SPENT", *, on_back=None, back_label: str = "← Back"
+    supplier_norm: str, publisher_name: str | None, tier: str = "SPENT", *, on_back=None, back_label: str = "← Back"
 ) -> None:
-    """LEAF view — the published payment line items for one supplier × public body × tier.
+    """LEAF view — the published payment line items behind one supplier's figure in a tier.
     The terminus that ends the old supplier↔body loop: instead of bouncing between aggregate
-    cards, the reader lands here on the individual records the body published (period,
-    description, PO number, amount), each linked to the body's own source file. Company-class
-    entry points only (same privacy quarantine as the rest of the payments drill-down).
+    cards, the reader lands here on the individual records (period, description, PO number,
+    amount), each linked to the body's own source file. Company-class entry points only (same
+    privacy quarantine as the rest of the payments drill-down).
+
+    With ``publisher_name`` set this is one supplier × public body × tier (drilling a body's
+    supplier card or a firm's body card). With ``publisher_name=None`` it is the firm's lines
+    across ALL bodies in the tier — the 'what comprised this' leaf for a corporate-group member
+    card, whose total spans bodies and so has no single pair; each line then shows its body.
 
     ``on_back`` overrides the Back action; the default returns to the supplier's payers list
     (the natural parent), preserving the tier."""
+    all_bodies = publisher_name is None
 
     def _default_back() -> None:
         st.query_params.clear()
@@ -1443,30 +1469,43 @@ def _render_payment_lines(
     hrow = hdr.data.iloc[0] if (hdr.ok and not hdr.data.empty) else None
     sup_name = _esc(_coalesce(hrow.get("supplier"))) if hrow is not None else _esc(supplier_norm)
 
-    st.html(
-        f'<div class="pr-prof-head"><div class="pr-prof-kicker">PUBLISHED PAYMENT RECORDS · '
-        f"{_esc(_paid_verb(tier).upper())}</div>"
-        f'<h1 class="pr-prof-name">{sup_name or "—"}</h1>'
-        f'<div class="pr-prof-sub">as {_esc(_paid_verb(tier))} by {_esc(publisher_name)}</div></div>'
+    res = (
+        fetch_payment_lines_for_supplier_result(supplier_norm, tier)
+        if all_bodies
+        else fetch_payment_lines_for_pair_result(supplier_norm, publisher_name, tier)
     )
-
-    res = fetch_payment_lines_for_pair_result(supplier_norm, publisher_name, tier)
     if not res.ok:
         empty_state("Payment data isn't available right now", "A source/pipeline issue, not an empty result.")
         return
     df = res.data
+
+    # Sub-line: the single paying body, or — for the all-bodies leaf — how many bodies the
+    # firm's records span (so the figure's makeup is attributed, not implied as one contract).
+    if all_bodies:
+        n_bodies = int(df["publisher_name"].nunique()) if not df.empty else 0
+        sub = f"{_paid_verb(tier)} by {n_bodies:,} public bod{'ies' if n_bodies != 1 else 'y'}"
+    else:
+        sub = f"as {_paid_verb(tier)} by {_esc(publisher_name)}"
+    st.html(
+        f'<div class="pr-prof-head"><div class="pr-prof-kicker">PUBLISHED PAYMENT RECORDS · '
+        f"{_esc(_paid_verb(tier).upper())}</div>"
+        f'<h1 class="pr-prof-name">{sup_name or "—"}</h1>'
+        f'<div class="pr-prof-sub">{sub}</div></div>'
+    )
+
     if df.empty:
         empty_state(
             "No line items in this tier",
-            f"This body published no {_paid_verb(tier)} lines naming this firm, or the link didn't match.",
+            f"No {_paid_verb(tier)} lines naming this firm were published, or the link didn't match.",
         )
         return
+    where = "across every public body that published them" if all_bodies else "naming this firm"
     st.caption(
-        f"{len(df):,} published {_paid_verb(tier)} line{'s' if len(df) != 1 else ''} naming this firm, biggest first. "
+        f"{len(df):,} published {_paid_verb(tier)} line{'s' if len(df) != 1 else ''} {where}, biggest first. "
         "Each is the body's own reported figure (over €20,000), not an award ceiling — never summed across "
         "bodies with different VAT bases. Open a line's source ↗ for the body's published disclosure."
     )
-    st.html("".join(_payment_line_row(r, tier) for r in df.itertuples()))
+    st.html("".join(_payment_line_row(r, tier, show_publisher=all_bodies) for r in df.itertuples()))
     st.html(_PAY_FOOT_HTML)
 
 
@@ -3326,6 +3365,155 @@ def _data_completeness_note() -> None:
         )
 
 
+_BIDSIG_CSS = """
+<style>
+/* EXPERIMENTAL (local-only) — scoped styles for the "Should I bid?" signal cards.
+   Kept inline so the whole feature is self-contained and deletable in one pass; promote
+   into shared_css.py (bs-* family) if/when the feature graduates. */
+.bs-card{background:#ffffff;border:1px solid var(--border,#e7e2d8);border-radius:12px;
+  padding:16px 18px;margin-bottom:14px}
+.bs-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.bs-name{font-weight:650;font-size:1.02rem;color:var(--ink,#1d1d1b)}
+.bs-code{font:600 .72rem ui-monospace,monospace;color:#6b6459;background:#f4f1ea;
+  padding:1px 7px;border-radius:6px}
+.bs-tot{margin-left:auto;font-size:.8rem;color:#7a7367}
+.bs-band-cap{font-size:.82rem;color:#57514a;margin:8px 0 4px}
+.bs-track{position:relative;height:26px;background:#f4f1ea;border-radius:7px;margin:6px 0 2px}
+.bs-fill{position:absolute;top:0;bottom:0;background:#cfe3d6;border-radius:7px}
+.bs-med{position:absolute;top:-3px;bottom:-3px;width:3px;background:#2f7d54;border-radius:2px}
+.bs-band-lab{display:flex;justify-content:space-between;font-size:.74rem;color:#6b6459}
+.bs-rows{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.bs-row{font-size:.86rem;color:#332f2a}
+.bs-row b{font-weight:650}
+.bs-muted{font-size:.78rem;color:#8a8275;margin-top:8px;padding-top:8px;
+  border-top:1px dashed #e7e2d8}
+.bs-warn{display:inline-block;font:600 .72rem system-ui;color:#8a5a00;background:#fbf0d8;
+  padding:1px 8px;border-radius:6px;margin-left:6px}
+</style>
+"""
+
+
+def _spread_x(p25, p75):
+    try:
+        a, b = float(p25), float(p75)
+        return (b / a) if a > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _bid_signal_card(r) -> str:
+    """One CPV-trade "Should I bid?" card. Pure render of pre-aggregated view rows: the
+    contract-award band (p25/median/p75, ceilings excluded), a spread caveat so the band is
+    never read as a quote, competition (median bids + single-bid %), SME-win %, and the
+    framework-ceiling context shown SEPARATELY. No recommendation, no inference — facts only."""
+    label = _esc(_coalesce(r.get("trade_label"), "—"))
+    code = _esc(_coalesce(r.get("trade_code"), ""))
+    n_tot = _n(r.get("n_awards_total"))
+    p25, med, p75 = r.get("award_p25_eur"), r.get("award_median_eur"), r.get("award_p75_eur")
+    n_aw = _n(r.get("n_contract_awards"))
+    n_recent = _n(r.get("n_recent_contract_awards"))
+
+    # Band bar (display-only scaling against this trade's own p75).
+    band = ""
+    try:
+        hi = float(p75)
+        lo = float(p25)
+        mid = float(med)
+        if hi > 0:
+            left = max(0.0, min(100.0, lo / hi * 100))
+            width = max(2.0, min(100.0, (hi - lo) / hi * 100))
+            medpos = max(0.0, min(100.0, mid / hi * 100))
+            band = (
+                f'<div class="bs-track"><div class="bs-fill" style="left:{left:.1f}%;width:{width:.1f}%"></div>'
+                f'<div class="bs-med" style="left:{medpos:.1f}%"></div></div>'
+                f'<div class="bs-band-lab"><span>{_eur(p25)}</span>'
+                f'<span>median {_eur(med)}</span><span>{_eur(p75)}</span></div>'
+            )
+    except (TypeError, ValueError):
+        band = ""
+
+    spread = _spread_x(p25, p75)
+    spread_pill = (
+        f'<span class="bs-warn">spread ×{spread:.1f} — a band, not a quote</span>'
+        if spread and spread >= 3 else ""
+    )
+
+    n_bid = _n(r.get("n_with_bid_data"))
+    med_bids = r.get("median_bids")
+    med_bids_txt = f"{float(med_bids):.0f}" if med_bids is not None and not pd.isna(med_bids) else "—"
+    sb_pct = r.get("single_bid_pct")
+    sb_txt = f"{float(sb_pct):.0f}%" if sb_pct is not None and not pd.isna(sb_pct) else "—"
+    n_sme = _n(r.get("n_with_sme_data"))
+    sme_pct = r.get("sme_win_pct")
+    sme_txt = f"{float(sme_pct):.0f}%" if sme_pct is not None and not pd.isna(sme_pct) else "—"
+    n_ceil = _n(r.get("n_framework_ceilings"))
+    ceil_med = r.get("ceiling_median_eur")
+
+    rows = (
+        f'<div class="bs-row">👥 Competition: <b>{med_bids_txt}</b> bidders typical · '
+        f'<b>{sb_txt}</b> drew a single bid <span style="color:#8a8275">(of {n_bid:,} with bid data)</span></div>'
+        f'<div class="bs-row">🏢 SME wins: <b>{sme_txt}</b> of awards went to an SME '
+        f'<span style="color:#8a8275">(of {n_sme:,} with SME data)</span></div>'
+    )
+    ceil = (
+        f'<div class="bs-muted">⌈ {n_ceil:,} framework/DPS ceiling{"s" if n_ceil != 1 else ""}'
+        f' here, median {_eur(ceil_med)} — agreement <em>ceilings</em>, not job prices (kept out of the band above).</div>'
+        if n_ceil else ""
+    )
+    return (
+        '<div class="bs-card">'
+        f'<div class="bs-head"><span class="bs-name">{label}</span>'
+        f'<span class="bs-code">CPV {code}xxxx</span>'
+        f'<span class="bs-tot">{n_tot:,} awards total</span></div>'
+        f'<div class="bs-band-cap">Typical <b>contract award</b> '
+        f'({n_aw:,} real awards · {n_recent:,} since 2022){spread_pill}</div>'
+        f"{band}{('<div class=bs-rows>' + rows + '</div>')}{ceil}</div>"
+    )
+
+
+def _render_bid_signal() -> None:
+    """EXPERIMENTAL "Should I bid?" lens (local-only, gated by DAIL_EXPERIMENTAL). Renders the
+    per-CPV-trade signal cards from v_procurement_bid_signal. This deliberately does NOT price a
+    job — the data can't (intra-trade spread 4.5x–15x; headline value mixes ceilings 14x–79x
+    above real awards). It hands a bidder verifiable facts to judge for themselves."""
+    st.html(_BIDSIG_CSS)
+    st.html('<div class="pr-register-rule"><span>Should I bid? &nbsp;⚗ experimental</span></div>')
+    finding_lede(
+        [
+            "This data <strong>can't quote a job</strong> — every trade's award range is "
+            "<strong>4.5–15×</strong> wide, and headline values mix framework ceilings far above "
+            "real awards.",
+            "What it can give you, per category: how competitive the work is, how often a "
+            "<strong>single</strong> bidder showed up, whether <strong>SMEs</strong> actually win "
+            "it, and the real contract-award band — each with its sample size so you weigh it "
+            "yourself.",
+        ]
+    )
+    st.caption("⚗ Experimental · local only — not shown in the published app.")
+
+    res = fetch_bid_signal_result(min_awards=20)
+    if not res.ok:
+        empty_state("Signal unavailable", "The bid-signal view did not load.")
+        return
+    df = res.data
+    if df is None or df.empty:
+        empty_state("No categories", "No CPV trades met the minimum sample size.")
+        return
+
+    q = st.text_input(
+        "Find your trade (CPV category name)", value="", key="bs_filter",
+        placeholder="e.g. electrical, road, building, cleaning…",
+    )
+    view = df
+    if q.strip():
+        view = df[df["trade_label"].fillna("").str.contains(q.strip(), case=False, na=False)]
+    if view.empty:
+        empty_state("No match", f"No category name contains “{html.escape(q)}”.")
+        return
+
+    st.html("".join(_bid_signal_card(r) for _, r in view.head(40).iterrows()))
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 def procurement_page() -> None:
     hide_sidebar()
@@ -3511,6 +3699,9 @@ def procurement_page() -> None:
             _render_national_open_tenders()
             st.html('<div class="pr-register-rule"><span>EU Official Journal (TED)</span></div>')
             _render_ted_tenders()
+
+    elif section == "bidsignal":  # EXPERIMENTAL, local-only (DAIL_EXPERIMENTAL=1)
+        _render_bid_signal()
 
     else:  # "patterns"
         _render_patterns()

@@ -16,6 +16,7 @@ from pages_code.lobbying_3 import lobbying_poc_page
 from pages_code.local_government import local_government_page
 from pages_code.member_overview import member_overview_page
 from pages_code.ministerial_diaries import ministerial_diaries_page
+from pages_code.news import news_page
 from pages_code.payments import payments_page
 from pages_code.procurement import procurement_page
 from pages_code.public_appointments import public_appointments_page
@@ -129,6 +130,16 @@ pg = st.navigation(
                 icon=":material/account_balance:",
                 url_path="local-government",
             ),
+            # Council Spending sits alongside "Who Runs Your County": both are local-government
+            # finance for the citizen's own county, so the spending dossier belongs in "Your Area"
+            # rather than the national "The Money" group. url_path keeps its historic
+            # "rankings-council-spending" so existing deep links / entity_links resolve.
+            st.Page(
+                council_spending_page,
+                title="Council Spending",
+                icon=":material/location_city:",
+                url_path="rankings-council-spending",
+            ),
             st.Page(
                 housing_page,
                 title="Housing",
@@ -175,6 +186,15 @@ pg = st.navigation(
                 icon=":material/account_balance:",
                 url_path="rankings-committees",
             ),
+            # Cross-member news feed — every member's recent name-matched coverage in one
+            # stream. The per-member "Recent media mentions" card on member-overview links
+            # here ("see all members in the news"). Slug pinned in entity_links.PAGES["news"].
+            st.Page(
+                news_page,
+                title="In the News",
+                icon=":material/newspaper:",
+                url_path="in-the-news",
+            ),
         ],
         "The Money": [
             st.Page(payments_page, title="Payments", icon=":material/payments:", url_path="rankings-payments"),
@@ -201,12 +221,6 @@ pg = st.navigation(
                 title="Follow the Money",
                 icon=":material/conversion_path:",
                 url_path="follow-the-money",
-            ),
-            st.Page(
-                council_spending_page,
-                title="Council Spending",
-                icon=":material/location_city:",
-                url_path="rankings-council-spending",
             ),
             st.Page(
                 accommodation_spend_page,
