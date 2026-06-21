@@ -40,6 +40,8 @@ from extractors.ministerial_diaries_extract import (
     discover_files,
     download,
     parse_entries,
+    reset_waf_circuit,
+    waf_window_shut,
 )
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
@@ -71,8 +73,15 @@ def parse_dept_entries(depts: set[str]) -> pl.DataFrame:
     files = discover_files(only_depts=depts)
     rows: list[dict] = []
     skipped_scan = 0
+    reset_waf_circuit()
     for f in files:
-        pdf = download(f["file_url"], f["file_name"])  # cache hit — no bulk re-download
+        if waf_window_shut():
+            # WAF shut mid-merge (an uncached dept slipped in) — stop hammering, leave the
+            # rest for a fresh-window run rather than grinding 405s.
+            log.error("WAF circuit-breaker tripped — aborting re-parse of %s; retry later", sorted(depts))
+            break
+        # referer warms the clearance cookie for the rare uncached file (cache hits skip the network)
+        pdf = download(f["file_url"], f["file_name"], referer=f.get("listing_url"))
         if pdf is None:
             continue
         try:

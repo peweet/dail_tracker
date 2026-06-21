@@ -50,7 +50,7 @@ from pathlib import Path
 import polars as pl
 
 from extractors._diary_minister import resolve_minister  # canonical minister from filename/dept+date
-from extractors.diary_org_match import norm  # identical org/subject normaliser
+from extractors.diary_org_match import ACRONYMS, norm  # identical org/subject normaliser + curated acronym map
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -283,6 +283,44 @@ def sector_for(org_name: str | None) -> str:
     return "other"
 
 
+# The diary↔register join keys on a normalised org name, but the two registers SPELL the
+# same body differently: the lobbying register tags the acronym onto the name ("Construction
+# Industry Federation (CIF)", "The Irish Farmers' Association - IFA") or files under the bare
+# acronym ("Ibec"), while the diary gazetteer carries the clean/expanded form ("Construction
+# Industry Federation", "Irish Farmers Association", "Irish Business and Employers Confederation").
+# norm() alone leaves a trailing "cif"/"ifa" token or a lone "ibec" → the join MISSES exactly the
+# heaviest representative-body lobbyists (CIF 545 returns, IFA 3,666, Ibec) and they read as
+# corroborated=false. The SQL view flagged this as the "alias map" debt. org_key() bridges it by
+# REUSING the hand-curated ACRONYMS map (single source of truth, same canonical the diary emits):
+# a name that IS an acronym, or that redundantly tags its OWN acronym, collapses to the acronym's
+# canonical norm; everything else falls back to plain norm(). Two guards keep it precise:
+#   * whole-name match is case-insensitive but anchored to the ENTIRE name ("Ibec"→IBEC, never
+#     "Ida" mid-prose) — this table is registered org names, not free subject text;
+#   * a tagged acronym only collapses when the name MINUS the tag normalises to the acronym's OWN
+#     expansion, so self-acronyms ("… (CIF)") fold but a PARENT tag does not — "BioPharmaChem
+#     Ireland (Ibec)" stays BioPharmaChem, it is not Ibec.
+# Applied IDENTICALLY to both the diary matched_org_name and the register lobbyist_name so the two
+# sides converge. Adds no new manual list and inherits ACRONYMS' curated single-meaning precision.
+_ACR_TAG = {
+    a: re.compile(rf"(\(\s*{re.escape(a)}\s*\))|([-–]\s*{re.escape(a)}\s*$)|(^\s*{re.escape(a)}\s*[-–])", re.IGNORECASE)
+    for a in ACRONYMS
+}
+
+
+def org_key(name: str | None) -> str:
+    """Normalised org-identity key that bridges register acronym-tagged names to the diary
+    canonical (see comment above). Falls back to norm(). Safe to apply to either side."""
+    if not name:
+        return ""
+    s = name.strip()
+    if s.upper() in ACRONYMS:  # whole name IS the acronym: "Ibec", "SIPTU"
+        return norm(ACRONYMS[s.upper()])
+    for acr, rx in _ACR_TAG.items():  # "Full Name (ACR)" / "Full Name - ACR": fold only its OWN acronym
+        if rx.search(s) and norm(rx.sub(" ", s)) == norm(ACRONYMS[acr]):
+            return norm(ACRONYMS[acr])
+    return norm(s)
+
+
 def surname_key(name: str | None) -> str:
     """Crude surname key: ASCII-folded last token, trailing possessive 's' stripped.
 
@@ -332,7 +370,7 @@ def main() -> int:
         )
         .with_columns(
             [
-                pl.col("matched_org_name").map_elements(norm, return_dtype=pl.Utf8).alias("org_nk"),
+                pl.col("matched_org_name").map_elements(org_key, return_dtype=pl.Utf8).alias("org_nk"),
                 pl.col("minister_resolved").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
                 pl.col("matched_org_name").map_elements(sector_for, return_dtype=pl.Utf8).alias("sector"),
             ]
@@ -345,7 +383,7 @@ def main() -> int:
     # corroboration: (org_nk, minister surname) pairs the register says were lobbied as a Minister
     pol = pl.read_parquet(POL).with_columns(
         [
-            pl.col("lobbyist_name").map_elements(norm, return_dtype=pl.Utf8).alias("org_nk"),
+            pl.col("lobbyist_name").map_elements(org_key, return_dtype=pl.Utf8).alias("org_nk"),
             pl.col("full_name").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
         ]
     )
