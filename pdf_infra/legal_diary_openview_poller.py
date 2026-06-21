@@ -6,7 +6,7 @@ COMPANION to pdf_infra/legal_diary_poller.py. That poller grabs the single /down
 jurisdiction and archives one HTML detail document per sitting, giving the FULL history
 for the Circuit Court (entirely absent from the .docx) and the higher courts.
 
-SOURCE (discovered 2026-06-16, see doc/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md)
+SOURCE (discovered 2026-06-16, see doc/archive/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md)
   Index:  /legaldiary.nsf/<slug>?OpenView&Jurisdiction=<slug>&... -> rows
           <tr class="clickable-row" data-url="/legaldiary.nsf/<slug>/<UNID>?OpenDocument">
           cells include a Date and an "Updated" date.

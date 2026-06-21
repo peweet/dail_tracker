@@ -136,4 +136,4 @@ actually for. Building the view first means both surfaces are cheap.
 - Extractors: `pipeline_sandbox/housing/ssha_appendix_wide_extract_experimental.py`,
   `noac_housing_wide_extract_experimental.py`, `extractors/cso_pxstat_extract.py`
 - Tripwire: `test/sql_views/test_sql_views.py::test_constituency_housing_enrichment_views_build`
-- Prior plans: `doc/HOUSING_TIER_B_NOAC_PLAN.md`, `doc/SSHA_social_housing_summary.md`
+- Prior plans: `doc/archive/HOUSING_TIER_B_NOAC_PLAN.md`, `doc/SSHA_social_housing_summary.md`
