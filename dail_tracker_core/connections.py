@@ -63,7 +63,10 @@ EXTERNAL_LINKS_FILES = ["member_external_links.sql"]
 CONTACT_DETAILS_FILES = ["member_contact_details.sql"]
 
 # {NEWS_MENTIONS_PARQUET_PATH} — optional (parquet may be absent on a fresh run).
-NEWS_MENTIONS_FILES = ["member_news_mentions.sql"]
+# member_news_feed.sql JOINs v_member_news_mentions + v_member_registry_all (the
+# cross-member "In the News" feed), so it must register AFTER member_news_mentions.sql
+# here AND after the registry phase (REGISTRY_FILES, registered first below).
+NEWS_MENTIONS_FILES = ["member_news_mentions.sql", "member_news_feed.sql"]
 
 # {PARQUET_PATH} + {SEANAD_VOTE_PARQUET_PATH} — vote_base must precede its dependents.
 VOTE_FILES = [

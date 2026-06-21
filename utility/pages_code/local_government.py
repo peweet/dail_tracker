@@ -56,6 +56,7 @@ from ui.components import (
     subsection_heading,
     totals_strip,
 )
+from ui.entity_links import council_spending_url
 
 _SALARY_BAND = "€132,511–€189,301"  # national CE pay scale (not published per-council)
 _LGA_URL = "https://www.irishstatutebook.ie/eli/2001/act/37/enacted/en/html"
@@ -527,9 +528,21 @@ def _card_council_money(name: str) -> str:
         rows.append(_metric(_eur(paid), "Paid — actual payments over €20k"))
     rows.append(_metric(_int(r.get("n_suppliers")), "Suppliers paid"))
     yr = f"{_int(r.get('min_year'))}–{_int(r.get('max_year'))}"
+    # Drill-down CTA: land on the council's spending dossier (suppliers, then the individual
+    # published line items) on the Council Spending page. Open on the tier this council actually
+    # publishes — most publish purchase ORDERS (COMMITTED), so default there unless it has
+    # actual payments (SPENT). Cross-page <a href> (not a soft rerun): different page, different
+    # query-param namespace (?paid_publisher= vs this page's ?la=).
+    tier = "SPENT" if (paid is not None and not pd.isna(paid) and float(paid) > 0) else "COMMITTED"
+    cta = (
+        f'<a class="lg-card-cta" href="{_h(council_spending_url(name, tier))}" target="_self" '
+        f'aria-label="See {_h(name)} suppliers and the individual published line items">'
+        "See its suppliers &amp; every line item →</a>"
+    )
     return _stat_card(
         "Council money (executive-signed)", rows,
         f"Council purchase-order / payment disclosures, {yr}. Councillors sign none of this.",
+        extra=cta,
     )
 
 

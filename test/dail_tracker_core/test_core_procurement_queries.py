@@ -427,6 +427,27 @@ def test_payment_lines_for_pair_is_the_leaf(conn):
     assert vals == sorted(vals, reverse=True)
 
 
+def test_payment_lines_for_supplier_spans_all_bodies(conn):
+    """The all-bodies leaf (the 'what comprised this' view for a corporate-group member card)
+    returns one firm's individual lines across every paying body in a tier — same columns as the
+    per-pair leaf PLUS publisher_name, biggest first, and at least as many rows as any single pair."""
+    top = q.payments_supplier_summary(conn, tier="SPENT", limit=1)
+    if not top.ok or top.is_empty:
+        pytest.skip("no payment rows")
+    norm = top.data.iloc[0]["supplier_normalised"]
+    r = q.payment_lines_for_supplier(conn, norm, tier="SPENT")
+    assert r.ok is True and not r.is_empty
+    assert {"publisher_name", "period", "year", "description", "amount_eur", "source_file_url"}.issubset(
+        set(r.data.columns)
+    )
+    vals = [v for v in r.data["amount_eur"].tolist() if v is not None]
+    assert vals == sorted(vals, reverse=True)
+    # The all-bodies leaf is a superset of any one pair's lines (it drops the publisher filter).
+    body = r.data.iloc[0]["publisher_name"]
+    pair = q.payment_lines_for_pair(conn, norm, body, tier="SPENT")
+    assert pair.ok and len(r.data) >= len(pair.data)
+
+
 def test_single_bid_notices_for_cpv_drill(conn):
     """Each single-bid market card must drill into the individual single-bid notices, each with a
     TED notice_url. Restricted to the api lane (the single-bid field's only source)."""

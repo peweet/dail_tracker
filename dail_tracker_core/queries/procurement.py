@@ -169,6 +169,45 @@ def competition(
     return _run(conn, sql, params)
 
 
+def bid_signal(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    trade_code: str | None = None,
+    min_awards: int = 20,
+    limit: int | None = None,
+) -> QueryResult:
+    """EXPERIMENTAL "Should I bid?" signals per CPV trade from ``v_procurement_bid_signal``.
+
+    NOT a price. The pricing-by-comparable investigation proved this data cannot quote a job
+    (4.5x–15x intra-trade spread; headline value mixes framework ceilings 14x–79x above real
+    awards). This returns FACTS for a bidder to reason from, each with its own n so a thin
+    sample is visible: the contract-award band (p25/median/p75, ceilings excluded), the
+    ceiling context shown separately, competition (median bids + single-bid rate), and SME
+    win rate. All aggregation lives in the view; the page renders, never computes. A high
+    single-bid rate is a prompt to look, never a verdict (niche/specialist/urgent are legit).
+
+    ``trade_code`` filters to one 4-digit CPV trade; ``min_awards`` drops noisy small trades
+    (ignored when a specific ``trade_code`` is requested)."""
+    cols = (
+        "trade_code, trade_label, n_awards_total, n_contract_awards, award_p25_eur,"
+        " award_median_eur, award_p75_eur, n_recent_contract_awards, n_framework_ceilings,"
+        " ceiling_median_eur, n_with_bid_data, median_bids, n_single_bid, single_bid_pct,"
+        " n_with_sme_data, n_sme_won, sme_win_pct"
+    )
+    params: list = []
+    if trade_code:
+        sql = f"SELECT {cols} FROM v_procurement_bid_signal WHERE trade_code = ?"
+        params.append(str(trade_code))
+    else:
+        sql = f"SELECT {cols} FROM v_procurement_bid_signal WHERE n_awards_total >= ?"
+        params.append(int(min_awards))
+    sql += " ORDER BY n_awards_total DESC"
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
 def awards_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Company-class award counts per calendar year (the trend lens — 'is contract activity
     rising?'). Counts only, pre-aggregated; the page renders, never computes."""
@@ -921,6 +960,27 @@ def payment_lines_for_pair(
         " WHERE supplier_normalised = ? AND publisher_name = ? AND realisation_tier = ?"
         " ORDER BY amount_eur DESC NULLS LAST LIMIT ?",
         [supplier_norm, publisher_name, _tier(tier), int(limit)],
+    )
+
+
+def payment_lines_for_supplier(
+    conn: duckdb.DuckDBPyConnection, supplier_norm: str, *, tier: str = "SPENT", limit: int = 500
+) -> QueryResult:
+    """Every published payment LINE ITEM for ONE supplier across ALL public bodies in one
+    lifecycle tier — the 'what comprised this figure' leaf for a corporate-group member card.
+    A group member aggregates a firm over several bodies, so its headline has no single body to
+    drill into; this lists the constituent records directly, each carrying its paying body
+    (period, description, PO number, amount, source). One row per line, biggest first. Sum-safe
+    flag rides along; never summed across vat_status. Mirrors ``payment_lines_for_pair`` but with
+    no publisher filter and the body name selected so the page can label each line."""
+    return _run(
+        conn,
+        "SELECT publisher_name, period, year, description, po_number, amount_eur, value_kind,"
+        " value_safe_to_sum, vat_status, paid_status, source_file_url"
+        " FROM v_procurement_payments"
+        " WHERE supplier_normalised = ? AND realisation_tier = ?"
+        " ORDER BY amount_eur DESC NULLS LAST LIMIT ?",
+        [supplier_norm, _tier(tier), int(limit)],
     )
 
 

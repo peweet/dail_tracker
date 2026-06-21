@@ -1500,11 +1500,18 @@ def _render_news_mentions_block(df: pd.DataFrame, member_name: str) -> None:
     tier badge, most-recent first. Pure presentation — the rows (incl. the name match) are produced
     by the extractor/view; this only renders them. A mention is not an assertion by this site."""
     n = 0 if df is None or df.empty else len(df)
-    with st.expander(f"📰 Recent media mentions ({n})", expanded=False):
+    # Open by default when there IS coverage so the count isn't hidden behind a
+    # click; stay collapsed (honest empty state) for members with nothing recent.
+    with st.expander(f"📰 Recent media mentions ({n})", expanded=n > 0):
+        feed_url = f"/{PAGES['news']}"
         if n == 0:
             st.caption(
                 f"No recent media mentions matched {_h(member_name)} in the last 30 days of Irish "
                 "news searched. Coverage is name-matched and skews to higher-profile members."
+            )
+            st.html(
+                f"<a href='{feed_url}' target='_self' style='font-size:0.85rem;font-weight:600;"
+                "color:#1d4ed8;text-decoration:none'>See all members in the news →</a>"
             )
             return
         cards = []
@@ -1535,6 +1542,10 @@ def _render_news_mentions_block(df: pd.DataFrame, member_name: str) -> None:
         st.caption(
             "Name-matched from a public news search. A mention is not an assertion by this site "
             "and does not imply involvement; headlines link to the publisher."
+        )
+        st.html(
+            f"<a href='{feed_url}' target='_self' style='font-size:0.85rem;font-weight:600;"
+            "color:#1d4ed8;text-decoration:none'>See all members in the news →</a>"
         )
 
 

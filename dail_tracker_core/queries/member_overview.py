@@ -191,6 +191,20 @@ def news_mentions(conn: duckdb.DuckDBPyConnection, join_key: str, limit: int = 3
     )
 
 
+def news_feed(conn: duckdb.DuckDBPyConnection, limit: int = 600) -> QueryResult:
+    """Cross-member news feed (every member's recent coverage in one stream), most-recent
+    first. One row per (member × article); a row is a name match, not an assertion the
+    article is about the member (see v_news_mentions_recent). The page facets the frame
+    (outlet tier, headline-only) in pandas — this is retrieval only."""
+    return _run(
+        conn,
+        "SELECT member_name, unique_member_code, party_name, constituency, house, is_current,"
+        " outlet, outlet_tier, article_title, article_url, published_at, match_in_title"
+        " FROM v_news_mentions_recent ORDER BY published_at DESC NULLS LAST LIMIT ?",
+        [limit],
+    )
+
+
 def votes_summary(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
     return _run(
         conn,

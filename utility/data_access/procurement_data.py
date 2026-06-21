@@ -62,6 +62,18 @@ def fetch_awards_by_year_result() -> QueryResult:
     return _q.awards_by_year(get_procurement_conn())
 
 
+@st.cache_data(ttl=600)
+def fetch_bid_signal_result(
+    trade_code: str | None = None, min_awards: int = 20, limit: int | None = None
+) -> QueryResult:
+    """EXPERIMENTAL "Should I bid?" signals per CPV trade (v_procurement_bid_signal).
+    Facts a bidder reasons from — award band, ceiling context, competition, SME-win rate —
+    never a price. All aggregation in the view; this is a cached pass-through."""
+    return _q.bid_signal(
+        get_procurement_conn(), trade_code=trade_code, min_awards=min_awards, limit=limit
+    )
+
+
 @st.cache_data(ttl=300)
 def fetch_value_contrast_result() -> QueryResult:
     """Whole-corpus naive-vs-safe value contrast for the '€570bn that isn't' panel
@@ -205,6 +217,14 @@ def fetch_payment_lines_for_pair_result(supplier_norm: str, publisher_name: str,
     """The published payment line items for one (supplier × public body × tier) pair — the leaf
     of the payments drill-down (breaks the supplier↔body card loop by finally showing records)."""
     return _q.payment_lines_for_pair(get_procurement_conn(), supplier_norm, publisher_name, tier=tier)
+
+
+@st.cache_data(ttl=300)
+def fetch_payment_lines_for_supplier_result(supplier_norm: str, tier: str = "SPENT") -> QueryResult:
+    """Every published payment line for one supplier across ALL public bodies in one tier — the
+    'what comprised this' leaf for a corporate-group member card (whose total spans bodies, so it
+    has no single pair to drill into). Each line carries its paying body."""
+    return _q.payment_lines_for_supplier(get_procurement_conn(), supplier_norm, tier=tier)
 
 
 @st.cache_data(ttl=300)

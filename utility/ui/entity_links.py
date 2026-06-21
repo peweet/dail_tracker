@@ -85,6 +85,15 @@ PAGES: dict[str, str] = {
     # appointed Chief Executive + published accountability indicators, keyed by
     # ?la=<local_authority>. The constituency dossier links serving councils here.
     "local_government": "local-government",
+    # /rankings-council-spending is the Council Spending page (council index ->
+    # per-council dossier -> supplier line items), keyed by ?paid_publisher=. The
+    # url_path keeps its historic "rankings-" prefix so existing deep links resolve
+    # even though the page now lives under the "Your Area" nav group.
+    "council_spending": "rankings-council-spending",
+    # /in-the-news is the cross-member news feed (recent name-matched coverage of
+    # any member). The per-member "Recent media mentions" card on member-overview
+    # links here to "see all members in the news".
+    "news": "in-the-news",
 }
 
 
@@ -164,6 +173,21 @@ def council_accountability_url(local_authority: str) -> str:
     than dropping the user on the generic council index.
     """
     return f"/{PAGES['local_government']}?la={_q(local_authority)}"
+
+
+def council_spending_url(council: str, tier: str = "COMMITTED") -> str:
+    """Cross-page link into a council's spending dossier on the Council Spending page:
+    /rankings-council-spending?paid_publisher=<council>&paid_tier=<tier>. The page resolves
+    ``paid_publisher`` against ``v_procurement_council_summary.council`` (which is the same
+    join key as ``v_la_chief_executives.local_authority`` for the ~23 publishing councils),
+    landing the reader on that council's suppliers and, one click deeper, the published line
+    items. ``tier`` is ``COMMITTED`` (purchase orders) or ``SPENT`` (actual payments) — pass
+    the tier the council actually publishes so the dossier opens populated.
+
+    Use this from OTHER pages (e.g. the "Who runs your county" dossier under Your Area) to
+    carry a council straight into its spending breakdown rather than the generic index.
+    """
+    return f"/{PAGES['council_spending']}?paid_publisher={_q(council)}&paid_tier={_q(tier)}"
 
 
 def lobbying_org_url(org_name: str) -> str:
