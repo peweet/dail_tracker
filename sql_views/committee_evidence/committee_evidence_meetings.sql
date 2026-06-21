@@ -53,7 +53,28 @@ persons AS (
 SELECT
     m.committee_code,
     m.committee_name,
-    lower(m.committee_name)                       AS committee_key,
+    -- Crosswalk key to the membership register's committee name. Two glyph/formation
+    -- gaps make a literal lower() match miss a committee's meetings:
+    --   (1) the API's showAs renders apostrophes as the typographic ' (U+2019) while
+    --       the register uses ASCII ' (U+0027) — e.g. "Committee on Members' Interests
+    --       of Dáil Éireann";
+    --   (2) the Oireachtas runs each committee in two FORMATIONS — the Joint committee
+    --       (both houses, scrutiny) and the Select committee (one house, bill stages) —
+    --       and records meetings under whichever sat. A citizen sees one committee, so
+    --       both formations' meetings must surface on either page.
+    -- The key therefore folds curly apostrophes to ASCII, collapses whitespace,
+    -- lowercases, and strips the leading formation prefix down to the topic stem
+    -- ("Joint/Select Committee on X" / "Comhchoiste/Roghchoiste X" -> "x"). Verified
+    -- no two distinct committees collapse to the same stem (only Joint/Select twins do),
+    -- and renamed previous-term committees keep distinct stems (they don't leak in).
+    regexp_replace(
+        lower(trim(regexp_replace(
+            replace(replace(m.committee_name, chr(8217), ''''), chr(8216), ''''),
+            '\s+', ' ', 'g'
+        ))),
+        '^(seanad |dail )?(joint |select )?(committee (on|of) |comhchoiste |roghchoiste )',
+        ''
+    )                                            AS committee_key,
     m.house_no,
     m.date,
     m.source_xml,

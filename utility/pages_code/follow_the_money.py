@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.freshness_data import freshness_line
 from data_access.procurement_data import (
+    fetch_entity_search_result,
     fetch_payment_group_header_result,
     fetch_payment_group_members_result,
     fetch_payments_supplier_header_result,
@@ -51,7 +52,14 @@ from pages_code.procurement import (
     _render_payments_publisher_profile,
     _render_payments_supplier_profile,
 )
-from ui.components import back_button, clickable_card_link, empty_state, hero_banner, hide_sidebar
+from ui.components import (
+    back_button,
+    clickable_card_link,
+    empty_state,
+    hero_banner,
+    hide_sidebar,
+    text_search_mask,
+)
 from ui.source_pdfs import provenance_expander
 
 # A topical, ready-made starting trail — the question that prompted this page. The publisher
@@ -352,6 +360,58 @@ def _render_group(slug: str, tier: str, *, on_back) -> None:
     st.html(_PAY_FOOT_HTML)
 
 
+# ── search (jump straight onto a node) ─────────────────────────────────────────
+def _render_search() -> None:
+    """Search-first entry to the trail: type a company or public body and drop straight onto its
+    node instead of scrolling the top-N lists. DISPLAY-ONLY name filter over the pre-built search
+    corpus (v_procurement_entity_search), narrowed to the PAID registers this page walks; renders
+    nothing until the reader types. Each hit links via the same ?paid_* scheme the rail tracks, so a
+    match begins (or extends) the trail exactly like the featured tiles do — it computes nothing."""
+    res = fetch_entity_search_result()
+    if not res.ok or res.data.empty:
+        return
+    q = st.text_input(
+        "Search the money trail",
+        placeholder="Search a company or public body…",
+        key="mf_search_q",
+        label_visibility="collapsed",
+    )
+    qs = (q or "").strip()
+    if not qs:
+        return
+    df = res.data
+    df = df[df["entity_kind"].isin(("paid_supplier", "paid_body"))]
+    hits = df[text_search_mask(df, qs, ["display_name"])].head(12)
+    if hits.empty:
+        empty_state("No matches", "Try a shorter term — names are matched as published by the body.")
+        return
+    kind_label = {"paid_supplier": "COMPANY", "paid_body": "PUBLIC BODY"}
+    cards = []
+    for r in hits.itertuples():
+        kind = str(r.entity_kind)
+        tier = (_coalesce(getattr(r, "paid_tier", None)) or "SPENT").upper()
+        nc, n = _n(r.n_counterparties), _n(r.n_records)
+        meta = f"{n:,} published line{'s' if n != 1 else ''}"
+        meta += (
+            f" · {nc:,} public bod{'ies' if nc != 1 else 'y'}"
+            if kind == "paid_supplier"
+            else f" · {nc:,} supplier{'s' if nc != 1 else ''}"
+        )
+        pills = [f'<span class="pr-pill pr-pill-lob">{kind_label.get(kind, kind)}</span>']
+        paid = _paid_pill(getattr(r, "paid_safe_eur", None), tier)
+        if paid:
+            pills.append(paid)
+        if kind == "paid_supplier":
+            href = _rail_href({"paid_supplier": r.url_key, "paid_tier": tier})
+            aria = f"Follow the money paid to {r.display_name}"
+        else:
+            href = _rail_href({"paid_publisher": r.url_key, "paid_tier": tier})
+            aria = f"Follow the money paid by {r.display_name}"
+        inner = _card(f"<span>{_esc(r.display_name)}</span>", meta, pills)
+        cards.append(clickable_card_link(href=href, inner_html=inner, aria_label=aria))
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+
 # ── landing ───────────────────────────────────────────────────────────────────
 def _render_landing() -> None:
     hero_banner(
@@ -360,6 +420,8 @@ def _render_landing() -> None:
         dek="Pick a public body or a company, then walk the trail — who it pays, and the "
         "individual published records behind each figure.",
     )
+    # Search-first: jump straight onto a node rather than scrolling the top-N lists below.
+    _render_search()
     # The ready-made trail that prompted the page.
     st.html(
         '<a class="mf-featured" href="'

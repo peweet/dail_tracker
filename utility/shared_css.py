@@ -571,6 +571,14 @@ def inject_css() -> None:
             color: #ffffff !important;
             font-weight: 600 !important;
         }
+        /* Committee-register status filter: keep the 3 chips ("All statuses /
+           Active / Ended") on a single line. In its narrow filter-bar column
+           the group otherwise wraps "Ended" below the others, breaking the
+           row baseline. Scoped to the reg_status key so other segmented
+           controls keep their default wrapping. */
+        [class*="st-key-reg_status"] [data-testid="stButtonGroup"] {
+            flex-wrap: nowrap !important;
+        }
 
         /* ── Back buttons (rendered via components.back_button) ────────
            Stands out against the beige page bg via dark-navy fill +
@@ -2832,6 +2840,24 @@ def inject_css() -> None:
             border: 1px solid var(--border);
             border-radius: 2px;
             font-family: 'Epilogue', sans-serif;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+            transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+        }
+        a.pay-year-row:hover {
+            border-color: var(--text-secondary);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        a.pay-year-row:focus-visible {
+            outline: 2px solid var(--text-primary);
+            outline-offset: 1px;
+        }
+        .pay-year-row-active {
+            border-color: var(--text-primary);
+            border-left: 3px solid var(--text-primary);
+            padding-left: calc(0.7rem - 2px);
+            background: var(--surface);
         }
         .pay-year-yr {
             font-family: 'Zilla Slab', Georgia, serif;

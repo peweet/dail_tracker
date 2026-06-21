@@ -115,7 +115,10 @@ def _stage_register(
         st.markdown(
             '<p class="sidebar-label" style="margin-bottom:0.2rem">Filter committees</p>', unsafe_allow_html=True
         )
-        f_search, f_type, f_status = st.columns([3, 2, 2])
+        # Status is a 3-chip segmented control ("All statuses / Active /
+        # Ended"); give it more room than the type selectbox so the last chip
+        # doesn't wrap onto a second line and break the filter-row baseline.
+        f_search, f_type, f_status = st.columns([5, 3, 4])
         with f_search:
             # P1-2 audit fix: placeholder previously suggested live filter
             # ("e.g. Finance, Health…"); Streamlit's st.text_input applies
@@ -151,17 +154,18 @@ def _stage_register(
             '<p class="sidebar-label" style="margin-bottom:0.2rem">Or look up a member</p>', unsafe_allow_html=True
         )
         all_names = sorted(df_long["name"].dropna().unique().tolist())
-        # Round-3 audit P1-E: the underlying typeahead only fires its
-        # callback when the user PICKS from the suggestions dropdown
-        # (typing + Enter doesn't return a value). Make that expectation
-        # explicit so keyboard users aren't left wondering why Enter
-        # does nothing.
-        st.caption("Type a name then **pick from the suggestions** to open that member's committee profile.")
         chosen_td = find_a_td_search(
             all_names,
             key_prefix="reg",
             placeholder=f"Type a {member_label[:-1]} name…",
         )
+        # Round-3 audit P1-E: the underlying typeahead only fires its
+        # callback when the user PICKS from the suggestions dropdown
+        # (typing + Enter doesn't return a value). Make that expectation
+        # explicit so keyboard users aren't left wondering why Enter
+        # does nothing. Hint sits BELOW the inputs so the input row aligns
+        # with the left-hand filter row (a caption above pushed it down).
+        st.caption("Type a name then **pick from the suggestions** to open that member's committee profile.")
         # Phase 8: per-TD committee profile lives on /member-overview. The
         # typeahead renders an inline confirmation link (not a full-page
         # redirect — the register stays visible). Round-3 audit fix: resolve
