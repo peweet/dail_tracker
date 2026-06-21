@@ -182,6 +182,55 @@ def test_attendance_by_year_totals_and_filters_null_year(tmp_path):
     assert not any("member" in n.lower() for n in out["full_name"].to_list())
 
 
+def test_attendance_resolves_former_member_via_historic_roster(tmp_path):
+    """A TD who sat in a given year but has left the Dáil is off the CURRENT roster, so the
+    current-spine join leaves unique_member_code empty. The historic-roster fallback resolves
+    them (it carries former members + their codes), while current members are unaffected. This
+    pins the fix for the 117 unmatched 2023-24 rows (Coveney/Howlin/… were former members)."""
+    members_csv = _members_csv(
+        tmp_path, [_member_row("Mary Lou", "McDonald", "MaryLou.McDonald.D.2011-02-25", party="SF")]
+    )
+    members_wide, _ = _build_members_and_master(members_csv)
+
+    # historic roster: a FORMER TD (Coveney) absent from the current roster, with a real code.
+    historic_csv = tmp_path / "historic.csv"
+    pl.DataFrame(
+        {
+            "unique_member_code": ["Simon.Coveney.D.2011-02-25"],
+            "first_name": ["Simon"],
+            "last_name": ["Coveney"],
+            "constituency_name": ["Cork South-Central"],
+            "full_name": ["Simon Coveney"],
+            "party": ["FG"],
+            "ministerial_office": [None],
+        }
+    ).write_csv(historic_csv)
+
+    fact = tmp_path / "fact.csv"
+    pl.DataFrame(
+        {
+            "first_name": ["Mary Lou", "Simon"],
+            "last_name": ["McDonald", "Coveney"],
+            "identifier": ["McDonald_Mary Lou", "Coveney_Simon"],
+            "year": [2023, 2023],
+            "sitting_days_count": [10, 7],
+            "other_days_count": [2, 1],
+        }
+    ).write_csv(fact)
+
+    parquet_path = tmp_path / "aby.parquet"
+    _build_attendance_by_year(members_wide, fact, tmp_path / "aby.csv", parquet_path, historic_csv)
+    out = pl.read_parquet(parquet_path)
+
+    # former member now resolves to the historic code + party (was empty before the fallback)
+    coveney = out.filter(pl.col("full_name") == "Simon Coveney")
+    assert coveney.height == 1
+    assert coveney["unique_member_code"][0] == "Simon.Coveney.D.2011-02-25"
+    assert coveney["party_name"][0] == "FG"
+    # current member unaffected: keeps its current-roster code, not overwritten by the fallback
+    assert out.filter(pl.col("full_name") == "Mary Lou McDonald")["unique_member_code"][0] == "MaryLou.McDonald.D.2011-02-25"
+
+
 # ── _build_vote_history ──────────────────────────────────────────────────────
 
 

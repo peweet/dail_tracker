@@ -94,8 +94,24 @@ def _build_enriched_attendance(members_wide_df: pl.DataFrame, fact_csv: Path) ->
 _NON_MEMBER_IDENTIFIER = "memberservices"
 
 
+def _historic_meta(historic_csv: Path) -> pl.DataFrame | None:
+    """Fallback member metadata from the HISTORIC (former-member) roster, same sorted-letter
+    join_key. The current API roster is current members only (176), so a TD who sat in a given
+    year but has since left the Dáil resolves to no unique_member_code off the current spine —
+    100 of the 117 unmatched 2023-24 attendance rows (Coveney, Howlin, Collins, …) are exactly
+    these former members and ARE in historic_members_dail. Joined after the current roster."""
+    if not historic_csv.exists():
+        return None
+    h = pl.read_csv(historic_csv, infer_schema_length=None)
+    h = h.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
+    h = normalise_join_key.normalise_df_td_name(h, "join_key")
+    return h.select(
+        ["join_key", "unique_member_code", "full_name", "party", "constituency_name", "ministerial_office"]
+    ).unique(subset=["join_key"], keep="first")
+
+
 def _build_attendance_by_year(
-    members_wide_df: pl.DataFrame, fact_csv: Path, csv_path: Path, parquet_path: Path
+    members_wide_df: pl.DataFrame, fact_csv: Path, csv_path: Path, parquet_path: Path, historic_csv: Path | None = None
 ) -> None:
     """Gold attendance summary — one row per (member, year).
 
@@ -118,9 +134,23 @@ def _build_attendance_by_year(
         ["join_key", "unique_member_code", "full_name", "party", "constituency_name", "ministerial_office"]
     ).unique(subset=["join_key"], keep="first")
 
-    joined = fact.join(meta, on="join_key", how="left").with_columns(
-        # Former/unmatched members have no roster full_name — reconstruct from the
-        # PDF identifier ("Lastname_Firstname") so they render with a real name.
+    joined = fact.join(meta, on="join_key", how="left")
+
+    # Fallback: resolve former members (off the current roster) against the historic roster,
+    # coalescing the current-roster value first so current members are unaffected.
+    hist = _historic_meta(historic_csv) if historic_csv else None
+    if hist is not None:
+        joined = joined.join(hist, on="join_key", how="left", suffix="_hist").with_columns(
+            pl.coalesce(["unique_member_code", "unique_member_code_hist"]).alias("unique_member_code"),
+            pl.coalesce(["party", "party_hist"]).alias("party"),
+            pl.coalesce(["constituency_name", "constituency_name_hist"]).alias("constituency_name"),
+            pl.coalesce(["ministerial_office", "ministerial_office_hist"]).alias("ministerial_office"),
+            pl.coalesce(["full_name", "full_name_hist"]).alias("full_name"),
+        )
+
+    joined = joined.with_columns(
+        # Still-unmatched members (pre-historic-roster former TDs, mojibake names) have no roster
+        # full_name — reconstruct from the PDF identifier ("Lastname_Firstname") so they render.
         pl.coalesce([pl.col("full_name"), pl.col("identifier").str.replace_all("_", " ")]).alias("full_name")
     )
     joined = joined.filter(~pl.col("identifier").str.to_lowercase().str.contains(_NON_MEMBER_IDENTIFIER))
@@ -264,7 +294,10 @@ def main() -> int:
         enriched_df = _build_enriched_attendance(members_wide_df, fact_csv)
         enriched_df.write_csv(enriched_csv_out)
         logging.info("Enriched TD attendance CSV created successfully.")
-        _build_attendance_by_year(members_wide_df, fact_csv, attendance_year_csv, attendance_year_parquet)
+        _build_attendance_by_year(
+            members_wide_df, fact_csv, attendance_year_csv, attendance_year_parquet,
+            SILVER_DIR / "historic_members_dail.csv",
+        )
     else:
         logger.warning(
             "%s missing — skipping enriched_td_attendance + attendance_by_td_year.",
@@ -328,7 +361,10 @@ def main_seanad() -> int:
     if fact_csv.exists():
         enriched_df = _build_enriched_attendance(members_wide_df, fact_csv)
         enriched_df.write_csv(enriched_csv_out)
-        _build_attendance_by_year(members_wide_df, fact_csv, attendance_year_csv, attendance_year_parquet)
+        _build_attendance_by_year(
+            members_wide_df, fact_csv, attendance_year_csv, attendance_year_parquet,
+            SILVER_DIR / "historic_members_seanad.csv",
+        )
     else:
         logger.warning("%s missing — skipping Seanad enriched + attendance_by_year.", fact_csv)
         print(f"WARN: {fact_csv} missing — skipping Seanad enrichment + attendance_by_year.")
