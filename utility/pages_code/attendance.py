@@ -417,12 +417,26 @@ def attendance_page() -> None:
     n_members = len(ranking_df)
     sitting_note = f" · {sitting_days_in_year} {house} sitting days in {selected_year}" if sitting_days_in_year else ""
 
+    # The source is the Travel & Accommodation Allowance verification record, which
+    # by design does not cover the Taoiseach or ministers (office-holders are not
+    # paid TAA on the attendance basis and have no section in the PDFs). So the
+    # member count here is structurally below the full chamber — every member of
+    # the sitting government is absent, not missing. Stating this next to the count
+    # stops the total reading as incomplete data (see _render_missing_members for
+    # the named breakdown).
+    office_holder_note = (
+        f"This is the Travel & Accommodation Allowance record, which does **not** cover "
+        f"the Taoiseach or members holding ministerial office — they are not paid TAA on "
+        f"the attendance basis and have no entry in the source, so the count is below the "
+        f"full {house} by design (the sitting government is absent, not missing). "
+    )
     st.caption(
-        f"{n_members} members on record{sitting_note}. "
-        "The headline figure combines **plenary** sitting days with **other** "
+        f"{n_members} {terms.lower()} on record{sitting_note}. "
+        + office_holder_note
+        + "The headline figure combines **plenary** sitting days with **other** "
         "recorded business (committee days etc.), exactly as published in the "
         "official member-attendance (TAA) PDFs — each card shows the split. "
-        f"A TD must attend on at least **{TAA_FULL_ATTENDANCE_MINIMUM_DAYS} days** "
+        f"A {term} must attend on at least **{TAA_FULL_ATTENDANCE_MINIMUM_DAYS} days** "
         "to retain the full Travel & Accommodation Allowance, so the combined "
         "total — not plenary days alone — is the figure that matters for that "
         "threshold. Ministerial duties, illness, and constituency work are "
