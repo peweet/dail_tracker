@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-06-21T13:22:34+00:00",
+  "generated_utc": "2026-06-21T14:02:38+00:00",
   "extractors": {
     "public_body": {
       "run_utc": "2026-06-20T13:21:19+00:00",
@@ -9,11 +9,11 @@
       "breaker_trips": []
     },
     "la_payments": {
-      "run_utc": "2026-06-21T13:22:34+00:00",
+      "run_utc": "2026-06-21T14:02:38+00:00",
       "n_failures": 4,
       "failures": [
         {
-          "ts_utc": "2026-06-21T13:19:53+00:00",
+          "ts_utc": "2026-06-21T14:00:51+00:00",
           "publisher_id": "kilkenny",
           "publisher_name": "Kilkenny",
           "stage": "file",
@@ -24,7 +24,7 @@
           "attempts": 2
         },
         {
-          "ts_utc": "2026-06-21T13:20:54+00:00",
+          "ts_utc": "2026-06-21T14:01:57+00:00",
           "publisher_id": "galway_county",
           "publisher_name": "Galway County",
           "stage": "file",
@@ -35,7 +35,7 @@
           "attempts": 2
         },
         {
-          "ts_utc": "2026-06-21T13:21:03+00:00",
+          "ts_utc": "2026-06-21T14:02:06+00:00",
           "publisher_id": "sligo",
           "publisher_name": "Sligo",
           "stage": "file",
@@ -46,7 +46,7 @@
           "attempts": 1
         },
         {
-          "ts_utc": "2026-06-21T13:21:04+00:00",
+          "ts_utc": "2026-06-21T14:02:08+00:00",
           "publisher_id": "sligo",
           "publisher_name": "Sligo",
           "stage": "file",
@@ -59,7 +59,7 @@
       ],
       "zero_harvest": [
         {
-          "ts_utc": "2026-06-21T13:19:44+00:00",
+          "ts_utc": "2026-06-21T14:00:41+00:00",
           "publisher_id": "wicklow",
           "publisher_name": "Wicklow",
           "listing_url": "https://www.wicklow.ie/Living/Your-Council/Finance/Procurement/Purchase-Orders-Over-20-000"

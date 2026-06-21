@@ -96,6 +96,31 @@ def test_date_with_ordinal_and_trailing_weekday():
     assert [e["entry_date"] for e in out] == [date(2024, 7, 1), date(2024, 7, 2)]
 
 
+def test_numeric_date_header_subject_on_next_line():
+    # Early DETE junior diaries (Halligan/Breen/Mitchell-O'Connor 2016-18 "Meeting Time / Subject"
+    # two-column print): a bare "DD/MM/YYYY HH:MM" header on its own line with the subject on the
+    # NEXT line. The inline one-liner regex misses these (no same-line subject) → they used to parse
+    # to zero (text_layout_unrecognised). A date with NO time is a status row, not a meeting → dropped.
+    text = "\n".join(
+        [
+            "Meeting Time",
+            "Subject",
+            "02/10/2017 10:30",
+            "DBEI Departmental Brexit workshop",
+            "02/10/2017 15:00",
+            "IDA Ireland Photo Op",
+            "03/10/2017",  # date only, no time → "Dáil not sitting" is not an engagement
+            "Dáil not sitting",
+        ]
+    )
+    out = parse_entries(text, default_year=None, default_month=None)
+    assert len(out) == 2
+    assert out[0]["entry_date"] == date(2017, 10, 2)
+    assert out[0]["time_slot"] == "10:30"
+    assert out[0]["subject"] == "DBEI Departmental Brexit workshop"
+    assert out[1]["subject"] == "IDA Ireland Photo Op"
+
+
 def test_short_date_without_year_is_dropped_not_guessed():
     # A short date with no year and no default cannot be resolved — the no-inference
     # rule says drop it, never fabricate a year. The following entry must not inherit it.

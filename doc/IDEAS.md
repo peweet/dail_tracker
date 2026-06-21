@@ -159,7 +159,7 @@ Four sources INGESTED to sandbox 2026-06-12 (`pipeline_sandbox/*_extract.py` →
 - **Highlights page (editorial front door)** 📋 — magazine front page, 5 ranked "stories" from existing views, replaces Attendance as default route. *Mostly UI; Story 1 needs `v_lobbying_index_year`.* | `highlights_page_idea`
 - **Minister Activity page** 📋 — per-minister lobbying contacts + SIs signed, joined on topic. *Hardest gap: lobbying↔SI topic crosswalk; SI actor is free-text.* | `minister_activity_feature`
 - **Policy-to-Action Trace** 📋 (MVP ~1.5-2wk; eISB link-out shipped) — co-located public-record timeline (PQ + lobbying + SI + eISB) per topic. *Strictly descriptive, no causal arrows.* | `policy_to_action_trace_scoping`
-- **Lobbying-to-Regulation Timeline** 📋 — windowed join of lobbying returns → SIs by responsible dept. *Coincidence not causation; no parsed signing date (Iris issue_date proxy).* | `lobbying_to_regulation_timeline`
+- **Lobbying-to-Regulation Timeline** 📋 — windowed join of lobbying returns → SIs by responsible dept. *Coincidence not causation; no parsed signing date (Iris issue_date proxy).*
 
 > **Consolidate before building:** Minister Activity, Policy-to-Action, and Lobbying-to-Regulation are three takes on the *same* lobbying↔SI↔topic join with the same hard deps (department alias table, lobbying↔SI topic crosswalk, SI responsible-actor resolution).
 
@@ -189,11 +189,11 @@ The individual sources are useful; the value is assembling them into pages that 
 
 ## 15. Product / operations / distribution themes
 
-Per `dail_tracker_improvements_v4` ("operationalise, don't expand"), `SHORT_TERM_PLAN` (8-week alpha), `TICKETS` (DAIL-xxx), `cron_only_longevity_and_data_health_plan`, `CITATION_AND_DATA_PLAN`, `dail_tracker_suggestions_fixes`:
+Operational / distribution themes ("operationalise, don't expand"). The detailed plan docs that once tracked these (the v4 improvements plan, 8-week alpha ticket backlog, cron-longevity and source-health plans) have been retired now that the work largely shipped — see the live `doc/CI_CD.md` and `doc/CONTINUOUS_REFRESH.md` for current status:
 
 - **Seanad parity** ✅ built+integrated (`seanad-app-parity` branch) — Senators are first-class members at full TD parity (ETL on main, all gold built, all UI chamber-aware, identity keyed on `(unique_member_code, house)`). Open: Seanad attendance denominator, curated provenance-PDF list. | `SEANAD_*`
-- **Auto-refresh + publish-don't-crawl** 📋 — `pipeline.py --refresh` + per-mart manifests, GitHub Actions cron, `data` branch, polite HTTP helper, golden-file parser tests, row-count/schema drift guards, 3-tier alerts. | `TICKETS`, `cron_only_longevity`
-- **`dataset_health.json` + publish-guard PR workflow** 📋 — automate *refresh*, not *publication*; cron opens reviewable PRs. (This is the sister `current_source_health_coverage_gaps_claude_plan` theme.)
+- **Auto-refresh + publish-don't-crawl** ◑ largely shipped — per-mart manifests, GitHub Actions cron lanes (`freshness`/`source_health`/`live_tenders_refresh`/`money_flow_refresh`), polite HTTP helper, golden-file parser tests, row-count/schema drift guards. Open: a single fully-unattended end-to-end refresh.
+- **`dataset_health.json` + publish-guard PR workflow** ◑ — automate *refresh*, not *publication*; cron opens reviewable PRs. (Source-health monitoring now lives in `source_health.yml` + `data/_meta/source_health.json`.)
 - **QueryResult wrapper** 📋 P0 — distinguish "no data" from "backend failed" across ~11 data-access modules.
 - **Provenance footer + freshness badge** 📋 (DAIL-008/009).
 - **Vote pagination fix** 📋 — replace `limit=1000` truncating fetch (Questions cap already lifted).
