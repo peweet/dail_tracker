@@ -1296,6 +1296,14 @@ def detect_roles_tab(header, rows):
             # NON_AMOUNT_HDR) before ranking by numeric density.
             strong = [i for i in cands if not NON_AMOUNT_HDR.search(header[i] or "")]
             cands = strong or cands
+            # Drop date/period columns that also match the amount regex. TII's header is
+            # "Period Paid,PAYMENT,…": 'Period Paid' matches amount via 'paid', and its
+            # 'Jan-21' cells parse (to_eur) to 21, which TIES the numeric-density test below
+            # and stole the amount role from the real 'PAYMENT' column on column order — every
+            # row's amount became €21 and the real €-millions were discarded. A column better
+            # classified as period is never the money column when a non-period candidate exists.
+            non_period = [i for i in cands if not ROLE_RE["period"].search(header[i] or "")]
+            cands = non_period or cands
             cands.sort(
                 key=lambda i: (
                     -(sum(to_eur(r[i]) is not None for r in rows[:200] if i < len(r)) / max(1, len(rows[:200])))
@@ -1473,14 +1481,31 @@ DEDUP_SIG = [
 
 
 def dedup_source_repeats(df: pl.DataFrame) -> tuple[pl.DataFrame, int]:
-    """Drop indistinguishable within-file parser repeats (see DEDUP_SIG). Keeps the first
-    occurrence; returns (deduped_df, n_dropped). Errs toward UNDER-deduping: any differing
-    field preserves the row, so genuine distinct payments are never collapsed."""
+    """Drop indistinguishable within-file PDF parser repeats (see DEDUP_SIG). Keeps the
+    first occurrence; returns (deduped_df, n_dropped).
+
+    PDF-ONLY (fixed 2026-06-21). The PDF word-row clusterer can emit the same visual row
+    more than once, which this is here to catch. The tabular readers (xlsx/xls/csv) iterate
+    each source cell EXACTLY ONCE and so cannot manufacture a duplicate — every identical
+    tabular row is a genuinely distinct published payment (e.g. CHI publishes 6 separate
+    €45,398.38 rent invoices in one quarter, no invoice-ref column to tell them apart). The
+    old blanket dedup collapsed those, understating CHI's quarter by €3.74m / 15% vs its own
+    published "Total" row (which reconciles to the UN-deduped sum to 0.15%). So dedup PDF
+    rows only and pass tabular rows through untouched. Errs toward UNDER-deduping even on
+    PDFs: any differing field (notably `description`) preserves the row."""
     if df.is_empty():
         return df, 0
     keys = [c for c in DEDUP_SIG if c in df.columns]
     n = df.height
-    out = df.unique(subset=keys, keep="first", maintain_order=True)
+    if "parser_name" not in df.columns:  # defensive: behave as before if provenance absent
+        out = df.unique(subset=keys, keep="first", maintain_order=True)
+        return out, n - out.height
+    # occ = 0-based rank within each identical-key group, in row order; >0 means a later
+    # repeat. Drop only PDF repeats; tabular rows are never dropped.
+    df = df.with_row_index("_ri")
+    occ = pl.int_range(pl.len()).over(keys)
+    is_pdf_repeat = pl.col("parser_name").str.ends_with("pdf") & (occ > 0)
+    out = df.filter(~is_pdf_repeat).drop("_ri")
     return out, n - out.height
 
 
