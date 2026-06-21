@@ -167,6 +167,9 @@ DEPT_SOURCES: list[tuple[str, str]] = [
         "EDUCATION",
         "https://www.gov.ie/en/department-of-education/collections/department-of-education-ministers-diaries/",
     ),
+    # Taoiseach's diary = per-YEAR collections (add the new year each rotation). 2025 = Martin's
+    # return as Taoiseach (from 2025-01-23), published Q1-Q4 born-digital — added 2026-06-21.
+    ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2025/"),
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2024/"),
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2023/"),
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2022/"),
