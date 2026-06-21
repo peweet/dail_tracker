@@ -1867,6 +1867,18 @@ def main() -> None:
     )
 
     by_publisher = merged_kept_pubs + per_pub  # kept (merge mode) + freshly parsed this run
+    # HONESTY RECONCILIATION: a carried-forward coverage entry (merge mode) keeps the PRIOR run's
+    # row count, which can drift from the written fact — e.g. dept_children (DCEDIY asylum/IP +
+    # Ukraine accommodation POs) is a reading-order PDF layout the generic parser yields 0 rows for,
+    # yet its stale entry kept reporting 30,526 rows, masking the loss. Recompute every entry's row
+    # count from the actual fact so coverage can NEVER claim rows the fact does not contain.
+    _actual_rows = dict(df.group_by("publisher_id").len().iter_rows())
+    for _e in by_publisher:
+        _n = _actual_rows.get(_e.get("id"), 0)
+        if _n != _e.get("rows"):
+            _e["rows"] = _n
+            if _n == 0:
+                _e["files_with_rows"] = 0  # 0 rows in the fact ⇒ no file contributed rows
     cov = {
         "publishers_attempted": len(by_publisher),
         "publishers_with_rows": sum(p.get("rows", 0) > 0 for p in by_publisher),
