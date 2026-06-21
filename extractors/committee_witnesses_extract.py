@@ -124,31 +124,31 @@ def _plain(s: str) -> str:
 # --------------------------------------------------------------------------- enumerate
 
 
-def enumerate_meetings(code: str, max_meetings: int, since: str) -> list[dict]:
-    """Committee meeting records for one committeeCode (newest first) via /v1/debates.
+def enumerate_meetings(since: str, codes: set[str] | None = None) -> list[dict]:
+    """All committee meeting records (newest first) via /v1/debates in a SINGLE pass.
 
-    No silent truncation: logs when the --max-meetings cap is hit so a partial scan is
-    never mistaken for full coverage.
+    One pagination over the committee-debates feed — NOT one per committee — so
+    widening from 2 committees to all ~74 doesn't re-scan the whole feed N times.
+    Filtered to `codes` when given (None = every committee). Records without an XML
+    transcript are skipped (nothing to extract).
     """
     out: list[dict] = []
     skip, page = 0, 500
-    while len(out) < max_meetings:
+    while True:
         data, _ = fetch_json(f"{API}/debates?chamber_type=committee&limit={page}&skip={skip}")
         rows = data.get("results", [])
         if not rows:
             break
+        page_dates: list[str] = []
         for r in rows:
             rec = r.get("debateRecord", {})
-            if rec.get("house", {}).get("committeeCode") != code:
-                continue
+            page_dates.append(rec.get("date", ""))
             if rec.get("date", "") < since or not rec.get("formats", {}).get("xml"):
                 continue
+            code = rec.get("house", {}).get("committeeCode")
+            if not code or (codes is not None and code not in codes):
+                continue
             out.append(rec)
-            if len(out) >= max_meetings:
-                logger.warning("hit --max-meetings cap (%d) for %s; older meetings NOT scanned",
-                               max_meetings, code)
-                return out
-        page_dates = [r.get("debateRecord", {}).get("date", "") for r in rows]
         if page_dates and max(page_dates) < since:
             break
         skip += page
@@ -234,35 +234,51 @@ def extract_meeting(rec: dict) -> dict:
 # ------------------------------------------------------------------------------- main
 
 
-def run(committees: list[str], max_meetings: int, since: str) -> None:
+def run(codes: set[str] | None, since: str, max_per_committee: int) -> None:
+    meetings = enumerate_meetings(since, codes)
+    # Per-committee cap (newest first — the feed is overall newest-first, so each
+    # committee's records arrive newest-first too). 0 = no cap. Logs drops so a
+    # capped scan is never mistaken for full coverage.
+    counts: dict[str, int] = {}
+    capped: list[dict] = []
+    skipped_cap = 0
+    for rec in meetings:
+        code = rec.get("house", {}).get("committeeCode")
+        if max_per_committee and counts.get(code, 0) >= max_per_committee:
+            skipped_cap += 1
+            continue
+        counts[code] = counts.get(code, 0) + 1
+        capped.append(rec)
+    logger.info("scanning %d meetings across %d committees since %s%s",
+                len(capped), len(counts), since,
+                f" (--max-meetings cap dropped {skipped_cap} older meetings)" if skipped_cap else "")
+
     meeting_rows: list[dict] = []
     org_rows: list[dict] = []
     person_rows: list[dict] = []
     dropped = 0
-    for short in committees:
-        code = COMMITTEES[short]
-        meetings = enumerate_meetings(code, max_meetings, since)
-        logger.info("%s (%s): %d meetings since %s", short, code, len(meetings), since)
-        for rec in meetings:
-            ev = extract_meeting(rec)
-            if not ev["reconciled"]:
-                dropped += 1
-                logger.warning("DROP unreconciled meeting api=%s frbr=%s date=%s",
-                               ev["committee_code"], ev["frbr_path_code"], ev["date"])
-                continue
-            base = {k: ev[k] for k in ("committee_code", "committee_name", "house_no", "date", "source_xml")}
-            # per-meeting spine: one row per (committee, date) with topics + counts.
-            meeting_rows.append({
-                **base,
-                "topics": ev["topics"],
-                "n_topics": len(ev["topics"]),
-                "n_orgs": len(ev["orgs"]),
-                "n_persons": len(ev["persons"]),
-            })
-            for o in ev["orgs"]:
-                org_rows.append({**base, **o})
-            for p in ev["persons"]:
-                person_rows.append({**base, "witness_person": p})
+    for i, rec in enumerate(capped, 1):
+        if i % 100 == 0:
+            logger.info("  ... %d/%d meetings processed", i, len(capped))
+        ev = extract_meeting(rec)
+        if not ev["reconciled"]:
+            dropped += 1
+            logger.warning("DROP unreconciled meeting api=%s frbr=%s date=%s",
+                           ev["committee_code"], ev["frbr_path_code"], ev["date"])
+            continue
+        base = {k: ev[k] for k in ("committee_code", "committee_name", "house_no", "date", "source_xml")}
+        # per-meeting spine: one row per (committee, date) with topics + counts.
+        meeting_rows.append({
+            **base,
+            "topics": ev["topics"],
+            "n_topics": len(ev["topics"]),
+            "n_orgs": len(ev["orgs"]),
+            "n_persons": len(ev["persons"]),
+        })
+        for o in ev["orgs"]:
+            org_rows.append({**base, **o})
+        for p in ev["persons"]:
+            person_rows.append({**base, "witness_person": p})
 
     if dropped:
         logger.warning("dropped %d meeting(s) on committee-code reconciliation mismatch", dropped)
@@ -288,13 +304,23 @@ def run(committees: list[str], max_meetings: int, since: str) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Committee-evidence witness extractor (-> silver).")
-    ap.add_argument("--committees", default="pac,housing", help="comma list of: " + ",".join(COMMITTEES))
-    ap.add_argument("--max-meetings", type=int, default=60, help="cap meetings per committee")
-    ap.add_argument("--since", default="2024-01-01", help="ignore meetings before this ISO date")
+    ap.add_argument("--committees", default="all",
+                    help="'all' (default, every committee) or a comma list of named shortcuts: "
+                         + ",".join(COMMITTEES))
+    ap.add_argument("--max-meetings", type=int, default=0,
+                    help="cap meetings PER committee (0 = no cap; newest first)")
+    ap.add_argument("--since", default="2024-09-01", help="ignore meetings before this ISO date")
     args = ap.parse_args()
     setup_standalone_logging("committee_witnesses")
-    committees = [c.strip() for c in args.committees.split(",") if c.strip() in COMMITTEES]
-    run(committees, args.max_meetings, args.since)
+
+    if args.committees.strip().lower() == "all":
+        codes: set[str] | None = None
+    else:
+        shorts = [c.strip() for c in args.committees.split(",") if c.strip() in COMMITTEES]
+        codes = {COMMITTEES[s] for s in shorts}
+        if not codes:
+            ap.error("--committees must be 'all' or a comma list of: " + ",".join(COMMITTEES))
+    run(codes, args.since, args.max_meetings)
 
 
 if __name__ == "__main__":
