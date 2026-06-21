@@ -3406,10 +3406,13 @@ _BIDSIG_CSS = """
   padding:1px 7px;border-radius:6px}
 .bs-tot{margin-left:auto;font-size:.8rem;color:#7a7367}
 .bs-band-cap{font-size:.82rem;color:#57514a;margin:8px 0 4px}
-.bs-track{position:relative;height:26px;background:#f4f1ea;border-radius:7px;margin:6px 0 2px}
+.bs-track{position:relative;height:24px;background:#f4f1ea;border-radius:7px;margin:5px 0 2px}
 .bs-fill{position:absolute;top:0;bottom:0;background:#cfe3d6;border-radius:7px}
 .bs-med{position:absolute;top:-3px;bottom:-3px;width:3px;background:#2f7d54;border-radius:2px}
+.bs-fill-ceil{background:#ecd9b0}
+.bs-med-ceil{background:#9c6f24}
 .bs-band-lab{display:flex;justify-content:space-between;font-size:.74rem;color:#6b6459}
+.bs-band-cap2{font-size:.82rem;color:#57514a;margin:12px 0 4px}
 .bs-rows{margin-top:10px;display:flex;flex-direction:column;gap:5px}
 .bs-row{font-size:.86rem;color:#332f2a}
 .bs-row b{font-weight:650}
@@ -3429,41 +3432,70 @@ def _spread_x(p25, p75):
         return None
 
 
+def _band_bar(p25, med, p75, scale_max: float, *, ceiling: bool = False) -> str:
+    """One horizontal p25–median–p75 band bar, display-only scaled against a SHARED ``scale_max``
+    so two bands in the same card are visually comparable. ``ceiling`` switches to the amber
+    framework palette. Returns '' if the values aren't numeric."""
+    try:
+        lo, mid, hi = float(p25), float(med), float(p75)
+    except (TypeError, ValueError):
+        return ""
+    if scale_max <= 0:
+        return ""
+    fill = "bs-fill bs-fill-ceil" if ceiling else "bs-fill"
+    medc = "bs-med bs-med-ceil" if ceiling else "bs-med"
+    left = max(0.0, min(100.0, lo / scale_max * 100))
+    width = max(1.5, min(100.0 - left, (hi - lo) / scale_max * 100))
+    medpos = max(0.0, min(100.0, mid / scale_max * 100))
+    return (
+        f'<div class="bs-track"><div class="{fill}" style="left:{left:.1f}%;width:{width:.1f}%"></div>'
+        f'<div class="{medc}" style="left:{medpos:.1f}%"></div></div>'
+        f'<div class="bs-band-lab"><span>{_eur(p25)}</span>'
+        f'<span>median {_eur(med)}</span><span>{_eur(p75)}</span></div>'
+    )
+
+
 def _bid_signal_card(r) -> str:
-    """One CPV-trade "Should I bid?" card. Pure render of pre-aggregated view rows: the
-    contract-award band (p25/median/p75, ceilings excluded), a spread caveat so the band is
-    never read as a quote, competition (median bids + single-bid %), SME-win %, and the
-    framework-ceiling context shown SEPARATELY. No recommendation, no inference — facts only."""
+    """One CPV-trade "Should I bid?" card. Pure render of pre-aggregated view rows — TWO bands on
+    a shared scale so the full market range is visible without ever mixing the grains: (1) the
+    single CONTRACT-AWARD band (one job, sum-safe), (2) the FRAMEWORK / multi-supplier ceiling
+    band (the big end — money that may be drawn down, not a single job). Plus competition (median
+    bids + single-bid %) and SME-win %. No recommendation, no inference — facts only."""
     label = _esc(_coalesce(r.get("trade_label"), "—"))
     code = _esc(_coalesce(r.get("trade_code"), ""))
     n_tot = _n(r.get("n_awards_total"))
-    p25, med, p75 = r.get("award_p25_eur"), r.get("award_median_eur"), r.get("award_p75_eur")
+    a_p25, a_med, a_p75 = r.get("award_p25_eur"), r.get("award_median_eur"), r.get("award_p75_eur")
     n_aw = _n(r.get("n_contract_awards"))
     n_recent = _n(r.get("n_recent_contract_awards"))
+    c_p25, c_med, c_p75 = r.get("ceiling_p25_eur"), r.get("ceiling_median_eur"), r.get("ceiling_p75_eur")
+    n_ceil = _n(r.get("n_framework_ceilings"))
 
-    # Band bar (display-only scaling against this trade's own p75).
-    band = ""
-    try:
-        hi = float(p75)
-        lo = float(p25)
-        mid = float(med)
-        if hi > 0:
-            left = max(0.0, min(100.0, lo / hi * 100))
-            width = max(2.0, min(100.0, (hi - lo) / hi * 100))
-            medpos = max(0.0, min(100.0, mid / hi * 100))
-            band = (
-                f'<div class="bs-track"><div class="bs-fill" style="left:{left:.1f}%;width:{width:.1f}%"></div>'
-                f'<div class="bs-med" style="left:{medpos:.1f}%"></div></div>'
-                f'<div class="bs-band-lab"><span>{_eur(p25)}</span>'
-                f'<span>median {_eur(med)}</span><span>{_eur(p75)}</span></div>'
-            )
-    except (TypeError, ValueError):
-        band = ""
+    # Shared scale = the larger of the two bands' p75 so the contrast reads honestly.
+    def _f(x):
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return 0.0
+    scale_max = max(_f(a_p75), _f(c_p75))
 
-    spread = _spread_x(p25, p75)
+    spread = _spread_x(a_p25, a_p75)
     spread_pill = (
         f'<span class="bs-warn">spread ×{spread:.1f} — a band, not a quote</span>'
         if spread and spread >= 3 else ""
+    )
+
+    band_award = _band_bar(a_p25, a_med, a_p75, scale_max)
+    award_block = (
+        f'<div class="bs-band-cap">① Typical <b>single contract award</b> '
+        f'({n_aw:,} awards · {n_recent:,} since 2022){spread_pill}</div>{band_award}'
+        if band_award else ""
+    )
+    band_ceil = _band_bar(c_p25, c_med, c_p75, scale_max, ceiling=True)
+    ceil_block = (
+        f'<div class="bs-band-cap2">② <b>Framework / multi-supplier ceiling</b> '
+        f'({n_ceil:,} agreement{"s" if n_ceil != 1 else ""}) — money that <em>may</em> be drawn '
+        f'down, not one job</div>{band_ceil}'
+        if band_ceil else ""
     )
 
     n_bid = _n(r.get("n_with_bid_data"))
@@ -3474,8 +3506,6 @@ def _bid_signal_card(r) -> str:
     n_sme = _n(r.get("n_with_sme_data"))
     sme_pct = r.get("sme_win_pct")
     sme_txt = f"{float(sme_pct):.0f}%" if sme_pct is not None and not pd.isna(sme_pct) else "—"
-    n_ceil = _n(r.get("n_framework_ceilings"))
-    ceil_med = r.get("ceiling_median_eur")
 
     rows = (
         f'<div class="bs-row">👥 Competition: <b>{med_bids_txt}</b> bidders typical · '
@@ -3483,19 +3513,13 @@ def _bid_signal_card(r) -> str:
         f'<div class="bs-row">🏢 SME wins: <b>{sme_txt}</b> of awards went to an SME '
         f'<span style="color:#8a8275">(of {n_sme:,} with SME data)</span></div>'
     )
-    ceil = (
-        f'<div class="bs-muted">⌈ {n_ceil:,} framework/DPS ceiling{"s" if n_ceil != 1 else ""}'
-        f' here, median {_eur(ceil_med)} — agreement <em>ceilings</em>, not job prices (kept out of the band above).</div>'
-        if n_ceil else ""
-    )
     return (
         '<div class="bs-card">'
         f'<div class="bs-head"><span class="bs-name">{label}</span>'
         f'<span class="bs-code">CPV {code}xxxx</span>'
         f'<span class="bs-tot">{n_tot:,} awards total</span></div>'
-        f'<div class="bs-band-cap">Typical <b>contract award</b> '
-        f'({n_aw:,} real awards · {n_recent:,} since 2022){spread_pill}</div>'
-        f"{band}{('<div class=bs-rows>' + rows + '</div>')}{ceil}</div>"
+        f"{award_block}{ceil_block}"
+        f'<div class="bs-rows">{rows}</div></div>'
     )
 
 
