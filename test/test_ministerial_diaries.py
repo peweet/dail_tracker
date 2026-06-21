@@ -62,6 +62,40 @@ def test_all_day_slot():
     assert "Ploughing" in out[0]["subject"]
 
 
+def test_date_with_trailing_weekday_and_inline_time_range():
+    # O'Brien 2025 (Transport/DECC): "DD Month YYYY - Weekday" header + "HH:MM- HH:MM - subject"
+    # on one line. Without the trailing-weekday allowance the date never matches and entries
+    # inherit the last good date (the 2024-07-08 collapse). The leading "- " is stripped.
+    text = "\n".join(
+        [
+            "27 January 2025 - Monday",
+            "11:00- 15:00 - Meeting with Department of Transport officials",
+            "28 January 2025 - Tuesday",
+            "10:00 - 12:00 - Meeting with DECC Management Board",
+        ]
+    )
+    out = parse_entries(text, default_year=None, default_month=None)
+    assert [e["entry_date"] for e in out] == [date(2025, 1, 27), date(2025, 1, 28)]
+    assert out[0]["subject"] == "Meeting with Department of Transport officials"
+
+
+def test_date_with_ordinal_and_trailing_weekday():
+    # Ryan H2-2024: "1st July 2024 Monday" (ordinal + trailing weekday, no separator). Each date
+    # must advance — the bug stamped every entry with the one date that happened to match.
+    text = "\n".join(
+        [
+            "1st July 2024 Monday",
+            "10:10 - 11:40",
+            "Meeting with DECC Corporate Governance",
+            "2nd July 2024 Tuesday",
+            "09:00 - 12:00",
+            "GOVERNMENT MEETING",
+        ]
+    )
+    out = parse_entries(text, default_year=None, default_month=None)
+    assert [e["entry_date"] for e in out] == [date(2024, 7, 1), date(2024, 7, 2)]
+
+
 def test_short_date_without_year_is_dropped_not_guessed():
     # A short date with no year and no default cannot be resolved — the no-inference
     # rule says drop it, never fabricate a year. The following entry must not inherit it.
