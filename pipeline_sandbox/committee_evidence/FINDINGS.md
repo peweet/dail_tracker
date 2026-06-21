@@ -67,6 +67,28 @@ Exact-match floor ~14–21%, realistic post-alias-map ceiling well above the fla
 genuine advocacy bodies (the actual story) plus filterable topic noise. Recommend proceeding to **Phase 1
 on PAC + Housing**, building the alias map first, before any widening to Tier-A committees.
 
+## Join VALIDITY probe (2026-06-21) — is the cross-match real same-entity?
+Ran `join_validity_probe.py` (→ VALIDITY.md) + a lobbying stress test. **Verdict: the join is valid to
+build on, with two guardrails.**
+- **Departments correctly do NOT match the lobbying register** (Dept of Housing/Finance, OPW → reg=False,
+  client=False) — the key validity signal: no spurious lobbying hits. Known lobbying bodies DO match
+  (Ibec reg+client; CIF client-only; BPFI reg+client).
+- **All multi-token payments/council matches are true same-entity.** The `amb>1` flags are false alarms —
+  casing/accent variants of the SAME body (TAILTE ÉIREANN / Tailte Eireann), because `supplier_raw` isn't
+  pre-normalised. Benign.
+- **One real false positive:** `Education` (single-token topic fragment) → "EDUCATION LTD". Fix =
+  **require ≥2-token keys** (also avoids the 370 single-token registrant / 294 single-token client keys
+  like AA/ABBOTT/AIB that form the collision surface).
+- **Exact-match UNDERCOUNTS — alias map is essential, not optional:** Irish Farmers Association →
+  reg=False, client=False because it's registered under a variant/acronym (IFA). Same class the diary
+  `ACRONYMS` map already solved. Confirms Phase-2 alias map is the core work, not a nicety.
+- **Label the lobbying side** (registrant vs client): CIF is client-only — a different relationship than a
+  self-registering body. Carry `lobby_side`.
+
+Phase-2 cross-ref rules locked: (1) ≥2-token normalised keys only; (2) alias map for acronym/variant
+bodies; (3) `amb>1` accepted (same-entity); (4) carry lobby registrant/client side; (5) co-occurrence
+only, no causation.
+
 ## Product placement (DECIDED 2026-06-21): Option A — extend the existing Committees page
 The witness/evidence layer attaches to **the existing Committees page** (`utility/pages_code/committees.py`,
 two-stage register→committee→member flow) as a "Who gives evidence" section on each committee's DETAIL view —
