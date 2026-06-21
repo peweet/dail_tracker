@@ -92,7 +92,7 @@ def _interests_redirect_page() -> None:
 # `target` attributes but specifically preserves "_blank" via a hook,
 # silently dropping "_self"). The native widget bypasses all of that.
 # Grouped into four labelled sections + Glossary (Phase-0 IA decision,
-# doc/APP_REDESIGN_PHASE0.md §3). st.navigation accepts a {section: [pages]}
+# doc/archive/APP_REDESIGN_PHASE0.md §3). st.navigation accepts a {section: [pages]}
 # dict; grouping is purely presentational, so every url_path below is
 # UNCHANGED and utility/ui/entity_links.PAGES stays valid. The hidden default
 # Home lives in the first group (visibility="hidden" keeps it off the bar).

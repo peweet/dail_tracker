@@ -20,7 +20,7 @@ META:
 SANDBOX (RAW, never promoted):
   data/sandbox/parquet/judicial_legal_diary_openview_audit.parquet
 
-SCOPE (doc/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md): canonical for Supreme / Court of Appeal /
+SCOPE (doc/archive/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md): canonical for Supreme / Court of Appeal /
 Central Criminal / Circuit. The High Court stays on the .docx path (OpenView 500s) and is
 NOT produced here, so the two gold sets are disjoint by court — no de-duplication needed.
 

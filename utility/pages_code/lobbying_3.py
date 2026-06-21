@@ -2009,23 +2009,45 @@ def render_member_lobbying(
     evidence_heading("Policy areas lobbied on")
     exposure = fetch_policy_exposure_for_politician(name)
     if not exposure.empty:
-        disp2 = exposure.rename(
-            columns={
-                "public_policy_area": "Policy area",
-                "returns_targeting": "Returns",
-                "distinct_lobbyists": "Organisations",
-            }
-        )
-        max_ret = int(disp2["Returns"].max()) if not disp2.empty else 1
-        st.dataframe(
-            disp2,
-            width="stretch",
-            hide_index=True,
-            column_config={
-                "Policy area": st.column_config.TextColumn("Policy area"),
-                "Returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_ret),
-                "Organisations": st.column_config.NumberColumn("Organisations"),
-            },
+        # Civic HTML table (not st.dataframe — forbidden on a primary view). The old
+        # ProgressColumn bar is reproduced inline so the relative weighting survives.
+        exp = exposure.sort_values("returns_targeting", ascending=False)
+        max_ret = int(exp["returns_targeting"].max()) or 1
+
+        def _th_cell(label: str, align: str = "left") -> str:
+            return (
+                f'<th style="text-align:{align};padding:0.4rem 0.6rem;border-bottom:2px solid #d6d3d1;'
+                "font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#5b6b73;"
+                f'font-weight:600;">{label}</th>'
+            )
+
+        rows_html = []
+        for _, r in exp.iterrows():
+            pa = _h(str(r.get("public_policy_area", "") or "—"))
+            ret = int(r.get("returns_targeting", 0) or 0)
+            orgs = int(r.get("distinct_lobbyists", 0) or 0)
+            w = max(2, round(100 * ret / max_ret))
+            rows_html.append(
+                "<tr>"
+                f'<td style="padding:0.35rem 0.6rem;border-bottom:1px solid #ebe6da;color:#14232b;">{pa}</td>'
+                '<td style="padding:0.35rem 0.6rem;border-bottom:1px solid #ebe6da;width:45%;">'
+                '<div style="display:flex;align-items:center;gap:0.5rem;">'
+                '<div style="flex:1;background:#eef0f2;border-radius:3px;height:0.55rem;overflow:hidden;">'
+                f'<div style="width:{w}%;height:100%;background:#5b6b8c;"></div></div>'
+                '<span style="font-variant-numeric:tabular-nums;color:#14232b;min-width:2.5rem;'
+                f'text-align:right;">{ret:,}</span></div></td>'
+                '<td style="padding:0.35rem 0.6rem;border-bottom:1px solid #ebe6da;text-align:right;'
+                f'font-variant-numeric:tabular-nums;color:#5b6b73;">{orgs:,}</td>'
+                "</tr>"
+            )
+        st.html(
+            '<table style="width:100%;border-collapse:collapse;font-size:0.88rem;margin:0.3rem 0 1rem;">'
+            "<thead><tr>"
+            + _th_cell("Policy area")
+            + _th_cell("Returns")
+            + _th_cell("Organisations", "right")
+            + "</tr></thead>"
+            + f"<tbody>{''.join(rows_html)}</tbody></table>"
         )
 
     # ── Lobbying returns ──────────────────────────────────────────────────
@@ -2036,37 +2058,29 @@ def render_member_lobbying(
     else:
         start, end = _year_pills(detail_all, year_pill_key)
         detail = fetch_contact_detail(name, start, end) if start else detail_all
-        display = detail[
-            [
-                c
-                for c in ["period_start_date", "lobbyist_name", "public_policy_area", "source_url"]
-                if c in detail.columns
-            ]
-        ].rename(
-            columns={
-                "period_start_date": "Period",
-                "lobbyist_name": "Organisation",
-                "public_policy_area": "Policy area",
-                "source_url": "Return URL",
-            }
-        )
-        # Presentation-only date formatting: the raw column is a midnight
-        # timestamp ("2026-01-01 00:00:00") that read as data noise.
-        if "Period" in display.columns:
-            display["Period"] = pd.to_datetime(display["Period"], errors="coerce").dt.strftime("%b %Y").fillna("—")
-        st.dataframe(
-            display,
-            column_config={
-                "Return URL": st.column_config.LinkColumn(
-                    "Return URL",
-                    display_text="View return ↗",
-                    pinned=True,
-                    width="small",
+        # Paginated return-record cards — the SAME pattern the org / area / topic
+        # views use (st.dataframe is forbidden on a primary view; this also tames the
+        # up-to-~5k returns into pages). Here the politician is the page subject, so
+        # the ORGANISATION is the variable field and links to its in-page drill.
+        page_size, page_idx = pagination_controls(total=len(detail), key_prefix="lp3_pol_returns", label="returns")
+        page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+        cards = []
+        for _, row in page_slice.iterrows():
+            org = str(row.get("lobbyist_name", "") or "—")
+            wanted = str(row.get("intended_results", "") or "").strip()
+            snippet = (wanted[:260] + "…") if len(wanted) > 260 else wanted
+            cards.append(
+                _return_card_html(
+                    period=_fmt_mmm(row.get("period_start_date")),
+                    title=org,
+                    title_html=f'<a class="dt-member-link" href="?lp3_org={quote(org)}" target="_self">{_h(org)}</a>',
+                    area=str(row.get("public_policy_area", "") or ""),
+                    snippet=snippet,
+                    url=str(row.get("source_url", "") or ""),
+                    filed_by=str(row.get("person_primarily_responsible", "") or ""),
                 )
-            },
-            width="stretch",
-            hide_index=True,
-        )
+            )
+        st.html("\n".join(cards))
         export_button(detail, "Export CSV", f"{name.replace(' ', '_')}_lobbying.csv", "lob_export_pol_detail")
 
     # ── Official source links ─────────────────────────────────────────────
