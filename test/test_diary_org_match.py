@@ -264,3 +264,46 @@ def test_curated_drops_collision_prone_names() -> None:
     assert _matches("FYI - Stephen Roche San Fran Police - Dáil Tour") == []  # cyclist, not Roche pharma
     assert _matches("Fianna Fáil Think-In (Rochestown Park Hotel, Cork)") == []  # hotel, not Roche
     assert _matches("Peter Baxter (The Burnaby, Greystones)") == []  # a person, not Baxter healthcare
+
+
+# --------------------------------------------------------------------------- platform denoise
+# Outlook calendar exports tag the JOINING platform onto the subject. "Cisco Webex" / a trailing
+# "- Cisco" is the video platform, NOT Cisco the company; "(Microsoft Teams Meeting)" is not
+# Microsoft. denoise_subject strips these before matching so they cannot coin false engagements
+# (2 "Cisco Webex" rows already leaked into gold; the Education export adds ~57 "- Cisco" tags).
+from extractors.diary_org_match import denoise_subject  # noqa: E402
+
+
+def test_denoise_strips_cisco_webex_phrase() -> None:
+    assert "cisco" not in denoise_subject("Meeting with Min O'Gorman - Cisco Webex Budget Day").lower()
+
+
+def test_denoise_strips_trailing_cisco_platform_tag() -> None:
+    assert denoise_subject("Meeting with Minister Madigan - Cisco") == "Meeting with Minister Madigan"
+
+
+def test_denoise_keeps_real_cisco_company_meeting() -> None:
+    # the company (not a platform tag) must survive — it's a real engagement
+    assert "cisco" in denoise_subject("MEETING WITH CISCO (The Board room, Clayton Hotel)").lower()
+
+
+def test_denoise_strips_microsoft_teams_but_keeps_bare_teams() -> None:
+    assert "teams" not in denoise_subject("Constituency Meeting (Microsoft Teams Meeting)").lower()
+    assert denoise_subject("Special Education Teams catch-up") == "Special Education Teams catch-up"
+
+
+def test_denoise_strips_status_prefix_and_meet_url() -> None:
+    assert denoise_subject("scheduled: Meeting with NCSE").startswith("Meeting")
+    assert "google.com" not in denoise_subject("Boherbue NS (https://meet.google.com/abc-defg-hij)")
+
+
+def test_match_does_not_coin_cisco_from_webex_tag() -> None:
+    # integration: the curated tier must NOT emit Cisco for a Webex-platform subject …
+    assert {m["matched_org_name"] for m in _matches("Meeting with Minister Humphreys - Cisco Webex 09:00")} == set()
+    # … but DOES for a genuine Cisco meeting
+    assert "Cisco" in {m["matched_org_name"] for m in _matches("Pre-briefing in advance of Cisco meeting")}
+
+
+def test_match_does_not_coin_microsoft_from_teams_venue() -> None:
+    assert {m["matched_org_name"] for m in _matches("Constituency Meeting (Microsoft Teams Meeting)")} == set()
+    assert "Microsoft" in {m["matched_org_name"] for m in _matches("Meeting with Microsoft at One Microsoft Place")}

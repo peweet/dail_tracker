@@ -22,11 +22,13 @@ Former TDs and Senators are not the primary target of the live dataset, with one
 
 The project has expanded well beyond individual-member data. Several major datasets describe the state rather than named TDs/Senators and have their own scope and time windows:
 
-- Procurement awards and public-body payments (departments, agencies, HSE/Tusla, 31 local authorities)
-- Corporate notices and regulated-entity cross-references (Iris Oifigiúil, CRO, Central Bank registers)
-- Courts and judiciary (bench roster, appointments, court performance, Legal Diary)
-- Local-authority accountability (annual financial statements, NOAC collection rates, derelict-sites levy, planning-appeal overturn rates)
-- Political finance (SIPO donations and GE2024 election spending)
+- Procurement awards and public-body payments (departments, agencies, HSE/Tusla, 31 local authorities) — §16, §17
+- Corporate notices and regulated-entity cross-references (Iris Oifigiúil, CRO, Central Bank registers) — §15
+- Courts and judiciary (bench roster, appointments, court performance, Legal Diary) — §18
+- Ministerial diaries and their lobbying-register cross-reference — §19
+- Political finance (SIPO donations and GE2024 election spending) — §20
+- Local-authority accountability (annual financial statements, NOAC collection rates, derelict-sites levy, planning-appeal overturn rates) — §21
+- CSO statistical data (housing supply on the Constituency page; the CPI deflator used to put procurement values in real terms) — §22
 
 These carry the limitations documented in their own sections below and do not inherit the "sitting members only" scope.
 
@@ -610,7 +612,121 @@ Per the project-wide no-inference rule (also documented as a memory feedback not
 
 ---
 
-## 16. Minimum verification before public use
+## 16. Procurement awards (eTenders and TED)
+
+Two award registers sit side by side and **must never be unioned or summed** — roughly 66% of TED winners also appear in eTenders by normalised name, so they are siblings cross-referenced per firm, not additive lanes.
+
+**eTenders (national):**
+
+- Covers **2013–2026**, from the OGP open-data CSV on data.gov.ie. One row per award × supplier.
+- **"Awarded value" is not money paid.** It is the estimated contract value at the point of award. Framework and Dynamic Purchasing System (DPS) notices carry notional multi-year *ceilings*, and a multi-supplier framework repeats one ceiling across every supplier row. Only the `value_safe_to_sum` subset may be totalled — the naive sum (~€649bn) overstates the sum-safe figure (~€15.6bn) by roughly 40×.
+- 651 rows (125 distinct suppliers) have a leading capital letter dropped in the OGP source (`name_truncated`); these cannot be reconstructed and are excluded from company matching.
+- The CRO (Companies Registration Office) match reaches only ~61% of company-class suppliers. Ambiguous matches are excluded from the "clean" set, and LLPs (e.g. *Deloitte Ireland LLP*) fail the Ltd-only match.
+
+**TED (EU):**
+
+- Still a **silver** layer, regenerable, not gold. The Search-API lane covers **2024 onward only** — pre-2024 winner names are genuinely null in that API, so the date floor is a source limit, not a choice. A separate per-notice XML lane recovers 2016–2023 winners (~50% CRO-matched).
+- The naive TED sum (~€624bn) is meaningless: **375 pan-EU outlier rows** (research frameworks such as GÉANT, where Ireland is one of dozens of participants, flagged `is_pan_eu_outlier`) account for ~€586bn. Trust **count and median**, never the sum.
+
+Live / open tenders are a forward-looking planned-value *estimate* (`value_kind=estimate_advertised`, never sum-safe), include already-closed and DPS records back to 2023, and carry no CPV category.
+
+---
+
+## 17. Public-body payments (over €20,000)
+
+The >€20k purchase-order / payments fact, extracted from published PDFs across departments, agencies, HSE/Tusla, 31 local authorities, and bespoke bodies (NPHDB, NTA, SEAI).
+
+- **Not a single "€20,000 / Circular 07/2012" regime.** Disclosure basis and threshold vary by publisher: most publish over €20k under the FOI Act 2014 model scheme, but the HSE model threshold is €100k, CHI publishes over €25k incl-VAT, and utilities (ESB, EirGrid, Uisce Éireann) sit outside the scheme entirely. The basis is carried per row.
+- **"Ordered" (a purchase-order commitment) and "paid" (an actual payment) are different lifecycle tiers and must never be summed together.** Only `value_safe_to_sum` rows total, and never across VAT bases — only ~32k of ~220k gold rows carry a known VAT basis; HSE/Tusla are VAT-inclusive while most others are exclusive.
+- **Double-count trap.** The fact includes both central→council grant transfers (e.g. TII road grants, `supplier_class='public_body'`) and council→contractor payments. Exclude `supplier_class='public_body'` from spend totals.
+- **Every figure is extraction-derived from PDFs, not an authoritative ledger.** Coverage is partial (~23 of 31 LAs; ~42 of 44 attempted publishers; HSE/Tusla layout-gated). Any aggregate is a **floor** — "at least €Y, from the documents we could read" — never the definitive amount. The reading-order department parser silently drops wrong-layout PDFs (notably pre-2019 Transport), leaving coverage holes.
+- The CRO match on the consolidated payment fact is only ~46%, with some local authorities as low as ~5–9%.
+- Companies published without a legal suffix can be misclassified as individuals and quarantined from public views (so DFAT, for example, loses ~65% of displayable spend) — captured but not displayed.
+- The **HSE payments (16,972 rows, 2021–2025) are the only surviving public copy**: the HSE deleted the source in its 2026 rebuild and the Wayback Machine never archived it. The dead source URL is repointed to the HSE landing page.
+- **NPHDB's ~€107.6m BAM row is ~49% of its corpus** and is a disputed adjudicator award, not a routine payment — never headline a raw NPHDB sum.
+- Payments carry **no CPV**, so "what the money was for" is answerable only on the award side. Payments and awards meet at the supplier spine, never blended into one number.
+
+---
+
+## 18. Judiciary and courts
+
+The bench / appointments / courts / Legal-Diary feature is **sandbox-grade, not pipeline output** — the validated datasets were pulled and pressure-tested once (2026-06-04) and are reproduced only by standalone probe scripts.
+
+- The appointment spine begins in **2016** (Iris Oifigiúil), covering ~100 of ~160 current judges; pre-2016 appointees carry an honest "record begins 2016" note, not a full career arc.
+- The current roster (~198 rows) is **not deduped**: ex-officio court presidents appear under up to three courts, which skews "current court".
+- **No fuzzy name-matching to the bench.** A TD/AG→judge "revolving-door" dataset was deliberately removed (2026-06-04) because surname overlap produced false positives, and must not be reintroduced.
+- Judicial-conduct figures are **aggregate-only and partial at the start** (no complaints regime before 2022; 2022 a partial first year) and must never be attributed to a named judge.
+- Ireland has **no public judicial financial-disclosure regime**, so judges' conflicts/interests cannot be shown — the absence is itself the only available finding.
+- The **Legal Diary** is self-published with a deliberate privacy contract: statutory in-camera categories (minors, family, wards, childcare, asylum) are dropped at extraction, every natural person is reduced to initials, and case references and solicitor names are stripped.
+- Legal Diary court coverage spans two sources: the `.docx` feed (High Court) and OpenView (Circuit, Supreme, Appeal, Central Criminal). The **District Court is a genuine gap** — only a sittings schedule is published, no party-level lists.
+- Legal Diary views are capped to a rolling ~7-day window; the full ~790k-row archive is not loaded because it made the page memory-prone.
+- The diary→judge link is **surname-only and refuses ambiguous matches** (covering ~2/3 of diary judges). The plaintiff league ranks institutional applicants only, counting list appearances, not "cases brought".
+
+---
+
+## 19. Ministerial diaries × lobbying
+
+- **Diaries are self-curated, non-exhaustive, and published quarterly in arrears.** Meeting counts rise as more departments are ingested — they are coverage-driven, never a trend.
+- **A diary meeting is co-occurrence / access, never a lobbying return and never proof of influence or causation.** "Corroborated" means only that an organisation both met a minister and filed a lobbying return naming that same minister.
+- **The "met but never lobbied" negative is deliberately hidden.** `total_lobbying_returns = 0` can mean "unknown" (a residual name-join miss), not "did not lobby"; surfacing it would defame heavy lobbyists. It stays hidden until a fuller org-identity alias map lands.
+- **Org-name alias bridging is partial.** The acronym-tag cases (CIF, IFA, Ibec) are resolved via the curated map, but other forms — e.g. "Dublin Chamber" vs "Dublin Chamber of Commerce" — remain unbridged.
+- The org-overlap view surfaces only the ~23% of meetings whose counterparty matched the gazetteer, so it under-shows the full diary; an unmatched-meetings view exists as the denominator.
+- Corroboration joins on **minister surname only** (the diary minister is a filename guess), so a positive is indicative, not proof, and common surnames can collide.
+- Match confidence is two-tier: **HIGH** (verbatim ≥2-token hit, ~96% precision) and **MEDIUM** (single-token + cue, precision unmeasured) — MEDIUM cannot be trusted blindly.
+- ~237 diary files are image-only scans requiring off-box GPU OCR (PaddleOCR), which introduces OCR error risk (misread year headers, occasional mirrored-garbage scans).
+- Company-influence matching is a coarse deterministic name-fold that deliberately **under-matches**: misses are false negatives, not false claims, and a fold collision (`n_suppliers_folded > 1`) means awarded/paid € sum more than one supplier.
+
+---
+
+## 20. Political finance — SIPO donations and GE2024 election spending
+
+Scope is **locked to GE2024**; there are no 2025+ returns, and the separate annual per-TD/Senator/MEP donation register is not yet ingested.
+
+- **Three incompatible grains must never be summed**: donations declared (money in), the national agent's per-candidate spend, and candidates' own expenses statements are different records at different grains. The rollup uses their sum only as a hidden sort key, never as a presented total.
+- Agent-spend **under-counts** parties that book spend centrally, and agent-spend vs candidate-spend are overlapping views of the same campaign spend — non-additive.
+- The party-expenses fact is a **PaddleOCR re-OCR of scanned returns**; every figure carries a "verify against the official SIPO PDF (page N)" caveat and a confidence/flag column.
+- **Threshold effects.** Donations are only declared records above the €1,500 party threshold (sub-threshold gifts are invisible); expense figures are bounded by per-constituency statutory limits (€38,900 / €48,600 / €58,350), which are also used to flag OCR misreads.
+- Coverage is **incremental/partial**: only candidates processed so far appear, several scanned national-agent statements are not yet parsed (e.g. Fine Gael), and the ~400–600-PDF per-candidate corpus is queued, not done.
+- **Honest gaps, not zeros**: rows whose total was blank/unreadable or an OCR decimal-loss artefact carry no amount; a blank total is never asserted as €0.
+- The free-text line-item "detail" mixes supplier names and item descriptions and must not be presented as a clean payee/vendor field.
+- Per-party returns are harvested **manually** from the SIPO collection page; donor home addresses are captured but stripped at gold and never displayed.
+
+---
+
+## 21. Local-authority accountability (AFS, NOAC, and related indicators)
+
+- **Annual Financial Statement (AFS) coverage is partial**: only ~22 of 31 councils are available, with nine unavailable for stated reasons (interactive viewer, scanned image, not located, unusual layout).
+- AFS year-depth is **thin and uneven** — per-council history ranges from 1 year to 10 — and is not a clean panel; some statements fail parsing and yield zero rows.
+- AFS extraction is **PDF-brittle** (locate the income-&-expenditure-by-division page, reconcile against the printed total; mostly PyMuPDF with occasional Camelot fallback). Six councils have no extractable capital page.
+- **AFS grains must never be reconciled across each other**: per-LA revenue net-expenditure, per-LA capital expenditure, the national amalgamated layer, and the cash-PO `la_payments_fact` are distinct — sum only within a (council, year).
+- The **chief-executive roster is hand-curated** (`data/_meta/la_chief_executives.csv`, 31 councils, each verified against an authoritative page); there is no API. CE salary is not published per council — only the national band is shown, as context.
+- **NOAC is PDF-only** with no CSV or dashboard. Indicators that live as bar-chart figures are not extractable (local OCR is banned), leaving only Camelot-readable tables plus text-layer national averages and named best/worst.
+- **Collection rates can legitimately exceed 100%** (prior-year arrears collected alongside the current year). The derelict-sites rate is null where nothing was levied (nine councils), is 2024-only, and refreshes only when the next return publishes.
+- **Planning-appeal overturn** data is 2016 onward (~13k matched appeals). Cork County publishes no appeal reference number, so its appeals are recovered by a spatial+temporal fallback match, not a direct join.
+- Indicators are shown beside the national benchmark with **no composite score and no editorial label** — a deliberate firewall-safe framing, not a completeness guarantee.
+
+---
+
+## 22. CSO statistical data — housing supply and the inflation deflator
+
+**Housing-supply figures (Constituency page):**
+
+- These are **council-area figures, not constituency figures.** New-home completions, residential vacancy, and median house price are published at local-authority / region granularity; the area is not the constituency, and the figures are never apportioned into a per-constituency number.
+- The only natively constituency-keyed CSO table is the Census 2022 population count. RPPI is by RPPI region, vacancy by LA / electoral division, completions by local electoral area.
+- **Residential vacancy is a metered-electricity proxy**, not a housing-stock census, and is labelled as such.
+
+**CPI deflator (procurement real-terms):**
+
+- Source is **CSO CPA07** (CPI by commodity group, annual average, All Items, 1975–2025, base year 2025).
+- CSO splits the index across base-month rebasings (each null outside its window), so no single index level spans 2012–2025. One continuous index is reconstructed by **chain-linking the annual percentage-change series** — a documented method, cross-checked against published cumulative CPI (2012→2025 ≈ +24.7%).
+- **Deflation re-expresses, it does not correct**: it scales a nominal € into base-year purchasing power and neither creates nor fixes magnitude errors in the input. A missing year returns null (treated as "leave nominal / exclude"), never 1.0 — a missing year can never masquerade as zero inflation.
+- General CPI **understates the 2021–22 construction-cost surge**; a construction-materials WPI (WPM39, Works contracts, ~2021+ floor) is the secondary deflator for construction-heavy spend.
+- ~41% of summable awards are multi-year but booked to a single year, so single-year deflation is **approximate** and labelled as such; null-year payments (~3.5%) stay nominal.
+- **ESRI was ruled out** as a deflator source — its series footnote CSO/Eurostat or its own modelling and carry no unique data.
+
+---
+
+## 23. Minimum verification before public use
 
 Before using the data in reporting, publication, or public claims:
 

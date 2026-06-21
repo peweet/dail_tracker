@@ -34,11 +34,9 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_access.identity_resolver import resolve_member_code
 from data_access.ministerial_diary_data import fetch_engagements, fetch_meetings, fetch_org_overlap
 from shared_css import inject_css
 from ui.components import clickable_card_link, empty_state, glossary_strip, hero_banner, hide_sidebar
-from ui.entity_links import member_profile_url
 
 _GLOSSARY = [
     (
@@ -184,20 +182,14 @@ def _minister_drill(minister: str, meetings: pd.DataFrame) -> None:
     if rows.empty:
         empty_state("Not found", f"No logged meetings for {minister}.")
         return
-    # Forward edge: from a minister's diary, offer their full member profile.
-    # Ministers are TDs, so the name resolves via the registry; guard on a hit
-    # so an unresolved name (or a former office-holder) simply shows no link.
-    code = resolve_member_code(minister)
-    profile_link = (
-        f' · <a class="dt-diary-src" href="{_h(member_profile_url(code))}" target="_self">'
-        f"View {_h(minister)}'s profile →</a>"
-        if code
-        else ""
-    )
+    # NOTE: a forward edge minister → /member-overview is desirable here but the
+    # diary keys ministers by SURNAME only ("Ryan", "Donohoe"), which the member
+    # registry can't resolve unambiguously. Deferred until the diary view carries
+    # a minister member_code (pipeline) — see project_ui_clutter_audit memory.
     st.html(
         f'<div class="dt-diary-hero"><h2>Minister {_h(minister)}</h2>'
         f"<p>{len(rows)} external meetings logged · {_h(rows['entry_date'].min())} → "
-        f"{_h(rows['entry_date'].max())}{profile_link}</p></div>"
+        f"{_h(rows['entry_date'].max())}</p></div>"
     )
     st.html(_meeting_rows(rows, show_minister=False))
 
