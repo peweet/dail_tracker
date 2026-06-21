@@ -51,9 +51,25 @@ from services.run_paths import ENV_RUN_ID, make_run_id, run_dir, step_log_path
 CHAINS: list[tuple[str, str]] = [
     ("bootstrap", "bootstrap_refresh.py"),
     ("members", "members_refresh.py"),
+    # news_mentions: one Google-News RSS search PER member (current + former) ->
+    # silver news_mentions, read by v_member_news_mentions on the member page.
+    # Depends on bootstrap (the historic Dáil/Seanad rosters it queries by name are
+    # built by bootstrap.historic_members_build). ACCUMULATES — each run appends and
+    # dedups, so daily cloud execution is the intended use, not a side effect. Network
+    # chain, but every per-member fetch is try/excepted (one bad member never kills the
+    # run; an empty roster is the only hard stop), so a flaky run degrades, not fails.
+    ("news_mentions", "extractors/news_mentions_extract.py"),
     ("payments", "payments_refresh.py"),
     ("attendance", "attendance_refresh.py"),
     ("seanad", "seanad_refresh.py"),
+    # member_contact: scrape each member's oireachtas.ie profile page for the office
+    # address / phone(s) / @oireachtas.ie email the members API does NOT expose ->
+    # silver member_contact_details, read by v_member_contact_details (Member Overview
+    # "Contact" card). Runs after seanad so both flattened_members + flattened_seanad_
+    # members rosters exist (it skips a missing roster file rather than failing). Each
+    # profile fetch retries with backoff then logs+continues, so a transient outage
+    # yields honest NULLs, never a failed chain.
+    ("member_contact", "extractors/member_contact_extract.py"),
     ("interests", "interests_refresh.py"),
     ("lobbying", "lobbying_refresh.py"),
     ("iris", "iris_refresh.py"),
@@ -138,6 +154,15 @@ CHAINS: list[tuple[str, str]] = [
     # now: a listing-rot carry-forward guard keeps any council that vanished from silver (bot-wall,
     # moved listing) at its existing gold rows instead of dropping it.
     ("procurement_consolidate", "extractors/procurement_payments_consolidate.py"),
+    # ministerial_diaries: the DETERMINISTIC tail of the diary pipeline — classify ->
+    # org_match -> lobbying_overlap -> promote_gold -> company_influence — promoted out
+    # of the manual run-book. The gold it rebuilds feeds the "Who Ministers Meet" page
+    # (v_ministerial_diary_*). Steps 1-4 are network-free; step 5 reads the procurement
+    # gold above, so this runs AFTER procurement_consolidate. The EXTRACT + OCR upstream
+    # stay manual (gov.ie WAF + off-box GPU OCR) and their working table is gitignored,
+    # so the chain GUARDS on that input: absent (every cloud run) it exits 0 as a clean
+    # no-op; present (a local box post-extract) it re-derives the gold.
+    ("ministerial_diaries", "ministerial_diaries_refresh.py"),
     # cso: CSO PxStat tables (housing/HAP + general-government finance GFA01/GFQ01/
     # NA012) -> gold cso_<table>.parquet (the national denominators behind
     # v_gov_finance_annual). Zero-auth REST, no deps; writes any GREEN table by
@@ -195,9 +220,11 @@ CHAINS: list[tuple[str, str]] = [
 _CHAIN_BLURBS: dict[str, str] = {
     "bootstrap": "shared inputs: poll PDFs + Members API + flatten members & debates",
     "members": "Wikidata socials + ministerial tenure + committees long-format",
+    "news_mentions": "per-member Google-News RSS search -> silver news_mentions (accumulates; member page)",
     "payments": "Parliamentary Standard Allowance: PSA ETL + member enrichment",
     "attendance": "plenary attendance PDF extraction",
     "seanad": "Seanad parity: votes + payments + attendance + gold (reuses Dáil parsers)",
+    "member_contact": "scrape oireachtas.ie profile pages -> silver member_contact_details (Member Overview)",
     "interests": "Register of Members' Interests PDF extraction",
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
@@ -218,6 +245,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> sandbox hse_tusla_payments_fact (privacy-gated, high-risk)",
     "la_payments": "31 local authorities' PO/payments-over-€20k -> silver la_payments_fact (full back-catalogue)",
     "procurement_consolidate": "fold public_body + hse_tusla + LA facts -> gold procurement_payments_fact (listing-rot guarded)",
+    "ministerial_diaries": "diary classify->match->overlap->promote->company_influence (transform tail; no-op if sandbox absent)",
     "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
     "stateboards": "DPER state-boards register: live roster + body universe + hand-curated Wikidata identities (gold)",
     "noac_collection": "NOAC M2 per-LA revenue-collection rates (commercial/rent/housing-loan, 31 LAs) -> gold (PDF, fidelity-gated)",
