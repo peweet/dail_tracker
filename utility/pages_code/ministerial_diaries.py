@@ -18,8 +18,8 @@ reads them via data_access.ministerial_diary_data and does presentation faceting
 
 HONEST COVERAGE (shown, not hidden): diaries are self-curated + non-exhaustive, published
 quarterly-in-arrears; counts are coverage-driven, not a trend; absence is not proof a meeting
-didn't happen. Public Expenditure (DPER) is now included via OCR of its scanned diaries; the
-Taoiseach's own diary is still scan-only and awaits OCR.
+didn't happen. Coverage spans 12 departments back to 2015; the scanned diaries (DPER, the
+Taoiseach, Housing, DCCS and others) are now recovered via off-box GPU OCR.
 """
 
 from __future__ import annotations
@@ -75,6 +75,10 @@ _MONTHS = [
 ]
 _ALL_YEARS = "All years"
 _ALL_MONTHS = "All months"
+# Render-completeness backstop: show the FULL trail (the biggest single minister drill is ~2.2k
+# meetings, well within this), and NEVER truncate silently — if a list somehow exceeds the cap
+# (a very broad search), say so and point to the year filter so the rest is still reachable.
+_RENDER_CAP = 3000
 
 
 def _period_controls(meetings: pd.DataFrame) -> tuple[str, str]:
@@ -130,7 +134,7 @@ def _minister_card(row: pd.Series) -> str:
 
 def _meeting_rows(rows: pd.DataFrame, *, show_minister: bool) -> str:
     cards = []
-    for _, e in rows.head(120).iterrows():
+    for _, e in rows.head(_RENDER_CAP).iterrows():
         src = e.get("source_pdf_url")
         link = (
             f'<a class="dt-diary-src" href="{_h(src)}" target="_blank" rel="noopener">source ↗</a>'
@@ -143,6 +147,11 @@ def _meeting_rows(rows: pd.DataFrame, *, show_minister: bool) -> str:
             f'<div class="dt-diary-eng-subj">{_h(e["subject"])}</div>'
             f'<div class="dt-diary-eng-meta">{who}{_h(e["department"])} · {_h(e["entry_date"])}</div>'
             f"</div>{link}</div>"
+        )
+    if len(rows) > _RENDER_CAP:  # never truncate silently — disclose + point to the year filter
+        cards.append(
+            f'<div class="dt-diary-eng-meta" style="padding:8px 0">Showing the most recent '
+            f"{_RENDER_CAP:,} of {len(rows):,} — use the Year filter above to see the rest.</div>"
         )
     return "\n".join(cards)
 
@@ -315,7 +324,13 @@ def _render_by_org(overlap: pd.DataFrame, meetings: pd.DataFrame, period_active:
     if df.empty:
         empty_state("No matches", "No organisations match that filter.")
     else:
-        st.html("\n".join(_org_card(r) for _, r in df.head(120).iterrows()))
+        cards = [_org_card(r) for _, r in df.head(_RENDER_CAP).iterrows()]
+        if len(df) > _RENDER_CAP:
+            cards.append(
+                f'<div class="dt-diary-eng-meta" style="padding:8px 0">Showing the top {_RENDER_CAP:,} '
+                f"of {len(df):,} organisations — use the filter above to narrow.</div>"
+            )
+        st.html("\n".join(cards))
 
 
 def _org_counts_for_period(meetings: pd.DataFrame, overlap: pd.DataFrame) -> pd.DataFrame:
@@ -344,8 +359,8 @@ def _provenance() -> None:
         '<div class="dt-diary-prov">'
         "<b>Source &amp; limits.</b> Ministers' own published diaries (gov.ie / enterprise.gov.ie), "
         "linked per entry. Self-curated, non-exhaustive and published quarterly-in-arrears — what's "
-        "here is what departments published; an absence is not proof a meeting didn't happen. Public "
-        "Expenditure (DPER) is now included via OCR of its scanned diaries; the Taoiseach's own diary "
-        "is still scanned and awaits OCR. We present the record "
+        "here is what departments published; an absence is not proof a meeting didn't happen. Coverage "
+        "now spans 12 departments back to 2015, including the scanned diaries (DPER, the Taoiseach, "
+        "Housing and others) recovered via OCR. We present the record "
         "as published — no ranking, scoring, or inference of influence.</div>"
     )
