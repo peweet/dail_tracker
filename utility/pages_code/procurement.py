@@ -7,7 +7,7 @@ modelling — no value_counts / groupby / merge / parquet reads (the logic firew
 checker scans this file). The supplier search is a display-only name filter over
 the already-fetched ranking; pagination is a display-only slice.
 
-Honesty rails (non-negotiable, see doc/REVIEW_SYNTHESIS.md):
+Honesty rails (non-negotiable, see doc/archive/REVIEW_SYNTHESIS.md):
   * "Awarded value, not actual spend" — the page never sums the corpus into a
     headline € figure and only ever shows ``awarded_value_safe_eur`` (the view's
     sum-safe column), per row. Framework/DPS ceilings are labelled as ceilings.
@@ -3350,7 +3350,7 @@ def _render_patterns() -> None:
 
 def _page_lede(stats) -> None:
     """The page's opening findings (findings-not-filters,
-    doc/APP_REDESIGN_SWEEP_2026_06_10.md). DISPLAY-ONLY: the top-winner row,
+    doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md). DISPLAY-ONLY: the top-winner row,
     the concentration row and the corpus counts all arrive pre-aggregated from
     the registered views; this assembles sentences and renders."""
     sentences: list[str] = []
@@ -3727,7 +3727,7 @@ def procurement_page() -> None:
         return
 
     # Four top-level sections, phrased as the questions a reader actually brings
-    # (doc/APP_REDESIGN_SWEEP_2026_06_10.md §1 + doc/PROCUREMENT_UI_BRIEF.md: registers →
+    # (doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md §1 + doc/archive/PROCUREMENT_UI_BRIEF.md: registers →
     # questions). "Who wins contracts?" holds the award-stage registers (eTenders national /
     # TED EU) plus the register-overlap disclosures behind one register picker; "Who actually
     # gets paid?" is the payment stage; "Open right now" promotes the pre-award tender

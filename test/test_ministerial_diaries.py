@@ -139,6 +139,28 @@ def test_dfheris_acronym_not_a_surname():
     assert resolve_minister("Minister_ODonovan_Calendar_2024.pdf", "DFHERIS", date(2024, 9, 1)) == "O'Donovan"
 
 
+def test_education_attributed_by_date_across_lineage():
+    # The Education collection publishes back to 2016 with generic, surname-less
+    # "ministers-diary-<month>-<year>.pdf" files → attribute the senior minister by entry date
+    # across the full lineage (who_was_minister-verified). This pins the rules the 14k-entry
+    # Education attribution rests on (regression guard: only McEntee was covered before).
+    f = "ministers-diary-march-2018.pdf"
+    assert resolve_minister(f, "EDUCATION", date(2016, 3, 1)) == "O'Sullivan"
+    assert resolve_minister(f, "EDUCATION", date(2017, 6, 1)) == "Bruton"
+    assert resolve_minister(f, "EDUCATION", date(2019, 6, 1)) == "McHugh"
+    assert resolve_minister(f, "EDUCATION", date(2022, 6, 1)) == "Foley"
+    assert resolve_minister(f, "EDUCATION", date(2025, 6, 1)) == "McEntee"
+
+
+def test_education_mos_surname_in_filename_wins_over_date_rule():
+    # Michael Moynihan (MoS for Special Education, 2025-) publishes "Minister_Moynihans_Diary_*"
+    # in the Education collection — the surname in the filename must win over the senior date rule
+    # (which would otherwise stamp McEntee on the 2025 date).
+    assert resolve_minister("Minister_Moynihans_Diary_August_2025.pdf", "EDUCATION", date(2025, 8, 1)) == "Moynihan"
+    # the surname-less senior file on the same date still resolves to the senior minister
+    assert resolve_minister("ministers-diary-august-2025.pdf", "EDUCATION", date(2025, 8, 1)) == "McEntee"
+
+
 def test_minical_titles_do_not_drift_year():
     # Outlook export (has the "Mo Tu We Th" mini-cal grid): a January-2026 mini-cal title must NOT
     # roll the running year forward — the entry stays in the file's year.

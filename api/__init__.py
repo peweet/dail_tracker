@@ -5,7 +5,7 @@ deployed Streamlit app does NOT import this package. Run with:
 
     uvicorn api.main:app --reload
 
-See doc/API_LAYER_PLAN.md for the architecture + real-world precedents.
+See doc/archive/API_LAYER_PLAN.md for the architecture + real-world precedents.
 """
 
 __version__ = "1.0.0"

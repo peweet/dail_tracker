@@ -405,7 +405,7 @@ def _render_supplier_profile(supplier_norm: str) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 def _stats_strip(stats, cov: dict) -> None:
     """Opening findings lede — the canonical stat-strip replacement
-    (finding_lede; doc/APP_REDESIGN_SWEEP_2026_06_10.md S-1, work order #3).
+    (finding_lede; doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md S-1, work order #3).
     Top publisher + register scale + the withheld-names transparency count, all
     from registered views; ordered commitments and actual payments are never
     blended. Display-only — renders pre-computed figures, never derives."""

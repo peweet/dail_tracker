@@ -71,4 +71,4 @@ A **cross-register Entity Dossier** that, for a given CRO number, shows *tabs* f
 | **Rename `company.py` → "Supplier profile"; keep both separate** | **Recommended** (kills the naming confusion at zero data risk) |
 | Future cross-register Entity Dossier | **Defer to P3**, blocked on a canonical `dim_supplier`/CRO spine |
 
-**Net:** the gut-feel "company + corporate look like duplicates" is a **name** problem. Fix the label, leave the architecture. Document references: `doc/corporate_feature.md`, `doc/APP_REDESIGN_SWEEP_2026_06_10.md` §2, `feedback_personal_insolvency_privacy`.
+**Net:** the gut-feel "company + corporate look like duplicates" is a **name** problem. Fix the label, leave the architecture. Document references: `doc/archive/corporate_feature.md`, `doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md` §2, `feedback_personal_insolvency_privacy`.

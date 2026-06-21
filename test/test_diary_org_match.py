@@ -237,7 +237,7 @@ def test_curated_central_bank_is_not_bank_of_ireland() -> None:
     assert {m["matched_org_name"] for m in _matches("Meeting with Bank of Ireland")} == {"Bank of Ireland"}
 
 
-# ── curated additions 2026-06-21 (doc/DIARY_GAZETTEER_CANDIDATES.md) — pin the adds AND the
+# ── curated additions 2026-06-21 (doc/archive/DIARY_GAZETTEER_CANDIDATES.md) — pin the adds AND the
 #    deliberately-DROPPED false positives so a future re-add of a colliding key trips a test ──
 
 

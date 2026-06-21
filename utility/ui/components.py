@@ -361,7 +361,7 @@ def finding_lede(sentences: list[str], *, source_html: str = "") -> None:
     any other firm — <strong>329</strong> since 2013, from <strong>54</strong>
     public bodies."). Numbers go inside ``<strong>`` for the tabular-figure
     emphasis treatment; everything else reads as prose. This is the
-    findings-not-filters pattern from doc/APP_REDESIGN_SWEEP_2026_06_10.md:
+    findings-not-filters pattern from doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md:
     the page opens by answering its own headline question, and the controls
     come after the first facts.
 

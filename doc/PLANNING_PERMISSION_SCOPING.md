@@ -785,8 +785,8 @@ in `planning_scale_gated_triggers.py`).
 | Resource | URL / locator | Notes |
 |---|---|---|
 | ⚙️✅ **Galway Co. DP Ch.15 — Development Management Standards** | `consult.galway.ie/en/consultation/draft-galway-county-development-plan-2022-2028/chapter/chapter-15-development-management-standards` | 71 DM Standards + 7 tables; HTML-scrapable |
-| ⚙️📄 Galway Ch.15 full extract | `doc/galway_ch15_dm_standards_FULL.md` | verbatim numeric standards |
-| ⚙️📄 Galway required-assessments checklist | `doc/galway_required_assessments_checklist.md` | 26 triggered reports + trigger conditions |
+| ⚙️📄 Galway Ch.15 full extract | `doc/archive/galway_ch15_dm_standards_FULL.md` | verbatim numeric standards |
+| ⚙️📄 Galway required-assessments checklist | `doc/archive/galway_required_assessments_checklist.md` | 26 triggered reports + trigger conditions |
 | ⚙️ **Shared council consultation portal** (DM standards across LAs) | `consult.galway.ie`, `consult.fingal.ie`, `consult.dublincity.ie`, `consult.kilkenny.ie`, `consult.wexfordcoco.ie`, `consult.waterfordcouncil.ie` | same platform → uniform scrape (Cork City excepted) |
 | ⚙️ Development-Plan (Land-Use) Zoning composite | `data.gov.ie/dataset/development-plan-land-use-zoning-ireland1` | national zoning → material-contravention flag |
 | ⚙️ OPR practice notes / guide | PN01 (AA screening) `publications.opr.ie`; PN03 (Conditions); `opr.ie/.../The-OPRs-Guide-to-the-Planning-Process.pdf` | how authorities decide |
@@ -861,8 +861,8 @@ Backing the two-axis gate: topology (REPAIRABLE via `make_valid`) vs out-of-boun
 This is the framing that governs the whole build. **The Development Management Standards ARE the
 axioms** from which everything else is derived. Read them here:
 - Live: `consult.galway.ie/.../chapter-15-development-management-standards`
-- Verbatim numeric axioms: `doc/galway_ch15_dm_standards_FULL.md` (71 DM Standards + 7 tables)
-- Conditional (trigger) axioms: `doc/galway_required_assessments_checklist.md` (26 triggered assessments)
+- Verbatim numeric axioms: `doc/archive/galway_ch15_dm_standards_FULL.md` (71 DM Standards + 7 tables)
+- Conditional (trigger) axioms: `doc/archive/galway_required_assessments_checklist.md` (26 triggered assessments)
 
 ### Three kinds of axiom
 1. **Numeric** — a value to compare (e.g. rural site ≥ 2,000 m²; 22 m window separation; 1.5 parking

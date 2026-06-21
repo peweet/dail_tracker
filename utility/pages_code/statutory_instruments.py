@@ -471,7 +471,7 @@ def _apply_filters(
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_kpi_strip(df: pd.DataFrame) -> None:
     """Opening findings lede — the canonical stat-strip replacement
-    (finding_lede; doc/APP_REDESIGN_SWEEP_2026_06_10.md S-1, work order #4).
+    (finding_lede; doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md S-1, work order #4).
     Two plain-English facts the active-filter data supports; the EU-derived
     share and enabling-Act link rate live in the facets below.
     logic_firewall: display_only — counts over the post-filter frame."""

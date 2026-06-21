@@ -85,6 +85,21 @@ def test_engagements_excludes_travel_and_media(conn) -> None:
     assert leaked == 0
 
 
+def test_education_landed_and_fully_attributed(conn) -> None:
+    # Education was promoted to gold in session 4 (WAF fingerprint fix + 2nd grid parser +
+    # orientation re-OCR → 14,567 entries, 2016-2025). Guard that it stays in gold AND that
+    # every Education engagement that reaches the view is attributed to a minister (the lineage
+    # date-rules: O'Sullivan/Bruton/McHugh/Foley/McEntee + MoS Moynihan). A regression in the
+    # rules or the merge would drop the dept or null its minister.
+    n_rows, n_min, n_null = conn.execute(
+        "select count(*), count(distinct minister), count(*) filter (where minister is null) "
+        "from v_ministerial_diary_engagements where department = 'EDUCATION'"
+    ).fetchone()
+    assert n_rows > 0  # Education present in gold
+    assert n_min >= 5  # full lineage represented (not collapsed to one stale name)
+    assert n_null == 0  # no unattributed Education engagement reaches the page
+
+
 def test_minister_resolution_from_filename() -> None:
     # the promotion-time fix: canonical minister from the source filename, covering the
     # cases the old single-token regex missed (multi-token names, "…-Calendar", possessives)

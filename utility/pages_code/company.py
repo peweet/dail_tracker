@@ -1,6 +1,6 @@
 """Company dossier — one firm's full public-money footprint on one URL.
 
-The entity-first flagship (doc/APP_REDESIGN_SWEEP_2026_06_10.md §2): a supplier's
+The entity-first flagship (doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md §2): a supplier's
 national contract awards (eTenders), EU award notices (TED, per-notice deep links),
 money actually paid (public-body disclosures) and register overlaps (lobbying),
 side by side on a first-class page — three registers, three lifecycle stages,

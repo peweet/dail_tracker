@@ -10,7 +10,7 @@ Generates ``data/_meta/runtime_data_manifest.json`` — the single source of tru
   *candidate*, surfaced for human review. NEVER auto-untracked by anything.
 
 This is the *data-retention / lineage* sense of "provenance", deliberately distinct from the
-user-facing verifiability concept in doc/API_PROVENANCE_REVIEW.md (the T1/T2/T3 tier model).
+user-facing verifiability concept in doc/archive/API_PROVENANCE_REVIEW.md (the T1/T2/T3 tier model).
 
 The ``runtime`` set is computed from ACTUAL reads, never a hand list: every
 ``read_parquet('data/...')`` literal in ``sql_views/**`` plus every ``{KEY}`` placeholder

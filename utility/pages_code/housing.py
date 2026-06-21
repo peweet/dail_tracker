@@ -222,6 +222,32 @@ def _render_hap() -> None:
         )
 
 
+def _html_table(headers: list[str], rows_html: list[list[str]], numeric_cols: tuple[int, ...] = ()) -> str:
+    """Civic HTML table (st.html) — the sanctioned replacement for st.dataframe on a
+    primary view. Header text is escaped here; each cell in ``rows_html`` is assumed
+    already-safe HTML (so a cell may carry a link)."""
+    head = "".join(
+        f'<th style="text-align:{"right" if i in numeric_cols else "left"};padding:0.4rem 0.65rem;'
+        f'border-bottom:2px solid #d6d3d1;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.04em;'
+        f'color:#5b6b73;font-weight:600;">{_h(h)}</th>'
+        for i, h in enumerate(headers)
+    )
+    body = "".join(
+        "<tr>"
+        + "".join(
+            f'<td style="text-align:{"right" if i in numeric_cols else "left"};padding:0.4rem 0.65rem;'
+            f'border-bottom:1px solid #ebe6da;font-variant-numeric:tabular-nums;color:#14232b;">{c}</td>'
+            for i, c in enumerate(r)
+        )
+        + "</tr>"
+        for r in rows_html
+    )
+    return (
+        '<table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin:0.3rem 0 1rem;">'
+        f"<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
+    )
+
+
 def _render_county_table() -> None:
     """National view only: the county league table + a county/LA grain toggle and a
     drill-into-a-county control (soft-navs via ?county=)."""
@@ -240,27 +266,32 @@ def _render_county_table() -> None:
     if not res.ok or res.data.empty:
         return
     df = res.data.copy()
-    show = pd.DataFrame(
-        {
-            ("County" if grain == "county" else "Local authority"): df["area"],
-            # comma-delimited (rows already ranked by size in the query)
-            "On the list": [f"{int(v):,}" if pd.notna(v) else "—" for v in df["waiting_total"]],
-            "Per 1,000": df["waiters_per_1000"],
-            "% 7yr+": df["over_7yr_pct"],
-            "YoY %": df["waiting_yoy_pct"],
-        }
-    )
-    st.dataframe(
-        show,
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "Per 1,000": st.column_config.NumberColumn(
-                format="%.1f", help="Households on the list per 1,000 people (CSO PEA08 population)"
-            ),
-            "% 7yr+": st.column_config.NumberColumn(format="%.1f%%"),
-            "YoY %": st.column_config.NumberColumn(format="%.1f%%"),
-        },
+
+    def _num(v, fmt: str) -> str:
+        return format(float(v), fmt) if pd.notna(v) else "—"
+
+    # Rendered as a civic HTML table, not st.dataframe (forbidden on a primary view).
+    # The county drill stays on the selectbox below; an area→council link is deferred
+    # until the LA-grain area strings are confirmed to match the council join key
+    # (county-grain names — "Dublin", "Cork" — are not local authorities).
+    rows_html = [
+        [
+            _h(str(area)),
+            f"{int(tot):,}" if pd.notna(tot) else "—",
+            _num(per1000, ".1f"),
+            (f"{_num(over7, '.1f')}%" if pd.notna(over7) else "—"),
+            (f"{float(yoy):+.1f}%" if pd.notna(yoy) else "—"),
+        ]
+        for area, tot, per1000, over7, yoy in zip(
+            df["area"], df["waiting_total"], df["waiters_per_1000"], df["over_7yr_pct"], df["waiting_yoy_pct"]
+        )
+    ]
+    st.html(
+        _html_table(
+            [("County" if grain == "county" else "Local authority"), "On the list", "Per 1,000", "% 7yr+", "YoY %"],
+            rows_html,
+            numeric_cols=(1, 2, 3, 4),
+        )
     )
     if grain == "la":
         st.caption("Per-1,000 is blank at local-authority grain — CSO population is county-level.")
