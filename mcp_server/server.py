@@ -14,7 +14,7 @@ Run (stdio, for Claude Desktop / local clients):
 
 ⚠️ Stdio-only today. Do NOT expose this beyond a local client until the remote
 transport work lands (streamable HTTP + API keys + audit logging — see
-doc/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
+doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 """
 
 from __future__ import annotations
