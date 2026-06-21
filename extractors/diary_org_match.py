@@ -404,9 +404,7 @@ CURATED_ORGS: dict[str, str] = {
     "thermo fisher": "Thermo Fisher Scientific",
     "anthropic": "Anthropic",
 }
-_CURATED_RE = re.compile(
-    r"(?<![a-z0-9])(" + "|".join(sorted(CURATED_ORGS, key=len, reverse=True)) + r")(?![a-z0-9])"
-)
+_CURATED_RE = re.compile(r"(?<![a-z0-9])(" + "|".join(sorted(CURATED_ORGS, key=len, reverse=True)) + r")(?![a-z0-9])")
 
 
 def _fold_subject(s: str) -> str:

@@ -102,7 +102,7 @@ from data_access.procurement_data import (
     fetch_ted_tenders_stats_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
-from ui.entity_links import authority_profile_url, company_profile_url
+from ui.entity_links import authority_profile_url, company_profile_url, council_accountability_url
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -1187,10 +1187,23 @@ def _render_payments_publisher_profile(
     if span:
         sub_parts.append(span)
     kick = kicker + (f" · {sector.upper()}" if sector and not is_la else "")
+    # Forward edge for councils: cross-link the spending dossier to the council's
+    # "Who Runs Your County" accountability page (the two council views otherwise
+    # never connect). publisher_name is the council join key the local-government
+    # page resolves ?la= against; gated on the local_authority flag so only real
+    # councils get the link.
+    accountability_html = (
+        f'<div class="pr-prof-sub" style="margin-top:0.35rem">'
+        f'<a class="dt-source-link" href="{_esc(council_accountability_url(publisher_name))}" target="_self">'
+        f"Who runs {_esc(publisher_name)} →</a></div>"
+        if is_la
+        else ""
+    )
     st.html(
         f'<div class="pr-prof-head"><div class="pr-prof-kicker">{_esc(kick)}</div>'
         f'<h1 class="pr-prof-name">{_esc(publisher_name)}</h1>'
-        f'<div class="pr-prof-sub">{_esc(" · ".join(sub_parts))}</div></div>'
+        f'<div class="pr-prof-sub">{_esc(" · ".join(sub_parts))}</div>'
+        f"{accountability_html}</div>"
     )
     # Both lifecycle tiers side by side — distinct stages of public money, NEVER summed.
     if prow is not None:
