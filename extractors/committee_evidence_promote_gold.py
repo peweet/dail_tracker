@@ -36,12 +36,13 @@ SILVER = SILVER_DIR / "committee_evidence"
 GOLD = Path("data/gold/parquet")
 
 # (silver name, gold name, row floor). Floors are data-anchored to the current
-# 2-committee scope (PAC + Housing); they refuse to atomically replace good gold
-# with a truncated harvest, and rise as the committee scope widens.
+# all-committees scope (~74 committees since 2024-09; ~1,013 meetings / 1,630 org
+# / 4,127 person rows): they refuse to atomically replace good gold with a
+# truncated harvest, set well below the live volumes to tolerate normal variation.
 TABLES = [
-    ("committee_meetings.parquet", "committee_meetings.parquet", 20),
-    ("committee_witnesses.parquet", "committee_witnesses.parquet", 20),
-    ("committee_witness_persons.parquet", "committee_witness_persons.parquet", 50),
+    ("committee_meetings.parquet", "committee_meetings.parquet", 600),
+    ("committee_witnesses.parquet", "committee_witnesses.parquet", 900),
+    ("committee_witness_persons.parquet", "committee_witness_persons.parquet", 2000),
 ]
 
 
