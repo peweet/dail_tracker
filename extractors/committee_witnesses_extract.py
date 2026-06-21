@@ -104,6 +104,12 @@ _WELCOME_TAIL_CUT = re.compile(
 _GENERIC_ORG = {"department", "departments", "office", "agency", "committee", "board",
                 "commission", "council", "minister", "officials", "representatives"}
 
+# Procedural session headings that are housekeeping, not a topic of the meeting —
+# excluded from the per-meeting TOPIC list (the timeline spine). The witness-org
+# parser already ignores "business of"; the meeting topics drop the same noise.
+_TOPIC_DROP = re.compile(r"^\s*(?:business of|minutes|votes? and proceedings|"
+                         r"any other business|agenda|introduction)\b", re.I)
+
 _TAG = re.compile(r"<[^>]+>")
 _FROM = re.compile(r"<from[^>]*>(.*?)</from>", re.S)
 _HEADING = re.compile(r"<heading[^>]*>(.*?)</heading>", re.S)
@@ -180,10 +186,22 @@ def extract_meeting(rec: dict) -> dict:
     path_code = m.group(1) if m else ""
     reconciled = path_code == house.get("committeeCode")
 
+    # raw section headings = the meeting's TOPIC list (timeline spine). Deduped,
+    # order-preserved, procedural housekeeping dropped. Kept verbatim (not cleaned
+    # into org names) so the page shows what was actually discussed, e.g.
+    # "Appropriation Accounts 2024", "Vote 45 - Further and Higher Education…".
+    headings_raw = [_plain(x) for x in _HEADING.findall(xml)]
+    topics: list[str] = []
+    seen_topics: set[str] = set()
+    for h in headings_raw:
+        if h and not _TOPIC_DROP.match(h) and h.lower() not in seen_topics:
+            seen_topics.add(h.lower())
+            topics.append(h)
+
     # org candidates: heading (primary) + welcome (corroboration). First writer of a
     # lower-cased key wins, so headings (looped first) take precedence over welcome.
     candidates: dict[str, tuple[str, str]] = {}  # key -> (org, source)
-    for h in (_plain(x) for x in _HEADING.findall(xml)):
+    for h in headings_raw:
         org = _clean_heading_org(h)
         if org:
             candidates.setdefault(org.lower(), (org, "heading"))
@@ -207,6 +225,7 @@ def extract_meeting(rec: dict) -> dict:
         "source_xml": rec["formats"]["xml"]["uri"],
         "frbr_path_code": path_code,
         "reconciled": reconciled,
+        "topics": topics,
         "orgs": orgs,
         "persons": persons,
     }
@@ -216,6 +235,7 @@ def extract_meeting(rec: dict) -> dict:
 
 
 def run(committees: list[str], max_meetings: int, since: str) -> None:
+    meeting_rows: list[dict] = []
     org_rows: list[dict] = []
     person_rows: list[dict] = []
     dropped = 0
@@ -231,6 +251,14 @@ def run(committees: list[str], max_meetings: int, since: str) -> None:
                                ev["committee_code"], ev["frbr_path_code"], ev["date"])
                 continue
             base = {k: ev[k] for k in ("committee_code", "committee_name", "house_no", "date", "source_xml")}
+            # per-meeting spine: one row per (committee, date) with topics + counts.
+            meeting_rows.append({
+                **base,
+                "topics": ev["topics"],
+                "n_topics": len(ev["topics"]),
+                "n_orgs": len(ev["orgs"]),
+                "n_persons": len(ev["persons"]),
+            })
             for o in ev["orgs"]:
                 org_rows.append({**base, **o})
             for p in ev["persons"]:
@@ -238,19 +266,24 @@ def run(committees: list[str], max_meetings: int, since: str) -> None:
 
     if dropped:
         logger.warning("dropped %d meeting(s) on committee-code reconciliation mismatch", dropped)
-    if not org_rows:
-        logger.error("no witness orgs extracted — check enumeration / extraction")
+    if not meeting_rows:
+        logger.error("no meetings extracted — check enumeration / extraction")
         return
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    meetings_df = pl.DataFrame(meeting_rows).unique(["committee_code", "date"]).sort(
+        ["committee_code", "date"], descending=[False, True])
     orgs_df = pl.DataFrame(org_rows).unique(["committee_code", "date", "witness_org"]).sort(
-        ["committee_code", "date", "witness_org"])
+        ["committee_code", "date", "witness_org"]) if org_rows else pl.DataFrame()
     persons_df = pl.DataFrame(person_rows).unique(["committee_code", "date", "witness_person"]).sort(
-        ["committee_code", "date", "witness_person"])
-    save_parquet(orgs_df, OUT_DIR / "committee_witnesses.parquet")
-    save_parquet(persons_df, OUT_DIR / "committee_witness_persons.parquet")
-    logger.info("wrote %d witness-org rows, %d witness-person rows -> %s",
-                orgs_df.height, persons_df.height, OUT_DIR)
+        ["committee_code", "date", "witness_person"]) if person_rows else pl.DataFrame()
+    save_parquet(meetings_df, OUT_DIR / "committee_meetings.parquet")
+    if not orgs_df.is_empty():
+        save_parquet(orgs_df, OUT_DIR / "committee_witnesses.parquet")
+    if not persons_df.is_empty():
+        save_parquet(persons_df, OUT_DIR / "committee_witness_persons.parquet")
+    logger.info("wrote %d meeting rows, %d witness-org rows, %d witness-person rows -> %s",
+                meetings_df.height, orgs_df.height, persons_df.height, OUT_DIR)
 
 
 def main() -> None:
