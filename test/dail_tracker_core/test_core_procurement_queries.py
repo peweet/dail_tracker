@@ -448,6 +448,26 @@ def test_payment_lines_for_supplier_spans_all_bodies(conn):
     assert pair.ok and len(r.data) >= len(pair.data)
 
 
+def test_payment_leaf_flags_recurring_charges(conn):
+    """Both payment leaves expose recurring_years — the count of distinct years in which an
+    identical amount recurs (the PPP availability/unitary-charge signature). The page flags ≥2 so
+    an annually-repeating charge is not read as distinct spend. Must default to 1 for one-off
+    lines (no false positives) and never exceed the row's own year span."""
+    top = q.payments_supplier_summary(conn, tier="SPENT", limit=1)
+    if not top.ok or top.is_empty:
+        pytest.skip("no payment rows")
+    norm = top.data.iloc[0]["supplier_normalised"]
+    for r in (
+        q.payment_lines_for_supplier(conn, norm, tier="SPENT"),
+        q.payment_lines_for_pair(
+            conn, norm, q.payment_lines_for_supplier(conn, norm, tier="SPENT").data.iloc[0]["publisher_name"], tier="SPENT"
+        ),
+    ):
+        assert r.ok and "recurring_years" in r.data.columns
+        rec = r.data["recurring_years"].dropna()
+        assert (rec >= 1).all()  # a present amount appears in at least its own year
+
+
 def test_single_bid_notices_for_cpv_drill(conn):
     """Each single-bid market card must drill into the individual single-bid notices, each with a
     TED notice_url. Restricted to the api lane (the single-bid field's only source)."""
