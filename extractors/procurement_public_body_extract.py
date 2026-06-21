@@ -270,6 +270,7 @@ def cfg(
     include=None,
     exclude=None,
     caveat="",
+    reader=None,
 ) -> dict:
     return {
         "id": pid,
@@ -285,6 +286,9 @@ def cfg(
         "include": re.compile(include, re.I) if include else None,
         "exclude": re.compile(exclude, re.I) if exclude else None,
         "caveat": caveat,
+        # optional bespoke reader override (e.g. "reading_order" for the line-pair DCEDIY layout
+        # the generic word-geometry reader yields 0 rows for); None = generic header-anchored reader.
+        "reader": reader,
     }
 
 
@@ -794,10 +798,15 @@ PUBLISHERS: list[dict] = [
         "department",
         "central_government",
         listing="https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/",
-        semantics="po_committed",
+        # the PDFs report "Total Paid" + "Payment Date" per row → payment_actual, not po_committed.
+        semantics="payment_actual",
         grain="purchase_order",
         privacy="medium",
         tier="A",
+        # READING-ORDER layout (ref+supplier / payment-date / €amount+desc across 2-3 lines, in
+        # EITHER column order): the generic word-geometry reader yields 0. Dominated by the asylum/
+        # IP + Ukraine accommodation-provider spend (Cape Wrath/Mosney/Guestford, €m each).
+        reader="reading_order",
     ),
     # agencies / regulators publishing a dedicated PO-over-20k page.
     cfg(
@@ -1213,6 +1222,66 @@ def read_pdf(b: bytes, max_pages: int | None) -> dict:
     }
 
 
+# ---- reading-order PDF (DCEDIY / dept_children) ----
+_RO_REF = re.compile(r"^(\d{4,7})\s+(.+\S)\s*$")
+_RO_DATE = re.compile(r"^(\d{2})/(\d{2})/(\d{4})(?:\s+(.*))?$")
+_RO_AMT = re.compile(r"^\D{0,3}([\d,]+\.\d{2})\s*(.*)$")
+_RO_HEADER = {
+    "reference", "name", "supplier name", "amount", "total paid",
+    "description", "payment", "payment date", "date",
+}  # fmt: skip
+
+
+def read_reading_order(b: bytes, max_pages: int | None) -> list[dict]:
+    """Line-pair reader for the DCEDIY PO layout the generic word-geometry reader can't parse.
+
+    Each record is a 'ref supplier' line followed by a payment date and a '€amount description'
+    line in EITHER order (two published column layouts — date-middle and date-last). Order-
+    agnostic: classify each post-ref line by pattern, flush on the next ref. Carries a PER-ROW
+    payment date (the value here — provider spend over time), unlike the file-period schema.
+    """
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+    recs: list[dict] = []
+    cur: dict | None = None
+
+    def flush():
+        nonlocal cur
+        if cur and cur.get("amount") is not None and cur.get("date"):
+            recs.append(cur)
+        cur = None
+
+    for pi in range(limit):
+        for raw in doc[pi].get_text().splitlines():
+            line = raw.strip()
+            if not line or line.lower() in _RO_HEADER:
+                continue
+            m = _RO_REF.match(line)
+            if m:
+                flush()
+                cur = {"ref": m.group(1), "supplier": m.group(2).strip(), "date": None, "amount": None, "desc": "", "page": pi + 1}
+                continue
+            if cur is None:
+                continue
+            dm = _RO_DATE.match(line)
+            if dm and cur["date"] is None:
+                cur["date"] = f"{dm.group(3)}-{dm.group(2)}-{dm.group(1)}"
+                if dm.group(4):  # date + amount + desc on one line
+                    am = _RO_AMT.match(dm.group(4).strip())
+                    if am and cur["amount"] is None:
+                        cur["amount"], cur["desc"] = float(am.group(1).replace(",", "")), am.group(2).strip()
+                continue
+            am = _RO_AMT.match(line)
+            if am and cur["amount"] is None:
+                cur["amount"], cur["desc"] = float(am.group(1).replace(",", "")), am.group(2).strip()
+                continue
+            if cur["amount"] is not None:  # description continuation
+                cur["desc"] = (cur["desc"] + " " + line).strip()
+    flush()
+    doc.close()
+    return recs
+
+
 # ---- XLSX / XLS / CSV ----
 def _tabular_from_raw(raw: list[list]):
     """Shared header-pick + body-trim for any 2D cell grid (openpyxl or xlrd)."""
@@ -1342,7 +1411,7 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
     caveat_detected = False
     conf = "low"
 
-    def base(srn, page, supplier, amount, desc, po, paid):
+    def base(srn, page, supplier, amount, desc, po, paid, period=period, year=year, quarter=quarter):
         return {
             "publisher_id": cf["id"],
             "publisher_name": cf["name"],
@@ -1367,7 +1436,20 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             "source_caveat": cf["caveat"] or None,
         }
 
-    if fmt == "pdf":
+    if fmt == "pdf" and cf.get("reader") == "reading_order":
+        # bespoke line-pair reader with a PER-ROW payment date → derive period/year/quarter per
+        # row (the file URL is a GUID with no period). ref → po_number.
+        recs = read_reading_order(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            yr = int(r["date"][:4])
+            q = (int(r["date"][5:7]) - 1) // 3 + 1
+            sup = clean_supplier(r["supplier"])
+            rows_out.append(base(srn, r["page"], sup, r["amount"], r["desc"], r["ref"], None, period=f"{yr}-Q{q}", year=yr, quarter=q))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
+    elif fmt == "pdf":
         info = read_pdf(b, max_pages)
         caveat_detected = bool(CAVEAT_RE.search(info["page0"]) or CAVEAT_RE.search(info["header_label"]))
         if not info["digital"] or not info["cols"] or "amount" not in info["roles"]:
