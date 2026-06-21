@@ -81,3 +81,8 @@ def fetch_supplier_lines_result(
     supplier_normalised: str, order_by: str = "value", limit: int | None = None
 ) -> QueryResult:
     return _q.supplier_lines(get_public_payments_conn(), supplier_normalised, order_by=order_by, limit=limit)
+
+
+@st.cache_data(ttl=300)
+def fetch_supplier_quarter_totals_result(supplier_normalised: str, limit: int | None = None) -> QueryResult:
+    return _q.supplier_quarter_totals(get_public_payments_conn(), supplier_normalised, limit=limit)

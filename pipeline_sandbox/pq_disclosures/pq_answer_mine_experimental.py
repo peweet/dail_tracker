@@ -45,13 +45,13 @@ import logging
 import re
 import sys
 import time
-import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pandas as pd
 
 from config import BRONZE_DIR
+from services.http_engine import fetch_text
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -60,7 +60,6 @@ logger = logging.getLogger(__name__)
 _BRONZE_QUESTIONS = BRONZE_DIR / "questions" / "questions_results.json"
 _CACHE_DIR = Path("c:/tmp/pq_answer_cache")
 _OUT = Path("data/_sandbox/pq_disclosures_experimental.parquet")
-_UA = {"User-Agent": "dail-extractor pq-disclosure-prototype (sandbox)"}
 
 # Question opener: "892. Deputy Donna McGettigan asked the Minister ..."
 _Q_OPEN = re.compile(r"^\s*\d+\.\s+Deput(?:y|ies)\s+(.+?)\s+asked\b", re.I)
@@ -178,7 +177,16 @@ def _section_uris_from_bronze(since: str | None, section_filter: str | None = No
 
 
 def _fetch(uri: str) -> str:
-    """Fetch a section XML, caching to disk so reruns never re-hit the API."""
+    """Fetch a section XML, caching to disk so reruns never re-hit the API.
+
+    Uses the shared keep-alive session (services.http_engine) so a full-corpus
+    run reuses one pooled connection per worker instead of a fresh TCP+TLS
+    handshake per request, and inherits its 429/5xx retry-with-backoff (keep
+    workers <= the pool's maxsize of 20). A short post-fetch sleep smooths the
+    concurrent burst: at 10 no-sleep workers data.oireachtas.ie started returning
+    503s, so we stay a polite citizen. The cache-hit path returns BEFORE the
+    network and the sleep, so a killed run resumes instantly.
+    """
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
     # Cache key must include the date: dbsect_833.xml exists for *every* sitting
     # day, so a basename-only key collides across dates.
@@ -186,10 +194,9 @@ def _fetch(uri: str) -> str:
     cache = _CACHE_DIR / key
     if cache.exists():
         return cache.read_text(encoding="utf-8")
-    req = urllib.request.Request(uri, headers=_UA)
-    data = urllib.request.urlopen(req, timeout=30).read().decode("utf-8")
+    data, _ = fetch_text(uri)
     cache.write_text(data, encoding="utf-8")
-    time.sleep(0.4)  # be polite to the API
+    time.sleep(0.1)  # smooth the concurrent burst; server shed 503s without it
     return data
 
 

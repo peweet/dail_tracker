@@ -25,6 +25,7 @@ import argparse
 import contextlib
 import json
 import logging
+import os
 import re
 from datetime import date
 from pathlib import Path
@@ -93,7 +94,9 @@ def ocr_file_cells(ocr, pdf_path: Path, cache_key: str, max_pages: int | None = 
     cache = CELLS / f"{cache_key}.json"
     if cache.exists():
         return json.loads(cache.read_text(encoding="utf-8"))
-    tmp_png = OCR_TXT / "_page.png"
+    # per-PROCESS temp PNG: a shared "_page.png" makes two concurrent OCR runs collide on the
+    # remove-before-write (Windows "Permission denied"), crashing the run. PID-scoped → no collision.
+    tmp_png = OCR_TXT / f"_page_{os.getpid()}.png"
     doc = fitz.open(pdf_path)
     pages = [_page_cells(ocr, page, tmp_png) for i, page in enumerate(doc) if max_pages is None or i < max_pages]
     cache.write_text(json.dumps(pages), encoding="utf-8")

@@ -42,6 +42,7 @@ from data_access.public_payments_data import (
     fetch_publisher_lines_result,
     fetch_publisher_summary_result,
     fetch_supplier_lines_result,
+    fetch_supplier_quarter_totals_result,
     fetch_supplier_summary_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
@@ -68,6 +69,7 @@ from pages_code.procurement import _render_council_accounts_context as render_co
 _TOP = 60  # ranked cards per browse tab (views are pre-ordered DESC)
 _PUB_PAGE = 24  # publisher cards per page (multiple of 3 for the grid)
 _LINE_PAGE = 25  # payment-line rows per page on a drill-down
+_Q_PAGE = 8  # quarter sections per page on the supplier drill-down
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -330,6 +332,54 @@ def _render_line_list(df: pd.DataFrame, *, key: str) -> None:
     pagination_controls(total, key_prefix=key, page_sizes=(_LINE_PAGE,), default_page_size=_LINE_PAGE, label="lines")
 
 
+def _quarter_header_html(period: str, subtotal, n_lines: int) -> str:
+    """Full-width section divider for one quarter: the period on the left, its sum-safe
+    subtotal + line count on the right. Inline-styled (a one-off section rule, not a
+    reusable card) to keep all the reusable CSS in shared_css.py."""
+    sub = _eur(subtotal)
+    right = (
+        f"{sub} sum-safe · {_lines_word(n_lines)}" if sub != "—" else _lines_word(n_lines)
+    )
+    return (
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.75rem;'
+        'margin:1.4rem 0 0.6rem;padding-bottom:0.35rem;border-bottom:2px solid #e3ddd1;">'
+        f'<span style="font-weight:700;font-size:1.05rem;color:#1a1a1a;">{_esc(period)}</span>'
+        f'<span style="font-weight:600;color:#555;white-space:nowrap;">{_esc(right)}</span>'
+        "</div>"
+    )
+
+
+def _render_supplier_quarters(lines: pd.DataFrame, quarters: pd.DataFrame, *, key: str) -> None:
+    """Render a supplier's lines grouped into quarter sections (newest first), each with a
+    pre-computed sum-safe subtotal header. Aggregation already happened in the registered
+    quarter-totals query; here we only slice the line frame per period (display-only) and
+    paginate over the quarter sections. Falls back to a flat list if the rollup is absent."""
+    if quarters is None or quarters.empty:
+        _render_line_list(lines, key=key)
+        return
+    total_q = len(quarters)
+    page_idx = paginate(total_q, key_prefix=key, page_size=_Q_PAGE)
+    page = quarters.iloc[page_idx * _Q_PAGE : (page_idx + 1) * _Q_PAGE]
+    blocks: list[str] = []
+    for qr in page.itertuples():
+        per = getattr(qr, "period", None)
+        period_label = _coalesce(per) or "Period not stated"
+        # Display-only slice of the already-fetched lines for this period (null-safe so
+        # annual/undated rows still group). No aggregation — the subtotal is from the query.
+        if per is None or (isinstance(per, float) and pd.isna(per)):
+            qlines = lines[lines["period"].isna()]
+        else:
+            qlines = lines[lines["period"] == per]
+        line_cards = "".join(_line_row_html(r) for r in qlines.itertuples())
+        blocks.append(
+            _quarter_header_html(period_label, getattr(qr, "total_safe_eur", None), _n(getattr(qr, "n_lines", None)))
+            + f'<div class="pr-grid">{line_cards}</div>'
+        )
+    st.html("".join(blocks))
+    st.html('<div style="height:1rem"></div>')
+    pagination_controls(total_q, key_prefix=key, page_sizes=(_Q_PAGE,), default_page_size=_Q_PAGE, label="quarters")
+
+
 def _render_publisher_profile(publisher_id: str) -> None:
     back_button("← All public-body payments", "?")
     res = fetch_publisher_lines_result(publisher_id, order_by="value", limit=2000)
@@ -366,7 +416,7 @@ def _render_publisher_profile(publisher_id: str) -> None:
 
 def _render_supplier_profile(supplier_norm: str) -> None:
     back_button("← All public-body payments", "?")
-    res = fetch_supplier_lines_result(supplier_norm, order_by="value", limit=2000)
+    res = fetch_supplier_lines_result(supplier_norm, order_by="recent", limit=2000)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
         empty_state("No lines", "This supplier has no payment lines, or the source is unavailable.")
@@ -395,10 +445,13 @@ def _render_supplier_profile(supplier_norm: str) -> None:
         + "</div>"
     )
     st.caption(
-        "Across all publishers, highest-value first. A line is a purchase order or payment record, "
-        "not evidence of influence or wrongdoing."
+        "Grouped by quarter, newest first; each quarter shows its sum-safe subtotal, with the "
+        "larger figures leading. A line is a purchase order or payment record, not evidence of "
+        "influence or wrongdoing."
     )
-    _render_line_list(df, key="pp_sup_lines")
+    qres = fetch_supplier_quarter_totals_result(supplier_norm)
+    quarters = qres.data if qres.ok else pd.DataFrame()
+    _render_supplier_quarters(df, quarters, key="pp_sup_lines")
     _provenance_footer()
 
 

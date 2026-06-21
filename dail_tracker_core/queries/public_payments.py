@@ -43,7 +43,9 @@ _SUPPLIER_ORDER = {
 }
 _LINE_ORDER = {
     "value": "amount_eur DESC NULLS LAST",
-    "recent": "year DESC NULLS LAST, quarter DESC NULLS LAST",
+    # Group a drill-down by period, newest first, with the bigger figures leading inside
+    # each quarter — far easier to read than a value-only sort that interleaves quarters.
+    "recent": "year DESC NULLS LAST, quarter DESC NULLS LAST, amount_eur DESC NULLS LAST",
 }
 
 
@@ -153,6 +155,32 @@ def supplier_lines(
     order = _LINE_ORDER.get(order_by, _LINE_ORDER["value"])
     params: list = [supplier_normalised]
     sql = f"SELECT {_LINE_COLS} FROM v_public_payments WHERE supplier_normalised = ? ORDER BY {order}"
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def supplier_quarter_totals(
+    conn: duckdb.DuckDBPyConnection,
+    supplier_normalised: str,
+    *,
+    limit: int | None = None,
+) -> QueryResult:
+    """Per-quarter rollup for one supplier's drill-down: one row per (year, quarter)
+    with the sum-safe subtotal and line count, newest quarter first. The GROUP BY lives
+    here so the page can render quarter sections without aggregating (logic firewall).
+    period is functionally determined by (year, quarter) so it groups 1:1 and is carried
+    through as the display label / join key the page filters its line list on."""
+    params: list = [supplier_normalised]
+    sql = (
+        "SELECT year, quarter, period,"
+        "  count(*)                                          AS n_lines,"
+        "  coalesce(sum(amount_eur) FILTER (WHERE value_safe_to_sum), 0) AS total_safe_eur"
+        " FROM v_public_payments WHERE supplier_normalised = ?"
+        " GROUP BY year, quarter, period"
+        " ORDER BY year DESC NULLS LAST, quarter DESC NULLS LAST"
+    )
     if limit is not None:
         sql += " LIMIT ?"
         params.append(int(limit))

@@ -1,14 +1,14 @@
 {
-  "generated_utc": "2026-06-21T13:23:09.228479+00:00",
+  "generated_utc": "2026-06-21T14:02:59.094714+00:00",
   "fact": "procurement_payments_fact",
-  "n_rows_total": 227610,
+  "n_rows_total": 223722,
   "n_rows_quarantined": 13404,
-  "frac_quarantined": 0.0589,
+  "frac_quarantined": 0.0599,
   "breaches": {
     "paid_flag": {
       "severity": "quarantine",
       "n_offending": 13404,
-      "frac": 0.0589,
+      "frac": 0.0599,
       "samples": [
         "Part Paid",
         "Building Mtce",

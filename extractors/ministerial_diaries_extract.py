@@ -237,6 +237,13 @@ _NOISE_RE = re.compile(r"^(Time|Subject|Details|Date|Minister .{0,60}(Diary|Cale
 # files parsed to zero. Requires a non-blank subject after the time, so a bare print-timestamp
 # ("14/04/2025 11:35") with nothing trailing falls through to _CAL_NOISE_RE instead of becoming a row.
 _INLINE_DT_RE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2})[:.](\d{2})\s+(\S.*)$")
+# Bare numeric-date HEADER line, optionally with a time, NOTHING after it: "02/10/2017 10:30" or
+# "04/01/2018" on its own line, with the subject on the FOLLOWING line(s). The early DETE junior-
+# minister files (Halligan/Breen/Mitchell-O'Connor 2017-18 "Meeting Time / Subject" two-column
+# print) use this — the inline regex above misses it (no same-line subject) so they parsed to zero
+# (text_layout_unrecognised). A date with NO time stays time-less, so non-meeting status rows
+# ("Dáil not sitting") never reach a flush and are dropped — only timed rows become engagements.
+_NUMDATE_RE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2})[:.](\d{2}))?\s*$")
 # "Month YYYY" section header in a multi-year weekday-list (HEALTH "April 23 to Jan 25", Higgins):
 # the short date lines that follow ("Sat 1 Apr") carry no year, so we hold the year from the most
 # recent header. NOT an engagement itself. Checked before the date/noise branches so it wins over
@@ -448,6 +455,15 @@ def parse_entries(text: str, default_year: int | None, default_month: int | None
             cur_time = f"{int(im.group(4)):02d}:{im.group(5)}"
             if cur_date:
                 subject_parts.append(im.group(6).strip())
+            continue
+        # bare "DD/MM/YYYY [HH:MM]" header line (subject on the next line) — early DETE junior diaries
+        if nd := _NUMDATE_RE.match(line):
+            flush()
+            try:
+                cur_date = date(int(nd.group(3)), int(nd.group(2)), int(nd.group(1)))
+            except ValueError:
+                cur_date = None
+            cur_time = f"{int(nd.group(4)):02d}:{nd.group(5)}" if nd.group(4) else None
             continue
         # "Month YYYY" header → hold the running year for the yearless date lines below
         if honor_year_headers and (my := _MONTH_YEAR_HEADER_RE.match(line)):
