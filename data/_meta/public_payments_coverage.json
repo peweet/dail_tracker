@@ -1,6 +1,6 @@
 {
   "publishers_attempted": 44,
-  "publishers_with_rows": 42,
+  "publishers_with_rows": 40,
   "rows_extracted": 87237,
   "rows_deduped_within_file": 0,
   "rows_public_display": 68577,
@@ -28,7 +28,7 @@
       "files_parsed": 45,
       "files_skipped": 0,
       "files_with_rows": 45,
-      "rows": 18663,
+      "rows": 18647,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -40,7 +40,7 @@
       "files_parsed": 54,
       "files_skipped": 0,
       "files_with_rows": 50,
-      "rows": 3089,
+      "rows": 2930,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -52,7 +52,7 @@
       "files_parsed": 49,
       "files_skipped": 0,
       "files_with_rows": 49,
-      "rows": 11252,
+      "rows": 11043,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -64,7 +64,7 @@
       "files_parsed": 37,
       "files_skipped": 0,
       "files_with_rows": 36,
-      "rows": 926,
+      "rows": 874,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -76,7 +76,7 @@
       "files_parsed": 9,
       "files_skipped": 0,
       "files_with_rows": 8,
-      "rows": 382,
+      "rows": 248,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -88,7 +88,7 @@
       "files_parsed": 5,
       "files_skipped": 0,
       "files_with_rows": 5,
-      "rows": 164,
+      "rows": 163,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -100,7 +100,7 @@
       "files_parsed": 52,
       "files_skipped": 0,
       "files_with_rows": 52,
-      "rows": 3594,
+      "rows": 3489,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -112,7 +112,7 @@
       "files_parsed": 41,
       "files_skipped": 0,
       "files_with_rows": 41,
-      "rows": 5216,
+      "rows": 5155,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -124,7 +124,7 @@
       "files_parsed": 24,
       "files_skipped": 0,
       "files_with_rows": 21,
-      "rows": 810,
+      "rows": 799,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -148,7 +148,7 @@
       "files_parsed": 52,
       "files_skipped": 0,
       "files_with_rows": 41,
-      "rows": 393,
+      "rows": 386,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -160,7 +160,7 @@
       "files_parsed": 10,
       "files_skipped": 0,
       "files_with_rows": 10,
-      "rows": 113,
+      "rows": 109,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -172,7 +172,7 @@
       "files_parsed": 55,
       "files_skipped": 0,
       "files_with_rows": 55,
-      "rows": 3595,
+      "rows": 3589,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -196,7 +196,7 @@
       "files_parsed": 53,
       "files_skipped": 0,
       "files_with_rows": 52,
-      "rows": 6074,
+      "rows": 5815,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -208,7 +208,7 @@
       "files_parsed": 24,
       "files_skipped": 0,
       "files_with_rows": 23,
-      "rows": 3977,
+      "rows": 3831,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -220,7 +220,7 @@
       "files_parsed": 17,
       "files_skipped": 0,
       "files_with_rows": 16,
-      "rows": 1505,
+      "rows": 1495,
       "amount_semantics": "payment_actual",
       "privacy_risk": "medium"
     },
@@ -280,7 +280,7 @@
       "files_parsed": 13,
       "files_skipped": 0,
       "files_with_rows": 13,
-      "rows": 592,
+      "rows": 590,
       "amount_semantics": "po_committed",
       "privacy_risk": "medium"
     },
@@ -304,7 +304,7 @@
       "files_parsed": 121,
       "files_skipped": 0,
       "files_with_rows": 121,
-      "rows": 3767,
+      "rows": 3647,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -316,7 +316,7 @@
       "files_parsed": 30,
       "files_skipped": 6,
       "files_with_rows": 30,
-      "rows": 4729,
+      "rows": 4487,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -328,7 +328,7 @@
       "files_parsed": 2,
       "files_skipped": 0,
       "files_with_rows": 2,
-      "rows": 168,
+      "rows": 159,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -340,7 +340,7 @@
       "files_parsed": 6,
       "files_skipped": 0,
       "files_with_rows": 5,
-      "rows": 1656,
+      "rows": 1582,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -352,7 +352,7 @@
       "files_parsed": 3,
       "files_skipped": 0,
       "files_with_rows": 3,
-      "rows": 277,
+      "rows": 267,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -436,7 +436,7 @@
       "files_parsed": 11,
       "files_skipped": 0,
       "files_with_rows": 8,
-      "rows": 99,
+      "rows": 96,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -460,7 +460,7 @@
       "files_parsed": 13,
       "files_skipped": 0,
       "files_with_rows": 12,
-      "rows": 365,
+      "rows": 357,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -484,7 +484,7 @@
       "files_parsed": 1,
       "files_skipped": 0,
       "files_with_rows": 1,
-      "rows": 777,
+      "rows": 747,
       "amount_semantics": "po_committed",
       "privacy_risk": "medium"
     },
@@ -495,8 +495,8 @@
       "files_seen": 9,
       "files_parsed": 9,
       "files_skipped": 0,
-      "files_with_rows": 9,
-      "rows": 663,
+      "files_with_rows": 0,
+      "rows": 0,
       "amount_semantics": "payment_actual",
       "privacy_risk": "medium"
     },
@@ -508,7 +508,7 @@
       "files_parsed": 52,
       "files_skipped": 0,
       "files_with_rows": 41,
-      "rows": 1635,
+      "rows": 1600,
       "amount_semantics": "po_committed",
       "privacy_risk": "medium"
     },
@@ -519,8 +519,8 @@
       "files_seen": 32,
       "files_parsed": 20,
       "files_skipped": 0,
-      "files_with_rows": 20,
-      "rows": 30526,
+      "files_with_rows": 0,
+      "rows": 0,
       "amount_semantics": "po_committed",
       "privacy_risk": "medium"
     },
