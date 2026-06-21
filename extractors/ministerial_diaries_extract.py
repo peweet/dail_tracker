@@ -210,13 +210,18 @@ _YEAR_RE = re.compile(r"(20\d\d)")
 # HEALTH/Higgins weekday-list layout, so those date headers never matched (parse_status
 # text_layout_unrecognised). Day+month-name after it stays strict, so this cannot false-match.
 _WEEKDAY = r"(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+)?"
+# The weekday can ALSO trail the date — "27 January 2025 - Monday" (O'Brien 2025 Transport/DECC),
+# "1st July 2024 Monday" (Ryan H2-2024). The separator is a space, a hyphen, or a mojibake
+# replacement char (cp1252-decoded en-dash), so allow up to 4 non-alphanumerics before it. Without
+# this the date line fails to match and entries inherit the last good date — the 2024-07-08 collapse.
+_TRAIL_WD = r"(?:[^A-Za-z0-9]{0,4}(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\.?)?"
 _DATE_FULL_RE = re.compile(
     rf"^{_WEEKDAY}(\d{{1,2}})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|"
-    r"August|September|October|November|December)(?:\s+(\d{4}))?$",
+    rf"August|September|October|November|December)(?:\s+(\d{{4}}))?{_TRAIL_WD}$",
     re.IGNORECASE,
 )
 _DATE_SHORT_RE = re.compile(
-    rf"^{_WEEKDAY}(\d{{1,2}})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?$",
+    rf"^{_WEEKDAY}(\d{{1,2}})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?{_TRAIL_WD}$",
     re.IGNORECASE,
 )
 # bare time slot, or time slot with the subject inline on the same line
@@ -461,8 +466,8 @@ def parse_entries(text: str, default_year: int | None, default_month: int | None
         if tm := _TIME_RE.match(line):
             flush()
             cur_time = f"{tm.group(1).replace('.', ':')}-{tm.group(2).replace('.', ':')}"
-            if tm.group(3):  # subject inline on the same line
-                subject_parts.append(tm.group(3).strip())
+            if tm.group(3):  # subject inline on the same line ("11:00-15:00 - Meeting…")
+                subject_parts.append(re.sub(r"^[\s–—-]+", "", tm.group(3)).strip())
             continue
         if am := _ALL_DAY_RE.match(line):
             flush()
