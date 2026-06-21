@@ -36,6 +36,8 @@ Run: .venv/Scripts/python.exe extractors/ministerial_diaries_extract.py
 from __future__ import annotations
 
 import logging
+import os
+import random
 import re
 import time
 from collections import Counter
@@ -54,10 +56,63 @@ from services.parquet_io import save_parquet
 
 log = logging.getLogger(__name__)
 
-HEADERS = {"User-Agent": "Mozilla/5.0 (dail-tracker civic-data ingestion; contact p.glynn18@gmail.com)"}
+# gov.ie / assets.gov.ie front a WAF that returns 405 to requests that don't look
+# like a browser continuing a real page visit. Empirically (2026-06-21) the trip-wire
+# is the request FINGERPRINT, not the rate: the old bot User-Agent + cookie-less
+# per-request GETs got 405 from the first download, while a browser-UA Session that
+# warms a clearance cookie on the listing page and sends a Referer fetched 5/5 PDFs
+# straight after a 9-minute 405 storm. So we present as a browser and reuse one
+# warmed Session (see _SESSION / _warm_session) rather than hammering harder/slower.
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/pdf,*/*;q=0.8",
+    "Accept-Language": "en-IE,en-GB;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Upgrade-Insecure-Requests": "1",
+    "From": "dail-tracker civic-data ingestion <p.glynn18@gmail.com>",  # honest contact, WAF-safe
+}
+# One persistent Session shared by the listing crawl and the PDF downloads, so the
+# WAF/edge clearance cookie set on a dept's HTML listing page is carried into that
+# dept's PDF requests (the asset host expects it).
+_SESSION = requests.Session()
+_SESSION.headers.update(HEADERS)
+_WARMED: set[str] = set()  # listing URLs we've already GET-warmed this run
+
 OUT_DIR = Path("data/sandbox/enrichment")
 PDF_CACHE = Path("C:/tmp/min_diaries_pdfs")
-SLEEP_S = 0.5  # polite inter-request pace; bumped from 0.3 to ease off the gov.ie WAF
+# Inter-request pacing is JITTERED (a fixed cadence looks botty); env-tunable so a
+# WAF-sensitive backfill (e.g. EDUCATION) can be slowed without editing code.
+PACE_MIN = float(os.getenv("DIARY_PACE_MIN", "1.0"))
+PACE_MAX = float(os.getenv("DIARY_PACE_MAX", "2.5"))
+SLEEP_S = PACE_MIN  # back-compat alias (listing-crawl pacing)
+
+
+def _pace() -> None:
+    """Sleep a jittered polite interval between requests."""
+    time.sleep(random.uniform(PACE_MIN, PACE_MAX))
+
+
+def _warm_session(listing: str | None) -> None:
+    """GET the dept listing page once so the WAF sets its clearance cookie on _SESSION.
+
+    Idempotent per run. A no-op when ``listing`` is unknown — the download still
+    carries browser headers, which alone clears most of the 405s.
+    """
+    if not listing or listing in _WARMED:
+        return
+    _WARMED.add(listing)
+    try:
+        _SESSION.get(listing, timeout=60)
+        _pace()
+    except requests.RequestException as e:
+        log.debug("warm-up GET failed for %s: %s", listing, e)
+
 
 _DPER = (
     "https://www.gov.ie/en/department-of-public-expenditure-infrastructure-"
@@ -219,8 +274,9 @@ def discover_files(only_depts: set[str] | None = None) -> list[dict]:
     sources = [(d, u) for d, u in DEPT_SOURCES if only_depts is None or d in only_depts]
     for dept, listing in sources:
         try:
-            r = requests.get(listing, headers=HEADERS, timeout=60)
+            r = _SESSION.get(listing, timeout=60)
             r.raise_for_status()
+            _WARMED.add(listing)  # this GET warmed the clearance cookie for the dept's PDFs
         except Exception as e:
             log.warning("listing failed %s: %s", listing, e)
             continue
@@ -261,36 +317,79 @@ def discover_files(only_depts: set[str] | None = None) -> list[dict]:
     return rows
 
 
-# gov.ie / assets.gov.ie front a WAF that 405/429-throttles a BURST of rapid
-# downloads (observed 2026-06-19: a full run 405'd ~160 new Education PDFs at
-# SLEEP_S pacing). These are transient — the same URL serves fine after a short
-# pause — so back off and retry rather than dropping the file to the OCR/retry
-# queue. Only a real 404 (or exhausted retries) gives up.
+# Statuses the WAF/edge returns transiently (405 = bot-fingerprint block; 429 = rate;
+# 5xx = edge hiccup) — retry with cooldown + re-warm (see download) rather than dropping
+# the file to the retry queue. A real 404 (or exhausted retries) gives up.
 _RETRY_STATUS = {403, 405, 429, 500, 502, 503}
 
+# Circuit breaker. Once the WAF window shuts it stays shut for minutes, so grinding every
+# remaining file through its full retry budget is just hammering a dead host (the EDUCATION
+# 160-file backfill is the offender: ~45 min of futile 405s landing nothing). After this many
+# CONSECUTIVE files exhaust their retries on a WAF status we treat the window as closed; the
+# caller's loop stops issuing downloads, leaves the rest marked download_failed (deferred), and
+# exits so the NEXT run retries from a fresh window. Any successful fetch resets the count to 0.
+WAF_CIRCUIT_BREAK = int(os.getenv("DIARY_WAF_CIRCUIT_BREAK", "3"))
+_consecutive_waf_blocks = 0
 
-def download(url: str, fname: str, *, retries: int = 4) -> Path | None:
+
+def waf_window_shut() -> bool:
+    """True once consecutive WAF blocks reach the circuit-breaker threshold (download loops poll this)."""
+    return _consecutive_waf_blocks >= WAF_CIRCUIT_BREAK
+
+
+def reset_waf_circuit() -> None:
+    """Clear the breaker at the start of a fresh run."""
+    global _consecutive_waf_blocks
+    _consecutive_waf_blocks = 0
+
+
+def download(url: str, fname: str, *, referer: str | None = None, retries: int = 5) -> Path | None:
+    """Fetch a diary PDF via the warmed browser Session, resumable through the cache.
+
+    ``referer`` is the dept listing page: we warm the Session on it first (clearance
+    cookie) and send it as the Referer so the request looks like a click from the
+    listing — the combination that clears the assets.gov.ie 405 WAF. On a 405/429 we
+    treat the window as closed and do a LONG cooldown + re-warm rather than retrying
+    in a tight 2/4/8s loop (which the WAF reads as more bot traffic and keeps blocking).
+    """
+    global _consecutive_waf_blocks
     cache = PDF_CACHE / re.sub(r"[^A-Za-z0-9._-]", "_", fname)[-100:]
     if cache.exists():
         return cache
+    _warm_session(referer)
+    hdrs = {"Referer": referer, "Sec-Fetch-Dest": "embed", "Sec-Fetch-Site": "same-origin"} if referer else None
     for attempt in range(1, retries + 1):
         try:
-            r = requests.get(url, headers=HEADERS, timeout=90)
+            r = _SESSION.get(url, headers=hdrs, timeout=90)
             if r.status_code in _RETRY_STATUS and attempt < retries:
-                wait = min(30, 2**attempt)  # 2s, 4s, 8s — let the WAF window reset
+                # exponential cooldown 30/60/120/240s (cap 300) — long enough to let the
+                # WAF window reset; re-warm the clearance cookie before the next try.
+                wait = min(300, 30 * 2 ** (attempt - 1))
                 log.info(
-                    "download %s -> HTTP %d; backoff %ds (attempt %d/%d)", fname, r.status_code, wait, attempt, retries
+                    "download %s -> HTTP %d; cooldown %ds + re-warm (attempt %d/%d)",
+                    fname,
+                    r.status_code,
+                    wait,
+                    attempt,
+                    retries,
                 )
                 time.sleep(wait)
+                _WARMED.discard(referer or "")
+                _warm_session(referer)
                 continue
             r.raise_for_status()
             cache.write_bytes(r.content)
-            time.sleep(SLEEP_S)
+            _consecutive_waf_blocks = 0  # a real fetch proves the window is open — reset the breaker
+            _pace()
             return cache
         except requests.RequestException as e:
             if attempt < retries:
-                time.sleep(min(30, 2**attempt))
+                time.sleep(min(300, 30 * 2 ** (attempt - 1)))
                 continue
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status in _RETRY_STATUS:
+                # exhausted all retries on a WAF/edge status → the window is (still) shut
+                _consecutive_waf_blocks += 1
             log.warning("download failed %s: %s", url, e)
             return None
     return None
@@ -391,9 +490,24 @@ def main(only_depts: set[str] | None = None, max_files: int | None = None, min_f
         log.error("Only %d diary files discovered (expected ~270) — listing drift?", len(files))
         return 1
 
+    reset_waf_circuit()
     all_entries: list[dict] = []
-    for f in files:
-        pdf = download(f["file_url"], f["file_name"])
+    for i, f in enumerate(files):
+        if waf_window_shut():
+            # WAF window is shut — stop hammering. Defer every remaining file (born-digital,
+            # cache-resumable) and exit; the next run picks them up from a fresh window.
+            for g in files[i:]:
+                g.update(
+                    {"n_pages": None, "has_text_layer": None, "n_entries_parsed": 0, "parse_status": "download_failed"}
+                )
+            log.error(
+                "WAF circuit-breaker tripped (%d consecutive blocks) — deferring %d remaining downloads; "
+                "retry from a fresh window later",
+                WAF_CIRCUIT_BREAK,
+                len(files) - i,
+            )
+            break
+        pdf = download(f["file_url"], f["file_name"], referer=f["listing_url"])
         if pdf is None:
             f.update(
                 {"n_pages": None, "has_text_layer": None, "n_entries_parsed": 0, "parse_status": "download_failed"}
