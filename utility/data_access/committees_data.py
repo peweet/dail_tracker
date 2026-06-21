@@ -26,6 +26,18 @@ def get_committees_conn() -> duckdb.DuckDBPyConnection:
     return connect_with_views(["committees_*.sql"], swallow_errors=False)
 
 
+@st.cache_resource
+def get_committee_evidence_conn() -> duckdb.DuckDBPyConnection:
+    """Separate connection for the meeting-history view (reads gold).
+
+    swallow_errors=True (unlike the membership conn) so a box without the
+    committee-evidence gold parquets degrades to an empty meeting history rather
+    than breaking the whole Committees page — the membership register is the
+    page's core and must always render.
+    """
+    return connect_with_views(["committee_evidence_*.sql"], swallow_errors=True)
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_committee_assignments(chamber: str) -> pd.DataFrame:
     """One row per (member × committee) for the chamber."""
@@ -60,3 +72,12 @@ def fetch_committee_summary(chamber: str) -> pd.DataFrame:
 def fetch_party_seats(chamber: str, committee: str | None = None) -> pd.DataFrame:
     """Long-format party seats per committee; optionally filtered to one committee."""
     return _q.party_seats(get_committees_conn(), chamber, committee).data
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_committee_meetings(committee: str, limit: int = 60) -> pd.DataFrame:
+    """Reverse-chron meeting history for one committee (date · topics · witnesses ·
+    transcript link). Empty frame when the committee has no extracted meetings yet
+    (only a subset of committees is in scope) or the gold layer is absent — the
+    page renders a "not yet available" state, never an error."""
+    return _q.meetings(get_committee_evidence_conn(), committee, limit).data

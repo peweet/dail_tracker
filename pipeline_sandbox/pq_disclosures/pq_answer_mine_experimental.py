@@ -102,9 +102,36 @@ _REFUSAL = [
 ]
 # Deflection: legitimately the agency's data, not the minister's — tracked
 # separately, NOT counted as a refusal in the headline transparency rate.
+#
+# Named external bodies a minister commonly hands a question off to. Used to
+# catch SOFT referrals ("...is the responsibility of the RSA", "...is a matter
+# for the Agency") that the hard "operational matter for" phrasing misses.
+# Deliberately EXCLUDES "the Department/Minister/Government" so a minister
+# describing their OWN remit is not miscounted as a deflection.
+_AGENCY = (
+    r"(?:An\s+Garda\s+S[íi]ochána|the\s+Gard(?:a[íi]|aí)|HSE|RSA|EPA|NTA|TII|SUSI"
+    r"|Tusla|Uisce\s+[ÉE]ireann|Irish\s+Water|Coillte|the\s+(?:Agency|Authority"
+    r"|Commission(?:er)?|Board|Council|Executive|Service|Ombudsman|relevant\s+"
+    r"(?:body|authority|agency)|local\s+authorit(?:y|ies)))"
+)
+# EXPERIMENTAL (widened 2026-06-21 during discovery): adds soft-referral forms
+# surfaced by NONANSWER_BREAKDOWN — "referred the Deputy's question to ...",
+# "for direct response", "not involved in the day-to-day", and
+# "responsibility/matter ... <named agency>". Precision over recall: the
+# responsibility/matter branches require a NAMED external body, not a bare
+# "the Department". Re-applied at analysis time, so no re-mine needed.
 _DEFLECTION = re.compile(
-    r"operational\s+matter\s+for|matter\s+for\s+the\s+(?:HSE|Garda|Commissioner|board"
-    r"|management|relevant)|referred?\s+(?:the\s+)?(?:question|matter)\s+to", re.I)
+    r"operational\s+matter\s+for"
+    r"|matter\s+for\s+the\s+(?:HSE|Garda|Commissioner|board|management|relevant)"
+    r"|(?:is|are|remains?)\s+(?:an?\s+)?(?:operational\s+)?matter\s+for\s+(?:the\s+)?"
+    + _AGENCY
+    + r"|referred?\s+(?:the\s+)?(?:deputy['’]s\s+)?(?:question|query|matter)\s+to"
+    + r"|for\s+(?:a\s+)?direct\s+(?:response|reply)"
+    + r"|not\s+involved\s+in\s+the\s+day[\s\-]to[\s\-]day"
+    + r"|responsib(?:ility|le)\s+(?:of|for|rests\s+with|lies\s+with|with)\s+(?:the\s+)?"
+    + _AGENCY,
+    re.I,
+)
 # Positive disclosure beyond a bare € figure: tabulated data.
 _TABULAR = re.compile(
     r"\b(?:table\s+below|following\s+table|set\s+out\s+(?:in\s+the\s+table|below)"

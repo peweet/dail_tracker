@@ -100,6 +100,22 @@ def test_education_landed_and_fully_attributed(conn) -> None:
     assert n_null == 0  # no unattributed Education engagement reaches the page
 
 
+def test_ocr_batch_departments_landed(conn) -> None:
+    # The 2026-06 OCR batch landed HOUSING/DCCS scans (Outlook day-pair grids) into gold. Guard that
+    # those departments carry a substantial, attributed presence (a regression in the day-grid parser,
+    # the orientation re-OCR, or the merge would shrink them back toward born-digital-only counts).
+    for dept in ("HOUSING", "DCCS"):
+        n_rows, n_null = conn.execute(
+            "select count(*), count(*) filter (where minister is null) "
+            "from v_ministerial_diary_engagements where department = ?",
+            [dept],
+        ).fetchone()
+        assert n_rows > 0, f"{dept} missing from gold"
+        # the bulk is attributed; the only null-by-design source is a Minister-of-State file with no
+        # surname (deliberately not given the senior date rule), so allow a small minority.
+        assert n_null / n_rows < 0.2, f"{dept} attribution regressed ({n_null}/{n_rows} null)"
+
+
 def test_minister_resolution_from_filename() -> None:
     # the promotion-time fix: canonical minister from the source filename, covering the
     # cases the old single-token regex missed (multi-token names, "…-Calendar", possessives)

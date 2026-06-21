@@ -1233,6 +1233,10 @@ _REGISTRATION_GROUPS = [
     ("attendance", ["attendance_*.sql"], {}),
     ("charity", ["charity_*.sql"], {}),  # api_conn glob; only one charity file is loaded via lobbying
     ("committees", ["committees_*.sql"], {}),
+    # committee_evidence: meeting-history view loaded by get_committee_evidence_conn
+    # (swallow_errors=True so a missing gold layer renders an empty timeline, not an
+    # error) — register it loud here to catch schema/cast drift.
+    ("committee_evidence", ["committee_evidence_*.sql"], {}),
     ("corporate", ["corporate_*.sql"], {}),
     ("interests", ["member_interests_*.sql", "member_zz_interests_*.sql"], {}),
     ("judiciary", ["judiciary_*.sql"], {}),  # judiciary_data.py glob (also covered by test_judiciary_bench)
@@ -2801,3 +2805,62 @@ def test_constituency_map_layers_view_builds():
     # population is the Census-2022 spine: present for every constituency, fully bucketed.
     assert df["population_2022"].null_count() == 0
     assert df["q_population"].null_count() == 0
+
+
+# ---------------------------------------------------------------------------
+# COMMITTEE EVIDENCE / MEETING HISTORY
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.sql
+def test_v_committee_meetings_executes():
+    """Committee meeting-history spine — one row per (committee, date) with the
+    session topics, witness orgs/people, and the transcript link. Locks the
+    column contract the Committees page meeting-history section reads, the
+    casefold crosswalk key the page filters on, and the LEFT-JOIN no-inflation
+    invariant (orgs/persons aggregated to lists, never fanning out the spine)."""
+    _skip_missing(
+        GOLD_PARQUET_DIR / "committee_meetings.parquet",
+        GOLD_PARQUET_DIR / "committee_witnesses.parquet",
+        GOLD_PARQUET_DIR / "committee_witness_persons.parquet",
+    )
+    con = _con()
+    con.execute(_load("committee_evidence_meetings.sql"))
+    result = _result(con, "v_committee_meetings")
+    for col in (
+        "committee_code",
+        "committee_name",
+        "committee_key",
+        "date",
+        "source_xml",
+        "transcript_url",
+        "topics",
+        "n_topics",
+        "n_orgs",
+        "n_persons",
+        "witness_orgs",
+        "witness_persons",
+    ):
+        assert col in result.columns, f"Expected column {col!r} in v_committee_meetings"
+    assert len(result) > 0
+
+    # transcript_url must be re-homed onto the citizen-facing debates site, never
+    # left pointing at the raw AKN XML.
+    bad_url = con.execute(
+        "SELECT count(*) FROM v_committee_meetings"
+        " WHERE transcript_url NOT LIKE 'https://www.oireachtas.ie/en/debates/debate/%'"
+    ).fetchone()[0]
+    assert bad_url == 0, "transcript_url must point at oireachtas.ie/en/debates/debate/"
+
+    # crosswalk key is the lower-cased committee name (page filters on it).
+    bad_key = con.execute(
+        "SELECT count(*) FROM v_committee_meetings WHERE committee_key <> lower(committee_name)"
+    ).fetchone()[0]
+    assert bad_key == 0, "committee_key must equal lower(committee_name)"
+
+    # spine is one row per (committee, date) — the witness LEFT JOINs aggregate
+    # to lists and must never inflate it.
+    n, distinct = con.execute(
+        "SELECT count(*), count(DISTINCT (committee_code, date)) FROM v_committee_meetings"
+    ).fetchone()
+    assert n == distinct, f"v_committee_meetings not one-row-per-(committee, date): {n} rows, {distinct} distinct"
