@@ -20,6 +20,20 @@ from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
 
+# Committee-name → crosswalk-stem normalizer, as a SQL expression on a single bind
+# placeholder. MUST stay byte-identical to the `committee_key` derivation in
+# sql_views/committee_evidence/committee_evidence_meetings.sql: folds curly
+# apostrophes to ASCII, collapses whitespace, lowercases, then strips the leading
+# committee-formation prefix ("Joint/Select Committee on X" / "Comhchoiste/Roghchoiste
+# X" → "x") so a meeting attaches regardless of apostrophe glyph or Joint/Select
+# formation. (test_committee_meetings_crosswalk_* locks both halves together.)
+_COMMITTEE_KEY_SQL = (
+    "regexp_replace("
+    " lower(trim(regexp_replace("
+    "  replace(replace(?, chr(8217), ''''), chr(8216), ''''), '\\s+', ' ', 'g'))),"
+    " '^(seanad |dail )?(joint |select )?(committee (on|of) |comhchoiste |roghchoiste )', '')"
+)
+
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
     try:
@@ -63,15 +77,18 @@ def member_detail(conn: duckdb.DuckDBPyConnection, chamber: str) -> QueryResult:
 def meetings(conn: duckdb.DuckDBPyConnection, committee: str, limit: int = 60) -> QueryResult:
     """Reverse-chron meeting history for one committee (the timeline spine).
 
-    Crosswalk to the membership page is case-insensitive: the page selects a
-    committee by its human-readable name, the API records the same committee in a
-    different case — so we match on the view's `committee_key` (= lower(name)).
+    The page selects a committee by its human-readable register name; the API records
+    the same committee under a different apostrophe glyph and possibly the other
+    formation (Joint vs Select). We match on the view's normalized `committee_key`,
+    applying the identical normalization (`_COMMITTEE_KEY_SQL`) to the selection here
+    so both formations' meetings surface regardless of which page the user is on.
     """
     return _run(
         conn,
         "SELECT committee_name, date, transcript_url, source_xml, topics, n_topics, n_orgs, n_persons,"
         " witness_orgs, witness_persons"
-        " FROM v_committee_meetings WHERE committee_key = lower(?)"
+        " FROM v_committee_meetings"
+        f" WHERE committee_key = {_COMMITTEE_KEY_SQL}"
         " ORDER BY date DESC LIMIT ?",
         [committee, limit],
     )
