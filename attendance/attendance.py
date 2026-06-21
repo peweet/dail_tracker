@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import re
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 import fitz  # PyMuPDF
@@ -28,82 +29,215 @@ from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
 
-IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")
-EXCLUDE_CASES = re.compile(r"^(Member|Sitting|Totals|Total)")
 DATE_RANGE = re.compile(r"(\d{1,2}-[a-zA-Z]+-\d{4})-to-(\d{1,2}-[a-zA-Z]+-\d{4})")
 
+# ── PDF geometry ──────────────────────────────────────────────────────────────
+# The TAA "Verification of Attendance" PDFs lay each member out as two side-by-side
+# date columns: "Sitting days" on the left (x0 ≈ 78) and "Other days" on the right
+# (x0 ≈ 313). A member's longer (sitting) column overflows onto a *continuation*
+# page that carries NO header row — which is exactly why the previous
+# find_tables()/to_pandas() approach silently dropped those rows: to_pandas() named
+# the headerless columns after their first date value, so _build_silver_csv could
+# never map them to ``sitting_days_attendance`` and dropna() discarded them. The
+# net effect was sitting days truncated to a single page (~72/yr) for every
+# high-attendance member, while the shorter (single-page) "other" column was
+# untouched. Validated against the PDFs' own published per-member "Sub-total:"
+# figures: x-coordinate assignment reproduces them exactly across both chambers
+# and every published period (2023–2026); the old approach got 108/124 wrong for
+# 2023 alone. See test/pipeline/test_attendance_extraction.py.
+_COLUMN_X_SPLIT = 200.0
+_DATE_CELL = re.compile(r"^\d{2}/\d{2}/\d{4}$")
+_ALPHA = re.compile(r"[A-Za-zÁÉÍÓÚáéíóú]")
+_PERIOD_HEADER = re.compile(r"^(Deputy|Senator),")
+_SUBTOTAL = re.compile(r"^Sub-total:\s*(\d+)")
+_TOTALS_MARK = "Totals"
+# Only the attendance verification PDFs carry the two-column layout; the same
+# bronze dir also holds the monthly PSA-payment PDFs, which must be skipped.
+_ATTENDANCE_PDF_MARKER = "verification-of-attendance"
 
-def _extract_pdf_tables(pdf_dir: Path) -> tuple[list[pd.DataFrame], str]:
-    """Extract tables from every PDF in pdf_dir. No cwd mutation."""
-    dataframes: list[pd.DataFrame] = []
+
+def _parse_member_name(name_line: str) -> tuple[str, str, str]:
+    """(identifier, first_name, last_name) from a 'Lastname Firstname' header line.
+
+    Mirrors the historical split exactly so the downstream join key is unchanged:
+    identifier is the raw header with spaces→underscores; the name is split on the
+    FIRST space only (``maxsplit=1``), taking the remainder as first name. The
+    normalise step downstream sorts characters, so the first/last allocation does
+    not affect matching — but it is preserved to keep the silver schema stable.
+    """
+    names = name_line.split(maxsplit=1)
+    first_name = names[-1] if names else ""
+    last_name = " ".join(names[:-1])
+    identifier = name_line.replace(" ", "_")
+    return identifier, first_name, last_name
+
+
+def _extract_pdf_member_dates(
+    doc: fitz.Document,
+) -> list[tuple[str, str, str, str, str, pd.Timestamp]]:
+    """One PDF → list of (identifier, first_name, last_name, date_text, kind, iso).
+
+    ``kind`` is ``"sitting"`` (left column, x0 < split) or ``"other"`` (right
+    column). Each date is attributed to the member whose period header most
+    recently appeared — a member's date list spills onto headerless continuation
+    pages, and ``current`` carries across them. Dates sharing a text line with any
+    alphabetic token are skipped (the "Date Range …" / "Deputy, … Limit:" lines).
+    No de-duplication here; callers dedup as needed.
+    """
+    out: list[tuple[str, str, str, str, str, pd.Timestamp]] = []
+    current: tuple[str, str, str] | None = None
+    for page in doc:
+        lines = page.get_text("text").split("\n")
+        for i, line in enumerate(lines):
+            if _PERIOD_HEADER.match(line.strip()) and i >= 1:
+                current = _parse_member_name(lines[i - 1].strip())
+        if current is None:
+            continue
+        identifier, first_name, last_name = current
+        words = page.get_text("words")  # (x0, y0, x1, y1, text, block, line, word)
+        lines_with_alpha = {round(w[1]) for w in words if _ALPHA.search(w[4])}
+        for x0, y0, _x1, _y1, text, *_rest in words:
+            if not _DATE_CELL.match(text) or round(y0) in lines_with_alpha:
+                continue
+            iso = pd.to_datetime(text, format="%d/%m/%Y", errors="coerce")
+            if pd.isna(iso):
+                continue
+            kind = "sitting" if x0 < _COLUMN_X_SPLIT else "other"
+            out.append((identifier, first_name, last_name, text, kind, iso))
+    return out
+
+
+def _extract_silver_dataframe(pdf_dir: Path) -> tuple[pd.DataFrame, str]:
+    """Build the tidy silver attendance frame directly from PDF word geometry.
+
+    One row per (member, distinct date), tagging each date as a sitting day (left
+    column) or other day (right column) from its x-coordinate. Dates that share a
+    text line with any alphabetic token are skipped — that excises the "Date Range
+    01/01/2023 to 31/12/2023" and "Deputy, 33rd Dáil, … Limit: 120" header lines,
+    which also contain dates. Cumulative PDFs restate prior days, so rows are
+    de-duplicated on (identifier, iso_date, kind) across the whole corpus.
+
+    Returns the silver DataFrame (legacy column schema) and the last date_range
+    string parsed from a filename (kept only for the existing log line).
+    """
+    seen: set[tuple[str, pd.Timestamp, str]] = set()
+    records: list[dict[str, object]] = []
     date_range = ""
+
     for pdf_path in sorted(pdf_dir.glob("*.pdf")):
-        pdf = pdf_path.name
-        print(pdf_path.stem.title())
+        if _ATTENDANCE_PDF_MARKER not in pdf_path.name.lower():
+            continue
         match = re.search(DATE_RANGE, pdf_path.stem.lower())
         date_range = f"{match.group(1)}_to_{match.group(2)}" if match else "unknown"
-        print(f"Processing {pdf}...")
-        doc = fitz.open(str(pdf_path))
-        print(f"Number of pages in {pdf}: {doc.page_count}")
-        first_name = ""
-        last_name = ""
-        identifier = ""
-        for page in doc:
-            print(f"Processing page {page.number} of {pdf}...")
-            text = page.get_text("text")
-            lines = text.split("\n")
-            for line in lines:
-                print(f"Processing line: {line}")
-                if IRISH_NAME_REGEX.search(line) and not EXCLUDE_CASES.search(line):
-                    names = line.split(maxsplit=1)
-                    first_name = names[-1]
-                    last_name = " ".join(names[:-1])
-                    identifier = line.replace(" ", "_")
-            tabs = page.find_tables()
-            if len(tabs.tables) == 0:
+        for identifier, first_name, last_name, text, kind, iso in _extract_pdf_member_dates(fitz.open(str(pdf_path))):
+            key = (identifier, iso, kind)
+            if key in seen:  # cumulative PDFs restate prior days — keep one per (member, date, kind)
                 continue
-            for tab in tabs.tables:
-                df = tab.to_pandas()
-                df.insert(0, "identifier", identifier)
-                df.insert(1, "first_name", first_name)
-                df.insert(2, "last_name", last_name)
-                dataframes.append(df)
-    return dataframes, date_range
+            seen.add(key)
+            is_sitting = kind == "sitting"
+            records.append(
+                {
+                    "identifier": identifier,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "sitting_days_attendance": text if is_sitting else nan,
+                    "other_days_attendance": nan if is_sitting else text,
+                    "year": int(iso.year),
+                    "iso_sitting_days_attendance": iso if is_sitting else pd.NaT,
+                    "iso_other_days_attendance": pd.NaT if is_sitting else iso,
+                }
+            )
+
+    columns = [
+        "identifier",
+        "first_name",
+        "last_name",
+        "sitting_days_attendance",
+        "other_days_attendance",
+        "year",
+        "iso_sitting_days_attendance",
+        "iso_other_days_attendance",
+    ]
+    df = pd.DataFrame.from_records(records, columns=columns)
+    df["iso_sitting_days_attendance"] = pd.to_datetime(df["iso_sitting_days_attendance"], errors="coerce")
+    df["iso_other_days_attendance"] = pd.to_datetime(df["iso_other_days_attendance"], errors="coerce")
+    df = df.sort_values(["identifier", "year", "iso_sitting_days_attendance", "iso_other_days_attendance"])
+    print(f"Silver attendance: {len(df):,} (member, date) rows from {df['identifier'].nunique():,} members")
+    return df, date_range
 
 
-def _build_silver_csv(dataframes: list[pd.DataFrame], csv_path: Path) -> None:
-    """Concat → clean → dedup → write silver CSV."""
-    df = pd.concat(dataframes).drop(["Col1", "Col2", "Col3", "Col4", "Col5"], axis=1, errors="ignore")
-    df = df.iloc[:, :5].fillna(nan)
-    df = df.replace("", nan).rename(
-        columns={
-            "Sitting days attendance recorded on system": "sitting_days_attendance",
-            "Other days attendance recorded on system *": "other_days_attendance",
-            "Sitting days attendance": "sitting_days_attendance",
-            "Other days attendance": "other_days_attendance",
-        }
+def _published_totals_for_doc(doc: fitz.Document) -> dict[str, tuple[int, int]]:
+    """One PDF → {identifier: (published_sitting, published_other)} from Sub-totals.
+
+    A member entry can hold several office-holder sub-periods, each ending in a
+    "Totals" block preceded by two Sub-total lines (sitting, then other). Sum the
+    sub-periods, de-duplicating an identical sub-period pair that immediately
+    repeats — the PDF restates a period's Sub-total row when its date list and its
+    "Totals" block straddle a page break.
+
+    IMPORTANT: this is PER PDF. Each cumulative PDF restates the running total for
+    the period it covers, so these figures must NEVER be summed across PDFs — only
+    compared to the dates extracted from the SAME PDF.
+    """
+    totals: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    current: str | None = None
+    pending: list[int] = []
+    for page in doc:
+        lines = [ln.strip() for ln in page.get_text("text").split("\n")]
+        for i, line in enumerate(lines):
+            if _PERIOD_HEADER.match(line) and i >= 1:
+                current = lines[i - 1].replace(" ", "_")
+            m = _SUBTOTAL.match(line)
+            if m:
+                pending.append(int(m.group(1)))
+            elif line == _TOTALS_MARK and current is not None and len(pending) >= 2:
+                pair = (pending[-2], pending[-1])
+                if not totals[current] or totals[current][-1] != pair:
+                    totals[current].append(pair)
+                pending = []
+    return {ident: (sum(s for s, _ in pairs), sum(o for _, o in pairs)) for ident, pairs in totals.items()}
+
+
+def _reconcile_against_published(pdf_dir: Path) -> int:
+    """Guard: per PDF, extracted distinct-date counts must equal published Sub-totals.
+
+    For each verification PDF, compares the distinct (sitting, other) dates this
+    extractor reads for each member against that PDF's own published ``Sub-total:``
+    figures. This is the regression tripwire for the continuation-page truncation
+    bug — it cannot pass while sitting days are being dropped on overflow pages.
+    Reconciliation is strictly per-PDF: cumulative PDFs restate running totals, so
+    cross-PDF summing would be meaningless. Returns the total mismatch count.
+    """
+    pdfs = 0
+    total_mismatches = 0
+    for pdf_path in sorted(pdf_dir.glob("*.pdf")):
+        if _ATTENDANCE_PDF_MARKER not in pdf_path.name.lower():
+            continue
+        doc = fitz.open(str(pdf_path))
+        published = _published_totals_for_doc(doc)
+        per_member: dict[str, dict[str, set[pd.Timestamp]]] = defaultdict(
+            lambda: {"sitting": set(), "other": set()}
+        )
+        for identifier, _fn, _ln, _text, kind, iso in _extract_pdf_member_dates(doc):
+            per_member[identifier][kind].add(iso)
+        for ident, (pub_s, pub_o) in published.items():
+            got = per_member.get(ident, {"sitting": set(), "other": set()})
+            if len(got["sitting"]) != pub_s or len(got["other"]) != pub_o:
+                total_mismatches += 1
+                logger.warning(
+                    "attendance reconcile MISMATCH %s in %s: published=(%d,%d) extracted=(%d,%d)",
+                    ident, pdf_path.name, pub_s, pub_o, len(got["sitting"]), len(got["other"]),
+                )
+        pdfs += 1
+    print(
+        f"Attendance reconciliation: {pdfs} PDFs checked against published "
+        f"Sub-totals, {total_mismatches} member-mismatch(es)."
     )
-    drop_cols = [c for c in ["sitting_days_attendance", "other_days_attendance"] if c in df.columns]
-    if drop_cols:
-        df = df.dropna(subset=drop_cols, how="all")
-    year_from_sitting = (
-        df["sitting_days_attendance"].str.split("/", n=3).str[-1] if "sitting_days_attendance" in df.columns else None
-    )
-    year_from_other = (
-        df["other_days_attendance"].str.split("/", n=3).str[-1] if "other_days_attendance" in df.columns else None
-    )
-    df["year"] = year_from_sitting.fillna(year_from_other).fillna("Missing")
-    df["iso_sitting_days_attendance"] = pd.to_datetime(
-        df["sitting_days_attendance"], format="%d/%m/%Y", errors="coerce"
-    )
-    df["iso_other_days_attendance"] = pd.to_datetime(df["other_days_attendance"], format="%d/%m/%Y", errors="coerce")
-    # Dedup before writing silver — cumulative attendance PDFs all restate
-    # prior days, so the raw concat above contains 3-9x duplication. Drop
-    # on (TD, sitting_date, other_date) so identical date entries collapse
-    # whichever column carries the date.
-    _before = len(df)
-    df = df.drop_duplicates(subset=["identifier", "iso_sitting_days_attendance", "iso_other_days_attendance"])
-    print(f"Silver dedup: dropped {_before - len(df):,} duplicate rows before silver CSV write (kept {len(df):,})")
+    return total_mismatches
+
+
+def _build_silver_csv(df: pd.DataFrame, csv_path: Path) -> None:
+    """Write the already-tidy silver attendance frame to CSV."""
     df.to_csv(csv_path, index=False)
 
 
@@ -127,11 +261,11 @@ def _build_fact_table(silver_csv: Path, fact_csv: Path, fact_parquet: Path, hous
     df = df.drop_duplicates(subset=["identifier", "iso_sitting_days_attendance", "iso_other_days_attendance"])
     print(f"Attendance dedup: dropped {_before_dedup - len(df):,} duplicate rows (kept {len(df):,})")
 
-    # Counts must be of UNIQUE dates per (TD, year), not of rows. PDF rows
-    # pair two independent date columns (sitting + other) by row index, so
-    # the same sitting date can appear in N rows paired with N different
-    # other dates — counting flags would inflate. nunique gives the count
-    # of distinct sitting / other days, which is the published meaning.
+    # Counts are of UNIQUE dates per (TD, year). Silver is now one tidy row per
+    # (member, date, kind), so nunique == row count per column here — but nunique
+    # is kept as the contract: it is the published meaning (distinct sitting /
+    # other days) and stays correct if an upstream change ever reintroduces
+    # repeated rows.
     df["sitting_days_count"] = df.groupby(["identifier", "year"])["iso_sitting_days_attendance"].transform("nunique")
     df["other_days_count"] = df.groupby(["identifier", "year"])["iso_other_days_attendance"].transform("nunique")
 
@@ -183,13 +317,14 @@ def main(
             print(f"No attendance PDFs in {pdf_dir} — skipping.")
             return 0
 
-        dataframes, date_range = _extract_pdf_tables(pdf_dir)
-        if not dataframes:
-            logger.warning("Attendance PDFs present but no tables extracted — skipping silver write.")
-            print("No tables extracted from attendance PDFs — skipping.")
+        silver_df, date_range = _extract_silver_dataframe(pdf_dir)
+        if silver_df.empty:
+            logger.warning("Attendance PDFs present but no dates extracted — skipping silver write.")
+            print("No attendance dates extracted from PDFs — skipping.")
             return 0
 
-        _build_silver_csv(dataframes, silver_csv)
+        _reconcile_against_published(pdf_dir)
+        _build_silver_csv(silver_df, silver_csv)
     else:
         print(f"Aggregated attendance tables CSV already exists at {silver_csv}. Skipping PDF processing.")
 

@@ -31,6 +31,7 @@ WITH base AS (
         value_eur,
         value_safe_to_sum,
         is_framework_or_dps,
+        is_large_award_review,
         TRY_CAST("No of Bids Received" AS INTEGER)           AS n_bids,
         TRY_CAST("No of Awarded SMEs" AS INTEGER)            AS n_awarded_smes,
         TRY_CAST(substr("Notice Published Date/Contract Created Date", 7, 4) AS INTEGER) AS award_year
@@ -69,9 +70,15 @@ SELECT
     quantile_cont(value_eur, 0.75) FILTER (WHERE value_safe_to_sum AND value_eur > 0)         AS award_p75_eur,
     COUNT(*) FILTER (WHERE value_safe_to_sum AND value_eur > 0 AND award_year >= 2022)        AS n_recent_contract_awards,
 
-    -- ── Framework / DPS ceiling context (shown SEPARATELY, never folded into the band) ──
-    COUNT(*) FILTER (WHERE is_framework_or_dps AND value_eur > 0)                             AS n_framework_ceilings,
-    median(value_eur) FILTER (WHERE is_framework_or_dps AND value_eur > 0)                    AS ceiling_median_eur,
+    -- ── Framework / DPS ceiling band (the BIG end of the market — shown as its own band, never
+    --    folded into the contract-award band). A few awards carry a miscoded giant value
+    --    (is_large_award_review, e.g. €200m+ that is really a framework total typo); they are
+    --    kept OUT of this band too so its p75 isn't blown out. This is the multi-year /
+    --    multi-supplier agreement CEILING — money that *may* be drawn down, not a single job. ──
+    COUNT(*) FILTER (WHERE is_framework_or_dps AND value_eur > 0 AND is_large_award_review IS NOT TRUE)                       AS n_framework_ceilings,
+    quantile_cont(value_eur, 0.25) FILTER (WHERE is_framework_or_dps AND value_eur > 0 AND is_large_award_review IS NOT TRUE) AS ceiling_p25_eur,
+    median(value_eur)              FILTER (WHERE is_framework_or_dps AND value_eur > 0 AND is_large_award_review IS NOT TRUE) AS ceiling_median_eur,
+    quantile_cont(value_eur, 0.75) FILTER (WHERE is_framework_or_dps AND value_eur > 0 AND is_large_award_review IS NOT TRUE) AS ceiling_p75_eur,
 
     -- ── Competition signal (how many bidders typically show up) ──
     COUNT(*) FILTER (WHERE n_bids IS NOT NULL)                                                AS n_with_bid_data,
