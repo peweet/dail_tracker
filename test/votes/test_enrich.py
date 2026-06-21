@@ -134,32 +134,52 @@ def test_enriched_left_join_preserves_members_and_extracts_year(tmp_path):
 
 
 def test_attendance_by_year_totals_and_filters_null_year(tmp_path):
-    enriched = pl.DataFrame(
-        {
-            "full_name": ["Mary McDonald", "Mary McDonald", "Mary McDonald", "John Doe"],
-            "year": [2023, 2023, None, 2022],
-            "unique_member_code": ["X", "X", "X", "Y"],
-            "identifier": ["X", "X", "X", "Y"],
-            "party": ["SF", "SF", "SF", "FF"],
-            "constituency_name": ["Dublin", "Dublin", "Dublin", "Cork"],
-            "ministerial_office": [None, None, None, None],
-            "sitting_days_count": [10, 8, 99, 5],
-            "other_days_count": [2, 2, 1, 1],
-        }
+    """Attendance-spine build: the FACT drives the rows (so a member who sat but is
+    not on the current roster is kept), roster metadata is left-joined, null-year
+    rows are dropped, the 'Member Services' junk row is excluded, and counts are
+    max(distinct) per (member, year)."""
+    members_csv = _members_csv(
+        tmp_path,
+        [_member_row("Mary Lou", "McDonald", "MaryLou.McDonald.D.2011-02-25", party="SF")],
     )
+    members_wide, _ = _build_members_and_master(members_csv)
+
+    fact = tmp_path / "fact.csv"
+    pl.DataFrame(
+        {
+            # McDonald is on the roster (matched); Doe is a FORMER TD with no roster
+            # row; the null-year McDonald row must be filtered; Memberservices is junk.
+            "first_name": ["Mary Lou", "Mary Lou", "Mary Lou", "John", "AP"],
+            "last_name": ["McDonald", "McDonald", "McDonald", "Doe", "Memberservices"],
+            "identifier": ["McDonald_Mary Lou", "McDonald_Mary Lou", "McDonald_Mary Lou", "Doe_John", "Memberservices_AP"],
+            "year": [2023, 2023, None, 2022, 2023],
+            "sitting_days_count": [10, 8, 99, 5, 4],
+            "other_days_count": [2, 2, 1, 1, 1],
+        }
+    ).write_csv(fact)
+
     csv_path = tmp_path / "aby.csv"
     parquet_path = tmp_path / "aby.parquet"
-    _build_attendance_by_year(enriched, csv_path, parquet_path)
+    _build_attendance_by_year(members_wide, fact, csv_path, parquet_path)
 
     out = pl.read_parquet(parquet_path).sort("full_name")
-    # null-year row dropped; (member, year) grouped → 2 rows.
-    assert out.height == 2
-    mary = out.filter(pl.col("full_name") == "Mary McDonald")
-    # max(sitting)=10, max(other)=2 → total 12.
-    assert mary["sitting_days"][0] == 10
+    # null-year row dropped + junk dropped → McDonald(2023) + Doe(2022) = 2 rows.
+    assert out.height == 2, out
+
+    mary = out.filter(pl.col("full_name") == "Mary Lou McDonald")
+    assert mary.height == 1  # roster full_name used for the matched member
+    assert mary["sitting_days"][0] == 10  # max(10, 8)
     assert mary["total_days"][0] == 12
-    john = out.filter(pl.col("full_name") == "John Doe")
-    assert john["total_days"][0] == 6
+    assert mary["party_name"][0] == "SF"  # metadata left-joined from the roster
+
+    # Former TD: retained, name reconstructed from the PDF identifier, null party.
+    doe = out.filter(pl.col("full_name") == "Doe John")
+    assert doe.height == 1
+    assert doe["total_days"][0] == 6
+    assert doe["party_name"][0] is None
+
+    # Junk administrative row never reaches the gold table.
+    assert not any("member" in n.lower() for n in out["full_name"].to_list())
 
 
 # ── _build_vote_history ──────────────────────────────────────────────────────
