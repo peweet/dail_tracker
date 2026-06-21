@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from extractors.diary_grid_parse import parse_grid, parse_grid_page
+from extractors.diary_grid_parse import parse_day_grid, parse_day_grid_page, parse_grid, parse_grid_page
 
 
 def _cell(t, x0, y0, x1=None, y1=None):
@@ -101,3 +101,58 @@ def test_parse_grid_aggregates_pages():
     dates = {e["subject"]: e["entry_date"] for e in ents}
     assert dates["Meeting A"] == date(2021, 1, 4)
     assert dates["Meeting B"] == date(2021, 1, 15)  # Friday of the second week
+
+
+# ── the 2-column DAY-PAIR weekly layout (Education scans) ─────────────────────────────────
+# Days own explicit header cells in a LEFT and RIGHT column; events carry inline times and are
+# dated by the nearest day-header above them in the same column (no weekday-column geometry).
+def _daypair_page():
+    return [
+        _cell("8 January 2018 -", 172, 229, 971),  # week header (sets year)
+        _cell("January 2018", 2201, 233, 2503),  # mini-cal month label (NOT a day header — no leading day)
+        # row band 1: Mon left / Tue right
+        _cell("8 January", 164, 744, 420),
+        _cell("9 January", 1765, 748, 2022),
+        _cell("14:00 - 15:00 Min_Cal: Meeting with the President of UL", 204, 865, 1719),
+        _cell("(DES)", 211, 916, 309),  # continuation of the 14:00 event
+        _cell("10:00 - 11:30 Min Cal: Attending the PLE evaluation event", 1817, 877, 3270),
+    ]
+
+
+def test_day_pair_event_dated_by_nearest_header_in_column():
+    ents = parse_day_grid_page(_daypair_page(), 2018)
+    by_subj = {e["subject"]: e for e in ents}
+    # left-column event → 8 Jan (Min_Cal marker stripped, continuation appended)
+    assert by_subj["Meeting with the President of UL (DES)"]["entry_date"] == date(2018, 1, 8)
+    assert by_subj["Meeting with the President of UL (DES)"]["time_slot"] == "14:00-15:00"
+    # right-column event → 9 Jan, NOT 8 Jan (column geometry, not reading order)
+    assert by_subj["Attending the PLE evaluation event"]["entry_date"] == date(2018, 1, 9)
+
+
+def test_day_pair_weekday_prefixed_header():
+    # the rotated 2021-2022 scans print "Monday 31 May" / "Tuesday 1 June"
+    page = [
+        _cell("6 June 2021", 200, 200, 700),  # week header → year
+        _cell("Monday 31 May", 160, 740, 600),
+        _cell("Tuesday 1 June", 1760, 744, 2200),
+        _cell("11:00 - 12:15 Quarterly Management Board", 200, 860, 1600),
+        _cell("07:20 - 07:50 Media engagements", 1800, 870, 3000),
+    ]
+    by_subj = {e["subject"]: e["entry_date"] for e in parse_day_grid_page(page, 2021)}
+    assert by_subj["Quarterly Management Board"] == date(2021, 5, 31)
+    assert by_subj["Media engagements"] == date(2021, 6, 1)
+
+
+def test_single_column_is_not_day_grid():
+    # a daily-LIST scan (one column of date headers) must return [] so the caller uses linear
+    page = [
+        _cell("8 January 2018", 160, 200, 500),
+        _cell("9 January 2018", 160, 600, 500),
+        _cell("10:00 - 11:00 Meeting", 160, 260, 900),
+    ]
+    assert parse_day_grid_page(page, 2018) == []
+
+
+def test_day_grid_aggregates_pages():
+    ents = parse_day_grid([_daypair_page(), _daypair_page()], 2018)
+    assert len(ents) == 4  # two identical pages → both parsed (dedup happens at merge, not here)

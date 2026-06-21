@@ -255,16 +255,26 @@ health, data freshness, lobbying-register freshness, and a full pipeline probe.
 
 Public sources change format and cadence, so expect drift. Notable points:
 
-- PDF table layouts and API fields can change between publications.
-- Name-based joins can collide or miss matches.
+- PDF table layouts and API fields can change between publications; much of the
+  data is extraction-derived, so aggregates are a floor ("at least €Y, from the
+  documents we could read"), not a definitive total.
+- Name-based joins can collide or miss matches (CRO supplier match runs ~46–61%).
 - Lobbying data before 2020 is inconsistent and filtered out at the gold layer.
 - Some giant Iris PDFs bypass the split logic and are quarantined.
-- Public-body "value" and "award" figures are not the same as money paid — these
-  are flagged, never silently summed as spend.
+- "Award value" ≠ money paid, and "ordered" ≠ "paid" — these tiers are flagged and
+  only the sum-safe subset is totalled, never blended or summed across VAT bases.
+- The two procurement award registers (eTenders, TED) are siblings cross-referenced
+  per firm — never unioned or summed; TED's naive total is dominated by pan-EU
+  research-framework outliers.
+- Several datasets are scoped or sandbox-grade: judiciary is sandbox-only,
+  political finance is GE2024-only and re-OCR'd, ministerial diaries are
+  self-curated and quarterly-in-arrears, and CSO housing figures are by council
+  area (not constituency).
 - Cross-reference panels that name private individuals (CRO directors, charity
   trustees, CBI-register firms) sit in the sandbox layer, not gold.
 
-Full detail in [`doc/DATA_LIMITATIONS.md`](doc/DATA_LIMITATIONS.md).
+Full detail in [`doc/DATA_LIMITATIONS.md`](doc/DATA_LIMITATIONS.md), which now carries
+a per-dataset section for each of these (§15–§22).
 
 ---
 

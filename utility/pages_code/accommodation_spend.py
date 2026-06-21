@@ -14,6 +14,7 @@ whole, and the coverage gap (2020-2024) is stated plainly.
 
 from __future__ import annotations
 
+import html
 import sys
 from pathlib import Path
 
@@ -70,6 +71,40 @@ def _eur(v) -> str:
     return f"€{v:,.0f}"
 
 
+def _html_table(headers: list[str], rows: list[list], numeric_cols: tuple[int, ...] = ()) -> str:
+    """A civic HTML table (st.html) — the sanctioned replacement for st.dataframe
+    on a primary view (cards/inline only; st.dataframe is drill-down/export only).
+    Every cell is escaped here, so callers pass plain strings."""
+
+    def cell(tag: str, content: str, i: int, extra: str) -> str:
+        align = "right" if i in numeric_cols else "left"
+        return f'<{tag} style="text-align:{align};padding:0.4rem 0.65rem;{extra}">{html.escape(str(content))}</{tag}>'
+
+    head = "".join(
+        cell(
+            "th",
+            h,
+            i,
+            "border-bottom:2px solid #d6d3d1;font-size:0.74rem;text-transform:uppercase;"
+            "letter-spacing:0.04em;color:#5b6b73;font-weight:600;",
+        )
+        for i, h in enumerate(headers)
+    )
+    body = "".join(
+        "<tr>"
+        + "".join(
+            cell("td", c, i, "border-bottom:1px solid #ebe6da;font-variant-numeric:tabular-nums;color:#14232b;")
+            for i, c in enumerate(r)
+        )
+        + "</tr>"
+        for r in rows
+    )
+    return (
+        '<table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin:0.3rem 0 1rem;">'
+        f"<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
+    )
+
+
 def _render_by_year(df) -> None:
     total = df["total_eur"].sum()
     yrs = [int(y) for y in df["year"].tolist()]
@@ -97,16 +132,25 @@ def _render_by_year(df) -> None:
 
     # Exact figures per year (the bars can't show values) — comma-delimited €, latest first.
     yt = df.sort_values("year", ascending=False)
-    table = pd.DataFrame(
-        {
-            "Year": [str(int(y)) for y in yt["year"]],
-            "Intl. protection": [_eur_full(v) for v in yt["ip_eur"]],
-            "Ukraine": [_eur_full(v) for v in yt["ukraine_eur"]],
-            "Total committed": [_eur_full(v) for v in yt["total_eur"]],
-            "Providers": [f"{int(v):,}" if pd.notna(v) else "—" for v in yt["n_providers"]],
-        }
+    rows = [
+        [
+            str(int(y)),
+            _eur_full(ip),
+            _eur_full(uk),
+            _eur_full(tot),
+            f"{int(n):,}" if pd.notna(n) else "—",
+        ]
+        for y, ip, uk, tot, n in zip(
+            yt["year"], yt["ip_eur"], yt["ukraine_eur"], yt["total_eur"], yt["n_providers"]
+        )
+    ]
+    st.html(
+        _html_table(
+            ["Year", "Intl. protection", "Ukraine", "Total committed", "Providers"],
+            rows,
+            numeric_cols=(1, 2, 3, 4),
+        )
     )
-    st.dataframe(table, hide_index=True, width="stretch")
 
 
 def _render_providers(df) -> None:
@@ -116,17 +160,29 @@ def _render_providers(df) -> None:
         "spend across the covered years. Names are as published; some single operators "
         "still appear under more than one spelling, so treat the order as indicative.</p>"
     )
-    # Comma-delimited € strings (rows already ranked by total in the view).
-    show = pd.DataFrame(
-        {
-            "Provider": df["provider"],
-            "Total committed": [_eur_full(v) for v in df["total_eur"]],
-            "Intl. protection": [_eur_full(v) for v in df["ip_eur"]],
-            "Ukraine": [_eur_full(v) for v in df["ukraine_eur"]],
-            "Years": [f"{int(a)}–{int(b)}" if a != b else f"{int(a)}" for a, b in zip(df["first_year"], df["last_year"])],
-        }
+    # Comma-delimited € strings (rows already ranked by total in the view). Rendered
+    # as a civic HTML table, not st.dataframe (forbidden on a primary view). Provider →
+    # /company link is deferred until the view carries a normalised supplier key
+    # (names still have spelling variants; a raw-name link would mis-resolve).
+    rows = [
+        [
+            prov,
+            _eur_full(tot),
+            _eur_full(ip),
+            _eur_full(uk),
+            f"{int(a)}–{int(b)}" if a != b else f"{int(a)}",
+        ]
+        for prov, tot, ip, uk, a, b in zip(
+            df["provider"], df["total_eur"], df["ip_eur"], df["ukraine_eur"], df["first_year"], df["last_year"]
+        )
+    ]
+    st.html(
+        _html_table(
+            ["Provider", "Total committed", "Intl. protection", "Ukraine", "Years"],
+            rows,
+            numeric_cols=(1, 2, 3),
+        )
     )
-    st.dataframe(show, hide_index=True, width="stretch")
 
 
 @page_error_boundary
