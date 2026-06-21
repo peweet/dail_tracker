@@ -1,7 +1,7 @@
 """judiciary_bench_extract.py — promote the validated judiciary sandbox to gold.
 
-The "green core" of the Judiciary feature (plan: doc/judiciary_feature_sources_claude_plan.md;
-memory: project_judiciary_feature_validation). Reads the validated sandbox datasets in
+The "green core" of the Judiciary feature (memory: project_judiciary_feature_validation;
+sources documented in data/sandbox/judiciary/README.md). Reads the validated sandbox datasets in
 ``data/sandbox/judiciary/`` (pulled + pressure-tested 2026-06-04 by
 extractors/persist_judiciary_data.py) and emits three analysis-ready GOLD tables.
 
