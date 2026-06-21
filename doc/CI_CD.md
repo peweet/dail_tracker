@@ -6,32 +6,38 @@ The goal is not to bolt on every possible check. It is to automate the things th
 
 ---
 
-## Status (updated 2026-06-01)
+## Status (updated 2026-06-21)
 
-Much of the plan below is now shipped. Quick reconciliation against reality:
+Most of the plan below has shipped, and CI now goes well beyond the original
+phases. The live `.github/workflows/ci.yml` runs **six jobs** on every push/PR:
+`lint` (ruff check + format), `deps` (uv lock/export guard), `firewall` (logic-firewall
+check), `typecheck` (basedpyright), `test` (pytest, non-integration markers), and
+`sql-contracts` (`pytest -m sql` against committed gold). Reconciliation:
 
 | Phase | Item | Status |
 |-------|------|--------|
 | 1 | `ci.yml` lint + test on push/PR (uv, frozen) | ✅ shipped |
-| 2a | SQL view bootstrap smoke + committed fixtures (`test/fixtures/sql_views/`) | ✅ shipped (lobbying/payments/attendance fixtures still TODO — gated on `DAIL_INTEGRATION_TESTS=1`) |
-| 2b | Parquet schema contracts | ◑ partial (`test_gold_df.py`, `test_silver_*` exist) |
+| 2a | SQL view bootstrap smoke + committed fixtures (`test/fixtures/sql_views/`) | ✅ shipped — now its own `sql-contracts` CI job (`pytest -m sql`) against committed gold |
+| 2b | Parquet schema contracts | ✅ shipped (`test_gold_df.py`, `test_silver_*`, plus the `sql-contracts` job) |
 | 2c | Streamlit page-import smoke (`test_page_imports.py`) | ✅ shipped |
 | 2d | Name-normalisation parity (`test_normaize_join_key.py`) | ✅ shipped |
-| 3a | Pre-commit hooks | ✗ not done |
+| 3a | Pre-commit hooks | ✗ still not done (no `.pre-commit-config.yaml`) — the one genuine open hygiene item |
 | 3b | Dependabot (`uv` + `github-actions`, weekly) | ✅ shipped |
 | 3d | pip-audit (`audit.yml`, weekly + issue-on-fail) | ✅ shipped |
-| — | **Dependency truth: pyproject → uv.lock → requirements.txt** (`deps` job: `uv lock --check` + `uv export` diff guard) | ✅ shipped 2026-06-02 (replaced the hand-curated `test_requirements_sync.py`; `requirements.txt` is now a generated `uv export`, not a hand-maintained mirror) |
-| 4a | Endpoint health check (`nightly.yml` → `pdf_endpoint_check.py`, weekly + issue-on-fail) | ✅ shipped 2026-06-01 |
+| — | **Dependency truth: pyproject → uv.lock → requirements.txt** (`deps` job) | ✅ shipped (`requirements.txt` is now a generated `uv export`, not a hand-maintained mirror) |
+| — | **Logic-firewall gate** (`firewall` job) | ✅ shipped (UI/data-boundary check runs on every PR) |
+| — | **Type checking** (`typecheck` job, basedpyright + committed `.basedpyright/baseline.json`) | ✅ shipped — CI fails only on *new* type errors (see "Out of scope" note below, now superseded) |
+| 4a | Endpoint health check (`nightly.yml` → `pdf_endpoint_check.py`, weekly + issue-on-fail) | ✅ shipped |
+| 4b | Lobbying freshness check | ✅ shipped (`lobbying_freshness.yml`) |
+| 4d / 6 | Scheduled data refresh + canaries | ◑ partial — `freshness.yml`, `source_health.yml`, `pipeline_probe.yml`, `live_tenders_refresh.yml`, `money_flow_refresh.yml`, and the legal-diary OpenView refresh/health lanes all run on schedule (see `doc/CONTINUOUS_REFRESH.md`); a full unattended pipeline refresh is still partial |
 
-**Markers reality:** `integration` / `sql` / `bronze` need committed pipeline
-output, but `data/gold/` is gitignored — so they are **local-only** (run after a
-pipeline run; set `DAIL_INTEGRATION_TESTS=1` for view tests without fixtures).
-They are *not* run nightly in CI, and won't be until outputs are fixtured or
-built in CI (Phase 6). The `sources` marker has no live tests; source-URL health
-is covered by the `pdf_endpoint_check.py` script in `nightly.yml` instead.
+**Markers reality:** `integration` / `bronze` need committed pipeline output, but
+`data/gold/` is gitignored — so they are **local-only** (run after a pipeline run;
+set `DAIL_INTEGRATION_TESTS=1` for view tests without fixtures). The `sql` marker
+now *does* run in CI (the `sql-contracts` job runs against committed gold parquet).
 
-Still open below: Phase 3a (pre-commit), Phase 4b/4c (lobbying freshness, TODO
-inventory), Phase 5 (CD docs), Phase 6 (pipeline automation).
+Still genuinely open below: **Phase 3a (pre-commit)**, Phase 3e (branch protection),
+Phase 5b (Docker), and the fully-automated end-to-end pipeline refresh (Phase 6).
 
 ---
 
@@ -331,7 +337,7 @@ These would have already caught real bugs:
 
 Things to deliberately *not* build, at least until you actually need them:
 
-- **mypy / pyright type checking.** The codebase isn't fully typed. Adding strict type checks now would be mostly churn. Add when there's a part of the code you want to lock down, not as a global gate.
+- ~~**mypy / pyright type checking.**~~ *(Superseded — shipped.)* CI now runs a `typecheck` job (basedpyright) with a committed `.basedpyright/baseline.json`, so it fails only on **new** type errors rather than the whole untyped backlog. This sidesteps the churn the original non-goal worried about.
 - **Multi-OS matrix.** Ubuntu is fine. Don't pay the wall-clock cost of also testing macOS/Windows on every push for a Streamlit app that runs on Linux.
 - **Multi-Python-version matrix.** `pyproject.toml` claims 3.11–3.13, but in practice you run on one. Pin CI to 3.11; expand only if you start distributing as a library.
 - **Coverage thresholds.** Premature when there are no tests. Add `pytest-cov` reporting (no failure threshold) once tests exist; only add a threshold if there's an actual regression coverage drops below 0.

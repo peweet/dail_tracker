@@ -9,8 +9,7 @@ Why generate instead of hand-maintaining a registry
 Source URLs already live in code, one config per extractor. Maintaining a second
 hand-written URL list would silently diverge the moment an extractor's config
 changes. So this tool *reads* those configs and emits the registry — the configs
-stay the single source of truth (see the closing instruction in
-doc/current_source_health_coverage_gaps_claude_plan.md).
+stay the single source of truth.
 
 The five code configs (+ manual sources)
 ----------------------------------------

@@ -2179,10 +2179,8 @@ def corporate_page() -> None:
         title="Corporate Notices",
         dek=(
             f"{n_total:,} corporate notices since 2016 naming {n_distinct:,} distinct "
-            f"Irish companies — receiverships, examinerships, SCARP filings, "
-            f"liquidations, ICAV strike-offs, and Companies Act filings. The panels "
-            f"below break down the appointing parties, the firms doing the operational "
-            f"work, the regulated entities in repeat distress, and the rescues."
+            f"Irish companies — receiverships, examinerships, SCARP rescues, "
+            f"liquidations and Companies Act filings, from Iris Oifigiúil."
         ),
     )
     _render_this_year_callout(df, cbi_repeat)
@@ -2216,16 +2214,29 @@ def corporate_page() -> None:
         )
         return
 
-    # Featured panel — receiver-appointer ranking, independent of filters.
+    # Featured panel — receiver-appointer ranking, independent of filters. THE lead story.
     _render_featured()
-    _render_operator_strip()
+
+    # Secondary analyses collapse into an opt-in "More views" group so the lead panel +
+    # the searchable feed dominate first paint. Audit 2026-06-21 found five co-equal,
+    # differently-coloured panels stacked before the record were the page's core clutter;
+    # demoting four of them to expanders keeps every byte of analysis one click away while
+    # removing ~4 screens and three competing palettes from the default view. Each renderer
+    # already early-returns on empty data.
+    st.markdown(
+        '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;'
+        'color:#7a5a00;font-weight:600;margin:0.6rem 0 0.4rem;">More views</div>',
+        unsafe_allow_html=True,
+    )
+    with st.expander("Who's doing the work — receiver / insolvency firms", expanded=False):
+        _render_operator_strip()
+    with st.expander("Regulated firms in repeat distress (experimental)", expanded=False):
+        _render_cbi_repeat_distress(cbi_repeat)
+    with st.expander("Firms in rescue — examinership & SCARP", expanded=False):
+        _render_rescue_panel(df)
+    # Methodology already renders as its own collapsed <details> (+ CSV download), so it
+    # sits in the group without an extra st.expander wrapper (no double-nesting).
     _render_methodology_expander(brand_aliases)
-
-    # Experimental — regulated firms in repeat distress (CBI x corporate cross-ref).
-    _render_cbi_repeat_distress(cbi_repeat)
-
-    # Counter-narrative — corporate rescue (Examinership + SCARP).
-    _render_rescue_panel(df)
 
     # Facets (search + year + fund + type-tab)
     type_idx = _render_facets(df)

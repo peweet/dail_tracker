@@ -1,8 +1,9 @@
 # Gold Promotion — Full Column-Level Audit (Bronze/Silver → Gold)
 
-**Date:** 2026-06-05
-**Companion to:** [GOLD_PROMOTION_CANDIDATES.md](GOLD_PROMOTION_CANDIDATES.md) (the curated, tiered shortlist).
+**Date:** 2026-06-05 · **Status updated:** 2026-06-21
 This doc is the **exhaustive** reference: every silver column that is *not* promoted, with a verdict.
+The curated tiered shortlist that used to accompany it (`GOLD_PROMOTION_CANDIDATES.md`) has been
+retired — its Tier-1 items all shipped (see B1–B3 below), so this audit is now the single source.
 
 **Method.** Profiled every parquet under `data/silver` + `data/gold` (schema, rows, null
 fraction, sampled cardinality). A silver column is counted **promoted** if its name appears
@@ -45,29 +46,27 @@ Ordered by value. Each row: the stranded columns that matter + a verdict.
 `income_bequests`, `gross_income`, `gross_expenditure`, `surplus_deficit`, `cash_at_hand`,
 `total_assets`, `total_liabilities`, `net_assets`, `employees_band`, `employees_full_time`,
 `employees_part_time`, `volunteers_band`, `gov_share` (+ `other_assets`).
-**Verdict: PROMOTE (high).** Only the *latest-year snapshot* reaches gold (`charity_latest`).
-This is the entire multi-year series. **Story:** charity income/expenditure trend lines,
-rising state-dependency over time, sector-level decade totals, multi-year deficit/insolvency
-trajectory. Inputs already proven (`charity_latest.income_trend` derives from this file).
-**Gold sketch:** `charity_financials_by_year.parquet` keyed `(rcn, period_year)`.
+**Verdict: PROMOTE (high).** ✅ **SHIPPED** — promoted to `charity_financials_by_year`
+(view + gold) carrying the full multi-year series. **Story:** charity income/expenditure
+trend lines, rising state-dependency over time, sector-level decade totals, multi-year
+deficit/insolvency trajectory.
 
 ### B2. Ministerial tenure timeline — `silver/ministerial_tenure.parquet` (98 rows)
 **Stranded (5/8):** `department_key`, `member_code`, `start_date`, `wikidata_person`,
 `wikidata_position`. (`minister_name`, `department_label`, `end_date` are referenced — but
 only by `attendance_missing_members.sql` to detect *current* office.)
-**Verdict: PROMOTE (high).** Tiny table, huge join surface. **Story:** "who ran this
-department, and when" timeline; `member_code` ties ministers to votes/payments/questions;
-`wikidata_position` ties to the external-links / judiciary graph (revolving-door).
-**Gold sketch:** promote as a `v_member_ministerial_tenure` view; no aggregation needed.
+**Verdict: PROMOTE (high).** ✅ **SHIPPED** — promoted as `v_member_ministerial_tenure`.
+Tiny table, huge join surface. **Story:** "who ran this department, and when" timeline;
+`member_code` ties ministers to votes/payments/questions; `wikidata_position` ties to the
+external-links / judiciary graph (revolving-door).
 
 ### B3. Bill amendment activity — `silver/parquet/bill_amendments.parquet` (1,763 rows)
 **Stranded (3/13):** `stage_no`, `stage_show_as`, `bill_short_title_en`. (`amendment_type`,
 `amendment_date`, `pdf_url` are referenced — but only by `legislation_pdfs.sql` to list
 amendment PDFs as documents.)
-**Verdict: PROMOTE (medium-high).** The PDFs are surfaced; the **count metric is not**.
+**Verdict: PROMOTE (medium-high).** ✅ **SHIPPED** — amendment-count views built.
 **Story:** amendments-per-bill = legislative contestation; distribution by `stage_no`/chamber
-shows where bills get reshaped. **Gold sketch:** `bill_amendment_counts.parquet` keyed
-`(bill_id, stage_no, amendment_type)`.
+shows where bills get reshaped.
 
 ### B4. Bill stage outcomes — `silver/parquet/stages.parquet` (7,370 rows)
 **Stranded (key one):** `event.stageOutcome` (7 distinct, e.g. pass/fail/withdrawn),
@@ -174,7 +173,8 @@ Do **not** promote without locking the relevant taxonomy first (see memory notes
 | TED / LA payments / LA AFS | (procurement) | Gated | Hold for taxonomy |
 | Trustees / contact fields | (PII) | — | Never raw |
 
-**Already shipped this round:** lobbyist organisation-register enrichment (`website`, CRO
-number, registered name, main activities, org-page URL) — promoted from `split_lobbyists`
-into gold `top_lobbyist_organisations.parquet` and both org-index views.
-See [GOLD_PROMOTION_CANDIDATES.md](GOLD_PROMOTION_CANDIDATES.md) Tier 1.
+**Shipped since this audit:** B1 (`charity_financials_by_year`), B2 (`v_member_ministerial_tenure`),
+B3 (bill amendment-count views), and the lobbyist organisation-register enrichment (`website`, CRO
+number, registered name, main activities, org-page URL) — promoted from `split_lobbyists` into gold
+`top_lobbyist_organisations.parquet` and both org-index views. The remaining B4–B10 candidates,
+the §C taxonomy-gated sources, and the §D privacy holds are still the live to-do / do-not surface.

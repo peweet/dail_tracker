@@ -95,7 +95,7 @@ Shared source `iris_notice_events_clean.csv`, filtered by category/subtype. The 
 
 ## 8. Judiciary
 
-All from `judiciary_feature_sources_claude_plan.md`; validated 2026-06-04. **Iris public-appointments is the canonical appointment spine — don't re-scrape Iris.**
+Validated 2026-06-04; provenance now in `data/sandbox/judiciary/README.md` (feature shipped: `utility/pages_code/judiciary.py` + `sql_views/judiciary/`). **Iris public-appointments is the canonical appointment spine — don't re-scrape Iris.**
 
 **Green / validated:**
 - Judicial appointment spine (Iris, 114 clean, 2016-26) ✅ data exists · Courts Service "The Judges" roster (~190 judges, ~97% join) 🔬 · Elevation detection (29 promotion chains) 🔬 · Gov.ie nominations (cause→nominee→bench) 🔬 · Judicial Council conduct stats (aggregate, fitz) 🔬 · Courts clearance CSV (CC-BY, 2017-24) 🔬 · 94-courthouse map (CC-BY) 🔬.
@@ -213,4 +213,4 @@ Per `DATA_LIMITATIONS`:
 ---
 
 ### Source-doc index (where the detail lives)
-Public money: `DATA_MAP`, `PROCUREMENT_MASTER`, `PROCUREMENT_INVESTIGATION`, `PROCUREMENT_SEMISTATE_EXPANSION_PLAN`, `PROCUREMENT_SOURCE_DISCOVERY_2026_06_04`, `PUBLIC_PAYMENTS_FACT_SCHEMA`, `PER_LA_AFS_BUILD_PLAN`, `new_public_money_legal_sources_claude_backlog`, `new_sources_value_and_features_claude_plan`. · SI/legislation: `SI_LEGAL_STATE_C1_PLAN`, `SI_AMENDMENT_GRAPH_ETL_PLAN`, `SI_LRC_ENRICHMENT_SPIKE`, `si_lrc_enrichment_claude_brief`, `legislation_benchmark_oireachtas_explorer`, `oireachtas_explorer_full_comparison`, `view_bill_pdf_feature`, `parliamentary_questions_feature`. · Iris/corporate: `public_appointments_feature`, `corporate_feature`, `receiver_appointers_feature`. · Judiciary: `judiciary_feature_sources_claude_plan`. · Political finance: `SIPO_OCR_INVESTIGATION`, `ELECTION_SPENDING_PAGE_SHAPE`. · Enrichment catalogue: `ENRICHMENTS`. · Trace features: `minister_activity_feature`, `policy_to_action_trace_scoping`, `lobbying_to_regulation_timeline`, `highlights_page_idea`. · Housing/CSO: `SSHA_social_housing_summary`. · Company: `CRO_FINANCIAL_STATEMENTS_EXPLORATION`. · Product/ops: `dail_tracker_improvements_v4`, `SHORT_TERM_PLAN`, `TICKETS`, `CITATION_AND_DATA_PLAN`, `cron_only_longevity_and_data_health_plan`, `dail_tracker_suggestions_fixes`, `COMPETITIVE_LANDSCAPE`, `DATA_LIMITATIONS`, `SEANAD_PARITY_BUILD_PLAN`.
+Live tracked detail docs: `DATA_MAP`, `PROCUREMENT_MASTER`, `PROCUREMENT_NUGGETS`, `MONEY_FLOW_DATA_AUDIT`, `PUBLIC_PAYMENTS_FACT_SCHEMA`, `PER_LA_AFS_BUILD_PLAN`, `new_public_money_legal_sources_claude_backlog`, `new_sources_value_and_features_claude_plan`, `ENRICHMENTS`, `SSHA_social_housing_summary`, `DATA_LIMITATIONS`. · Judiciary provenance now lives in `data/sandbox/judiciary/README.md`. · Older feature/scoping/audit docs (SI legal-state, corporate, public-appointments, election-spending, SIPO-OCR, second-pass reviews, etc.) have been retired to `doc/archive/` (local-only, not tracked).

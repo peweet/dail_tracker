@@ -324,8 +324,6 @@ def _render_index() -> None:
         return
     df = res.data
 
-    _render_choropleth()
-
     query, _ = find_a_td_filter(
         df["constituency_name"].tolist(),
         key_prefix="con_idx",
@@ -351,6 +349,11 @@ def _render_index() -> None:
         f"{len(shown)} of {len(df)} constituencies · "
         "Population: Census 2022 on the 2023 Electoral Commission boundaries."
     )
+
+    # Exploratory choropleth now sits BELOW the search box + card grid so the grid
+    # (the reliable selector) leads first paint (audit 2026-06-21). Kept inline rather
+    # than in a collapsed expander — a folium/iframe map renders at 0 width when hidden.
+    _render_choropleth()
 
 
 # ── DOSSIER ───────────────────────────────────────────────────────────────────
