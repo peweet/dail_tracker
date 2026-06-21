@@ -489,10 +489,12 @@ def test_invariant_no_personal_row_is_displayable():
 # without collapsing genuinely-distinct payments (DQ audit 2026-06-05, A3). Errs toward
 # under-deduping: any differing field — notably description — preserves the row.
 # ----------------------------------------------------------------------------------------
-def _rows(specs):
+def _rows(specs, parser_name="public_body_pdf"):
     """specs: list of (supplier, amount, description, po, page) -> a fact-shaped frame.
-    All share one source_file_hash/period so dedup is judged within-file."""
-    base = {"source_file_hash": "h1", "period": "2024-Q1", "paid_flag": None}
+    All share one source_file_hash/period so dedup is judged within-file. Defaults to a PDF
+    parser because dedup is now PDF-ONLY (the word-row clusterer is the only reader that can
+    emit a true repeat); pass parser_name="public_body_xlsx" to model a tabular source."""
+    base = {"source_file_hash": "h1", "period": "2024-Q1", "paid_flag": None, "parser_name": parser_name}
     return pl.DataFrame(
         [
             {
@@ -557,6 +559,46 @@ def test_same_payment_in_two_files_is_not_collapsed():
     out, dropped = dedup_source_repeats(df)
     assert dropped == 0
     assert out.height == 2
+
+
+def test_tabular_identical_rows_are_kept():
+    # PDF-ONLY dedup (2026-06-21). A tabular reader iterates each source cell exactly once and
+    # CANNOT manufacture a duplicate, so identical xlsx/csv rows are genuinely distinct published
+    # payments and must all survive — e.g. CHI lists 6 separate €45,398.38 rent invoices in one
+    # quarter (no invoice-ref column), and its published Total reconciles to the UN-deduped sum.
+    df = _rows([("Liffeyview Property Holdings Ltd", 45398.38, None, None, None)] * 6, parser_name="public_body_xlsx")
+    out, dropped = dedup_source_repeats(df)
+    assert dropped == 0, "tabular identical rows must never be collapsed"
+    assert out.height == 6
+
+
+def test_pdf_and_tabular_mixed_only_pdf_repeats_dropped():
+    df = pl.concat(
+        [
+            _rows([("Acme Ltd", 1000, "X", None, 1)] * 3, parser_name="public_body_pdf"),  # 3 -> 1
+            _rows([("Beta Ltd", 2000, None, None, None)] * 3, parser_name="public_body_csv"),  # 3 -> 3
+        ]
+    )
+    out, dropped = dedup_source_repeats(df)
+    assert dropped == 2, "only the 2 PDF repeats drop; the 3 tabular rows stay"
+    assert out.filter(pl.col("supplier_raw") == "Beta Ltd").height == 3
+    assert out.filter(pl.col("supplier_raw") == "Acme Ltd").height == 1
+
+
+def test_amount_role_skips_period_column():
+    # TII regression (2026-06-21): header "Period Paid, PAYMENT, Vendor" — 'Period Paid' matches
+    # the amount regex via 'paid', and its 'Jan-21' cells parse to 21, tying the numeric-density
+    # test and stealing the amount role from the real 'PAYMENT' column (every amount became €21).
+    # A column better classified as period must be dropped from amount candidates.
+    header = ["Period Paid", "PAYMENT", "Vendor", "Description"]
+    rows = [
+        ["Jan-21", "959848.79", "Alstom", "Luas Trams"],
+        ["Jan-21", "1800000", "Alstom", "Luas Trams"],
+        ["Feb-21", "46224.15", "Causeway Geotech", "Fieldworks"],
+    ]
+    roles = detect_roles_tab(header, rows)
+    assert roles["amount"] == 1, "PAYMENT must win the amount role over the 'Period Paid' date column"
+    assert roles["supplier"] == 2
 
 
 def test_dedup_sig_excludes_volatile_provenance():

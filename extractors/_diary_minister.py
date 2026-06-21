@@ -195,7 +195,10 @@ _MONTHS = {
 # Fires only when the filename carries no surname. Each is a verifiable public fact
 # (who_was_minister); end=None means still in office.
 DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
+    ("HEALTH", "Harris", date(2016, 5, 6), date(2020, 6, 27)),  # before Donnelly (who_was_minister)
     ("HEALTH", "Donnelly", date(2020, 6, 27), date(2025, 1, 23)),
+    ("HEALTH", "Carroll MacNeill", date(2025, 1, 23), None),  # surname-less "Ministers_Diary_Jan_25_to_Aug_25"
+    ("JUSTICE", "Flanagan", date(2017, 6, 14), date(2020, 6, 27)),  # before McEntee (who_was_minister)
     ("JUSTICE", "McEntee", date(2020, 6, 27), date(2021, 4, 27)),
     # Education publishes a DEEP historic collection (back to 2016) of generic "ministers-diary-
     # <month>-<year>.pdf" files with no surname → attribute the senior Education minister by date.
@@ -207,6 +210,7 @@ DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
     ("EDUCATION", "McEntee", date(2025, 1, 23), None),
     # Finance publishes generic "April.pdf" calendar exports with no surname in the name, and a
     # single minister's collection page hosts content spanning predecessors — so attribute by date.
+    ("FINANCE", "Donohoe", date(2017, 6, 14), date(2022, 12, 17)),  # before McGrath (who_was_minister)
     ("FINANCE", "McGrath", date(2022, 12, 17), date(2024, 6, 26)),
     ("FINANCE", "Chambers", date(2024, 6, 26), date(2025, 1, 23)),
     ("FINANCE", "Donohoe", date(2025, 1, 23), date(2025, 11, 18)),
@@ -234,6 +238,10 @@ DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
     ("DFHERIS", "Harris", date(2020, 6, 27), date(2024, 4, 9)),
     ("DFHERIS", "O'Donovan", date(2024, 4, 9), date(2025, 1, 23)),
     ("DFHERIS", "Lawless", date(2025, 1, 23), None),
+    # DCCS (Culture, Communications & Sport) surname-less "Ministers_Diary_Q4.pdf" generic files →
+    # attribute the current minister by date. Patrick O'Donovan from the dept's 2025 reorg
+    # (who_was_minister-verified, 2025-01-23–). Earlier DCCS files carry surnames (resolve by filename).
+    ("DCCS", "O'Donovan", date(2025, 1, 23), None),
 ]
 
 
