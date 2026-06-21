@@ -1,13 +1,13 @@
 {
-  "generated_utc": "2026-06-21T13:23:09.326447+00:00",
+  "generated_utc": "2026-06-21T14:02:59.223103+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
-  "n_rows": 227610,
+  "n_rows": 223722,
   "n_publishers": 71,
   "n_suppliers": 23395,
   "cro_matched_pct": 46.7,
   "rows_by_publisher_type": {
-    "local_authority": 92621,
+    "local_authority": 88733,
     "department": 40475,
     "state_body": 40183,
     "agency": 37997,
@@ -17,23 +17,23 @@
   },
   "n_local_authorities": 23,
   "safe_eur_by_tier": {
-    "SPENT": 18069097894.99,
-    "COMMITTED": 17168268548.4
+    "SPENT": 18053947671.6,
+    "COMMITTED": 16932606696.79
   },
   "vat_status_counts": {
-    "unknown": 195647,
-    "incl_vat": 31963
+    "incl_vat": 31963,
+    "unknown": 191759
   },
   "disclosure_basis_counts": {
-    "foi_s8_model_scheme": 227600,
+    "foi_s8_model_scheme": 223712,
     "utilities_regime": 10
   },
   "disclosure_threshold_counts": {
-    "20000": 227351,
+    "20000": 223463,
     "25000": 259
   },
   "body_class_counts": {
-    "contracting_authority": 227600,
+    "contracting_authority": 223712,
     "contracting_entity_utility": 10
   },
   "regime_note": "Publishers fall under DIFFERENT disclosure regimes/thresholds (carried per row in disclosure_basis / disclosure_threshold_eur / threshold_vat / body_procurement_class). Most publish over \u20ac20,000 under the FOI Act 2014 s.8 model scheme (origin Circular FIN 07/12); CHI publishes over \u20ac25,000 incl-VAT; utilities (ESB/EirGrid/Uisce \u00c9ireann) are contracting ENTITIES outside that scheme. Do NOT describe the corpus as a single '\u20ac20,000 / Circular 07/2012' regime.",
