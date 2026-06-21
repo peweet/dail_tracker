@@ -197,6 +197,13 @@ _MONTHS = {
 DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
     ("HEALTH", "Donnelly", date(2020, 6, 27), date(2025, 1, 23)),
     ("JUSTICE", "McEntee", date(2020, 6, 27), date(2021, 4, 27)),
+    # Education publishes a DEEP historic collection (back to 2016) of generic "ministers-diary-
+    # <month>-<year>.pdf" files with no surname → attribute the senior Education minister by date.
+    # Lineage who_was_minister-verified: O'Sullivan → Bruton → McHugh → Foley → McEntee.
+    ("EDUCATION", "O'Sullivan", date(2014, 7, 11), date(2016, 5, 6)),
+    ("EDUCATION", "Bruton", date(2016, 5, 6), date(2018, 10, 16)),
+    ("EDUCATION", "McHugh", date(2018, 10, 16), date(2020, 6, 27)),
+    ("EDUCATION", "Foley", date(2020, 6, 27), date(2025, 1, 23)),
     ("EDUCATION", "McEntee", date(2025, 1, 23), None),
     # Finance publishes generic "April.pdf" calendar exports with no surname in the name, and a
     # single minister's collection page hosts content spanning predecessors — so attribute by date.

@@ -229,6 +229,23 @@ so only indecisive ones hit exact geometry. Mapping:
   non-geometry → `cProfile` next); threads **2.14×** (partially GIL-bound, not processes-only);
   prepared-geom lever = **NO-OP** (shapely 2.1.2 already prepares); cells **~28.1M** (RoI
   70,273 km²); simplified set untracked in `c:/tmp` (55M), live set 492M (the "244 MB" input is stale).
+- 2026-06-21 — **Phase 0 `cProfile` DONE (the gating TODO) — it OVERTURNS the diagnosis above.**
+  The ~565 ms "non-geometry" was NOT `rulebook.resolve`/council-spine (both negligible — resolve
+  absent from top `tottime`; geometry ~7 ms, STRtree `query` 16 calls = 7 ms). **The real cost is
+  LAYER I/O in `LayerStore.load` = polars `read_parquet` (collect) + `shapely.from_wkb` deserialize.**
+  No-store `evaluate()` (the DEFAULT path, `store or LayerStore()`) = **~5–6 s/call** — reloads +
+  re-parses all 19 layers EVERY call (5 "warm" calls never sped up: 6.5→4.4 s). Shared-store "warm"
+  = **~0.7–1 s median with 4 s spikes** because the cache is **LEAKY**: `load` is
+  `@lru_cache(maxsize=32)` on a BOUND method (key incl. `self`); force-preloading all 19 geom layers
+  STILL leaves misses=8/run + DEM cold-reads (the 4 s spikes = `terrain()` `/vsicurl` COG read on a
+  point not in `dem_cache.parquet`). `dem_cache` has no `wkb` col (correctly NOT a geom layer).
+  **IMPLICATION — the grid is attacking the wrong cost AND is a sledgehammer:** a process-wide,
+  NON-evicting parsed-`Layer` (geoms+STRtree) cache built ONCE + a LOCAL DEM tile (not per-cold-point
+  network read) removes the SAME I/O cost with **no grid, no ~28M cells, no tens-of-GB, no staleness,
+  full exactness**. **NEW Phase 1 (supersedes the grid pending re-measure):** (1) hold parsed `Layer`
+  process-wide & preload at store init (kill the maxsize=32 bound-method eviction); (2) DEM: ship a
+  local Ireland tile so `terrain()` never does a cold `/vsicurl` hop; (3) re-measure — expect tens of
+  ms warm. Build the grid ONLY if the fixed-warm engine still can't meet the concurrency target.
 - 2026-06-18 — Plan audited claim-by-claim vs code + papers (sources, infer-nothing). CORRECTED:
   DuckDB-as-builder / "saturates all cores" → contradicted by §13.7 (shapely STRtree 4.6 s beat
   DuckDB 24 s/OOM); DEM "1–3 S3 reads" → exactly 2 cached `terrain()` calls (`dem_cache.parquet`);

@@ -43,7 +43,7 @@ from ui.components import (
     stat_item,
     year_selector,
 )
-from ui.entity_links import api_json_link, bill_detail_url, member_link_html, source_link_html
+from ui.entity_links import api_json_link, bill_detail_url, member_link_html, si_detail_url, source_link_html
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 
@@ -622,12 +622,16 @@ def _section_statutory_instruments(bill_id: str) -> None:
         form = str(row["si_form"] or "").replace("_", " ")
         named = row.get("si_minister_named")
         role = row.get("si_minister")
+        # Named signing minister → link to their member profile. Graceful: the
+        # resolver returns "" on a miss and member_link_html falls back to the
+        # plain (escaped) name. A bare role string ("Minister for Health") is
+        # not a person, so it stays plain text.
         if isinstance(named, str) and named.strip():
-            minister = named.strip()
+            minister_html = member_link_html(resolve_member_code(named.strip()), named.strip())
         elif isinstance(role, str) and role.strip():
-            minister = role.strip()
+            minister_html = html.escape(role.strip())
         else:
-            minister = "—"
+            minister_html = "—"
         eu_badge = '<span class="signal signal-eu">EU</span>' if bool(row.get("si_is_eu")) else ""
         url = row.get("eisb_url") or ""
         url_html = (
@@ -637,6 +641,17 @@ def _section_statutory_instruments(bill_id: str) -> None:
                 aria_label="Open SI on irishstatutebook.ie",
             )
             if isinstance(url, str) and url.startswith("http")
+            else ""
+        )
+        # Forward edge into the canonical in-app SI record (the same si_id the
+        # Statutory Instruments page resolves ?si= against). Previously the only
+        # link was out to irishstatutebook.ie, so each SI dead-ended off-site.
+        sid_raw = row.get("si_id")
+        sid = str(sid_raw).strip() if sid_raw is not None and not pd.isna(sid_raw) else ""
+        si_detail_link = (
+            f'<a class="dt-source-link" href="{html.escape(si_detail_url(sid), quote=True)}" '
+            f'target="_self">View SI detail →</a>'
+            if sid
             else ""
         )
 
@@ -652,8 +667,9 @@ def _section_statutory_instruments(bill_id: str) -> None:
             f'<div class="leg-bill-card-title">{html.escape(str(row["si_title"]))}</div>'
             f'<div class="leg-si-meta">'
             f"{html.escape(operation)} · {html.escape(domain)} · "
-            f"{html.escape(minister)} · {url_html}"
-            f"</div>"
+            f"{minister_html} · {url_html}"
+            + (f" · {si_detail_link}" if si_detail_link else "")
+            + f"</div>"
             f"</div>"
         )
 
