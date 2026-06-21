@@ -62,3 +62,13 @@ def test_non_waf_failure_does_not_trip(monkeypatch):
     for i in range(m.WAF_CIRCUIT_BREAK + 2):
         m.download("https://x/missing.pdf", f"m{i}.pdf", retries=1)
     assert not m.waf_window_shut()
+
+
+# --------------------------------------------------------------------------- brotli guard
+def test_accept_encoding_excludes_brotli() -> None:
+    """gov.ie's CDN serves brotli intermittently; `requests` can't decode it without the
+    (uninstalled) brotli package, so r.text becomes mojibake and BeautifulSoup finds 0 PDFs —
+    listing discovery silently returns nothing. The header must not advertise 'br'. If this
+    fails because someone re-added 'br', they MUST also `pip install brotli`."""
+    enc = m.HEADERS.get("Accept-Encoding", "")
+    assert "br" not in [tok.strip() for tok in enc.split(",")], f"Accept-Encoding advertises brotli: {enc!r}"

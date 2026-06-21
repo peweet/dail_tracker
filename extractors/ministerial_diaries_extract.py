@@ -70,7 +70,11 @@ HEADERS = {
     ),
     "Accept": "text/html,application/xhtml+xml,application/pdf,*/*;q=0.8",
     "Accept-Language": "en-IE,en-GB;q=0.9,en;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
+    # NB: deliberately NO "br" — gov.ie's CDN serves brotli intermittently and `requests`
+    # cannot decode it without the (uninstalled) brotli package, so r.text comes back as
+    # mojibake and BeautifulSoup silently finds 0 PDFs (listing discovery returns nothing).
+    # gzip/deflate are decoded natively. Re-add "br" ONLY alongside `pip install brotli`.
+    "Accept-Encoding": "gzip, deflate",
     "Sec-Fetch-Dest": "document",
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-Site": "same-origin",
