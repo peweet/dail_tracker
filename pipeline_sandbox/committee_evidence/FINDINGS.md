@@ -66,3 +66,13 @@ shaping policy through committee evidence.
 Exact-match floor ~14–21%, realistic post-alias-map ceiling well above the flagged 36–43%, residual is
 genuine advocacy bodies (the actual story) plus filterable topic noise. Recommend proceeding to **Phase 1
 on PAC + Housing**, building the alias map first, before any widening to Tier-A committees.
+
+## Product placement (DECIDED 2026-06-21): Option A — extend the existing Committees page
+The witness/evidence layer attaches to **the existing Committees page** (`utility/pages_code/committees.py`,
+two-stage register→committee→member flow) as a "Who gives evidence" section on each committee's DETAIL view —
+NOT a standalone org-centric page. Rationale: same committee entity, enriches an existing page, lowest-friction
+nav. Join key = committee identity (API `committeeCode`). Note the two feeds differ: membership comes from
+members' wide records; evidence comes from committee meeting transcripts — two pipelines, one page. (The
+org-centric "who-gave-evidence-where + money" lens, à la Who-Ministers-Meet, was considered and deferred;
+revisit only if the committee-detail section proves too cramped for the accountability story.) This is a
+Phase-4 surface and only happens after Phase 1 (alias map) lands.
