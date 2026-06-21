@@ -1348,6 +1348,25 @@ def main() -> None:
     df = classify_and_flag(df)
     df = df.select([c for c in FACT_COLS if c in df.columns]).sort(["publisher_id", "year", "quarter"])
 
+    # ── Cross-period republish de-duplication ──────────────────────────────────────────────
+    # Several councils carry forward / re-list the same line (esp. big multi-year "CONTRACT
+    # PAYMENTS") in later quarters' files, so a naive sum double-counts it (Mayo's €918m → the
+    # same BAM-JV €9.2m line appearing in 2022-Q4 AND 2023-Q2). Rule: for an identical line
+    # (publisher+supplier+amount+description+po_number), keep EVERY occurrence in its EARLIEST
+    # period and drop any re-listing in a LATER period. Same-period (same-file) repeats are
+    # left exactly as published — they are ambiguous, not provably artefacts. Pure row-drop;
+    # never alters a value.
+    _dkey = ["publisher_id", "supplier_raw", "amount_eur", "description", "po_number"]
+    _before = df.height
+    df = (
+        df.with_columns(pl.col("period").min().over(_dkey).alias("_first_period"))
+        .filter(pl.col("period").is_null() | (pl.col("period") == pl.col("_first_period")))
+        .drop("_first_period")
+    )
+    _removed = _before - df.height
+    _eur_removed = 0.0  # informational only
+    print(f"cross-period republish dedupe: dropped {_removed:,} re-listed lines ({_removed / max(_before,1):.1%})")
+
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_FACT, min_rows=MIN_FACT_ROWS)
 

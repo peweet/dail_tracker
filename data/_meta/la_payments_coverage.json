@@ -1,22 +1,22 @@
 {
   "councils_attempted": 24,
   "councils_with_rows": 22,
-  "rows_extracted": 92211,
-  "rows_public_display": 73429,
-  "rows_quarantined": 18782,
+  "rows_extracted": 88323,
+  "rows_public_display": 70813,
+  "rows_quarantined": 17510,
   "supplier_class_counts": {
-    "id_code": 558,
-    "company": 71370,
-    "foreign_company": 29,
-    "sole_trader_or_individual": 18224,
-    "public_body": 2030
+    "public_body": 1914,
+    "sole_trader_or_individual": 16953,
+    "foreign_company": 27,
+    "company": 68872,
+    "id_code": 557
   },
   "value_kind_counts": {
-    "po_committed": 84149,
-    "payment_actual": 8062
+    "po_committed": 80520,
+    "payment_actual": 7803
   },
-  "public_safe_to_sum_rows": 73429,
-  "public_safe_to_sum_total_eur": 8541082691.889999,
+  "public_safe_to_sum_rows": 70813,
+  "public_safe_to_sum_total_eur": 8349558596.23,
   "by_council": [
     {
       "slug": "south_dublin",
@@ -844,6 +844,6 @@
   "parser_version": "0.1.0",
   "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
   "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
-  "generated_at": "2026-06-21T13:22:34+00:00",
+  "generated_at": "2026-06-21T14:02:38+00:00",
   "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
 }
