@@ -357,7 +357,6 @@ def _render_index() -> None:
         "not by the councillors you elect. Pick a council to see who runs it and how it performs.",
     )
     _render_national_summary()
-    _render_choropleth()
 
     res = fetch_chief_executives_result()
     if not res.ok or res.data.empty:
@@ -390,6 +389,12 @@ def _render_index() -> None:
         f"{len(shown)} of {len(df)} local authorities · Chief Executives verified against each "
         "council's own site / the CCMA (data/_meta/la_chief_executives.csv)."
     )
+
+    # The map is exploratory, not the primary task — it now sits BELOW the searchable
+    # council grid (what the reader came for) rather than pushing it down the fold
+    # (audit 2026-06-21). Kept inline rather than in a collapsed expander because a
+    # folium/iframe map renders at 0 width inside a collapsed expander.
+    _render_choropleth()
 
 
 # ── DOSSIER ───────────────────────────────────────────────────────────────────
