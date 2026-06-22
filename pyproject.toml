@@ -32,11 +32,11 @@ classifiers = [
 # automatically — don't pin them here.
 dependencies = [
     "streamlit>=1.50,<2",
-    "altair>=6.0,<7",
-    "plotly>=6.0,<7",
-    "duckdb>=1.4,<2",
+    "altair>=6.2.1,<7",
+    "plotly>=6.8.0,<7",
+    "duckdb>=1.5.4,<2",
     "pandas>=2.2,<3.0",  # capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order pd.Series bug; revisit post-launch
-    "numpy>=2.0",
+    "numpy>=2.5.0",
     "pyarrow>=14",       # duckdb/pandas parquet I/O for the gold/silver reads
 ]
 
@@ -59,7 +59,7 @@ pipeline = [
     "polars>=1.39,!=1.41.0",  # 1.41.0 (+ polars-runtime-32) was yanked upstream
     "PyMuPDF>=1.25",
     "requests>=2.31",
-    "beautifulsoup4>=4.12",
+    "beautifulsoup4>=4.15.0",
     "flatten-json>=0.1.14",
     "jsonschema>=4.0,<5",  # validate-at-fetch of Oireachtas API envelopes (services/schema_validation.py)
     "orjson>=3.9",         # fast JSON read/write in manifest.py, members_api_service.py, member_interests.py, wiki_data.py
@@ -70,7 +70,7 @@ pipeline = [
 
 # OCR pipeline for scanned PDFs (read_scan_pdf.py)
 ocr = [
-    "ocrmypdf>=17.0",
+    "ocrmypdf>=17.7.0",
 ]
 
 # Siting Check (Product B) — the live geospatial planning-risk engine in
@@ -98,7 +98,7 @@ scrape = [
 # the deployed Streamlit app does NOT import these, so they stay out of the lean
 # Cloud `uv sync`. Run the API with `uv sync --extra api` then `uvicorn api.main:app`.
 api = [
-    "fastapi>=0.115,<1",
+    "fastapi>=0.138.0,<1",
     "uvicorn[standard]>=0.30",
 ]
 
@@ -106,7 +106,7 @@ api = [
 # core. Optional: neither the app nor the API imports it. Run with
 # `uv sync --extra mcp` then `./.venv/Scripts/python.exe mcp_server/server.py`.
 mcp = [
-    "mcp>=1.20,<2",
+    "mcp>=1.28.0,<2",
 ]
 
 # Everything installable as an EXTRA — a full optional-runtime local setup.
@@ -130,13 +130,13 @@ all = [
 #   uv sync --extra pipeline --group dev        # = CI's full lane
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
+    "pytest>=9.1.1",
     "pytest-cov>=5.0",
-    "ruff>=0.11",
+    "ruff>=0.15.18",
     "responses>=0.25",        # HTTP mocking for tests of services/http_engine.py and API scrapers
     "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
-    "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
-    "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
+    "basedpyright>=1.39.8",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
+    "pip-audit>=2.10.1",         # supply-chain CVE audit — run in .github/workflows/audit.yml
 ]
 
 # ── Script entry points ──────────────────────────────────────────────────────
