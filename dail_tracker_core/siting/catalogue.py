@@ -44,6 +44,17 @@ class Node:
     # optional static if/then mitigation cascade (survey -> finding -> follow-on); empty for
     # nodes that keep the flat `mitigates` line. Rendered by brief.py.
     mitigation_path: tuple[dict[str, Any], ...] = ()
+    # PRESENTATION TIER (does NOT change whether the node fires — only how the brief groups it):
+    #   universal=True  -> "standard for essentially every rural one-off" (AA screening, rural-need
+    #     test, on-site wastewater, surface-water, landscaping, BER, entrance sightlines). These fire
+    #     near-universally, so showing them as equal-weight site constraints buries the real signal;
+    #     the brief files them under standard requirements UNLESS a trigger elevates them by severity
+    #     (detail["_elevate"], e.g. septic on EXTREME-vulnerability ground).
+    #   conditional=True -> the binding trigger is a site feature we cannot read (e.g. a bat survey
+    #     depends on trees/old structures/watercourses), so it is a CHECK the user must confirm, not
+    #     a confirmed finding — filed with flood under "checks that depend on your site".
+    universal: bool = False
+    conditional: bool = False
 
     @property
     def source_layers(self) -> tuple[str, ...]:
@@ -128,6 +139,8 @@ def load_catalogue(path: str | None = None) -> Catalogue:
             precedents=tuple(n.get("precedents") or ()),
             risk_note=str(n.get("risk_note", "")),
             mitigation_path=tuple(n.get("mitigation_path") or ()),
+            universal=bool(n.get("universal", False)),
+            conditional=bool(n.get("conditional", False)),
         )
         for n in (raw.get("nodes") or [])
     )

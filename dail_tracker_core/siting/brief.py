@@ -98,6 +98,8 @@ class BriefItem:
     action: str
     reports: tuple[str, ...] = ()
     path: tuple[dict[str, Any], ...] = ()  # static if/then cascade (may be empty)
+    node_id: str = ""
+    passfail: bool = False  # F-class — lets the standard tier still flag the rural-need pass/fail gate
 
 
 @dataclass
@@ -108,8 +110,8 @@ class Brief:
     hard_constraints: list[BriefItem]
     shaping_constraints: list[BriefItem]
     access: dict[str, Any]
-    obligations: list[BriefItem]  # universal + scale-gated (procedural)
-    to_verify: list[BriefItem]  # checks we can't read (e.g. flood) — verify yourself
+    obligations: list[BriefItem]  # STANDARD requirements for any rural one-off (universal, non-elevated)
+    to_verify: list[BriefItem]  # checks we can't read (flood deep-link + conditional, e.g. bats)
     required_reports: list[str]
     rfi_note: str
     not_assessed: list[str]
@@ -122,19 +124,52 @@ class Brief:
 
 def _item(i) -> BriefItem:
     reports = tuple(c.document for c in i.rule.checklist) if i.rule else ()
-    return BriefItem(title=i.title, why=i.flag, action=i.mitigates, reports=reports, path=tuple(i.mitigation_path))
+    return BriefItem(title=i.title, why=i.flag, action=i.mitigates, reports=reports,
+                     path=tuple(i.mitigation_path), node_id=i.node_id, passfail="F" in i.mitigation_classes)
+
+
+@dataclass
+class TieredIssues:
+    """Fired issues grouped into the honest presentation tiers (raw IssueResult, so a UI can render
+    rich cards). The SINGLE source of tiering truth — both build_brief() and the page use this, so
+    they can never diverge. See catalogue.Node for the universal/conditional/elevated semantics."""
+
+    site_specific: list  # notable at THIS location (non-universal, or a universal node elevated by severity)
+    standard: list       # apply to essentially every rural one-off here (universal, not elevated)
+    checks: list         # depend on a layer we can't read / site features we can't see (flood + bats)
+    access: object | None  # the road node (its own access/entrance section), or None
+
+
+def tier_issues(result: SitingResult) -> TieredIssues:
+    """Group result.fired into tiers (pure, deterministic — catalogue order preserved)."""
+    fired = result.fired
+    checks = [i for i in fired if i.data_status == "deep_link_only" or i.conditional]
+    rest = [i for i in fired if i.node_id != "road_sightlines"
+            and i.data_status != "deep_link_only" and not i.conditional]
+    standard = [i for i in rest if i.universal and not i.elevated]
+    site_specific = [i for i in rest if not (i.universal and not i.elevated)]
+    access = next((i for i in result.issues if i.node_id == "road_sightlines" and i.fired), None)
+    return TieredIssues(site_specific=site_specific, standard=standard, checks=checks, access=access)
 
 
 def build_brief(result: SitingResult, terrain=None) -> Brief:
     fired = result.fired  # catalogue order -> deterministic
-    # issues whose layer we can't read (deep_link_only, e.g. flood) are CHECKS the user must do
-    # themselves, not findings — never present them as confirmed hard constraints (the over-flag bug).
-    verify = [i for i in fired if i.data_status == "deep_link_only"]
-    findings = [i for i in fired if i.data_status != "deep_link_only" and i.node_id != "road_sightlines"]
-    hard = [_item(i) for i in findings if "F" in i.mitigation_classes]
-    shaping = [_item(i) for i in findings if "F" not in i.mitigation_classes and "D" in i.mitigation_classes]
-    obligations = [_item(i) for i in findings if i.mitigation_classes == frozenset({"P"})]
-    to_verify = [_item(i) for i in verify]
+    # TIERING (restores site-specific signal without suppressing anything — see catalogue.Node):
+    #  - CHECKS the user must confirm: deep-link layers we can't read (flood) + conditional nodes whose
+    #    binding trigger is a site feature we can't see (bats: trees/old structures/watercourses). Never
+    #    presented as confirmed constraints (the over-flag bug was asserting these on every site).
+    #  - STANDARD requirements: universal nodes that apply to essentially every rural one-off (AA
+    #    screening, rural-need test, on-site wastewater, surface-water, landscaping, BER) — grouped so
+    #    they don't drown the real signal; a node a trigger ELEVATED by severity drops out of here.
+    #  - SITE-SPECIFIC: what is actually notable about THIS location (in/near a European site, on peat,
+    #    a monument, a National Park, near a protected structure, a sensitive landscape) + any elevated
+    #    universal (e.g. septic on extreme ground). The road has its own ACCESS section.
+    t = tier_issues(result)  # single source of tiering truth (shared with the page)
+    hard = [_item(i) for i in t.site_specific if "F" in i.mitigation_classes]
+    shaping = [_item(i) for i in t.site_specific if "F" not in i.mitigation_classes and "D" in i.mitigation_classes]
+    # standard tier ordered pass/fail-first so the rural-housing-need gate leads, not the boilerplate
+    obligations = [_item(i) for i in sorted(t.standard, key=lambda x: "F" not in x.mitigation_classes)]
+    to_verify = [_item(i) for i in t.checks]
 
     # dedicated ACCESS & ENTRANCE section (road node, incl. the junction/crossroads finding)
     access: dict[str, Any] = {"applies": False}
@@ -156,7 +191,8 @@ def build_brief(result: SitingResult, terrain=None) -> Brief:
             "engage": list(road.engage),
         }
 
-    nF = sum(1 for i in findings if "F" in i.mitigation_classes)
+    n_site = len(hard) + len(shaping)  # site-specific constraints (the real signal)
+    nF = len(hard)
     if result.excluded:
         sites = "; ".join(f"{e.site_name} ({e.designation})" for e in result.exclusions)
         headline = (
@@ -167,10 +203,14 @@ def build_brief(result: SitingResult, terrain=None) -> Brief:
         )
     else:
         tightness = (
-            "tight — several hard constraints stack" if nF >= 3 else "moderate" if nF >= 1 else "few hard constraints"
+            "tight — several site-specific constraints stack" if nF >= 3
+            else "moderate" if n_site >= 1 else "no site-specific hard constraints surfaced"
         )
+        n_std = len(obligations)
         headline = (
-            f"{len(fired)} planning issue(s) fire here ({nF} hard / pass-fail); the constraint box is {tightness}."
+            f"{n_site} site-specific constraint(s) here ({nF} hard / pass-fail); the constraint box is "
+            f"{tightness}. Plus {n_std} standard requirement(s) every rural one-off addresses, and "
+            f"{len(to_verify)} check(s) to confirm yourself. (Listing what applies — not a grant/refuse view.)"
         )
 
     site = {
@@ -212,7 +252,7 @@ def brief_text(result: SitingResult, terrain=None) -> str:
                 out.append(f"      possible route: {e.mitigation}")
         out.append("")
     if b.hard_constraints:
-        out.append("HARD CONSTRAINTS (pass/fail):")
+        out.append("SITE-SPECIFIC HARD CONSTRAINTS (pass/fail, notable at THIS location):")
         for it in b.hard_constraints:
             out.append(f"  - {it.title}: {it.action}")
             if it.path:
@@ -227,16 +267,16 @@ def brief_text(result: SitingResult, terrain=None) -> str:
         if b.access.get("path"):
             _render_path(list(b.access["path"]), out, indent="  ")
     if b.shaping_constraints:
-        out += ["", "SHAPING CONSTRAINTS:"]
+        out += ["", "SITE-SPECIFIC SHAPING CONSTRAINTS:"]
         for it in b.shaping_constraints:
             out.append(f"  - {it.title}: {it.action}")
             if it.path:
                 _render_path(list(it.path), out, indent="      ")
     if b.obligations:
-        out += ["", "STANDARD OBLIGATIONS:"]
-        out += [f"  - {it.title}" for it in b.obligations]
+        out += ["", "STANDARD REQUIREMENTS (apply to essentially every rural one-off here):"]
+        out += [f"  - {'[pass/fail] ' if it.passfail else ''}{it.title}" for it in b.obligations]
     if b.to_verify:
-        out += ["", "CHECK YOURSELF (we can't read this layer):"]
+        out += ["", "CHECKS TO CONFIRM YOURSELF (depend on your site / a layer we can't read):"]
         for it in b.to_verify:
             out.append(f"  - {it.title}: {it.why}")
     out += ["", "REQUIRED REPORTS (likely RFI):"]

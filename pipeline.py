@@ -74,6 +74,15 @@ CHAINS: list[tuple[str, str]] = [
     ("lobbying", "lobbying_refresh.py"),
     ("iris", "iris_refresh.py"),
     ("legislation", "legislation_refresh.py"),
+    # participation: the honest "Showing up" attendance model — division turnout,
+    # absence gaps, presence-vs-vote divergence and 120-day TAA compliance ->
+    # four gold tables read by v_attendance_participation_* + v_attendance_taa_
+    # compliance. Pure deterministic transform over gold the chain already built
+    # (current_{dail,seanad}_vote_history + attendance_by_td_year + the member
+    # feed for office flags); MUST run after attendance/seanad/legislation so
+    # those exist. Reads news_mentions if present (graceful when absent), plus the
+    # curated _meta role/explanation CSVs. Headless-safe, no network.
+    ("participation", "extractors/participation_extract.py"),
     # committee_evidence: committee MEETING HISTORY (the Committees-page timeline:
     # date · topics · witnesses · transcript link). Two steps — extract enumerates
     # every committee meeting via the Oireachtas /v1/debates feed in a single pass
@@ -239,6 +248,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
+    "participation": "Showing-up model: division turnout + absence gaps + presence/vote divergence + 120-day TAA compliance (gold)",
     "committee_evidence": "committee meeting history: enumerate meetings + parse transcripts (topics/witnesses) -> silver",
     "committee_evidence_promote": "promote committee meetings/witnesses silver -> gold (v_committee_meetings)",
     "judiciary_bench": "promote validated judiciary sandbox -> gold bench/appointments/clearance/waiting/courthouses (transform, no network)",

@@ -232,6 +232,10 @@ Companies, keep Follow the Money as the *flow/assembly* tool, and invest the pro
 
 ## Part 6 — Recommendation (for decision — not yet executed)
 
+> ⚠️ **SUPERSEDED by Part 8 + Part 9 (data validation, 2026-06-22).** The "supplier node
+> hands off to Companies" move below turned out to be unsafe once checked against the data —
+> read Parts 8–9 for the corrected plan. Kept here for the audit trail.
+
 > A recommendation, not a decision. Nothing here is built.
 
 1. **Reorg: Option A now** (body/flow-first; supplier node hands off to Companies; landing
@@ -254,3 +258,135 @@ Companies, keep Follow the Money as the *flow/assembly* tool, and invest the pro
   the headline and do the reorg as part of that bigger build?
 - **Commercial gate:** is the project-lifecycle view a *paid-tier* feature (exports/API) while
   the body/firm walk stays free? That choice shapes how hard the project node is gated.
+
+---
+
+## Part 8 — Data validation (2026-06-22)
+
+Every assumption from Parts 1–6 was checked against code and the gold fact
+(`data/gold/parquet/procurement_payments_fact.parquet`, read directly with DuckDB) and the
+view/renderer source. Results — **two assumptions failed, and they were load-bearing.**
+
+| # | Assumption (Parts 1–6) | Verdict | Evidence |
+|---|---|---|---|
+| A1 | FtM supplier node is a *strict subset* of the Companies page | ❌ **False** | FtM `_render_payments_supplier_profile` (procurement.py:1319) renders a **ranked per-body list + drill into the ledger (actual line items) + a SPENT/COMMITTED tier toggle**. Companies' `_render_paid_supplier_panel` (procurement.py:1642) renders only a **prose summary** ("paid €X by N bodies") + a per-year bar chart — **no body list, no ledger, no tier toggle**. Each surface has something the other lacks. |
+| A2 | The supplier node can hand off to Companies via a shared key | ❌ **False / unsafe** | `procurement_zz_entity_search.sql` L15–17 states the awards and payments registers "use **DIFFERENT** published name forms and are linked by **NO key** here." Companies is keyed on the **awards-side** `supplier_norm`; FtM on the **payments-side** `supplier_normalised`. The only bridge is CRO `company_num` — see A2b. |
+| A2b | (new) How many paid firms could even bridge to Companies? | ⚠️ **~37% upper bound** | Of **17,632** distinct company-class paid suppliers, only **6,455 (37%)** carry a CRO number — the necessary condition for the CRO bridge. Actual awards-side existence is lower (memory: payments↔award link ~35%). So **~63% of paid suppliers would dead-end** on a naive "link to Companies." |
+| A3 | Companies is the richer firm home | 🟡 **Half-true** | Richer in **breadth** (awards + TED + lobbying + payment summary) but **poorer in payment depth** (no per-body breakdown, no ledger drill). |
+| A4 | Body node + trail + group rollup are unique to FtM | ✅ **True** | Companies has no body concept, no breadcrumb, no group rollup. |
+| A5 | No project grain in the data | ✅ **True** | The fact's 40 columns include `spend_category` (CPV-like) and `body_procurement_class` but **no project/scheme/programme** column; the ledger row (`_payment_line_row`) carries only period/description/PO/amount/paid_status. A "projects" view still needs the **PI2040 ingest**. |
+| A6 | Procurement → Suppliers tab is a separate leaderboard | ✅ **True** | procurement.py:425 "Tab: Suppliers (search + pagination + clickable drill-down)." |
+| A7 | (new) Bodies are few; suppliers are many | ✅ **True** | The live view reads only the one gold fact: **72 distinct paying bodies** vs **17,632 company suppliers**. Bodies are *browsable*; suppliers *need* search. |
+
+### What the failures mean
+- **The duplication is shallower than it first looked.** The two supplier surfaces overlap on
+  *one headline figure* ("this firm was paid €X by N bodies"). FtM lets you *walk* it (per-body
+  → ledger); Companies does not. So the FtM supplier node is **not** a redundant thin copy — it
+  is the only place the payment *graph* is navigable.
+- **"Fold supplier into Companies / hand off" is unsafe.** No shared key; a CRO bridge that
+  covers only ~37%. A blanket hand-off would 404 the majority of firms.
+- **A7 inverts the earlier search instinct.** Suppliers (17.6k) are the entities that *need*
+  search; bodies (72) are browsable. Making the landing search **body-only is the wrong call** —
+  keep it broad (the current reverted state is correct).
+
+---
+
+## Part 9 — Revised plan (data-grounded; supersedes Part 6)
+
+The goal is unchanged — **kill the confusion of "a firm in three places"** — but the mechanism
+changes from *merge/hand-off* to **role clarity + CRO-gated cross-links, keeping both surfaces.**
+
+### 9.1 Roles (state them in each page's intro copy)
+- **Companies** = "one firm's full **register footprint**" — awards, TED, lobbying, payment
+  *summary*. The reference dossier.
+- **Follow the Money** = "**walk** the public-money graph" — body → suppliers it pays → the
+  actual records, with the breadcrumb and group rollups. The navigation tool.
+- **Procurement → Suppliers tab** = in-context **leaderboard** within the awards section.
+
+### 9.2 The edits (all display-only; no pipeline/data work)
+1. **Keep the FtM supplier node as-is** (it is not redundant — A1/A4). Do **not** delete or
+   route it away.
+2. **Add a CRO-gated cross-link, both directions:**
+   - On the FtM supplier node: when `cro_company_num` is present, show a "**See this firm's full
+     record →**" link to `company_profile_url(<awards-side key>)`. The awards-side key must be
+     resolved via the CRO bridge, **not** by passing the payments-side `supplier_normalised`
+     (which would mis-resolve). When no CRO match, **render no link** (no dead ends).
+   - On the Companies payment panel: a "**Walk the money trail →**" link back into FtM
+     (`?paid_supplier=<payments-side key>`), again only where the bridge resolves.
+   - ⚠️ This needs a **CRO→both-keys lookup**. Verify one exists (`v_procurement_entity_chain`
+     joins on `company_num`) before building; if not, that small view is the only new SQL.
+3. **Search stays broad** (body + supplier) — A7. Leave the reverted box as it is.
+4. **Hero dek + browse default:** no change forced by the data. (Optional: lead the browse with
+   "Top public bodies" to emphasise the flow framing, but suppliers must remain one toggle away.)
+5. **Procurement → Suppliers tab:** leave for now; revisit only with usage data.
+
+### 9.3 Honest copy to bake in
+- The FtM supplier node and the Companies summary **show the same headline € by design** — say
+  so, so a reader doesn't read it as two different facts. They differ only in *depth* (walkable
+  vs summary) and *coverage* (payments-native vs CRO-joined).
+- Where a firm has no CRO match, the cross-link is absent **because the registers can't be
+  linked**, not because there's no data — consider a one-line "not CRO-matched" note.
+
+### 9.4 Projects (unchanged conclusion, now hard-confirmed)
+No project grain exists. A real project view = **PI2040 ingest** (separate data project; cost
+band-only/~18% joinable; spend attaches by delivery-body + fuzzy name, never an audited total).
+Until then, "projects" = the curated featured tiles (NPHDB, BAM) only.
+
+### 9.5 Build order (if approved)
+1. Confirm/extend the CRO→awards-key + CRO→payments-key lookup (`v_procurement_entity_chain`).
+2. Add the two CRO-gated cross-links (FtM supplier node ↔ Companies payment panel).
+3. Add the role-clarifying intro copy on both pages.
+4. Tests: cross-link present iff CRO bridge resolves; no link emitted for non-matched firms;
+   the link resolves to a non-empty Companies dossier.
+5. (Later, separate) PI2040 ingest → project node in the trail.
+
+### 9.6 What this deliberately does NOT do
+- No merging of the two surfaces, no deletion of the supplier node, no body-only search, no
+  data/pipeline changes. The earlier Option A "hand-off" is **withdrawn** as unsafe.
+
+---
+
+## Part 10 — CRO-bridge scoping (2026-06-22, read-only; nothing built)
+
+The 9.2 cross-link hinges on a CRO bridge. Scoped against the committed gold parquets — **no
+pipeline/view changes made.** Verdict: **mechanically clean, but a minority feature.**
+
+### 10.1 Does a usable bridge exist?
+- `v_procurement_entity_chain` (one row per `company_num`, register flags + money) is the right
+  *backbone* but **does not expose the two URL keys** the links need: the awards-side
+  `supplier_norm` (Companies' `?supplier=` key) and the payments-side `supplier_normalised`
+  (FtM's `?paid_supplier=` key). It carries only `company_num` + `display_name` (ANY_VALUE).
+- The keys live in the source tables: `procurement_supplier_cro_match.parquet`
+  (`supplier_norm ↔ company_num`) and the payments fact (`supplier_normalised`, `cro_company_num`
+  per row). The FtM supplier header **already carries `cro_company_num`**
+  (`_render_payments_supplier_profile`, hrow). So the plumbing is: `company_num` → the two keys.
+
+### 10.2 Key resolution — CLEAN (measured)
+Both directions are **1:1** in the data — no "which name do I link to?" ambiguity:
+- awards `supplier_norm` per `company_num`: **max 1, avg 1.0, 0 ambiguous**.
+- payments `supplier_normalised` per `company_num`: **max 1, avg 1.0, 0 ambiguous**.
+
+### 10.3 Coverage — LOW (measured; this is the catch)
+| Direction | Resolves for | = |
+|---|---|---|
+| **FtM supplier → Companies** | 2,405 of **17,633** paid company-suppliers | **~14%** |
+| **Companies → FtM** ("walk the trail") | 2,405 of **6,447** eTenders-awarded companies | **~37%** |
+
+The bridge set is **2,405 companies** — those present in *both* eTenders awards *and*
+CRO-matched payments. (Companies' `/company` page is built from eTenders awards, so a paid firm
+needs an eTenders award — not merely a CRO — for the link to land somewhere real.)
+
+### 10.4 What this means for the plan
+- The cross-link is **feasible and low-risk** (a join over already-committed gold; the FtM header
+  already has the CRO; keys resolve 1:1). When built, the cleanest shape is either **two extra
+  columns on `v_procurement_entity_chain`** (`supplier_norm`, `payments_supplier_normalised`) or
+  a small dedicated lookup view — both display-plumbing, **not** a data/pipeline change.
+- BUT it is a **minority feature**: it appears for ~14% of paid firms and ~37% of awarded firms.
+  For the other ~86% / ~63% there is *no counterpart dossier*, so **no link** (render nothing —
+  never a dead end).
+- ⇒ **The cross-link does not, by itself, resolve the "three surfaces" confusion** for most
+  firms. The primary lever stays **role-clarity copy** (9.1); the cross-link is the bonus that
+  joins the overlap where both registers genuinely know the firm.
+- Honest note for the ~86%: absence of a link is *register coverage*, not missing money — only
+  ~7% of State spend is in the payments corpus (per `entity_chain` header), so most firms
+  legitimately live in only one register.

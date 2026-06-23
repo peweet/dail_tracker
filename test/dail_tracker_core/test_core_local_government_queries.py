@@ -26,9 +26,10 @@ CSV = ROOT / "data" / "_meta" / "la_chief_executives.csv"
 M2 = ROOT / "data" / "gold" / "parquet" / "noac_m2_collection_wide.parquet"
 DERELICT = ROOT / "data" / "gold" / "parquet" / "derelict_sites_levy_wide.parquet"
 APPEALS = ROOT / "data" / "silver" / "parquet" / "planning_appeal_outcomes.parquet"
+SCORECARD = ROOT / "data" / "gold" / "parquet" / "noac_scorecard_wide.parquet"
 
 pytestmark = pytest.mark.skipif(
-    not (CSV.exists() and M2.exists() and DERELICT.exists() and APPEALS.exists()),
+    not (CSV.exists() and M2.exists() and DERELICT.exists() and APPEALS.exists() and SCORECARD.exists()),
     reason="council source data absent (CI)",
 )
 
@@ -37,6 +38,7 @@ _SUBS = {
     "data/gold/parquet/noac_m2_collection_wide.parquet": str(M2).replace("\\", "/"),
     "data/gold/parquet/derelict_sites_levy_wide.parquet": str(DERELICT).replace("\\", "/"),
     "data/silver/parquet/planning_appeal_outcomes.parquet": str(APPEALS).replace("\\", "/"),
+    "data/gold/parquet/noac_scorecard_wide.parquet": str(SCORECARD).replace("\\", "/"),
 }
 
 _VIEWS = [
@@ -44,7 +46,9 @@ _VIEWS = [
     "constituency_la_planning_overturn.sql",
     "constituency_la_derelict_sites_levy.sql",
     "constituency_la_collection_rates.sql",
+    "constituency_la_noac_scorecard.sql",
     "constituency_la_accountability_summary.sql",
+    "constituency_la_cash_signals.sql",  # JOINs scorecard + collection_rates + derelict
 ]
 
 
@@ -88,6 +92,50 @@ def test_cork_county_planning_recovered(conn):
     assert res.ok and len(res.data) == 1
     assert 10 <= float(res.data.iloc[0]["overturn_rate_pct"]) <= 45
     assert len(q.chief_executive(conn, "Cork County").data) == 1
+
+
+def test_noac_scorecard_sligo(conn):
+    """Sligo carries the standout structural-deficit value; all five metrics + medians present."""
+    res = q.noac_scorecard(conn, "Sligo")
+    assert res.ok and len(res.data) == 1
+    row = res.data.iloc[0]
+    assert round(float(row["revenue_balance_pct"]), 1) == -10.6  # cumulative deficit, % of income
+    for col in ("nat_revenue_balance_pct", "nat_sickness_absence_pct", "nat_roads_poor_pct",
+                "nat_fire_within_10min_pct", "nat_litter_problem_pct"):
+        assert row[col] is not None
+
+
+def test_noac_scorecard_fire_service_null(conn):
+    """Authorities with no own brigade (Dublin Fire Brigade / Galway County) are n/a on fire,
+    never 0 — so they are not ranked worst for a service they don't run."""
+    import pandas as pd
+
+    dlr = q.noac_scorecard(conn, "Dun Laoghaire-Rathdown").data.iloc[0]
+    assert pd.isna(dlr["fire_within_10min_pct"])
+    assert dlr["roads_poor_pct"] is not None  # other metrics still present
+
+
+def test_noac_scorecard_m3_m4_promoted(conn):
+    """M3 (settled-claims €/capita) and M4 (management-overhead %) are carried with medians.
+    Cork County is the standout insurance-claims outlier (€38.19/person)."""
+    row = q.noac_scorecard(conn, "Cork County").data.iloc[0]
+    assert round(float(row["insurance_claims_per_capita_eur"]), 2) == 38.19
+    assert 10 <= float(row["mgmt_overhead_pct"]) <= 17
+    assert row["nat_insurance_claims_per_capita_eur"] is not None
+    assert row["nat_mgmt_overhead_pct"] is not None
+
+
+def test_cash_signals_co_locates_three(conn):
+    """v_la_cash_signals carries the three published finance figures + medians for all 31
+    councils; Sligo (the standout deficit) resolves with its rates and benchmarks. The view
+    asserts NO relationship between the three — it only co-locates published values."""
+    res = q.cash_signals(conn, "Sligo")
+    assert res.ok and len(res.data) == 1
+    row = res.data.iloc[0]
+    assert round(float(row["revenue_balance_pct"]), 1) == -10.6
+    assert row["commercial_rates_pct"] is not None
+    for col in ("nat_revenue_balance_pct", "nat_commercial_rates_pct", "nat_derelict_collection_pct"):
+        assert row[col] is not None
 
 
 def test_unknown_council_returns_empty(conn):

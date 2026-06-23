@@ -23,9 +23,28 @@ from pages_code.public_payments import public_payments_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
 from pages_code.what_they_own import what_they_own_page
+from pages_code.your_councillors import your_councillors_page
 from shared_css import inject_css
 from ui.page_analytics import log_page_view
 from ui.spa_links import install_spa_links
+
+# Siting Check runs a live geospatial engine (shapely/rasterio/pyyaml) over local designation
+# layers that are NOT shipped to Streamlit Cloud (gitignored). Those deps live in the `siting`
+# extra, so a Cloud install may lack them. Import defensively: if the deps (or data) are absent,
+# register a stub instead of letting one failed import crash the whole app. It is the DIRECT-engine
+# page (calls dail_tracker_core.siting.engine via data_access.siting_data — no LLM, no MCP).
+try:
+    from pages_code.siting_check import siting_check_page
+except ImportError as _err:  # pragma: no cover - env-dependent
+    _siting_import_error = str(_err)
+
+    def siting_check_page() -> None:
+        st.title("Siting Check")
+        st.info(
+            "Siting Check runs a geospatial engine over local designation layers; it is "
+            "available in the local / development build only and not enabled here."
+        )
+        st.caption(f"(unavailable here: {_siting_import_error})")
 
 st.set_page_config(
     page_title="Dáil Tracker",
@@ -128,6 +147,14 @@ pg = st.navigation(
                 title="Who Runs Your County",
                 icon=":material/account_balance:",
                 url_path="local-government",
+            ),
+            # PREVIEW (sandbox data, not yet promoted to gold/views) — councillor roster + per-LEA
+            # representation + honest per-council voting card. See doc/YOUR_COUNCILLORS_UI_BRIEF.md.
+            st.Page(
+                your_councillors_page,
+                title="Your Councillors",
+                icon=":material/groups:",
+                url_path="your-councillors",
             ),
             # Council Spending sits alongside "Who Runs Your County": both are local-government
             # finance for the citizen's own county, so the spending dossier belongs in "Your Area"
@@ -276,6 +303,17 @@ pg = st.navigation(
                 title="Appointments",
                 icon=":material/assignment_ind:",
                 url_path="rankings-appointments",
+            ),
+        ],
+        "Planning": [
+            # Direct-engine page: a citizen enters x,y (or pastes a Maps link) and the page calls
+            # the local siting engine directly (no LLM / no MCP). The MCP siting_check tool is the
+            # SEPARATE AI-agent surface over the same engine.
+            st.Page(
+                siting_check_page,
+                title="Siting Check (experimental)",
+                icon=":material/travel_explore:",
+                url_path="planning-siting-check",
             ),
         ],
         "Glossary": [

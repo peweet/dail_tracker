@@ -60,6 +60,7 @@ nodes:
     engage: []
     rule_ref: { checklist: [12] }
     mitigation_class: P
+    universal: true   # AA screening applies to every application — a standard step, not a site-specific finding
     mitigates: "Screening report; escalates to NIS only if a likely significant effect on a European site can't be excluded."
     precedents: []
     risk_note: "Universal, low-cost unless escalated by the SAC/SPA node."
@@ -78,6 +79,7 @@ nodes:
     engage: [ecologist, "lighting specialist (if roost present)"]
     rule_ref: { checklist: [13], dm_std: [51, 52], regs: "Birds & Natural Habitats Regs 2011 (regs 51/54)" }
     mitigation_class: D
+    conditional: true   # the binding trigger is site features we can't read (trees / old structures / watercourses) -> a CHECK, not a confirmed constraint
     mitigates: "Bat survey + NIS mitigation chapter + ecologist-supervised works + dark-corridor / lux-capped lighting."
     # mitigation_path: static if/then cascade (survey -> finding -> follow-on). Leaf `outcome`
     # reuses the P/D/F vocabulary as clear | mitigable | fatal. Rendered by brief.py.
@@ -116,7 +118,11 @@ nodes:
       site, this is hard to grant — the Board must be satisfied of no adverse effect on site integrity.
     engage: [ecologist (NIS author)]
     rule_ref: { checklist: [12, 13, 14], dm_std: [51] }
-    mitigation_class: "D->F"
+    # Reclassified D (was "D->F"): being NEAR a European site triggers AA/NIS (mitigable) — it is not
+    # pass/fail. The pass/fail case is being INSIDE the SAC/SPA, which the statutory exclusion mask
+    # (hard_exclusions) already surfaces separately as a hard fact; double-counting it here as F made
+    # "within ~2 km" read as a hard constraint and over-stated the constraint box (fired ~59% of rural sites).
+    mitigation_class: "D"
     mitigates: "NIS proving no adverse effect on integrity. On karst near a SAC, effluent disposal is often NOT mitigable."
     precedents:
       - ref: "PL61.249409 (Galway City, 17/217, Menlo)"
@@ -231,6 +237,7 @@ nodes:
     engage: ["site-suitability assessor (EPA Code of Practice)"]
     rule_ref: { checklist: [25], dm_std: [9], guidance: "EPA CoP for on-site wastewater (single houses)" }
     mitigation_class: "D->F"
+    universal: true   # every rural one-off needs on-site wastewater; the BASELINE is standard, but the engine ELEVATES it to a site-specific constraint on EXTREME-vulnerability ground (detail["_elevate"])
     mitigates: "Trial hole + percolation test; proprietary treatment system. If the site fails the EPA test it is NOT mitigable."
     mitigation_path:
       - do: "Trial hole + percolation test (EPA Code of Practice for single houses)"
@@ -266,6 +273,7 @@ nodes:
     engage: ["transport / civil engineer", "road safety auditor (junction)"]
     rule_ref: { checklist: [6, 7, 8], dm_std: [27, 29], guidance: "TII DN-GEO-03031 / DMURS" }
     mitigation_class: "D->F"
+    universal: true   # any new vehicular access needs entrance sightlines; the BASELINE is standard, ELEVATED to site-specific near a junction/crossroads (detail["_elevate"])
     mitigates: >
       Concrete steps: (1) a visibility-splay survey proving the x/y sightlines for the road's speed
       can be achieved AND that you hold the LEGAL INTEREST to provide and keep them; (2) where the
@@ -334,6 +342,7 @@ nodes:
     engage: ["planning consultant"]
     rule_ref: { checklist: [], dm_std: [7], guidance: "Sustainable Rural Housing Guidelines 2005; NPF; (NPS Rural Housing 2026 forthcoming)" }
     mitigation_class: F
+    universal: true   # essentially every rural one-off must satisfy the rural-housing-need policy test (the key hurdle) — it is the standard rural gate, not a feature unique to this site
     mitigates: "Demonstrate local connection / functional need. If you don't qualify, this is the single most common refusal and is NOT design-mitigable."
     precedents:
       - ref: "ABP-301453-18 (Galway County, Kilroghter)"
@@ -385,6 +394,7 @@ nodes:
     engage: ["civil / drainage engineer"]
     rule_ref: { checklist: [20], dm_std: [68] }
     mitigation_class: D
+    universal: true   # any sloping site needs SuDS/drainage (standard); ELEVATED to site-specific where it drains toward a European site (detail["_elevate"])
     mitigates: "SuDS assessment + re-grading / attenuation (swales, soakaway, attenuation area) controlling run-off rate & quality; on a slope draining to a European site this is more onerous (rate + quality)."
     precedents: []
     risk_note: "Mitigable by design/groundworks, but a sloping site draining toward a SAC can drive significant site modification (re-grading the levels to retain water on-site)."
@@ -399,6 +409,7 @@ nodes:
     engage: ["landscape architect"]
     rule_ref: { checklist: [4] }
     mitigation_class: P
+    universal: true   # required on all applications
     mitigates: "Submit a landscaping plan + native-planting schedule; retain existing hedgerows/trees."
     precedents: []
     risk_note: "Universal, low-cost."
@@ -412,6 +423,7 @@ nodes:
     engage: []
     rule_ref: { checklist: [18] }
     mitigation_class: P
+    universal: true   # required on all applications
     mitigates: "Part L / BER-compliant design + certification statement."
     precedents: []
     risk_note: "Universal, procedural."

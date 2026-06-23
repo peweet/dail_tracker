@@ -31,10 +31,16 @@ def test_node_source_layers_resolve_to_glossary():
 
 def test_mitigation_classes_parsed_from_ranges():
     cat = load_catalogue()
-    eur = cat.node("european_site")  # mitigation_class "D->F"
-    assert eur.mitigation_classes == frozenset({"D", "F"})
+    septic = cat.node("septic_groundwater")  # mitigation_class "D->F"
+    assert septic.mitigation_classes == frozenset({"D", "F"})
     flood = cat.node("floodplain")  # "F (Zone A) / D (Zone B)"
     assert flood.mitigation_classes == frozenset({"D", "F"})
+    # european_site reclassified D (was "D->F"): NEAR a European site = AA/NIS (mitigable); the
+    # pass/fail INSIDE case is surfaced separately by the statutory exclusion mask, not double-counted.
+    eur = cat.node("european_site")
+    assert eur.mitigation_classes == frozenset({"D"})
+    assert eur.universal is False and cat.node("aa_screening").universal is True
+    assert cat.node("bats").conditional is True
 
 
 def test_applies_to_filtering():

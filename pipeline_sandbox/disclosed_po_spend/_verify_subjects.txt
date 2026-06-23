@@ -1,0 +1,675 @@
+================ ROADSTONE (n=1) ================
+  [2019-12-04] Ross | conf=medium | matched=Roadstone
+     SUBJ: Oireachtas soccer team event (Shanrock Rovers FC Academy, Roadstone Rd, Kingswood Cross.)
+================ ACCENTURE (n=4) ================
+  [2017-04-27] Bruton | conf=medium | matched=Accenture PLC
+     SUBJ: CONFIRMED at 08.45 MINISTER ATTENDING MEETING WITH TAOISEACH AND OTHER MINISTERS WHO ARE REPRESENTED ON THE IDC ON THE IRISH ABROAD - (SYCAMORE ROOMS GOVERNMENT BUILDINGS O9:55 - 11:OO AT O9.55 CONFIRMED MINISTER BRUTON AND MINISTER HALLIGAN LAUNCHING THE NATIONAL SKILLS COUNCIL AND REGIONAL SKILLS 
+  [2017-09-05] Bruton | conf=medium | matched=Accenture PLC
+     SUBJ: TEAM MEETING 12:0O - 12:IO MINISTER PHOTO OPP WITH ACCENTURE LAUNCH OF TWO STEM RESEARCH REPORTS (DES) 14:00 - 15:OO CONFIRMED AT 2PM FOLLOW UP BEACON MEETING - DEIS/ TRAVELLER ISSUE (MEETING ROOM, TYRONE HOUSE ) 15:0O - 16:0O CONFIRMED FOLLOW UP BEACON MEETING SLT ISSUE - ASS SECRETARY GENERAL (MAC
+  [2023-09-05] Coveney | conf=medium | matched=Accenture PLC
+     SUBJ: Meeting with Accenture
+  [2024-01-09] Coveney | conf=medium | matched=Accenture PLC
+     SUBJ: Visit Accenture R&D and Innovation Centre, The Dock
+================ DELOITTE (n=7) ================
+  [2017-01-23] Oconnor | conf=medium | matched=Deloitte Ireland
+     SUBJ: MIN - Meeting with Officials MIN - Meeting with Brid O'Connell 23/01/2017 16:30 MIN - Opening of Deloitte Lab (IDA) 23/01/2017 17:15 MiN - Address and attend the Enterprise Ireland Networking Reception 23/01/2017 19:50 MIN - Meeting with the Secretary General 24/01/2017 07:15
+  [2020-11-08] McGrath | conf=medium | matched=Deloitte Ireland
+     SUBJ: CALL BETWEEN MINISTER MCGRATHJH & HARRY Environment and Climate Change (Telephone Call) GODDARD (DELOITTE) (ZOOM) - PER Diary 16:00 - 17:30 Cabinet Committee on the Environment and Climate Change (Webex) 13:15 - 13:45 Harry Goddard CEO of Deloitte meeting with Michael McGrath (Minister for Public Ex
+  [2020-12-14] Varadkar | conf=medium | matched=Deloitte Ireland
+     SUBJ: Meeting with Harry Goddard, CEO Deloitte
+  [2023-06-19] Coveney | conf=medium | matched=Deloitte Ireland
+     SUBJ: Subject Visit to Deloitte, Cork
+  [2023-09-22] McGrath | conf=medium | matched=Deloitte Ireland
+     SUBJ: DELOITTE IRELAND CORK - LEADERSHIP DINNER (The River Lee Hotel, Cork) DFIN Diary
+  [2024-09-04] Chambers | conf=medium | matched=Deloitte Ireland
+     SUBJ: DELOITTE PRE BUDGET MEETING (Portrait Room) -
+  [2025-03-02] Chambers | conf=medium | matched=Deloitte Ireland
+     SUBJ: Deloitte Infrastructure Event (The Leinster Hotel, 7 07:00 - 09:00 Media Mount Street Lower, Dublin 2) - PER Diary 11:00 - 11:30 Meeting with Officials (Ministers Meetng Room) -
+================ PFIZER (n=10) ================
+  [2017-09-04] Donohoe | conf=medium | matched=Pfizer
+     SUBJ: BRIEFING - Minister Donohoe 10:00 - 10:30 MEETING WITH IAN REID CEO OF PFIZER IRELAND (Minister DonohOe's Office
+  [2017-09-04] Donohoe | conf=medium | matched=Pfizer
+     SUBJ: PRE GOVERNMENT MEETING 09:45 - PRE-BRIEFING FOR PFIZER MTG (Minister's Offce) - Minister Donohoe
+  [2018-06-03] Donohoe | conf=medium | matched=Pfizer
+     SUBJ: MEETING WITH IAN READ, CEO AND ALBERT BOURLA, PFIZER (MiniSter'S OffiCe) Minister Donohoe
+  [2018-06-03] Donohoe | conf=medium | matched=Pfizer
+     SUBJ: MEETING WITH IAN READ, CEO AND ALBERT BOURLA, PFIZER (MiniSter's OffiCe)- 16:30 - 17:00 MEETING RE: OPTIONS TO AMEND EXIT TAX - Minister DonohOe Minister Donohoe
+  [2019-05-16] Humphreys | conf=medium | matched=Pfizer
+     SUBJ: Pfizer 50th Anniversary event
+  [2022-03-02] English | conf=medium | matched=Pfizer
+     SUBJ: Meeting with Pfizer
+  [2023-06-01] Calleary | conf=medium | matched=Pfizer
+     SUBJ: Pfizer Visit – Grangecastle, Dublin 22
+  [2025-03-04] Burke | conf=medium | matched=Pfizer
+     SUBJ: Pfizer Meeting
+  [2025-03-19] Martin | conf=medium | matched=Pfizer
+     SUBJ: 17:30.- 18:00 Phone call with Albert Bourla Pfizer 18:30 - Travel to Baldonnel 19:00 - Depart Baldonnel 21:30 -Arrive Brussels
+  [2025-07-30] Martin | conf=medium | matched=Pfizer
+     SUBJ: Phonecall with Pfizer CEO Albert Bourla
+================ VODAFONE (n=29) ================
+  [2016-11-17] Humphreys | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone (Minister's Office, Kildare Street.) - Heather Humphreys
+  [2020-02-14] Donohoe | conf=medium | matched=Vodafone Ireland
+     SUBJ: PRE BRIEF: VODAFONE (Skype Meeting) - Paul |11:00 - 11:20 CORK AIRPORT O'Connell (PER) 11:00 - 11:20 Webex meeting invitation: MINISTER McGRATH & CORK AIRPORT 11:00 - 11:45 VODAFONE IRELAND (WEBEX) (https://irlgov.webex.com/irlgov/j.php?MTID=mdfd57dc42a6479131 11:00 - 11:45 Webex meeting invitation:
+  [2020-09-29] Varadkar | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone CEO, Anne O'Leary
+  [2020-11-20] Ryan | conf=medium | matched=Vodafone Ireland
+     SUBJ: MEETING W/VODAFONE
+  [2020-11-20] Varadkar | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone - Minister Ryan also participating
+  [2021-01-18] Ryan | conf=medium | matched=Vodafone Ireland
+     SUBJ: MEETING W/VODAFONE
+  [2021-02-16] Troy | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Robert MacDougall & Robert Marshall (Vodafone)
+  [2021-02-18] Smyth | conf=medium | matched=Vodafone Ireland
+     SUBJ: A Copy: NRRP Upi NRRP Update Skype Meeting/I Webex/Minister Niamh Collin: 0 Niamh Collins (F PRE BRIEF: VODAFONE; S
+  [2021-09-06] Varadkar | conf=medium | matched=Vodafone Ireland
+     SUBJ: IDA Meeting with Vodafone 15:45 Arrive for Check in at the Eurostar 16:31 Depart for Paris on Eurostar 19:47 Arrive Paris (Gare du Nord) 21:00 Check into Hotel
+  [2022-05-25] None | conf=medium | matched=Vodafone Ireland
+     SUBJ: Vodafone meeting AR (Minister's Boardroom, Adelaide Road.)
+  [2022-05-25] Ryan | conf=medium | matched=Vodafone Ireland
+     SUBJ: MEETING WITH VODAFONE
+  [2022-07-06] English | conf=medium | matched=Vodafone Ireland
+     SUBJ: Vodafone Meeting
+  [2022-09-09] Martin | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone CEO (Taoiseach's Office) 09:45 - Depart Dublin
+  [2022-11-15] Calleary | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone
+  [2023-02-07] Richmond | conf=medium | matched=Vodafone Ireland
+     SUBJ: Vodafone Visit (Leopardstown)
+  [2023-05-02] Coveney | conf=medium | matched=Vodafone Ireland
+     SUBJ: Subject Meeting with Vodafone
+  [2023-05-16] Ryan | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone
+  [2023-05-21] Donohoe | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Joakim Reiter-Vodafone (Trinity
+  [2023-05-23] Ryan | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone
+  [2023-10-24] McGrath | conf=medium | matched=Vodafone Ireland
+     SUBJ: MEETING WITH VODAFONE ON VAT ON INTERNET SERVICES (Meeting rOOM) - DFIN Diary
+  [2024-01-16] Calleary | conf=medium | matched=Vodafone Ireland
+     SUBJ: Vodafone meeting - 3G Switch Off Room 12A
+  [2024-04-17] Calleary | conf=medium | matched=Vodafone Ireland
+     SUBJ: Vodafone Roundtable
+  [2024-06-26] Burke | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Joakim Reiter, Vodafone Group
+  [2024-07-10] Burke | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with CEO of Vodafone Ireland
+  [2025-05-06] Burke | conf=medium | matched=Vodafone Ireland
+     SUBJ: Keynote address at Enterprise Nation event hosted by Vodafone
+  [2025-05-22] O'Donovan | conf=medium | matched=Vodafone Ireland
+     SUBJ: Vodafone CEO Meeting (Ulysses (R1-27)) - Minister
+  [2025-08-10] Chambers | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone Ireland (Ministers
+  [2025-09-23] Burke | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with New Vodafone Ireland CEO
+  [2025-11-06] O'Callaghan | conf=medium | matched=Vodafone Ireland
+     SUBJ: Meeting with Vodafone CEO (Boardroom, 51 SSG) - Ministers Diary Mail In
+================ IBM (n=18) ================
+  [2017-11-08] Bruton | conf=high | matched=IBM
+     SUBJ: FOR INFORMATION - DAIL SITTING FROM 10.00AM - 11.00PM 07:40 - O8:40 AT 7.4OAM MINISTER INVITED TO SPEAK AT THE ANNUAL CONNECTING WOMEN IN TECHNOLOGY (CWIT) CEO MEETING (IBM Buijldings IBM Ireland, IBM House. Shelbourne Rd, Dublin 4. Ireland DO4 NP2O)
+  [2019-08-27] Donohoe | conf=high | matched=IBM
+     SUBJ: MEETING WITH JIM KAVANAUGH, IBM (Minister's Office ) - Minister DonohOe
+  [2020-11-16] Varadkar | conf=high | matched=IBM
+     SUBJ: Video Piece for IBM Board Meeting
+  [2020-11-24] Varadkar | conf=high | matched=IBM
+     SUBJ: Meeting with Paul Murphy General Manager IBM
+  [2021-11-01] Varadkar | conf=high | matched=IBM
+     SUBJ: Pre-record message for IBM 10th Anniversary Event and Women in Business Conference
+  [2022-02-11] Varadkar | conf=high | matched=IBM
+     SUBJ: Photocall and Jobs Announcement for IBM
+  [2022-02-23] Troy | conf=high | matched=IBM
+     SUBJ: Meeting with IDA’s & IBM Bob Lord March
+  [2022-09-12] Harris | conf=high | matched=IBM
+     SUBJ: Formal announcement of an MOU between Trinity College Dublin and IBM (Library Room, Regent House, College Street, TCD, Dublin 2 (also known as Provost’s House) D02 CX56) - MinHarrisCalendar
+  [2022-09-12] Varadkar | conf=high | matched=IBM
+     SUBJ: Meeting with Jim Kavanagh, CFO of IBM
+  [2023-07-11] Coveney | conf=high | matched=IBM
+     SUBJ: Meeting with IBM
+  [2023-09-19] Varadkar | conf=high | matched=IBM
+     SUBJ: Meeting with IBM CFO James Kavanagh - CG
+  [2024-04-18] Calleary | conf=high | matched=IBM
+     SUBJ: Fireside chat with the IBM EMEA Team
+  [2024-05-15] Harris | conf=high | matched=IBM
+     SUBJ: IBM photocall
+  [2024-05-15] Burke | conf=high | matched=IBM
+     SUBJ: IBM: Photocall with Minister Burke & Meeting with senior Management
+  [2025-06-19] Cummins | conf=high | matched=IBM
+     SUBJ: Meet with IBM (IDA Ireland South-East Regional Office IDA Industrial Park, Cork Rd, Waterford X91 K46F) - John Cummins (Housing)
+  [2025-06-19] Burke | conf=high | matched=IBM
+     SUBJ: IBM Meeting
+  [2025-06-24] Cummins | conf=high | matched=IBM
+     SUBJ: Photo Call - IBM announcement (Lobby of the Department of Public Expenditure & Reform, Government Buildings, Merrion Street Upper D02 R583) - John Cummins (Housing)
+  [2025-06-29] Chambers | conf=high | matched=IBM
+     SUBJ: Cabinet 09:30 - 12:30 Accelerating Infrastructure Taskforce (Whitaker Room) 12:30 - 13:00 IBM Photocall (Ministers Conference Room) - PER Diary 13:00 - 13:40 EU HoM Lunch Meeting (Polish Ambassador's Residence, 12 Ailesbury Road, Dublin 4) 13:30 - 14:00 Diary Meeting
+================ KPMG (n=20) ================
+  [2016-07-14] Connor | conf=high | matched=KPMG
+     SUBJ: MIN - Meeting with the Board of IDA MIN - Photocall to Launch SFI Annual Report 14/07/2016 15:15 MIN - Briefing re Mid East Implementation Committee Meeting 14/07/2016 15:30 MIN - Keynote Address at the Graduation of the IEA Export Knowledge Programme 14/07/2016 16:30 14/07/201620:00 MIN - ***Topica
+  [2016-11-11] Connor | conf=high | matched=KPMG
+     SUBJ: MIN - Meeting with KPMG and Combilift MIN - Photocall with Singlepoint 11/11/2016 10:45
+  [2017-07-09] Donohoe | conf=high | matched=KPMG
+     SUBJ: MOS meet with Shaun Murphy KPMG (MOS Office)
+  [2018-01-21] Donohoe | conf=high | matched=KPMG
+     SUBJ: KPMG DINNER (KPMG ST STEPHENS GREEN)
+  [2018-02-04] Donohoe | conf=high | matched=KPMG
+     SUBJ: KPMG DINNER (KPMG ST STEPHENS GREEN)
+  [2018-02-11] Donohoe | conf=high | matched=KPMG
+     SUBJ: CALL WITH KPMG (Please open for dial in details - Neeson, Frances 14:00 - 14:45 BRieFinG ON THE NAtiONAL DeVELOPMeNT PLAN - MiniSter DonohO
+  [2020-11-22] McGrath | conf=high | matched=KPMG
+     SUBJ: KPMG WEBINAR
+  [2020-11-22] McGrath | conf=high | matched=KPMG
+     SUBJ: KPMG: SPEECH/Qs CLEARANCE
+  [2020-11-22] McGrath | conf=high | matched=KPMG
+     SUBJ: PRE BRIEF: KPMG - PER Diary
+  [2022-05-29] None | conf=high | matched=KPMG
+     SUBJ: Internationa com for telecoms KPMG & DECC (7-9 14:30 - 15:00 VOTE Order Of Business Vote (Dáil) The Thekla Beere Meeting Room B2) - Albert Morris (PER) 17:40 - 19:40 Closing for Min Ryan accelerating sustainable mobility (Dail) - Minister Of State (PER) 15:30 - 16:00 San Fran Trip (Minister Office) 
+  [2022-09-29] O'Brien | conf=high | matched=KPMG
+     SUBJ: Guaranteed Irish event (Platform X, KPMG, 1 Harbourmaster Pl, International Financial Services Centre, Dublin 1, D01 F6F5 )
+  [2023-03-23] McGrath | conf=high | matched=KPMG
+     SUBJ: KPMG EVENT (Adam & Deirdre Suite, Shelbourne
+  [2023-04-19] McGrath | conf=high | matched=KPMG
+     SUBJ: KPMG 50TH DINNER (KPMG officeS at 85 South
+  [2023-06-28] McGrath | conf=high | matched=KPMG
+     SUBJ: KPMG ROUNDTABLE (St. Stephen's Suite, The Shelbourne Hotel, 27 St. Stephens Green) - DFIN Diary
+  [2023-11-27] McGrath | conf=high | matched=KPMG
+     SUBJ: KPMG - CORK OFFICE (KPMG Offices, 85 SOuth Mall Cork)
+  [2023-11-27] McGrath | conf=high | matched=KPMG
+     SUBJ: KPMG - CORK OFFICE (KPMG Offices, 85 South Mal Cork)
+  [2024-05-29] McGrath | conf=high | matched=KPMG
+     SUBJ: KPMG ROUND TABLE DISCUSSION (St. Stephen’s Suite, Shelbourne Hotel, Dublin 2.)
+  [2025-02-23] Chambers | conf=high | matched=KPMG
+     SUBJ: PwC Infrastructure Guidelines Workshop (PwC 11:00 - 12:00 National Lottery Good Causes Awards (Museum of One Spencer Dock, North Wall Quay, Dublin 1) - PER Diary Literature Ireland (MoLI) on St. Stephen's Green D02XY43) - PER Diary 11:30 - 12:00 Meeting with KPMG (MInisters Meeting Room) - PER Diary
+  [2025-05-25] Chambers | conf=high | matched=KPMG
+     SUBJ: Cabinet Committee on the Economy, Trade and Competitiveness - PER Diary Wednesday 28 May Thursday 29 May PQ's 08:15 - 09:15 KPMG Launch Dublin 2040 (Merrion Hotel, Dublin )
+  [2025-09-24] Cummins | conf=high | matched=KPMG
+     SUBJ: Guaranteed Irish Roundtable and Construction Forum (Platform X, KPMG, No. 2 Harbourmaster Place, Dublin 1) - John Cummins (Housing)
+================ MASON HAYES CURRAN (n=1) ================
+  [2025-04-27] Chambers | conf=high | matched=Mason Hayes & Curran LLP
+     SUBJ: Mason Hayes & Curran LLP (Mason Hayes & Curran 12:00 - 13:00 Leaders Questions Offices, South Bank House, Barrow Street, Dublin 4, D04TR29) 13:15 - 13:45 Briefing with Officials (Ministers Office) - PER Diary
+================ MCCANN FITZGERALD (n=1) ================
+  [2025-10-05] Chambers | conf=high | matched=McCann FitzGerald
+     SUBJ: Photocall MKO (Rooftop at McCann Fitzgerald, 10:30 - 11:00 Incorporeal Cabinet Meeting Riverside One, Sir John Rogerson's Quay, Grand Canal Dock, Dublin 11:45 - 12:00 Briefing with Officials (Ministers Office) - PER Diary 2, D02 X576)
+================ GILEAD SCIENCES (n=2) ================
+  [2022-09-19] Varadkar | conf=high | matched=Gilead Sciences Ireland UC
+     SUBJ: Meeting with Veronique Walsh, General Manager Gilead Sciences for UK and Ireland
+  [2023-12-06] Coveney | conf=high | matched=Gilead Sciences Ireland UC
+     SUBJ: Meet with Gilead Sciences
+================ GRANT THORNTON (n=8) ================
+  [2018-11-11] Donohoe | conf=high | matched=Grant Thornton
+     SUBJ: GRANT THORNTON OFFICE OPENING (Grant ThorntOn, 13-18 City Quay, FRONT BENCH COVER CATHERINE BYRNE Dublin 2) - Minister Donohoe 08:30 - 09:00 PRE-GOVERNMENT MEETING (SyCamOre RoOm)
+  [2019-10-27] Donohoe | conf=high | matched=Grant Thornton
+     SUBJ: GRANT THORNTON EUROPEAN TAX CONFERENCE (Grant ThOrntOn, 13-18 City 19:20 - 23:00 DÁIL - FINANCE BILL - SECOND STAGE (Minister Paul Kehoe to cover front bench Quay, Dublin D02 ED70 ) - Minister Donohoe from 8.30pm)
+  [2021-03-07] McGrath | conf=high | matched=Grant Thornton
+     SUBJ: Meeting with Minister Smyth (Ministers Office, 1st 12:00 - 13:00 GRANT THORNTON VIRTUAL NATIONAL Floor, South Block) - PER Diary PARTNER CONFERENCE
+  [2022-03-27] McGrath | conf=high | matched=Grant Thornton
+     SUBJ: Grant Thornton Cork Office Opening
+  [2023-03-08] Calleary | conf=high | matched=Grant Thornton
+     SUBJ: Pre Recording for Grant Thornton Event
+  [2023-09-28] Varadkar | conf=high | matched=Grant Thornton
+     SUBJ: Fireside chat engagement with Grant Thornton (Grant Thornton, City Quay) 1 6:00 - 17:00 Event to mark Google 20th Anniversary
+  [2023-11-29] Calleary | conf=high | matched=Grant Thornton
+     SUBJ: Digital Transformation Grant Thornton Artificial Intelligence Industry Event
+  [2025-05-21] McConalogue | conf=high | matched=Grant Thornton
+     SUBJ: FYI: Invitation – Launch of Grant Thornton Report on the Future of Ireland's Post Offices (Buswells)
+================ WILLIAM FRY (n=3) ================
+  [2021-11-18] McEntee | conf=high | matched=William Fry
+     SUBJ: Pre-record- William Fry Launch- Disability Network (51 SSG)
+  [2022-06-12] McGrath | conf=high | matched=William Fry
+     SUBJ: Irish Banking Culture Board (William Fry Offices, 2 10:30 - 11:00 CSEAS 10 year celebrations (St Stephen Green House in Earlsfort Terrace) Grand Canal Square, Dublin 2)
+  [2024-09-24] Calleary | conf=high | matched=William Fry
+     SUBJ: William Fry's AI podcast series - AI Act and the National AI Strategy - Magennis Pl, Dublin 2 Pre-Brief Compet – VC
+================ MAZARS (n=5) ================
+  [2017-09-07] Breen | conf=medium | matched=Mazars
+     SUBJ: Guest speaker at merger event of Mazars Ireland and Maguire Caufield Browne
+  [2020-12-09] Troy | conf=medium | matched=Mazars
+     SUBJ: Meeting with Mazars
+  [2021-06-10] Troy | conf=medium | matched=Mazars
+     SUBJ: Mazars meeting
+  [2022-11-16] Donnelly | conf=medium | matched=Mazars
+     SUBJ: Meeting re Mazars Report
+  [2023-08-24] Martin | conf=medium | matched=Mazars
+     SUBJ: Briefing re Mazars Report
+================ STAYCITY (n=1) ================
+  [2023-09-07] Coveney | conf=medium | matched=Staycity Limited
+     SUBJ: Visit StayCity and Meeting with CEO
+================ BON SECOURS HEALTH SYSTEM (n=1) ================
+  [2022-03-27] McGrath | conf=high | matched=Bon Secours Health System CLG
+     SUBJ: Bon Secours Health System - Jobs Announcement 14:00 - 14:30 Briefing in advance of meeting with CIF (Skype (Rathaskar Suite, Killashee Hotel, Co Kildare, W91 DC98 ) Meeting) - Niamh Collins (PER)
+================ HORSE SPORT (n=3) ================
+  [2021-07-08] Chambers | conf=high | matched=Horse Sport Ireland
+     SUBJ: Horse Sport Ireland Photocall CONFIRMED SHANE (NaaS W91 TK7N)
+  [2025-06-30] Lawless | conf=high | matched=Horse Sport Ireland
+     SUBJ: Horse Sport Ireland: Launch of The Business of Horsepower: Staffing the Equine Sector (Horse Sport Ireland, Beech House, Millennium Park, Osberstown, Naas, Co. Kildare. W91 TK7N ) - Min DFHERIS Calendar
+  [2025-09-17] McConalogue | conf=high | matched=Horse Sport Ireland
+     SUBJ: Photo-op - Horse Sport Ireland Participation Grant (Sports Campus)
+================ MEDTRONIC (n=13) ================
+  [2019-06-04] Canney | conf=medium | matched=Medtronic plc
+     SUBJ: Attend Medtronic MedTech event (Medtronic Customer Innovation Centre, Building 2, Parkmore Industrial Estate Galway)
+  [2021-11-24] Varadkar | conf=medium | matched=Medtronic plc
+     SUBJ: Meeting with Greg Smith, Gerry Kilcommins and Alma Curran - Medtronic
+  [2022-07-15] Varadkar | conf=medium | matched=Medtronic plc
+     SUBJ: Medtronic 40th Anniversary Event & Media Doorstep
+  [2023-05-30] Calleary | conf=medium | matched=Medtronic plc
+     SUBJ: Meeting with Medtronic -Shelborne Hotel
+  [2023-09-21] Donnelly | conf=medium | matched=Medtronic plc
+     SUBJ: Medtronic/BCIU side-event “Achieve UHC in partnership with the Private Sector: Equity and Access with a T&E lens”. Keynote remarks by Director-General of WHO
+  [2023-10-17] Donnelly | conf=medium | matched=Medtronic plc
+     SUBJ: Meeting with CEO and Professor Ciaran hOgartaigh at the Launch of University of Galway and Medtronic Innovation Partnership
+  [2023-11-14] McGrath | conf=medium | matched=Medtronic plc
+     SUBJ: MEETING WITH MEDTRONIC (WebeX )
+  [2023-11-22] Coveney | conf=medium | matched=Medtronic plc
+     SUBJ: Meeting with Medtronic
+  [2024-04-18] Burke | conf=medium | matched=Medtronic plc
+     SUBJ: Meeting with Greg Smith, Medtronic’s Executive Vice President of Global Operations and Supply Chain
+  [2024-06-12] Burke | conf=medium | matched=Medtronic plc
+     SUBJ: Meeting with Medtronic, JCI and Eaton
+  [2024-10-14] Chambers | conf=medium | matched=Medtronic plc
+     SUBJ: MEETING WITH MEDTRONIC CEO (Portrait room) -
+  [2025-01-17] Chambers | conf=medium | matched=Medtronic plc
+     SUBJ: MEETING WITH MEDTRONIC (Portrait room) - DFIN Diary
+  [2025-04-07] Martin | conf=medium | matched=Medtronic plc
+     SUBJ: Phone call with Geoff Martha Medtronic
+================ VIRGIN MEDIA (n=72) ================
+  [2018-01-08] Madigan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Interview with Virgin Media One - Ireland AM (Ballymount, Dublin)
+  [2018-12-10] Bruton | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: VIRGIN MEDIA - WEATHER PROGRAMME (AR)
+  [2019-02-15] Bruton | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: VIRGIN MEDIA NEWS (AR) Minister Bruton
+  [2019-10-06] Donohoe | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: MEDIA: PAT KENNY VIRGIN MEDIA ONE - Minister DonohOE Minister Donohoe 12 October 11 October
+  [2019-10-06] Donohoe | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: MEDIA: IRELAND AM (Virgin Media Television HD Studio, Ballymount, Dublin - 08:10 - MEDIA: BBC RADIO FOUR TODAY SHOW - Minister DonOhOE
+  [2020-07-07] Martin | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: The Tonight Show - Ivan Yates - Virgin Media (Virgin Media, TV£ HD Studio, Ballymount, Dublin )
+  [2020-07-24] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Gavin Reilly Interview for Virgin Media
+  [2020-08-11] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media One’s Six O’Clock Show
+  [2020-08-20] Foley | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: MEDIA INTERVIEW WITH VIRGIN MEDIA (DES)
+  [2020-09-01] Ryan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: MEET VIRGIN MEDIA
+  [2020-09-17] McEntee | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media (51 St Stephen's Green)
+  [2020-10-27] Martin | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Meeting - Jordan Brady via StarLeaf Cloud
+  [2020-12-01] McEntee | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Interview for Virgin Media Documentary on International Crime (51 SSG)
+  [2021-01-11] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Media piece with Virgin Media
+  [2021-01-27] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Depart and travel to Virgin Media
+  [2021-02-06] McGrath | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Review and clear eSubs 07:10 - 07:45 Ireland AM (Virgin Media Studios, Ballymount)
+  [2021-02-28] Chambers | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media News Interview 1 31/01/2022 12:14
+  [2021-03-02] Chambers | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media News
+  [2021-04-01] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Pieces to Camera with RTE and Virgin Media At 10:15 Insta Live
+  [2021-04-01] Chambers | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media News
+  [2021-04-26] Chambers | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Tonight Show (Virgin Media TV)
+  [2021-05-05] Chambers | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Tokyo Review including interviews with Virgin Media & RTE CONFIRMED (Sport Institute on Campus)
+  [2021-05-06] O'Brien | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Ireland AM - Virgin Media TV (Virgin Media Studios
+  [2021-05-07] Chambers | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Interview
+  [2021-05-10] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Doorstep with Virgin Media
+  [2021-05-18] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Doorstep
+  [2021-05-21] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Doorstep (Greystones)
+  [2021-06-21] O'Brien | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Documentary on MICA (CH)
+  [2021-08-31] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Tonight Show (Virgin Media TV)
+  [2021-10-26] Ryan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: VIRGIN MEDIA IRELAND: CARBON BUDGETS
+  [2021-11-02] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Doorstep
+  [2021-11-18] Foley | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Ireland AM (Virgin Media)
+  [2022-01-18] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Doorstep: Virgin Media
+  [2022-01-19] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Tonight Show, Virgin Media TV
+  [2022-01-31] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Piece to camera (Virgin media)
+  [2022-02-10] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: The Tonight Show, Virgin Media
+  [2022-02-10] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Travel to Virgin Media Studios
+  [2022-04-01] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Doorstep with Virgin Media
+  [2022-05-05] Ryan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: VIRGIN MEDIA TONIGHT SHOW
+  [2022-07-21] McEntee | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Pre-record
+  [2022-10-25] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Tonight Show Virgin Media
+  [2022-11-21] Browne | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: The Tonight Show (Virgin Media 1)
+  [2022-12-01] Ryan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: VIRGIN MEDIA TONIGHT SHOW - LEADERS INTERVIEW
+  [2022-12-04] Burke | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: The Tonight Show Virgin Media 1 (Ballymount D12)
+  [2023-05-11] Varadkar | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: tnterview - Virgin media news
+  [2023-05-25] Harris | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media
+  [2023-08-14] McGrath | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: MEDIA: VIRGIN MEDIA INTERVIEW (ROCHESTOWN PARK HOTEL )
+  [2023-09-05] Martin | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Meeting
+  [2023-09-05] Martin | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Briefing - Virgin Media (in person) (Minister's Office) - Catherine Martin
+  [2023-11-23] McEntee | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Media - RTE Prime Time and Virgin Media Tonight Show (51SSG)
+  [2024-01-23] O'Brien | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: PRE-RECORD - PAUL COLGAN VIRGIN MEDIA - REF CIARA (LH)
+  [2024-02-06] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Doorstep with Virgin Media DOH
+  [2024-03-28] Browne | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Meeting with Virgin Media - Gambling Regulation Bill 2022 (51 SSG)
+  [2024-04-15] Donnelly | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Interview with Virgin Media
+  [2024-04-30] Browne | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: The Tonight Show (Virgin Media Television, Ballymount, Dublin)
+  [2024-06-05] Ryan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: THE TONIGHT SHOW, VIRGIN MEDIA
+  [2024-06-10] Ryan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: THE TONIGHT SHOW, VIRGIN MEDIA
+  [2024-08-01] O'Brien | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media (Zoom)
+  [2024-08-01] Martin | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media & Minister Martin Meeting - Jordan Brady
+  [2024-09-12] Chambers | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: VIRGIN MEDIA (Ministers Office ) - DFIN Diary
+  [2024-10-02] Harris | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Budget interview with Virgin Media
+  [2024-10-30] Harris | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: 1.7:45 - 18:30 Six O'Clock show - Virgin Media (on air at 6pm to 6.17pm) (Ballymount, Dublin 24
+  [2024-11-27] O'Brien | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: VIRGIN MEDIA - THE TONIGHT SHOW (BALLYMOUNT DUBLIN 24)
+  [2024-12-10] Harris | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media Interview
+  [2025-04-23] Lawless | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Virgin Media News filming (Sallins)
+  [2025-05-16] Martin | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Attend Munster v Benetton rugby match (Arrive at Virgin Media Park, Kent Road Gate (for parking) Tramore Road, Cork)
+  [2025-05-27] O'Donovan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: The Tonight Show on Virgin Media
+  [2025-08-14] Osullivan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Minister on Virgin media news
+  [2025-08-28] Osullivan | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Minister on RTÉ News: Six One & Virgin Media News
+  [2025-10-04] None | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Munster Centre of Excellence Opening (Virgin Media Park, Cork)
+  [2025-10-19] Chambers | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: Financial Resolutions (votable) ]22:00 - 23:00 Virgin Media Tonight Show (Virgin Media Studios) Thursday 9 October Wednesday 8 October
+  [2025-11-26] Collins | conf=high | matched=Virgin Media Ireland Limited
+     SUBJ: The Tonight Show (Virgin Media)
+================ MUSGRAVE (n=7) ================
+  [2019-01-20] Donohoe | conf=medium | matched=Musgrave Group
+     SUBJ: BREAKFAST MEETING NORTH INNER CITY IFSC GROUF (COnferenCe ROOm, GrOUnd 09:00 - 09:30 PHONECALL WITH SG DeREK MORAN - Minister DonohOE Floor, South Block) - Minister Donohoe 10:00 - 10:45 MUSGRAVE MANAGEMENT CONFERENCE (PowerscOurt Hotel, Co WickloW, - Ministe
+  [2020-03-11] Humphreys | conf=medium | matched=Musgrave Group
+     SUBJ: Minister to meet Musgrave Group
+  [2021-01-27] Varadkar | conf=medium | matched=Musgrave Group
+     SUBJ: Meeting with Noel Keely, CEO, Musgrave Group
+  [2022-06-05] McGrath | conf=medium | matched=Musgrave Group
+     SUBJ: IMART Opening Ceremony (Musgrave Park ) 08/09/2022 11:21 1 June 2022 July 2022 6 June 2022 - Mo TuWe Th Fr Sa Su Mo TuWe Th Fr Sa Su 6 7 8 9 10 11 12 4 5 6 7 8 910 12 June 2022 13 14 15 16 17 18 19 11 12 13 14 15 16 17 20 21 22 23 24 25 26 18 19 20 21 22 23 24 Monday 6 June Tuesday 7 June → Bank Hol
+  [2023-02-17] Coveney | conf=medium | matched=Musgrave Group
+     SUBJ: Subject Visit to Musgrave
+  [2025-05-29] O'Brien | conf=medium | matched=Musgrave Group
+     SUBJ: Visit to Musgrave's National Distribution Centre
+  [2025-10-10] Martin | conf=medium | matched=Musgrave Group
+     SUBJ: Visit BRú Columbanus 20 years from opening [19:30 - 21:00 Munster v Edinburgh (Kick off 7.45pm) (Musgrave Park)
+================ AMAZON WEB SERVICES (n=15) ================
+  [2019-04-04] Bruton | conf=high | matched=Amazon Web Services
+     SUBJ: MEETING AWS (Minister's Boardroom (AR)) Minister Bruton
+  [2019-05-28] Donohoe | conf=high | matched=Amazon Web Services
+     SUBJ: VISIT TO AMAZON WEB SERVICES (AWS ShannOn Building, Burlington Plaza,
+  [2019-06-02] Donohoe | conf=high | matched=Amazon Web Services
+     SUBJ: VISIT TO AMAZON WEB SERVICES (AWS ShannOn Building, Burlington Plaza,
+  [2019-07-16] Breen | conf=high | matched=Amazon Web Services
+     SUBJ: Meeting with AWS
+  [2020-07-23] Varadkar | conf=high | matched=Amazon Web Services
+     SUBJ: Amazon web services jobs announcement - Taoiseach, Amazon and IDA photocall
+  [2020-10-08] Burke | conf=high | matched=Amazon Web Services
+     SUBJ: Meeting with Niamh Gallagher of Amazon Web Services (Custom House) - Peter Burke
+  [2021-03-01] Varadkar | conf=high | matched=Amazon Web Services
+     SUBJ: Meeting with Mike Geary, Country Manager, Amazon Web Services
+  [2022-09-23] Varadkar | conf=high | matched=Amazon Web Services
+     SUBJ: Launch of Amazon Web Services Fingal fund
+  [2023-03-28] Calleary | conf=high | matched=Amazon Web Services
+     SUBJ: AWS Startup Loft Launch, Charlemont Street, Dublin
+  [2023-06-22] Coveney | conf=high | matched=Amazon Web Services
+     SUBJ: Subject Meeting with Amazon Web Services Ireland
+  [2024-04-02] Ryan | conf=high | matched=Amazon Web Services
+     SUBJ: Meeting with Amazon Web Services on Data Centres
+  [2024-07-10] Burke | conf=high | matched=Amazon Web Services
+     SUBJ: Meeting with Amazon Web Services
+  [2024-07-25] Ryan | conf=high | matched=Amazon Web Services
+     SUBJ: Meeting with Amazon Web Services on Data Centres
+  [2025-03-04] O'Brien | conf=high | matched=Amazon Web Services
+     SUBJ: Meeting with Kevin Miller Amazon Web Services
+  [2025-03-04] Burke | conf=high | matched=Amazon Web Services
+     SUBJ: Meeting Amazon Web Services
+================ AER LINGUS (n=96) ================
+  [2015-03-18] Humphreys | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI108 to Dublin ACTUAL (Terminal 5, JFK Intl Airport, New York - Terminal 2, Dublin Intl Airport, Dublin)
+  [2016-05-12] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: Flight from Dublin to Brussels Aer Lingus EI 638
+  [2016-05-13] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: Flight from Brussels to Dublin Aer Lingus EI 639 13/05/2016 Foreign Affairs Council (FAC) (Trade), Brussels
+  [2016-05-26] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: Flight to Brussels Aer Lingus EI638
+  [2016-05-26] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: Flight from Brussels to Dublin Aer Lingus EI 639
+  [2016-09-05] Connor | conf=high | matched=Aer Lingus
+     SUBJ: MIN - Flight from Dublin to Brussels Aer Lingus El630
+  [2016-09-05] Connor | conf=high | matched=Aer Lingus
+     SUBJ: MiN - Flight from Brussels to Dublin Aer Lingus El639 05/09/2016 MIN - BRUSSELS
+  [2016-10-17] Connor | conf=high | matched=Aer Lingus
+     SUBJ: MiN - Flight from Dublin to San Francisco (Aer Lingus ElO147)
+  [2016-10-21] Connor | conf=high | matched=Aer Lingus
+     SUBJ: MIN - Flight from LAX to Dublin (Aer Lingus) EIO144
+  [2016-10-26] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Meeting with Donal Moriarty, Executive Counsel at Aer Lingus and Mr Gerry O'Sullivan
+  [2017-02-19] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: MIN - Dublin to Brussels Aer Lingus El0638
+  [2017-02-20] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: MiN - Flight from Brussels to Dublin Aer Lingus flight El0639 20/02/2017 MIN - Formal Competitiveness Council (Internal Market & Industry) - Brussels
+  [2017-02-28] Humphreys | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus flight El169 departing London Heathrow at 16.20 arriving Dublin at 17.40 (Terminal 2, Dublin Airport)
+  [2017-03-06] Madigan | conf=high | matched=Aer Lingus
+     SUBJ: Depart on Aer Lingus, El0169, Heathrow, Terminal 2Arrive Dublin 17.40
+  [2017-03-08] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: MIN - Flight from Dublin to Chicago (Aer Lingus El 125) MIN - Flight from Chicago to St Louis (American Airlines AA1315)
+  [2017-03-16] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: MIN - Depart for the airport MIN - Flight from Chicago to Dublin (Aer Lingus El 122)
+  [2017-03-19] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: MIN - Flight from Dublin to Amsterdam (Aer Lingus 602) 20/03/2017 06:10 MIN - Meeting with Minister Henk Kamp, Minister for Economic Affairs 20/03/2017 11:00 MiN - Meeting with Minister Lilianne Ploumen, Minister for Foreign Trade & Development Cooperation 20/03/2017 16:00 MIN - Flight from Amsterda
+  [2017-05-06] Oconnor | conf=high | matched=Aer Lingus
+     SUBJ: Flight from New York to Dublin (Aer Lingus El 108)
+  [2017-12-10] Donohoe | conf=high | matched=Aer Lingus
+     SUBJ: FINANCE BILL 2017 MEETING WITH COLIN MENTON 15:30 MEETING STEPHEN KAVANAGH - AER LINGUS (Minister's Of 16:00 NOEL MOONEY MEETING AND MIN 17:00 VOTING BLOC
+  [2018-03-12] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Return flight from Brussels Aer Lingus
+  [2018-03-13] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Fly from Shannon to Edinburgh Aer Lingus
+  [2018-03-16] Bruton | conf=high | matched=Aer Lingus
+     SUBJ: FliGht EI0331 AeR LinGuS Berlin (TXl) tO Dublin (teRmInal 2) (BERLIN AIRPORT) Farrell, Aisling
+  [2018-05-03] Halligan | conf=high | matched=Aer Lingus
+     SUBJ: Minister traveling to Manchester, UK (Aer Lingus 208)
+  [2018-05-10] Halligan | conf=high | matched=Aer Lingus
+     SUBJ: Minister Travelling to Dublin (Aer Lingus 179)
+  [2018-06-18] Humphreys | conf=high | matched=Aer Lingus
+     SUBJ: Minister to turn sod on College Group Biofuel Site 15:00 Minister to Depart on Aer Lingus Flight EI0145 Terminal 2
+  [2018-07-13] Halligan | conf=high | matched=Aer Lingus
+     SUBJ: Flight to Vienna (Aer Lingus 660)
+  [2018-07-15] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Flight to Vienna Aer Lingus EI 12664 – Dep 12:15 Arrive Vienna 16:00
+  [2018-07-18] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Heathrow to Dublin Aer Lingus EI 179 Dep LHR 20:10 Arr Dublin 21:30 Terminal 2
+  [2019-01-20] Donohoe | conf=high | matched=Aer Lingus
+     SUBJ: MEETING WITH SEAN DOYLE, CEO, AER LINGUS (MinisterS OffiCe ) - MiniSter
+  [2019-06-28] Bruton | conf=high | matched=Aer Lingus
+     SUBJ: FLIGHT (MAN) to (DUb) (Aer Lingus El 0209) Ronan Daly
+  [2019-06-28] Bruton | conf=high | matched=Aer Lingus
+     SUBJ: FLIGHT (DUB) to (MaN) (Aer Lingus El 202) □ 09:00 - 13:00 British Irish Council - Energy Ministerial & Heads of Administration SUMMIT- 27-28 June, Manchester
+  [2019-07-04] Breen | conf=high | matched=Aer Lingus
+     SUBJ: British Airways BA 5954 (Operated by Aer Lingus, EI154) depart Dublin
+  [2019-07-09] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus EI 105 - Dublin to New York 10:50 – End of Day United Nations High-level Political Forum on Sustainable Development - SIDS session
+  [2019-11-06] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus announces new Shannon Summer 2020 Schedule
+  [2019-11-10] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus EI 386 Shannon - Heathrow 21:40 – End of Day Shenzhen Airlines ZH 9068
+  [2019-11-28] Breen | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus EI 520 Dublin to Paris Charles de Gaulle
+  [2020-08-02] McGrath | conf=high | matched=Aer Lingus
+     SUBJ: MEETING: AER LINGUS CEO & MINISTERS MCGRATH/DONOHOE (WHITAKER ROOM - Government Buildings, Upper Merrion Street, Dublin 2) - PER Diary
+  [2020-08-02] McGrath | conf=high | matched=Aer Lingus
+     SUBJ: PRE BRIEF: AER LINGUS (Minister DonohOe's Office) 11:30 -Circulate cabinet agenda - PER Diary
+  [2020-08-12] Varadkar | conf=high | matched=Aer Lingus
+     SUBJ: Meeting with Sean Doyle, CEO Aer Lingus and Donal Moriarty
+  [2020-10-07] Ryan | conf=high | matched=Aer Lingus
+     SUBJ: MEETING W/CEO AER LINGUS
+  [2021-04-23] Ryan | conf=high | matched=Aer Lingus
+     SUBJ: CEO AER LINGUS UPDATE ON HOTEL QUARANTINE
+  [2021-05-05] Varadkar | conf=high | matched=Aer Lingus
+     SUBJ: Meeting with Lynne Embleton, Aer Lingus CEO, Donal Moriarty Aer Lingus and Gerry O'Sullivan Q4PR
+  [2021-05-09] McGrath | conf=high | matched=Aer Lingus
+     SUBJ: AER LINGUS/IALPA (ZOOM) - PER Diary 11:00 - 11:30 CORK GREYHOUND OWNERS & BREEDERS ASS. -
+  [2021-05-18] Ryan | conf=high | matched=Aer Lingus
+     SUBJ: AER LINGUS
+  [2021-05-19] Ryan | conf=high | matched=Aer Lingus
+     SUBJ: MINISTER NAUGHTON & CEO AER LINGUS
+  [2021-05-23] McGrath | conf=high | matched=Aer Lingus
+     SUBJ: Review and clear policy eSubs 16:00 - 16:30 JOHN LAHART - AER LINGUS PILOTS (ZOOM)-
+  [2021-07-05] Ryan | conf=high | matched=Aer Lingus
+     SUBJ: CALL WITH MINISTER NAUGHTON AND AER LINGUS CEO
+  [2021-07-18] McGrath | conf=high | matched=Aer Lingus
+     SUBJ: Pre Briefing Aer Lingus Employees Cork Airport (Skype) - PER Diary
+  [2021-07-30] Ryan | conf=high | matched=Aer Lingus
+     SUBJ: CALL WITH AN TAOISEACH AND AER LINGUS
+  [2021-09-22] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Flight Aer Lingus EI 123 (Dublin - Chicago) (Dublin Airport - Terminal 2 )
+  [2022-02-27] O'Brien | conf=high | matched=Aer Lingus
+     SUBJ: Dublin Airport (T2 - Aer Lingus flight EI524)
+  [2022-05-13] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus flight #EI 61 (San Francisco )
+  [2022-05-19] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI 60 (Dublin)
+  [2022-05-22] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Constituency event 10:55 Aer Lingus Flight EI105 to New York 08:40 Arrival to Dublin on Aer Lingus flight EI106 from New York 21:05 Aer Lingus flight EI106 to Dublin
+  [2022-07-14] Ryan | conf=high | matched=Aer Lingus
+     SUBJ: AER LINGUS MEETING
+  [2022-09-05] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI0521 to Dublin
+  [2022-10-20] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Flight Aer Lingus EI 105 (Dublin - New York, JFK Airport)
+  [2022-10-23] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Depart for JFK, Terminal 5 21:05 Flight Aer Lingus EI 106 (JFK, New York - Dublin )
+  [2022-12-08] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI0630 to Brussels from Dublin Airport T2
+  [2023-03-08] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Pre - Clearance & Security 15:20 Aer Lingus Fight EI069 (Dublin Airport to LAX )
+  [2023-03-15] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Depart hotel for LAX 21:25 Aer Lingus Flight EI068 (Dublin Airport )
+  [2023-08-17] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight E10132 to Chicago (Terminal 2, Dublin Airport)
+  [2023-08-20] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Breakfast with Bishop , Bishop Donald , representatives of Aer Lingus & Tourism Ireland, and CelticMKE board members Minister Browne Remarks - Presentation: Ireland Today: Challenges and Opportunities (Milwaukee Hedge School)
+  [2023-08-26] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus College Football Classic 2023 - Notre Dame vs Navy (Aviva Stadium)
+  [2023-09-27] McEntee | conf=high | matched=Aer Lingus
+     SUBJ: Flight to Brussels on Aer Lingus EI638
+  [2023-09-28] McEntee | conf=high | matched=Aer Lingus
+     SUBJ: Flight to Dublin on Aer Lingus EI639
+  [2023-11-19] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Flight Aer Lingus EI 101 - New York, Newark Airport
+  [2023-11-21] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Arrive at Airport (JFK) 21:10 Flight Aer Lingus EI 106 - Dublin
+  [2023-12-12] Richmond | conf=high | matched=Aer Lingus
+     SUBJ: EI 0520 Operated by Aer Lingus EI 520 - Dublin to Charles De Gaulle
+  [2023-12-18] Foley | conf=high | matched=Aer Lingus
+     SUBJ: Ministers Calendar 9 10 November 2023 November 2023 December 2023 SuMo TuWe Th Fr Sa SuMo TuWe Th Fr Sa Friday 12 13 14 15 16 17 18 10 11 12 13 14 15 16 19 20 21 22 23 24 25 17 18 19 20 21 22 23 Notes FRIDAY 09 HOLD FOR MINISTER : 13 10 Ministers Calendar 18/12/2023 14:52 December 2023 November 2023
+  [2024-02-08] Coveney | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus EI3242 Dublin to Aberdeen Terminal 2, Dublin Airport
+  [2024-02-13] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI 0610 to Schiphol Amsterdam (Dublin Airport, Terminal 2)
+  [2024-02-13] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Check-in for Aer Lingus Flight EI 0610 to Schiphol Amsterdam (Dublin Airport, Terminal 2)
+  [2024-03-19] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus flight EI 603 from Amsterdam to Dublin (Amsterdam Airport Schiphol, Aankomstpassage 1, 1118 AX Schiphol, Netherlands)
+  [2024-03-19] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Minister Browne arrives back in Dublin Airport on Aer Lingus flight EI 603 from Amsterdam (Terminal 2, Dublin Airport )
+  [2024-04-28] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI 0638 to Brussels (Terminal 2, Dublin Airport )
+  [2024-04-30] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI 0631 to Dublin (Brussels International Airport, Leopoldlaan, 1930 Zaventem, Belgium)
+  [2024-04-30] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Minister Browne arrives in Dublin on Aer Lingus Flight EI 0631from Brussels (Terminal 2, Dublin Airport )
+  [2024-05-16] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Dublin to Cote d'Azur (EI 0544 Operated by Aer Lingus )
+  [2024-06-13] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Dublin - Boston - Flight EI 133 Aer Lingus
+  [2024-06-17] Martin | conf=high | matched=Aer Lingus
+     SUBJ: Miami - Chicago - EI 7422 Aer Lingus 20:55 Chicago - Dublin - EI 124 Aer Lingus
+  [2024-06-19] McGrath | conf=high | matched=Aer Lingus
+     SUBJ: AER LINGUS (Whitaker Room)
+  [2024-07-21] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus flight EI0117 to Washington
+  [2024-08-01] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus flight EI0114 to Dublin (Philadelphia International Airport )
+  [2024-08-24] Chambers | conf=high | matched=Aer Lingus
+     SUBJ: AER LINGUS COLLEGE FOOTBALL CLASSIC 2024 (Aviva Stadium )
+  [2024-09-02] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI 0105 to New York (Terminal 2, Dublin Airport)
+  [2024-09-07] Browne | conf=high | matched=Aer Lingus
+     SUBJ: Aer Lingus Flight EI0106 to Dublin (Terminal 7, John F Kennedy International Airport)
+  [2025-04-02] O'Brien | conf=high | matched=Aer Lingus
+     SUBJ: Meeting with Aer Lingus 1315 – 1345 DMAP discussion
+  [2025-04-28] O'Donovan | conf=high | matched=Aer Lingus
+     SUBJ: Flight Aer Lingus, El380 to London Heathrow Terminal 2 (Shannon Airport (ShannonMunster, Ireland)) 13:10 Flight British Airways BA 005 to Tokyo Intl Haneda (London Heathrow Airport; , Terminal: 5)
+  [2025-05-08] McEntee | conf=high | matched=Aer Lingus
+     SUBJ: Arrive on Aer Lingus Flight EI3552
+  [2025-05-09] McEntee | conf=high | matched=Aer Lingus
+     SUBJ: Depart on flight Aer Lingus EI3259 (arr. Dublin 21.45)
+  [2025-05-13] McConalogue | conf=high | matched=Aer Lingus
+     SUBJ: Depart Dublin Aer Lingus EI630 to Brussels (Terminal 2)
+  [2025-05-14] McConalogue | conf=high | matched=Aer Lingus
+     SUBJ: Arrive Terminal 2 Aer Lingus EI631 (Terminal 2)
+  [2025-06-03] O'Donovan | conf=high | matched=Aer Lingus
+     SUBJ: Flight Aer Lingus El 069 to LAX (Terminal 2 Dublin Airport)
+  [2025-06-05] O'Donovan | conf=high | matched=Aer Lingus
+     SUBJ: Travel to LAX Airport 20:15 Flight to Dublin Aer Lingus EI68
+  [2025-10-12] Lawless | conf=high | matched=Aer Lingus
+     SUBJ: 14:30 Aer Lingus arriving at Heathrow at 15:55
+================ NOVARTIS (n=2) ================
+  [2017-09-25] Bruton | conf=medium | matched=Novartis Ireland Limited
+     SUBJ: MIN - CONSTITUENCY: Novartis Minister to officially launch the AMD Week Campaign (National Gallery)
+  [2019-10-24] Humphreys | conf=medium | matched=Novartis Ireland Limited
+     SUBJ: Minister to call Novartis
+================ GRAFTON ARCHITECTS (n=1) ================
+  [2017-10-17] Humphreys | conf=high | matched=Grafton Architects Limited
+     SUBJ: Meeting with Grafton Architects (Minister's Office 23 Kidlare Street)
+================ EVERSHEDS SUTHERLAND (n=1) ================
+  [2023-05-30] Coveney | conf=high | matched=Eversheds Sutherland
+     SUBJ: Subject Keynote speech at Eversheds Sutherland Global Tech Event
+================ IRISH MANUFACTURING RESEARCH (n=4) ================
+  [2017-05-17] Oconnor | conf=high | matched=Irish Manufacturing Research Ltd
+     SUBJ: Trade & Investment Mission in Ireland Launch of the Irish Manufacturing Research Tech Centre (El) (Tánaiste also attending) 18/05/2017
+  [2018-11-15] Humphreys | conf=high | matched=Irish Manufacturing Research Ltd
+     SUBJ: Irish Manufacturing Research Photocall
+  [2025-04-08] Dillon | conf=high | matched=Irish Manufacturing Research Ltd
+     SUBJ: Circuleire Visit Mullingar. (Irish Manufacturing Research, National Science Park, Dublin Road, Mullingar, Co. Westmeath, N91 TX80 tel: (0) 1 567 5000) - DECC Minister Dillon
+  [2026-02-13] Burke | conf=high | matched=Irish Manufacturing Research Ltd
+     SUBJ: European Space Agency Phi-Lab Ireland Official Launch - Irish Manufacturing Research Constituency Day

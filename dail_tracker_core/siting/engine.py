@@ -55,6 +55,12 @@ class IssueResult:
     detail: dict[str, Any] = field(default_factory=dict)
     extra: dict[str, Any] = field(default_factory=dict)  # e.g. {"flood_link": ...}
     mitigation_path: tuple[dict[str, Any], ...] = ()  # static if/then cascade (from catalogue)
+    # presentation tier (set from the catalogue node; see catalogue.Node): universal = "standard for
+    # any rural one-off"; conditional = "a check that depends on site features we can't read";
+    # elevated = a universal node a trigger promoted to site-specific by severity (e.g. extreme septic).
+    universal: bool = False
+    conditional: bool = False
+    elevated: bool = False
 
 
 @dataclass(frozen=True)
@@ -196,9 +202,11 @@ def _peat_bog(store, lon, lat, dev, slug):
 
 def _monument(store, lon, lat, dev, slug):
     avail = store.available()
-    # honesty: smr_zone/smr_points are ingested per-region (Galway+Dublin today). Outside that
-    # ingested extent we have NO data here, so this must be layer_missing — never a silent "ok".
-    # (Without the in_extent guard a point in, e.g., Mayo returned "ok"=clear, masking a monument.)
+    # honesty: smr_zone (zones of notification) is NATIONAL, so a monument fires anywhere a zone
+    # covers the point; smr_points (which NAMES the monument class/townland) is regional, so outside
+    # its extent the monument still fires but is named generically. The in_extent guard keeps a point
+    # outside a layer's ingested data as layer_missing, never a silent "ok" (which would mask data we
+    # don't have) — it is moot for the national smr_zone but real for the regional smr_points.
     if "smr_zone" not in avail or not store.in_extent("smr_zone", lon, lat):
         return False, {}, "layer_missing"
     in_zone = bool(store.covering("smr_zone", lon, lat))
@@ -256,6 +264,12 @@ def _septic(store, lon, lat, dev, slug):
     karst = store.near("gsi_karst", lon, lat, 1000) if store.in_extent("gsi_karst", lon, lat) else []
     fired = vul in {"X", "E", "H"} or bool(karst)
     detail = {"vuln_class": vdesc + (" (karst nearby)" if karst else "")}
+    # Septic is a UNIVERSAL consideration for any rural one-off, so it normally sits in the standard
+    # tier. PROMOTE it to a site-specific constraint only where the ground is genuinely a viability
+    # risk: EXTREME vulnerability (X/E) or karst at surface — the EPA percolation test can fail here.
+    # High (H) alone is a normal design constraint and stays in the standard tier.
+    if vul in {"X", "E"} or karst:
+        detail["_elevate"] = True
     return fired, detail, "ok"
 
 
@@ -294,6 +308,11 @@ def _road(store, lon, lat, dev, slug):
         "junction_note": jnote,
         "junction_m": jm,
     }
+    # Entrance sightlines are UNIVERSAL for any new access (standard tier). PROMOTE to a
+    # site-specific constraint where the access is near a junction/crossroads (the genuine hazard
+    # needing set-back/staggering + a Road Safety Audit) or onto a national road.
+    if fired and (jnote or is_national):
+        detail["_elevate"] = True
     return fired, detail, "ok"
 
 
@@ -440,6 +459,11 @@ def _surface_water(store, lon, lat, dev, slug):
     )
     fired = t.slope_deg >= SLOPE_FIRE_DEG
     detail = {"slope_deg": t.slope_deg, "receptor_note": receptor}
+    # SuDS/drainage is a UNIVERSAL requirement for any sloping site (standard tier). PROMOTE to a
+    # site-specific constraint only where the run-off drains toward a European site (rate AND quality
+    # must then be controlled to protect it) — the genuinely onerous case.
+    if fired and near_eur:
+        detail["_elevate"] = True
     return fired, detail, "ok"
 
 
@@ -577,6 +601,10 @@ def evaluate(
         else:
             fired, detail, status = False, {}, "layer_missing"
 
+        # a trigger may PROMOTE a universal node to a site-specific constraint by severity
+        # (e.g. septic on extreme-vulnerability ground); pop the marker so it never shows in detail.
+        elevated = bool(detail.pop("_elevate", False))
+
         extra: dict[str, Any] = {}
         if node.id == "floodplain":
             e = _to_3857(lon, lat)
@@ -601,6 +629,9 @@ def evaluate(
                 detail=detail,
                 extra=extra,
                 mitigation_path=node.mitigation_path,
+                universal=node.universal,
+                conditional=node.conditional,
+                elevated=elevated,
             )
         )
 

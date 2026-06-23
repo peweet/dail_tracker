@@ -2952,3 +2952,69 @@ def test_committee_meetings_crosswalk_folds_typographic_apostrophe(tmp_path):
         "SELECT count(*) FROM v_committee_meetings WHERE lower(committee_name) = lower(?)", [ascii_sel]
     ).fetchone()[0]
     assert would_have_missed == 0, "test premise broken: raw lower() should NOT match (else nothing is verified)"
+
+
+def test_committee_meetings_crosswalk_merges_joint_and_select_formations(tmp_path):
+    """Regression: the Oireachtas runs each committee in two FORMATIONS — the Joint
+    committee (both houses) and the Select committee (one house, bill stages) — and
+    records meetings under whichever sat. A citizen sees one committee, so EITHER
+    register page (Joint or Select) must surface BOTH formations' meetings. Before the
+    formation-stem crosswalk, a Select committee with no own sittings showed "not yet
+    available" even though its Joint twin had dozens of meetings (observed for Select
+    Cttees on AI, Drugs Use, EU Affairs, Public Petitions, Traveller Community, Good
+    Friday).
+
+    Self-contained: synthesises one Joint meeting + one Select meeting for the same
+    committee body, loads the REAL view SQL, and drives the REAL retrieval query from
+    BOTH the Joint and the Select register name — each must return both meetings.
+    """
+    from dail_tracker_core.queries import committees as _committees_q
+
+    joint_name = "Joint Committee on Drugs Use"
+    select_name = "Select Committee on Drugs Use"
+
+    gen = duckdb.connect()
+    meetings_pq = (tmp_path / "committee_meetings.parquet").as_posix()
+    witnesses_pq = (tmp_path / "committee_witnesses.parquet").as_posix()
+    persons_pq = (tmp_path / "committee_witness_persons.parquet").as_posix()
+    gen.execute(
+        "COPY (SELECT * FROM (VALUES"
+        " ('drugs_joint', ?, 1, DATE '2025-05-01',"
+        "  'https://data.oireachtas.ie/akn/ie/debateRecord/joint_committee_on_drugs_use/2025-05-01/x.xml',"
+        "  ['Engagement']::VARCHAR[], 1, 0, 0),"
+        " ('drugs_select', ?, 1, DATE '2025-05-08',"
+        "  'https://data.oireachtas.ie/akn/ie/debateRecord/select_committee_on_drugs_use/2025-05-08/x.xml',"
+        "  ['Committee Stage']::VARCHAR[], 1, 0, 0)"
+        ") AS t(committee_code, committee_name, house_no, date, source_xml, topics, n_topics, n_orgs, n_persons))"
+        f" TO '{meetings_pq}' (FORMAT parquet)",
+        [joint_name, select_name],
+    )
+    # No witnesses/persons for these meetings, but the view LEFT-JOINs both parquets,
+    # so they must exist with the right schema (zero rows is fine).
+    gen.execute(
+        "COPY (SELECT 'x' AS committee_code, DATE '2099-01-01' AS date, 'x' AS witness_org WHERE 1=0)"
+        f" TO '{witnesses_pq}' (FORMAT parquet)"
+    )
+    gen.execute(
+        "COPY (SELECT 'x' AS committee_code, DATE '2099-01-01' AS date, 'x' AS witness_person WHERE 1=0)"
+        f" TO '{persons_pq}' (FORMAT parquet)"
+    )
+
+    sql = _view_path("committee_evidence_meetings.sql").read_text(encoding="utf-8")
+    sql = sql.replace("data/gold/parquet/committee_meetings.parquet", meetings_pq)
+    sql = sql.replace("data/gold/parquet/committee_witnesses.parquet", witnesses_pq)
+    sql = sql.replace("data/gold/parquet/committee_witness_persons.parquet", persons_pq)
+    con = _con()
+    con.execute(sql)
+
+    for selection in (joint_name, select_name):
+        res = _committees_q.meetings(con, selection)
+        assert res.ok, res.unavailable_reason
+        names = sorted(res.data["committee_name"].tolist())
+        assert names == [joint_name, select_name], (
+            f"selecting {selection!r} must return BOTH formations' meetings, got {names}"
+        )
+
+    # both formations must share one crosswalk key (the topic stem).
+    keys = {r[0] for r in con.execute("SELECT DISTINCT committee_key FROM v_committee_meetings").fetchall()}
+    assert keys == {"drugs use"}, f"Joint+Select must collapse to one stem key, got {keys}"
