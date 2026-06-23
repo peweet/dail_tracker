@@ -177,6 +177,8 @@ def voting_vs_interests(
     vote_type: str = "Voted No",
     interest: str = "landlord",
     house: str = "Dáil",
+    summary_only: bool = False,
+    limit: int = 50,
 ) -> dict:
     """Cross-reference HOW members voted against WHAT they declare on the Register
     of Members' Interests — e.g. "TDs who voted against a housing measure who are
@@ -186,12 +188,18 @@ def voting_vs_interests(
     list_recent_votes) OR by a `keyword` matched against debate titles
     (e.g. 'housing', 'tenanc', 'rent', 'eviction'). `vote_type` is one of
     'Voted No', 'Voted Yes', 'Abstained'. `interest` is one of 'landlord',
-    'property', 'director', 'shareholder'. Returns one match per (member, division)
-    with `held_in_vote_year` flagging same-year declarations, plus a coverage
-    caveat. The register covers 2020–2025 only — pre-2020 divisions match nothing."""
+    'property', 'director', 'shareholder'.
+
+    A broad keyword can match hundreds of (member, division) pairs, so the detail is
+    bounded: `summary_only=True` returns ONE row per division (vote_id, title, date,
+    count of matching members + their names) — best for "how many / which divisions".
+    Otherwise the full `matches` are returned but capped at `limit` (default 50), with
+    `returned`/`truncated` flags; raise `limit` or pass a specific `vote_id` to widen.
+    `match_count`/`distinct_members` always reflect the FULL result, not the page.
+    The register covers 2020–2025 only — pre-2020 divisions match nothing."""
     if not vote_id and not keyword:
         return {"error": "pass a vote_id or a keyword to identify the division(s)"}
-    return dossiers.cross_reference_votes_interests(
+    res = dossiers.cross_reference_votes_interests(
         _cur(),
         vote_id=vote_id or None,
         keyword=keyword or None,
@@ -199,6 +207,32 @@ def voting_vs_interests(
         interest=interest,
         house=house,
     )
+    if "error" in res:
+        return res
+    matches = res.get("matches", [])
+    if summary_only:
+        by_div: dict[str, dict] = {}
+        for m in matches:
+            vid = m.get("vote_id")
+            d = by_div.setdefault(
+                vid,
+                {
+                    "vote_id": vid,
+                    "vote_date": m.get("vote_date"),
+                    "debate_title": m.get("debate_title"),
+                    "matching_members": 0,
+                    "members": [],
+                },
+            )
+            d["matching_members"] += 1
+            d["members"].append(m.get("member_name"))
+        res.pop("matches", None)
+        res["divisions"] = list(by_div.values())
+        return res
+    res["matches"] = matches[:limit]
+    res["returned"] = len(res["matches"])
+    res["truncated"] = len(matches) > limit
+    return res
 
 
 # ── Legislation ───────────────────────────────────────────────────────────────
@@ -750,14 +784,18 @@ def dpo_lobbying_profile(individual_name: str) -> dict:
 
 
 @mcp.tool(annotations=_RO)
-def search_votes_by_topic(topics: str, house: str = "Dáil") -> dict:
-    """How members voted on DEBATES matching given topic keywords — a corpus-wide search across
+def search_votes_by_topic(topics: str, house: str = "Dáil", include_member_votes: bool = False) -> dict:
+    """How members voted on DIVISIONS matching given topic keywords — a corpus-wide search across
     ALL divisions (every other vote tool is per-division or per-member). `topics` is a
     comma-separated list (e.g. 'housing, rent, eviction, tenanc'); each is matched as a
-    case-insensitive substring of the debate title, OR-combined. Returns a `debates` overview
-    (one row per matched debate, newest first) plus the individual member Yes/No `votes` behind
-    them (capped at 2000, most recent first). Use voting_vs_interests to cross these against the
-    Register of Members' Interests."""
+    case-insensitive substring of the debate title, OR-combined.
+
+    By default returns ONLY the `divisions` overview — one row per division (newest first), each
+    carrying its `vote_id`, debate title, date and Yes/No tally. Feed a `vote_id` straight into
+    `division_interest_breakdown` or `get_division`. Set `include_member_votes=True` to also get the
+    individual member Yes/No `votes` behind them (capped at 2000) — large, so opt in only when you
+    need the named breakdown. Use voting_vs_interests to cross divisions against the Register of
+    Members' Interests."""
     kws = [t.strip() for t in topics.split(",") if t.strip()]
     if not kws:
         return {"error": "pass one or more comma-separated topic keywords"}
@@ -767,19 +805,29 @@ def search_votes_by_topic(topics: str, house: str = "Dáil") -> dict:
     rows = _rows(qr)
     if isinstance(rows, dict):  # unavailable
         return {"topics": kws, "house": house, **rows}
-    # Compact distinct-debate overview (light dedup, not a metric) so the answer leads with the
-    # debates, with per-member votes available underneath.
-    debates: dict[tuple, dict] = {}
+    # One row per DIVISION (keyed on vote_id, not title+date — distinct divisions can share a debate
+    # title), so each overview row chains into division_interest_breakdown / get_division.
+    divisions: dict[str, dict] = {}
     for r in rows:
-        key = (r.get("debate_title"), r.get("vote_date"))
-        d = debates.setdefault(
-            key, {"debate_title": r.get("debate_title"), "vote_date": r.get("vote_date"), "yes": 0, "no": 0}
+        vid = r.get("vote_id")
+        d = divisions.setdefault(
+            vid,
+            {
+                "vote_id": vid,
+                "debate_title": r.get("debate_title"),
+                "vote_date": r.get("vote_date"),
+                "yes": 0,
+                "no": 0,
+            },
         )
         if r.get("vote_type") == "Voted Yes":
             d["yes"] += 1
         elif r.get("vote_type") == "Voted No":
             d["no"] += 1
-    return {"topics": kws, "house": house, "debates": list(debates.values()), "votes": rows}
+    out = {"topics": kws, "house": house, "divisions": list(divisions.values())}
+    if include_member_votes:
+        out["votes"] = rows
+    return out
 
 
 # ── Data coverage (scope guard for honest answers) ──────────────────────────────
@@ -935,8 +983,10 @@ def project_value_estimate(
 
 
 def _brief_item(it) -> dict:
-    """One BriefItem (hard/shaping/obligation/verify) as JSON — drops empty fields."""
+    """One BriefItem (site-specific / standard / check) as JSON — drops empty fields."""
     out: dict = {"title": it.title, "why": it.why, "action": it.action}
+    if getattr(it, "passfail", False):
+        out["pass_fail"] = True  # e.g. the rural-housing-need gate inside the standard tier
     if it.reports:
         out["reports"] = list(it.reports)
     if it.path:
@@ -955,12 +1005,15 @@ def siting_check(
     """Planning-constraint TRIAGE for a single point in Ireland: which planning ISSUES a proposed
     development triggers at (lat, lon), each with the governing rule quoted verbatim from the
     per-council rulebook and the likely required reports. `dev_type` is 'one_off_house' (default),
-    'multi_unit', or 'commercial'; `num_units` / `floor_area_m2` drive the scale-gated obligations
+    'multi_unit', or 'commercial'; `num_units` / `floor_area_m2` drive the scale-gated requirements
     (climate statement, EIA, etc.). Returns the council in force, a headline, statutory EXCLUSIONS
     (designations whose polygon covers the point — each with the narrow real route that could still
-    permit development), hard (pass/fail) and shaping constraints, an access/entrance section,
-    standard obligations, CHECK-YOURSELF items (layers we can't read, e.g. flood), the likely-RFI
-    report list, and `not_assessed` (layers not yet ingested at this point).
+    permit development), and the fired issues TIERED for signal: `site_specific_hard` /
+    `site_specific_shaping` (notable at THIS location), an access/entrance section,
+    `standard_requirements` (apply to essentially every rural one-off here — the rural-housing-need
+    gate is in here, marked `pass_fail`), `checks_to_confirm` (depend on a layer we can't read or
+    site features we can't see, e.g. flood + bats), the likely-RFI report list, and `not_assessed`
+    (layers not yet ingested at this point). The tiering groups truthfully — it suppresses nothing.
 
     ⚠️ TRIAGE, NOT A VERDICT — it NEVER outputs grant/refuse or a design prescription; the decision
     stays the council's/ABP's. An empty constraint list is NOT proof the land is developable, and a
@@ -998,11 +1051,15 @@ def siting_check(
             {"designation": e.designation, "site_name": e.site_name, "layer": e.layer, "mitigation": e.mitigation}
             for e in b.exclusions
         ],
-        "hard_constraints": [_brief_item(i) for i in b.hard_constraints],
-        "shaping_constraints": [_brief_item(i) for i in b.shaping_constraints],
+        # TIERED so the site-specific signal isn't drowned by boilerplate (see catalogue.Node):
+        # site_specific_* = notable at THIS location; standard_requirements = apply to ~every rural
+        # one-off here (the rural-housing-need gate is in here, marked pass_fail); checks_to_confirm =
+        # depend on a layer we can't read / site features we can't see (flood, bats).
+        "site_specific_hard": [_brief_item(i) for i in b.hard_constraints],
+        "site_specific_shaping": [_brief_item(i) for i in b.shaping_constraints],
         "access": b.access,
-        "obligations": [_brief_item(i) for i in b.obligations],
-        "check_yourself": [_brief_item(i) for i in b.to_verify],
+        "standard_requirements": [_brief_item(i) for i in b.obligations],
+        "checks_to_confirm": [_brief_item(i) for i in b.to_verify],
         "required_reports": list(b.required_reports),
         "rfi_note": b.rfi_note,
         "not_assessed": list(b.not_assessed),

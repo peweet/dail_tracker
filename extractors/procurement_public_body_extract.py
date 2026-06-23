@@ -54,6 +54,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from extractors._paid_flag_clean import clean_paid_flag  # noqa: E402
 from services.fetch_report import Breaker, FetchReport, classify_body, classify_exception, write_sentinel  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
@@ -624,6 +625,9 @@ PUBLISHERS: list[dict] = [
         grain="purchase_order",
         tier="D",
         include=r"purchase-order|over-20|po[s]?[-_ ]?over",
+        # PDF "PO analysis report" layout merges PO+supplier and defeats word-geometry bucketing;
+        # use the bespoke reading-order reader (DQ audit P1). XLSX quarters keep the tabular reader.
+        reader="reading_order_courts",
     ),
     cfg(
         "ie_sportireland",
@@ -1282,6 +1286,100 @@ def read_reading_order(b: bytes, max_pages: int | None) -> list[dict]:
     return recs
 
 
+# Courts Service "PO analysis report" reading-order reader. The generic word-geometry parser
+# mis-columns these PDFs: for 2016+ quarters the PO number and supplier name are merged onto one
+# text line, and x-coordinate bucketing then splits the name (body → PO column, legal suffix →
+# supplier column), leaving ~850 empty-supplier rows AND ingesting period-total lines as payments
+# (DQ audit P1, 2026-06-23; validated in pipeline_sandbox/courts_reader/). The files are a regular
+# 5-field record anchored on the amount line; reading them in order recovers supplier+PO+amount+
+# description+paid and naturally skips totals/boilerplate.
+_CT_AMT = re.compile(r"^([\d,]+\.\d{2})\b\s*(.*)$")  # amount alone OR amount + desc on one line
+_CT_PAID = re.compile(r"^(Y|N|Yes|No|Paid|Not Paid)$", re.I)
+_CT_PO_NAME = re.compile(r"^(\d{4,7})\s+(.+)$")  # merged 'PO Supplier Name'
+_CT_PO_ONLY = re.compile(r"^\d{4,7}$")
+_CT_BOILER = {
+    "po no.", "po no", "supplier name", "amount", "description", "paid yes/no", "paid",
+    "the courts services", "the courts service", "yes/no",
+}
+
+
+def read_courts(b: bytes, max_pages: int | None) -> list[dict]:
+    """Reading-order reader for the Courts Service PO PDFs → list of
+    {ref, supplier, amount, desc, paid} dicts (period comes from the file URL)."""
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+    lines: list[str] = []
+    for pi in range(limit):
+        for raw in doc[pi].get_text().splitlines():
+            s = re.sub(r"\s+", " ", raw.replace("\xa0", " ").replace(" ", " ").replace(" ", " ").replace("�", " ")).strip()
+            if not s:
+                continue
+            low = s.lower()
+            if low in _CT_BOILER or low.startswith("purchase orders") or "analysis report" in low:
+                continue
+            # end-of-page TOTAL summary + the multi-clause "Please Note:" footnote run into the next
+            # page's first record otherwise — strip them. Keep real companies ("Total ICT Services").
+            if re.match(r"(?i)^total\b\s*[:€]?\s*[\d,]", s) or "please note" in low:
+                continue
+            if re.match(r"^\d\)\s", s):  # footnote numbered clauses ("1) Withholding Tax …")
+                continue
+            if re.fullmatch(r"page \d+( of \d+)?", low):
+                continue
+            lines.append(s)
+    doc.close()
+
+    n = len(lines)
+    recs: list[dict] = []
+    rec_start = 0
+    i = 0
+    while i < n:
+        am = _CT_AMT.match(lines[i])
+        if not am:
+            i += 1
+            continue
+        amount = float(am.group(1).replace(",", ""))
+        head = lines[rec_start:i]
+        j = i + 1
+        desc: list[str] = []
+        if am.group(2).strip():
+            desc.append(am.group(2).strip())
+        paid = None
+        while j < n and not _CT_AMT.match(lines[j]):
+            if _CT_PAID.match(lines[j]):
+                paid = lines[j]
+                j += 1
+                break
+            if _CT_PO_NAME.match(lines[j]) or _CT_PO_ONLY.match(lines[j]):
+                break  # next record's head terminates this description
+            desc.append(lines[j])
+            j += 1
+        po = None
+        headtext = " ".join(head).strip()
+        # Take the LAST 'PO-digits NAME' in the head. A page-break TOTAL line + multi-clause
+        # footnote can bleed in front of the next record's header; the real PO+supplier is always
+        # the final 'NNNNN NAME' run, so anchoring on the last one strips the noise. A pure 'Total'
+        # head has no such run → supplier stays 'Total' and is dropped by the summary filter below.
+        last = None
+        for mm in re.finditer(r"(\d{4,7})\s+", headtext):
+            if re.search(r"[A-Za-z]", headtext[mm.end():]):
+                last = mm
+        if last is not None:
+            po, supplier = last.group(1), headtext[last.end():].strip()
+        else:
+            supplier = headtext
+        # keep real suppliers; skip period TOTAL/sub-total summary lines ('Total', 'Total:',
+        # 'Total €11,700,436.17'). A real company keeps a letter after 'Total' ('Total ICT Services
+        # Ltd'), so the trailing class is punctuation/€/digits only — those rows survive.
+        if supplier and re.search(r"[A-Za-z]", supplier) and not re.fullmatch(
+            r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier
+        ):
+            recs.append({"ref": po, "supplier": supplier, "amount": amount,
+                         "desc": " ".join(desc).strip() or None, "paid": paid})
+        rec_start = j
+        i = j
+    return recs
+
+
 # ---- XLSX / XLS / CSV ----
 def _tabular_from_raw(raw: list[list]):
     """Shared header-pick + body-trim for any 2D cell grid (openpyxl or xlrd)."""
@@ -1446,6 +1544,17 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             q = (int(r["date"][5:7]) - 1) // 3 + 1
             sup = clean_supplier(r["supplier"])
             rows_out.append(base(srn, r["page"], sup, r["amount"], r["desc"], r["ref"], None, period=f"{yr}-Q{q}", year=yr, quarter=q))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
+    elif fmt == "pdf" and cf.get("reader") == "reading_order_courts":
+        # Courts Service "PO analysis report" reading-order reader (period from the file URL).
+        # ref → po_number; supplier names are recovered intact and period-total rows are skipped.
+        recs = read_courts(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            sup = clean_supplier(r["supplier"])
+            rows_out.append(base(srn, 1, sup, r["amount"], r["desc"], r["ref"], r["paid"]))
             good += 1
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 
@@ -1927,6 +2036,22 @@ def main() -> None:
             with contextlib.suppress(Exception):
                 old_cov = json.loads(OUT_COV.read_text(encoding="utf-8"))
                 merged_kept_pubs = [e for e in old_cov.get("by_publisher", []) if e.get("id") not in sel_ids]
+
+    # paid_flag column-misalignment repair (see extractors/_paid_flag_clean.py): a publisher
+    # whose layout put a category/date/amount column where the paid flag usually sits would
+    # otherwise leak that content into paid_flag (~16% of rows pre-fix). Clean the final frame —
+    # in merge mode this also re-cleans carried-forward publishers (idempotent), so the whole
+    # fact converges to a flag-or-null paid_flag with recoverable category text moved into
+    # description. Applied here (after merge, before the invariants/write) so silver is clean at
+    # source and gold inherits it through the silver→gold fold.
+    df, _pf_stats = clean_paid_flag(df)
+    if _pf_stats.get("n_leak"):
+        print(
+            f"\npaid_flag repair: {_pf_stats['n_leak']:,} leaked values cleared "
+            f"({_pf_stats.get('n_recovered', 0):,} category texts recovered into description, "
+            f"{_pf_stats.get('n_month', 0):,} dates / {_pf_stats.get('n_amount', 0):,} amounts nulled); "
+            f"{_pf_stats.get('n_genuine', 0):,} genuine flags kept"
+        )
 
     # PRIVACY INVARIANT (runtime, -O-proof): no displayable row may be a likely person.
     leaked = df.filter(pl.col("public_display") & (pl.col("supplier_class") == "sole_trader_or_individual"))
