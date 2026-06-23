@@ -31,6 +31,17 @@ DOMAIN_FILES = [
     # follow it. Member-overview's hero stat-strip uses it for the "Rank X of Y
     # TDs" sub-label — omitting it silently blanked that line on every profile.
     "attendance_year_rank.sql",
+    # Per-(house, year) distinct plenary sitting dates — the denominator for the
+    # hero stat-strip's plenary-attendance figure ("53 of 94 sitting days").
+    # Standalone (reads the silver sitting tables), so order is unconstrained.
+    "attendance_chamber_sitting_days.sql",
+    # Participation & absence model (replaces the censored TAA "sitting days"
+    # ranking). Each reads its gold parquet directly — no inter-view deps, so
+    # order among them is unconstrained.
+    "attendance_participation_turnout.sql",
+    "attendance_participation_absences.sql",
+    "attendance_participation_divergence.sql",
+    "attendance_taa_compliance.sql",
     "payments_base.sql",
     "payments_member_detail.sql",
     "payments_yearly_evolution.sql",
@@ -186,7 +197,10 @@ CONSTITUENCY_FILES = [
     "constituency_la_planning_overturn.sql",  # council ABP-overturn rate (reads silver parquet; no deps)
     "constituency_la_derelict_sites_levy.sql",  # council Derelict Sites Levy enforcement (reads gold parquet; no deps)
     "constituency_la_collection_rates.sql",  # council NOAC M2 collection rates (reads gold parquet; no deps)
+    "constituency_la_noac_scorecard.sql",  # council NOAC scorecard (finance/workforce/roads/fire/litter; reads gold parquet; no deps)
+    "constituency_la_noac_scorecard_history.sql",  # scorecard metrics 2022-2024 for the trend sparklines (reads gold parquet; no deps)
     "constituency_la_accountability_summary.sql",  # 1-row national headline; MUST follow the 3 LA views above
+    "constituency_la_cash_signals.sql",  # 3 cash figures co-located (M1+M2+derelict); JOINs scorecard+collection_rates+derelict, so MUST follow them
 
     "constituency_members.sql",
     "constituency_party_breakdown.sql",

@@ -91,6 +91,28 @@ _PROFILE_SECTIONS: list[tuple[str, str, str]] = [
     ("committees", "Committees", "committees"),
 ]
 
+# ── Section router IA (2026-06-22) ─────────────────────────────────────────────
+# The profile moved from an all-sections-rendered flat scroll (too long; adjacent
+# section cards bled into the viewport) to a single-section router. "overview" is
+# the default landing — a one-screen summary-card grid; every other tab renders
+# exactly one domain body. Tab order promotes Votes to first detail tab. The
+# section is carried in ?section=<sid> (bookmarkable); see _render_stage2 for the
+# session-state fallback that keeps in-section filter chips from kicking the
+# reader back to Overview.
+_SECTION_LABELS: dict[str, str] = {
+    "overview": "Overview",
+    "votes": "Votes",
+    "interests": "Interests",
+    "lobbying": "Lobbying",
+    "payments": "Salary & expenses",
+    "attendance": "Attendance",
+    "questions": "Questions",
+    "debates": "Debates",
+    "legislation": "Legislation",
+    "committees": "Committees",
+}
+_SECTION_TABS: list[str] = list(_SECTION_LABELS.keys())
+
 
 # ── Data retrieval ─────────────────────────────────────────────────────────────
 
@@ -153,17 +175,14 @@ def _att_all_years(_conn, join_key: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _att_rank_for_year(_conn, join_key: str, year: int, house: str = "Dáil") -> tuple[int | None, int | None]:
-    """Member's attendance rank for a given year and the total ranked field size.
-    Returns (rank_high, total). Both None on miss. Rank + total are scoped to the
-    member's house (TDs ranked among TDs only)."""
-    df = moq.att_rank(_conn, join_key, year).data
+def _att_chamber_sitting_days(_conn, house: str = "Dáil") -> dict[int, int]:
+    """{year: distinct chamber plenary sitting days} for the house — the
+    denominator for the hero plenary-attendance figure. Empty on miss (the
+    stat then falls back to the bare plenary count with no rate)."""
+    df = moq.att_chamber_sitting_days(_conn, house).data
     if df.empty:
-        return None, None
-    total_df = moq.att_rank_total(_conn, year, house).data
-    rank = int(df.iloc[0]["rank_high"]) if pd.notna(df.iloc[0]["rank_high"]) else None
-    total = int(total_df.iloc[0]["n"]) if not total_df.empty else None
-    return rank, total
+        return {}
+    return {int(y): int(s) for y, s in zip(df["year"], df["sitting_days"], strict=True)}
 
 
 @st.cache_data(ttl=300)
@@ -222,65 +241,6 @@ def _pay_grand_total(_conn, join_key: str) -> float:
 def _salary(_conn, join_key: str, house: str) -> pd.DataFrame:
     """Statutory salary RATE row (basic + highest current office allowance)."""
     return moq.salary(_conn, join_key, house).data
-
-
-def _render_member_salary(sal_df: pd.DataFrame) -> None:
-    """Salary card — the published STATUTORY RATE (basic + highest current office
-    allowance), kept visually distinct from the PSA expense allowances rendered
-    by render_member_payments below. Display-only: every figure and the
-    basic+office split come straight from v_member_salary.
-    """
-    if sal_df.empty:
-        return
-    r = sal_df.iloc[0]
-    basic = float(r.get("basic_rate") or 0)
-    if not basic:
-        return
-    total = float(r.get("total_statutory_rate_eur") or basic)
-    is_office = bool(r.get("is_office_holder"))
-    office_label = str(r.get("office_label") or "").strip()
-    current_office = str(r.get("current_office") or "").strip()
-    office_allow = r.get("office_allowance")
-    src_doc = str(r.get("source_doc") or "").strip()
-    src_url = str(r.get("source_url") or "").strip()
-
-    lines = [
-        f'<div class="mo-salary-line"><span>{_h(str(r.get("basic_label") or "Basic salary"))}</span>'
-        f"<span>€{basic:,.0f}</span></div>"
-    ]
-    if is_office and pd.notna(office_allow):
-        # Show the specific portfolio held, attributed to its rate band.
-        band = _h(office_label or "Office allowance")
-        portfolio = f" · {_h(current_office)}" if current_office and current_office != office_label else ""
-        lines.append(
-            f'<div class="mo-salary-line"><span>{band}{portfolio}</span>'
-            f"<span>+ €{float(office_allow):,.0f}</span></div>"
-        )
-
-    if is_office and current_office:
-        sub = f"Set statutory rate while serving as {_h(office_label or current_office)} — not earned or take-home pay."
-    else:
-        sub = "Set statutory rate for every member of this House — not earned or take-home pay."
-
-    src_html = (
-        f' <a href="{_h(src_url)}" target="_blank" rel="noopener">{_h(src_doc)}</a>' if src_url else f" {_h(src_doc)}"
-    )
-    caveat = (
-        "Office-holder allowances for the Tánaiste, committee chairs, party whips and Seanad chair "
-        "roles are set out in the same guide but are not separately identified here."
-    )
-
-    st.html(
-        f'<div class="mo-salary-card">'
-        f'<div class="mo-salary-head">'
-        f'<span class="mo-salary-eyebrow">Salary · statutory rate</span>'
-        f'<span class="mo-salary-total">€{total:,.0f}<span class="mo-salary-per">/ yr</span></span>'
-        f"</div>"
-        f'<div class="mo-salary-breakdown">{"".join(lines)}</div>'
-        f'<p class="mo-salary-note">{sub} Source:{src_html}.</p>'
-        f'<p class="mo-salary-caveat">{caveat}</p>'
-        f"</div>"
-    )
 
 
 @st.cache_data(ttl=300)
@@ -1701,6 +1661,233 @@ def _render_profile_nav(conn, join_key: str, house: str, term: str, terms: str) 
             st.button("(end) →", key="mo_next_td_disabled", disabled=True)
 
 
+def _render_section_switcher(join_key: str, active: str) -> None:
+    """Profile section tabs. Each chip is a soft-nav link into one domain.
+
+    CONSTRAINT: spa_links replaces the WHOLE query string on a ?-anchor click,
+    so every chip MUST carry ``member=`` or the profile bounces back to browse.
+    The active chip gets aria-current for the filled-accent state + a11y.
+    """
+    chips = ['<nav class="mo-section-nav" aria-label="Profile sections">']
+    for sid in _SECTION_TABS:
+        cur = ' aria-current="true"' if sid == active else ""
+        chips.append(
+            f'<a class="mo-section-chip" href="?member={_h(join_key)}&section={sid}"{cur}>'
+            f"{_h(_SECTION_LABELS[sid])}</a>"
+        )
+    chips.append("</nav>")
+    st.html("\n".join(chips))
+
+
+# ── Overview summary cards (default landing) ───────────────────────────────────
+# Each card is a one-domain summary that links into its section. All figures
+# reuse the SAME cached retrieval helpers the full sections use (so the column
+# keying — member_id for votes, unique_member_code elsewhere — is already
+# correct). Every builder degrades to an honest "—" card; one empty domain never
+# breaks the grid.
+
+
+def _ov_card(sid: str, label: str, figure: str, signal_html: str, join_key: str, *, lead: bool = False) -> str:
+    """One Overview card. ``signal_html`` is pre-escaped/safe HTML; ``figure``
+    and ``label`` are escaped here."""
+    lead_cls = " mo-ov-lead" if lead else ""
+    return (
+        f'<a class="mo-overview-card{lead_cls}" href="?member={_h(join_key)}&section={sid}">'
+        f'<div class="mo-ov-label">{_h(label)}</div>'
+        f'<div class="mo-ov-figure">{_h(figure)}</div>'
+        f'<div class="mo-ov-signal">{signal_html}</div>'
+        f'<div class="mo-ov-cta">View {_h(label.lower())} →</div>'
+        "</a>"
+    )
+
+
+def _ov_votes(conn, join_key: str) -> str:
+    df = _votes_summary(conn, join_key)
+    if df.empty:
+        return _ov_card("votes", "Voting record", "—", _h("No votes recorded for this member."), join_key, lead=True)
+    r = df.iloc[0]
+    div = int(r.get("division_count", 0) or 0)
+    cast = int(r.get("yes_count", 0) or 0) + int(r.get("no_count", 0) or 0) + int(r.get("abstained_count", 0) or 0)
+    rate = r.get("yes_rate_pct")
+    parts = [f"{cast:,} votes cast"]
+    if rate is not None and not pd.isna(rate):
+        parts.append(f"voted with the question {float(rate):.0f}% of the time")
+    return _ov_card("votes", "Voting record", f"{div:,} divisions", _h(" · ".join(parts)), join_key, lead=True)
+
+
+def _ov_interests(house: str, member_name: str, join_key: str) -> str:
+    try:
+        from data_access.interests_data import fetch_td_interest_year_summary
+
+        df = fetch_td_interest_year_summary(house, member_name)
+    except Exception:  # noqa: BLE001 — degrade to empty card on any retrieval miss
+        df = None
+    if df is None or df.empty:
+        return _ov_card("interests", "Interests", "—", _h("No declarations on file."), join_key)
+    row = df.sort_values("declaration_year").iloc[-1]  # latest year
+    total = int(row.get("total_declarations", 0) or 0)
+    flags: list[str] = []
+    if bool(row.get("is_landlord")):
+        flags.append("Landlord")
+    elif bool(row.get("is_property_owner")):
+        flags.append("Property owner")
+    prop = int(row.get("property_count", 0) or 0)
+    if prop:
+        flags.append(f"{prop} propert{'ies' if prop != 1 else 'y'}")
+    share = int(row.get("share_count", 0) or 0)
+    if share:
+        flags.append(f"shareholder ×{share}")
+    sig = "declarations" + (" · " + ", ".join(flags) if flags else "")
+    return _ov_card("interests", "Interests", f"{total}", _h(sig), join_key)
+
+
+def _ov_lobbying(conn, join_key: str) -> str:
+    df = _lobbying_rd(conn, join_key)
+    if df.empty:
+        return _ov_card("lobbying", "Lobbying", "—", _h("No revolving-door flag. Open for lobbying activity."), join_key)
+    r = df.iloc[0]
+    pos = str(r.get("former_position", "")).strip()
+    rc = int(r.get("return_count", 0) or 0)
+    firms = int(r.get("distinct_firms", 0) or 0)
+    if pos and pos.upper() != "TD":
+        sig = f"Former {pos} · {rc} return{'s' if rc != 1 else ''} across {firms} firm{'s' if firms != 1 else ''}"
+        return _ov_card("lobbying", "Lobbying", "Revolving door", _h(sig), join_key)
+    return _ov_card("lobbying", "Lobbying", "—", _h("No revolving-door flag. Open for lobbying activity."), join_key)
+
+
+def _ov_payments(conn, join_key: str, house: str) -> str:
+    total = _pay_grand_total(conn, join_key)
+    sal = _salary(conn, join_key, house)
+    basic = 0.0
+    if not sal.empty:
+        basic = float(sal.iloc[0].get("total_statutory_rate_eur") or sal.iloc[0].get("basic_rate") or 0)
+    if not total and not basic:
+        return _ov_card("payments", "Salary & expenses", "—", _h("No payment records on file."), join_key)
+    figure = f"€{total:,.0f}" if total else "—"
+    parts = ["expenses (PSA/TAA) — not salary"]
+    if basic:
+        parts.append(f"€{basic:,.0f} salary rate")
+    return _ov_card("payments", "Salary & expenses", figure, _h(" · ".join(parts)), join_key)
+
+
+def _ov_attendance(conn, join_key: str, house: str, is_minister: bool) -> str:
+    df = _att_all_years(conn, join_key)
+    if is_minister:
+        # Members holding ministerial office aren't captured in the plenary-
+        # attendance PDFs (documented source gap). They surface as a sparse row
+        # (e.g. "1 of 94"), which on a standalone card reads as near-total
+        # absence rather than a source limitation — so show the note instead of
+        # the raw figure. (The hero stat strip keeps the number but qualifies it
+        # with "· Minister"; the card has no room for that qualifier.)
+        return _ov_card(
+            "attendance",
+            "Attendance",
+            "Not recorded",
+            _h("Members holding ministerial office aren't recorded in the attendance PDFs."),
+            join_key,
+        )
+    if df.empty:
+        return _ov_card("attendance", "Attendance", "—", _h("No attendance records on file."), join_key)
+    this_year = datetime.date.today().year
+    completed = df[df["year"] < this_year]
+    row = completed.iloc[0] if not completed.empty else df.iloc[0]
+    yr = int(row["year"])
+    sitting = int(row["sitting_days"]) if pd.notna(row.get("sitting_days")) else 0
+    denom = _att_chamber_sitting_days(conn, house).get(yr)
+    figure = f"{sitting} of {denom}" if denom else str(sitting)
+    return _ov_card("attendance", "Attendance", figure, _h(f"sitting days · {yr}"), join_key)
+
+
+def _ov_questions(conn, join_key: str) -> str:
+    p = _q_profile(conn, join_key)
+    total = int(p.get("total_qs", 0) or 0)
+    if total == 0:
+        return _ov_card("questions", "Questions", "—", _h("No parliamentary questions on file."), join_key)
+    top = str(p.get("top_ministry") or "").strip()
+    sig = "questions asked" + (f" · most on {top}" if top else "")
+    return _ov_card("questions", "Questions", f"{total:,}", _h(sig), join_key)
+
+
+def _ov_legislation(conn, join_key: str) -> str:
+    df = _legislation(conn, join_key)
+    n = 0 if df is None or df.empty else len(df)
+    if n == 0:
+        return _ov_card("legislation", "Legislation", "—", _h("No bills sponsored."), join_key)
+    return _ov_card("legislation", "Legislation", f"{n}", _h(f"bill{'s' if n != 1 else ''} sponsored"), join_key)
+
+
+def _ov_committees(member_name: str, join_key: str) -> str:
+    try:
+        df = fetch_committee_assignments("Dáil")
+        # logic_firewall: display_only — counting already-shaped assignment rows.
+        n = int((df["member_name"] == member_name).sum()) if df is not None and "member_name" in df.columns else 0
+    except Exception:  # noqa: BLE001 — degrade to empty card on any retrieval miss
+        n = 0
+    if n == 0:
+        return _ov_card("committees", "Committees", "—", _h("No committee memberships on file."), join_key)
+    return _ov_card("committees", "Committees", f"{n}", _h(f"committee assignment{'s' if n != 1 else ''}"), join_key)
+
+
+def _render_overview(conn, join_key: str, house: str, member_name: str, is_minister: bool, is_seanad: bool) -> None:
+    """Default profile landing: a one-screen summary grid. Votes leads (full
+    width); every card links into its full section."""
+    st.caption("A one-screen summary of the public record. Open any card for the full detail.")
+    cards: list[str] = [
+        _ov_votes(conn, join_key),  # lead, full width
+        _ov_interests(house, member_name, join_key),
+        _ov_lobbying(conn, join_key),
+        _ov_payments(conn, join_key, house),
+        _ov_attendance(conn, join_key, house, is_minister),
+    ]
+    if not is_seanad:
+        cards.append(_ov_questions(conn, join_key))
+    cards.append(_ov_legislation(conn, join_key))
+    cards.append(_ov_committees(member_name, join_key))
+    st.html('<div class="mo-overview-grid">' + "".join(c for c in cards if c) + "</div>")
+
+
+def _render_pay_summary_tiles(conn, join_key: str, house: str) -> None:
+    """Two compact tiles — statutory salary | reimbursed expenses — replacing the
+    salary card + divider + lead paragraph. States the salary≠expenses point once.
+    Display-only: every figure comes straight from v_member_salary / SUM(payments).
+    """
+    sal = _salary(conn, join_key, house)
+    total = _pay_grand_total(conn, join_key)
+
+    if not sal.empty and float(sal.iloc[0].get("basic_rate") or 0):
+        r = sal.iloc[0]
+        rate = float(r.get("total_statutory_rate_eur") or r.get("basic_rate") or 0)
+        cur = str(r.get("current_office") or "").strip()
+        office_note = f" incl. {cur} allowance" if bool(r.get("is_office_holder")) and cur else ""
+        sal_tile = (
+            '<div class="mo-pay-tile">'
+            '<div class="mo-pay-tile-eyebrow">Salary · statutory rate</div>'
+            f'<div class="mo-pay-tile-figure">€{rate:,.0f}<span class="mo-pay-tile-per"> / yr</span></div>'
+            f'<div class="mo-pay-tile-note">Set published rate{_h(office_note)} — not earned or take-home pay.</div>'
+            "</div>"
+        )
+    else:
+        sal_tile = (
+            '<div class="mo-pay-tile">'
+            '<div class="mo-pay-tile-eyebrow">Salary · statutory rate</div>'
+            '<div class="mo-pay-tile-figure">—</div>'
+            '<div class="mo-pay-tile-note">No statutory salary rate on file for this member.</div>'
+            "</div>"
+        )
+
+    exp_fig = f"€{total:,.0f}" if total else "—"
+    exp_tile = (
+        '<div class="mo-pay-tile mo-pay-tile-expenses">'
+        '<div class="mo-pay-tile-eyebrow">Expenses &amp; allowances · all years</div>'
+        f'<div class="mo-pay-tile-figure">{exp_fig}</div>'
+        '<div class="mo-pay-tile-note">Parliamentary Standard Allowance (PSA/TAA): money to cover the cost of '
+        "doing the job (travel, accommodation, office costs). Reimbursed expenses — <strong>not</strong> "
+        "salary or income.</div>"
+        "</div>"
+    )
+    st.html(f'<div class="mo-pay-tiles">{sal_tile}{exp_tile}</div>')
+
+
 def _render_stage2(
     conn,
     join_key: str,
@@ -1837,10 +2024,9 @@ def _render_stage2(
     # representative is identity-level information, not buried in a section.
     _render_contact_block(_contact_details(conn, join_key), member_name, profile_href)
 
-    # ── Recent media mentions (per-member news search, collapsed) ────────────
-    # Name-matched recent coverage from a Google-News search per member. Collapsed
-    # so it never dominates the profile; honest empty state for low-profile members.
-    _render_news_mentions_block(_news_mentions(conn, join_key), member_name)
+    # NOTE: the per-member "Recent media mentions" card is parked while the news
+    # feature is tested further (see pipeline_sandbox/news_mentions/). The render
+    # helper + query (moq.news_mentions) remain for one-line reinstatement.
 
     # ── Headline stats — single source of truth, no duplication ──────────────
     att_df = _att_all_years(conn, join_key)
@@ -1870,11 +2056,11 @@ def _render_stage2(
     if att_empty and pay_empty:
         # Round-3 audit P1-F: when BOTH attendance and payments are empty,
         # show a single explanatory line instead of two em-dashes in the
-        # stat strip. The is_minister flag from v_member_registry isn't
-        # reliable for cabinet members (returns False even for the
-        # Taoiseach), so we don't gate on it — empty-on-both is itself
-        # the strongest signal that the regular plenary/TAA framing
-        # doesn't apply.
+        # stat strip. We gate on empty-on-both rather than is_minister: it's
+        # the strongest signal that the regular plenary/TAA framing doesn't
+        # apply, and it also covers ex-ministers / edge cases. (is_minister
+        # itself is now corrected in v_member_registry from the member feed's
+        # office slots — Taoiseach included — 2026-06-22.)
         # Audit P2-2: "1,318 votes cast across 1,318 divisions" reads
         # tautologically when the numbers match (a TD who voted in every
         # division). Collapse to the one-number form in that case.
@@ -1905,17 +2091,33 @@ def _render_stage2(
             completed = att_df[att_df["year"] < this_year]
             row = completed.iloc[0] if not completed.empty else att_df.iloc[0]
             att_yr = int(row["year"])
-            att_days = int(row["attended_count"])
             so_far = " (so far)" if att_yr >= this_year else ""
-            att_lbl = f"Days in chamber · {att_yr}{so_far}"
-            att_val = str(att_days)
+            # Lead with PLENARY sitting days (days actually in the chamber),
+            # rated against the chamber's own sitting-day count. The headline
+            # used to show attended_count = sitting + "other" days (committee /
+            # non-sitting business per the TAA report footnote) labelled "Days
+            # in chamber" — but that total can exceed the days the chamber sat
+            # (e.g. 120 vs 94 in 2025), which reads as broken/stale data. Other
+            # days are surfaced separately, never summed into the headline.
+            sitting = int(row["sitting_days"]) if pd.notna(row.get("sitting_days")) else 0
+            other = int(row["other_days"]) if pd.notna(row.get("other_days")) else 0
+            denom = _att_chamber_sitting_days(conn, house).get(att_yr)
+            att_lbl = f"Sitting days · {att_yr}{so_far}"
+            att_val = f"{sitting} of {denom}" if denom else str(sitting)
+            # No rank here: the only rank we have (v_attendance_year_rank) is
+            # computed on the combined total, which is capped at the 120-day TAA
+            # limit — 125 of 155 members tie at 120 in 2025, so "rank 1 of 155"
+            # is meaningless. The "other days" are committee / non-sitting business
+            # (TAA report footnote: "includes non-sitting days on which committees
+            # may have sat") and are shown separately, never folded into the figure.
+            sub_parts: list[str] = []
+            if other:
+                sub_parts.append(f"+{other} other (non-sitting) days")
             if is_minister:
-                att_sub = "Minister · plenary record only"
-            else:
-                rank, total = _att_rank_for_year(conn, join_key, att_yr, house)
-                att_sub = f"Rank {rank} of {total} {'Senators' if is_seanad else 'TDs'}" if rank and total else ""
+                sub_parts.append("Minister")
+            att_sub = " · ".join(sub_parts)
         else:
-            att_lbl, att_val, att_sub = "Days in chamber", "—", ""
+            att_lbl, att_val, att_sub = "Sitting days", "—", ""
 
         cast_val = f"{votes_cast:,}" if votes_cast else "—"
         cast_sub = f"across {votes_div:,} divisions" if votes_div else ""
@@ -1959,67 +2161,33 @@ def _render_stage2(
         ctx = _constituency_context(conn, constituency)
         _render_constituency_context(constituency, ctx)
 
-    # ── Section nav chip row (Phase 2 chrome, audit P0-2 finally rendered) ──
-    # Anchors jump to #mo-section-<sid> divs emitted alongside each expander
-    # below. CSS at shared_css.py:.mo-section-nav / .mo-section-chip shipped
-    # with Phase 2 but the markup was missing — citizens had no wayfinding
-    # past the hero on the longest page in the app.
-    chip_html = ['<nav class="mo-section-nav" aria-label="Profile sections">']
-    for sid, label, _ in _PROFILE_SECTIONS:
-        chip_html.append(f'<a class="mo-section-chip" href="#mo-section-{sid}">{_h(label)}</a>')
-    chip_html.append("</nav>")
-    st.html("\n".join(chip_html))
+    # ── Section router (2026-06-22) ──────────────────────────────────────────
+    # The profile was an all-sections-rendered flat scroll: too long, and the
+    # next section's cards bled into the viewport. Now one domain renders at a
+    # time, chosen by ?section=<sid> (bookmarkable; default "overview").
+    #
+    # spa_links replaces the WHOLE query string on any ?-anchor click, so an
+    # in-section filter chip (?mo_q_topic, ?payyr) drops ?section. We hold the
+    # active section in session_state as a fallback so those clicks don't kick
+    # the reader back to Overview, and reset to Overview when the member changes.
+    url_section = st.query_params.get("section")
+    if st.session_state.get("mo_active_member") != join_key:
+        st.session_state["mo_active_member"] = join_key
+        active = url_section or "overview"
+    else:
+        active = url_section or st.session_state.get("mo_active_section", "overview")
+    if active not in _SECTION_LABELS:
+        active = "overview"
+    st.session_state["mo_active_section"] = active
 
-    # Hash-scroll shim — Streamlit doesn't honour `#anchor` on cold-load (the
-    # browser scrolls before sections render) or on chip click (the iframe
-    # boundaries swallow the default hashchange behaviour). This polls for the
-    # target inside the parent document after each rerun and scrolls when found.
-    # Lives inside an st.components.v1.html iframe so the <script> isn't
-    # stripped by st.markdown's DOMPurify (per feedback_streamlit_css_and_state).
-    import streamlit.components.v1 as components  # local import keeps top tidy
+    _render_section_switcher(join_key, active)
 
-    components.html(
-        """
-        <script>
-        (function() {
-          const D = window.parent.document;
-          const scrollTo = (id) => {
-            const el = D.getElementById(id);
-            if (!el) return false;
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            return true;
-          };
-          const honourHash = () => {
-            const h = window.parent.location.hash;
-            if (!h || !h.startsWith('#mo-section-')) return;
-            const id = h.slice(1);
-            // Poll for up to 3s — sections render after this script fires.
-            let tries = 0;
-            const t = setInterval(() => {
-              if (scrollTo(id) || ++tries > 30) clearInterval(t);
-            }, 100);
-          };
-          // Run once on load + whenever the chip-click changes the hash.
-          honourHash();
-          window.parent.addEventListener('hashchange', honourHash);
-        })();
-        </script>
-        """,
-        height=0,
-    )
+    if active == "overview":
+        _render_overview(conn, join_key, house, member_name, is_minister, is_seanad)
+    else:
+        st.html(f'<h2 class="section-heading">{_h(_SECTION_LABELS[active])}</h2>')
 
-    # ── Profile sections (always-rendered, flat headings) ────────────────────
-    # Every section's body runs on every view — no expand/collapse, no lazy
-    # gating. Trades ~5 cold-load SQL queries for ~25 to make the page
-    # scannable end-to-end (TheyWorkForYou pattern, PRODUCT.md principle #3).
-    for sid, label, _page_key in _PROFILE_SECTIONS:
-        # Anchor lives outside the heading so #mo-section-<sid> jumps land
-        # at the right scroll offset (CSS uses negative top to clear any
-        # sticky bits above).
-        st.html(f'<div id="mo-section-{sid}" class="mo-section-anchor"></div>')
-        st.html(f'<h2 class="section-heading">{_h(label)}</h2>')
-
-        if sid == "interests":
+        if active == "interests":
             # Phase 3 lift: full body rendered here without the per-page
             # member header (the hero above already shows it). House-aware —
             # the Register of Interests is published per chamber.
@@ -2029,7 +2197,7 @@ def _render_stage2(
                 show_member_header=False,
                 year_pill_key=f"mo_int_year_{join_key}",
             )
-        elif sid == "lobbying":
+        elif active == "lobbying":
             # Revolving-door callout (member-overview-local — built from
             # v_lobbying_revolving_door_member, which lobbying_2.py does
             # not query directly). Renders above the lifted body so the
@@ -2062,25 +2230,14 @@ def _render_stage2(
                 show_header=False,
                 year_pill_key=f"mo_lob_year_{join_key}",
             )
-        elif sid == "payments":
-            # Salary FIRST (the statutory set rate), then the PSA expense
-            # allowances — two genuinely different things citizens routinely
-            # conflate. The salary card states the published rate; the
-            # allowances body below is reimbursed cost-of-duties money.
-            _render_member_salary(_salary(conn, join_key, house))
-            st.html(
-                '<div class="mo-pay-divider"></div>'
-                '<p class="mo-pay-lead"><strong>Expenses &amp; allowances</strong> — the figures below are the '
-                "Parliamentary Standard Allowance (PSA): money to cover the cost of doing the job "
-                "(travel, accommodation and office/representation costs). They are reimbursed expenses, "
-                "<strong>not</strong> salary or income.</p>"
-            )
-            # Phase 5 lift: full payments body (year metrics + Altair
-            # evolution chart + card-based all-years summary + card-based
-            # payment records) without the per-page identity strip,
-            # back button, or provenance footer. Two `st.dataframe`
-            # views in the stand-alone page are replaced by card lists
-            # here per feedback_member_overview_no_dataframes.
+        elif active == "payments":
+            # Two compact tiles — statutory salary | reimbursed expenses —
+            # replace the old salary card + divider + lead paragraph: the
+            # salary≠expenses point is stated once, cleanly, above the body.
+            _render_pay_summary_tiles(conn, join_key, house)
+            # Phase 5 lift: full payments body (year metrics + card-based
+            # all-years summary + card-based payment records) without the
+            # per-page identity strip, back button, or provenance footer.
             _pay_year_options = _pay_filter_options().get("years", [])
             if _pay_year_options:
                 render_member_payments(
@@ -2096,9 +2253,9 @@ def _render_stage2(
                     "Payments data unavailable",
                     "v_payments_summary returned no years. Run the payments pipeline.",
                 )
-        elif sid == "attendance":
-            # Phase 6 lift: year metrics + sitting-calendar Altair strip +
-            # card-based year breakdown. No inner `st.expander` (nested
+        elif active == "attendance":
+            # Phase 6 lift: year metrics + card-based year breakdown + a
+            # sitting-calendar toggle. No inner `st.expander` (nested
             # expanders fail in Streamlit) and no `st.dataframe` (per
             # feedback_member_overview_no_dataframes — the year breakdown
             # renders as `.att-year-row`s with a CSS-width bar).
@@ -2109,7 +2266,7 @@ def _render_stage2(
                 year_pill_key=f"mo_att_year_{join_key}",
                 export_key_suffix="_mo",
             )
-        elif sid == "votes":
+        elif active == "votes":
             # Phase 7 lift: shared `render_member_votes` wrapper fetches
             # td_vote_summary + history + year summary and calls
             # `render_td_panel(show_header=False)`. Same render path the
@@ -2137,12 +2294,12 @@ def _render_stage2(
                 date_to=_v_to,
                 key_suffix=f"_mo_{join_key}",
             )
-        elif sid == "debates":
+        elif active == "debates":
             # 2026-05-31: promoted out of the Votes section into its own chip
             # so a reporter looking for "what has this TD spoken on?" finds it
             # in the section nav rather than buried under a 1000-row vote list.
             _section_debates(conn, join_key, member_name)
-        elif sid == "questions":
+        elif active == "questions":
             # 2026-05-27: full-history (264k row) Questions section.
             # Header strip + filter bar + paginated feed. See contract
             # member_overview.yaml -> section_content.questions.
@@ -2154,16 +2311,16 @@ def _render_stage2(
                     "Not applicable to Senators",
                     "Parliamentary Questions are tabled by TDs. Senators raise "
                     "Commencement Matters in the Seanad — see the **Debates** "
-                    "section above (filter the item of business to "
+                    "section (filter the item of business to "
                     "“Commencement Matters”).",
                 )
             else:
                 _section_questions(conn, join_key, member_name)
-        elif sid == "legislation":
+        elif active == "legislation":
             _section_legislation(conn, join_key, member_name)
             _section_ministerial_roles(conn, join_key)
             _section_statutory_instruments(conn, join_key)
-        elif sid == "committees":
+        elif active == "committees":
             _section_committees(member_name, join_key)
 
     # ── Unified provenance footer ────────────────────────────────────────────

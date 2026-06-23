@@ -125,12 +125,28 @@ def identity_registry_all(conn: duckdb.DuckDBPyConnection, join_key: str) -> Que
 
 
 def att_all_years(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
+    # sitting_days (plenary) + other_days (committee/non-sitting) are exposed
+    # alongside attended_count (= their sum) so the hero stat-strip can lead with
+    # the plenary figure and show "other days" separately — the combined total
+    # conflates chamber presence with committee days and can exceed the chamber's
+    # own sitting-day count, which reads as broken data. See attendance memory.
     return _run(
         conn,
-        "SELECT year, attended_count, is_minister"
+        "SELECT year, attended_count, sitting_days, other_days, is_minister"
         " FROM v_attendance_member_year_summary"
         " WHERE unique_member_code = ? ORDER BY year DESC LIMIT 20",
         [join_key],
+    )
+
+
+def att_chamber_sitting_days(conn: duckdb.DuckDBPyConnection, house: str = "Dáil") -> QueryResult:
+    """Per-year distinct plenary sitting dates for a house — the denominator for
+    the hero stat-strip's plenary-attendance figure (data-derived; matches the
+    'Total number of sitting days in the period' printed in the TAA reports)."""
+    return _run(
+        conn,
+        "SELECT year, sitting_days FROM v_attendance_chamber_sitting_days WHERE house = ?",
+        [house],
     )
 
 
@@ -180,12 +196,17 @@ def contact_details(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResu
 
 def news_mentions(conn: duckdb.DuckDBPyConnection, join_key: str, limit: int = 30) -> QueryResult:
     """Recent news mentions (per-member Google-News search), most-recent first. One row per
-    article; empty when the member has no recent coverage. A row is a name match, not an
-    assertion the article is about the member (see v_member_news_mentions)."""
+    article; empty when the member has no recent coverage.
+
+    Restricted to ``match_in_title`` (the member's full name in the HEADLINE) — the per-member
+    name search returns any namesake, and ~83% of rows were body-only matches that were often
+    a different person entirely (a GAA player, an obituary, a historical figure). Requiring the
+    name in the headline drops that noise. A row is still a name match, not an assertion the
+    article is about this politician (residual namesake collisions in headlines are possible)."""
     return _run(
         conn,
         "SELECT article_title, article_url, outlet, outlet_tier, published_at, match_in_title"
-        " FROM v_member_news_mentions WHERE unique_member_code = ?"
+        " FROM v_member_news_mentions WHERE unique_member_code = ? AND match_in_title = TRUE"
         " ORDER BY published_at DESC NULLS LAST LIMIT ?",
         [join_key, limit],
     )

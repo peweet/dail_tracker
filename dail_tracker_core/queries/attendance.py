@@ -94,6 +94,131 @@ def year_ranking(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil
     )
 
 
+# ── Participation & absence model (replaces the censored TAA ranking) ─────────
+
+
+def participation_years(conn: duckdb.DuckDBPyConnection, house: str = "Dáil") -> QueryResult:
+    """Current-term reporting years for a house, most-recent first."""
+    return _run(
+        conn,
+        "SELECT DISTINCT year FROM v_attendance_participation_turnout WHERE house = ? ORDER BY year DESC LIMIT 20",
+        [house],
+    )
+
+
+def participation_turnout(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil") -> QueryResult:
+    """Division turnout for a (year, house), worst-first. Office-holders kept with
+    their role flags so the UI can context-flag rather than hide them."""
+    return _run(
+        conn,
+        "SELECT unique_member_code, member_name, party_name, constituency,"
+        " voted_in, missed, total_divisions, turnout_pct,"
+        " is_minister, is_chair, is_leader, role, role_note"
+        " FROM v_attendance_participation_turnout WHERE year = ? AND house = ?"
+        " ORDER BY turnout_pct ASC, member_name ASC LIMIT 500",
+        [year, house],
+    )
+
+
+def participation_absences(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil") -> QueryResult:
+    """Longest interior vote-gaps for a (year, house), worst-first, with the
+    sourced explanation (if any) carried through for the news-vindication chip."""
+    return _run(
+        conn,
+        "SELECT unique_member_code, member_name, party_name, longest_run_divisions,"
+        " run_calendar_days, run_start, run_end, turnout_pct,"
+        " is_minister, is_chair, is_leader, role, role_note,"
+        " reason_label, source_title, source_url, is_curated"
+        " FROM v_attendance_participation_absences"
+        " WHERE year = ? AND house = ? AND longest_run_divisions > 0"
+        " ORDER BY longest_run_divisions DESC, member_name ASC LIMIT 200",
+        [year, house],
+    )
+
+
+def participation_divergence(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil") -> QueryResult:
+    """"Badged in, didn't vote" — present in the TAA record but low turnout
+    (backbenchers only). Most divergent first (lowest turnout)."""
+    return _run(
+        conn,
+        "SELECT unique_member_code, member_name, party_name, taa_days_present,"
+        " votes_cast, total_divisions, turnout_pct"
+        " FROM v_attendance_participation_divergence WHERE year = ? AND house = ?"
+        " ORDER BY turnout_pct ASC NULLS FIRST LIMIT 100",
+        [year, house],
+    )
+
+
+def taa_compliance(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil") -> QueryResult:
+    """Members below the 120-day TAA threshold + the allowance deduction. Excludes
+    office-holders (not paid TAA on the attendance basis), most-docked first."""
+    return _run(
+        conn,
+        "SELECT t.unique_member_code, t.member_name, t.party_name, t.total_days,"
+        " t.days_below_minimum, t.deduction_pct"
+        " FROM v_attendance_taa_compliance t"
+        " LEFT JOIN v_attendance_participation_turnout p"
+        "   ON p.unique_member_code = t.unique_member_code AND p.house = t.house AND p.year = t.year"
+        " WHERE t.year = ? AND t.house = ? AND t.meets_120 = FALSE"
+        "   AND COALESCE(p.is_minister, FALSE) = FALSE AND COALESCE(p.is_chair, FALSE) = FALSE"
+        " ORDER BY t.days_below_minimum DESC, t.member_name ASC LIMIT 200",
+        [year, house],
+    )
+
+
+def taa_compliance_summary(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil") -> QueryResult:
+    """One-row cleared/below counts for the TAA section header. Excludes office-
+    holders (not paid TAA on the attendance basis) so the counts match the list."""
+    return _run(
+        conn,
+        "SELECT count(*) AS n_total,"
+        " sum(CASE WHEN t.meets_120 THEN 1 ELSE 0 END) AS n_cleared,"
+        " sum(CASE WHEN NOT t.meets_120 THEN 1 ELSE 0 END) AS n_below"
+        " FROM v_attendance_taa_compliance t"
+        " LEFT JOIN v_attendance_participation_turnout p"
+        "   ON p.unique_member_code = t.unique_member_code AND p.house = t.house AND p.year = t.year"
+        " WHERE t.year = ? AND t.house = ?"
+        "   AND COALESCE(p.is_minister, FALSE) = FALSE AND COALESCE(p.is_chair, FALSE) = FALSE",
+        [year, house],
+    )
+
+
+def member_participation(conn: duckdb.DuckDBPyConnection, unique_member_code: str) -> QueryResult:
+    """Per-member participation rows across the current term (turnout + role) for
+    the member-overview embedded panel."""
+    return _run(
+        conn,
+        "SELECT year, house, voted_in, missed, total_divisions, turnout_pct,"
+        " is_minister, is_chair, is_leader, role, role_note"
+        " FROM v_attendance_participation_turnout WHERE unique_member_code = ?"
+        " ORDER BY year DESC LIMIT 20",
+        [unique_member_code],
+    )
+
+
+def member_absences(conn: duckdb.DuckDBPyConnection, unique_member_code: str) -> QueryResult:
+    """Per-member absence runs + sourced explanation, current term."""
+    return _run(
+        conn,
+        "SELECT year, house, longest_run_divisions, run_calendar_days, run_start, run_end,"
+        " reason_label, source_title, source_url"
+        " FROM v_attendance_participation_absences WHERE unique_member_code = ?"
+        " ORDER BY year DESC LIMIT 20",
+        [unique_member_code],
+    )
+
+
+def member_taa(conn: duckdb.DuckDBPyConnection, unique_member_code: str) -> QueryResult:
+    """Per-member TAA compliance across the current term."""
+    return _run(
+        conn,
+        "SELECT year, house, total_days, meets_120, days_below_minimum, deduction_pct"
+        " FROM v_attendance_taa_compliance WHERE unique_member_code = ?"
+        " ORDER BY year DESC LIMIT 20",
+        [unique_member_code],
+    )
+
+
 def chamber_sitting_days(conn: duckdb.DuckDBPyConnection, house: str) -> QueryResult:
     """(year, sitting_days) for a house — the data-derived attendance-bar
     denominator (distinct sitting dates actually in the record). Used for BOTH

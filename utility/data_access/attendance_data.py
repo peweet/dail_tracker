@@ -63,6 +63,63 @@ def fetch_year_ranking(year: int, house: str = "Dáil") -> pd.DataFrame:
     return _q.year_ranking(get_attendance_conn(), year, house).data
 
 
+# ── Participation & absence model fetchers ────────────────────────────────────
+
+
+def _df(r) -> pd.DataFrame:
+    return r.data if (r.ok and not r.is_empty) else pd.DataFrame()
+
+
+@st.cache_data(ttl=300)
+def fetch_participation_years(house: str = "Dáil") -> list[int]:
+    r = _q.participation_years(get_attendance_conn(), house)
+    return [int(y) for y in r.data["year"].tolist()] if (r.ok and not r.is_empty) else []
+
+
+@st.cache_data(ttl=300)
+def fetch_turnout(year: int, house: str = "Dáil") -> pd.DataFrame:
+    return _df(_q.participation_turnout(get_attendance_conn(), year, house))
+
+
+@st.cache_data(ttl=300)
+def fetch_absences(year: int, house: str = "Dáil") -> pd.DataFrame:
+    return _df(_q.participation_absences(get_attendance_conn(), year, house))
+
+
+@st.cache_data(ttl=300)
+def fetch_divergence(year: int, house: str = "Dáil") -> pd.DataFrame:
+    return _df(_q.participation_divergence(get_attendance_conn(), year, house))
+
+
+@st.cache_data(ttl=300)
+def fetch_taa_compliance(year: int, house: str = "Dáil") -> pd.DataFrame:
+    return _df(_q.taa_compliance(get_attendance_conn(), year, house))
+
+
+@st.cache_data(ttl=300)
+def fetch_taa_summary(year: int, house: str = "Dáil") -> dict[str, int]:
+    r = _q.taa_compliance_summary(get_attendance_conn(), year, house)
+    if not r.ok or r.is_empty:
+        return {"n_total": 0, "n_cleared": 0, "n_below": 0}
+    row = r.data.iloc[0]
+    return {k: int(row[k] or 0) for k in ("n_total", "n_cleared", "n_below")}
+
+
+@st.cache_data(ttl=300)
+def fetch_member_participation(unique_member_code: str) -> pd.DataFrame:
+    return _df(_q.member_participation(get_attendance_conn(), unique_member_code))
+
+
+@st.cache_data(ttl=300)
+def fetch_member_absences(unique_member_code: str) -> pd.DataFrame:
+    return _df(_q.member_absences(get_attendance_conn(), unique_member_code))
+
+
+@st.cache_data(ttl=300)
+def fetch_member_taa(unique_member_code: str) -> pd.DataFrame:
+    return _df(_q.member_taa(get_attendance_conn(), unique_member_code))
+
+
 @st.cache_data(ttl=300)
 def fetch_chamber_sitting_days(house: str) -> dict[int, int]:
     """{year: distinct chamber sitting days} — the Seanad attendance-bar denominator."""

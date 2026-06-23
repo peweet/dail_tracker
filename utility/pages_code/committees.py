@@ -340,10 +340,25 @@ def _meeting_history(committee_name: str) -> None:
     evidence_heading("Meeting history")
     meetings = fetch_committee_meetings(committee_name)
     if meetings.empty:
+        # Honest, educational empty state ([[feedback_no_inference_in_app]]):
+        # meeting history is built from the Oireachtas *debate transcripts*.
+        # Coverage now spans every policy committee; the only committees with no
+        # rows are those that run the internal business of the House (standing
+        # orders, selection, remit oversight, members' interests), whose
+        # proceedings aren't published as debate transcripts — so there is
+        # nothing to ingest, and a data refresh would not add them. State the
+        # verifiable fact (no transcripts on record) and explain the source,
+        # rather than implying data is still on its way.
         empty_state(
-            "Meeting history not yet available",
-            "Recent meetings, topics and witnesses are being added committee by "
-            "committee. This committee isn't in the current set.",
+            "No published meeting transcripts",
+            "Meeting history is drawn from the official Oireachtas debate "
+            "transcripts, and there are none on record for this committee. "
+            "Committees that handle the internal running of the Houses — such as "
+            "standing orders, the selection of members, or oversight of "
+            "committee remits — generally conduct their business without a "
+            "published transcript, so no meetings appear here. Policy committees "
+            "(Health, Justice, Finance and the like) publish transcripts and do "
+            "show a meeting history.",
         )
         return
 
