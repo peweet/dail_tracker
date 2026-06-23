@@ -336,6 +336,10 @@ def _render_index() -> None:
         empty_state("No match", f"No constituency matches “{query}”.")
         return
 
+    # Choropleth moved ABOVE the card grid (2026-06-22, user request — it previously
+    # sat below the grid). The map is a static <img>, so it renders fine inline here.
+    _render_choropleth()
+
     cards = [
         clickable_card_link(
             href=f"?constituency={quote(str(r['constituency_name']))}",
@@ -349,11 +353,6 @@ def _render_index() -> None:
         f"{len(shown)} of {len(df)} constituencies · "
         "Population: Census 2022 on the 2023 Electoral Commission boundaries."
     )
-
-    # Exploratory choropleth now sits BELOW the search box + card grid so the grid
-    # (the reliable selector) leads first paint (audit 2026-06-21). Kept inline rather
-    # than in a collapsed expander — a folium/iframe map renders at 0 width when hidden.
-    _render_choropleth()
 
 
 # ── DOSSIER ───────────────────────────────────────────────────────────────────

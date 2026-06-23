@@ -37,6 +37,16 @@ def test_tool_registry_loads():
     } <= names
 
 
+def test_vote_tools_expose_bounding_params():
+    # Contract: the high-cardinality vote tools must advertise their result-bounding
+    # knobs so an agent can page/summarise instead of blowing the token budget.
+    tools = {t.name: t for t in asyncio.run(server.mcp.list_tools())}
+    vvi = tools["voting_vs_interests"].inputSchema["properties"]
+    assert {"summary_only", "limit"} <= set(vvi)
+    svt = tools["search_votes_by_topic"].inputSchema["properties"]
+    assert "include_member_votes" in svt
+
+
 def test_prompts_and_read_only_annotations():
     prompts = asyncio.run(server.mcp.list_prompts())
     assert len(prompts) >= 7

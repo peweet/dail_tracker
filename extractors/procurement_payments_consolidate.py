@@ -57,6 +57,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "extractors"))
 from _publisher_regime import regime_for  # noqa: E402
+from extractors._paid_flag_clean import clean_paid_flag  # noqa: E402
 
 from services.data_contracts import guard_payment_fact, reconciliation_violations  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
@@ -683,6 +684,14 @@ def main() -> None:
     df = pl.concat([base, la], how="vertical") if la is not None else base
     df = _canonicalise_split_entities(df)
     df = _clean_supplier_names(df)
+    # paid_flag column-misalignment repair (idempotent; see extractors/_paid_flag_clean.py).
+    # Silver is already cleaned at source, so this is defence-in-depth — but it runs BEFORE
+    # _derive_spend_category so any category text recovered from a leaked paid_flag also feeds
+    # the published-description spend category. Schema/row/€ preserving (reconciliation-safe).
+    df, _pf = clean_paid_flag(df)
+    if _pf.get("n_leak"):
+        print(f"  paid_flag repair: cleared {_pf['n_leak']:,} leaked values, "
+              f"recovered {_pf.get('n_recovered', 0):,} category texts into description")
     df = _conform(df)
     df = _attach_regime(df)
     df = _attach_cro(df)
