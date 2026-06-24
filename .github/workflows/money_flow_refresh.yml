@@ -58,7 +58,7 @@ jobs:
       RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
       R2_BUCKET: dail-tracker-backup
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v3
         with:
