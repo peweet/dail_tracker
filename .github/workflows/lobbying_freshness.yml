@@ -42,7 +42,7 @@ jobs:
         run: uv run python tools/lobbying_freshness_check.py --slack-days "${{ github.event.inputs.slack_days || '14' }}"
       - name: Open issue on staleness (scheduled runs only)
         if: failure() && github.event_name == 'schedule'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             github.rest.issues.create({
