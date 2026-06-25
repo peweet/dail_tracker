@@ -199,6 +199,7 @@ CONSTITUENCY_FILES = [
     "constituency_la_collection_rates.sql",  # council NOAC M2 collection rates (reads gold parquet; no deps)
     "constituency_la_noac_scorecard.sql",  # council NOAC scorecard (finance/workforce/roads/fire/litter; reads gold parquet; no deps)
     "constituency_la_noac_scorecard_history.sql",  # scorecard metrics 2022-2024 for the trend sparklines (reads gold parquet; no deps)
+    "constituency_la_noac_indicators.sql",  # full NOAC indicator set (~125 series) for the All-indicators drill-down (reads gold parquet; no deps)
     "constituency_la_accountability_summary.sql",  # 1-row national headline; MUST follow the 3 LA views above
     "constituency_la_cash_signals.sql",  # 3 cash figures co-located (M1+M2+derelict); JOINs scorecard+collection_rates+derelict, so MUST follow them
 

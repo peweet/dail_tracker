@@ -10,20 +10,20 @@
   },
   "2023": {
     "revenue_balance_pct": 0,
-    "m3_claims_per_capita_eur": 30,
-    "m4_central_mgmt_charge_pct": 30,
-    "sickness_certified_pct": 30,
-    "roads_poor_pct": 29,
-    "fire_within_10min_pct": 30,
-    "litter_problem_pct": 30
+    "m3_claims_per_capita_eur": 31,
+    "m4_central_mgmt_charge_pct": 31,
+    "sickness_certified_pct": 31,
+    "roads_poor_pct": 31,
+    "fire_within_10min_pct": 31,
+    "litter_problem_pct": 31
   },
   "2022": {
-    "revenue_balance_pct": 30,
-    "m3_claims_per_capita_eur": 30,
-    "m4_central_mgmt_charge_pct": 30,
-    "sickness_certified_pct": 30,
-    "roads_poor_pct": 30,
-    "fire_within_10min_pct": 30,
-    "litter_problem_pct": 30
+    "revenue_balance_pct": 31,
+    "m3_claims_per_capita_eur": 31,
+    "m4_central_mgmt_charge_pct": 31,
+    "sickness_certified_pct": 31,
+    "roads_poor_pct": 31,
+    "fire_within_10min_pct": 31,
+    "litter_problem_pct": 31
   }
 }

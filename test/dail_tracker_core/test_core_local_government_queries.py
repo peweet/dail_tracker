@@ -27,9 +27,12 @@ M2 = ROOT / "data" / "gold" / "parquet" / "noac_m2_collection_wide.parquet"
 DERELICT = ROOT / "data" / "gold" / "parquet" / "derelict_sites_levy_wide.parquet"
 APPEALS = ROOT / "data" / "silver" / "parquet" / "planning_appeal_outcomes.parquet"
 SCORECARD = ROOT / "data" / "gold" / "parquet" / "noac_scorecard_wide.parquet"
+HISTORY = ROOT / "data" / "gold" / "parquet" / "noac_scorecard_history.parquet"
+INDICATORS = ROOT / "data" / "gold" / "parquet" / "noac_indicators_long.parquet"
 
 pytestmark = pytest.mark.skipif(
-    not (CSV.exists() and M2.exists() and DERELICT.exists() and APPEALS.exists() and SCORECARD.exists()),
+    not (CSV.exists() and M2.exists() and DERELICT.exists() and APPEALS.exists() and SCORECARD.exists()
+         and HISTORY.exists() and INDICATORS.exists()),
     reason="council source data absent (CI)",
 )
 
@@ -39,6 +42,8 @@ _SUBS = {
     "data/gold/parquet/derelict_sites_levy_wide.parquet": str(DERELICT).replace("\\", "/"),
     "data/silver/parquet/planning_appeal_outcomes.parquet": str(APPEALS).replace("\\", "/"),
     "data/gold/parquet/noac_scorecard_wide.parquet": str(SCORECARD).replace("\\", "/"),
+    "data/gold/parquet/noac_scorecard_history.parquet": str(HISTORY).replace("\\", "/"),
+    "data/gold/parquet/noac_indicators_long.parquet": str(INDICATORS).replace("\\", "/"),
 }
 
 _VIEWS = [
@@ -47,6 +52,8 @@ _VIEWS = [
     "constituency_la_derelict_sites_levy.sql",
     "constituency_la_collection_rates.sql",
     "constituency_la_noac_scorecard.sql",
+    "constituency_la_noac_scorecard_history.sql",
+    "constituency_la_noac_indicators.sql",
     "constituency_la_accountability_summary.sql",
     "constituency_la_cash_signals.sql",  # JOINs scorecard + collection_rates + derelict
 ]
@@ -123,6 +130,26 @@ def test_noac_scorecard_m3_m4_promoted(conn):
     assert 10 <= float(row["mgmt_overhead_pct"]) <= 17
     assert row["nat_insurance_claims_per_capita_eur"] is not None
     assert row["nat_mgmt_overhead_pct"] is not None
+
+
+def test_noac_scorecard_history_trend(conn):
+    """Multi-year trend (2022-2024) for the sparklines: Sligo has >=2 years of revenue
+    balance and shows the deficit easing (2022 worse than 2024)."""
+    res = q.noac_scorecard_history(conn, "Sligo")
+    assert res.ok and res.data["year"].nunique() >= 2
+    bal = res.data.dropna(subset=["revenue_balance_pct"]).sort_values("year")
+    assert len(bal) >= 2
+    assert float(bal.iloc[0]["revenue_balance_pct"]) < float(bal.iloc[-1]["revenue_balance_pct"])  # 2022 -21 < 2024 -10
+
+
+def test_noac_indicators_full_set(conn):
+    """The All-indicators drill-down returns the council's full published set across many
+    families, with raw values + source links."""
+    res = q.noac_indicators(conn, "Sligo")
+    assert res.ok and len(res.data) > 80
+    assert res.data["family"].nunique() >= 8
+    assert res.data["raw_value"].notna().all()
+    assert res.data["deep_link"].str.contains("noac.ie").all()
 
 
 def test_cash_signals_co_locates_three(conn):
