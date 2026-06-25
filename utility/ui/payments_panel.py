@@ -8,6 +8,7 @@ retrieval, no business logic — mirrors ``ui/vote_explorer.py``.
 from __future__ import annotations
 
 from html import escape as _h
+from urllib.parse import quote
 
 import pandas as pd
 import streamlit as st
@@ -38,6 +39,17 @@ def render_member_payments(
     that also violated ``feedback_dataframes_secondary_only``. Removed
     2026-05-27.
     """
+    # The "All years" rows below double as a year picker: each is an anchor
+    # (?payyr=<year>) so citizens can click straight to any year's records
+    # without scrolling back up to the pills. Consume the param once into the
+    # pill's session_state so the pill stays the single source of truth — a
+    # subsequent pill click overrides it cleanly (the param is already gone).
+    _payyr = st.query_params.get("payyr")
+    if _payyr is not None:
+        if _payyr in year_options:
+            st.session_state[year_pill_key] = _payyr
+        del st.query_params["payyr"]
+
     # Default to the most recent COMPLETED year (P1-1 pattern) — opening on
     # the in-progress year showed a few hundred euro and a misleading low
     # rank for every member from January to December.
@@ -99,6 +111,8 @@ def render_member_payments(
     # 2026-06-11: embedded Vega charts clashed with the page's house style and
     # duplicated this list one-for-one.
     subsection_heading("All years")
+    st.caption("Click any year to see its payment records below.")
+    _member_q = f"member={quote(str(unique_member_code))}&" if unique_member_code else ""
     rows_html: list[str] = []
     for _, row in all_years.iterrows():
         yr_num = int(row["payment_year"])
@@ -110,13 +124,16 @@ def render_member_payments(
             if pd.notna(rk)
             else '<span class="pay-year-rank pay-year-rank-missing">—</span>'
         )
+        is_sel = yr_num == selected_year
+        sel_cls = " pay-year-row-active" if is_sel else ""
+        sel_aria = ' aria-current="true"' if is_sel else ""
         rows_html.append(
-            f'<div class="pay-year-row">'
+            f'<a class="pay-year-row{sel_cls}" href="?{_member_q}payyr={yr_num}"{sel_aria}>'
             f'<span class="pay-year-yr">{yr_num}</span>'
             f'<span class="pay-year-amount">€{tot:,.0f}</span>'
             f'<span class="pay-year-payments">{cnt} payment{"s" if cnt != 1 else ""}</span>'
             f"{rk_html}"
-            f"</div>"
+            f"</a>"
         )
     st.html(f'<div class="pay-year-list">{"".join(rows_html)}</div>')
 

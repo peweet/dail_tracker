@@ -203,10 +203,16 @@ def year_selector(
     if skip_current and default is None:
         today_year = datetime.date.today().year
         default = next((y for y in options if int(y) < today_year), options[0])
+    # Seed the pill's state once, then create the widget WITHOUT a default.
+    # This keeps the same initial selection for every caller while letting
+    # external code (e.g. the clickable "All years" rows in payments_panel)
+    # set st.session_state[key] before this call to drive the pill — passing
+    # both ``default=`` and a programmatic session_state value would warn.
+    if key not in st.session_state:
+        st.session_state[key] = default or options[0]
     selected = st.pills(
         "Year",
         options=options,
-        default=default or options[0],
         key=key,
         label_visibility="collapsed",
     )
