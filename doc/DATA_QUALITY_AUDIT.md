@@ -208,6 +208,37 @@ join integrity). Severity 🔴/🟠/🟡.
   Row counts and `amount_eur` sums invariant (asserted). dept_readingorder silver also had 448 cleared.
 - **Tests:** `test/extractors/test_paid_flag_clean.py` (6 unit + 2 integration) — green. Reversible via git.
 
+## 6.0b FIXES APPLIED — courts scramble (P1) + procurement garble (2026-06-23/25)
+A follow-up "why is it occurring / can it be salvaged / find more garble" pass fixed three more issues
+end-to-end (parser + re-parse + re-consolidate, all reconciliation-checked, reversible via git):
+
+1. **ie_courts column scramble (P1) — SALVAGED.** Root cause: the Courts "PO analysis report" PDFs are a
+   5-field reading-order record whose PO number + supplier name merge onto one line for 2016+ quarters;
+   x-coordinate bucketing then split the name (body→PO column, legal suffix→supplier), and name_norm
+   reduced the suffix-only supplier to empty. A bespoke `read_courts` reader (graduated into the extractor
+   as `reader="reading_order_courts"`, validated first in `pipeline_sandbox/courts_reader/`) recovers
+   **4,702 rows, 0 empty suppliers** (was 852), real names + PO numbers. It also showed the **old gold was
+   €1,261m incl. €554m phantom period-TOTAL rows + 9× €2 artifacts**; real total ≈ **€695m**. Re-parsed
+   (`--only ie_courts --merge`) + re-consolidated.
+2. **Unattributable blank rows — DROPPED (512 rows / €873.2m).** Period/section totals emitted as
+   amount-only rows (no supplier, description OR PO): **ie_opw €155.78m, ie_prisons €74.0m,
+   dept_social_protection €397m/48 quarterly totals, dept_health €102.6m, ie_ntma €111.6m/358**. They were
+   already `value_safe_to_sum=False`, so **no summable total changed** (€40.63bn before and after) — they
+   only polluted browsing as "€155.78m to (no payee)". New `_drop_unattributable` in consolidation (filters
+   before the reconciliation baseline; also treats a description that is *only* the bled amount as blank).
+   Result: ie_opw max €155.78m→€19.73m, ie_prisons €74m→€0.68m.
+3. **Amount-bled descriptions — CLEANED (5,777 rows).** The amount duplicated into `description`
+   (`€80,000,000.00 Third Level Building…`). `_strip_bled_amount` removes the leading amount ONLY when it
+   equals `amount_eur` (keeps real specs like `70% Bitumen Emulsion` and code-prefixes); `amount_eur`
+   untouched; spend-category coverage 93.0%→93.2%.
+
+Tests: `test/extractors/test_procurement_garble_guards.py` (3 unit + 2 integration) — green; the full
+569-test extractor suite passes. **Still spotted, recorded for supervised follow-up** (money mostly
+correct): dept_defence po/description scramble (supplier intact; po holds unit names like `AIR CORPS`);
+dept_education 2,138 null-year rows (GUID filenames defeat `period_from_url`); ~9,962 code-prefixed
+descriptions; ie_la_sligo €79.9m Roadbridge / galway_city €31.5m single rows look like real capital, not
+totals. Full log: `c:/tmp/dq_audit/procurement_findings.md`.
+
 ## 6.1 Procurement defects (the "is procurement a mess?" answer)
 The generic public-body parser's **column-role heuristic (`_pick_roles`) is the systemic weak point** —
 it mis-assigns columns per publisher layout. Manifestations:

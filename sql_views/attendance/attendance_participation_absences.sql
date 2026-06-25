@@ -1,15 +1,17 @@
 -- v_attendance_participation_absences
--- Sources: participation_absence_gaps.parquet (longest interior vote-gap),
+-- Sources: participation_absence_gaps.parquet (longest PHYSICAL-absence run),
 --          participation_member_year.parquet (name / party / role context),
 --          participation_absence_news.parquet (sourced explanation, if any).
 --          All written by extractors/participation_extract.py.
 --
--- "Notable absences": the longest unbroken stretch a member was away from
--- recorded votes — they voted on BOTH ends of the gap, so it is a real absence
--- (membership- & recess-proof), led by the calendar date-diff. The explanation
--- columns DISPLAY a sourced fact (curated seed or live news headline) — never an
--- inferred reason. A NULL reason renders as "no public explanation found", a
--- statement about the search, not a verdict.
+-- "Notable absences": the longest unbroken run of consecutive PLENARY SITTING
+-- DAYS a member was not recorded present at Leinster House at all (no sitting AND
+-- no committee badge-in) — physical absence from the TAA attendance PDFs, NOT a
+-- vote-gap. The old vote-gap conflated absence with present-but-not-voting
+-- (pairing): a member could be in the building every day yet show a vote-gap.
+-- Recess-proof (measured against actual sitting dates) and interior-only (always
+-- real). The explanation columns DISPLAY a sourced fact (curated, verified) — never
+-- an inferred reason. A NULL reason renders as "no public explanation found".
 CREATE OR REPLACE VIEW v_attendance_participation_absences AS
 WITH gaps AS (
     SELECT
@@ -17,7 +19,7 @@ WITH gaps AS (
         full_name AS member_name,
         house,
         CAST(year AS INTEGER) AS year,
-        longest_run_divisions,
+        longest_run_sitting_days,
         run_calendar_days,
         run_start,
         run_end
@@ -38,7 +40,7 @@ SELECT
     COALESCE(c.party, '')      AS party_name,
     g.house,
     g.year,
-    g.longest_run_divisions,
+    g.longest_run_sitting_days,
     g.run_calendar_days,
     g.run_start,
     g.run_end,

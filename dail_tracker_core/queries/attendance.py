@@ -121,17 +121,21 @@ def participation_turnout(conn: duckdb.DuckDBPyConnection, year: int, house: str
 
 
 def participation_absences(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil") -> QueryResult:
-    """Longest interior vote-gaps for a (year, house), worst-first, with the
-    sourced explanation (if any) carried through for the news-vindication chip."""
+    """Longest PHYSICAL-absence runs (consecutive plenary sitting days the member was
+    not recorded present) for a (year, house), worst-first, with the sourced
+    explanation (if any). Excludes the chair (Ceann/Leas-Cheann Comhairle /
+    Cathaoirleach): not voting is their role, so a vote/sitting gap isn't a notable
+    absence for them."""
     return _run(
         conn,
-        "SELECT unique_member_code, member_name, party_name, longest_run_divisions,"
+        "SELECT unique_member_code, member_name, party_name, longest_run_sitting_days,"
         " run_calendar_days, run_start, run_end, turnout_pct,"
         " is_minister, is_chair, is_leader, role, role_note,"
         " reason_label, source_title, source_url, is_curated"
         " FROM v_attendance_participation_absences"
-        " WHERE year = ? AND house = ? AND longest_run_divisions > 0"
-        " ORDER BY longest_run_divisions DESC, member_name ASC LIMIT 200",
+        " WHERE year = ? AND house = ? AND longest_run_sitting_days > 0"
+        "   AND COALESCE(is_chair, FALSE) = FALSE"
+        " ORDER BY longest_run_sitting_days DESC, member_name ASC LIMIT 200",
         [year, house],
     )
 
@@ -200,7 +204,7 @@ def member_absences(conn: duckdb.DuckDBPyConnection, unique_member_code: str) ->
     """Per-member absence runs + sourced explanation, current term."""
     return _run(
         conn,
-        "SELECT year, house, longest_run_divisions, run_calendar_days, run_start, run_end,"
+        "SELECT year, house, longest_run_sitting_days, run_calendar_days, run_start, run_end,"
         " reason_label, source_title, source_url"
         " FROM v_attendance_participation_absences WHERE unique_member_code = ?"
         " ORDER BY year DESC LIMIT 20",

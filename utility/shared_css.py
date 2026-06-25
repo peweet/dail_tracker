@@ -6068,6 +6068,9 @@ def inject_css() -> None:
         .lg-metric-doc:focus-visible { outline: 2px solid #8d4f24; outline-offset: 2px; border-radius: 2px; }
         /* "n/a — service provided regionally" note in the benchmark cell */
         .lg-na-note { font-size: 0.72rem; color: var(--text-meta); font-style: italic; }
+        /* tiny 2022-2024 trend sparkline under the benchmark line — neutral (inherits a
+           muted colour), no good/bad encoding; just the shape of the change. */
+        .lg-spark { display: block; margin: 0.2rem 0 0 auto; color: var(--text-meta); opacity: 0.85; }
         .lg-badge {
             display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
             color: #7a4f2f; background: #f7f1ec; border: 1px solid rgba(122,79,47,0.25);

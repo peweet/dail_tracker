@@ -152,7 +152,7 @@ def _meta(row: pd.Series) -> str:
 def _absence_row(row: pd.Series) -> str:
     name = str(row["member_name"])
     code = resolve_member_code(name)
-    run = int(row.get("longest_run_divisions") or 0)
+    run = int(row.get("longest_run_sitting_days") or 0)
     start = pd.to_datetime(row.get("run_start"), errors="coerce")
     end = pd.to_datetime(row.get("run_end"), errors="coerce")
     span = ""
@@ -172,7 +172,7 @@ def _absence_row(row: pd.Series) -> str:
         f'<p class="part-meta">{_meta(row)}{_role_chip(row)}</p>'
         f"</div>"
         f'<div class="part-absence-figure">'
-        f'<span class="part-absence-run">{run} votes missed in a row</span>'
+        f'<span class="part-absence-run">{run} sitting days absent in a row</span>'
         f'<span class="part-absence-span">{_h(span)} · {cal} days</span>'
         f"{reason_html}"
         f"</div>"
@@ -182,23 +182,24 @@ def _absence_row(row: pd.Series) -> str:
 
 
 def _render_absences(df: pd.DataFrame, *, chamber: str) -> None:
-    evidence_heading("Notable absences — longest stretch away from votes")
+    evidence_heading("Notable absences — longest stretch away from the chamber")
     if df.empty:
         empty_state(
             "No absence stretches to report",
-            "Every member has voted at regular intervals this term.",
+            "Every member was recorded present at regular intervals this term.",
         )
         return
     st.caption(
-        "The longest unbroken run of divisions a member missed — they voted on both "
-        "sides of the gap, so it is a real absence, not the chamber being in recess. "
-        "A reported reason is linked; otherwise it reads *no public explanation "
-        "found*, which is a statement about the public record, not a judgement."
+        "The longest unbroken run of plenary sitting days a member was **not recorded "
+        "present** at Leinster House at all — physical absence from the official "
+        "attendance record, not a missed vote (a member can be in the building yet sit "
+        "out a vote). Recess-proof. A reported reason is linked; otherwise it reads "
+        "*no public explanation found* — a statement about the record, not a judgement."
     )
     rows = [_absence_row(r) for _, r in df.head(_LIST_SIZE).iterrows()]
     st.html("\n".join(rows))
     export_button(
-        df[["member_name", "party_name", "longest_run_divisions", "run_calendar_days", "run_start", "run_end"]],
+        df[["member_name", "party_name", "longest_run_sitting_days", "run_calendar_days", "run_start", "run_end"]],
         label=f"Export absences · {len(df)} members",
         filename="dail_tracker_absences.csv",
         key="part_absence_export",

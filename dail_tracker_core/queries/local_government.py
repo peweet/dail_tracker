@@ -59,6 +59,14 @@ def noac_scorecard_history(conn: duckdb.DuckDBPyConnection, la: str) -> QueryRes
     return _run(conn, "SELECT * FROM v_la_noac_scorecard_history WHERE local_authority = ? ORDER BY year", [la])
 
 
+def noac_indicators(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Every published NOAC 2024 indicator for one council (~125 series, raw values) — the
+    'All NOAC indicators' reference drill-down."""
+    return _run(conn, "SELECT family, series_label, raw_value, source_page, deep_link "
+                      "FROM v_la_noac_indicators WHERE local_authority = ? "
+                      "ORDER BY family, indicator_code, series_label", [la])
+
+
 def cash_signals(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     """The three published finance/collection figures (revenue balance, rates collection,
     derelict-levy collection) for one council, co-located, each beside its national median.

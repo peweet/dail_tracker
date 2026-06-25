@@ -50,14 +50,21 @@ CANON = {
     "Roscommon County", "Sligo County", "South Dublin County", "Tipperary County",
     "Waterford City and County", "Westmeath County", "Wexford County", "Wicklow County",
 }
-_CF = {"".join(c for c in unicodedata.normalize("NFKD", n) if not unicodedata.combining(c)): n for n in CANON}
+def _squish(s: str) -> str:
+    """Accent-fold + lowercase + drop every non-alphanumeric char, so council labels match
+    regardless of footnote marks, hyphen spacing, or cell line-wraps ('Dún Laoghaire-\\nRathdown')."""
+    folded = "".join(c for c in unicodedata.normalize("NFKD", s or "") if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]", "", folded.lower())
+
+
+_CF = {_squish(n): n for n in CANON}
 
 
 def _canon(raw: str) -> str | None:
-    n = re.sub(r"[*†‡\s]+$", "", (raw or "").replace("\n", " ").strip())
-    if n == "DLR":
+    sq = _squish(raw)
+    if sq == "dlr":
         return "Dun Laoghaire-Rathdown"
-    return _CF.get("".join(c for c in unicodedata.normalize("NFKD", n) if not unicodedata.combining(c)))
+    return _CF.get(sq)
 
 
 def _num(s: str) -> float | None:

@@ -41,6 +41,8 @@ from data_access.local_government_data import (
     fetch_la_map_layers_result,
     fetch_la_outlines,
     fetch_national_summary_result,
+    fetch_noac_indicators_result,
+    fetch_noac_scorecard_history_result,
     fetch_noac_scorecard_result,
     fetch_planning_overturn_result,
 )
@@ -572,14 +574,46 @@ _SCORECARD = {
 _FIRE_NA_NOTE = "fire service provided regionally"
 
 
-def _scorecard_metric(r, key: str) -> str:
+def _spark(series) -> str:
+    """A tiny neutral trend line (NOAC 2022-2024) for one metric. No good/bad colour — it
+    only shows the shape of the change; missing years are skipped. Returns '' if <2 points."""
+    pts = [(yr, v) for yr, v in (series or []) if v is not None and not pd.isna(v)]
+    if len(pts) < 2:
+        return ""
+    years = [yr for yr, _ in (series or [])]
+    y0, yn = min(years), max(years)
+    span = (yn - y0) or 1
+    vals = [v for _, v in pts]
+    lo, hi = min(vals), max(vals)
+    rng = (hi - lo) or 1
+    w, h, pad = 52, 14, 2
+
+    def xy(yr, v):
+        return ((yr - y0) / span * (w - 2 * pad) + pad, h - pad - (v - lo) / rng * (h - 2 * pad))
+
+    poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in (xy(yr, v) for yr, v in pts))
+    lx, ly = xy(*pts[-1])
+    # st.html strips inline <svg>, so embed as a base64 data-URI <img> (same technique as the
+    # index choropleth). Muted stroke (no good/bad colour); the dot marks the latest year.
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
+        f'<polyline points="{poly}" fill="none" stroke="#9a8f80" stroke-width="1.3" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="1.8" fill="#9a8f80"/></svg>'
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return (f'<img class="lg-spark" src="data:image/svg+xml;base64,{b64}" width="{w}" height="{h}" '
+            f'alt="{y0}–{yn} trend" title="{y0}–{yn} trend"/>')
+
+
+def _scorecard_metric(r, key: str, series=None) -> str:
     col, nat_col, label, fmt, page = _SCORECARD[key]
     v = r.get(col)
     value = "n/a" if v is None or pd.isna(v) else fmt.format(float(v))
     if key == "fire" and (v is None or pd.isna(v)):
         bench = f'<span class="lg-na-note">{_FIRE_NA_NOTE}</span>'
     else:
-        bench = _bench(v, r.get(nat_col), fmt)
+        bench = _bench(v, r.get(nat_col), fmt) + _spark(series)
     return _metric(value, label, bench, doc_url=f"{_NOAC_PDF}#page={page}", doc_page=page)
 
 
@@ -588,8 +622,17 @@ def _scorecard_card(name: str, title: str, keys: list[str]) -> str:
     if not res.ok or res.data.empty:
         return ""
     r = res.data.iloc[0]
-    rows = [_scorecard_metric(r, k) for k in keys]
-    return _stat_card(title, rows, "NOAC Performance Indicator Report 2024",
+    # one history fetch -> per-metric (year, value) series for the spark trend
+    hist: dict[str, list] = {}
+    hres = fetch_noac_scorecard_history_result(name)
+    if hres.ok and not hres.data.empty:
+        hd = hres.data.sort_values("year")
+        for k in keys:
+            col = _SCORECARD[k][0]
+            if col in hd.columns:
+                hist[col] = list(zip(hd["year"].astype(int), hd[col]))
+    rows = [_scorecard_metric(r, k, hist.get(_SCORECARD[k][0])) for k in keys]
+    return _stat_card(title, rows, "NOAC Performance Indicator Report 2024 (2022–24 trend)",
                       src_url=_NOAC_REPORT)
 
 
@@ -627,6 +670,35 @@ def _render_performance(name: str) -> None:
         "the benchmark; no judgement is implied.</p>"
     )
     st.html(f'<div class="lg-perf-grid">{"".join(cards)}</div>')
+    _render_all_indicators(name)
+
+
+def _render_all_indicators(name: str) -> None:
+    """Single reference drill-down: EVERY published NOAC indicator for the council, as
+    published. Secondary (behind one expander) so the headline cards stay the primary view;
+    a dense table is the right tool here, not more cards."""
+    res = fetch_noac_indicators_result(name)
+    if not res.ok or res.data.empty:
+        return
+    df = res.data.rename(columns={
+        "family": "Service", "series_label": "Indicator", "raw_value": "Value", "deep_link": "Source",
+    })
+    with st.expander(f"All {len(df)} published NOAC indicators for {name} (2024)"):
+        st.caption(
+            "Everything NOAC publishes for this council, exactly as published — the cards above are "
+            "the curated headline subset. Source links open the relevant NOAC report page."
+        )
+        st.dataframe(
+            df[["Service", "Indicator", "Value", "Source"]],
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "Service": st.column_config.TextColumn("Service", width="small"),
+                "Indicator": st.column_config.TextColumn("Indicator", width="large"),
+                "Value": st.column_config.TextColumn("Value", width="small"),
+                "Source": st.column_config.LinkColumn("Source", display_text="NOAC ↗", width="small"),
+            },
+        )
 
 
 def _render_dossier(name: str) -> None:

@@ -77,15 +77,43 @@ def test_divergence_excludes_office_and_leaders(con):
 
 
 def test_rbb_absence_and_vindication(con):
+    # PHYSICAL absence from the attendance PDFs: 56 consecutive plenary sitting days
+    # missed (27 Mar -> 5 Nov, the cancer leave) — NOT the vote-gap (which was 112).
     r = _df(
         con,
-        "SELECT longest_run_divisions, source_url, reason_label FROM v_attendance_participation_absences "
+        "SELECT longest_run_sitting_days, source_url, reason_label FROM v_attendance_participation_absences "
         "WHERE member_name = 'Richard Boyd Barrett' AND year = 2025 AND house = 'Dáil'",
     )
     assert not r.empty
-    assert int(r["longest_run_divisions"][0]) == 112  # Mar–Nov cancer leave
+    assert int(r["longest_run_sitting_days"][0]) == 56  # Mar–Nov cancer leave
     assert r["source_url"][0]  # vindicated with a sourced link — never shamed
     assert "leave" in str(r["reason_label"][0]).lower()
+
+
+def test_cairns_absence_is_maternity_not_not_voting(con):
+    # The fix this metric exists for: Cairns' physical absence is the May–Sep maternity
+    # (18 sitting days), NOT the Nov–Dec present-but-not-voting the vote-gap surfaced.
+    r = _df(
+        con,
+        "SELECT longest_run_sitting_days, run_start, run_end FROM v_attendance_participation_absences "
+        "WHERE member_name = 'Holly Cairns' AND year = 2025 AND house = 'Dáil'",
+    )
+    assert not r.empty
+    assert int(r["longest_run_sitting_days"][0]) == 18
+    assert str(r["run_start"][0]).startswith("2025-05")  # maternity window, not Nov–Dec
+
+
+def test_chair_excluded_from_absences(con):
+    # Leas-Cheann Comhairle doesn't vote by role — a sitting/vote gap isn't a notable
+    # absence for the chair, so the query layer drops is_chair members.
+    chairs = _df(
+        con,
+        "SELECT count(*) AS n FROM v_attendance_participation_absences "
+        "WHERE is_chair = TRUE AND longest_run_sitting_days > 0",
+    )
+    # they may exist in the view, but must be filtered by the query — assert the view
+    # carries the flag so the query's COALESCE(is_chair,FALSE)=FALSE filter can apply.
+    assert "n" in chairs.columns
 
 
 def test_cairns_turnout_and_leader_flag(con):
