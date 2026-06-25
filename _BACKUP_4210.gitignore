@@ -1,0 +1,536 @@
+# Ignore all parquet files
+*.parquet
+# Default ignored files
+/shelf/
+/workspace.xml
+
+.idea/
+
+.venv/
+.parquet
+# === Pipeline data outputs (regenerable, don't track) ===
+*.csv
+*.xml
+*.json
+*.xlsx
+*.pdf
+# Raw server-download artifacts (LA procurement portals hand back .aspx/.ashx blobs that
+# are really PDFs/HTML); these are regenerable downloads, never source — the *.pdf rule
+# above misses them. One .aspx leaked into data/bronze/pdfs/ before this rule existed.
+*.aspx
+*.ashx
+# Ad-hoc dated backup copies of data files (e.g. foo.parquet.bak_20260613) — manual
+# safety copies taken before a risky rewrite; regenerable, never source. Two leaked into
+# data/silver/parquet/ before this rule existed. Covers .bak and .bak_<date> suffixes.
+*.bak
+*.bak_*
+# DuckDB
+*.duckdb
+*.duckdb.wal
+data/gold/
+/pdf_storage/
+/payments_pdf/
+members/flattened_members.csv
+members/flattened_members_normalised.csv
+members/enriched_td_attendance.csv
+members/td_tables.csv
+questions/
+key_data/
+bills/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#   Usually these files are written by a python script from a template
+#   before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+# Pipfile.lock
+
+# UV
+#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+# uv.lock
+
+# poetry
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+# poetry.lock
+# poetry.toml
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
+#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
+# pdm.lock
+# pdm.toml
+.pdm-python
+.pdm-build/
+
+# pixi
+#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
+# pixi.lock
+#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
+#   in the .venv directory. It is recommended not to include this directory in version control.
+.pixi
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# Redis
+*.rdb
+*.aof
+*.pid
+
+# RabbitMQ
+mnesia/
+rabbitmq/
+rabbitmq-data/
+
+# ActiveMQ
+activemq-data/
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+#   JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#   and can be added to the global gitignore or merged into this file.  For a more nuclear
+#   option (not recommended) you can uncomment the following to ignore the entire idea folder.
+# .idea/
+
+# Abstra
+#   Abstra is an AI-powered process automation framework.
+#   Ignore directories containing user credentials, local state, and settings.
+#   Learn more at https://abstra.io/docs
+.abstra/
+
+# Visual Studio Code
+#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
+#   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
+#   and can be added to the global gitignore or merged into this file. However, if you prefer, 
+#   you could uncomment the following to ignore the entire vscode folder
+# .vscode/
+
+# Ruff stuff:
+.ruff_cache/
+
+# PyPI configuration file
+.pypirc
+
+# Marimo
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+
+# Streamlit
+.streamlit/secrets.toml
+*.duckdb
+data/gold/
+
+# Claude Code & AI tooling
+.claude/
+.agents/
+CLAUDE.md
+
+# Generated logs
+pipeline.log
+*.log
+# Cookieless page-view counter — runtime, ephemeral, grows per page load.
+logs/page_views.jsonl
+
+# === Archived docs — local-only history, not tracked ===
+# doc/archive/ holds superseded plans/audits/briefs kept for local reference only.
+# Excluded from version control on request; the live docs in doc/ stay tracked.
+doc/archive/
+
+# Screenshots / temp images
+*.png
+*.jpg
+*.jpeg
+
+# Pipeline output directories (all contents are regenerable)
+members/
+# ...but the test mirror dir test/members/ holds tracked tests, not pipeline output.
+!test/members/
+# NB: members/*.py source modules can't be re-included via negation (git won't
+# descend into an excluded dir) — they are tracked via `git add -f`, as are the
+# other source modules here (member_interests.py, members_api_service.py, ...).
+scan_pdf/output/
+scan_pdf/target/
+lobbyist/raw/
+
+<<<<<<< HEAD
+# === Curated reference data — hand-authored, NOT regenerable — MUST be tracked ===
+# Overrides the blanket *.csv / *.json rules above (last match wins) so these
+# source-of-truth lookup tables (si_department_aliases, loan_book_fund_aliases,
+# nace_v2_sections) are committed, not silently swallowed. Keep this block last.
+!data/_meta/
+!data/_meta/*.csv
+!data/_meta/*.json
+# public-body procurement publisher seed registry (Phase-1 of the semistate plan) —
+# a subdir, so the *.csv negation above (top-level only) does not reach it.
+!data/_meta/procurement_publishers/
+!data/_meta/procurement_publishers/*.csv
+# per-lane freshness heartbeats (tools/freshness_heartbeat.py) — a subdir, so the
+# *.json negation above (top-level only) does not reach it. These tiny beats are the
+# refresh ledger the cloud Actions ship via publish_data.py, so they MUST be tracked.
+!data/_meta/heartbeats/
+!data/_meta/heartbeats/*.json
+# data-contract quarantine summaries (services/data_contracts.py) — a subdir, so the
+# *.json negation above (top-level only) does not reach it. Track the small JSON
+# summaries (the investigation ledger for drift / mis-aligned values); the sibling
+# *_quarantine.parquet full-row dumps stay local (swallowed by the blanket *.parquet rule).
+!data/_meta/quarantine/
+!data/_meta/quarantine/*.json
+
+# basedpyright baseline — snapshots known/false-positive type findings so CI
+# fails only on NEW errors. Must be tracked or CI re-flags the baselined items.
+# Overrides the blanket *.json rule above (last match wins).
+!.basedpyright/
+!.basedpyright/baseline.json
+
+# Oireachtas API JSON schemas — fetch-time envelope validation (validate_if_known)
+# AND the test/services/test_api_schemas.py suite both load these at runtime. The
+# blanket *.json rule above swallows them, so a fresh clone / CI runner would hit
+# FileNotFoundError on the first validated fetch and fail the schema tests. Track
+# them explicitly (last match wins).
+!services/schemas/
+!services/schemas/*.json
+
+# === Runtime data for the deployed Streamlit app — committed deliberately (~16 MB) ===
+# Streamlit Cloud boots from a fresh git clone with no ETL, so the gold parquet + the
+# handful of silver CSVs that utility/ + sql_views/ read at runtime MUST be tracked.
+# The blanket *.parquet / *.csv / data/gold/ rules above swallow them; re-include
+# exactly the runtime set here (last match wins). Parent dirs are re-included first —
+# git cannot un-ignore a file whose parent directory is excluded. Everything else in
+# these trees (gold/csv, intermediate silver) stays ignored via the type rules above.
+!data/gold/
+!data/gold/parquet/
+!data/gold/parquet/*.parquet
+# EXCEPTION: the FULL debate-speeches fact (all years + full text, ~200MB) must NOT
+# be committed — it exceeds GitHub's 100MB limit. Only the committed lite slice
+# `speeches_fact.parquet` (recent years + excerpt, ~25MB) ships to Cloud; the full
+# fact is rebuilt locally by debates/speeches_gold.py. See [[feedback_dual_config_files]].
+data/gold/parquet/speeches_fact_full.parquet
+!data/silver/aggregated_td_tables.csv
+!data/silver/flattened_members.csv
+!data/silver/flattened_seanad_members.csv
+# Former-member rosters (historic backfill) — read by the interests join at runtime.
+!data/silver/historic_members_dail.csv
+!data/silver/historic_members_seanad.csv
+!data/silver/seanad_aggregated_tables.csv
+!data/silver/lobbying/
+!data/silver/lobbying/client_company_returns_detail.csv
+# Live national tender snapshot — a small (<1MB) silver parquet the Procurement page reads
+# directly (sql_views/procurement/procurement_live_tenders.sql). Refreshed daily by
+# .github/workflows/live_tenders_refresh.yml and shipped to Cloud via publish_data.py, exactly
+# like the gold parquet (Cloud boots from a clean clone with no ETL). The blanket *.parquet rule
+# above swallows it; re-include just this one file (other silver parquet stays ignored).
+!data/silver/parquet/
+!data/silver/parquet/etenders_live_tenders.parquet
+# (TED ted_ie_*.parquet are already re-included further down — see the "TED Ireland silver layers" block.)
+# SIPO per-candidate OCR working state (cells .json / .attempt files / logs) — transient,
+# regenerable from the bronze PDFs, thousands of files; NEVER commit. Explicit ignore so
+# the .attempt/.txt files (not caught by the *.json type rule) can't leak in either.
+data/silver/sipo_candidate/
+# amalgamated AFS silver fact (afs_amalgamated_extract.py) — read by the afs_*.sql views
+!data/silver/parquet/
+!data/silver/parquet/afs_amalgamated_divisions.parquet
+# LA Purchase-Orders/Payments-over-€20k silver fact (procurement_la_payments_extract.py)
+!data/silver/parquet/la_payments_fact.parquet
+# payment-grain silver facts folded into gold procurement_payments_fact by the
+# procurement_consolidate chain (lifted out of data/sandbox/ 2026-06-12); commit so history
+# survives publisher-side source rot (courts/Waterford/Wicklow precedent) + machine failure
+!data/silver/parquet/public_payments_fact.parquet
+!data/silver/parquet/hse_tusla_payments_fact.parquet
+!data/silver/parquet/nta_payments_fact.parquet
+!data/silver/parquet/nphdb_payments_fact.parquet
+!data/silver/parquet/seai_payments_fact.parquet
+# bespoke reading-order dept fact (DFAT/Justice/Transport single-column PDFs;
+# pipeline_sandbox/procurement_dept_readingorder_parser.py) — folded into gold
+# procurement_payments_fact by consolidate; commit so it survives source rot / machine loss
+!data/silver/parquet/dept_readingorder_payments_fact.parquet
+# per-LA AFS revenue fact (la_afs_extract.py) — read by tests + future gold views/UI; commit
+# so it survives machine failure / is Cloud-readable even if a council removes its source PDF
+!data/silver/parquet/la_afs_divisions.parquet
+# per-LA AFS CAPITAL fact (la_afs_capital_extract.py) — sibling of the revenue fact, same reason
+!data/silver/parquet/la_afs_capital_divisions.parquet
+# ABP planning-appeal outcomes (extractors/planning_appeal_outcomes.py) — a small (~0.2MB)
+# silver fact read DIRECTLY by v_la_planning_overturn, which feeds the "Who runs your county"
+# planning card AND the national council choropleth (v_la_map_layers). Cloud boots from a clean
+# clone with no ETL, so without this the planning JOIN throws and the whole map silently vanishes.
+!data/silver/parquet/planning_appeal_outcomes.parquet
+# Silver facts the deployed app's runtime SQL views read DIRECTLY and query live in
+# DuckDB (registered via utility/data_access/_sql_registry.py + member_overview_data.py).
+# Without these a fresh Cloud clone hard-crashes the Lobbying / Interests / Committees
+# pages (swallow_errors=False) and leaves Home / Legislation / Attendance half-empty.
+# ~85 MB total, all zstd. Parent dirs re-included first (git can't un-ignore a file
+# under an excluded dir). Keep in sync with the runtime view scan over sql_views/.
+!data/silver/ministerial_tenure.parquet
+!data/silver/charities/
+!data/silver/charities/annual_reports.parquet
+!data/silver/charities/charity_resolved.parquet
+!data/silver/committees/
+!data/silver/committees/committee_assignments.parquet
+!data/silver/committees/office_holders.parquet
+!data/silver/cro/
+!data/silver/cro/companies.parquet
+!data/silver/cro/financial_statements.parquet
+!data/silver/lobbying/parquet/
+!data/silver/lobbying/parquet/politician_returns_detail.parquet
+!data/silver/lobbying/parquet/returns_master.parquet
+!data/silver/lobbying/parquet/revolving_door_returns_detail.parquet
+!data/silver/parquet/bill_amendments.parquet
+!data/silver/parquet/dail_member_interests_combined.parquet
+!data/silver/parquet/debate_listings.parquet
+!data/silver/parquet/debates.parquet
+!data/silver/parquet/flattened_members.parquet
+!data/silver/parquet/flattened_seanad_members.parquet
+# Historic backfill: former-member rosters + per-term sidecar (member×term).
+!data/silver/parquet/historic_members_dail.parquet
+!data/silver/parquet/historic_members_seanad.parquet
+!data/silver/parquet/member_terms.parquet
+!data/silver/parquet/lobbying_return_documents.parquet
+!data/silver/parquet/member_external_links.parquet
+# Official member contact details scraped from oireachtas.ie profiles
+# (extractors/member_contact_extract.py) — read live by v_member_contact_details
+# on the Member Overview page; commit so a fresh Cloud clone has it without ETL.
+!data/silver/parquet/member_contact_details.parquet
+!data/silver/parquet/questions.parquet
+!data/silver/parquet/related_docs.parquet
+!data/silver/parquet/seanad_member_interests_combined.parquet
+!data/silver/parquet/sponsors.parquet
+!data/silver/parquet/stages.parquet
+# the state-board universe — read at runtime by sql_views/appointments/appointments_stateboards_boards.sql
+# (v_stateboards_boards). Must be committed or a fresh Cloud clone silently loses that view.
+!data/silver/parquet/stateboards_boards.parquet
+!data/silver/parquet/versions.parquet
+# TED Ireland silver layers (services/ted_search.py + extractors/ted_enrich.py) —
+# read at runtime by sql_views/procurement/procurement_ted_*.sql + procurement_competition.sql
+!data/silver/parquet/ted_ie_awards.parquet
+!data/silver/parquet/ted_ie_buyer_history.parquet
+!data/silver/parquet/ted_ie_tenders.parquet
+!data/silver/parquet/ted_ie_winner_history.parquet
+# SIPO GE2024 silver facts + per-party intermediates + OCR checkpoint cache
+# (extractors/sipo_*; all regenerable). The OCR cache enables --parse-only without
+# re-OCR. Gold (data/gold/parquet/sipo_donations.parquet, sipo_expenses_fact.parquet)
+# is the committed serving copy the SQL views read.
+data/silver/sipo/
+
+# === Legal Diary raw daily DOCX archive — NEVER commit ===
+# pdf_infra/legal_diary_poller.py archives the Courts Service daily diary under
+# data/bronze/legal_diary/<date>.docx. The raw file names PRIVATE parties (minors,
+# wards, criminal defendants) in full — only the ANONYMISED gold parquet
+# (judicial_legal_diary_cases.parquet, initials only) may ever leave this machine.
+# No *.docx rule exists above, so this dir would otherwise be committable. Guard it.
+data/bronze/legal_diary/
+
+# === Legal Diary OpenView raw HTML archive — NEVER commit ===
+# pdf_infra/legal_diary_openview_poller.py archives one OpenDocument HTML per sitting
+# under data/bronze/legal_diary_openview/<slug>/<UNID>.html. Like the .docx archive,
+# the raw HTML names PRIVATE parties AND solicitors in full — only the ANONYMISED gold
+# parquet (judicial_legal_diary_openview_cases.parquet, initials only) may leave this box.
+data/bronze/legal_diary_openview/
+
+# === Raw downloaded-source staging tree — only .gitkeep belongs ===
+# data/bronze/ is the raw-download staging tree for every ETL: PDFs + LA-procurement
+# .aspx/.ashx blobs, scraped portal HTML (stateboards / eisb_directory SI listings /
+# lrc_classlist), debate probe XML, etc. ALL of it is regenerable by re-running the
+# extractors and is mirrored off-box to Cloudflare R2 (tools/backup_to_r2.ps1 +
+# data/_meta/backup_manifest.tsv drift detector — see [[project_data_backup_r2]]).
+# The runtime Streamlit app reads ONLY the committed gold/silver parquets, never bronze,
+# so none of it needs to ship to GitHub. The type rules above miss .html and odd server
+# extensions, so blanket-ignore the whole tree and keep just the .gitkeep placeholders
+# that preserve the directory layout. (~25 MB of scraped HTML lived here before this rule.)
+data/bronze/**
+!data/bronze/**/
+!data/bronze/.gitkeep
+!data/bronze/**/.gitkeep
+
+# === Member avatars (Wikidata portraits + manifest) — committed deliberately ===
+# wiki_data.py downloads CC-licensed TD + Senator portraits into avatar/wikidata/.
+# Streamlit Cloud boots from a fresh git clone with no ETL, so utility/ui/avatars.py
+# has nothing to read unless these ship in the repo. The blanket *.jpg / *.json
+# rules above swallow them; re-include the portrait set here (last match wins).
+# Parent dir re-included first — git cannot un-ignore a file under an excluded dir.
+!avatar/wikidata/
+!avatar/wikidata/*.jpg
+!avatar/wikidata/*.jpeg
+!avatar/wikidata/*.png
+!avatar/wikidata/*.webp
+!avatar/wikidata/manifest.json
+
+# === SQL-view test fixtures — committed deliberately ===
+# test/fixtures/sql_views/_generate.py writes small synthetic parquets that let
+# test/test_sql_views.py run the view-contract tests in CI without any pipeline
+# output. The blanket *.parquet rule above swallows them; re-include the whole
+# fixture tree (last match wins). No parent dir is ignored, so file-level
+# negation is enough.
+!test/fixtures/sql_views/**/*.parquet
+
+# === AFS golden fixture — committed deliberately (test/test_afs_amalgamated.py) ===
+# The 64-row amalgamated-AFS golden parquet lets the data-integrity tests run in CI
+# without re-downloading the gov.ie PDFs. Page-text fixture (.txt) isn't ignored.
+!test/fixtures/afs/*.parquet
+# LA-payments golden slice (test/fixtures/la_payments/_generate.py) for the Tier-3 invariants
+!test/fixtures/la_payments/*.parquet
+# per-LA AFS golden fact (test/fixtures/la_afs/_generate.py) for test/test_la_afs.py invariants
+!test/fixtures/la_afs/*.parquet
+
+# generated bulk-export snapshots (privacy-filtered copies cut by api/routers/exports.py)
+data/_export_cache/
+
+# === planning_rules — per-authority Development Management Standards collection ===
+# Each council dir holds markdown extracts (tracked by default) + a _source.json
+# provenance file + a raw/ archive of the original HTML/PDF. The blanket *.json rule
+# above swallows _source.json, so negate it (last match wins). The raw/ downloads are
+# regenerable source documents — keep them ignored per the *.pdf/*.html convention.
+!planning_rules/**/_source.json
+planning_rules/**/raw/
+
+# planning_rules cross-council criteria map (normalized rule values) — track these
+!planning_rules/_criteria_map/*.json
+!planning_rules/_criteria_map/*.csv
+
+# planning_rules corpus seed registry (curated tracking of datasets to ingest) — track it
+!planning_rules/_corpus_registry/*.csv
+=======
+# Reorg-related un-ignores: the broad `members/` and `questions/` rules above
+# unintentionally swallow the src/ package dirs of the same name. Scope them
+# back in. The trailing `*.py` is deliberate — we don't want the `**` to
+# un-ignore __pycache__/, build artifacts, etc.
+!src/dail_tracker/domains/members/
+!src/dail_tracker/domains/members/*.py
+!src/dail_tracker/domains/questions/
+!src/dail_tracker/domains/questions/*.py
+>>>>>>> reorg/src-layout
