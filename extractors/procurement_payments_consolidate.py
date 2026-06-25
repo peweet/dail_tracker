@@ -204,6 +204,62 @@ def _clean_supplier_names(df: pl.DataFrame) -> pl.DataFrame:
 _SOURCE_STATS: dict[str, dict] = {}
 
 
+def _drop_unattributable(df: pl.DataFrame, label: str) -> pl.DataFrame:
+    """Drop rows with NO supplier, NO description AND NO po_number.
+
+    Such rows carry zero identifying information — they are period/section TOTAL or page-furniture
+    lines the parsers emitted as amount-only rows (DQ audit garble scan 2026-06: ie_opw €155.78m,
+    ie_prisons €74.0m annual totals; dept_social_protection/dept_health/ie_ntma quarterly totals;
+    501 rows / €857.8m in all). They were already value_safe_to_sum=False, so dropping them changes
+    NO summable total — it only removes un-attributable junk that otherwise shows as a huge
+    "payment to (no payee)" when browsing a publisher. Applied BEFORE _capture_stats so the
+    source-fact reconciliation baseline is computed post-drop (stays exact). Logged per source.
+    """
+    def _blank(c: str) -> pl.Expr:
+        return pl.col(c).is_null() | (pl.col(c).cast(pl.Utf8).str.strip_chars() == "")
+
+    # A description that is ONLY the bled amount ('€ 2,532,553.23', nothing else) carries no info —
+    # treat it as blank here so the row is dropped at load (before the stats baseline), rather than
+    # surviving until _strip_bled_amount blanks it post-baseline and leaks an all-blank row to gold.
+    _lead = pl.col("description").str.extract(r"^[€$£]?\s*([0-9][0-9,]*\.?[0-9]{0,2})", 1).str.replace_all(",", "").cast(pl.Float64, strict=False)
+    _resid = pl.col("description").cast(pl.Utf8).str.replace(r"^[€$£]?\s*[0-9][0-9,]*\.?[0-9]{0,2}\s*", "").str.strip_chars()
+    _desc_is_just_amount = _lead.is_not_null() & ((_lead - pl.col("amount_eur")).abs() < 1) & (_resid == "")
+    desc_blank = _blank("description") | _desc_is_just_amount
+
+    mask = _blank("supplier_raw") & desc_blank & _blank("po_number")
+    n = df.filter(mask).height
+    if n:
+        eur = float(df.filter(mask)["amount_eur"].sum() or 0.0)
+        print(f"    dropped {n} unattributable rows from {label} (€{eur / 1e6:.1f}m, blank supplier+desc+po, non-summable)")
+        df = df.filter(~mask)
+    return df
+
+
+def _strip_bled_amount(df: pl.DataFrame) -> pl.DataFrame:
+    """Remove a leading currency+amount that bled into ``description`` — but ONLY when that number
+    equals ``amount_eur`` (so it is provably the amount, not a real spec like '70% Bitumen Emulsion'
+    or a code prefix). Several publishers' layouts duplicate the amount into the description column
+    (DQ audit garble scan 2026-06: dept_education '€80,000,000.00 Third Level Building…', ie_la_meath,
+    dept_defence — 5,788 rows). amount_eur is unchanged; this only cleans the display text (and so
+    feeds a cleaner spend_category). Runs before _derive_spend_category.
+    """
+    if "description" not in df.columns:
+        return df
+    lead = pl.col("description").str.extract(r"^[€$£]?\s*([0-9][0-9,]*\.?[0-9]{0,2})", 1)
+    lead_num = lead.str.replace_all(",", "").cast(pl.Float64, strict=False)
+    safe = lead_num.is_not_null() & ((lead_num - pl.col("amount_eur")).abs() < 1)
+    n = int(df.select(safe.sum()).item() or 0)
+    if n:
+        df = df.with_columns(
+            pl.when(safe)
+            .then(pl.col("description").str.replace(r"^[€$£]?\s*[0-9][0-9,]*\.?[0-9]{0,2}\s*", ""))
+            .otherwise(pl.col("description"))
+            .alias("description")
+        )
+        print(f"  stripped bled amount from {n:,} descriptions (amount preserved; cleaner category text)")
+    return df
+
+
 def _capture_stats(label: str, df: pl.DataFrame) -> None:
     _SOURCE_STATS[label] = {
         "publishers": frozenset(df["publisher_id"].unique().to_list()),
@@ -221,10 +277,37 @@ def _load_facts() -> pl.DataFrame:
             print(f"  WARN missing fact, skipped: {fname}")
             continue
         df = pl.read_parquet(path)
+        # Fold the disclosed-BigQuery HSE history INTO the hse/tusla source (not a separate
+        # SOURCE_FACTS entry) so ie_hse stays single-source: the reconciliation audit keys on each
+        # source's DISJOINT publisher set, so the same publisher across two sources would
+        # double-count (actual > expected → halt). The disclosed HSE periods are verified disjoint
+        # from the PDF parse (2017-Q3..2020-Q2 + 2025-Q4 + 2026-Q1, absent from hse_tusla), so this
+        # is a pure period-backfill of the body we already publish. See doc/DISCLOSED_PO_INTEGRATION_PLAN.md.
+        if fname == "hse_tusla_payments_fact.parquet":
+            _sidecar = SILVER / "disclosed_bq_po_payments_fact.parquet"
+            if _sidecar.exists():
+                _extra = pl.read_parquet(_sidecar)
+                if set(_extra.columns) == set(df.columns):
+                    _extra = _extra.select(df.columns).cast(dict(df.schema))  # all-null cols read back as Null type
+                    df = pl.concat([df, _extra], how="vertical")
+                    print(f"    + folded disclosed HSE history into hse_tusla: {_extra.height:,} rows")
+                else:
+                    print(f"    WARN disclosed HSE sidecar schema mismatch, NOT folded")
+            elif OUT.exists():
+                # Carry-forward (same philosophy as the LA listing-rot guard): the raw drop + its
+                # gitignored silver are absent (e.g. a cloud run), so regenerate-from-source is
+                # impossible — but the disclosed HSE history is immutable and already in gold. Keep
+                # it instead of silently dropping it on the rebuild.
+                _prior = pl.read_parquet(OUT).filter(pl.col("parser_name") == "disclosed_bq_po")
+                if _prior.height and set(df.columns) <= set(_prior.columns):
+                    _prior = _prior.select(df.columns).cast(dict(df.schema))
+                    df = pl.concat([df, _prior], how="vertical")
+                    print(f"    ! carry-forward disclosed HSE history (sidecar absent): kept {_prior.height:,} gold rows")
         if base_cols is None:
             base_cols = set(df.columns)
         elif set(df.columns) != base_cols:
             raise SystemExit(f"schema drift in {fname}: +{set(df.columns) - base_cols} -{base_cols - set(df.columns)}")
+        df = _drop_unattributable(df, fname)
         frames.append(df)
         _capture_stats(fname, df)
         print(f"  + {fname:38} {df.height:>7,} rows")
@@ -262,6 +345,7 @@ def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
     if missing:
         raise SystemExit(f"LA fact cannot conform — missing base columns: {sorted(missing)}")
     la = la.select(base.columns).cast(dict(base.schema))
+    la = _drop_unattributable(la, "la_payments_fact.parquet")
     # Capture BEFORE the carry-forward append, keyed by the silver LA publisher set — the
     # carried rows belong to a council ABSENT from silver, so reconciling gold by this set is
     # exact and needs no carry-forward fudge (the carried rows are verbatim copies anyway).
@@ -698,6 +782,7 @@ def main() -> None:
     df = _reclassify_missed_companies(df)
     df = _classify_id_codes(df)
     df = _apply_class_overrides(df)
+    df = _strip_bled_amount(df)  # clean amount-bled descriptions before category derivation
     df = _derive_spend_category(df)
     df = _surface_sole_trader_contractors(df)
 

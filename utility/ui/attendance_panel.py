@@ -70,11 +70,11 @@ def render_member_attendance(
     absences = fetch_member_absences(code)
     abs_row = None
     if not absences.empty:
-        absences = absences.sort_values("longest_run_divisions", ascending=False)
+        absences = absences.sort_values("longest_run_sitting_days", ascending=False)
         abs_row = absences.iloc[0]
-        run = int(abs_row.get("longest_run_divisions") or 0)
+        run = int(abs_row.get("longest_run_sitting_days") or 0)
         if run > 0:
-            stats.append((f"{run}", "longest run of votes missed", "var(--text-secondary)"))
+            stats.append((f"{run}", "longest run of sitting days absent", "var(--text-secondary)"))
     stat_strip(stats)
 
     if role:
@@ -103,7 +103,7 @@ def render_member_attendance(
     st.html(f'<div class="att-year-list">{"".join(rows_html)}</div>')
 
     # Notable absence + sourced explanation.
-    if abs_row is not None and int(abs_row.get("longest_run_divisions") or 0) > 0:
+    if abs_row is not None and int(abs_row.get("longest_run_sitting_days") or 0) > 0:
         start = pd.to_datetime(abs_row.get("run_start"), errors="coerce")
         end = pd.to_datetime(abs_row.get("run_end"), errors="coerce")
         span = f"{start.strftime('%d %b')} → {end.strftime('%d %b %Y')}" if pd.notna(start) and pd.notna(end) else ""
@@ -119,7 +119,7 @@ def render_member_attendance(
             chip = '<span class="part-noexpl">No public explanation found</span>'
         st.html(
             f'<div class="part-absence-figure" style="padding:0.2rem 0">'
-            f'<span class="part-absence-run">{int(abs_row["longest_run_divisions"])} votes missed in a row</span>'
+            f'<span class="part-absence-run">{int(abs_row["longest_run_sitting_days"])} sitting days absent in a row</span>'
             f'<span class="part-absence-span">{_h(span)}</span>{chip}</div>'
         )
 

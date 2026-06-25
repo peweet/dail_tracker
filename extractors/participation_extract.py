@@ -8,9 +8,10 @@ doc/ATTENDANCE_PARTICIPATION_REDESIGN.md). This extractor derives, per
 
   1. division_participation — votes voted / missed / turnout% (unfakeable: a row
      exists per member-division, absence = no row).
-  2. absence_gaps — longest interior run of consecutive divisions missed (the
-     member voted on both ends, so it is a real absence; membership- & recess-
-     proof). Reported with its calendar date-diff.
+  2. absence_gaps — longest run of consecutive PLENARY SITTING DAYS a member was
+     PHYSICALLY absent (not recorded present at Leinster House at all) — from the
+     TAA attendance PDFs, NOT the votes. The vote-gap conflated absence with
+     present-but-not-voting (pairing); physical presence disambiguates. Recess-proof.
   3. divergence — TAA days present (from attendance gold) vs votes cast. The
      headline "badged in, didn't vote" number.
   4. taa_compliance — below-120 cohort + 1%/day allowance deduction (the money).
@@ -49,6 +50,9 @@ DAIL_ATT = GOLD / "attendance_by_td_year.parquet"
 SEANAD_ATT = GOLD / "seanad_attendance_by_year.parquet"
 DAIL_MEMBERS = ROOT / "data" / "silver" / "parquet" / "flattened_members.parquet"
 SEANAD_MEMBERS = ROOT / "data" / "silver" / "parquet" / "flattened_seanad_members.parquet"
+# Daily badge-in dates from the TAA attendance PDFs — the basis for PHYSICAL absence.
+DAIL_ATT_FACT = ROOT / "data" / "silver" / "parquet" / "td_attendance_fact_table.parquet"
+SEANAD_ATT_FACT = ROOT / "data" / "silver" / "parquet" / "seanad_attendance_fact_table.parquet"
 LEADERS_CSV = META / "oireachtas_special_roles.csv"
 EXPLANATIONS_CSV = META / "member_absence_explanations.csv"
 
@@ -168,43 +172,85 @@ def build_participation(votes: pl.DataFrame, office: pl.DataFrame, leaders: pl.D
     ).drop(["office_name", "leader_note"])
 
 
-# ── 2. absence gaps (interior vote-gap) ──────────────────────────────────────
+# ── 2. absence gaps (PHYSICAL absence, from the TAA attendance PDFs) ──────────
 
 
-def build_absence_gaps(votes: pl.DataFrame) -> pl.DataFrame:
-    # global division index per (house, year)
+def _attendance_dates() -> pl.DataFrame:
+    """Per-member badge-in DATES from the TAA attendance PDFs (silver fact), melted to
+    one row per (identifier, house, year, present_date, is_plenary). ``is_plenary`` marks
+    a chamber sitting day; the other rows are committee / non-sitting days. Current term."""
+    frames = []
+    for path, house in ((DAIL_ATT_FACT, "Dáil"), (SEANAD_ATT_FACT, "Seanad")):
+        if not path.exists():
+            continue
+        df = pl.read_parquet(path).with_columns(year=pl.col("year").cast(pl.Int64))
+        sitting = df.filter(pl.col("iso_sitting_days_attendance").is_not_null()).select(
+            "identifier", "year",
+            present_date=pl.col("iso_sitting_days_attendance").str.to_date(strict=False),
+            is_plenary=pl.lit(True),  # noqa: FBT003
+        )
+        other = df.filter(pl.col("iso_other_days_attendance").is_not_null()).select(
+            "identifier", "year",
+            present_date=pl.col("iso_other_days_attendance").str.to_date(strict=False),
+            is_plenary=pl.lit(False),  # noqa: FBT003
+        )
+        frames.append(pl.concat([sitting, other]).with_columns(house=pl.lit(house)))
+    out = pl.concat(frames).filter(pl.col("year") >= CURRENT_TERM_FROM_YEAR)
+    return out.filter(pl.col("present_date").is_not_null()).unique(
+        ["identifier", "house", "year", "present_date", "is_plenary"]
+    )
+
+
+def build_absence_gaps(att_dates: pl.DataFrame, code_map: pl.DataFrame) -> pl.DataFrame:
+    """Longest run of consecutive PLENARY SITTING DAYS a member was PHYSICALLY absent
+    from Leinster House — from the TAA attendance PDFs, NOT the votes.
+
+    "Notable absence" = the chamber sat in plenary and the member was not recorded
+    present at all that day (no sitting AND no committee badge-in). Measured against the
+    distinct plenary sitting dates, so it is recess-proof (no plenary sittings in recess).
+    INTERIOR runs only (bracketed by two days the member WAS present) → always real, never
+    the 120-day TAA trailing-censoring. This is what "absence" means: the old vote-gap
+    conflated it with present-but-not-voting (pairing) — a member could be in the building
+    every day yet show a vote-gap. See doc/ATTENDANCE_PARTICIPATION_REDESIGN.md."""
     cal = (
-        votes.select("house", "year", "vote_id", "d").unique()
-        .sort(["house", "year", "d", "vote_id"])
-        .with_columns(gidx=pl.int_range(pl.len()).over(["house", "year"]))
+        att_dates.filter(pl.col("is_plenary"))
+        .select("house", "year", "present_date").unique()
+        .sort(["house", "year", "present_date"])
+        .with_columns(idx=pl.int_range(pl.len()).over(["house", "year"]))
+        .rename({"present_date": "sit_date"})
     )
-    mv = (
-        votes.select("house", "year", "unique_member_code", "full_name", "vote_id")
-        .unique()
-        .join(cal.select("house", "year", "vote_id", "d", "gidx"), on=["house", "year", "vote_id"], how="left")
-        .sort(["unique_member_code", "house", "year", "gidx"])
-    )
-    grp = ["unique_member_code", "house", "year"]
-    mv = mv.with_columns(
-        prev_gidx=pl.col("gidx").shift(1).over(grp),
-        prev_d=pl.col("d").shift(1).over(grp),
+    # present on a sitting date = badged in at all that day (sitting OR committee)
+    present = att_dates.select("identifier", "house", "year", "present_date").unique()
+    attended = present.join(
+        cal, left_on=["house", "year", "present_date"], right_on=["house", "year", "sit_date"], how="inner"
+    ).sort(["identifier", "house", "year", "present_date"])
+    grp = ["identifier", "house", "year"]
+    attended = attended.with_columns(
+        prev_idx=pl.col("idx").shift(1).over(grp),
+        prev_date=pl.col("present_date").shift(1).over(grp),
     ).with_columns(
-        divisions_missed=(pl.col("gidx") - pl.col("prev_gidx") - 1),
-        gap_calendar_days=(pl.col("d") - pl.col("prev_d")).dt.total_days(),
+        sitting_days_missed=(pl.col("idx") - pl.col("prev_idx") - 1),
+        gap_calendar_days=(pl.col("present_date") - pl.col("prev_date")).dt.total_days(),
     )
-    gaps = mv.filter(pl.col("divisions_missed").is_not_null())
+    gaps = attended.filter(pl.col("sitting_days_missed").is_not_null())
     longest = (
-        gaps.sort("divisions_missed", descending=True)
+        gaps.sort("sitting_days_missed", descending=True)
         .group_by(grp)
         .agg(
-            full_name=pl.col("full_name").first(),
-            longest_run_divisions=pl.col("divisions_missed").first(),
+            longest_run_sitting_days=pl.col("sitting_days_missed").first(),
             run_calendar_days=pl.col("gap_calendar_days").first(),
-            run_start=pl.col("prev_d").first(),
-            run_end=pl.col("d").first(),
+            run_start=pl.col("prev_date").first(),
+            run_end=pl.col("present_date").first(),
         )
     )
-    return longest.with_columns(longest_run_divisions=pl.col("longest_run_divisions").fill_null(0))
+    # attach unique_member_code + full_name via the gold roster (member_id == identifier)
+    out = longest.join(code_map, on=["identifier", "house", "year"], how="left").with_columns(
+        longest_run_sitting_days=pl.col("longest_run_sitting_days").fill_null(0)
+    )
+    return out.filter(pl.col("unique_member_code").is_not_null()).select(
+        "unique_member_code", "full_name", "house", "year",
+        "longest_run_sitting_days", "run_calendar_days", "run_start", "run_end",
+    )
 
 
 # ── 3 + 4. divergence + TAA compliance (from attendance gold) ────────────────
@@ -310,7 +356,15 @@ def run() -> dict[str, int]:
     participation = participation.join(att_slim, on=["unique_member_code", "house", "year"], how="left").with_columns(
         constituency=pl.col("constituency").fill_null("")
     )
-    gaps = build_absence_gaps(votes)
+    # PHYSICAL-absence gaps from the attendance PDFs (NOT votes — the vote-gap conflated
+    # absence with present-but-not-voting). code_map links the silver fact's `identifier`
+    # to unique_member_code via the gold roster's member_id.
+    code_map = (
+        att.select(pl.col("member_id").alias("identifier"), "unique_member_code", "full_name", "house", "year")
+        .filter(pl.col("identifier").is_not_null() & pl.col("unique_member_code").is_not_null())
+        .unique(["identifier", "house", "year"])
+    )
+    gaps = build_absence_gaps(_attendance_dates(), code_map)
     presence = build_presence(att, participation, office, leaders)
     # name→code map for resolving curated explanations (union of both sources so a
     # member who barely votes but is in the TAA record still resolves).
