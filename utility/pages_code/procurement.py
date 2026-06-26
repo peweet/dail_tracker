@@ -3443,6 +3443,52 @@ def _data_completeness_note() -> None:
         )
 
 
+def _lifecycle_strip() -> None:
+    """"How public money moves" — names the four realisation tiers (PLANNED → AWARDED →
+    COMMITTED → SPENT) that the page's sections already embody, so a first-time reader sees
+    one contract's life rather than four unrelated lists. "Both, layered": a plain-language
+    question headline per stage, with the precise tier + a one-line reliability caveat under
+    it. Each card deep-links to the section that holds it (?tab=, the page's source of truth).
+    AFS is shown as a sibling measure OFF the line — different grain (budget by service
+    division), never summed with the contract stages. Surfacing-only: static copy + links,
+    no data read, no aggregation."""
+    # (tab, plain-language question, tier word, reliability caveat, section label, accent)
+    stages = [
+        ("open", "What's being bought", "Planned",
+         "Open tenders — the pipeline, before any contract is awarded", "Open right now", "#6b7a8a"),
+        ("wins", "Who won it", "Awarded",
+         "A value at the point of award — a ceiling, not money paid", "Who wins contracts?", "#b8862b"),
+        ("paid", "What was ordered", "Committed",
+         "Purchase orders placed against a contract", "Who actually gets paid?", "#9c5b2e"),
+        ("paid", "What was actually paid", "Spent",
+         "Payments out to named suppliers — the real money", "Who actually gets paid?", "#2f7d5b"),
+    ]
+    cells: list[str] = []
+    for i, (tab, question, tier, note, go, accent) in enumerate(stages):
+        if i:
+            cells.append('<span class="pr-lc-arrow">→</span>')
+        cells.append(
+            f'<a class="pr-lc-stage" style="--lc-accent:{accent}" href="?tab={tab}">'
+            f'<span class="pr-lc-tier">{i + 1} · {_esc(tier)}</span>'
+            f'<span class="pr-lc-q">{_esc(question)}</span>'
+            f'<span class="pr-lc-note">{_esc(note)}</span>'
+            f'<span class="pr-lc-go">{_esc(go)} →</span>'
+            "</a>"
+        )
+    st.html(
+        '<div class="pr-lc">'
+        '<div class="pr-lc-head"><strong>How public money moves.</strong> '
+        "Four stages of one contract's life — each shown separately, and never added together "
+        "(they sit in different registers with no shared key).</div>"
+        f'<div class="pr-lc-track">{"".join(cells)}</div>'
+        '<div class="pr-lc-sibling"><strong>Measured separately — audited accounts (AFS).</strong> '
+        "A council's budget by service division, on a different basis entirely. It lives in each "
+        "council's dossier under <em>Who actually gets paid?</em> and is never added to the stages above."
+        "</div>"
+        "</div>"
+    )
+
+
 _BIDSIG_CSS = """
 <style>
 /* EXPERIMENTAL (local-only) — scoped styles for the "Should I bid?" signal cards.
@@ -3751,6 +3797,10 @@ def procurement_page() -> None:
     if _n(stats.get("n_suppliers")) == 0:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
         return
+
+    # Lifecycle legend: names the four realisation tiers the sections below embody, so the
+    # section bar reads as "stages of one contract's life", not four disconnected lists.
+    _lifecycle_strip()
 
     # Four top-level sections, phrased as the questions a reader actually brings
     # (doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md §1 + doc/archive/PROCUREMENT_UI_BRIEF.md: registers →

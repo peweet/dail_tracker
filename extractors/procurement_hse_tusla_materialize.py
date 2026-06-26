@@ -60,16 +60,21 @@ OUT_COV = ROOT / "data/_meta/hse_tusla_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
 # Per-publisher: shared-schema metadata + the list of (source_file_url, cached_path) to parse.
-# HSE thresholds DIFFER by file (recorded per-row via threshold detected from the URL):
-#   - HISTORIC cumulative Q4-2021..Q3-2025 is a ≥€100k file (16,972 rows / €6.39bn). The file we
-#     cached in 2026 under the "above_20k" name is BYTE-IDENTICAL (8,785,295 bytes) to the live
-#     ≥€100k "by_Quarter" file — our historic HSE rows have never contained the €20k–€100k band
-#     (verified min = €100,036, 2026-06-25). So the source_file_url points at the live, re-fetchable
-#     ≥€100k file, NOT the deleted €20k cumulative (whose €20k–€100k granularity is lost — never
-#     archived). The cached path is kept (identical content) to avoid re-downloading 8.8 MB.
-#   - NEW per-quarter ≥€20k files (Q4-2025, Q1-2026) DO carry the full €20k band (~8–10k rows/qtr vs
-#     ~1.3k/qtr at ≥€100k) — the first granular €20k–€100k HSE data we hold, for those quarters only.
-# CAUTION: ≥€100k (historic) and ≥€20k (new) periods are NOT comparable on total spend.
+# HSE here covers ONLY the historic cumulative Q4-2021..Q3-2025 ≥€100k file (16,972 rows / €6.39bn).
+# The file cached in 2026 under the "above_20k" name is BYTE-IDENTICAL (8,785,295 bytes) to the live
+# ≥€100k "by_Quarter" file — our historic HSE rows have never contained the €20k–€100k band (verified
+# min = €100,036, 2026-06-25). So the source_file_url points at the live, re-fetchable ≥€100k file,
+# NOT the deleted €20k cumulative (whose €20k–€100k granularity is lost — never archived). The cached
+# path is kept (identical content) to avoid re-downloading 8.8 MB. threshold ("100k") is recorded per
+# row from the filename so the gold consolidation can flag the band difference.
+#
+# DELIBERATELY NOT INGESTED HERE: the new per-quarter ≥€20k files (Q4-2025, Q1-2026, on assets.hse.ie).
+# The disclosed-BigQuery source (extractors/disclosed_bq_po_extract.py -> disclosed_bq_po_payments_fact)
+# ALREADY supplies HSE 2025-Q4 + 2026-Q1 at ≥€20k and is folded into this fact by the consolidator;
+# adding the PDF copies too would DOUBLE-COUNT ie_hse and break the consolidator's disjoint-publisher
+# reconciliation. The PDF parse of those two quarters (10,229 / 7,908 rows) was used only to
+# cross-validate the BigQuery rows (10,238 / 7,918) — they agree to ~0.1%. hse_spec_for() in the parser
+# carries the re-typeset 2025/2026 x-cuts for if/when a future quarter must be parsed from PDF.
 # Tusla pulls every yearly "POs over 20k" file the listing exposes (2021-2025).
 HSE_ASSETS = "https://assets.hse.ie/media/documents"
 PUBS = {
@@ -85,8 +90,6 @@ PUBS = {
                 f"{HSE_ASSETS}/HSE_FOI_Model_Publication_of_HSE_Purchase_Order_Payments_above_100k_by_Quarter.pdf",
                 TMP / "HSE_FOI_Model_Publication_of_HSE_Purchase_Order_Payments_abo.pdf",
             ),
-            (f"{HSE_ASSETS}/HSE_Purchase_Order_Payments_above_20k_Q4_2025.pdf", None),
-            (f"{HSE_ASSETS}/HSE_Purchase_Order_Payments_above_20k_Q1_2026.pdf", None),
         ],
     },
     "ie_tusla": {
@@ -163,8 +166,8 @@ def to_schema(pid: str, native: dict, file_url: str, fhash: str, semantics: str,
     if pid == "ie_hse":
         thr = hse_threshold(file_url)
         hse_caveat = (
-            f"HSE PO payments incl-VAT, disclosure threshold ≥€{thr}. "
-            + ("Historic cumulative (Q4-2021..Q3-2025); €20k–€100k band NOT in this file." if thr == "100k" else "")
+            f"HSE PO payments incl-VAT, disclosure threshold >={thr}. "
+            + ("Historic cumulative (Q4-2021..Q3-2025); 20k-100k band NOT in this file." if thr == "100k" else "")
         ).strip()
     return {
         "publisher_id": pid,
@@ -301,10 +304,10 @@ def main() -> None:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to "
         "public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. "
-        "HSE THRESHOLD IS HETEROGENEOUS: historic Q4-2021..Q3-2025 is ≥€100k only (the €20k–€100k "
-        "band for that period is lost — HSE's €20k cumulative was deleted, never archived); Q4-2025 "
-        "and Q1-2026 are ≥€20k (full band). DO NOT compare period totals across thresholds. "
-        "Per-era/-year layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False).",
+        "HSE here is the HISTORIC ≥€100k cumulative (Q4-2021..Q3-2025) ONLY — the €20k–€100k band for "
+        "that period is lost (HSE's €20k cumulative was deleted, never archived). HSE 2025-Q4 + 2026-Q1 "
+        "at ≥€20k are supplied by the disclosed-BigQuery fact and folded in at consolidation (NOT here, "
+        "to avoid double-count). Layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False).",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage {OUT_COV}")
