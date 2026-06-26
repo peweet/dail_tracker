@@ -3,9 +3,10 @@
 -- (si_entity_enrichment.py).
 --
 -- Sourced from the Iris Oifigiúil SI taxonomy directly — NOT gated on a bill
--- match. The enabling-bill link (bill_id / bill_short_title) is one optional
--- attribute, present on ~30% of rows; the browsable SI page does not depend
--- on it. Distinct from v_bill_statutory_instruments, which is the bill-gated
+-- match. The structured enabling-bill link (bill_id / bill_short_title) is one
+-- optional attribute, present on ~5% of rows (a looser si_parent_legislation
+-- text reference is on ~48%); the browsable SI page does not depend on it.
+-- Distinct from v_bill_statutory_instruments, which is the bill-gated
 -- view that backs the "SIs under this Act" section on bill detail.
 --
 -- The file name starts with 'legislation_' so legislation_data.py's

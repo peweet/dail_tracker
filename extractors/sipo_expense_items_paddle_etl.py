@@ -64,6 +64,17 @@ PARTY_JOBS: dict[str, tuple[Path, str]] = {
     "socdem": (SCAN_DIR / "socdem_sipo_ge_2024_expenses.pdf", "Social Democrats"),
     "pbp": (SCAN_DIR / "pbp_sipo_ge_2024_expenses.pdf", "People Before Profit/Solidarity"),
     "aontu": (SCAN_DIR / "aontu_sipo_ge_2024_expenses.pdf", "Aontú"),
+    # Minor-party national-agent returns (mirrors sipo_expenses_paddle_etl.py PARTY_JOBS so
+    # the Part-4 items watchdog can address them by key instead of silently falling back to
+    # ALL parties). All scanned -> PaddleOCR; run one at a time via _sipo_items_watchdog.py.
+    "centre_party": (SCAN_DIR / "centre_party_sipo_ge_2024_expenses.pdf", "The Centre Party of Ireland"),
+    "i4c": (SCAN_DIR / "i4c_sipo_ge_2024_expenses.pdf", "Independents 4 Change"),
+    "indep_ireland": (SCAN_DIR / "indep_ireland_sipo_ge_2024_expenses.pdf", "Independent Ireland"),
+    "ireland_first": (SCAN_DIR / "ireland_first_sipo_ge_2024_expenses.pdf", "Ireland First"),
+    "irish_freedom": (SCAN_DIR / "irish_freedom_sipo_ge_2024_expenses.pdf", "Irish Freedom Party"),
+    "irish_people": (SCAN_DIR / "irish_people_sipo_ge_2024_expenses.pdf", "The Irish People"),
+    "redress100": (SCAN_DIR / "redress100_sipo_ge_2024_expenses.pdf", "100% Redress Party"),
+    "right_to_change": (SCAN_DIR / "right_to_change_sipo_ge_2024_expenses.pdf", "Right to Change"),
 }
 
 # Ref-prefix letter -> (section code, heading). Part 4 of the standard SIPO

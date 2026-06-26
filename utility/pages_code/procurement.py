@@ -3445,48 +3445,53 @@ def _data_completeness_note() -> None:
 
 def _lifecycle_strip() -> None:
     """"How public money moves" — names the four realisation tiers (PLANNED → AWARDED →
-    COMMITTED → SPENT) that the page's sections already embody, so a first-time reader sees
-    one contract's life rather than four unrelated lists. "Both, layered": a plain-language
-    question headline per stage, with the precise tier + a one-line reliability caveat under
-    it. Each card deep-links to the section that holds it (?tab=, the page's source of truth).
-    AFS is shown as a sibling measure OFF the line — different grain (budget by service
-    division), never summed with the contract stages. Surfacing-only: static copy + links,
-    no data read, no aggregation."""
-    # (tab, plain-language question, tier word, reliability caveat, section label, accent)
+    COMMITTED → SPENT) the page's sections already embody, so a reader sees one contract's
+    life rather than four unrelated lists.
+
+    A collapsed, NON-clickable explainer — the section bar below is the page's single
+    navigation. This strip used to render the same four ?tab= links a second time: the bold,
+    hover-lifting cards read as "the controls", but every click only jumped to the section
+    bar directly beneath them (the "nice tabs that don't go anywhere" the reader hit). It is
+    now a teaching diagram on demand — static cells, no links, no hover — opened only by a
+    reader who wants the model. AFS is shown as a sibling measure OFF the line (different
+    grain — budget by service division, never summed with the contract stages).
+    Surfacing-only: static copy, no data read, no aggregation."""
+    # (plain-language question, tier word, reliability caveat, accent) — no ?tab link: this is
+    # an explainer, not navigation, so the section bar is the one place a reader picks a stage.
     stages = [
-        ("open", "What's being bought", "Planned",
-         "Open tenders — the pipeline, before any contract is awarded", "Open right now", "#6b7a8a"),
-        ("wins", "Who won it", "Awarded",
-         "A value at the point of award — a ceiling, not money paid", "Who wins contracts?", "#b8862b"),
-        ("paid", "What was ordered", "Committed",
-         "Purchase orders placed against a contract", "Who actually gets paid?", "#9c5b2e"),
-        ("paid", "What was actually paid", "Spent",
-         "Payments out to named suppliers — the real money", "Who actually gets paid?", "#2f7d5b"),
+        ("What's being bought", "Planned",
+         "Open tenders — the pipeline, before any contract is awarded", "#6b7a8a"),
+        ("Who won it", "Awarded",
+         "A value at the point of award — a ceiling, not money paid", "#b8862b"),
+        ("What was ordered", "Committed",
+         "Purchase orders placed against a contract", "#9c5b2e"),
+        ("What was actually paid", "Spent",
+         "Payments out to named suppliers — the real money", "#2f7d5b"),
     ]
     cells: list[str] = []
-    for i, (tab, question, tier, note, go, accent) in enumerate(stages):
+    for i, (question, tier, note, accent) in enumerate(stages):
         if i:
             cells.append('<span class="pr-lc-arrow">→</span>')
         cells.append(
-            f'<a class="pr-lc-stage" style="--lc-accent:{accent}" href="?tab={tab}">'
+            f'<div class="pr-lc-stage pr-lc-stage--static" style="--lc-accent:{accent}">'
             f'<span class="pr-lc-tier">{i + 1} · {_esc(tier)}</span>'
             f'<span class="pr-lc-q">{_esc(question)}</span>'
             f'<span class="pr-lc-note">{_esc(note)}</span>'
-            f'<span class="pr-lc-go">{_esc(go)} →</span>'
-            "</a>"
+            "</div>"
         )
-    st.html(
-        '<div class="pr-lc">'
-        '<div class="pr-lc-head"><strong>How public money moves.</strong> '
-        "Four stages of one contract's life — each shown separately, and never added together "
-        "(they sit in different registers with no shared key).</div>"
-        f'<div class="pr-lc-track">{"".join(cells)}</div>'
-        '<div class="pr-lc-sibling"><strong>Measured separately — audited accounts (AFS).</strong> '
-        "A council's budget by service division, on a different basis entirely. It lives in each "
-        "council's dossier under <em>Who actually gets paid?</em> and is never added to the stages above."
-        "</div>"
-        "</div>"
-    )
+    with st.expander("How public money moves"):
+        st.html(
+            '<div class="pr-lc">'
+            '<div class="pr-lc-head">'
+            "Four stages of one contract's life — each shown in its own section below, and never "
+            "added together (they sit in different registers with no shared key).</div>"
+            f'<div class="pr-lc-track">{"".join(cells)}</div>'
+            '<div class="pr-lc-sibling"><strong>Measured separately — audited accounts (AFS).</strong> '
+            "A council's budget by service division, on a different basis entirely. It lives in each "
+            "council's dossier under <em>Who actually gets paid?</em> and is never added to the stages above."
+            "</div>"
+            "</div>"
+        )
 
 
 _BIDSIG_CSS = """
@@ -3798,8 +3803,10 @@ def procurement_page() -> None:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
         return
 
-    # Lifecycle legend: names the four realisation tiers the sections below embody, so the
-    # section bar reads as "stages of one contract's life", not four disconnected lists.
+    # Lifecycle explainer (collapsed): names the four realisation tiers the sections below
+    # embody, so the section bar reads as "stages of one contract's life", not four
+    # disconnected lists. Non-clickable on purpose — it used to duplicate the section bar as a
+    # second, bolder set of ?tab= links; the section bar is now the page's one navigation.
     _lifecycle_strip()
 
     # Four top-level sections, phrased as the questions a reader actually brings
@@ -3842,16 +3849,22 @@ def procurement_page() -> None:
                 overlap = fetch_lobbying_overlap_result()
                 _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), None)
         else:
-            # Year pills + lens picker live with the rankings they scope (national register).
-            st.caption("Filter the rankings by award year:")
-            year = _year_pills(fetch_available_years())
-            awards_lens = st.segmented_control(
-                "View awards by",
-                ["By supplier", "By authority", "By category"],
-                default="By supplier",
-                key="pr_awards_lens",
-                label_visibility="collapsed",
-            )
+            # Lens + year on ONE refinement band (was three stacked rows: register / a "filter by
+            # year" caption + pills / lens). The lens is the primary choice — what to rank — so it
+            # leads; the year is a quiet refinement beside it. Year stays pills, never a dropdown
+            # (app-wide convention: year navigation is always pills). Mirrors the columns pattern
+            # the payments section already uses for its tier + view controls.
+            lens_col, year_col = st.columns([1.15, 2], vertical_alignment="center")
+            with lens_col:
+                awards_lens = st.segmented_control(
+                    "View awards by",
+                    ["By supplier", "By authority", "By category"],
+                    default="By supplier",
+                    key="pr_awards_lens",
+                    label_visibility="collapsed",
+                )
+            with year_col:
+                year = _year_pills(fetch_available_years())
             if awards_lens == "By authority":
                 _render_authorities(year)
             elif awards_lens == "By category":

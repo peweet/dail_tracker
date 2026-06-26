@@ -90,10 +90,11 @@ PAGES: dict[str, str] = {
     # url_path keeps its historic "rankings-" prefix so existing deep links resolve
     # even though the page now lives under the "Your Area" nav group.
     "council_spending": "rankings-council-spending",
-    # /in-the-news is the cross-member news feed (recent name-matched coverage of
-    # any member). The per-member "Recent media mentions" card on member-overview
-    # links here to "see all members in the news".
-    "news": "in-the-news",
+    # NOTE: the "news" → "in-the-news" mapping was removed while the cross-member
+    # news feed is parked (the page is unregistered in app.py; see
+    # pipeline_sandbox/news_mentions/). A slug here that no registered route serves
+    # fails test_internal_link_slugs. Re-add it AND register the page together when
+    # the feature ships.
 }
 
 

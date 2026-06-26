@@ -5609,6 +5609,11 @@ def inject_css() -> None:
             transition: box-shadow 0.12s ease, transform 0.12s ease;
         }
         .pr-lc-stage:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.08); transform: translateY(-1px); }
+        /* Static modifier — the strip is now a NON-clickable explainer (the section bar is the
+           page's one navigation), so a cell reads as a diagram tile, not a control: no pointer
+           cursor, no hover-lift. */
+        .pr-lc-stage--static { cursor: default; }
+        .pr-lc-stage--static:hover { box-shadow: none; transform: none; }
         .pr-lc-tier {
             font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
             color: var(--lc-accent, var(--accent));
