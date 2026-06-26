@@ -3,7 +3,7 @@
     "ie_hse",
     "ie_tusla"
   ],
-  "rows_extracted": 50100,
+  "rows_extracted": 31963,
   "by_file": [
     {
       "publisher": "ie_hse",
@@ -29,28 +29,6 @@
         "2025-Q1",
         "2025-Q2",
         "2025-Q3"
-      ]
-    },
-    {
-      "publisher": "ie_hse",
-      "file": "HSE_Purchase_Order_Payments_above_20k_Q4_2025.pdf",
-      "status": "ok",
-      "rows": 10229,
-      "sum_eur": 1009410831.0,
-      "threshold": "20k",
-      "periods": [
-        "2025-Q4"
-      ]
-    },
-    {
-      "publisher": "ie_hse",
-      "file": "HSE_Purchase_Order_Payments_above_20k_Q1_2026.pdf",
-      "status": "ok",
-      "rows": 7908,
-      "sum_eur": 693252040.0,
-      "threshold": "20k",
-      "periods": [
-        "2026-Q1"
       ]
     },
     {
@@ -90,22 +68,22 @@
     }
   ],
   "supplier_class_counts": {
-    "company": 39962,
-    "public_body": 590,
+    "company": 26823,
+    "foreign_company": 57,
     "unknown": 52,
-    "sole_trader_or_individual": 9400,
-    "foreign_company": 96
+    "public_body": 333,
+    "sole_trader_or_individual": 4698
   },
   "amount_semantics_counts": {
-    "po_committed": 14991,
-    "payment_actual": 35109
+    "payment_actual": 16972,
+    "po_committed": 14991
   },
-  "value_safe_to_sum_rows": 49407,
-  "value_safe_to_sum_total_eur": 9204394556.87,
-  "rows_review_personal_data": 9400,
+  "value_safe_to_sum_rows": 31527,
+  "value_safe_to_sum_total_eur": 7529328528.870001,
+  "rows_review_personal_data": 4698,
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-26T06:34:03+00:00",
-  "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. HSE THRESHOLD IS HETEROGENEOUS: historic Q4-2021..Q3-2025 is \u2265\u20ac100k only (the \u20ac20k\u2013\u20ac100k band for that period is lost \u2014 HSE's \u20ac20k cumulative was deleted, never archived); Q4-2025 and Q1-2026 are \u2265\u20ac20k (full band). DO NOT compare period totals across thresholds. Per-era/-year layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False)."
+  "generated_at": "2026-06-26T18:03:43+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. HSE here is the HISTORIC \u2265\u20ac100k cumulative (Q4-2021..Q3-2025) ONLY \u2014 the \u20ac20k\u2013\u20ac100k band for that period is lost (HSE's \u20ac20k cumulative was deleted, never archived). HSE 2025-Q4 + 2026-Q1 at \u2265\u20ac20k are supplied by the disclosed-BigQuery fact and folded in at consolidation (NOT here, to avoid double-count). Layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False)."
 }

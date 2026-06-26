@@ -1,11 +1,14 @@
 """Your Councillors — who represents you on your local council (Your Area nav).
 
-Reads PROMOTED gold views via the data-access layer (v_la_councillors / _council_meeting_coverage /
-_councillor_votes / _meeting_agendas / _standing_orders / _chief_executives) — display-only, no joins
-or modelling in this layer. Flow: County→LEA picker → LEA roster → councillor dossier.
+Editorial accountability register (PRODUCT.md): ink-on-paper, evidence cards, honest empty states.
+Reads PROMOTED gold views via the data-access layer (display-only). Built on the shared UI components
+(hero_banner / info_card / card_row / evidence_heading / empty_state / totals_strip / party_stripe_html).
 
-Honest degradation is deliberate: voting records exist only where a council holds named roll-call
-votes; agendas/standing-orders are shown where parsed, with explicit caveats elsewhere.
+IA — two levels:
+  • COUNCIL view (after picking County→LEA): the council itself — its councillors, how it works
+    (Mayor, the unelected Chief Executive's power, Standing Orders), and its agendas.
+  • COUNCILLOR view (click one): that person's own voting record + the pay schedule.
+Every section states its own data state; never implies a false zero (feedback_no_inference_in_app).
 """
 from __future__ import annotations
 
@@ -13,78 +16,63 @@ import datetime
 import re
 import sys
 from collections import Counter
+from html import escape as _h
 from pathlib import Path
 
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access import your_councillors_data as ycd  # noqa: E402
-from ui.components import hide_sidebar, page_error_boundary  # noqa: E402
+from ui.components import (  # noqa: E402
+    back_button, card_row, empty_state, evidence_heading, hero_banner,
+    hide_sidebar, info_card, page_error_boundary, party_stripe_html, subsection_heading, totals_strip,
+)
 
 _SEP = " | "
+_ACCENT = "#b8430f"   # editorial accent (warm ink-red), used sparingly for the lead statement
 _PARTY_COLOUR = {
     "fianna fáil": "#66bb6a", "fine gael": "#3f51b5", "sinn féin": "#1b8a5a", "labour": "#cc0000",
     "green": "#4caf50", "social democrat": "#752f8a", "independent ireland": "#5c6bc0",
-    "independent": "#888888", "aontú": "#3d2b56",
+    "independent": "#8a8a8a", "aontú": "#3d2b56",
 }
-_PAY = [
-    ("Representational Payment (salary)", "€32,059 / yr", "taxable"),
-    ("Annual Expenses Allowance", "≈ €3,162 / yr", "full amount needs 80% meeting attendance"),
-    ("Local Representation Allowance", "up to €5,160 / yr", "vouched — receipts required"),
-]
-_TIER_MSG = {
-    "roll_call": "",  # handled separately (real votes shown)
-    "proposer_seconder": ("This council records most decisions <b>by agreement</b> rather than by named "
-                          "vote, so individual councillor votes aren't published in its minutes. Motions "
-                          "are recorded with a proposer and seconder instead."),
-    "scanned_pending": ("This council's minutes are <b>scanned image PDFs</b> not yet OCR-processed — so "
-                        "meeting activity isn't available for this councillor yet."),
-    "cmis_pending": ("This council publishes minutes through a <b>ModernGov portal</b> not yet processed — "
-                     "so meeting activity isn't available for this councillor yet."),
-    "unseeded": ("This council's minutes haven't been harvested yet — meeting activity isn't available "
-                 "for this councillor yet."),
+_VOTE_COLOUR = {"for": "#1d4ed8", "against": "#c2410c", "abstain": "#b45309", "absent": "#6b7280"}
+_TIER_LINE = {
+    "proposer_seconder": "decides most matters by agreement (a proposer and seconder), so individual "
+                         "councillor votes are not recorded",
+    "scanned_pending": "publishes its minutes as scanned images that have not been processed yet",
+    "cmis_pending": "publishes its minutes through a meetings portal not processed yet",
+    "unseeded": "has no processed minutes yet",
 }
-_WHO_SETS_AGENDA = (
-    "The agenda is agreed in advance by the <b>Cathaoirleach / Mayor</b> (who chairs the meeting) and the "
-    "<b>Corporate Policy Group</b> — the chairs of the Strategic Policy Committees, the Directors of "
-    "Service and the Meetings Administrator. The <b>Chief Executive</b> submits reports and business, and "
-    "any councillor can add an item by tabling a <b>Notice of Motion</b>. (Local Government Act 2001, "
-    "Schedule 10.)"
-)
-_MAYOR = (
-    "Each council elects a <b>Cathaoirleach</b> (called the <b>Mayor</b> in the cities) from among its own "
-    "councillors <b>each year</b>. The role chairs council meetings and the Corporate Policy Group that "
-    "agrees the agenda — but it rotates annually and carries <b>no executive power</b> of its own; it is "
-    "largely civic and ceremonial. <b>Exception:</b> since 2024 <b>Limerick</b> has a <b>directly-elected "
-    "Mayor</b> with executive functions — the first in the State."
-)
-
-
+_TIER_BADGE = {"roll_call": "Named votes published", "proposer_seconder": "Decides by agreement",
+               "scanned_pending": "Minutes scanned", "cmis_pending": "Portal pending",
+               "unseeded": "Not yet processed"}
 _MONTHS = {m: i for i, m in enumerate(
     ["january", "february", "march", "april", "may", "june", "july", "august",
      "september", "october", "november", "december"], 1)}
 
 
-def _parse_date(s: str) -> datetime.date | None:
-    """Parse the varied meeting_date strings (DD/MM/YYYY, '14 October 2024', 'Month YYYY')."""
+def _parse_date(s: str):
     s = str(s).strip()
-    m = re.search(r"(20\d{2})-(\d{1,2})-(\d{1,2})", s)  # ISO (fan-out dates)
-    if m:
-        try:
-            return datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-        except ValueError:
-            return None
-    m = re.search(r"(\d{1,2})/(\d{1,2})/(20\d{2})", s)
-    if m:
-        try:
-            return datetime.date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
-        except ValueError:
-            return None
+    for rx, order in ((r"(20\d{2})-(\d{1,2})-(\d{1,2})", (1, 2, 3)),
+                      (r"(\d{1,2})/(\d{1,2})/(20\d{2})", (3, 2, 1))):
+        m = re.search(rx, s)
+        if m:
+            try:
+                return datetime.date(int(m[order[0]]), int(m[order[1]]), int(m[order[2]]))
+            except ValueError:
+                return None
     m = re.search(r"(\d{1,2})?\s*(january|february|march|april|may|june|july|august|september|"
                   r"october|november|december)\s+(20\d{2})", s, re.I)
-    if m:
-        return datetime.date(int(m.group(3)), _MONTHS[m.group(2).lower()], int(m.group(1) or 28))
-    return None
+    return datetime.date(int(m[3]), _MONTHS[m[2].lower()], int(m[1] or 28)) if m else None
+
+
+def _council_name(la: str) -> str:
+    """Proper council name from the local_authority key (which omits County/City inconsistently)."""
+    if la in ("Limerick", "Waterford"):
+        return f"{la} City and County Council"
+    if la.endswith(("City", "County")):
+        return f"{la} Council"
+    return f"{la} County Council"
 
 
 def _pcolour(p: str) -> str:
@@ -92,24 +80,109 @@ def _pcolour(p: str) -> str:
     return next((c for k, c in _PARTY_COLOUR.items() if k in pl), "#9e9e9e")
 
 
-def _stripe(parties) -> str:
-    c = Counter(parties)
-    tot = sum(c.values()) or 1
-    segs = "".join(f'<span style="display:inline-block;height:10px;width:{100*n/tot:.1f}%;'
-                   f'background:{_pcolour(p)}"></span>' for p, n in c.most_common())
-    return f'<div style="border-radius:5px;overflow:hidden;width:100%">{segs}</div>'
-
-
-def _card(html: str) -> None:
-    st.markdown(f'<div style="background:#ffffff;border:1px solid #e6e6e6;border-radius:10px;'
-                f'padding:16px 18px;margin-bottom:12px">{html}</div>', unsafe_allow_html=True)
-
-
 def _tier(la: str) -> str:
     r = ycd.fetch_coverage(la)
     return r.data.iloc[0]["tier"] if r.ok and not r.is_empty else "unseeded"
 
 
+def _name_html(name: str, party: str) -> str:
+    return (f'<span style="font-weight:600">{_h(name)}</span>'
+            f'<span style="color:var(--text-meta);margin-left:.5rem">{_h(party)}</span>')
+
+
+# ── COUNCIL-VIEW tabs ────────────────────────────────────────────────────────--
+def _tab_councillors(county: str, lea: str) -> None:
+    rr = ycd.fetch_roster(county, lea)
+    if not (rr.ok and not rr.is_empty):
+        empty_state("No councillors found", f"We don't have a roster for {lea} yet.")
+        return
+    df = rr.data
+    st.html(party_stripe_html(list(Counter(df["party"]).items()), show_legend=True))
+    st.caption(f"{len(df)} councillors represent {lea}. Select one for their voting record and pay.")
+    for i, r in df.reset_index(drop=True).iterrows():
+        if card_row(_name_html(r["name"], r["party"]), btn_key=f"clr_{i}", btn_help=r["name"],
+                    border_left_color=_pcolour(r["party"])):
+            st.query_params.update({"clr_county": county, "clr_lea": lea, "clr_name": r["name"]})
+            st.rerun()
+
+
+def _tab_how_it_works(county: str) -> None:
+    subsection_heading("The Cathaoirleach / Mayor")
+    info_card(
+        "Each council elects a <b>Cathaoirleach</b> (the <b>Mayor</b> in the cities) from among its own "
+        "councillors <b>each year</b>. The role chairs meetings and the agenda-setting Corporate Policy "
+        "Group, but it rotates annually and carries no executive power of its own; it is largely civic "
+        "and ceremonial. <span style='color:var(--text-meta)'>Since 2024, Limerick has a "
+        "directly-elected Mayor with executive functions, the first in the State.</span>")
+
+    subsection_heading("Who really holds power")
+    ce = ycd.fetch_chief_executive(county)
+    nm = ce.data.iloc[0]["chief_executive"] if ce.ok and not ce.is_empty else ""
+    title = ce.data.iloc[0]["head_title"] if ce.ok and not ce.is_empty else "Chief Executive"
+    who = f"<b>{_h(nm)}</b>, {_h(title)}" if nm else "An appointed <b>Chief Executive</b>"
+    info_card(
+        f"{who}, is <b>not elected</b>, yet holds the council's real day-to-day power. By law the Chief "
+        "Executive performs the <b>executive functions</b>: staff, contracts, planning permissions and "
+        "spending. The councillors you elect hold only the short list of <b>reserved functions</b>: "
+        "adopting the budget and development plan, setting rates and the Local Property Tax factor, "
+        "borrowing, and appointing the Chief Executive. "
+        '<a href="/local-government" target="_self">Who runs your county →</a>',
+        border_left_color=_ACCENT)
+
+    subsection_heading("How meetings and agendas are set")
+    sr = ycd.fetch_standing_orders(county)
+    if sr.ok and not sr.is_empty:
+        so = sr.data.iloc[0]
+        parts = []
+        oob = [x for x in str(so["order_of_business"]).split(_SEP) if x.strip()]
+        if oob:
+            parts.append("<b>Order of Business</b> (the fixed agenda template): "
+                         + "; ".join(_h(x) for x in oob[:8]) + ".")
+        if str(so["notice_of_motion"]).strip():
+            parts.append(f'<b>Notice of Motion</b> (how a councillor adds an item): '
+                         f'<span style="color:var(--text-meta)">"{_h(so["notice_of_motion"])}"</span>')
+        if str(so["voting"]).strip():
+            vn = " These provide for a recorded roll-call vote." if bool(so["records_named_votes"]) else ""
+            parts.append(f'<b>Voting</b>: <span style="color:var(--text-meta)">"{_h(so["voting"])}"</span>{vn}')
+        src = so.get("source_url", "")
+        foot = (f'<div style="margin-top:.5rem"><a href="{_h(src)}" target="_blank">'
+                f"{_h(county)}'s adopted Standing Orders →</a></div>") if src else ""
+        info_card("<br><br>".join(parts) + foot)
+    else:
+        info_card(
+            "The agenda is agreed by the Cathaoirleach/Mayor and the Corporate Policy Group (the "
+            "committee chairs, Directors of Service and Meetings Administrator); the Chief Executive "
+            "submits business; any councillor can add an item by tabling a Notice of Motion. "
+            "(Local Government Act 2001, Schedule 10.)"
+            "<div style='color:var(--text-meta);margin-top:.5rem'>General statutory rules: this "
+            "council's own Standing Orders have not been parsed yet.</div>")
+
+
+def _tab_agendas(county: str) -> None:
+    ar = ycd.fetch_agendas(county)
+    if not (ar.ok and not ar.is_empty):
+        empty_state("Agendas not available",
+                    f"{county}'s meeting agendas have not been processed yet.")
+        return
+    today = datetime.date.today()
+    recs = sorted(ar.data.to_dict("records"),
+                  key=lambda m: _parse_date(m["meeting_date"]) or datetime.date(1900, 1, 1), reverse=True)
+    st.caption("What the council tabled for discussion. The next meeting's agenda appears here once the "
+               "council publishes it.")
+    for m in recs[:8]:
+        d = _parse_date(m["meeting_date"])
+        tag = ('<span style="background:#1d4ed8;color:#fff;border-radius:3px;padding:0 .4rem;'
+               'font-size:.7rem;font-weight:600;margin-left:.5rem">UPCOMING</span>'
+               if d and d >= today else "")
+        items = "".join(f"<li>{_h(i)}</li>" for i in str(m["agenda"]).split(_SEP)[:12] if i.strip())
+        src = (f' · <a href="{_h(m["source_url"])}" target="_blank">source</a>'
+               if m.get("source_url") else "")
+        info_card(f'<div style="font-weight:600">{_h(str(m["meeting_date"]))}{tag}</div>'
+                  f'<div style="color:var(--text-meta);font-size:.8rem">Agenda{src}</div>'
+                  f'<ul style="margin:.4rem 0 0 1.1rem;padding:0">{items}</ul>')
+
+
+# ── PAGE ─────────────────────────────────────────────────────────────────────-
 @page_error_boundary
 def your_councillors_page() -> None:
     hide_sidebar()
@@ -119,168 +192,98 @@ def your_councillors_page() -> None:
         st.info("Councillor data is not available in this build.")
         return
     councils = sorted(councils_r.data["local_authority"])
-
-    st.markdown("## 🏛️ Your Councillors")
-    st.caption("Who represents you on your local council — what they decide, what's on the agenda, and "
-               "how their council works. Sources: Wikipedia roster + council minutes & Standing Orders + "
-               "DHLGH pay schedule.")
-
     qp = st.query_params
     county, lea, councillor = qp.get("clr_county"), qp.get("clr_lea"), qp.get("clr_name")
 
-    # ── Screen 3: councillor dossier ──
+    # ── COUNCILLOR view (person) ──
     if councillor and county:
         cr = ycd.fetch_councillor(county, councillor)
         if not cr.ok or cr.is_empty:
             st.error("Councillor not found.")
             return
         r = cr.data.iloc[0]
-        if st.button("← Back to area"):
+        if back_button("← Back to your council", key="clr_back"):
             qp.update({"clr_county": county, "clr_lea": r["lea"]}); qp.pop("clr_name", None); st.rerun()
-        _card(f'<div style="border-left:6px solid {_pcolour(r["party"])};padding-left:12px">'
-              f'<div style="font-size:1.5rem;font-weight:700">{r["name"]}</div>'
-              f'<div style="color:#555">{r["party"]} · {r["lea"]} · {county} · {r["status"]}</div></div>')
+        hero_banner("COUNCILLOR", r["name"], f'{r["party"]} · {r["lea"]} · {county}',
+                    badges=[str(r["status"]).title()])
 
+        evidence_heading("Voting record")
         tier = _tier(county)
-
-        # Voting record (named votes only where the council records them)
-        st.markdown("#### Voting record")
         vr = ycd.fetch_votes(county, councillor)
         if tier == "roll_call" and vr.ok and not vr.is_empty:
             for _, v in vr.data.head(25).iterrows():
-                col = {"for": "#2e7d32", "against": "#c62828", "abstain": "#ef6c00",
-                       "absent": "#9e9e9e"}.get(v["vote"], "#555")
-                _card(f'<div style="font-size:.8rem;color:#777">{v["meeting_date"]}</div>'
-                      f'<div style="margin:2px 0">{(v["motion"] or "Motion").strip()[:170]}</div>'
-                      f'<span style="background:{col};color:#fff;border-radius:4px;padding:1px 8px;'
-                      f'font-size:.8rem;text-transform:uppercase">{v["vote"]}</span>')
-            st.caption(f"{len(vr.data)} recorded roll-call votes · source: council minutes")
-        elif tier == "roll_call":
-            _card("No recorded roll-call votes for this councillor yet this term.")
+                col = _VOTE_COLOUR.get(v["vote"], "#555")
+                info_card(
+                    f'<div style="color:var(--text-meta);font-size:.8rem">{_h(str(v["meeting_date"]))}</div>'
+                    f'<div style="margin:.15rem 0">{_h((v["motion"] or "Motion").strip()[:170])}</div>'
+                    f'<span style="background:{col};color:#fff;border-radius:3px;padding:0 .5rem;'
+                    f'font-size:.72rem;font-weight:600;text-transform:uppercase">{_h(v["vote"])}</span>',
+                    border_left_color=col)
+            st.caption(f"{len(vr.data)} recorded roll-call votes, from the council minutes.")
         else:
-            _card(f'<div style="color:#444">{_TIER_MSG.get(tier, _TIER_MSG["unseeded"])}</div>')
+            line = _TIER_LINE.get(tier, _TIER_LINE["unseeded"])
+            empty_state("No individual voting record",
+                        f"{county} {line}. See the council's agendas and rules under "
+                        '"How it works" in the council view.')
 
-        # Meeting history — the agenda (incl. any upcoming)
-        st.markdown("#### Meeting history — what's on the agenda")
-        ar = ycd.fetch_agendas(county)
-        if ar.ok and not ar.is_empty:
-            today = datetime.date.today()
-            recs = ar.data.to_dict("records")
-            recs.sort(key=lambda m: _parse_date(m["meeting_date"]) or datetime.date(1900, 1, 1), reverse=True)
-            st.caption(f"Your council's recent and upcoming meetings ({county}). The agenda is what the "
-                       "council tables for discussion — agendas appear here as soon as the council "
-                       "publishes them (you can see the next meeting once it's posted).")
-            for m in recs[:6]:
-                d = _parse_date(m["meeting_date"])
-                badge = ('<span style="background:#1565c0;color:#fff;border-radius:4px;padding:1px 7px;'
-                         'font-size:.72rem;margin-left:6px">📅 UPCOMING</span>' if d and d >= today else "")
-                items = "".join(f'<li style="margin:1px 0">{i}</li>'
-                                for i in str(m["agenda"]).split(_SEP)[:12] if i.strip())
-                src = (f' · <a href="{m["source_url"]}" target="_blank">source</a>'
-                       if m.get("source_url") else "")
-                _card(f'<div style="font-size:.8rem;color:#777">{m["meeting_date"]}{src}{badge}</div>'
-                      f'<ul style="margin:6px 0 0 18px;padding:0">{items}</ul>')
-        else:
-            _card("Meeting agendas for this council haven't been processed yet.")
-
-        # How meetings & agendas work — the council's own Standing Orders (verbatim) or generic
-        st.markdown("#### How meetings & agendas work")
-        sr = ycd.fetch_standing_orders(county)
-        if sr.ok and not sr.is_empty:
-            so = sr.data.iloc[0]
-            bits = []
-            oob = [x for x in str(so["order_of_business"]).split(_SEP) if x.strip()]
-            if oob:
-                bits.append('<div style="margin-bottom:8px"><b>Order of Business</b> (the agenda template)'
-                            f'<ul style="margin:4px 0 0 18px">{"".join(f"<li>{i}</li>" for i in oob[:8])}</ul></div>')
-            if str(so["notice_of_motion"]).strip():
-                bits.append(f'<div style="margin-bottom:8px"><b>Notice of Motion</b> (how councillors table '
-                            f'an item): <span style="color:#444">"{so["notice_of_motion"]}"</span></div>')
-            if str(so["voting"]).strip():
-                vn = (" These standing orders provide for a <b>recorded roll-call vote</b>."
-                      if bool(so["records_named_votes"]) else "")
-                bits.append(f'<div><b>Voting</b>: <span style="color:#444">"{so["voting"]}"</span>{vn}</div>')
-            src = so.get("source_url", "")
-            foot = (f'<div style="color:#777;font-size:.8rem;margin-top:8px">From {county}\'s adopted '
-                    f'Standing Orders · <a href="{src}" target="_blank">source</a></div>') if src else ""
-            _card("".join(bits) + foot)
-        else:
-            _card(_WHO_SETS_AGENDA + '<div style="color:#777;font-size:.8rem;margin-top:8px">'
-                  "(General rules — this council's own Standing Orders not yet parsed.)</div>")
-
-        # The Mayor / Cathaoirleach
-        st.markdown("#### The Mayor / Cathaoirleach")
-        _card(_MAYOR)
-
-        # Who really holds power — the unelected Chief Executive
-        st.markdown("#### Who really holds power — the Chief Executive")
-        ce = ycd.fetch_chief_executive(county)
-        ce_name = (ce.data.iloc[0]["chief_executive"] if ce.ok and not ce.is_empty else "")
-        ce_title = (ce.data.iloc[0]["head_title"] if ce.ok and not ce.is_empty else "Chief Executive")
-        who = f"<b>{ce_name}</b> ({ce_title})" if ce_name else "An appointed <b>Chief Executive</b>"
-        _card(f"{who} — <b>not elected</b> — holds the real day-to-day power. By law the Chief Executive "
-              "performs <b>all executive functions</b>: staff, contracts, <b>planning permissions</b>, and "
-              "day-to-day spending. Your elected councillors hold only the short list of <b>reserved "
-              "functions</b> — adopt the budget & development plan, set the rates and Local Property Tax "
-              "factor, borrow, and appoint the Chief Executive (Local Government Act 2001, Part 14). "
-              '<a href="/local-government" target="_self">See who runs your county →</a>')
-
-        # Pay & allowances
-        st.markdown("#### Pay & allowances")
-        rows = "".join(f'<tr><td style="padding:3px 10px 3px 0">{n}</td>'
-                       f'<td style="padding:3px 10px;font-weight:600">{v}</td>'
-                       f'<td style="padding:3px 0;color:#777;font-size:.85rem">{note}</td></tr>'
-                       for n, v, note in _PAY)
-        _card(f'<table style="width:100%">{rows}</table><div style="color:#777;font-size:.82rem;'
-              'margin-top:8px">Entitlement schedule (DHLGH), not actual earnings. Officeholders '
-              '(Cathaoirleach/Mayor, committee chairs) receive additional allowances.</div>')
-        st.caption("Sources: Wikipedia (roster) · council minutes & Standing Orders · "
-                   "DHLGH allowances directions · LA Chief Executive roster.")
+        evidence_heading("Pay & allowances")
+        totals_strip([("€32,059", "Salary / yr"), ("≈ €3,162", "Expenses allowance"),
+                      ("up to €5,160", "Local rep. allowance")])
+        st.caption("The national entitlement schedule (DHLGH), not actual earnings. The salary "
+                   "(Representational Payment) is taxable; the expenses allowance needs 80% meeting "
+                   "attendance; the Local Representation Allowance is vouched. Officeholders "
+                   "(Cathaoirleach/Mayor, committee chairs) receive additional allowances.")
         return
 
-    # ── Screen 2: LEA roster ──
+    # ── COUNCIL view ──
     if county and lea:
-        if st.button("← Change area"):
+        if back_button("← Change area", key="area_back"):
             for k in ("clr_county", "clr_lea", "clr_name"):
                 qp.pop(k, None)
             st.rerun()
-        rr = ycd.fetch_roster(county, lea)
         tier = _tier(county)
-        badge = {"roll_call": "🟢 named votes published", "proposer_seconder": "🟡 decisions by agreement",
-                 "scanned_pending": "⚪ minutes scanned (OCR pending)",
-                 "cmis_pending": "⚪ ModernGov portal (pending)",
-                 "unseeded": "⚪ minutes not yet harvested"}.get(tier, "")
-        st.markdown(f"#### {lea} — {county}")
-        if rr.ok and not rr.is_empty:
-            st.markdown(_stripe(list(rr.data["party"])), unsafe_allow_html=True)
-            st.caption(f"{len(rr.data)} councillors · {badge}")
-            for _, r in rr.data.iterrows():
-                c1, c2 = st.columns([5, 1])
-                with c1:
-                    _card(f'<div style="border-left:6px solid {_pcolour(r["party"])};padding-left:10px">'
-                          f'<b>{r["name"]}</b><br><span style="color:#666;font-size:.9rem">{r["party"]}</span></div>')
-                with c2:
-                    if st.button("View →", key=f"clr_{r['name']}"):
-                        qp.update({"clr_county": county, "clr_lea": lea, "clr_name": r["name"]}); st.rerun()
-        else:
-            _card("No councillors found for this area.")
+        rc = ycd.fetch_roster(county, lea)
+        n = len(rc.data) if rc.ok else 0
+        hero_banner("LOCAL COUNCIL", _council_name(county), f"Your area: {lea}",
+                    badges=[f"{n} councillors in this area", _TIER_BADGE.get(tier, "")])
+
+        # The civic lead — the power statement, stated once, up top.
+        ce = ycd.fetch_chief_executive(county)
+        ce_nm = ce.data.iloc[0]["chief_executive"] if ce.ok and not ce.is_empty else ""
+        ce_clause = (f"The unelected Chief Executive, <b>{_h(ce_nm)}</b>, runs it day to day"
+                     if ce_nm else "An unelected Chief Executive runs it day to day")
+        info_card(
+            "Your councillors set <b>policy</b>: the reserved functions, which are the development plan, "
+            f"the budget and the rates. {ce_clause}, holding the executive functions: staff, contracts "
+            "and planning permissions. The Cathaoirleach (Mayor in the cities) chairs meetings and is "
+            "elected by the councillors each year.", border_left_color=_ACCENT)
+
+        t1, t2, t3 = st.tabs(["Your councillors", "How it works", "Agendas"])
+        with t1:
+            _tab_councillors(county, lea)
+        with t2:
+            _tab_how_it_works(county)
+        with t3:
+            _tab_agendas(county)
         return
 
-    # ── Screen 1: picker ──
-    st.markdown("#### Who represents you on your local council?")
+    # ── PICKER ──
+    hero_banner("YOUR AREA", "Your Councillors",
+                "Find who represents you on your local council, and how that council actually works.")
     c = st.selectbox("County / city", councils,
                      index=councils.index("Carlow") if "Carlow" in councils else 0)
     leas_r = ycd.fetch_leas(c)
     leas = sorted(leas_r.data["lea"]) if leas_r.ok and not leas_r.is_empty else []
     lsel = st.selectbox("Local Electoral Area", leas) if leas else None
-    if lsel and st.button("Show my councillors →", type="primary"):
+    if lsel and st.button("Show my council →", type="primary"):
         qp.update({"clr_county": c, "clr_lea": lsel}); st.rerun()
-    st.caption("Councillors run your county's reserved decisions — the development plan, the budget, "
-               "commercial rates. Try Carlow (named voting records available).")
-    # Honest coverage caveats
-    st.markdown("---")
-    st.caption("⚠️ Coverage caveats: the roster (~916 councillors) is ~96% complete — a few councils are "
-               "undercounted. **Named votes** exist only where a council records roll-calls (currently "
-               "Carlow); most councils decide by agreement. **Standing Orders** are parsed for ~8 of 31 "
-               "councils (others show the general statutory rules). Some councils' minutes are scanned or "
-               "on portals not yet processed (Louth's are book-format scans). Each card states its own state.")
+    with st.expander("About this data and its coverage"):
+        st.markdown(
+            "- **Roster** (~916 councillors across 31 councils) is sourced from Wikipedia and is about "
+            "96% complete; a few councils are undercounted.\n"
+            "- **Named votes** exist only where a council records roll-calls (currently Carlow). Most "
+            "councils decide by agreement, so individual votes are not recorded.\n"
+            "- **Standing Orders** are parsed for about 8 of 31 councils; the others show the general "
+            "statutory rules.\n"
+            "- Some councils' minutes are scanned images or behind portals not yet processed (Louth's "
+            "are book-format scans). Each section states its own data state.")

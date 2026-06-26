@@ -11,15 +11,15 @@
   "median_award_eur": 329122.0,
   "trustworthy_metrics": "COUNT of awards + MEDIAN award value; never the naive sum (ceiling/award-grade values, tail-dominated)",
   "supplier_class_counts": {
-    "unknown": 969,
     "foreign_company": 568,
     "sole_trader_or_individual": 1783,
-    "company": 10424
+    "company": 10424,
+    "unknown": 969
   },
   "cro_match_counts": {
-    "none": 4805,
+    "identifier": 7079,
     "name": 1860,
-    "identifier": 7079
+    "none": 4805
   },
   "cro_match_rate": 0.65,
   "rows_review_personal_data": 1783,
@@ -35,9 +35,9 @@
     "rows_with_duration": 4916,
     "rows_with_end_estimate": 5009,
     "end_basis_counts": {
-      "start_plus_duration": 231,
       "conclusion_plus_duration": 4361,
-      "explicit_end_date": 417
+      "explicit_end_date": 417,
+      "start_plus_duration": 231
     },
     "note": "contract_end_date_est = advertised term projected from the notice (explicit end > start+duration > conclusion+duration). An advertised term, never a verified end date; renewal options are NOT folded in."
   },
@@ -58,6 +58,6 @@
     "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 2,
-  "generated_at": "2026-06-26T06:26:39+00:00",
+  "generated_at": "2026-06-26T18:00:30+00:00",
   "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the framework CEILING, never per-winner \u2014 only value_safe_to_sum (single-winner, non-framework, non-pan-EU) may be totalled, labelled 'awarded', not spend. winner-identifier matched to CRO company_num after digit-strip; bare personal-name winners flagged review_personal_data (quarantine deferred). A contract award is a fact, not evidence of influence."
 }

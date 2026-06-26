@@ -5,7 +5,7 @@ Sources from the registered DuckDB view v_statutory_instruments
 (sql_views/legislation/legislation_si_index.sql), which reads
 data/gold/parquet/statutory_instruments.parquet — produced by
 si_entity_enrichment.py. The SI is treated as a first-class entity: the
-full ~5,900-SI corpus (2016+), NOT gated on a bill match. No raw parquet
+full ~7,700-SI corpus (2012+), NOT gated on a bill match. No raw parquet
 read here; filtering/facets/KPIs happen in pandas off the single
 registered frame.
 
@@ -1414,7 +1414,7 @@ def statutory_instruments_page() -> None:
             # actually happened (corpus floor) and where to go next.
             empty_state(
                 f"SI {selected!r} isn't in the index",
-                "The Dáil Tracker SI corpus covers 2016 onwards — older "
+                "The Dáil Tracker SI corpus covers 2012 onwards — older "
                 "instruments aren't yet ingested. Old bookmark or typed URL? "
                 "Try browsing the index, or search by title.",
             )
@@ -1475,7 +1475,7 @@ def statutory_instruments_page() -> None:
             "statutory instrument is formally notified. Each SI links to its "
             "authoritative text on irishstatutebook.ie (eISB), and in-force status "
             "comes from the eISB Classified List of in-force legislation.",
-            "The Dáil Tracker SI corpus covers 2016 onwards — older instruments are "
+            "The Dáil Tracker SI corpus covers 2012 onwards — older instruments are "
             "not yet ingested. Titles, departments and policy domains are parsed from "
             "the gazette notices; the linked eISB text is always the authoritative "
             "version.",

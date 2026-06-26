@@ -1,24 +1,24 @@
 {
-  "publishers_attempted": 44,
+  "publishers_attempted": 43,
   "publishers_with_rows": 41,
-  "rows_extracted": 109552,
-  "rows_deduped_within_file": 1,
-  "rows_public_display": 87885,
-  "rows_review_personal_data": 21667,
-  "rows_quarantined": 21667,
+  "rows_extracted": 109651,
+  "rows_deduped_within_file": 1255,
+  "rows_public_display": 87982,
+  "rows_review_personal_data": 21669,
+  "rows_quarantined": 21669,
   "supplier_class_counts": {
-    "company": 78118,
-    "foreign_company": 719,
-    "sole_trader_or_individual": 21667,
-    "public_body": 3944,
-    "unknown": 5104
+    "foreign_company": 710,
+    "company": 78282,
+    "unknown": 5024,
+    "public_body": 3966,
+    "sole_trader_or_individual": 21669
   },
   "amount_semantics_counts": {
-    "payment_actual": 69005,
-    "po_committed": 40547
+    "po_committed": 40639,
+    "payment_actual": 69012
   },
-  "value_safe_to_sum_rows": 98813,
-  "value_safe_to_sum_total_eur": 19594247719.72231,
+  "value_safe_to_sum_rows": 100081,
+  "value_safe_to_sum_total_eur": 19724318399.78731,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -28,7 +28,7 @@
       "files_parsed": 45,
       "files_skipped": 0,
       "files_with_rows": 45,
-      "rows": 18647,
+      "rows": 18649,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -52,7 +52,7 @@
       "files_parsed": 49,
       "files_skipped": 0,
       "files_with_rows": 49,
-      "rows": 11043,
+      "rows": 11133,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -88,7 +88,7 @@
       "files_parsed": 5,
       "files_skipped": 0,
       "files_with_rows": 5,
-      "rows": 163,
+      "rows": 164,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -160,7 +160,7 @@
       "files_parsed": 10,
       "files_skipped": 0,
       "files_with_rows": 10,
-      "rows": 109,
+      "rows": 113,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -172,7 +172,7 @@
       "files_parsed": 55,
       "files_skipped": 0,
       "files_with_rows": 55,
-      "rows": 3589,
+      "rows": 3594,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -196,7 +196,19 @@
       "files_parsed": 53,
       "files_skipped": 0,
       "files_with_rows": 52,
-      "rows": 5815,
+      "rows": 5819,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_tii",
+      "name": "Transport Infrastructure Ireland",
+      "tier": "C",
+      "files_seen": 20,
+      "files_parsed": 20,
+      "files_skipped": 0,
+      "files_with_rows": 20,
+      "rows": 7117,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -309,6 +321,18 @@
       "privacy_risk": "low"
     },
     {
+      "id": "ie_courts",
+      "name": "Courts Service of Ireland",
+      "tier": "D",
+      "files_seen": 36,
+      "files_parsed": 30,
+      "files_skipped": 6,
+      "files_with_rows": 30,
+      "rows": 4702,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
       "id": "ie_sportireland",
       "name": "Sport Ireland",
       "tier": "D",
@@ -333,6 +357,18 @@
       "privacy_risk": "low"
     },
     {
+      "id": "ie_tus",
+      "name": "Technological University of the Shannon (TUS)",
+      "tier": "C",
+      "files_seen": 5,
+      "files_parsed": 4,
+      "files_skipped": 1,
+      "files_with_rows": 1,
+      "rows": 7,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "medium"
+    },
+    {
       "id": "ie_mtu",
       "name": "Munster Technological University (MTU)",
       "tier": "D",
@@ -342,6 +378,18 @@
       "files_with_rows": 3,
       "rows": 267,
       "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_chi",
+      "name": "Children's Health Ireland (CHI)",
+      "tier": "D",
+      "files_seen": 1,
+      "files_parsed": 1,
+      "files_skipped": 0,
+      "files_with_rows": 1,
+      "rows": 297,
+      "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
     {
@@ -405,18 +453,6 @@
       "privacy_risk": "low"
     },
     {
-      "id": "ie_tus",
-      "name": "Technological University of the Shannon (TUS)",
-      "tier": "C",
-      "files_seen": 5,
-      "files_parsed": 4,
-      "files_skipped": 1,
-      "files_with_rows": 1,
-      "rows": 7,
-      "amount_semantics": "po_committed",
-      "privacy_risk": "medium"
-    },
-    {
       "id": "dept_finance",
       "name": "Department of Finance",
       "tier": "A",
@@ -424,9 +460,21 @@
       "files_parsed": 11,
       "files_skipped": 0,
       "files_with_rows": 8,
-      "rows": 96,
+      "rows": 89,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
+    },
+    {
+      "id": "dept_children",
+      "name": "Department of Children, Disability and Equality",
+      "tier": "A",
+      "files_seen": 32,
+      "files_parsed": 20,
+      "files_skipped": 0,
+      "files_with_rows": 13,
+      "rows": 22100,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "medium"
     },
     {
       "id": "ie_hsa",
@@ -453,18 +501,6 @@
       "privacy_risk": "low"
     },
     {
-      "id": "ie_screen",
-      "name": "Screen Ireland",
-      "tier": "D",
-      "files_seen": 1,
-      "files_parsed": 1,
-      "files_skipped": 0,
-      "files_with_rows": 1,
-      "rows": 6,
-      "amount_semantics": "po_committed",
-      "privacy_risk": "medium"
-    },
-    {
       "id": "ie_prisons",
       "name": "Irish Prison Service",
       "tier": "C",
@@ -477,15 +513,15 @@
       "privacy_risk": "medium"
     },
     {
-      "id": "ie_lmetb",
-      "name": "Louth & Meath ETB",
+      "id": "ie_screen",
+      "name": "Screen Ireland",
       "tier": "D",
-      "files_seen": 9,
-      "files_parsed": 9,
+      "files_seen": 1,
+      "files_parsed": 1,
       "files_skipped": 0,
-      "files_with_rows": 0,
-      "rows": 0,
-      "amount_semantics": "payment_actual",
+      "files_with_rows": 1,
+      "rows": 6,
+      "amount_semantics": "po_committed",
       "privacy_risk": "medium"
     },
     {
@@ -499,59 +535,11 @@
       "rows": 1600,
       "amount_semantics": "po_committed",
       "privacy_risk": "medium"
-    },
-    {
-      "id": "ie_tii",
-      "name": "Transport Infrastructure Ireland",
-      "tier": "C",
-      "files_seen": 20,
-      "files_parsed": 20,
-      "files_skipped": 0,
-      "files_with_rows": 20,
-      "rows": 7117,
-      "amount_semantics": "payment_actual",
-      "privacy_risk": "low"
-    },
-    {
-      "id": "ie_chi",
-      "name": "Children's Health Ireland (CHI)",
-      "tier": "D",
-      "files_seen": 1,
-      "files_parsed": 1,
-      "files_skipped": 0,
-      "files_with_rows": 1,
-      "rows": 297,
-      "amount_semantics": "payment_actual",
-      "privacy_risk": "low"
-    },
-    {
-      "id": "dept_children",
-      "name": "Department of Children, Disability and Equality",
-      "tier": "A",
-      "files_seen": 32,
-      "files_parsed": 20,
-      "files_skipped": 0,
-      "files_with_rows": 13,
-      "rows": 22100,
-      "amount_semantics": "payment_actual",
-      "privacy_risk": "medium"
-    },
-    {
-      "id": "ie_courts",
-      "name": "Courts Service of Ireland",
-      "tier": "D",
-      "files_seen": 36,
-      "files_parsed": 30,
-      "files_skipped": 6,
-      "files_with_rows": 30,
-      "rows": 4702,
-      "amount_semantics": "po_committed",
-      "privacy_risk": "low"
     }
   ],
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-23T04:54:43+00:00",
+  "generated_at": "2026-06-26T18:03:34+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

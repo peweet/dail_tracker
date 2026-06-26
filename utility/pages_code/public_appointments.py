@@ -1246,7 +1246,7 @@ def _render_stateboards_tab(roster: pd.DataFrame, boards: pd.DataFrame) -> None:
         sections=[
             "**Data source:** the State Boards membership register published at "
             "membership.stateboards.ie by the Department of Public Expenditure — the standing "
-            "roster of board members across ~250 State bodies and 19 departments. This is a "
+            "roster of board members across almost 200 State bodies and 19 departments. This is a "
             "current snapshot, not a history of appointment events.",
             "Where a member's identity has been **hand-verified**, their public-record roles "
             "(from Wikidata) are shown. Automated name-matching was removed because roughly one "

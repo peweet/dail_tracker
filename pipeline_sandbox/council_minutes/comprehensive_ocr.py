@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 HERE = Path(__file__).resolve().parent
 H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"}
 MAX_PAGES = 20
-WORKERS = 3
+WORKERS = 1  # serial: one OCR process at a time (no fan-out), per the crash-safety rule
 MINUTE_RX = re.compile(r"minute|mion|miontuair|agenda", re.I)
 YEAR_RX = re.compile(r"202[4-9]")
 
