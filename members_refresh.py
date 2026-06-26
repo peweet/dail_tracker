@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -83,6 +84,10 @@ def step_constituency_pop() -> bool:
 
 def step_member_contact() -> bool:
     _hr("[5/5] member_contact_extract — office address / phone / email per member")
+    if os.getenv("DAIL_SKIP_MEMBER_CONTACT") == "1":
+        print("  SKIPPED (DAIL_SKIP_MEMBER_CONTACT=1) — oireachtas.ie profile scrape "
+              "WAF-throttled; existing member_contact_details.parquet left intact.")
+        return True
     return _module("extractors.member_contact_extract")
 
 

@@ -1,0 +1,917 @@
+local_authority,lea,name,party,status,source
+Carlow,Carlow,Fintan Phelan,Fianna Fáil,sitting,Carlow County Council
+Carlow,Carlow,Andrea Dalton,Fianna Fáil,sitting,Carlow County Council
+Carlow,Carlow,Fergal Browne,Fine Gael,sitting,Carlow County Council
+Carlow,Carlow,John Cassin,Independent Ireland,sitting,Carlow County Council
+Carlow,Carlow,Ken Murnane,Fianna Fáil,sitting,Carlow County Council
+Carlow,Carlow,Paul Doogue,Fine Gael,sitting,Carlow County Council
+Carlow,Carlow,Adrienne Wallace,PBP–Solidarity,sitting,Carlow County Council
+Carlow,Muine Bheag,Thomas Kinsella,Fine Gael,sitting,Carlow County Council
+Carlow,Muine Bheag,Willie Quinn,Labour,sitting,Carlow County Council
+Carlow,Muine Bheag,Andy Gladney,Sinn Féin,sitting,Carlow County Council
+Carlow,Muine Bheag,Daniel Pender,Fianna Fáil,sitting,Carlow County Council
+Carlow,Muine Bheag,Michael Doran,Fine Gael,sitting,Carlow County Council
+Carlow,Tullow,John Pender,Fianna Fáil,sitting,Carlow County Council
+Carlow,Tullow,Charlie Murphy,Independent,sitting,Carlow County Council
+Carlow,Tullow,William Paton,Independent,sitting,Carlow County Council
+Carlow,Tullow,Ben Ward,Fine Gael,sitting,Carlow County Council
+Carlow,Tullow,Brian O'Donoghue,Fine Gael,sitting,Carlow County Council
+Carlow,Tullow,Jim Deane,Sinn Féin,sitting,Carlow County Council
+Cavan,Bailieborough – Cootehill,Carmel Brady,Fine Gael,sitting,Cavan County Council
+Cavan,Bailieborough – Cootehill,Stiofán Conaty,Sinn Féin,sitting,Cavan County Council
+Cavan,Bailieborough – Cootehill,Val Smith,Fine Gael,sitting,Cavan County Council
+Cavan,Bailieborough – Cootehill,Clifford Kelly,Fianna Fáil,sitting,Cavan County Council
+Cavan,Bailieborough – Cootehill,Niall Smith,Fianna Fáil,sitting,Cavan County Council
+Cavan,Ballyjamesduff,Shane P. O'Reilly,Independent Ireland,sitting,Cavan County Council
+Cavan,Ballyjamesduff,Trevor Smith,Fine Gael,sitting,Cavan County Council
+Cavan,Ballyjamesduff,Winston Bennet,Fine Gael,sitting,Cavan County Council
+Cavan,Ballyjamesduff,Phillip Brady,Fianna Fáil,sitting,Cavan County Council
+Cavan,Ballyjamesduff,T. P. O'Reilly,Fine Gael,sitting,Cavan County Council
+Cavan,Ballyjamesduff,Noel Connell,Sinn Féin,sitting,Cavan County Council
+Cavan,Cavan – Belturbet,Áine Smith,Fianna Fáil,sitting,Cavan County Council
+Cavan,Cavan – Belturbet,Brendan Fay,Independent,sitting,Cavan County Council
+Cavan,Cavan – Belturbet,Damien Brady,Sinn Féin,sitting,Cavan County Council
+Cavan,Cavan – Belturbet,John Paul Feeley,Fianna Fáil,sitting,Cavan County Council
+Cavan,Cavan – Belturbet,Niamh Brady,Fine Gael,sitting,Cavan County Council
+Cavan,Cavan – Belturbet,Patricia Walsh,Fianna Fáil,sitting,Cavan County Council
+Cavan,,Sarah O'Reilly,Aontú,sitting,Cavan County Council
+Clare,Ennis,Pat Daly,Fianna Fáil,sitting,Clare County Council
+Clare,Ennis,Mary Howard,Fine Gael,sitting,Clare County Council
+Clare,Ennis,Paul Murphy,Fine Gael,sitting,Clare County Council
+Clare,Ennis,Clare Colleran Molloy,Fianna Fáil,sitting,Clare County Council
+Clare,Ennis,Tommy Guilfoyle,Sinn Féin,sitting,Clare County Council
+Clare,Ennis,Antoinette Baker Bashua,Fianna Fáil,sitting,Clare County Council
+Clare,Ennis,Tom O'Callaghan,Fianna Fáil,sitting,Clare County Council
+Clare,Ennistymon,Bill Slattery,Fine Gael,sitting,Clare County Council
+Clare,Ennistymon,Joe Garrihy,Fine Gael,sitting,Clare County Council
+Clare,Ennistymon,Shane Talty,Fianna Fáil,sitting,Clare County Council
+Clare,Ennistymon,Joe Killeen,Fianna Fáil,sitting,Clare County Council
+Clare,Killaloe,Pat Hayes,Fianna Fáil,sitting,Clare County Council
+Clare,Killaloe,Alan O'Callaghan,Fianna Fáil,sitting,Clare County Council
+Clare,Killaloe,Tony O'Brien,Fianna Fáil,sitting,Clare County Council
+Clare,Killaloe,Pat Burke,Fine Gael,sitting,Clare County Council
+Clare,Kilrush,Dinny Gould,Independent,sitting,Clare County Council
+Clare,Kilrush,Rita McInerney,Fianna Fáil,sitting,Clare County Council
+Clare,Kilrush,Ian Lynch,Independent,sitting,Clare County Council
+Clare,Kilrush,Michael Shannon,Fianna Fáil,sitting,Clare County Council
+Clare,Kilrush,Gabriel Keating,Fine Gael,sitting,Clare County Council
+Clare,Shannon,David Griffin,Fianna Fáil,sitting,Clare County Council
+Clare,Shannon,John Crowe,Fine Gael,sitting,Clare County Council
+Clare,Shannon,Rachel Hartigan,Fianna Fáil,sitting,Clare County Council
+Clare,Shannon,Pat O'Gorman,Fianna Fáil,sitting,Clare County Council
+Clare,Shannon,Tony Mulcahy,Fine Gael,sitting,Clare County Council
+Clare,Shannon,Michael Begley,Independent,sitting,Clare County Council
+Clare,,Donna McGettigan,Sinn Féin,sitting,Clare County Council
+Clare,,Joe Cooney,Fine Gael,sitting,Clare County Council
+Cork City,,Cork City North East,Independent Ireland,sitting,Cork City Council
+Cork City,Cork City North East,John Maher,Labour,sitting,Cork City Council
+Cork City,Cork City North East,Margaret McDonnell,Fianna Fáil,sitting,Cork City Council
+Cork City,Cork City North East,Joe Kavanagh,Fine Gael,sitting,Cork City Council
+Cork City,Cork City North West,Tony Fitzgerald,Fianna Fáil,sitting,Cork City Council
+Cork City,Cork City North West,Damian Boylan,Fine Gael,sitting,Cork City Council
+Cork City,Cork City North West,John Sheehan,Fianna Fáil,sitting,Cork City Council
+Cork City,Cork City North West,Kenneth Collins,Sinn Féin,sitting,Cork City Council
+Cork City,Cork City North West,Michelle Gould,Sinn Féin,sitting,Cork City Council
+Cork City,Cork City North West,Brian McCarthy,PBP–Solidarity,sitting,Cork City Council
+Cork City,Cork City South Central,Shane O'Callaghan,Fine Gael,sitting,Cork City Council
+Cork City,Cork City South Central,Seán Martin,Fianna Fáil,sitting,Cork City Council
+Cork City,,Cork City South Central,Social Democrats,sitting,Cork City Council
+Cork City,Cork City South Central,Paudie Dineen,Independent,sitting,Cork City Council
+Cork City,Cork City South Central,Fiona Kerins,Sinn Féin,sitting,Cork City Council
+Cork City,Cork City South East,Terry Shannon,Fianna Fáil,sitting,Cork City Council
+Cork City,Cork City South East,Kieran McCarthy,Independent,sitting,Cork City Council
+Cork City,Cork City South East,Mary Rose Desmond,Fianna Fáil,sitting,Cork City Council
+Cork City,Cork City South East,Des Cahill,Fine Gael,sitting,Cork City Council
+Cork City,Cork City South East,Peter Horgan,Labour,sitting,Cork City Council
+Cork City,Cork City South West,Fergal Dennehy,Fianna Fáil,sitting,Cork City Council
+Cork City,Cork City South West,Colm Kelleher,Fianna Fáil,sitting,Cork City Council
+Cork City,,Cork City South West,Fine Gael,sitting,Cork City Council
+Cork City,Cork City South West,Joe Lynch,Sinn Féin,sitting,Cork City Council
+Cork City,Cork City South West,Terry Coleman,Fianna Fáil,sitting,Cork City Council
+Cork City,Cork City South West,Albert Deasy,Independent,sitting,Cork City Council
+Cork City,,Ken O'Flynn,Independent Ireland,sitting,Cork City Council
+Cork City,,Pádraig Rice,Social Democrats,sitting,Cork City Council
+Cork City,,Laura Harmon,Labour,sitting,Cork City Council
+Cork City,,Garret Kelleher,Fine Gael,sitting,Cork City Council
+Cork City,,Ted Tynan,Independent,sitting,Cork City Council
+Cork County,Bandon – Kinsale,Alan Coleman,Independent,sitting,Cork County Council
+Cork County,Bandon – Kinsale,John Collins,Independent Ireland,sitting,Cork County Council
+Cork County,Bandon – Kinsale,John Michael Foley,Fine Gael,sitting,Cork County Council
+Cork County,Bandon – Kinsale,Ann Bambury,Social Democrats,sitting,Cork County Council
+Cork County,Bandon – Kinsale,Gillian Coughlan,Fianna Fáil,sitting,Cork County Council
+Cork County,Bandon – Kinsale,Marie O'Sullivan,Fine Gael,sitting,Cork County Council
+Cork County,Bantry – West Cork,Danny Collins,Independent Ireland,sitting,Cork County Council
+Cork County,Bantry – West Cork,Finbarr Harrington,Independent,sitting,Cork County Council
+Cork County,Bantry – West Cork,Caroline Cronin,Fine Gael,sitting,Cork County Council
+Cork County,Carrigaline,Ben Dalton O'Sullivan,Independent,sitting,Cork County Council
+Cork County,Carrigaline,Jack White,Fine Gael,sitting,Cork County Council
+Cork County,Carrigaline,Audrey Buckley,Fianna Fáil,sitting,Cork County Council
+Cork County,Carrigaline,Úna McCarthy,Fine Gael,sitting,Cork County Council
+Cork County,Carrigaline,Eoghan Fahy,Sinn Féin,sitting,Cork County Council
+Cork County,Cobh,Sheila O'Callaghan,Fianna Fáil,sitting,Cork County Council
+Cork County,Cobh,Anthony Barry,Fine Gael,sitting,Cork County Council
+Cork County,Cobh,Sinéad Sheppard,Fine Gael,sitting,Cork County Council
+Cork County,Cobh,Cathal Rasmussen,Labour,sitting,Cork County Council
+Cork County,Cobh,Ger Curley,Independent Ireland,sitting,Cork County Council
+Cork County,Cobh,Dominic Finn,Fianna Fáil,sitting,Cork County Council
+Cork County,Fermoy,William O'Leary,Independent,sitting,Cork County Council
+Cork County,Fermoy,Frank O'Flynn,Fianna Fáil,sitting,Cork County Council
+Cork County,Fermoy,Deirdre O'Brien,Fianna Fáil,sitting,Cork County Council
+Cork County,Fermoy,Nelius Cotter,Fianna Fáil,sitting,Cork County Council
+Cork County,Kanturk,Bernard Moynihan,Fianna Fáil,sitting,Cork County Council
+Cork County,Kanturk,Trish Murphy,Fine Gael,sitting,Cork County Council
+Cork County,Kanturk,Ian Doyle,Fianna Fáil,sitting,Cork County Council
+Cork County,Macroom,Gobnait Moynihan,Fianna Fáil,sitting,Cork County Council
+Cork County,Macroom,Michael Looney,Fianna Fáil,sitting,Cork County Council
+Cork County,Macroom,Ted Lucey,Fine Gael,sitting,Cork County Council
+Cork County,Macroom,Martin Coughlan,Independent,sitting,Cork County Council
+Cork County,Mallow,Tony O'Shea,Fine Gael,sitting,Cork County Council
+Cork County,Mallow,Liam Madden,Fine Gael,sitting,Cork County Council
+Cork County,Mallow,Gearóid Murphy,Fianna Fáil,sitting,Cork County Council
+Cork County,Mallow,Pat Hayes,Fianna Fáil,sitting,Cork County Council
+Cork County,Midleton,Mary Linehan Foley,Independent,sitting,Cork County Council
+Cork County,Midleton,Michael Hegarty,Fine Gael,sitting,Cork County Council
+Cork County,Midleton,Patrick Mulcahy,Fianna Fáil,sitting,Cork County Council
+Cork County,Midleton,Rory Cocking,Fine Gael,sitting,Cork County Council
+Cork County,Midleton,Ann Marie Ahern,Fianna Fáil,sitting,Cork County Council
+Cork County,Midleton,John Buckley,Independent,sitting,Cork County Council
+Cork County,Skibbereen – West Cork,Joe Carroll,Fianna Fáil,sitting,Cork County Council
+Cork County,Skibbereen – West Cork,Deirdre Kelly,Fianna Fáil,sitting,Cork County Council
+Cork County,Skibbereen – West Cork,Daniel Sexton,Independent Ireland,sitting,Cork County Council
+Cork County,Skibbereen – West Cork,Isobel Towse,Social Democrats,sitting,Cork County Council
+Cork County,,Eoghan Kenny,Labour,sitting,Cork County Council
+Cork County,,Séamus McGrath,Fianna Fáil,sitting,Cork County Council
+Cork County,,Noel McCarthy,Fine Gael,sitting,Cork County Council
+Cork County,,John Paul O'Shea,Fine Gael,sitting,Cork County Council
+Cork County,,Liam Quaide,Social Democrats,sitting,Cork County Council
+Cork County,,Eileen Lynch,Fine Gael,sitting,Cork County Council
+Cork County,,Noel O'Donovan,Fine Gael,sitting,Cork County Council
+Cork County,,Patrick Gerard Murphy,Fianna Fáil,sitting,Cork County Council
+Cork County,,Michael Creed,Fine Gael,sitting,Cork County Council
+Cork County,,Peter O'Donoghue,Independent,sitting,Cork County Council
+Donegal,Buncrana,Jack Murray,Sinn Féin,sitting,Donegal County Council
+Donegal,Buncrana,Paul Canning,Fianna Fáil,sitting,Donegal County Council
+Donegal,Buncrana,Terry Crossan,Sinn Féin,sitting,Donegal County Council
+Donegal,Buncrana,Fionán Bradley,Fianna Fáil,sitting,Donegal County Council
+Donegal,Carndonagh,Martin McDermott,Fianna Fáil,sitting,Donegal County Council
+Donegal,Carndonagh,Albert Doherty,Sinn Féin,sitting,Donegal County Council
+Donegal,Carndonagh,Martin Farren,Labour,sitting,Donegal County Council
+Donegal,Donegal,Micheál Naughton,Fianna Fáil,sitting,Donegal County Council
+Donegal,Donegal,Noel Jordan,Sinn Féin,sitting,Donegal County Council
+Donegal,Donegal,Michael McMahon,Sinn Féin,sitting,Donegal County Council
+Donegal,Donegal,Jimmy Brogan,Independent,sitting,Donegal County Council
+Donegal,Donegal,Niamh Kennedy,Independent,sitting,Donegal County Council
+Donegal,Glenties,Michael McClafferty,Independent,sitting,Donegal County Council
+Donegal,Glenties,Anthony Molloy,Fianna Fáil,sitting,Donegal County Council
+Donegal,Glenties,Brian Carr,Sinn Féin,sitting,Donegal County Council
+Donegal,Glenties,John Shéamais Ó Fearraigh,Sinn Féin,sitting,Donegal County Council
+Donegal,Letterkenny,Donal 'Mandy' Kelly,Fianna Fáil,sitting,Donegal County Council
+Donegal,Letterkenny,Gerry McMonagle,Sinn Féin,sitting,Donegal County Council
+Donegal,Letterkenny,Ciaran Brogan,Fianna Fáil,sitting,Donegal County Council
+Donegal,Letterkenny,Jimmy Kavanagh,Fine Gael,sitting,Donegal County Council
+Donegal,Letterkenny,Michael McBride,Independent,sitting,Donegal County Council
+Donegal,Letterkenny,Dónal Coyle,Fianna Fáil,sitting,Donegal County Council
+Donegal,Lifford – Stranorlar,Martin Scanlon,Independent,sitting,Donegal County Council
+Donegal,Lifford – Stranorlar,Gary Doherty,Sinn Féin,sitting,Donegal County Council
+Donegal,Lifford – Stranorlar,Martin Harley,Fine Gael,sitting,Donegal County Council
+Donegal,Lifford – Stranorlar,Frank McBrearty Jnr,Independent,sitting,Donegal County Council
+Donegal,Lifford – Stranorlar,Patrick McGowan,Fianna Fáil,sitting,Donegal County Council
+Donegal,Lifford – Stranorlar,Dakota Nic Mheanman,Sinn Féin,sitting,Donegal County Council
+Donegal,Milford,Declan Meehan,Independent,sitting,Donegal County Council
+Donegal,Milford,Liam Blaney,Fianna Fáil,sitting,Donegal County Council
+Donegal,Milford,Pauric McGarvey,Independent,sitting,Donegal County Council
+Donegal,,Manus Boyle,Fine Gael,sitting,Donegal County Council
+Dublin City,Artane–Whitehall,Racheal Batten,Fianna Fáil,sitting,Dublin City Council
+Dublin City,Artane–Whitehall,Edel Moran,Sinn Féin,sitting,Dublin City Council
+Dublin City,Artane–Whitehall,Declan Flanagan,Fine Gael,sitting,Dublin City Council
+Dublin City,Artane–Whitehall,Jesslyn Henry,Social Democrats,sitting,Dublin City Council
+Dublin City,Artane–Whitehall,Aisling Silke,Social Democrats,sitting,Dublin City Council
+Dublin City,Ballyfermot–Drimnagh,Daithí Doolan,Sinn Féin,sitting,Dublin City Council
+Dublin City,Ballyfermot–Drimnagh,Vincent Jackson,Independent,sitting,Dublin City Council
+Dublin City,Ballyfermot–Drimnagh,Hazel De Nortúin,PBP–Solidarity,sitting,Dublin City Council
+Dublin City,Ballymun–Finglas,Keith Connolly,Fianna Fáil,sitting,Dublin City Council
+Dublin City,Ballymun–Finglas,Gavin Pepper,Independent,sitting,Dublin City Council
+Dublin City,Ballymun–Finglas,Anthony Connaghan,Sinn Féin,sitting,Dublin City Council
+Dublin City,Ballymun–Finglas,Conor Reddy,PBP–Solidarity,sitting,Dublin City Council
+Dublin City,Ballymun–Finglas,Mary Callaghan,Social Democrats,sitting,Dublin City Council
+Dublin City,Ballymun–Finglas,Leslie Kane,Sinn Féin,sitting,Dublin City Council
+Dublin City,Cabra–Glasnevin,Cieran Perry,Independent,sitting,Dublin City Council
+Dublin City,Cabra–Glasnevin,Colm O'Rourke,Fine Gael,sitting,Dublin City Council
+Dublin City,Cabra–Glasnevin,Gayle Ralph,Fine Gael,sitting,Dublin City Council
+Dublin City,Cabra–Glasnevin,Cat O'Driscoll,Social Democrats,sitting,Dublin City Council
+Dublin City,Cabra–Glasnevin,John Stephens,Fianna Fáil,sitting,Dublin City Council
+Dublin City,Cabra–Glasnevin,Séamas McGrattan,Sinn Féin,sitting,Dublin City Council
+Dublin City,Clontarf,Deirdre Heney,Fianna Fáil,sitting,Dublin City Council
+Dublin City,Clontarf,Alison Field,Labour,sitting,Dublin City Council
+Dublin City,Donaghmede,Daryl Barron,Fianna Fáil,sitting,Dublin City Council
+Dublin City,Donaghmede,Paddy Monahan,Social Democrats,sitting,Dublin City Council
+Dublin City,Donaghmede,Supriya Singh,Fine Gael,sitting,Dublin City Council
+Dublin City,Donaghmede,Mícheál Mac Donncha,Sinn Féin,sitting,Dublin City Council
+Dublin City,Kimmage–Rathmines,Punam Rane,Fine Gael,sitting,Dublin City Council
+Dublin City,Kimmage–Rathmines,Fiona Connelly,Labour,sitting,Dublin City Council
+Dublin City,Kimmage–Rathmines,Patrick Kinsella,Fine Gael,sitting,Dublin City Council
+Dublin City,North Inner City,Ray McAdam,Fine Gael,sitting,Dublin City Council
+Dublin City,North Inner City,Christy Burke,Independent,sitting,Dublin City Council
+Dublin City,North Inner City,Malachy Steenson,Independent,sitting,Dublin City Council
+Dublin City,North Inner City,Nial Ring,Independent,sitting,Dublin City Council
+Dublin City,North Inner City,Janice Boylan,Sinn Féin,sitting,Dublin City Council
+Dublin City,,North Inner City,Social Democrats,sitting,Dublin City Council
+Dublin City,Pembroke,Dermot Lacey,Labour,sitting,Dublin City Council
+Dublin City,Pembroke,Emma Blain,Fine Gael,sitting,Dublin City Council
+Dublin City,Pembroke,Rory Hogan,Fianna Fáil,sitting,Dublin City Council
+Dublin City,South East Inner City,Kourtney Kenny,Sinn Féin,sitting,Dublin City Council
+Dublin City,South East Inner City,Danny Byrne,Fine Gael,sitting,Dublin City Council
+Dublin City,South East Inner City,Cian Farrell,Social Democrats,sitting,Dublin City Council
+Dublin City,South East Inner City,Mannix Flynn,Independent,sitting,Dublin City Council
+Dublin City,South West Inner City,Darragh Moriarty,Labour,sitting,Dublin City Council
+Dublin City,,South West Inner City,Social Democrats,sitting,Dublin City Council
+Dublin City,South West Inner City,Ammar Ali,Fianna Fáil,sitting,Dublin City Council
+Dublin City,,Tom Brabazon,Fianna Fáil,sitting,Dublin City Council
+Dublin City,,Jen Cummins,Social Democrats,sitting,Dublin City Council
+Dublin City,,Máire Devine,Sinn Féin,sitting,Dublin City Council
+Dublin City,,James Geoghegan,Fine Gael,sitting,Dublin City Council
+Dublin City,,Eoin Hayes,Social Democrats,sitting,Dublin City Council
+Dublin City,,Barry Heneghan,Independent,sitting,Dublin City Council
+Dublin City,,Naoise Ó Muirí,Fine Gael,sitting,Dublin City Council
+Dublin City,,Tara Deacy,Social Democrats,sitting,Dublin City Council
+Dublin City,,Catherine Stocker,Social Democrats,sitting,Dublin City Council
+Dublin City,,Daniel Ennis,Social Democrats,sitting,Dublin City Council
+Dublin City,,Philip Sutcliffe Snr,Independent Ireland,sitting,Dublin City Council
+Dún Laoghaire-Rathdown,Blackrock,Marie Baker,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Blackrock,Michael Clark,Fianna Fáil,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Blackrock,Maurice Dockrell,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Blackrock,Martha Fanning,Labour,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Blackrock,Dan Carson,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dundrum,Seán McLoughlin,Independent,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dundrum,Jim O'Leary,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dundrum,Peter O'Brien,Labour,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dundrum,Anna Grainger,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dundrum,Anne Colgan,Independent,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dún Laoghaire,Lorraine Hall,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dún Laoghaire,Melisa Halpin,PBP–Solidarity,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dún Laoghaire,J. P. Durkan,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dún Laoghaire,Mary Fayne,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dún Laoghaire,Justin Moylan,Fianna Fáil,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Dún Laoghaire,Thomas Joseph,Labour,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Glencullen – Sandyford,Michael Fleming,Independent,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Glencullen – Sandyford,Lettie McCarthy,Labour,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Glencullen – Sandyford,Pierce Dargan,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Glencullen – Sandyford,Kazi Ahmed,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Glencullen – Sandyford,Tom Murphy,Fianna Fáil,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Glencullen – Sandyford,Kevin Daly,Independent,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Killiney – Shankill,Carrie Smyth,Labour,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Killiney – Shankill,Jim Gildea,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Killiney – Shankill,Frank McNamara,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Killiney – Shankill,Hugh Lewis,Independent,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Killiney – Shankill,Jacqueline Burke,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Killiney – Shankill,Dave O'Keeffe,PBP–Solidarity,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Stillorgan,Barry Saul,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Stillorgan,John Kennedy,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Stillorgan,Liam Dockery,Fianna Fáil,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,Stillorgan,John Hurley,Social Democrats,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,,Shay Brennan,Fianna Fáil,sitting,Dún Laoghaire–Rathdown County Council
+Dún Laoghaire-Rathdown,,Maeve O'Connell,Fine Gael,sitting,Dún Laoghaire–Rathdown County Council
+Fingal,Balbriggan,Tony Murphy,Independent,sitting,Fingal County Council
+Fingal,Balbriggan,Gráinne Maguire,Independent,sitting,Fingal County Council
+Fingal,Balbriggan,Brendan Ryan,Labour,sitting,Fingal County Council
+Fingal,Balbriggan,Tom O'Leary,Fine Gael,sitting,Fingal County Council
+Fingal,Balbriggan,Malachy Quinn,Sinn Féin,sitting,Fingal County Council
+Fingal,Blanchardstown – Mulhuddart,Breda Hanaphy,Sinn Féin,sitting,Fingal County Council
+Fingal,Blanchardstown – Mulhuddart,Mary McCamley,Labour,sitting,Fingal County Council
+Fingal,Blanchardstown – Mulhuddart,JK Onwumereh,Fianna Fáil,sitting,Fingal County Council
+Fingal,Blanchardstown – Mulhuddart,John Burtchaell,PBP–Solidarity,sitting,Fingal County Council
+Fingal,Castleknock,Ted Leddy,Fine Gael,sitting,Fingal County Council
+Fingal,Castleknock,John Walsh,Labour,sitting,Fingal County Council
+Fingal,Castleknock,Siobhan Shovlin,Fine Gael,sitting,Fingal County Council
+Fingal,Castleknock,Ellen Troy,Aontú,sitting,Fingal County Council
+Fingal,Castleknock,Eimear Carbone-Mangan,Fianna Fáil,sitting,Fingal County Council
+Fingal,Howth – Malahide,Joan Hopkins,Social Democrats,sitting,Fingal County Council
+Fingal,Howth – Malahide,Aoibhinn Tormey,Fine Gael,sitting,Fingal County Council
+Fingal,Howth – Malahide,Cathal Haughey,Fianna Fáil,sitting,Fingal County Council
+Fingal,Howth – Malahide,Jimmy Guerin,Independent,sitting,Fingal County Council
+Fingal,Howth – Malahide,Brian McDonagh,Labour,sitting,Fingal County Council
+Fingal,Howth – Malahide,Eoghan O'Brien,Fianna Fáil,sitting,Fingal County Council
+Fingal,Ongar,Tania Doyle,Independent,sitting,Fingal County Council
+Fingal,Ongar,Angela Donnelly,Sinn Féin,sitting,Fingal County Council
+Fingal,Ongar,Kieran Dennison,Fine Gael,sitting,Fingal County Council
+Fingal,Ongar,Tom Kitt,Fianna Fáil,sitting,Fingal County Council
+Fingal,Ongar,Gerard Sheehan,Aontú,sitting,Fingal County Council
+Fingal,Rush – Lusk,Corina Johnston,Labour,sitting,Fingal County Council
+Fingal,Rush – Lusk,Cathal Boland,Independent,sitting,Fingal County Council
+Fingal,Rush – Lusk,Eoghan Dockrell,Fine Gael,sitting,Fingal County Council
+Fingal,Rush – Lusk,Paul Mulville,Social Democrats,sitting,Fingal County Council
+Fingal,Swords,Darragh Butler,Fianna Fáil,sitting,Fingal County Council
+Fingal,Swords,Luke Corkery,Fine Gael,sitting,Fingal County Council
+Fingal,Swords,Joe Newman,Independent,sitting,Fingal County Council
+Fingal,Swords,James Humphreys,Labour,sitting,Fingal County Council
+Fingal,,Marian Buckley,Sinn Féin,sitting,Fingal County Council
+Fingal,,Ruth Coppinger,PBP–Solidarity,sitting,Fingal County Council
+Fingal,,Robert O'Donoghue,Labour,sitting,Fingal County Council
+Fingal,,Ann Graves,Sinn Féin,sitting,Fingal County Council
+Fingal,,Kevin Humphreys,Labour,sitting,Fingal County Council
+Fingal,,Darren Jack Kelly,Independent,sitting,Fingal County Council
+Fingal,,Dean Mulligan,Independent,sitting,Fingal County Council
+Galway City,Galway City Central,Mike Cubbard,Independent,sitting,Galway City Council
+Galway City,Galway City Central,Eddie Hoare,Fine Gael,sitting,Galway City Council
+Galway City,Galway City Central,Frank Fahy,Fine Gael,sitting,Galway City Council
+Galway City,Galway City Central,Josie Forde,Fianna Fáil,sitting,Galway City Council
+Galway City,Galway City Central,John McDonagh,Labour,sitting,Galway City Council
+Galway City,,Galway City Central,Social Democrats,sitting,Galway City Council
+Galway City,Galway City East,Alan Cheevers,Fianna Fáil,sitting,Galway City Council
+Galway City,Galway City East,Declan McDonnell,Independent,sitting,Galway City Council
+Galway City,Galway City East,Terry O'Flaherty,Independent,sitting,Galway City Council
+Galway City,Galway City East,Shane Forde,Fine Gael,sitting,Galway City Council
+Galway City,Galway City East,Aisling Burke,Sinn Féin,sitting,Galway City Council
+Galway City,Galway City East,Helen Ogbu,Labour,sitting,Galway City Council
+Galway City,Galway City West,Donal Lyons,Independent,sitting,Galway City Council
+Galway City,Galway City West,Clodagh Higgins,Fine Gael,sitting,Galway City Council
+Galway City,Galway City West,Alan Curran,Social Democrats,sitting,Galway City Council
+Galway City,,Galway City West,Fianna Fáil,sitting,Galway City Council
+Galway City,Galway City West,Peter Keane,Fianna Fáil,sitting,Galway City Council
+Galway City,Galway City West,Níall McNelis,Labour,sitting,Galway City Council
+Galway City,,John Connolly,Fianna Fáil,sitting,Galway City Council
+Galway County,Athenry – Oranmore,Tomás Grealish,Independent,sitting,Galway County Council
+Galway County,Athenry – Oranmore,David Collins,Fine Gael,sitting,Galway County Council
+Galway County,Athenry – Oranmore,Peter Feeney,Fine Gael,sitting,Galway County Council
+Galway County,Athenry – Oranmore,Cillian Keane,Fianna Fáil,sitting,Galway County Council
+Galway County,Ballinasloe,Michael Connolly,Fianna Fáil,sitting,Galway County Council
+Galway County,Ballinasloe,Declan Geraghty,Independent Ireland,sitting,Galway County Council
+Galway County,Ballinasloe,Alan Harney,Fine Gael,sitting,Galway County Council
+Galway County,Ballinasloe,Evelyn Parsons,Independent,sitting,Galway County Council
+Galway County,Ballinasloe,Dermot Connolly,Sinn Féin,sitting,Galway County Council
+Galway County,Ballinasloe,Peter Keaveney,Fine Gael,sitting,Galway County Council
+Galway County,Conamara North,Thomas Welby,Independent,sitting,Galway County Council
+Galway County,Conamara North,Séamus Walsh,Independent Ireland,sitting,Galway County Council
+Galway County,Conamara North,Gerry King,Fianna Fáil,sitting,Galway County Council
+Galway County,Conamara North,Eileen Mannion,Fine Gael,sitting,Galway County Council
+Galway County,Conamara South,Noel Thomas,Independent Ireland,sitting,Galway County Council
+Galway County,,Conamara South,Fine Gael,sitting,Galway County Council
+Galway County,Conamara South,Michael Leainde,Independent Ireland,sitting,Galway County Council
+Galway County,Conamara South,Máirtín Lee,Fianna Fáil,sitting,Galway County Council
+Galway County,Gort–Kinvara,Geraldine Donohue,Independent,sitting,Galway County Council
+Galway County,Gort–Kinvara,Martina Kinane,Fianna Fáil,sitting,Galway County Council
+Galway County,Gort–Kinvara,Paul Killilea,Fine Gael,sitting,Galway County Council
+Galway County,Gort–Kinvara,Gerry Finnerty,Fianna Fáil,sitting,Galway County Council
+Galway County,Loughrea,Declan Kelly,Independent Ireland,sitting,Galway County Council
+Galway County,Loughrea,Jimmy McClearn,Fine Gael,sitting,Galway County Council
+Galway County,Loughrea,Michael 'Moegie' Maher,Fine Gael,sitting,Galway County Council
+Galway County,Loughrea,Ivan Canning,Fianna Fáil,sitting,Galway County Council
+Galway County,Tuam,Andrew Reddington,Fine Gael,sitting,Galway County Council
+Galway County,Tuam,Mary Hoade,Fianna Fáil,sitting,Galway County Council
+Galway County,Tuam,Shaun Cunniffe,Independent Ireland,sitting,Galway County Council
+Galway County,Tuam,Donagh Mark Killilea,Fianna Fáil,sitting,Galway County Council
+Galway County,Tuam,Karey McHugh Farag,Independent,sitting,Galway County Council
+Galway County,Tuam,Ollie Turner,Fine Gael,sitting,Galway County Council
+Galway County,,Louis O'Hara,Sinn Féin,sitting,Galway County Council
+Galway County,,Albert Dolan,Fianna Fáil,sitting,Galway County Council
+Galway County,,Peter Roche,Fine Gael,sitting,Galway County Council
+Galway County,,Shane Curley,Fianna Fáil,sitting,Galway County Council
+Galway County,,P. J. Murphy,Fine Gael,sitting,Galway County Council
+Galway County,,James Charity,Independent,sitting,Galway County Council
+Galway County,,Martin McNamara,Sinn Féin,sitting,Galway County Council
+Kerry,Castleisland,Jackie Healy-Rae,Independent,sitting,Kerry County Council
+Kerry,Castleisland,Charlie Farrelly,Independent,sitting,Kerry County Council
+Kerry,Castleisland,Fionnán Fitzgerald,Fianna Fáil,sitting,Kerry County Council
+Kerry,Castleisland,Bobby O'Connell,Fine Gael,sitting,Kerry County Council
+Kerry,An Daingean,Tommy Griffin,Fine Gael,sitting,Kerry County Council
+Kerry,An Daingean,Robert Brosnan,Sinn Féin,sitting,Kerry County Council
+Kerry,An Daingean,Breandán Fitzgerald,Fianna Fáil,sitting,Kerry County Council
+Kerry,Kenmare,Johnny Healy-Rae,Independent,sitting,Kerry County Council
+Kerry,Kenmare,Norma Moriarty,Fianna Fáil,sitting,Kerry County Council
+Kerry,Kenmare,Teddy O'Sullivan Casey,Fine Gael,sitting,Kerry County Council
+Kerry,Kenmare,Podge Foley,Independent,sitting,Kerry County Council
+Kerry,Kenmare,Dan McCarthy,Independent,sitting,Kerry County Council
+Kerry,Killarney,Maura Healy-Rae,Independent,sitting,Kerry County Council
+Kerry,Killarney,Martin Grady,Independent,sitting,Kerry County Council
+Kerry,Killarney,Brendan Cronin,Independent,sitting,Kerry County Council
+Kerry,Killarney,Niall Kelleher,Fianna Fáil,sitting,Kerry County Council
+Kerry,Killarney,Niall O'Callaghan,Independent,sitting,Kerry County Council
+Kerry,Killarney,Marie Moloney,Labour,sitting,Kerry County Council
+Kerry,Listowel,Liam Nolan,Independent,sitting,Kerry County Council
+Kerry,Listowel,Michael Foley,Fine Gael,sitting,Kerry County Council
+Kerry,Listowel,Michael Leane,Fianna Fáil,sitting,Kerry County Council
+Kerry,Listowel,Tom Barry,Sinn Féin,sitting,Kerry County Council
+Kerry,Listowel,Jimmy Moloney,Fianna Fáil,sitting,Kerry County Council
+Kerry,Tralee,Mikey Sheehy,Fianna Fáil,sitting,Kerry County Council
+Kerry,Tralee,Terry O'Brien,Labour,sitting,Kerry County Council
+Kerry,Tralee,Deirdre Ferris,Sinn Féin,sitting,Kerry County Council
+Kerry,Tralee,Sam Locke,Independent,sitting,Kerry County Council
+Kerry,Tralee,Paul Daly,Sinn Féin,sitting,Kerry County Council
+Kerry,Tralee,Anne O'Sullivan,Fianna Fáil,sitting,Kerry County Council
+Kerry,Tralee,Angie Baily,Fine Gael,sitting,Kerry County Council
+Kerry,,Michael Cahill,Fianna Fáil,sitting,Kerry County Council
+Kerry,,Mike Kennelly,Fine Gael,sitting,Kerry County Council
+Kildare,Athy,Aoife Breslin,Labour,sitting,Kildare County Council
+Kildare,Athy,Ivan Keatley,Fine Gael,sitting,Kildare County Council
+Kildare,Athy,Brian Dooley,Fianna Fáil,sitting,Kildare County Council
+Kildare,Athy,Veralouise Behan,Fianna Fáil,sitting,Kildare County Council
+Kildare,Athy,Mark Leigh,Labour,sitting,Kildare County Council
+Kildare,Celbridge,David Trost,Fianna Fáil,sitting,Kildare County Council
+Kildare,Celbridge,Claire O'Rourke,Social Democrats,sitting,Kildare County Council
+Kildare,Celbridge,Rupert Heather,Labour,sitting,Kildare County Council
+Kildare,Clane,Brendan Wyse,Fine Gael,sitting,Kildare County Council
+Kildare,Clane,Pádraig McEvoy,Independent,sitting,Kildare County Council
+Kildare,Clane,William Durkan,Fine Gael,sitting,Kildare County Council
+Kildare,Clane,Daragh Fitzpatrick,Fianna Fáil,sitting,Kildare County Council
+Kildare,Kildare,Suzanne Doyle,Fianna Fáil,sitting,Kildare County Council
+Kildare,Kildare,Kevin Duffy,Fine Gael,sitting,Kildare County Council
+Kildare,Kildare,Brian O'Loughlin,Fianna Fáil,sitting,Kildare County Council
+Kildare,Leixlip,Nuala Killeen,Social Democrats,sitting,Kildare County Council
+Kildare,Leixlip,Bernard Caldwell,Fianna Fáil,sitting,Kildare County Council
+Kildare,Maynooth,Tim Durkan,Fine Gael,sitting,Kildare County Council
+Kildare,Maynooth,Angela Feeney,Labour,sitting,Kildare County Council
+Kildare,Maynooth,Peter Melrose,Social Democrats,sitting,Kildare County Council
+Kildare,Maynooth,Paul Ward,Fianna Fáil,sitting,Kildare County Council
+Kildare,Naas,Fintan Brett,Fine Gael,sitting,Kildare County Council
+Kildare,Naas,Evie Sammon,Fine Gael,sitting,Kildare County Council
+Kildare,Naas,Seamie Moore,Independent,sitting,Kildare County Council
+Kildare,Naas,Anne Breen,Labour,sitting,Kildare County Council
+Kildare,Naas,Carmel Kelly,Fianna Fáil,sitting,Kildare County Council
+Kildare,Naas,Ger Dunne,Independent Ireland,sitting,Kildare County Council
+Kildare,Newbridge,Tracey O'Dwyer,Fine Gael,sitting,Kildare County Council
+Kildare,Newbridge,Peggy O'Dwyer,Fine Gael,sitting,Kildare County Council
+Kildare,Newbridge,Chris Pender,Social Democrats,sitting,Kildare County Council
+Kildare,Newbridge,Noel Heavey,Fianna Fáil,sitting,Kildare County Council
+Kildare,Newbridge,Robert Power,Fianna Fáil,sitting,Kildare County Council
+Kildare,Newbridge,Tom McDonnell,Independent,sitting,Kildare County Council
+Kildare,,Aidan Farrelly,Social Democrats,sitting,Kildare County Council
+Kildare,,Joe Neville,Fine Gael,sitting,Kildare County Council
+Kildare,,Shónagh Ní Raghallaigh,Sinn Féin,sitting,Kildare County Council
+Kildare,,Naoise Ó Cearúil,Fianna Fáil,sitting,Kildare County Council
+Kildare,,Lumi Panaite Fahey,Fine Gael,sitting,Kildare County Council
+Kildare,,Bill Clear,Social Democrats,sitting,Kildare County Council
+Kildare,,Pat Balfe,Social Democrats,sitting,Kildare County Council
+Kilkenny,Callan – Thomastown,Joe Sheridan,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Callan – Thomastown,Joe Lyons,Fine Gael,sitting,Kilkenny County Council
+Kilkenny,Callan – Thomastown,Michael Doyle,Fine Gael,sitting,Kilkenny County Council
+Kilkenny,Callan – Thomastown,Deirdre Cullen,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Callan – Thomastown,Stephanie Doheny,Sinn Féin,sitting,Kilkenny County Council
+Kilkenny,Castlecomer,Pat Fitzpatrick,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Castlecomer,Mary Hilda Cavanagh,Fine Gael,sitting,Kilkenny County Council
+Kilkenny,Castlecomer,Michael McCarthy,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Castlecomer,John Brennan,Fine Gael,sitting,Kilkenny County Council
+Kilkenny,Castlecomer,Maurice Shortall,Independent,sitting,Kilkenny County Council
+Kilkenny,Castlecomer,Michael Delaney,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Kilkenny,Andrew McGuinness,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Kilkenny,David Fitzgerald,Fine Gael,sitting,Kilkenny County Council
+Kilkenny,Kilkenny,Eugene McGuinness,Independent,sitting,Kilkenny County Council
+Kilkenny,Kilkenny,Joe Malone,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Kilkenny,John Coonan,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Piltown,Patrick Dunphy,Fine Gael,sitting,Kilkenny County Council
+Kilkenny,Piltown,Tomás Breathnach,Labour,sitting,Kilkenny County Council
+Kilkenny,Piltown,Ger Frisby,Fianna Fáil,sitting,Kilkenny County Council
+Kilkenny,Piltown,Fidelis Doherty,Fine Gael,sitting,Kilkenny County Council
+Kilkenny,Piltown,Jenny Catt Slattery,Fianna Fáil,sitting,Kilkenny County Council
+Laois,Borris-in-Ossory – Mountmellick,Conor Bergin,Fine Gael,sitting,Laois County Council
+Laois,Borris-in-Ossory – Mountmellick,James Kelly,Independent,sitting,Laois County Council
+Laois,Borris-in-Ossory – Mountmellick,Paddy Bracken,Fianna Fáil,sitting,Laois County Council
+Laois,Borris-in-Ossory – Mountmellick,John King,Fine Gael,sitting,Laois County Council
+Laois,Borris-in-Ossory – Mountmellick,Ollie Clooney,Independent,sitting,Laois County Council
+Laois,Borris-in-Ossory – Mountmellick,Séamus McDonald,Fianna Fáil,sitting,Laois County Council
+Laois,Graiguecullen– Portarlington,Paschal McEvoy,Fianna Fáil,sitting,Laois County Council
+Laois,Graiguecullen– Portarlington,Ben Brennan,Independent,sitting,Laois County Council
+Laois,Graiguecullen– Portarlington,Aisling Moran,Independent,sitting,Laois County Council
+Laois,Graiguecullen– Portarlington,Vivienne Phelan,Fine Gael,sitting,Laois County Council
+Laois,Portlaoise,Tommy Mulligan,Independent,sitting,Laois County Council
+Laois,Portlaoise,John Joe Fennelly,Fianna Fáil,sitting,Laois County Council
+Laois,Portlaoise,Catherine Fitzgerald,Fianna Fáil,sitting,Laois County Council
+Laois,Portlaoise,Barry Walsh,Fine Gael,sitting,Laois County Council
+Laois,Portlaoise,Marie Tuohy,Labour,sitting,Laois County Council
+Laois,,William Aird,Fine Gael,sitting,Laois County Council
+Laois,,Pádraig Fleming,Fianna Fáil,sitting,Laois County Council
+Laois,,Aidan Mullins,Sinn Féin,sitting,Laois County Council
+Laois,,Caroline Dwane-Stanley,Sinn Féin,sitting,Laois County Council
+Leitrim,Ballinamore,Paddy O'Rourke,Fianna Fáil,sitting,Leitrim County Council
+Leitrim,Ballinamore,Enda McGloin,Fine Gael,sitting,Leitrim County Council
+Leitrim,Ballinamore,Brendan Barry,Sinn Féin,sitting,Leitrim County Council
+Leitrim,Ballinamore,Ita Reynolds Flynn,Fine Gael,sitting,Leitrim County Council
+Leitrim,Ballinamore,Gary Prior,Fianna Fáil,sitting,Leitrim County Council
+Leitrim,Ballinamore,Róisín Kenny,Sinn Féin,sitting,Leitrim County Council
+Leitrim,Carrick-on-Shannon,Enda Stenson,Independent,sitting,Leitrim County Council
+Leitrim,Carrick-on-Shannon,Maeve Reynolds,Fine Gael,sitting,Leitrim County Council
+Leitrim,Carrick-on-Shannon,Seán McGowan,Fianna Fáil,sitting,Leitrim County Council
+Leitrim,Carrick-on-Shannon,Paddy Farrell,Fianna Fáil,sitting,Leitrim County Council
+Leitrim,Carrick-on-Shannon,Cormac Flynn,Sinn Féin,sitting,Leitrim County Council
+Leitrim,Manorhamilton,James Gilmartin,Independent,sitting,Leitrim County Council
+Leitrim,Manorhamilton,Mary Bohan,Fianna Fáil,sitting,Leitrim County Council
+Leitrim,Manorhamilton,Felim Gurn,Independent,sitting,Leitrim County Council
+Leitrim,Manorhamilton,Pádraig Fallon,Sinn Féin,sitting,Leitrim County Council
+Leitrim,Manorhamilton,Justin Warnock,Fianna Fáil,sitting,Leitrim County Council
+Leitrim,Manorhamilton,Eddie Mitchell,Independent,sitting,Leitrim County Council
+Leitrim,,Des Guckian,Independent,sitting,Leitrim County Council
+Limerick,Adare – Rathkeale,Stephen Keary,Fine Gael,sitting,Limerick City and County Council
+Limerick,Adare – Rathkeale,Adam Teskey,Fine Gael,sitting,Limerick City and County Council
+Limerick,Adare – Rathkeale,Bridie Collins,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,Adare – Rathkeale,John O'Donoghue,Independent Ireland,sitting,Limerick City and County Council
+Limerick,Adare – Rathkeale,Tommy Hartigan,Independent Ireland,sitting,Limerick City and County Council
+Limerick,Adare – Rathkeale,Gerald Ward,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,Cappamore – Kilmallock,Brigid Teefy,Independent,sitting,Limerick City and County Council
+Limerick,Cappamore – Kilmallock,Martin Ryan,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,Cappamore – Kilmallock,Eddie Ryan,Independent,sitting,Limerick City and County Council
+Limerick,Cappamore – Kilmallock,Noreen Stokes,Fine Gael,sitting,Limerick City and County Council
+Limerick,Cappamore – Kilmallock,Gregory Conway,Fine Gael,sitting,Limerick City and County Council
+Limerick,Cappamore – Kilmallock,P. J. Carey,Sinn Féin,sitting,Limerick City and County Council
+Limerick,Cappamore – Kilmallock,Tommy O'Sullivan,Fine Gael,sitting,Limerick City and County Council
+Limerick,Limerick City East,Catherine Slattery,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,Limerick City East,Peter Doyle,Fine Gael,sitting,Limerick City and County Council
+Limerick,Limerick City East,Joe Pond,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,,Limerick City East,Labour,sitting,Limerick City and County Council
+Limerick,Limerick City East,Sarah Kiely,Fine Gael,sitting,Limerick City and County Council
+Limerick,Limerick City North,Frankie Daly,Independent,sitting,Limerick City and County Council
+Limerick,,Limerick City North,Labour,sitting,Limerick City and County Council
+Limerick,Limerick City North,Kieran O'Hanlon,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,Limerick City North,Olivia O'Sullivan,Fine Gael,sitting,Limerick City and County Council
+Limerick,Limerick City North,Sarah Beasley,Aontú,sitting,Limerick City and County Council
+Limerick,Limerick City North,Sharon Benson,Sinn Féin,sitting,Limerick City and County Council
+Limerick,Limerick City North,Shane Hickey-O'Mara,Social Democrats,sitting,Limerick City and County Council
+Limerick,Limerick City West,Daniel Butler,Fine Gael,sitting,Limerick City and County Council
+Limerick,Limerick City West,Dan McSweeney,Fine Gael,sitting,Limerick City and County Council
+Limerick,Limerick City West,Joe Leddin,Labour,sitting,Limerick City and County Council
+Limerick,Limerick City West,Abul Kalam Azad Talukder,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,Limerick City West,Fergus Kilcoyne,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,Limerick City West,Maria Donoghue,Independent,sitting,Limerick City and County Council
+Limerick,Limerick City West,Elisa O'Donovan,Social Democrats,sitting,Limerick City and County Council
+Limerick,Newcastle West,Jerome Scanlan,Independent,sitting,Limerick City and County Council
+Limerick,Newcastle West,Liam Galvin,Fine Gael,sitting,Limerick City and County Council
+Limerick,Newcastle West,Michael Collins,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,Newcastle West,John Sheahan,Fine Gael,sitting,Limerick City and County Council
+Limerick,Newcastle West,Tom Ruddle,Fine Gael,sitting,Limerick City and County Council
+Limerick,Newcastle West,Francis Foley,Fianna Fáil,sitting,Limerick City and County Council
+Limerick,,Conor Sheehan,Labour,sitting,Limerick City and County Council
+Longford,Ballymahon,Paul Ross,Fine Gael,sitting,Longford County Council
+Longford,Ballymahon,Mick Cahill,Fianna Fáil,sitting,Longford County Council
+Longford,Ballymahon,Pat O'Toole,Fianna Fáil,sitting,Longford County Council
+Longford,Ballymahon,Mark Casey,Independent,sitting,Longford County Council
+Longford,Ballymahon,Sean Mimnagh,Fianna Fáil,sitting,Longford County Council
+Longford,Ballymahon,Martin Skelly,Fine Gael,sitting,Longford County Council
+Longford,Granard,Garry Murtagh,Fine Gael,sitting,Longford County Council
+Longford,Granard,Turlough McGovern,Independent,sitting,Longford County Council
+Longford,Granard,Paraic Brady,Fine Gael,sitting,Longford County Council
+Longford,Granard,Pádraig McNamara,Fine Gael,sitting,Longford County Council
+Longford,Granard,David Cassidy,Fianna Fáil,sitting,Longford County Council
+Longford,Longford,Gerry Hagan,Fine Gael,sitting,Longford County Council
+Longford,Longford,Martin Monaghan,Fianna Fáil,sitting,Longford County Council
+Longford,Longford,Séamus Butler,Fianna Fáil,sitting,Longford County Council
+Longford,Longford,Peggy Nolan,Fine Gael,sitting,Longford County Council
+Longford,Longford,Niall Gannon,Fine Gael,sitting,Longford County Council
+Longford,Longford,Kevin Hussey,Fianna Fáil,sitting,Longford County Council
+Longford,Longford,Uruemu Adejinmi,Fianna Fáil,sitting,Longford County Council
+Louth,Ardee,Jim Tenanty,Independent,sitting,Louth County Council
+Louth,Ardee,Pearse McGeough,Sinn Féin,sitting,Louth County Council
+Louth,Ardee,John Sheridan,Fianna Fáil,sitting,Louth County Council
+Louth,Ardee,Dolores Minogue,Fine Gael,sitting,Louth County Council
+Louth,Ardee,Bernie Conlon,Independent,sitting,Louth County Council
+Louth,Drogheda Rural,Michelle Hall,Labour,sitting,Louth County Council
+Louth,Drogheda Rural,Anne-Marie Ford,Fine Gael,sitting,Louth County Council
+Louth,Drogheda Rural,Declan Power,Independent,sitting,Louth County Council
+Louth,Drogheda Rural,Eric Donovan,Sinn Féin,sitting,Louth County Council
+Louth,Drogheda Urban,Pio Smith,Labour,sitting,Louth County Council
+Louth,,Drogheda Urban,Sinn Féin,sitting,Louth County Council
+Louth,Drogheda Urban,Kevin Callan,Independent,sitting,Louth County Council
+Louth,Drogheda Urban,James Byrne,Fianna Fáil,sitting,Louth County Council
+Louth,Drogheda Urban,Paddy McQuillan,Independent,sitting,Louth County Council
+Louth,Drogheda Urban,Ejiro O'Hare Stratton,Fine Gael,sitting,Louth County Council
+Louth,Dundalk – Carlingford,Seán Kelly,Fianna Fáil,sitting,Louth County Council
+Louth,Dundalk – Carlingford,Antóin Watters,Sinn Féin,sitting,Louth County Council
+Louth,Dundalk – Carlingford,Fiona Mhic Conchoille,Sinn Féin,sitting,Louth County Council
+Louth,Dundalk – Carlingford,Ciarán Fisher,Independent,sitting,Louth County Council
+Louth,Dundalk – Carlingford,John Reilly,Fine Gael,sitting,Louth County Council
+Louth,Dundalk – Carlingford,Andrea McKevitt,Fianna Fáil,sitting,Louth County Council
+Louth,Dundalk South,Maeve Yore,Independent,sitting,Louth County Council
+Louth,Dundalk South,Robert Nash,Fine Gael,sitting,Louth County Council
+Louth,Dundalk South,Emma Coffey,Fianna Fáil,sitting,Louth County Council
+Louth,Dundalk South,Kevin Meenan,Sinn Féin,sitting,Louth County Council
+Louth,Dundalk South,Sionainn McCann,Sinn Féin,sitting,Louth County Council
+Louth,Dundalk South,Shane McGuinness,Fianna Fáil,sitting,Louth County Council
+Louth,,Paula Butterly,Fine Gael,sitting,Louth County Council
+Louth,,Joanna Byrne,Sinn Féin,sitting,Louth County Council
+Mayo,Ballina,John O'Hara,Fine Gael,sitting,Mayo County Council
+Mayo,Ballina,Annie May Reape,Fianna Fáil,sitting,Mayo County Council
+Mayo,Ballina,Michael Loftus,Fianna Fáil,sitting,Mayo County Council
+Mayo,Ballina,Joe Faughan,Independent,sitting,Mayo County Council
+Mayo,Ballina,Jarlath Munnelly,Fine Gael,sitting,Mayo County Council
+Mayo,Belmullet,Paul McNamara,Fianna Fáil,sitting,Mayo County Council
+Mayo,Belmullet,Gerry Coyle,Fine Gael,sitting,Mayo County Council
+Mayo,Belmullet,Seán Carey,Fianna Fáil,sitting,Mayo County Council
+Mayo,Castlebar,Michael Kilcoyne,Independent,sitting,Mayo County Council
+Mayo,Castlebar,Ger Deere,Fine Gael,sitting,Mayo County Council
+Mayo,Castlebar,Blackie Gavin,Fianna Fáil,sitting,Mayo County Council
+Mayo,Castlebar,Al McDonnell,Fianna Fáil,sitting,Mayo County Council
+Mayo,Castlebar,Cyril Burke,Fine Gael,sitting,Mayo County Council
+Mayo,Castlebar,Donna Sheridan,Fine Gael,sitting,Mayo County Council
+Mayo,Castlebar,Harry Barrett,Independent,sitting,Mayo County Council
+Mayo,Claremorris,Patsy O'Brien,Independent,sitting,Mayo County Council
+Mayo,Claremorris,Richard Finn,Independent,sitting,Mayo County Council
+Mayo,Claremorris,Damien Ryan,Fianna Fáil,sitting,Mayo County Council
+Mayo,Claremorris,Alma Gallagher,Fine Gael,sitting,Mayo County Council
+Mayo,Claremorris,Michael Burke,Fine Gael,sitting,Mayo County Council
+Mayo,Swinford,Gerry Murray,Sinn Féin,sitting,Mayo County Council
+Mayo,Swinford,Adrian Forkan,Fianna Fáil,sitting,Mayo County Council
+Mayo,Swinford,John Caulfield,Fianna Fáil,sitting,Mayo County Council
+Mayo,Swinford,Neil Cruise,Fine Gael,sitting,Mayo County Council
+Mayo,Westport,Chris Maxwell,Independent Ireland,sitting,Mayo County Council
+Mayo,Westport,Peter Flynn,Fine Gael,sitting,Mayo County Council
+Mayo,Westport,John O'Malley,Independent,sitting,Mayo County Council
+Mayo,Westport,Brendan Mulroy,Fianna Fáil,sitting,Mayo County Council
+Mayo,,Paul Lawless,Aontú,sitting,Mayo County Council
+Mayo,,Mark Duffy,Fine Gael,sitting,Mayo County Council
+Meath,Ashbourne,Joe Bonner,Independent,sitting,Meath County Council
+Meath,Ashbourne,Amanda Smith,Independent,sitting,Meath County Council
+Meath,Ashbourne,Alan Tobin,Fine Gael,sitting,Meath County Council
+Meath,Ashbourne,Suzanna Jamal,Fine Gael,sitting,Meath County Council
+Meath,Ashbourne,Conor Tormey,Fianna Fáil,sitting,Meath County Council
+Meath,Ashbourne,Helen Meyer,Sinn Féin,sitting,Meath County Council
+Meath,Kells,Sarah Reilly,Fine Gael,sitting,Meath County Council
+Meath,Kells,Eugene Cassidy,Fine Gael,sitting,Meath County Council
+Meath,Kells,Sean Drew,Fianna Fáil,sitting,Meath County Council
+Meath,Kells,Mike Bray,Fianna Fáil,sitting,Meath County Council
+Meath,Kells,Michael Gallagher,Sinn Féin,sitting,Meath County Council
+Meath,Kells,David Gilroy,Independent,sitting,Meath County Council
+Meath,Kells,Peter Caffrey,Sinn Féin,sitting,Meath County Council
+Meath,Laytown – Bettystown,Sharon Tolan,Fine Gael,sitting,Meath County Council
+Meath,Laytown – Bettystown,Paddy Meade,Fine Gael,sitting,Meath County Council
+Meath,Laytown – Bettystown,Geraldine Keogan,Independent,sitting,Meath County Council
+Meath,Laytown – Bettystown,Stephen McKee,Fianna Fáil,sitting,Meath County Council
+Meath,Laytown – Bettystown,Wayne Harding,Fianna Fáil,sitting,Meath County Council
+Meath,Laytown – Bettystown,Maria White,Sinn Féin,sitting,Meath County Council
+Meath,Laytown – Bettystown,Carol Lennon,Independent,sitting,Meath County Council
+Meath,Navan,Eddie Fennessy,Sinn Féin,sitting,Meath County Council
+Meath,Navan,Emer Tóibín,Aontú,sitting,Meath County Council
+Meath,Navan,Francis Deane,Independent,sitting,Meath County Council
+Meath,Navan,Pádraig Fitzsimons,Fianna Fáil,sitting,Meath County Council
+Meath,Navan,Alan Lawes,Independent,sitting,Meath County Council
+Meath,Navan,Yemi Adenuga,Fine Gael,sitting,Meath County Council
+Meath,Ratoath,Maria Murphy,Fine Gael,sitting,Meath County Council
+Meath,Ratoath,Brian Fitzgerald,Independent,sitting,Meath County Council
+Meath,Ratoath,Caroline O'Reilly,Fianna Fáil,sitting,Meath County Council
+Meath,Ratoath,Nick Killian,Independent,sitting,Meath County Council
+Meath,Ratoath,Gerry O'Connor,Fine Gael,sitting,Meath County Council
+Meath,Ratoath,Fionnan Blake,Sinn Féin,sitting,Meath County Council
+Meath,Trim,Noel French,Independent,sitting,Meath County Council
+Meath,Trim,Joe Fox,Fine Gael,sitting,Meath County Council
+Meath,Trim,Dave Boyne,Aontú,sitting,Meath County Council
+Meath,Trim,Padraig Coffey,Fianna Fáil,sitting,Meath County Council
+Meath,Trim,Ronan Moore,Social Democrats,sitting,Meath County Council
+Meath,,Gillian Toole,Independent,sitting,Meath County Council
+Meath,,Aisling Dempsey,Fianna Fáil,sitting,Meath County Council
+Meath,,Linda Nelson Murray,Fine Gael,sitting,Meath County Council
+Monaghan,Ballybay – Clones,Seamus Coyle,Fianna Fáil,sitting,Monaghan County Council
+Monaghan,Ballybay – Clones,Richard Truell,Fine Gael,sitting,Monaghan County Council
+Monaghan,Ballybay – Clones,Seán Gilliland,Fine Gael,sitting,Monaghan County Council
+Monaghan,Ballybay – Clones,Sinéad Flynn,Sinn Féin,sitting,Monaghan County Council
+Monaghan,Ballybay – Clones,Pat Treanor,Sinn Féin,sitting,Monaghan County Council
+Monaghan,Carrickmacross – Castleblayney,P. J. O'Hanlon,Fianna Fáil,sitting,Monaghan County Council
+Monaghan,Carrickmacross – Castleblayney,Aidan Campbell,Fine Gael,sitting,Monaghan County Council
+Monaghan,Carrickmacross – Castleblayney,Colm Carthy,Sinn Féin,sitting,Monaghan County Council
+Monaghan,Carrickmacross – Castleblayney,Noel Keelan,Sinn Féin,sitting,Monaghan County Council
+Monaghan,Carrickmacross – Castleblayney,Peter Conlon,Fine Gael,sitting,Monaghan County Council
+Monaghan,Carrickmacross – Castleblayney,Paul Gibbons,Sinn Féin,sitting,Monaghan County Council
+Monaghan,Monaghan,Raymond Aughey,Fianna Fáil,sitting,Monaghan County Council
+Monaghan,Monaghan,Seamus Treanor,Independent,sitting,Monaghan County Council
+Monaghan,Monaghan,Pauric Clerkin,Fine Gael,sitting,Monaghan County Council
+Monaghan,Monaghan,Seán Conlon,Sinn Féin,sitting,Monaghan County Council
+Monaghan,Monaghan,Bronagh McAree,Sinn Féin,sitting,Monaghan County Council
+Monaghan,,David Maxwell,Fine Gael,sitting,Monaghan County Council
+Monaghan,,Cathy Bennett,Sinn Féin,sitting,Monaghan County Council
+Offaly,Birr,Peter Ormond,Fianna Fáil,sitting,Offaly County Council
+Offaly,Birr,John Leahy,Independent,sitting,Offaly County Council
+Offaly,Birr,Hugh Egan,Fine Gael,sitting,Offaly County Council
+Offaly,Birr,Sean Maher,Sinn Féin,sitting,Offaly County Council
+Offaly,Birr,Audrey Hennessy Kennedy,Fianna Fáil,sitting,Offaly County Council
+Offaly,Edenderry,Fergus McDonnell,Independent Ireland,sitting,Offaly County Council
+Offaly,Edenderry,Claire Murray,Fianna Fáil,sitting,Offaly County Council
+Offaly,Edenderry,Liam Quinn,Fine Gael,sitting,Offaly County Council
+Offaly,Edenderry,Noel Cribbin,Fine Gael,sitting,Offaly County Council
+Offaly,Tullamore,Neil Feighery,Fine Gael,sitting,Offaly County Council
+Offaly,Tullamore,Frank Moran,Fianna Fáil,sitting,Offaly County Council
+Offaly,Tullamore,Seán O'Brien,Independent,sitting,Offaly County Council
+Offaly,Tullamore,Aoife Masterson,Sinn Féin,sitting,Offaly County Council
+Offaly,Tullamore,Declan Harvey,Fianna Fáil,sitting,Offaly County Council
+Offaly,Tullamore,Ollie Bryant,Fianna Fáil,sitting,Offaly County Council
+Offaly,,Tony McCormack,Fianna Fáil,sitting,Offaly County Council
+Offaly,,John Clendennen,Fine Gael,sitting,Offaly County Council
+Offaly,,Eddie Fitzpatrick,Fianna Fáil,sitting,Offaly County Council
+Roscommon,Athlone,Emer Kelly,Independent,sitting,Roscommon County Council
+Roscommon,Athlone,Tony Ward,Independent,sitting,Roscommon County Council
+Roscommon,Athlone,Laurence Fallon,Independent,sitting,Roscommon County Council
+Roscommon,Athlone,John Keogh,Fianna Fáil,sitting,Roscommon County Council
+Roscommon,Athlone,Domnick Connolly,Fine Gael,sitting,Roscommon County Council
+Roscommon,Boyle,Valerie Byrne,Independent,sitting,Roscommon County Council
+Roscommon,Boyle,Leah Cull,Sinn Féin,sitting,Roscommon County Council
+Roscommon,Boyle,Micheál Frain,Independent,sitting,Roscommon County Council
+Roscommon,Boyle,Sean Moylan,Fianna Fáil,sitting,Roscommon County Council
+Roscommon,Boyle,Tom Crosby,Independent,sitting,Roscommon County Council
+Roscommon,Boyle,Liam Callaghan,Fine Gael,sitting,Roscommon County Council
+Roscommon,Roscommon,Paschal Fitzmaurice,Fianna Fáil,sitting,Roscommon County Council
+Roscommon,Roscommon,Marty McDermott,Fianna Fáil,sitting,Roscommon County Council
+Roscommon,Roscommon,Nigel Dineen,Independent Ireland,sitting,Roscommon County Council
+Roscommon,Roscommon,Larry Brennan,Fianna Fáil,sitting,Roscommon County Council
+Sligo,Ballymote – Tubbercurry,Paul Taylor,Fianna Fáil,sitting,Sligo County Council
+Sligo,Ballymote – Tubbercurry,Joe Queenan,Independent,sitting,Sligo County Council
+Sligo,Ballymote – Tubbercurry,Dara Mulvey,Fine Gael,sitting,Sligo County Council
+Sligo,Ballymote – Tubbercurry,Gerard Mullaney,Fine Gael,sitting,Sligo County Council
+Sligo,Ballymote – Tubbercurry,Liam Brennan,Fianna Fáil,sitting,Sligo County Council
+Sligo,Ballymote – Tubbercurry,Barry Gallagher,Fianna Fáil,sitting,Sligo County Council
+Sligo,Sligo – Drumcliff,Thomas Healy,Sinn Féin,sitting,Sligo County Council
+Sligo,Sligo – Drumcliff,Edel McSharry,Fianna Fáil,sitting,Sligo County Council
+Sligo,Sligo – Drumcliff,Thomas Walsh,Fine Gael,sitting,Sligo County Council
+Sligo,Sligo – Drumcliff,Marie Casserly,Independent,sitting,Sligo County Council
+Sligo,Sligo – Drumcliff,Dónal Gilroy,Fianna Fáil,sitting,Sligo County Council
+Sligo,Sligo– Strandhill,Declan Bree,Independent,sitting,Sligo County Council
+Sligo,Sligo– Strandhill,Arthur Gibbons,Sinn Féin,sitting,Sligo County Council
+Sligo,Sligo– Strandhill,Fergal Nealon,Fine Gael,sitting,Sligo County Council
+Sligo,Sligo– Strandhill,Gino O'Boyle,PBP–Solidarity,sitting,Sligo County Council
+Sligo,,Nessa Cosgrove,Labour,sitting,Sligo County Council
+Sligo,,Tom MacSharry,Fianna Fáil,sitting,Sligo County Council
+Sligo,,Michael Clarke,Independent,sitting,Sligo County Council
+South Dublin,Clondalkin,William Carey,Sinn Féin,sitting,South Dublin County Council
+South Dublin,Clondalkin,Trevor Gilligan,Fianna Fáil,sitting,South Dublin County Council
+South Dublin,Clondalkin,Shirley O'Hara,Fine Gael,sitting,South Dublin County Council
+South Dublin,Clondalkin,Eoin Ó Broin,Social Democrats,sitting,South Dublin County Council
+South Dublin,Firhouse–Bohernabreena,Alan Edge,Independent,sitting,South Dublin County Council
+South Dublin,Firhouse–Bohernabreena,Brian Lawlor,Fine Gael,sitting,South Dublin County Council
+South Dublin,Firhouse–Bohernabreena,Emma Murphy,Fianna Fáil,sitting,South Dublin County Council
+South Dublin,Firhouse–Bohernabreena,Sarah Barnes,Fine Gael,sitting,South Dublin County Council
+South Dublin,Firhouse–Bohernabreena,Róisín Mannion,Sinn Féin,sitting,South Dublin County Council
+South Dublin,Lucan,Vicki Casserly,Fine Gael,sitting,South Dublin County Council
+South Dublin,Lucan,Liona O'Toole,Independent,sitting,South Dublin County Council
+South Dublin,Lucan,Caroline Brady,Fine Gael,sitting,South Dublin County Council
+South Dublin,Lucan,Joanna Tuffy,Labour,sitting,South Dublin County Council
+South Dublin,Palmerstown – Fonthill,Alan Hayes,Independent,sitting,South Dublin County Council
+South Dublin,Rathfarnham – Templeogue,Pamela Kearns,Labour,sitting,South Dublin County Council
+South Dublin,Rathfarnham – Templeogue,Ronan McMahon,Independent,sitting,South Dublin County Council
+South Dublin,Rathfarnham – Templeogue,Yvonne Collins,Fianna Fáil,sitting,South Dublin County Council
+South Dublin,Rathfarnham – Templeogue,Lynn McCrave,Fine Gael,sitting,South Dublin County Council
+South Dublin,Rathfarnham – Templeogue,David McManus,Fine Gael,sitting,South Dublin County Council
+South Dublin,Rathfarnham – Templeogue,Justin Sinnott,Social Democrats,sitting,South Dublin County Council
+South Dublin,Tallaght Central,Mick Duff,Independent,sitting,South Dublin County Council
+South Dublin,,Tallaght Central,Fianna Fáil,sitting,South Dublin County Council
+South Dublin,Tallaght Central,Britto Pereppadan,Fine Gael,sitting,South Dublin County Council
+South Dublin,Tallaght Central,Jess Spear,PBP–Solidarity,sitting,South Dublin County Council
+South Dublin,Tallaght Central,Niamh Whelan,Sinn Féin,sitting,South Dublin County Council
+South Dublin,,Tallaght South,Independent,sitting,South Dublin County Council
+South Dublin,Tallaght South,Baby Pereppaddan,Fine Gael,sitting,South Dublin County Council
+South Dublin,Tallaght South,Dermot Richardson,Independent,sitting,South Dublin County Council
+South Dublin,Tallaght South,Kay Keane,PBP–Solidarity,sitting,South Dublin County Council
+South Dublin,Tallaght South,Louise Dunne,Sinn Féin,sitting,South Dublin County Council
+South Dublin,,Paddy Holohan,Independent,sitting,South Dublin County Council
+South Dublin,,Shane Moynihan,Fianna Fáil,sitting,South Dublin County Council
+South Dublin,,Ciarán Ahern,Labour,sitting,South Dublin County Council
+South Dublin,,Paul Gogarty,Independent,sitting,South Dublin County Council
+South Dublin,,Teresa Costello,Fianna Fáil,sitting,South Dublin County Council
+South Dublin,,Darragh Adelaide,PBP–Solidarity,sitting,South Dublin County Council
+South Dublin,,Niamh Fennell,Sinn Féin,sitting,South Dublin County Council
+South Dublin,,Francis Timmons,Independent,sitting,South Dublin County Council
+South Dublin,Glen Moore,Irish Freedom,Independent,sitting,South Dublin County Council
+South Dublin,,Madeleine Johansson,PBP–Solidarity,sitting,South Dublin County Council
+Tipperary,Cahir,Máirín McGrath,Independent,sitting,Tipperary County Council
+Tipperary,Cahir,Andy Moloney,Independent,sitting,Tipperary County Council
+Tipperary,Cahir,Marie Murphy,Fine Gael,sitting,Tipperary County Council
+Tipperary,Cahir,Micheál Anglim,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,Carrick-on-Suir,David Dunne,Sinn Féin,sitting,Tipperary County Council
+Tipperary,Carrick-on-Suir,Michael Brennan,Labour,sitting,Tipperary County Council
+Tipperary,Carrick-on-Suir,Kieran Bourke,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,Carrick-on-Suir,Mark Fitzgerald,Fine Gael,sitting,Tipperary County Council
+Tipperary,Cashel – Tipperary,John O'Heney,Independent,sitting,Tipperary County Council
+Tipperary,Cashel – Tipperary,Declan Burgess,Fine Gael,sitting,Tipperary County Council
+Tipperary,Cashel – Tipperary,Liam Browne,Independent,sitting,Tipperary County Council
+Tipperary,Cashel – Tipperary,Roger Kennedy,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,Cashel – Tipperary,Mary Hanna Hourigan,Fine Gael,sitting,Tipperary County Council
+Tipperary,Cashel – Tipperary,John Crosse,Fine Gael,sitting,Tipperary County Council
+Tipperary,Cashel – Tipperary,Annemarie Ryan,Sinn Féin,sitting,Tipperary County Council
+Tipperary,Clonmel,Siobhán Ambrose,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,Clonmel,John FitzGerald,Fine Gael,sitting,Tipperary County Council
+Tipperary,Clonmel,Richie Molloy,Independent,sitting,Tipperary County Council
+Tipperary,Clonmel,Niall Dennehy,Independent,sitting,Tipperary County Council
+Tipperary,Nenagh,Joe Hannigan,Independent,sitting,Tipperary County Council
+Tipperary,Nenagh,Michael O'Meara,Independent,sitting,Tipperary County Council
+Tipperary,Nenagh,Séamus Morris,Independent,sitting,Tipperary County Council
+Tipperary,Nenagh,Louise Morgan Walsh,Labour,sitting,Tipperary County Council
+Tipperary,Newport,Fiona Bonfield,Labour,sitting,Tipperary County Council
+Tipperary,Newport,Pamela Quirke O'Meara,Independent,sitting,Tipperary County Council
+Tipperary,Newport,Phyll Bugler,Fine Gael,sitting,Tipperary County Council
+Tipperary,Newport,John Carroll,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,Roscrea – Templemore,Michael Smith,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,Roscrea – Templemore,Shane Lee,Independent,sitting,Tipperary County Council
+Tipperary,Roscrea – Templemore,Eddie Moran,Independent,sitting,Tipperary County Council
+Tipperary,Roscrea – Templemore,William Kennedy,Fine Gael,sitting,Tipperary County Council
+Tipperary,Thurles,Jim Ryan,Independent,sitting,Tipperary County Council
+Tipperary,Thurles,Micheál Lowry,Independent,sitting,Tipperary County Council
+Tipperary,Thurles,Seán Ryan,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,Thurles,Kay Cahill Skehan,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,Thurles,Peggy Ryan,Fine Gael,sitting,Tipperary County Council
+Tipperary,,Ryan O'Meara,Fianna Fáil,sitting,Tipperary County Council
+Tipperary,,Michael Murphy,Fine Gael,sitting,Tipperary County Council
+Tipperary,,Imelda Goldsboro,Fianna Fáil,sitting,Tipperary County Council
+Waterford,Dungarvan,Damien Geoghegan,Fine Gael,sitting,Waterford City and County Council
+Waterford,Dungarvan,Tom Cronin,Fianna Fáil,sitting,Waterford City and County Council
+Waterford,Dungarvan,Pat Nugent,Fine Gael,sitting,Waterford City and County Council
+Waterford,Dungarvan,Thomas Phelan,Labour,sitting,Waterford City and County Council
+Waterford,Dungarvan,Joe O'Riordan,Independent,sitting,Waterford City and County Council
+Waterford,Lismore,John Pratt,Labour,sitting,Waterford City and County Council
+Waterford,Lismore,Niamh O'Donovan,Fine Gael,sitting,Waterford City and County Council
+Waterford,Lismore,Donnchadh Mulcahy,Sinn Féin,sitting,Waterford City and County Council
+Waterford,Portlaw – Kilmacthomas,Liam Brazil,Fine Gael,sitting,Waterford City and County Council
+Waterford,Portlaw – Kilmacthomas,Seánie Power,Fine Gael,sitting,Waterford City and County Council
+Waterford,Portlaw – Kilmacthomas,John O'Leary,Fianna Fáil,sitting,Waterford City and County Council
+Waterford,Portlaw – Kilmacthomas,Declan Clune,Independent,sitting,Waterford City and County Council
+Waterford,Portlaw – Kilmacthomas,Catherine Burke,Sinn Féin,sitting,Waterford City and County Council
+Waterford,Tramore – Waterford City West,Lola O'Sullivan,Fine Gael,sitting,Waterford City and County Council
+Waterford,Tramore – Waterford City West,Joe Kelly,Independent,sitting,Waterford City and County Council
+Waterford,Tramore – Waterford City West,Blaise Hannigan,Independent,sitting,Waterford City and County Council
+Waterford,Tramore – Waterford City West,Jim Griffin,Sinn Féin,sitting,Waterford City and County Council
+Waterford,Tramore – Waterford City West,Éamon Quinlan,Fianna Fáil,sitting,Waterford City and County Council
+Waterford,Waterford City East,David Daniels,Independent,sitting,Waterford City and County Council
+Waterford,Waterford City East,Declan Barry,Independent,sitting,Waterford City and County Council
+Waterford,Waterford City East,Pat Fitzgerald,Sinn Féin,sitting,Waterford City and County Council
+Waterford,Waterford City East,Adam Wyse,Fianna Fáil,sitting,Waterford City and County Council
+Waterford,Waterford City East,Jim D'arcy,Fine Gael,sitting,Waterford City and County Council
+Waterford,Waterford City East,Mary Roche,Social Democrats,sitting,Waterford City and County Council
+Waterford,Waterford City South,Donal Barry,Independent,sitting,Waterford City and County Council
+Waterford,Waterford City South,John Hearne,Sinn Féin,sitting,Waterford City and County Council
+Waterford,Waterford City South,Jason Murphy,Fianna Fáil,sitting,Waterford City and County Council
+Waterford,Waterford City South,Joeanne Bailey,Sinn Féin,sitting,Waterford City and County Council
+Waterford,Waterford City South,Frank Quinlan,Fine Gael,sitting,Waterford City and County Council
+Waterford,Waterford City South,Séamus Ryan,Labour,sitting,Waterford City and County Council
+Waterford,,Conor D. McGuinness,Sinn Féin,sitting,Waterford City and County Council
+Waterford,,Joe Conway,Independent,sitting,Waterford City and County Council
+Westmeath,Athlone,Frankie Keena,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Athlone,Aengus O'Rourke,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Athlone,John Dolan,Fine Gael,sitting,Westmeath County Council
+Westmeath,Athlone,Paul Hogan,Independent Ireland,sitting,Westmeath County Council
+Westmeath,Kinnegad,Denis Leonard,Labour,sitting,Westmeath County Council
+Westmeath,Kinnegad,Alfie Devine,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Kinnegad,David Jones,Sinn Féin,sitting,Westmeath County Council
+Westmeath,Kinnegad,Niall Gaffney,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Kinnegad,Emily Wallace,Fine Gael,sitting,Westmeath County Council
+Westmeath,Moate,Tom Farrell,Fine Gael,sitting,Westmeath County Council
+Westmeath,Moate,Vinny McCormack,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Moate,Liam McDaniel,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Moate,Johnnie Penrose,Labour,sitting,Westmeath County Council
+Westmeath,Mullingar,Mick Dollard,Independent,sitting,Westmeath County Council
+Westmeath,Mullingar,Ken Glynn,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Mullingar,Aoife Davitt,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Mullingar,Andrew Duncan,Fine Gael,sitting,Westmeath County Council
+Westmeath,Mullingar,Bill Collentine,Fianna Fáil,sitting,Westmeath County Council
+Westmeath,Mullingar,Julie McCourt,Sinn Féin,sitting,Westmeath County Council
+Wexford,Enniscorthy,Aidan Browne,Fianna Fáil,sitting,Wexford County Council
+Wexford,Enniscorthy,Barbara-Anne Murphy,Fianna Fáil,sitting,Wexford County Council
+Wexford,Enniscorthy,John O'Rourke,Independent,sitting,Wexford County Council
+Wexford,Enniscorthy,Jackser Owens,Independent,sitting,Wexford County Council
+Wexford,Enniscorthy,Pat Kehoe,Fine Gael,sitting,Wexford County Council
+Wexford,Gorey,Donal Kenny,Fianna Fáil,sitting,Wexford County Council
+Wexford,Gorey,Joe Sullivan,Fianna Fáil,sitting,Wexford County Council
+Wexford,Gorey,Darragh McDonald,Fine Gael,sitting,Wexford County Council
+Wexford,Gorey,Anthony Donohoe,Fine Gael,sitting,Wexford County Council
+Wexford,Kilmuckridge,Mary Farrell,Independent,sitting,Wexford County Council
+Wexford,Kilmuckridge,Pip Breen,Fianna Fáil,sitting,Wexford County Council
+Wexford,Kilmuckridge,Oliver Walsh,Fine Gael,sitting,Wexford County Council
+Wexford,,New Ross,Fianna Fáil,sitting,Wexford County Council
+Wexford,New Ross,John Fleming,Fianna Fáil,sitting,Wexford County Council
+Wexford,New Ross,Bridín Murphy,Fine Gael,sitting,Wexford County Council
+Wexford,New Ross,John Dwyer,Independent,sitting,Wexford County Council
+Wexford,Rosslare,Jim Codd,Aontú,sitting,Wexford County Council
+Wexford,Rosslare,Ger Carthy,Independent,sitting,Wexford County Council
+Wexford,Rosslare,Frank Staples,Fine Gael,sitting,Wexford County Council
+Wexford,Rosslare,Lisa McDonald,Fianna Fáil,sitting,Wexford County Council
+Wexford,Rosslare,Aoife Rose O'Brien,Sinn Féin,sitting,Wexford County Council
+Wexford,Wexford,Robbie Staples,Fine Gael,sitting,Wexford County Council
+Wexford,Wexford,Garry Laffan,Fianna Fáil,sitting,Wexford County Council
+Wexford,Wexford,Leonard Kelly,Independent,sitting,Wexford County Council
+Wexford,Wexford,Tom Forde,Sinn Féin,sitting,Wexford County Council
+Wexford,Wexford,Catherine Walsh,Labour,sitting,Wexford County Council
+Wexford,,Fionntán Ó Súilleabháin,Sinn Féin,sitting,Wexford County Council
+Wexford,,George Lawlor,Labour,sitting,Wexford County Council
+Wexford,,Cathal Byrne,Fine Gael,sitting,Wexford County Council
+Wicklow,Arklow,Pat Kennedy,Fianna Fáil,sitting,Wicklow County Council
+Wicklow,Arklow,Peir Leonard,Independent,sitting,Wicklow County Council
+Wicklow,Arklow,Sylvester Bourke,Fine Gael,sitting,Wicklow County Council
+Wicklow,Arklow,Pat Fitzgerald,Fianna Fáil,sitting,Wicklow County Council
+Wicklow,Arklow,Miriam Murphy,Independent,sitting,Wicklow County Council
+Wicklow,Arklow,Warren O'Toole,Sinn Féin,sitting,Wicklow County Council
+Wicklow,Baltinglass,Gerry O'Neill,Independent,sitting,Wicklow County Council
+Wicklow,Baltinglass,Peter Stapleton,Fine Gael,sitting,Wicklow County Council
+Wicklow,Baltinglass,Avril Cronin,Fine Gael,sitting,Wicklow County Council
+Wicklow,Baltinglass,Patsy Glennon,Fianna Fáil,sitting,Wicklow County Council
+Wicklow,Baltinglass,Jason Mulhall,Independent,sitting,Wicklow County Council
+Wicklow,,Bray East,Fine Gael,sitting,Wicklow County Council
+Wicklow,Bray East,Ian Neary,Independent Ireland,sitting,Wicklow County Council
+Wicklow,Bray East,Malachaí Duddy,Independent,sitting,Wicklow County Council
+Wicklow,Bray West,Joe Behan,Independent,sitting,Wicklow County Council
+Wicklow,Bray West,Melanie Corrigan,Fine Gael,sitting,Wicklow County Council
+Wicklow,,Bray West,Sinn Féin,sitting,Wicklow County Council
+Wicklow,Bray West,Caroline Winstanley,Social Democrats,sitting,Wicklow County Council
+Wicklow,Greystones,Stephen Stokes,Independent,sitting,Wicklow County Council
+Wicklow,Greystones,Tom Fortune,Independent,sitting,Wicklow County Council
+Wicklow,Greystones,Louise Fenelon Gaskin,Fine Gael,sitting,Wicklow County Council
+Wicklow,Greystones,Orla Finn,Independent,sitting,Wicklow County Council
+Wicklow,Greystones,Mark Barry,Social Democrats,sitting,Wicklow County Council
+Wicklow,Wicklow,John Snell,Independent,sitting,Wicklow County Council
+Wicklow,Wicklow,Danny Alvey,Social Democrats,sitting,Wicklow County Council
+Wicklow,Wicklow,Gail Dunne,Fianna Fáil,sitting,Wicklow County Council
+Wicklow,Wicklow,Shane Langrell,Fine Gael,sitting,Wicklow County Council
+Wicklow,Wicklow,Paul O'Brien,Labour,sitting,Wicklow County Council
+Wicklow,Wicklow,Graham Richmond,Fine Gael,sitting,Wicklow County Council
+Wicklow,,Edward Timmins,Fine Gael,sitting,Wicklow County Council
+Wicklow,,Aoife Flynn Kennedy,Fine Gael,sitting,Wicklow County Council
+Wicklow,,Dermot O'Brien,Sinn Féin,sitting,Wicklow County Council

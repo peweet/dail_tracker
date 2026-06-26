@@ -236,6 +236,19 @@ def _national_park(store, lon, lat, dev, slug):
     return True, {"park_name": name, "relation": "inside" if inside else "adjacent to"}, "ok"
 
 
+def _gaeltacht(store, lon, lat, dev, slug):
+    # Gaeltacht (Irish-speaking) area: the Irish language is a statutory material consideration here
+    # (PDA s.10(2)) — Linguistic Impact Statement + (in stronger sub-areas) an Irish-language occupancy
+    # condition. Layer is national (7 county polygons); containment only.
+    if "gaeltacht" not in store.available():
+        return False, {}, "layer_missing"
+    cov = store.covering("gaeltacht", lon, lat)
+    if not cov:
+        return False, {}, "ok"
+    name = (cov[0].get("GT_GAEILGE") or cov[0].get("GT_ENGLISH") or "").strip() or "this"
+    return True, {"gt_name": name}, "ok"
+
+
 def _floodplain(store, lon, lat, dev, slug):
     # OPW flood is CC-BY-NC-ND -> never ingested. We can't READ the zone, so this is a CHECK, not a
     # finding: deep_link_only status routes it to the "verify yourself" lane (the floodinfo.ie link
@@ -484,6 +497,7 @@ TRIGGERS: dict[str, Callable] = {
     "peat_bog": _peat_bog,
     "monument": _monument,
     "national_park": _national_park,
+    "gaeltacht": _gaeltacht,
     "floodplain": _floodplain,
     "septic_groundwater": _septic,
     "road_sightlines": _road,

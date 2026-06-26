@@ -77,6 +77,7 @@ _HC = "https://services-eu1.arcgis.com/v5dOXTEOb7ZHdNyQ/arcgis/rest/services"  #
 _GSI = "https://gsi.geodata.gov.ie/server/rest/services/Groundwater"
 _GSI_Q = "https://gsi.geodata.gov.ie/server/rest/services/Quaternary"
 _NPWS_ORG = "https://services-eu1.arcgis.com/Jhij7i46ouO8Cc0N/arcgis/rest/services"  # NPWS org
+_OSI = "https://services-eu1.arcgis.com/FH5XCsx8rYXqnjF5/arcgis/rest/services"  # Tailte Eireann (OSi) open data
 
 
 SPECS: dict[str, LayerSpec] = {
@@ -146,6 +147,15 @@ SPECS: dict[str, LayerSpec] = {
     "national_parks": LayerSpec(
         "national_parks", f"{_NPWS_ORG}/NationalParkBoundaries/FeatureServer/0", "polygon", ("DESIG", "SITE_NAME")
     ),
+    # Gaeltacht (Irish-speaking) areas — Tailte Eireann (OSi), 7 county polygons. NATIONAL. A point
+    # inside triggers the statutory linguistic planning rules (PDA s.10(2)): a Linguistic Impact
+    # Statement + (in stronger sub-areas) an Irish-language occupancy condition. GT_ENGLISH/GT_GAEILGE.
+    "gaeltacht": LayerSpec(
+        "gaeltacht",
+        f"{_OSI}/Gaeltacht_Boundaries_Generalised_20m___2015/FeatureServer/0",
+        "polygon",
+        ("GT_ENGLISH", "GT_GAEILGE", "COUNTY", "PROVINCE"),
+    ),
     # GSI Quaternary Sediments = subsoil TYPE incl. peat/blanket-bog (for the peat_bog node).
     # Galway-bbox; QSED_TYPE / LEGENDDESC carry the peat label.
     "gsi_quaternary": LayerSpec(
@@ -158,6 +168,60 @@ SPECS: dict[str, LayerSpec] = {
         # NATIONAL (was Galway/Cork/Dublin) — peat/blanket-bog subsoil for every county; ~206k polys.
     ),
 }
+
+# ── Heritage Council per-LA RPS / landscape / ACA, generated from a compact table ──────────────
+# Same org (_HC) as the curated Galway/Cork entries above; this widens protected_structure +
+# landscape_siting (the AONB / high-amenity / scenic equivalent — Connemara, Killary, Dingle, the
+# Curragh's county etc.) coverage to every county the Heritage Council publishes. `keep` is a
+# per-category SUPERSET: fields a given layer lacks just store None (ingest() filters props by
+# `keep`; EsriDumper pulls all fields), so no per-layer field curation is needed. The key MUST
+# contain 'rps' | 'landscape' | 'aca' — the engine's layers_matching() is a substring test.
+_RPS_KEEP = ("NAME", "STRUCTURE", "Building_Name", "TOWNLAND", "DED", "Address_1", "Address_2", "ADDRESS", "DESCRIPTIO")
+_LSC_KEEP = ("NAME", "TYPE", "CATEGORY", "CLASS", "LCA", "LCT", "SENSITIVI", "DESCRIPTIO")
+_ACA_KEEP = ("NAME", "DESCRIPTIO", "ADDRESS", "SPECIALINT")
+_HC_PER_LA: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    # RPS — protected structures (points)
+    "cavan_rps": ("Cavan_RPS", "point", _RPS_KEEP),
+    "clare_rps": ("Clare_RPS", "point", _RPS_KEEP),
+    "donegal_rps": ("Donegal_RPS", "point", _RPS_KEEP),
+    "fingal_rps": ("Fingal_RPS", "point", _RPS_KEEP),
+    "kerry_rps": ("Kerry_RPS", "point", _RPS_KEEP),
+    "laois_rps": ("Laois_RPS", "point", _RPS_KEEP),
+    "leitrim_rps": ("Leitrim_RPS", "point", _RPS_KEEP),
+    "limerick_city_rps": ("Limerick_City_RPS", "point", _RPS_KEEP),
+    "limerick_county_rps": ("Limerick_County_RPS", "point", _RPS_KEEP),
+    "louth_rps": ("Louth_RPS", "point", _RPS_KEEP),
+    "mayo_rps": ("Mayo_RPS", "point", _RPS_KEEP),
+    "monaghan_rps": ("Monaghan_RPS", "point", _RPS_KEEP),
+    "offaly_rps": ("Offaly_RPS", "point", _RPS_KEEP),
+    "roscommon_rps": ("Roscommon_RPS", "point", _RPS_KEEP),
+    "south_dublin_rps": ("South_Dublin_RPS", "point", _RPS_KEEP),
+    "south_tipperary_rps": ("South_Tipperary_RPS", "point", _RPS_KEEP),
+    "north_tipperary_rps_nenagh": ("North_Tipperary_NIAHRPS_Nenagh_20132019", "point", _RPS_KEEP),
+    "north_tipperary_rps_templemore": ("North_Tipperary_RPS_Templemore_20122018", "point", _RPS_KEEP),
+    "north_tipperary_rps_thurles": ("North_Tipperary_RPS_Thurles_20092015", "point", _RPS_KEEP),
+    "waterford_county_rps": ("Waterford_County_RPS", "point", _RPS_KEEP),
+    "wicklow_rps": ("Wicklow_RPS", "point", _RPS_KEEP),
+    # landscape — high-value / sensitivity / categories (polygons; the AONB/scenic equivalent)
+    "cavan_landscape": ("Cavan_High_Value_Landscape_Areas", "polygon", _LSC_KEEP),
+    "clare_landscape": ("Clare_Landscape_Categories", "polygon", _LSC_KEEP),
+    "cork_city_landscape": ("Cork_City_High_Value_Landscapes", "polygon", _LSC_KEEP),
+    "fingal_landscape": ("Fingal_Landscape_Categories", "polygon", _LSC_KEEP),
+    "kildare_landscape": ("Kildare_Landscape_Sensitivity_Areas", "polygon", _LSC_KEEP),
+    "laois_landscape": ("Laois_Landscape_Categories", "polygon", _LSC_KEEP),
+    "limerick_county_landscape": ("Limerick_County_Landscape_Categories", "polygon", _LSC_KEEP),
+    "louth_landscape": ("Louth_Landscape_Categories", "polygon", _LSC_KEEP),
+    "monaghan_landscape": ("Monaghan_Landscape_Character_Areas", "polygon", _LSC_KEEP),
+    "roscommon_landscape": ("Roscommon_Landscape_Character_Areas", "polygon", _LSC_KEEP),
+    "wexford_landscape": ("Wexford_Adopted_Landscapes_of_Greater_Sensitivity_2013", "polygon", _LSC_KEEP),
+    "wicklow_landscape": ("Wicklow_Landscape_Categories", "polygon", _LSC_KEEP),
+    # ACA — architectural conservation areas (polygons)
+    "dublin_city_aca": ("Dublin_City_ACA", "polygon", _ACA_KEEP),
+    "kildare_aca": ("Kildare_ACA", "polygon", _ACA_KEEP),
+    "kilkenny_aca": ("Kilkenny_ACA", "polygon", _ACA_KEEP),
+}
+for _k, (_svc, _geom, _keep) in _HC_PER_LA.items():
+    SPECS.setdefault(_k, LayerSpec(_k, f"{_HC}/{_svc}/FeatureServer/0", _geom, _keep))
 
 
 def _bbox_args(bbox: tuple[float, float, float, float] | None) -> dict:

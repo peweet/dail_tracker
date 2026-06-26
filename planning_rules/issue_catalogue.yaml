@@ -40,6 +40,7 @@ source_layers:
   epa_subsoils:          { kind: polygon, status: located, ref: "EPA National Subsoils/Soils (peat detection)" }
   gsi_quaternary:        { kind: polygon, status: live, ref: "GSI Quaternary Sediments 1:50,000 (subsoil type incl. peat)" }
   national_parks:        { kind: polygon, status: live, ref: "NPWS NationalParkBoundaries/FeatureServer/0 (6 parks)" }
+  gaeltacht:             { kind: polygon, status: live, ref: "Tailte Eireann Gaeltacht Boundaries (7 county areas)" }
   niah:                  { kind: point,   status: located, ref: "NIAH national dataset" }
   rps_aca:               { kind: mixed,   status: per_la,  ref: "RPS + ACA — per-council on data.gov.ie" }
   landscape_lca:         { kind: polygon, status: per_la,  ref: "Landscape Character / sensitivity — per-council" }
@@ -149,6 +150,28 @@ nodes:
     mitigates: "Inside a National Park, development beyond park-related uses is generally not permitted; adjacent to one, expect a Visual Impact Assessment + Appropriate Assessment. Often not mitigable."
     precedents: [ { curate: true, keywords: ["national park", "amenity", "visual"] } ]
     risk_note: "6 National Parks nationally (Connemara + the Burren near Galway). NPWS-owned/managed — the highest landscape/nature protection; an Irish equivalent of an Area of Outstanding Natural Beauty."
+
+  - id: gaeltacht
+    title: Gaeltacht (Irish-speaking area) — linguistic planning rules
+    layer: B
+    applies_to: [all]
+    trigger:
+      description: "site inside a statutory Gaeltacht area — the Irish language is a material planning consideration"
+      predicate: "within(gaeltacht)"
+      source_layers: [gaeltacht]
+    flag_template: >
+      This site is in the {gt_name} Gaeltacht. By law the development plan must protect Irish as the
+      community language (Planning and Development Act s.10(2)), so the Irish language is a material
+      planning consideration here: a Linguistic Impact Statement is typically required for housing, and
+      in the stronger Gaeltacht sub-areas a planning condition can tie occupancy of new houses to
+      Irish-language competence/commitment. The exact requirement varies by sub-area and is set by the
+      council's Gaeltacht chapter.
+    engage: ["planning consultant (Gaeltacht / linguistic impact)"]
+    rule_ref: { checklist: [] }
+    mitigation_class: D
+    mitigates: "Submit a Linguistic Impact Statement assessing the effect on the Irish-speaking community; engage with Udaras na Gaeltachta / the area language plan; accept the development plan's Irish-language occupancy condition where it applies."
+    precedents: [ { curate: true, keywords: ["Gaeltacht", "linguistic impact", "Irish language condition"] } ]
+    risk_note: "Statutory (PDA s.10(2)); strongest in the Cois Fharraige / south Connemara core (Barna-Carna). Tiered + contested — ABP has overturned language conditions in weaker Gaeltacht areas (e.g. Claregalway). The forthcoming National Planning Statement on Rural Housing (H2 2026) may refine it."
 
   - id: peat_bog
     title: Bog / peat soils
