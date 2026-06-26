@@ -1,20 +1,22 @@
 """
-Dáil Attendance Tracker — attendance.py
+Dáil Tracker — Attendance & Participation ("Showing up")
 
-Retrieval-only Streamlit page. All aggregation, metric definitions, and
-enrichment live in sql_views/attendance_*.sql (pipeline layer).
-This file: SELECT / WHERE / ORDER BY / LIMIT against registered views only.
+Retrieval-only Streamlit page. The censored TAA "sitting days" Hall-of-Shame was
+scrapped (it ranked data that stops recording at the 120-day allowance threshold,
+falsely labelling compliant members as worst attenders). This page presents three
+HONEST, verifiable signals from the registered participation views:
 
-TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL on v_attendance_summary
-    (source will eventually point to the official Oireachtas attendance PDF for each
-    calendar year — 2025.pdf, 2024.pdf etc — once the pipeline exposes per-year source URLs)
-TODO_PIPELINE_VIEW_REQUIRED: session_type column on v_attendance_timeline
-    (attendance_status is hardcoded 'Present'; source CSV has sitting-day and other-day rows
-    for the same date producing duplicates — pipeline must expose original session-type label)
+  1. Division turnout   — votes cast / missed (unfakeable; office-holders flagged)
+  2. Notable absences   — longest stretch away from recorded votes (date-diff led)
+  3. The 120-day allowance — who fell below + the TAA deduction (the money)
 
-SHIPPED — token cleared 2026-06-04: unique_member_code is now present on
-v_attendance_member_summary / _member_year_summary / _year_rank (verified in sql_views/),
-so cross-page member links work without an in-Streamlit lookup.
+Plus the divergence headline ("present in the building, rarely voted") and a
+sourced news chip that vindicates a publicly-explained absence (illness, leave).
+
+Scope: CURRENT TERM ONLY. All aggregation lives in
+sql_views/attendance/attendance_participation_*.sql. This file only
+SELECT/WHERE/ORDER/LIMIT (via data_access) and renders. DISPLAYS verifiable data +
+sourced links; it never infers a reason or a verdict.
 """
 
 from __future__ import annotations
@@ -27,7 +29,6 @@ import streamlit as st
 
 from shared_css import inject_css
 from ui.components import (
-    clean_meta,
     clickable_card_link,
     empty_state,
     evidence_heading,
@@ -35,129 +36,93 @@ from ui.components import (
     hero_banner,
     hide_sidebar,
     member_jump_panel,
+    member_moved_callout,
     page_error_boundary,
+    stat_strip,
     year_selector,
 )
 from data_access.identity_resolver import resolve_member_code
-from ui.components import member_moved_callout
-from ui.entity_links import member_link_html, member_profile_url
+from ui.entity_links import member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import ATTENDANCE, provenance_expander
 
 from config import NOTABLE_TDS
 from data_access.attendance_data import (
-    fetch_chamber_sitting_days as _fetch_chamber_sitting_days,
-    fetch_filter_options as _fetch_filter_options,
-    fetch_missing_members as _fetch_missing_members,
-    fetch_year_ranking as _fetch_year_ranking,
+    fetch_absences as _fetch_absences,
+    fetch_divergence as _fetch_divergence,
+    fetch_participation_years as _fetch_years,
+    fetch_taa_compliance as _fetch_taa,
+    fetch_taa_summary as _fetch_taa_summary,
+    fetch_turnout as _fetch_turnout,
     views_ready as _views_ready,
 )
-from dail_tracker_core.attendance import (
-    TAA_FULL_ATTENDANCE_MINIMUM_DAYS,
-    meets_taa_minimum,
-    split_attendance_hall,
-    statutory_attendance_minimum,
-)
+
+_LIST_SIZE = 20
 
 _CAVEAT = (
-    "Attendance figures combine days a member was recorded present in the {chamber} chamber "
-    "on scheduled sitting days with other recorded business (committee days etc.) "
-    "exactly as published in the official Oireachtas member-attendance PDFs. "
-    "The record does not capture ministerial duties, illness, bereavement, parental leave, "
-    "or constituency work. Low figures have many legitimate explanations that are not visible "
-    "in this data. This page presents the official record — it does not make a judgement "
-    "about the reasons behind it."
+    "This page measures **recorded votes**, not the Travel & Accommodation "
+    "Allowance (TAA) sign-in. The TAA attendance count stops recording at the "
+    "120-day allowance threshold and can be reconciled afterwards, so it cannot "
+    "show who takes part in the chamber. A division (vote) record cannot be "
+    "reconciled — you either cast the vote or you did not — so it is the honest "
+    "measure of participation. Absences have many legitimate reasons (illness, "
+    "family leave, ministerial or constituency duty, pairing arrangements between "
+    "the government and opposition that are invisible in this data). Where a public "
+    "reason has been reported we link it. Where none is shown, that means no public "
+    "explanation was found — not that one does not exist. This page reports the "
+    "record; it does not judge the reasons."
 )
 
-_STATUTORY_NOTE = (
-    "**What is the 120-day mark?** "
-    "Travel & Accommodation Allowance (TAA) is paid to TDs — other than the "
-    "Taoiseach and Ministers — on the basis that they personally attend Leinster "
-    "House on at least **120 days** a year. The allowance is calculated on a "
-    "150-day basis, and a 1% deduction applies for each day attended below 120. "
-    "Both the *sitting days* and *other days* columns in the source PDFs are days "
-    "present at Leinster House, so both count toward the 120, which is why the "
-    "combined total is the figure measured against the threshold. "
+_TURNOUT_NOTE = (
+    "**What is turnout?** Each {chamber} division (vote) this term, and how many a "
+    "member took part in. Office-holders are shown but flagged: the Ceann Comhairle "
+    "/ Cathaoirleach votes only to break ties, and ministers and party leaders vote "
+    "less because of executive duties and government–opposition pairing. A low "
+    "figure for them is structural, not absence."
+)
+
+_TAA_NOTE = (
+    "**The 120-day allowance.** The Travel & Accommodation Allowance is paid to "
+    "members — other than the Taoiseach and ministers — on the basis that they "
+    "personally attend Leinster House on at least **120 days** a year. It is "
+    "calculated on a 150-day basis with a **1% deduction for each day below 120**. "
+    "Office-holders are not paid TAA on this basis and are excluded here. "
     "Source: [Houses of the Oireachtas — Salaries & Allowances]"
     "(https://www.oireachtas.ie/en/members/salaries-and-allowances/)."
 )
 
-_MINISTER_NOTE = (
-    "**Why are cabinet ministers shown separately?** "
-    "Members holding ministerial office — including the Taoiseach, cabinet ministers, and Ministers of State — "
-    "are constitutionally required to attend cabinet meetings, conduct bilateral engagements, "
-    "represent the State at EU Council, and discharge executive duties that frequently "
-    "conflict with scheduled plenary sitting days. Their plenary attendance figures are not "
-    "a reliable indicator of their parliamentary or public service engagement and are excluded "
-    "from the lowest-attendance ranking to avoid a misleading comparison."
-)
+
+# ── shared bits ───────────────────────────────────────────────────────────────
 
 
-# ── Retrieval lives in data_access.attendance_data (imported above) ───────────
+def _role_chip(row: pd.Series) -> str:
+    """Context chip for an office-holder / leader (kept in-list, not hidden)."""
+    note = str(row.get("role_note", "") or "")
+    if bool(row.get("is_chair")):
+        label = note or "Chair — votes only to break ties"
+    elif bool(row.get("is_minister")):
+        label = f"{note or 'Minister'} — executive duty / pairing"
+    elif bool(row.get("is_leader")):
+        label = note or "Party leader — pairing"
+    else:
+        return ""
+    return f'<span class="part-role-chip" title="{_h(label)}">{_h(label)}</span>'
 
 
-# ── Good cop / bad cop browse view ────────────────────────────────────────────
-
-_HALL_SIZE = 15
-
-
-def _hall_card(row: pd.Series, side: str, rank: int = 1, *, year: int | None = None) -> str:
-    name = _h(str(row["member_name"]))
-    party = str(row.get("party_name", "") or "")
-    const = str(row.get("constituency", "") or "")
-    meta = _h(clean_meta(party, const))
-    days = int(row["attended_count"])
-
-    # Split the headline total into its two published day-types (sitting =
-    # plenary chamber; other = committee / other recorded business). Both count
-    # toward the 120-day statutory TAA minimum, which is why the total — not the
-    # sitting count — is what the minimum is measured against.
-    sitting = row.get("sitting_days")
-    other = row.get("other_days")
-    breakdown_html = ""
-    if pd.notna(sitting) and pd.notna(other):
-        breakdown_html = (
-            f'<p class="att-hall-meta" style="margin-top:2px;opacity:.78">'
-            f"{int(sitting)} plenary · {int(other)} other</p>"
-        )
-
-    # Statutory marker: TDs below the 120-day minimum face a 1% TAA deduction per
-    # day short. Flag it only on the lowest-attendance side, where it is the point.
-    statutory_html = ""
-    if side == "bad" and not meets_taa_minimum(days, year):
-        statutory_html = (
-            f'<span class="att-hall-badge-label" style="color:#b3261e">'
-            f"below {statutory_attendance_minimum(year)}-day min</span>"
-        )
-
+def _news_chip(row: pd.Series) -> str:
+    """Sourced explanation link (curated seed or live news). Display-only — the
+    link is the evidence; we never assert a reason without one."""
+    url = str(row.get("source_url", "") or "")
+    if not url:
+        return ""
+    label = str(row.get("reason_label", "") or row.get("source_title", "") or "Reported reason")
     return (
-        f'<div class="att-hall-card-{side}">'
-        f'<span class="att-hall-rank">#{rank}</span>'
-        f'<div class="att-hall-body">'
-        f'<p class="att-hall-name">{name}</p>'
-        f'<p class="att-hall-meta">{meta}</p>'
-        f"{breakdown_html}"
-        f"</div>"
-        f'<div class="att-hall-badge-{side}">'
-        f'<span class="att-hall-badge-num">{days}</span>'
-        f'<span class="att-hall-badge-label">days</span>'
-        f"{statutory_html}"
-        f"</div>"
-        f"</div>"
+        f'<a class="part-news-chip" href="{_h(url)}" target="_blank" rel="noopener" '
+        f'title="{_h(str(row.get("source_title", "") or label))}">📰 {_h(label)} ↗</a>'
     )
 
 
-def _att_card_link(row: pd.Series, *, side: str, rank: int, year: int | None = None) -> str:
-    """Full-card-clickable hall card linking to the canonical profile.
-
-    Cross-page jump: every card on /rankings-attendance lands on
-    /member-overview?member=<code>#attendance. Resolves the actual
-    unique_member_code via the registry (round-3 audit fix). Members not
-    in the registry render unwrapped (non-clickable).
-    """
-    name = str(row["member_name"])
-    code = resolve_member_code(name)
-    inner = _hall_card(row, side, rank=rank, year=year)
+def _profile_wrap(code: str, name: str, inner: str) -> str:
     if not code:
         return inner
     return clickable_card_link(
@@ -168,132 +133,163 @@ def _att_card_link(row: pd.Series, *, side: str, rank: int, year: int | None = N
     )
 
 
-def _render_good_bad(ranking_df: pd.DataFrame, year: int, house: str = "Dáil") -> None:
-    """
-    Full-year: top/bottom _HALL_SIZE attenders side by side, full-card click.
-    Partial/current year: flat ranked list with an in-progress notice.
-
-    Each card is wrapped in clickable_card_link — the entire card is the click
-    target (no separate arrow button). Navigation is by ?att_td=<name> query
-    param, which attendance_page() copies into selected_td_att on load.
-    """
-    today = datetime.date.today()
-    is_partial = year >= today.year
-
-    # P1-2 audit fix: previously the in-progress year branch dumped every
-    # member as one long ranked column, losing the editorial good/bad
-    # split that's the page's whole point. Keep the split year-round; add
-    # a one-sentence YTD caveat above so readers know the "lowest" column
-    # is provisional.
-    if is_partial:
-        st.caption(
-            f"**{year} is in progress** — the {house} year is not yet complete, "
-            "so the lowest column is provisional and may change as more "
-            "sitting days are added."
-        )
-
-    # The highest/lowest split + the minister-exclusion rule (ministers are kept
-    # in the highest list but removed from the lowest one, because the source TAA
-    # PDFs don't record ministerial attendance) now live in the Streamlit-free,
-    # unit-tested dail_tracker_core.attendance.split_attendance_hall. The page
-    # only renders the two slices it returns.
-    hall = split_attendance_hall(ranking_df, hall_size=_HALL_SIZE)
-    top, bottom = hall.highest, hall.lowest
-
-    col_good, col_bad = st.columns(2, gap="medium")
-    with col_good:
-        st.html('<h2 class="att-hall-heading-good">Highest recorded attendance</h2>')
-        good_cards = [
-            _att_card_link(row, side="good", rank=i + 1, year=year) for i, (_, row) in enumerate(top.iterrows())
-        ]
-        st.html("\n".join(good_cards))
-
-    with col_bad:
-        bad_label = "Lowest recorded attendance (so far)" if is_partial else "Lowest recorded attendance"
-        st.html(f'<h2 class="att-hall-heading-bad">{bad_label}</h2>')
-        bad_cards = [
-            _att_card_link(row, side="bad", rank=i + 1, year=year) for i, (_, row) in enumerate(bottom.iterrows())
-        ]
-        st.html("\n".join(bad_cards))
-
-
-# ── Missing-members section (TDs not in the attendance parquet) ───────────────
-
-
-def _name_pill(row: pd.Series, *, with_office: bool) -> str:
-    raw_name = str(row["member_name"])
-    # Forward edge: link the absent/office-holder TD to their profile so the
-    # list isn't a dead-end. Graceful — resolve_member_code returns "" on a miss
-    # (e.g. the Taoiseach / upstream name-match gaps) and member_link_html then
-    # renders the plain (escaped) name.
-    name = member_link_html(resolve_member_code(raw_name), raw_name)
+def _meta(row: pd.Series) -> str:
     party = str(row.get("party_name", "") or "")
     const = str(row.get("constituency", "") or "")
-    meta = _h(clean_meta(party, const))
-    office = str(row.get("departments_held", "") or "") if with_office else ""
-    office_html = f'<span class="att-miss-office">{_h(office)}</span>' if office else ""
-    return (
-        '<div class="att-miss-row">'
-        f'<span class="att-miss-name">{name}</span>'
-        f'<span class="att-miss-meta">{meta}</span>'
-        f"{office_html}"
-        "</div>"
+    return _h(" · ".join(p for p in (party, const) if p))
+
+
+# NOTE: the full-roster turnout LEADERBOARD was removed 2026-06-22 — attendance
+# is not a competition, and ranking every member by turnout mixes incomparable
+# roles (the chair never votes; ministers and leaders are paired). Per-member
+# turnout now lives on the member profile; this page is member-lookup + the few
+# notable patterns worth scrutiny. A full turnout CSV is still exportable below.
+
+
+# ── Notable absences ──────────────────────────────────────────────────────────
+
+
+def _absence_row(row: pd.Series) -> str:
+    name = str(row["member_name"])
+    code = resolve_member_code(name)
+    run = int(row.get("longest_run_sitting_days") or 0)
+    start = pd.to_datetime(row.get("run_start"), errors="coerce")
+    end = pd.to_datetime(row.get("run_end"), errors="coerce")
+    span = ""
+    if pd.notna(start) and pd.notna(end):
+        span = f"{start.strftime('%d %b')} → {end.strftime('%d %b %Y')}"
+    cal = int(row.get("run_calendar_days") or 0)
+    has_reason = bool(str(row.get("source_url", "") or ""))
+    reason_html = (
+        _news_chip(row)
+        if has_reason
+        else '<span class="part-noexpl">No public explanation found</span>'
+    )
+    inner = (
+        f'<div class="part-absence-row">'
+        f'<div class="part-absence-id">'
+        f'<p class="part-name">{_h(name)}</p>'
+        f'<p class="part-meta">{_meta(row)}{_role_chip(row)}</p>'
+        f"</div>"
+        f'<div class="part-absence-figure">'
+        f'<span class="part-absence-run">{run} sitting days absent in a row</span>'
+        f'<span class="part-absence-span">{_h(span)} · {cal} days</span>'
+        f"{reason_html}"
+        f"</div>"
+        f"</div>"
+    )
+    return _profile_wrap(code, name, inner)
+
+
+def _render_absences(df: pd.DataFrame, *, chamber: str) -> None:
+    evidence_heading("Notable absences — longest stretch away from the chamber")
+    if df.empty:
+        empty_state(
+            "No absence stretches to report",
+            "Every member was recorded present at regular intervals this term.",
+        )
+        return
+    st.caption(
+        "The longest unbroken run of plenary sitting days a member was **not recorded "
+        "present** at Leinster House at all — physical absence from the official "
+        "attendance record, not a missed vote (a member can be in the building yet sit "
+        "out a vote). Recess-proof. A reported reason is linked; otherwise it reads "
+        "*no public explanation found* — a statement about the record, not a judgement."
+    )
+    rows = [_absence_row(r) for _, r in df.head(_LIST_SIZE).iterrows()]
+    st.html("\n".join(rows))
+    export_button(
+        df[["member_name", "party_name", "longest_run_sitting_days", "run_calendar_days", "run_start", "run_end"]],
+        label=f"Export absences · {len(df)} members",
+        filename="dail_tracker_absences.csv",
+        key="part_absence_export",
     )
 
 
-def _render_missing_members() -> None:
-    df = _fetch_missing_members()
+# ── Section 3: TAA allowance compliance ───────────────────────────────────────
+
+
+def _taa_row(row: pd.Series) -> str:
+    name = str(row["member_name"])
+    code = resolve_member_code(name)
+    days = int(row.get("total_days") or 0)
+    ded = int(row.get("deduction_pct") or 0)
+    inner = (
+        f'<div class="part-taa-row">'
+        f'<div class="part-absence-id"><p class="part-name">{_h(name)}</p>'
+        f'<p class="part-meta">{_meta(row)}</p></div>'
+        f'<span class="part-taa-days">{days} of 120 days</span>'
+        f'<span class="part-taa-ded">−{ded}% allowance</span>'
+        f"</div>"
+    )
+    return _profile_wrap(code, name, inner)
+
+
+def _render_taa(df: pd.DataFrame, summary: dict[str, int], *, chamber: str) -> None:
+    evidence_heading("The 120-day allowance")
+    cleared = summary.get("n_cleared", 0)
+    below = summary.get("n_below", 0)
+    stat_strip(
+        [
+            (str(cleared), "cleared the 120-day threshold", "var(--text-primary)"),
+            (str(below), "fell below — allowance deducted", "var(--text-secondary)"),
+        ]
+    )
+    if df.empty:
+        st.caption(
+            "No members below the 120-day threshold are on record for this term "
+            "(office-holders are not paid TAA on the attendance basis and are excluded)."
+        )
+        return
+    st.caption(
+        "Members paid the Travel & Accommodation Allowance who attended fewer than "
+        "120 days, with the resulting deduction (1% per day below 120). Most-docked "
+        "first. Office-holders are excluded. A low figure can reflect leave or "
+        "illness — see Notable absences above."
+    )
+    st.html("\n".join(_taa_row(r) for _, r in df.head(_LIST_SIZE).iterrows()))
+    export_button(
+        df[["member_name", "party_name", "total_days", "days_below_minimum", "deduction_pct"]],
+        label=f"Export below-threshold · {len(df)} members",
+        filename="dail_tracker_taa_compliance.csv",
+        key="part_taa_export",
+    )
+
+
+# ── divergence hero ───────────────────────────────────────────────────────────
+
+
+def _divergence_card(row: pd.Series) -> str:
+    name = str(row["member_name"])
+    code = resolve_member_code(name)
+    present = int(row.get("taa_days_present") or 0)
+    votes = int(row.get("votes_cast") or 0)
+    total = int(row.get("total_divisions") or 0)
+    inner = (
+        f'<div class="part-absence-row">'
+        f'<div class="part-absence-id"><p class="part-name">{_h(name)}</p>'
+        f'<p class="part-meta">{_meta(row)}</p></div>'
+        f'<div class="part-absence-figure">'
+        f'<span class="part-absence-run">{present} days present · {votes} of {total} votes</span>'
+        f'<span class="part-absence-span">signed in near the full allowance, voted in few divisions</span>'
+        f"</div></div>"
+    )
+    return _profile_wrap(code, name, inner)
+
+
+def _render_divergence(df: pd.DataFrame) -> None:
     if df.empty:
         return
-
-    office = df[df["missing_reason"] == "office_holder"]
-    no_record = df[df["missing_reason"] == "no_record_on_file"]
-    total = len(df)
-
-    with st.expander(
-        f"{total} TDs do not appear in the attendance record · why?",
-        expanded=False,
-        icon=":material/info:",
-    ):
-        st.markdown(
-            "The official Oireachtas Travel & Accommodation Allowance (TAA) PDFs — "
-            "the source for this page — do not capture attendance for members holding "
-            "ministerial office. A small number of other TDs are also absent from the "
-            "source data. **Their non-appearance here is not evidence of non-attendance.**"
-        )
-
-        if not office.empty:
-            evidence_heading(f"Ministers and ministers of state · {len(office)}")
-            st.caption("TAA records exclude office-holders by design — they are not absent, they are not recorded.")
-            st.html("\n".join(_name_pill(r, with_office=True) for _, r in office.iterrows()))
-
-        if not no_record.empty:
-            evidence_heading(f"Other TDs with no record on file · {len(no_record)}")
-            st.caption(
-                "Includes the Taoiseach (whose office is not classified as a department "
-                "in the source data) and any roster / name-match gaps in the upstream ETL."
-            )
-            st.html("\n".join(_name_pill(r, with_office=False) for _, r in no_record.iterrows()))
-
-
-# ── Provenance footer ──────────────────────────────────────────────────────────
-
-
-def _render_provenance(year: int | None = None, house: str = "Dáil") -> None:
-    # ATTENDANCE is a curated list of Dáil ("deputies-verification") PDF URLs;
-    # the Seanad equivalent isn't curated yet, so don't link Dáil PDFs under a
-    # Senator view. TODO: add a SEANAD attendance-PDF list to ui/source_pdfs.
-    pdf_links = [] if house == "Seanad" else list(ATTENDANCE)
-    provenance_expander(
-        sections=[_CAVEAT.format(chamber=house), _STATUTORY_NOTE, _MINISTER_NOTE],
-        source_caption=(
-            "Data: Oireachtas TAA verification records (data.oireachtas.ie)" + (f" · {year}" if year else "")
-        ),
-        pdf_links=pdf_links,
+    evidence_heading("Present, but rarely voting")
+    st.caption(
+        "**Present ≠ participation.** These members signed in at Leinster House near "
+        "the full 120-day allowance yet took part in few recorded votes — the gap the "
+        "old attendance count hid. Both figures are the official record; no reason is inferred."
     )
+    st.html("\n".join(_divergence_card(r) for _, r in df.head(_LIST_SIZE).iterrows()))
 
 
-# ── Page entry point ───────────────────────────────────────────────────────────
+# ── page ──────────────────────────────────────────────────────────────────────
 
 
 @page_error_boundary
@@ -302,169 +298,126 @@ def attendance_page() -> None:
 
     try:
         ready = _views_ready()
-    except Exception as exc:
-        empty_state(
-            "Attendance views not available",
-            "Run the pipeline to register v_attendance_member_summary and v_attendance_summary.",
-        )
+    except Exception as exc:  # noqa: BLE001
+        empty_state("Attendance views not available", "Run the pipeline to register the participation views.")
         st.caption(str(exc))
         return
-
     if not ready:
-        empty_state("No attendance data found", "v_attendance_summary returned no rows.")
+        empty_state("No attendance data found", "The participation views returned no rows.")
         return
 
-    # Legacy ?att_td=<name> URLs (from before Phase 6) and the legacy in-page
-    # ?member=<name> bookmark both redirect to /member-overview. The shared
-    # helper resolves the real unique_member_code, scrubs `att_td`, and
-    # calls st.stop() so the rankings page doesn't render under the callout.
-    # Scrub `member` first since the helper only handles one legacy_param.
+    # Legacy ?member= / ?att_td= deep-links redirect to /member-overview.
     qp_legacy = st.query_params.get("att_td") or st.query_params.get("member")
     if qp_legacy:
         st.query_params.pop("member", None)
         member_moved_callout(
-            qp_legacy,
-            section="attendance",
-            section_label="Per-TD attendance",
-            legacy_param="att_td",
-            state_keys=("selected_td_att",),
+            qp_legacy, section="attendance", section_label="Per-member participation",
+            legacy_param="att_td", state_keys=("selected_td_att",),
         )
 
-    # ── Page header ────────────────────────────────────────────────────────────
-    # Sidebar→filter-bar migration: identity via top-nav tab + hero; the member
-    # picker + notable chips move into a main-panel jump under the hero.
     hide_sidebar()
-    hero_banner(
-        kicker="PLENARY ATTENDANCE",
-        title="The attendance record",
+    hero_banner(kicker="CHAMBER PARTICIPATION", title="Showing up")
+    st.caption(
+        "Being in the building isn't the same as taking part. This page measures "
+        "**recorded votes**, not the allowance sign-in. Attendance isn't a "
+        "league table — absences have many legitimate reasons — so look up a member "
+        "below, or read the few patterns worth a closer look."
     )
 
-    # House scope — Dáil (default) or Seanad. Drives the member list, the
-    # ranking query, sitting-day denominator, labels and glossary. The
-    # attendance views are house-partitioned (v_attendance_year_rank ranks
-    # within (year, house)), so a Senator ranking never mixes in TDs.
     house = (
         st.segmented_control(
-            "Chamber",
-            options=["Dáil", "Seanad"],
-            default="Dáil",
-            key="att_house",
-            label_visibility="collapsed",
+            "Chamber", options=["Dáil", "Seanad"], default="Dáil",
+            key="part_house", label_visibility="collapsed",
         )
         or "Dáil"
     )
     is_seanad = house == "Seanad"
     term, terms = ("Senator", "Senators") if is_seanad else ("TD", "TDs")
+    chamber_l = house
 
     glossary_strip(
         [
-            (term, "Seanadóir, a member of the Seanad (Senate)" if is_seanad else "Teachta Dála, a member of the Dáil"),
-            ("Plenary", "the full chamber sitting (does not include committees or ministerial duties)"),
-            ("TAA", "Travel & Accommodation Allowance, the official attendance record"),
+            (term, "Seanadóir, a member of the Seanad" if is_seanad else "Teachta Dála, a member of the Dáil"),
+            ("Division", "a recorded vote in the chamber"),
+            ("Pairing", "a government–opposition arrangement to offset an absence — invisible in this data"),
+            ("TAA", "Travel & Accommodation Allowance, paid on attending ≥120 days"),
         ]
     )
 
-    opts = _fetch_filter_options(house)
-    if not opts["years"]:
-        empty_state("No year data found", f"No {house} attendance years are available yet.")
+    years = _fetch_years(house)
+    if not years:
+        empty_state("No participation data yet", f"No {house} division records are available for the current term.")
+        _render_provenance(None, house)
         return
 
-    # ── Member jump (was the sidebar) ───────────────────────────────────────────
-    picked = member_jump_panel(
-        opts["members"],
-        search_key_prefix="att",
-        session_key="selected_td_att",
-        label=f"Browse all {terms.lower()}",
-        notable=None if is_seanad else NOTABLE_TDS,
-        chip_key_prefix="chip_att",
-    )
-    if picked and st.session_state.get("selected_td_att") != picked:
-        st.session_state["selected_td_att"] = picked
-        st.rerun()
+    # Default to the most recent COMPLETE year (the in-progress year is editorially
+    # thinner — absence runs are still open); the current year stays available as a pill.
+    year_options = [str(y) for y in years]  # DESC
+    selected_year = int(year_selector(year_options, key="part_year", skip_current=True))
 
-    # Member selection routes cross-page — the in-page profile branch is gone
-    # (lifted into /member-overview Phase 6).
-    selected_td = st.session_state.get("selected_td_att")
-    if selected_td:
-        member_moved_callout(
-            selected_td,
-            section="attendance",
-            section_label="Per-TD attendance",
-            state_keys=("selected_td_att",),
-        )
+    today = datetime.date.today()
+    if selected_year >= today.year:
+        st.caption(f"**{selected_year} is in progress** — figures are to date and absence runs may still be open.")
 
-    # ── Primary view: year selector ────────────────────────────────────────────
-    # skip_current=True defaults to the most-recent COMPLETED year so the
-    # hall-of-fame/shame split renders on first load (the in-progress year
-    # falls through to the partial-year flat list, which is editorially
-    # weaker — the audit doc P1-1 flagged this).
-    year_options = [str(y) for y in opts["years"]]  # DESC from query
-    selected_year = year_selector(year_options, key="att_year", skip_current=True)
-
-    # ── Good cop / bad cop ────────────────────────────────────────────────────
-    ranking_df = _fetch_year_ranking(selected_year, house)
-
-    if ranking_df.empty:
-        empty_state(
-            "No records found",
-            "Try a different year — v_attendance_year_rank returned no rows.",
-        )
-        _render_provenance(selected_year, house)
-        return
-
-    # Denominator = the chamber's distinct sitting dates that year, DERIVED FROM
-    # THE DATA for both chambers (v_attendance_chamber_sitting_days). Using the
-    # data-derived count rather than the curated config figure makes the headline
-    # self-consistent: a member can never show more sitting days than the
-    # denominator (the old config 2025=82 read as "82 sitting days" while members
-    # had 94 recorded — the contradiction this fixes).
-    sitting_days_in_year = _fetch_chamber_sitting_days(house).get(int(selected_year))
-    n_members = len(ranking_df)
-    sitting_note = f" · {sitting_days_in_year} {house} sitting days in {selected_year}" if sitting_days_in_year else ""
-
-    # The source is the Travel & Accommodation Allowance verification record, which
-    # by design does not cover the Taoiseach or ministers (office-holders are not
-    # paid TAA on the attendance basis and have no section in the PDFs). So the
-    # member count here is structurally below the full chamber — every member of
-    # the sitting government is absent, not missing. Stating this next to the count
-    # stops the total reading as incomplete data (see _render_missing_members for
-    # the named breakdown).
-    office_holder_note = (
-        f"This is the Travel & Accommodation Allowance record, which does **not** cover "
-        f"the Taoiseach or members holding ministerial office — they are not paid TAA on "
-        f"the attendance basis and have no entry in the source, so the count is below the "
-        f"full {house} by design (the sitting government is absent, not missing). "
-    )
+    # ── Primary: look up a member ──────────────────────────────────────────────
+    # theyworkforyou-style member-first flow — a participant record you look up,
+    # NOT a chamber-wide ranking. Routes to /member-overview#attendance.
+    turnout = _fetch_turnout(selected_year, house)  # used for the member list + CSV
+    evidence_heading(f"Look up a {term.lower()}'s participation")
     st.caption(
-        f"{n_members} {terms.lower()} on record{sitting_note}. "
-        + office_holder_note
-        + "The headline figure combines **plenary** sitting days with **other** "
-        "recorded business (committee days etc.), exactly as published in the "
-        "official member-attendance (TAA) PDFs — each card shows the split. "
-        f"A {term} must attend on at least **{TAA_FULL_ATTENDANCE_MINIMUM_DAYS} days** "
-        "to retain the full Travel & Accommodation Allowance, so the combined "
-        "total — not plenary days alone — is the figure that matters for that "
-        "threshold. Ministerial duties, illness, and constituency work are "
-        "outside the record, so low figures are not evidence of poor engagement "
-        "(full caveat in About & data provenance below)."
+        f"How often any {term.lower()} voted this term, and any stretches they were "
+        "absent — on their profile."
+    )
+    if not turnout.empty:
+        picked = member_jump_panel(
+            sorted(turnout["member_name"].tolist()),
+            search_key_prefix="part", session_key="selected_td_att",
+            label=f"Find a {term.lower()}",
+            notable=None if is_seanad else NOTABLE_TDS, chip_key_prefix="chip_part",
+        )
+        if picked:
+            member_moved_callout(
+                picked, section="attendance", section_label="Per-member participation",
+                state_keys=("selected_td_att",),
+            )
+
+    # ── Notable patterns (editorial outliers, NOT a ranking of everyone) ────────
+    st.divider()
+    st.markdown("#### Patterns worth a closer look")
+    st.caption(
+        "Not a league table — just the handful of members whose record stands out, "
+        "with a sourced explanation linked wherever one has been reported."
     )
 
-    _render_good_bad(ranking_df, selected_year, house)
+    _render_absences(_fetch_absences(selected_year, house), chamber=chamber_l)
+    _render_divergence(_fetch_divergence(selected_year, house))
+    if not is_seanad:  # TAA money — Seanad basis differs and isn't curated
+        _render_taa(
+            _fetch_taa(selected_year, house),
+            _fetch_taa_summary(selected_year, house),
+            chamber=chamber_l,
+        )
 
-    # Export full list for the year
-    today_str = datetime.date.today().isoformat()
-    export_df = ranking_df[["member_name", "party_name", "constituency", "attended_count", "rank_high"]].copy()
-    export_df = export_df.rename(columns={"rank_high": "rank_by_attendance"})
-    export_button(
-        export_df,
-        label=f"Export full ranking · {selected_year} · {n_members} {terms.lower()}",
-        filename=f"dail_tracker_{house.lower()}_attendance_{selected_year}_{today_str}.csv",
-        key="att_export",
-    )
-
-    # The missing-members section is the Dáil TAA office-holder gap — it reads a
-    # Dáil-roster view (v_attendance_missing_members) and has no Seanad analogue.
-    if not is_seanad:
-        _render_missing_members()
+    # Full participation table stays exportable (data access without a leaderboard).
+    if not turnout.empty:
+        export_button(
+            turnout[["member_name", "party_name", "constituency", "voted_in", "missed",
+                     "total_divisions", "turnout_pct"]],
+            label=f"Export full participation table · {len(turnout)} {terms.lower()}",
+            filename=f"dail_tracker_participation_{house.lower()}_{selected_year}.csv",
+            key="part_turnout_export",
+        )
 
     _render_provenance(selected_year, house)
+
+
+def _render_provenance(year: int | None, house: str) -> None:
+    pdf_links = [] if house == "Seanad" else list(ATTENDANCE)
+    provenance_expander(
+        sections=[_CAVEAT, _TURNOUT_NOTE.format(chamber=house), _TAA_NOTE],
+        source_caption=(
+            "Data: Oireachtas division records + TAA verification (data.oireachtas.ie)"
+            + (f" · {year}" if year else "")
+        ),
+        pdf_links=pdf_links,
+    )

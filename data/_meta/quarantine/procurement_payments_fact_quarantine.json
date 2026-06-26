@@ -1,23 +1,20 @@
 {
-  "generated_utc": "2026-06-26T06:31:11.063789+00:00",
+  "generated_utc": "2026-06-25T21:40:52.813748+00:00",
   "fact": "procurement_payments_fact",
-  "n_rows_total": 265603,
-  "n_rows_quarantined": 19113,
-  "frac_quarantined": 0.072,
+  "n_rows_total": 309057,
+  "n_rows_quarantined": 891,
+  "frac_quarantined": 0.0029,
   "breaches": {
     "paid_flag": {
       "severity": "quarantine",
-      "n_offending": 19113,
-      "frac": 0.072,
+      "n_offending": 891,
+      "frac": 0.0029,
       "samples": [
         "Part Paid",
-        "Building Mtce",
-        "Constr Contract",
         "P",
-        "Drawdown",
-        "Fitouts",
-        "Dec-21",
-        "Nov-23"
+        "Not Paid",
+        "PART PAID",
+        "NOT PAID"
       ],
       "escalated": false
     }

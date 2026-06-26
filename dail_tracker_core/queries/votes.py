@@ -174,7 +174,7 @@ def topical_votes(conn: duckdb.DuckDBPyConnection, topics: tuple[str, ...], hous
         return QueryResult.success(pd.DataFrame())
     likes = " OR ".join(["debate_title ILIKE ?" for _ in patterns])
     sql = (
-        "SELECT vote_date, member_id, member_name, party_name, constituency,"
+        "SELECT vote_id, vote_date, member_id, member_name, party_name, constituency,"
         " vote_type, debate_title, vote_outcome"
         " FROM v_vote_member_detail"
         " WHERE vote_type IN ('Voted Yes', 'Voted No')"

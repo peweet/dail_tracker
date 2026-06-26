@@ -2027,13 +2027,128 @@ def inject_css() -> None:
         .mo-section-chip:focus-visible {
             box-shadow: 0 0 0 2px var(--accent-soft, rgba(0, 102, 153, 0.25));
         }
-        /* Invisible offset target so #mo-section-* anchors don't scroll the
-           expander header underneath the page's sticky bits. */
-        .mo-section-anchor {
-            position: relative;
-            top: -1rem;
-            height: 0;
-            visibility: hidden;
+        /* Active section tab — the switcher chip for the section currently
+           rendered. Filled accent so the reader always knows where they are.
+           Placed AFTER the :hover rule so the active state wins on hover. */
+        .mo-section-chip[aria-current="true"],
+        .mo-section-chip[aria-current="true"]:hover,
+        .mo-section-chip[aria-current="true"]:focus-visible {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+        }
+
+        /* ── Member Overview · Overview summary grid ─────────────────────────
+           Default landing for a profile: one card per domain, each a link into
+           that section. Replaces the old all-sections-rendered flat scroll. */
+        .mo-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.7rem;
+            margin-top: 0.6rem;
+        }
+        .mo-overview-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.85rem 1rem 0.95rem;
+            text-decoration: none !important;
+            transition: border-color 100ms ease, box-shadow 100ms ease;
+        }
+        .mo-overview-card:hover,
+        .mo-overview-card:focus-visible {
+            border-color: var(--accent);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+            outline: none;
+        }
+        /* Votes leads the Overview — full-width, heavier, accent spine. */
+        .mo-ov-lead {
+            grid-column: 1 / -1;
+            border-left: 4px solid var(--accent);
+        }
+        .mo-ov-label {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+        }
+        .mo-ov-figure {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.7rem;
+            font-weight: 700;
+            line-height: 1.1;
+            color: var(--text-primary);
+        }
+        .mo-ov-lead .mo-ov-figure {
+            font-size: 2.15rem;
+        }
+        .mo-ov-signal {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: var(--text-secondary);
+        }
+        .mo-ov-cta {
+            margin-top: 0.35rem;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        /* ── Member Overview · payments summary tiles ────────────────────────
+           Two compact tiles (statutory salary | reimbursed expenses) that
+           replace the salary card + divider + lead paragraph stack. States the
+           salary-vs-expenses distinction once, cleanly, above the year list. */
+        .mo-pay-tiles {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.7rem;
+            margin: 0.3rem 0 1.1rem;
+        }
+        @media (max-width: 640px) {
+            .mo-pay-tiles {
+                grid-template-columns: 1fr;
+            }
+        }
+        .mo-pay-tile {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.8rem 1rem 0.9rem;
+        }
+        .mo-pay-tile-expenses {
+            border-left: 4px solid var(--accent);
+        }
+        .mo-pay-tile-eyebrow {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+        }
+        .mo-pay-tile-figure {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.7rem;
+            font-weight: 700;
+            line-height: 1.15;
+            color: var(--text-primary);
+            margin: 0.1rem 0 0.25rem;
+        }
+        .mo-pay-tile-per {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-meta);
+        }
+        .mo-pay-tile-note {
+            font-size: 0.8rem;
+            line-height: 1.45;
+            color: var(--text-secondary);
         }
 
         /* ── Member Overview: audit-fix bundle (2026-05-27) ──────────────────
@@ -2637,37 +2752,74 @@ def inject_css() -> None:
             outline-offset: 2px;
         }
 
-        /* ── Attendance Hall cards ───────────────────────────────────── */
-        /* Anchor both good/bad columns to the top so first cards align */
-        [data-testid="stHorizontalBlock"]:has(.att-hall-heading-good) {
+        /* ── Attendance ranking cards (neutral — no good/bad framing) ──── */
+        /* Both columns share one neutral style; only the heading text differs,
+           so the page reports the record without colour-coding low attendance
+           as a failing (attendance can be low for illness, leave, ministerial
+           or constituency duties, or mid-year membership). */
+        [data-testid="stHorizontalBlock"]:has(.att-hall-heading) {
             align-items: flex-start !important;
         }
-        .att-hall-heading-good {
+        .att-hall-heading {
             font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
-            color: var(--signal-good); border-bottom: 3px solid var(--signal-good-mid);
+            color: var(--text-primary); border-bottom: 3px solid var(--border-strong);
             padding-bottom: 0.5rem; margin: 0 0 0.9rem;
         }
-        .att-hall-heading-bad {
-            font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
-            color: var(--signal-bad); border-bottom: 3px solid var(--signal-bad-mid);
-            padding-bottom: 0.5rem; margin: 0 0 0.9rem;
+        /* ── Participation & absence model (Showing up) ─────────────────── */
+        .part-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; line-height: 1.25; }
+        .part-meta { font-size: 0.8rem; color: var(--text-secondary); margin: 0.1rem 0 0; }
+        .part-role-chip {
+            display: inline-block; margin: 0.3rem 0.3rem 0 0; padding: 0.08rem 0.5rem;
+            font-size: 0.7rem; font-weight: 600; border-radius: 999px;
+            background: var(--surface-2, #eef0f2); color: var(--text-secondary);
+            border: 1px solid var(--border-strong);
         }
-        .att-hall-card-good,
-        .att-hall-card-bad {
+        .part-news-chip {
+            display: inline-block; margin: 0.3rem 0 0; padding: 0.08rem 0.55rem;
+            font-size: 0.72rem; font-weight: 600; border-radius: 999px; text-decoration: none;
+            background: rgba(37,99,235,0.08); color: var(--accent);
+            border: 1px solid rgba(37,99,235,0.25);
+        }
+        .part-news-chip:hover { background: rgba(37,99,235,0.16); }
+        .part-noexpl { display: inline-block; margin-top: 0.3rem; font-size: 0.72rem; color: var(--text-secondary); font-style: italic; }
+
+        .part-turnout-card {
+            display: grid; grid-template-columns: minmax(0,1.6fr) 2fr auto; align-items: center; gap: 0.9rem;
+            padding: 0.5rem 0.8rem; border-radius: 12px; margin-bottom: 0.35rem;
+            background: var(--surface, #fff); box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        }
+        .part-turnout-bar-track { height: 10px; border-radius: 6px; background: var(--border-soft, #e6e8ea); overflow: hidden; }
+        .part-turnout-bar-fill { height: 100%; border-radius: 6px; background: var(--accent); }
+        .part-turnout-bar-fill.part-bar-muted { background: var(--text-secondary); opacity: 0.55; }
+        .part-turnout-num { text-align: right; min-width: 84px; }
+        .part-turnout-pct { display: block; font-size: 1.15rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
+        .part-turnout-sub { display: block; font-size: 0.72rem; color: var(--text-secondary); }
+
+        .part-absence-row {
+            display: grid; grid-template-columns: minmax(0,1.4fr) 2fr; align-items: center; gap: 0.9rem;
+            padding: 0.55rem 0.8rem; border-radius: 12px; margin-bottom: 0.35rem;
+            background: var(--surface, #fff); box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        }
+        .part-absence-figure { display: flex; flex-direction: column; align-items: flex-start; }
+        .part-absence-run { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
+        .part-absence-span { font-size: 0.78rem; color: var(--text-secondary); }
+
+        .part-taa-row {
+            display: grid; grid-template-columns: minmax(0,1.8fr) auto auto; align-items: center; gap: 0.9rem;
+            padding: 0.5rem 0.8rem; border-radius: 12px; margin-bottom: 0.3rem;
+            background: var(--surface, #fff); box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        }
+        .part-taa-days { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+        .part-taa-ded { font-size: 0.9rem; font-weight: 800; color: #b45309; white-space: nowrap; }
+
+        .att-hall-card {
             display: flex; align-items: center; gap: 0.6rem;
             padding: 0.38rem 0.75rem; border-radius: 12px;
             margin-bottom: 0.3rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
             width: 100%;
-        }
-        .att-hall-card-good {
-            background: var(--signal-good-subtle);
-            border: 1px solid var(--signal-good-border);
-            border-left: 5px solid var(--signal-good-mid);
-        }
-        .att-hall-card-bad {
-            background: var(--signal-bad-subtle);
-            border: 1px solid var(--signal-bad-border);
-            border-left: 5px solid var(--signal-bad-mid);
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 5px solid var(--border-strong);
         }
         .att-hall-rank {
             font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
@@ -2682,48 +2834,34 @@ def inject_css() -> None:
             margin: 0; font-size: 0.73rem; color: var(--text-meta);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .att-hall-badge-good,
-        .att-hall-badge-bad {
+        .att-hall-badge {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             flex-shrink: 0; min-width: 3.4rem; padding: 0.3rem 0.6rem;
             border-radius: 12px; text-align: center; line-height: 1.1;
+            background: var(--surface); border: 1px solid var(--border);
         }
-        .att-hall-badge-good { background: var(--signal-good-subtle); border: 1px solid var(--signal-good-border); }
-        .att-hall-badge-bad  { background: var(--signal-bad-subtle);  border: 1px solid var(--signal-bad-border); }
         .att-hall-badge-num {
             font-size: 1.25rem; font-weight: 800; letter-spacing: -0.03em;
             color: var(--text-primary); display: block;
         }
-        .att-hall-badge-good .att-hall-badge-num { color: var(--signal-good-deep); }
-        .att-hall-badge-bad  .att-hall-badge-num { color: var(--signal-bad-deep); }
         .att-hall-badge-label { font-size: 0.62rem; font-weight: 600; color: var(--text-meta); display: block; }
 
-        /* ── Hall cards as full-card-clickable links (clickable_card_link) ─── */
+        /* ── Ranking cards as full-card-clickable links (clickable_card_link) ─── */
         /* No arrow shown, so don't reserve right-padding for one. */
-        .dt-card-link-wrap > .att-hall-card-good,
-        .dt-card-link-wrap > .att-hall-card-bad {
+        .dt-card-link-wrap > .att-hall-card {
             padding-right: 0.75rem !important;
         }
         /* Stack wraps with the same vertical rhythm the bare cards used.
            max-width 80% trims both columns so the cards aren't full-bleed. */
-        .dt-card-link-wrap:has(> .att-hall-card-good),
-        .dt-card-link-wrap:has(> .att-hall-card-bad) {
+        .dt-card-link-wrap:has(> .att-hall-card) {
             margin-bottom: 0.3rem;
             max-width: 80%;
         }
-        /* Preserve blue (good) and orange (bad) identity on hover —
-           override the generic accent recolour. Lift + tinted shadow only. */
-        .dt-card-link-wrap:hover > .att-hall-card-good {
-            border-left-color: var(--blue-500) !important;
-            border-color: var(--blue-300) !important;
-            background: var(--blue-050) !important;
-            box-shadow: 0 3px 10px rgba(59,130,246,0.22) !important;
-        }
-        .dt-card-link-wrap:hover > .att-hall-card-bad {
-            border-left-color: var(--orange-500) !important;
-            border-color: var(--orange-300) !important;
-            background: var(--orange-050) !important;
-            box-shadow: 0 3px 10px rgba(249,115,22,0.22) !important;
+        /* Neutral hover: lift + neutral shadow, no good/bad colour identity. */
+        .dt-card-link-wrap:hover > .att-hall-card {
+            border-color: var(--border-strong) !important;
+            background: var(--surface) !important;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.12) !important;
         }
 
         /* Ranked list row (partial-year view) */
@@ -2927,96 +3065,6 @@ def inject_css() -> None:
             font-size: 0.87rem;
             line-height: 1.45;
             color: var(--text-secondary);
-        }
-
-        /* Salary card (top of the Salary & expenses section on member-overview).
-           Statutory SET RATE — visually distinct from the PSA expense allowances
-           below so citizens don't conflate the two. Display-only: figures + the
-           basic/office split come straight from v_member_salary. */
-        .mo-salary-card {
-            background: #ffffff;
-            border: 1px solid var(--border);
-            border-left: 3px solid var(--text-primary);
-            border-radius: 2px;
-            padding: 0.7rem 0.95rem 0.8rem;
-            margin: 0.35rem 0 0.5rem;
-        }
-        .mo-salary-head {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        .mo-salary-eyebrow {
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: var(--text-meta);
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-        .mo-salary-total {
-            font-family: 'Zilla Slab', Georgia, serif;
-            font-size: 1.45rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            line-height: 1.1;
-        }
-        .mo-salary-per {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-meta);
-            margin-left: 0.25rem;
-        }
-        .mo-salary-breakdown {
-            display: grid;
-            gap: 0.2rem;
-            margin: 0.55rem 0 0.5rem;
-        }
-        .mo-salary-line {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            align-items: baseline;
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.87rem;
-            color: var(--text-secondary);
-            padding: 0.25rem 0;
-            border-bottom: 1px dotted var(--border);
-        }
-        .mo-salary-line span:last-child {
-            font-family: 'Zilla Slab', Georgia, serif;
-            font-weight: 700;
-            color: var(--text-primary);
-            white-space: nowrap;
-        }
-        .mo-salary-note {
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.8rem;
-            line-height: 1.45;
-            color: var(--text-secondary);
-            margin: 0.4rem 0 0.25rem;
-        }
-        .mo-salary-note a { color: var(--text-primary); }
-        .mo-salary-caveat {
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.74rem;
-            line-height: 1.4;
-            color: var(--text-meta);
-            margin: 0;
-        }
-        .mo-pay-divider {
-            height: 1px;
-            background: var(--border);
-            margin: 1rem 0 0.75rem;
-        }
-        .mo-pay-lead {
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.85rem;
-            line-height: 1.5;
-            color: var(--text-secondary);
-            margin: 0 0 0.6rem;
         }
 
         /* Embedded Attendance body (inside the Attendance expander on
@@ -4291,8 +4339,7 @@ def inject_css() -> None:
             .int-member-card,
             .vt-card,
             .att-list-pill,
-            .att-hall-card-good,
-            .att-hall-card-bad {
+            .att-hall-card {
                 padding: 0.45rem 0.7rem !important;
             }
 
@@ -6006,8 +6053,24 @@ def inject_css() -> None:
             font-size: 0.78rem; color: var(--text-meta); white-space: nowrap;
             text-align: right; font-variant-numeric: tabular-nums;
         }
-        .lg-arrow-up { color: #2f6b3a; font-weight: 700; }   /* above benchmark */
-        .lg-arrow-down { color: #a23a1e; font-weight: 700; } /* below benchmark */
+        /* neutral position-vs-benchmark marker: ▲ above / ▼ below, no good/bad colour
+           (firewall: no judgement implied; and the glyph already carries above/below,
+           so good/bad must not live in colour alone — inaccessible under deuteranopia).
+           NB: the old green/red .lg-arrow-up / .lg-arrow-down classes were removed — nothing
+           emitted them after _bench went neutral, and they were latent good/bad styling. */
+        .lg-arrow-neutral { color: var(--text-secondary); font-weight: 700; }
+        /* per-metric source deep-link (-> exact NOAC report page) */
+        .lg-metric-doc {
+            font-size: 0.7rem; font-weight: 600; color: #8d4f24; text-decoration: none;
+            white-space: nowrap; margin-left: 0.3rem;
+        }
+        .lg-metric-doc:hover { text-decoration: underline; }
+        .lg-metric-doc:focus-visible { outline: 2px solid #8d4f24; outline-offset: 2px; border-radius: 2px; }
+        /* "n/a — service provided regionally" note in the benchmark cell */
+        .lg-na-note { font-size: 0.72rem; color: var(--text-meta); font-style: italic; }
+        /* tiny 2022-2024 trend sparkline under the benchmark line — neutral (inherits a
+           muted colour), no good/bad encoding; just the shape of the change. */
+        .lg-spark { display: block; margin: 0.2rem 0 0 auto; color: var(--text-meta); opacity: 0.85; }
         .lg-badge {
             display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
             color: #7a4f2f; background: #f7f1ec; border: 1px solid rgba(122,79,47,0.25);

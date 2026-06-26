@@ -74,6 +74,15 @@ CHAINS: list[tuple[str, str]] = [
     ("lobbying", "lobbying_refresh.py"),
     ("iris", "iris_refresh.py"),
     ("legislation", "legislation_refresh.py"),
+    # participation: the honest "Showing up" attendance model — division turnout,
+    # absence gaps, presence-vs-vote divergence and 120-day TAA compliance ->
+    # four gold tables read by v_attendance_participation_* + v_attendance_taa_
+    # compliance. Pure deterministic transform over gold the chain already built
+    # (current_{dail,seanad}_vote_history + attendance_by_td_year + the member
+    # feed for office flags); MUST run after attendance/seanad/legislation so
+    # those exist. Reads news_mentions if present (graceful when absent), plus the
+    # curated _meta role/explanation CSVs. Headless-safe, no network.
+    ("participation", "extractors/participation_extract.py"),
     # committee_evidence: committee MEETING HISTORY (the Committees-page timeline:
     # date · topics · witnesses · transcript link). Two steps — extract enumerates
     # every committee meeting via the Oireachtas /v1/debates feed in a single pass
@@ -151,6 +160,15 @@ CHAINS: list[tuple[str, str]] = [
     # privacy_risk=high — same hard quarantine. Uses cached FOI PDFs (falls back to fetch);
     # per-year files layout-drift-gated.
     ("hse_tusla_payments", "extractors/procurement_hse_tusla_materialize.py"),
+    # disclosed_bq_po: a DISCLOSED national PO/payments-over-€20k BigQuery extract (manual drop at
+    # data/raw_bq/, gitignored) -> silver disclosed_bq_po_payments_fact. Phase 1 scope = HSE HISTORY
+    # RECOVERY only: emits the HSE periods our PDF parse lacks (2017-Q3..2020-Q2 + 2025-Q4 +
+    # 2026-Q1), inheriting ie_hse identity + payment_actual from gold. The consolidate chain folds it
+    # INTO the hse_tusla source (keeping ie_hse single-source for the disjoint-publisher reconcile).
+    # NO-OP-SAFE: absent raw drop -> exits 0, and the fold carry-forwards the disclosed HSE rows
+    # already in gold. Runs BEFORE procurement_consolidate. (Phases 2/3 = 141 new bodies + 53
+    # renames are gated on a fail-closed registry + per-body semantics; see DISCLOSED_PO_INTEGRATION_PLAN.md.)
+    ("disclosed_bq_po", "extractors/disclosed_bq_po_extract.py"),
     # la_payments: the 31 local authorities' Purchase-Orders/Payments-over-€20k (Circular
     # 07/2012) -> silver la_payments_fact (20/31 councils parse clean; no OCR). Standalone,
     # self-fetches + caches per-council files to bronze, headless-safe. Privacy-classed
@@ -196,6 +214,21 @@ CHAINS: list[tuple[str, str]] = [
     # noac_m2_collection_wide. Reads the git-tracked NOAC PDF (no network), Camelot/fitz
     # parse, fidelity-gated (refuses a non-GREEN parse), min_rows floor. Standalone.
     ("noac_collection", "extractors/noac_collection_rates_extract.py"),
+    # noac_scorecard: the 7 citizen-facing accountability indicators (M1 revenue balance, M3
+    # settled-claims/capita, M4 overhead, C2 sickness, R1 roads-poor, F3 fire-10min, E3 litter)
+    # from the same NOAC 2024 PDF -> gold noac_scorecard_wide. fitz find_tables, 31-LA guard,
+    # min_rows floor. Standalone (reads the git-tracked PDF, no network).
+    ("noac_scorecard", "extractors/noac_scorecard_extract.py"),
+    # noac_scorecard_history: the same metrics across the 2022-2024 reports, LAYOUT-ROBUST
+    # (locates each metric by column-header predicate, not a fixed page, since pagination +
+    # the indicator set differ per year) -> gold noac_scorecard_history (the trend sparklines).
+    # Reads whichever NOAC_PI_YYYY PDFs are present in doc/source_pdfs/ (a missing year is
+    # skipped, never guessed). Standalone, no network.
+    ("noac_scorecard_history", "extractors/noac_scorecard_history_extract.py"),
+    # noac_indicators: the FULL per-LA indicator set (~125 series across 12 families, stored as
+    # the published RAW strings + numeric_value) from the 2024 PDF -> gold noac_indicators_long
+    # (the "All NOAC indicators" dossier drill-down). Standalone, min_rows floor, no network.
+    ("noac_indicators", "extractors/noac_indicators_long_extract.py"),
     # derelict_sites: DHLGH Derelict Sites Act annual return -> gold derelict_sites_levy_wide
     # (per-LA levied/collected/outstanding). Reads the git-tracked XLSX cache by DEFAULT
     # (no network — re-fetch is the opt-in --download flag, gov.ie CDN 403s a bare GET);
@@ -239,6 +272,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
+    "participation": "Showing-up model: division turnout + absence gaps + presence/vote divergence + 120-day TAA compliance (gold)",
     "committee_evidence": "committee meeting history: enumerate meetings + parse transcripts (topics/witnesses) -> silver",
     "committee_evidence_promote": "promote committee meetings/witnesses silver -> gold (v_committee_meetings)",
     "judiciary_bench": "promote validated judiciary sandbox -> gold bench/appointments/clearance/waiting/courthouses (transform, no network)",
@@ -255,12 +289,16 @@ _CHAIN_BLURBS: dict[str, str] = {
     "ted_tenders": "TED Irish competition/tender notices (cn-standard) -> silver; pre-award estimates, never summed",
     "public_body_payments": "public-body PO/payment disclosures over €20k -> sandbox public_payments_fact (privacy-gated, bronze-cached)",
     "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> sandbox hse_tusla_payments_fact (privacy-gated, high-risk)",
+    "disclosed_bq_po": "disclosed national PO BigQuery extract -> silver disclosed_bq_po_payments_fact (Phase 1: HSE 2017-2020 + 2025Q4/2026Q1 history recovery; no-op-safe; folded into hse_tusla)",
     "la_payments": "31 local authorities' PO/payments-over-€20k -> silver la_payments_fact (full back-catalogue)",
     "procurement_consolidate": "fold public_body + hse_tusla + LA facts -> gold procurement_payments_fact (listing-rot guarded)",
     "ministerial_diaries": "diary classify->match->overlap->promote->company_influence (transform tail; no-op if sandbox absent)",
     "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
     "stateboards": "DPER state-boards register: live roster + body universe + hand-curated Wikidata identities (gold)",
     "noac_collection": "NOAC M2 per-LA revenue-collection rates (commercial/rent/housing-loan, 31 LAs) -> gold (PDF, fidelity-gated)",
+    "noac_scorecard": "NOAC accountability scorecard (finance/workforce/roads/fire/litter, 31 LAs) -> gold noac_scorecard_wide (PDF, 31-LA guard)",
+    "noac_scorecard_history": "NOAC scorecard across 2022-2024 reports (header-driven, layout-robust) -> gold noac_scorecard_history (trend sparklines)",
+    "noac_indicators": "NOAC full indicator set (~125 series, raw values) -> gold noac_indicators_long (All-indicators drill-down)",
     "derelict_sites": "DHLGH Derelict Sites annual return: per-LA levied/collected/outstanding -> gold (cached XLSX, reconciled)",
     "planning_appeal_outcomes": "council vs An Coimisiún Pleanála appeal decisions -> silver ABP-overturn metric (ArcGIS + committed planning silver)",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
