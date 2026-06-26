@@ -523,3 +523,17 @@ planning_rules/**/raw/
 
 # planning_rules corpus seed registry (curated tracking of datasets to ingest) — track it
 !planning_rules/_corpus_registry/*.csv
+
+# === editor swap + mergetool scratch files (never commit) ===
+# vim/IDE swap files and 3-way merge leftovers (vimdiff/mergetool writes
+# _BASE_/_LOCAL_/_REMOTE_/_BACKUP_ copies). These got committed once during a
+# botched merge — keep them out for good.
+*.swp
+*.swo
+.*.swp
+*.orig
+_BACKUP_*
+_BASE_*
+_LOCAL_*
+_REMOTE_*
+._*
