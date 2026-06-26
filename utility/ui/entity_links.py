@@ -105,17 +105,23 @@ def _q(value: object) -> str:
 def member_profile_url(member_id: str, *, section: str | None = None) -> str:
     """Canonical TD profile URL: /member-overview?member=<unique_member_code>.
 
-    Pass ``section`` to append a section-anchor fragment, e.g.
+    Pass ``section`` to open a specific section tab, e.g.
     ``member_profile_url(code, section="payments")`` →
-    ``/member-overview?member=<code>#mo-section-payments``. The fragment must
-    match the anchor divs emitted on the member-overview page
-    (``id="mo-section-<sid>"``) AND the prefix the page's scroll-honouring
-    script tests for (``hash.startsWith('#mo-section-')``); a bare ``#payments``
-    matches neither and silently lands the user at the top of the page.
+    ``/member-overview?member=<code>&section=payments``. The member-overview page
+    is a single-section router that reads ``?section=<sid>`` (see
+    ``_SECTION_LABELS`` / ``_render_stage2``); ``section`` must be one of those
+    keys (overview, votes, interests, lobbying, payments, attendance, questions,
+    debates, legislation, committees) or the page falls back to Overview.
+
+    NOTE: this previously emitted a ``#mo-section-<sid>`` hash fragment for an
+    anchor-scroll layout. That layout was replaced by the ?section router
+    (2026-06-22); a hash fragment never reaches the Streamlit server, so the
+    section was silently dropped and every cross-page section jump landed on
+    Overview. It MUST be a query param.
     """
     url = f"/{PAGES['member_overview']}?member={_q(member_id)}"
     if section:
-        url = f"{url}#mo-section-{_q(section)}"
+        url = f"{url}&section={_q(section)}"
     return url
 
 
