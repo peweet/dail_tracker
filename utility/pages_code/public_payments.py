@@ -483,13 +483,34 @@ def _stats_strip(stats, cov: dict) -> None:
     sentences.append(
         f"<strong>{n_pub:,}</strong> public bodies have published purchase orders and payments "
         f"over €20,000, naming <strong>{n_sup:,}</strong> suppliers across "
-        f"<strong>{n_lines:,}</strong> records, {_esc(span)}. The sum-safe total — rows safe to "
-        f"add, excluding transfers between public bodies — is <strong>{_esc(safe_total)}</strong>; "
-        "ordered commitments and actual payments are never blended."
+        f"<strong>{n_lines:,}</strong> records, {_esc(span)}. Adding up only the lines that are "
+        f"safe to total comes to <strong>{_esc(safe_total)}</strong> — see how that's counted "
+        "just below."
     )
     if withheld:
         sentences.append(f"<strong>{withheld:,}</strong> likely-personal supplier names are withheld.")
     finding_lede(sentences)
+    _how_counted(safe_total)
+
+
+def _how_counted(safe_total: str) -> None:
+    """Plain-language build-down for the headline total — collapsed by default so it
+    explains how the figure is reached without crowding the lede. Deliberately NOT a
+    number-waterfall: the 'everything published' gross would blend ordered commitments
+    with actual payments (a sum the app never shows), so the steps are qualitative."""
+    with st.expander("How is this total counted?", expanded=False):
+        st.markdown(
+            "Start with **every purchase order and payment** a public body published "
+            "over €20,000.\n\n"
+            "Then we add up **only the lines that are safe to total**, leaving out:\n\n"
+            "- **Money moving between public bodies** (a department's grant to a council, "
+            "say) — counting it would tally the same euro twice as it passes down the chain.\n"
+            "- **Blank, subtotal and placeholder lines** — page headings or running totals a "
+            "document scan picked up, with no real named supplier behind them.\n\n"
+            "We also **never mix _ordered_ with _paid_**: a purchase-order commitment and an "
+            "actual payment are different stages, so they're never added together.\n\n"
+            f"What's left, added up, is the **{safe_total}** shown above."
+        )
 
 
 def _provenance_footer() -> None:
@@ -542,9 +563,8 @@ def public_payments_page() -> None:
     st.html(
         '<div class="pr-caveat"><strong>Ordered or paid — not a single "spend" figure.</strong> '
         "Each line is a purchase-order commitment (<em>ordered</em>) or an actual payment "
-        "(<em>paid</em>) a public body published itself. The page only ever totals the "
-        "<em>sum-safe</em> value: it excludes payments to other public bodies (intergovernmental "
-        "transfers/grants, which would double-count) and non-positive amounts. These figures are a "
+        "(<em>paid</em>) a public body published itself. Totals only ever add up the "
+        "<em>sum-safe</em> value (explained below the headline). These figures are a "
         "different register from eTenders / TED contract awards and are <strong>never added to "
         "them</strong>. A line is a procurement record, not evidence of influence or wrongdoing.</div>"
     )

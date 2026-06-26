@@ -3,14 +3,55 @@
     "ie_hse",
     "ie_tusla"
   ],
-  "rows_extracted": 31963,
+  "rows_extracted": 50100,
   "by_file": [
     {
       "publisher": "ie_hse",
-      "file": "HSE_FOI_Model_Publication_of_HSE_Purchase_Order_Payments_above_20k.pdf",
+      "file": "HSE_FOI_Model_Publication_of_HSE_Purchase_Order_Payments_above_100k_by_Quarter.pdf",
       "status": "ok",
       "rows": 16972,
-      "sum_eur": 6385474120.0
+      "sum_eur": 6385474120.0,
+      "threshold": "100k",
+      "periods": [
+        "2021-Q4",
+        "2022-Q1",
+        "2022-Q2",
+        "2022-Q3",
+        "2022-Q4",
+        "2023-Q1",
+        "2023-Q2",
+        "2023-Q3",
+        "2023-Q4",
+        "2024-Q1",
+        "2024-Q2",
+        "2024-Q3",
+        "2024-Q4",
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3"
+      ]
+    },
+    {
+      "publisher": "ie_hse",
+      "file": "HSE_Purchase_Order_Payments_above_20k_Q4_2025.pdf",
+      "status": "ok",
+      "rows": 10229,
+      "sum_eur": 1009410831.0,
+      "threshold": "20k",
+      "periods": [
+        "2025-Q4"
+      ]
+    },
+    {
+      "publisher": "ie_hse",
+      "file": "HSE_Purchase_Order_Payments_above_20k_Q1_2026.pdf",
+      "status": "ok",
+      "rows": 7908,
+      "sum_eur": 693252040.0,
+      "threshold": "20k",
+      "periods": [
+        "2026-Q1"
+      ]
     },
     {
       "publisher": "ie_tusla",
@@ -49,22 +90,22 @@
     }
   ],
   "supplier_class_counts": {
-    "public_body": 333,
-    "sole_trader_or_individual": 4698,
-    "foreign_company": 57,
+    "company": 39962,
+    "public_body": 590,
     "unknown": 52,
-    "company": 26823
+    "sole_trader_or_individual": 9400,
+    "foreign_company": 96
   },
   "amount_semantics_counts": {
-    "payment_actual": 16972,
-    "po_committed": 14991
+    "po_committed": 14991,
+    "payment_actual": 35109
   },
-  "value_safe_to_sum_rows": 31527,
-  "value_safe_to_sum_total_eur": 7529328528.870001,
-  "rows_review_personal_data": 4698,
+  "value_safe_to_sum_rows": 49407,
+  "value_safe_to_sum_total_eur": 9204394556.87,
+  "rows_review_personal_data": 9400,
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-18T17:59:28+00:00",
-  "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. Per-year files layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False)."
+  "generated_at": "2026-06-26T06:34:03+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. HSE THRESHOLD IS HETEROGENEOUS: historic Q4-2021..Q3-2025 is \u2265\u20ac100k only (the \u20ac20k\u2013\u20ac100k band for that period is lost \u2014 HSE's \u20ac20k cumulative was deleted, never archived); Q4-2025 and Q1-2026 are \u2265\u20ac20k (full band). DO NOT compare period totals across thresholds. Per-era/-year layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False)."
 }
