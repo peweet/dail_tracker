@@ -85,7 +85,9 @@ def hse_row(cells: list[str], page: int, idx: int) -> dict | None:
     amt = to_eur(amount_s)
     if amt is None:
         return None
-    m = re.search(r"Q([1-4])\s*(\d{4})", period_s.replace(" ", ""))
+    # Period token format drifted in the 2025/2026 quarterly files: historic cumulative file
+    # uses "Q42021" (no separator), the new files use "Q4-2025" (hyphen). \D* spans either.
+    m = re.search(r"Q([1-4])\D*(\d{4})", period_s)
     quarter = f"Q{m.group(1)}" if m else None
     year = int(m.group(2)) if m else None
     return {
@@ -157,6 +159,21 @@ SPECS = {
     "ie_hse": {"cuts": [180, 270, 450, 515], "build": hse_row, "name": "HSE"},
     "ie_tusla": {"cuts": [110, 160, 290, 375, 570], "build": tusla_row, "name": "Tusla"},
 }
+
+# HSE re-typeset its PDFs in the 2026 site rebuild (the LA/NTA "layout drifts year to year"
+# lesson). Word-centre x-cuts measured 2026-06-25 from each era's file. The historic cumulative
+# file (Q4-2021..Q3-2025, the ≥€100k content) keeps the original cuts; the new per-quarter ≥€20k
+# files (Q4-2025, Q1-2026) shifted every column left, so old cuts dropped the amount into the
+# desc bucket (0 rows) and clipped descriptions. Years not listed fall back to the historic layout.
+HSE_CUTS_BY_ERA: dict[int, list[float]] = {
+    2025: [160, 225, 400, 500],
+    2026: [160, 225, 400, 500],
+}
+
+
+def hse_spec_for(year: int | None) -> tuple[list[float], object]:
+    """Return (x-cuts, row-builder) for an HSE file by its year (defaults to the historic layout)."""
+    return (HSE_CUTS_BY_ERA.get(year or 0, [180, 270, 450, 515]), hse_row)
 
 # Tusla changes its PDF column geometry year to year (the NTA lesson). Word-centre x-cuts measured
 # 2026-06-13 from each yearly file; the builder/bucket count differs for 2025 (no Year column).
