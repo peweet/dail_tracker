@@ -9,7 +9,9 @@ measure columns, so a single generic contract covers every one:
   * ``year`` is an integer in a plausible range;
   * ``(la, year)`` is unique — the grain (a duplicate means a bad join/append);
   * every numeric measure is non-negative (these are counts, stocks, and collection
-    percentages — a negative is a parser/sign error).
+    percentages — a negative is a parser/sign error), EXCEPT balance columns
+    (surplus/deficit percentages such as ``revenue_balance_pct``, which a council
+    in deficit makes legitimately negative).
 
 Marked ``@sql`` so it runs in the sql-contracts lane against the committed gold on
 every push (no pipeline build needed).
@@ -60,7 +62,14 @@ class HousingWideSchema(pa.DataFrameModel):
     def _measures_non_negative(cls, data) -> bool:
         df = _df(data)
         measures = [
-            c for c, dt in df.schema.items() if c != "year" and dt in (pl.Int64, pl.Float64, pl.Int32, pl.Float32)
+            c
+            for c, dt in df.schema.items()
+            if c != "year"
+            and dt in (pl.Int64, pl.Float64, pl.Int32, pl.Float32)
+            # balance columns are surplus/deficit percentages — a council in
+            # deficit is legitimately negative (e.g. revenue_balance_pct), so
+            # they are exempt from the non-negativity rule.
+            and "balance" not in c
         ]
         for c in measures:
             col = df[c]
