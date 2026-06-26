@@ -60,12 +60,18 @@ OUT_COV = ROOT / "data/_meta/hse_tusla_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
 # Per-publisher: shared-schema metadata + the list of (source_file_url, cached_path) to parse.
-# HSE uses the cached FOI cumulative (Q4-2021..Q3-2025). NOTE: HSE REMOVED this €20k-cumulative
-# file in their 2026 site rebuild and the original deep-link is dead — it now 302-redirects to a
-# generic placeholder. HSE now publishes a €100k-cumulative file plus a €20k-from-Q4-2025 file (see
-# the `landing` page), so the exact source below is no longer re-fetchable. tools/patch_hse_dead_source_url.py
-# repointed the materialised rows' source_file_url to the live landing page. Tusla pulls every yearly
-# "POs over 20k" file the listing exposes (2021-2025).
+# HSE thresholds DIFFER by file (recorded per-row via threshold detected from the URL):
+#   - HISTORIC cumulative Q4-2021..Q3-2025 is a ≥€100k file (16,972 rows / €6.39bn). The file we
+#     cached in 2026 under the "above_20k" name is BYTE-IDENTICAL (8,785,295 bytes) to the live
+#     ≥€100k "by_Quarter" file — our historic HSE rows have never contained the €20k–€100k band
+#     (verified min = €100,036, 2026-06-25). So the source_file_url points at the live, re-fetchable
+#     ≥€100k file, NOT the deleted €20k cumulative (whose €20k–€100k granularity is lost — never
+#     archived). The cached path is kept (identical content) to avoid re-downloading 8.8 MB.
+#   - NEW per-quarter ≥€20k files (Q4-2025, Q1-2026) DO carry the full €20k band (~8–10k rows/qtr vs
+#     ~1.3k/qtr at ≥€100k) — the first granular €20k–€100k HSE data we hold, for those quarters only.
+# CAUTION: ≥€100k (historic) and ≥€20k (new) periods are NOT comparable on total spend.
+# Tusla pulls every yearly "POs over 20k" file the listing exposes (2021-2025).
+HSE_ASSETS = "https://assets.hse.ie/media/documents"
 PUBS = {
     "ie_hse": {
         "name": "Health Service Executive",
@@ -76,9 +82,11 @@ PUBS = {
         "landing": "https://healthservice.hse.ie/staff/information-healthcare-workers/procurement/",
         "files": [
             (
-                "https://healthservice.hse.ie/filemanager/HSE_FOI_Model_Publication_of_HSE_Purchase_Order_Payments_above_20k.pdf",
+                f"{HSE_ASSETS}/HSE_FOI_Model_Publication_of_HSE_Purchase_Order_Payments_above_100k_by_Quarter.pdf",
                 TMP / "HSE_FOI_Model_Publication_of_HSE_Purchase_Order_Payments_abo.pdf",
             ),
+            (f"{HSE_ASSETS}/HSE_Purchase_Order_Payments_above_20k_Q4_2025.pdf", None),
+            (f"{HSE_ASSETS}/HSE_Purchase_Order_Payments_above_20k_Q1_2026.pdf", None),
         ],
     },
     "ie_tusla": {
@@ -107,6 +115,8 @@ def parse_pdf(pid: str, b: bytes, year: int | None = None) -> list[dict]:
     its layout year to year, so its cuts/builder are selected per-file-year (the NTA lesson)."""
     if pid == "ie_tusla":
         cuts, build = hst.tusla_spec_for(year)
+    elif pid == "ie_hse":
+        cuts, build = hst.hse_spec_for(year)
     else:
         spec = hst.SPECS[pid]
         cuts, build = spec["cuts"], spec["build"]
@@ -141,10 +151,21 @@ def sanity(pid: str, native: list[dict]) -> tuple[bool, str]:
     return True, "ok"
 
 
+def hse_threshold(file_url: str) -> str:
+    """Disclosure threshold for an HSE file, read off its filename (€100k historic vs €20k new)."""
+    return "100k" if "above_100k" in file_url else "20k"
+
+
 def to_schema(pid: str, native: dict, file_url: str, fhash: str, semantics: str, meta: dict) -> dict:
     y, q = native.get("year"), native.get("quarter")
     period = f"{y}-{q}" if y and q else (str(y) if y else None)
     quarter = int(q[1]) if isinstance(q, str) and q.startswith("Q") else None
+    if pid == "ie_hse":
+        thr = hse_threshold(file_url)
+        hse_caveat = (
+            f"HSE PO payments incl-VAT, disclosure threshold ≥€{thr}. "
+            + ("Historic cumulative (Q4-2021..Q3-2025); €20k–€100k band NOT in this file." if thr == "100k" else "")
+        ).strip()
     return {
         "publisher_id": pid,
         "publisher_name": meta["name"],
@@ -169,7 +190,7 @@ def to_schema(pid: str, native: dict, file_url: str, fhash: str, semantics: str,
         "extraction_status": "extracted",
         "caveat_text_detected": False,
         "source_caveat": "Bespoke column-x parse (generic reader misparses HSE/Tusla). "
-        + ("HSE PO payments incl-VAT." if pid == "ie_hse" else "Tusla purchase orders."),
+        + (hse_caveat if pid == "ie_hse" else "Tusla purchase orders."),
     }
 
 
@@ -198,7 +219,11 @@ def main() -> None:
             rows = [to_schema(pid, r, url, fhash, meta["semantics"], meta) for r in native]
             all_rows.extend(rows)
             fsum = sum(r["amount_eur"] for r in rows)
-            per_file.append({"publisher": pid, "file": tag, "status": "ok", "rows": len(rows), "sum_eur": fsum})
+            rec = {"publisher": pid, "file": tag, "status": "ok", "rows": len(rows), "sum_eur": fsum}
+            if pid == "ie_hse":
+                rec["threshold"] = hse_threshold(url)
+                rec["periods"] = sorted({r["period"] for r in rows if r["period"]})
+            per_file.append(rec)
             print(f"  -> {pid:<9} {tag[:44]:<44} rows={len(rows):>6} €{fsum:>15,.0f}")
 
     if not all_rows:
@@ -276,8 +301,10 @@ def main() -> None:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to "
         "public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. "
-        "Per-year files layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows "
-        "public_display=False).",
+        "HSE THRESHOLD IS HETEROGENEOUS: historic Q4-2021..Q3-2025 is ≥€100k only (the €20k–€100k "
+        "band for that period is lost — HSE's €20k cumulative was deleted, never archived); Q4-2025 "
+        "and Q1-2026 are ≥€20k (full band). DO NOT compare period totals across thresholds. "
+        "Per-era/-year layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False).",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage {OUT_COV}")
