@@ -72,6 +72,26 @@ def fetch_derelict_sites_levy_result(la: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_noac_scorecard_result(la: str) -> QueryResult:
+    return _q.noac_scorecard(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def fetch_cash_signals_result(la: str) -> QueryResult:
+    return _q.cash_signals(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def fetch_noac_scorecard_history_result(la: str) -> QueryResult:
+    return _q.noac_scorecard_history(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def fetch_noac_indicators_result(la: str) -> QueryResult:
+    return _q.noac_indicators(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
 def fetch_housing_performance_result(la: str) -> QueryResult:
     return _q.housing_performance(get_constituency_conn(), la)
 

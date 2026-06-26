@@ -53,8 +53,16 @@ def _wp(df: pl.DataFrame, rel: str) -> Path:
 # ---------------------------------------------------------------------------
 # flattened_members.parquet — drives v_member_registry
 # Columns: unique_member_code, full_name, constituency_name, party,
-#          ministerial_office, year_elected, membership_start_date, membership_end_date
+#          ministerial_office, year_elected, membership_start_date, membership_end_date,
+#          office_{1..6}_name / _start_date / _end_date
 # ---------------------------------------------------------------------------
+# office_N_* slots mirror the real Oireachtas member feed and drive both
+# member_registry's corrected is_minister (Taoiseach / Minister / Minister of
+# State with no end_date) and member_salary's office-allowance classification.
+# Mary is the Taoiseach with ministerial_office='false' — this is the exact case
+# the corrected flag fixes (API boolean wrong; office slot right). Sean is a
+# senior Minister; Aoife holds no office. office_2..6 are unused here (all None)
+# but must exist so the six-slot unpivot binds.
 
 FLATTENED_MEMBERS = pl.DataFrame(
     {
@@ -68,11 +76,37 @@ FLATTENED_MEMBERS = pl.DataFrame(
         "party": ["Fianna Fáil", "Sinn Féin", "Green Party"],
         # ministerial_office stored as string 'true'/'false' to match the
         # CASE LOWER(CAST(... AS VARCHAR)) = 'true' pattern in member_registry.sql.
+        # Mary's is deliberately 'false' though she is Taoiseach (see office_1).
         "ministerial_office": ["false", "true", "false"],
         "year_elected": [2020, 2016, 2024],
         "membership_start_date": [date(2020, 2, 8), date(2016, 2, 26), date(2024, 11, 29)],
         "membership_end_date": [None, None, None],
-    }
+        "office_1_name": ["Taoiseach", "Minister for Health", None],
+        "office_1_start_date": [date(2025, 1, 23), date(2025, 1, 23), None],
+        "office_1_end_date": [None, None, None],
+        "office_2_name": [None, None, None],
+        "office_2_start_date": [None, None, None],
+        "office_2_end_date": [None, None, None],
+        "office_3_name": [None, None, None],
+        "office_3_start_date": [None, None, None],
+        "office_3_end_date": [None, None, None],
+        "office_4_name": [None, None, None],
+        "office_4_start_date": [None, None, None],
+        "office_4_end_date": [None, None, None],
+        "office_5_name": [None, None, None],
+        "office_5_start_date": [None, None, None],
+        "office_5_end_date": [None, None, None],
+        "office_6_name": [None, None, None],
+        "office_6_start_date": [None, None, None],
+        "office_6_end_date": [None, None, None],
+    },
+    schema_overrides={
+        # Force String/Date on the all-None slots so the parquet columns have a
+        # concrete type for the CAST(... AS VARCHAR) unpivot (not Null dtype).
+        f"office_{n}_{f}": (pl.Date if f != "name" else pl.Utf8)
+        for n in range(1, 7)
+        for f in ("name", "start_date", "end_date")
+    },
 )
 
 # ---------------------------------------------------------------------------

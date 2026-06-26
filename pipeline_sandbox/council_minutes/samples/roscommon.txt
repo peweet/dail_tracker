@@ -1,0 +1,85 @@
+Councillors
+Total Meetings Held
+Total Meetings Attended
+% Attended
+Brennan, Larry
+33
+31
+93.9%
+Byrne, Valerie
+34
+33
+97.1%
+Callaghan, Liam
+34
+32
+94.1%
+Conboy, Ruth
+25
+25
+100.0%
+Connolly, Domnick
+31
+28
+90.3%
+Crosby, Tom
+34
+32
+94.1%
+Cull, Leah
+34
+30
+88.2%
+Dineen, Nigel
+33
+25
+75.8%
+Duffy, Valerie
+29
+28
+96.6%
+Fallon, Laurence
+32
+29
+90.6%
+Fitzmaurice, Paschal
+33
+32
+97.0%
+Frain, Micheál
+34
+29
+85.3%
+Holland, Michael
+21
+20
+95.2%
+Kelly, Emer
+32
+30
+93.8%
+Keogh, John 
+32
+31
+96.9%
+McDermott, Marty
+33
+29
+87.9%
+Moylan, Sean
+34
+32
+94.1%
+Scahill, Gareth
+3
+3
+100.0%
+Waldron, Anthony
+3
+3
+100.0%
+Ward, Tony
+32
+28
+87.5%
+Council Meetings Attendance 2025

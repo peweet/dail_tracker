@@ -1,4 +1,14 @@
-contract_version: 6
+contract_version: 7
+# Revised 2026-06-22. Profile moved from an all-sections-rendered flat scroll to
+# a single-section ROUTER: ?section=<sid> (default "overview"), with an Overview
+# summary-card grid as the landing and Votes promoted to the first detail tab.
+# This supersedes BOTH the lazy-expander model and the later flat-render model
+# described below. Driver: the flat page was too tall and the next section's
+# cards bled into the viewport; Interests (rendered first + tall) buried Votes.
+# spa_links replaces the whole query string on a ?-anchor click, so every
+# section/filter chip carries member=, and the active section is mirrored in
+# session_state so in-section filter chips don't reset to Overview.
+#
 # Revised 2026-05-27. Refresh covers:
 #   - Architecture: 7 st.expander sections (Interests, Lobbying, Payments,
 #     Attendance, Votes, Legislation, Committees). Earlier v5 contract
@@ -179,7 +189,7 @@ uses_patterns:
   - member_drilldown
   - csv_export
   - url_query_param_navigation
-  - lazy_loaded_expander_bodies               # all sections gated on mo_open_<sid>
+  - single_section_router                      # ?section=<sid>; one domain body at a time (2026-06-22)
 
 ui_philosophy:
   framing: neutral_accountability_record
@@ -190,7 +200,8 @@ ui_philosophy:
   required_patterns:
     - identity_hero_with_role_context
     - cross_dataset_headline_stats              # 3-cell stat strip
-    - dimension_expander_per_domain             # 7 expanders, defaults closed except Interests
+    - overview_summary_grid                     # default landing: one summary card per domain (2026-06-22)
+    - single_section_router_per_domain          # ?section= switches one domain body at a time
     - empty_state_per_section
     - back_navigation_in_main_content_area
     - prev_next_member_nav                      # alphabetical TD walker in top of profile
@@ -266,19 +277,29 @@ interaction_model:
         When BOTH attendance and payments are empty (cabinet minister case),
         replace the 3-cell strip with a single explanatory callout.
 
-    expanders:
-      order:
-        - interests       # opens by default (highest-signal landing)
+    section_router:                             # 2026-06-22 — replaces the expander stack
+      mechanism: "?section=<sid> query param (bookmarkable); spa_links soft-nav"
+      session_fallback: >
+        Active section mirrored in st.session_state['mo_active_section'] so
+        in-section filter chips (?mo_q_topic, ?payyr) that drop ?section don't
+        reset to Overview. Resets to overview when ?member changes.
+      switcher: ".mo-section-nav / .mo-section-chip[aria-current] chip row"
+      default: overview
+      tab_order:
+        - overview        # default landing — summary-card grid (_render_overview)
+        - votes           # promoted to first detail tab (was 5th)
+        - interests
         - lobbying
-        - payments
+        - payments        # _render_pay_summary_tiles + render_member_payments
         - attendance
-        - votes           # also contains _section_debates sub-section
-        - questions       # NEW 2026-05-27
-        - legislation     # contains _section_legislation + _section_statutory_instruments
+        - questions
+        - debates         # own tab (was a sub-section of votes)
+        - legislation     # _section_legislation + _ministerial_roles + _statutory_instruments
         - committees
-      state_keys: "mo_open_<sid>"
-      lazy_load: true
-      open_all_toggle: present above the expander stack
+      overview_cards:                           # one summary card per domain, each links into its section
+        lead: votes                             # full-width, accent spine (.mo-ov-lead)
+        sources: "reuse cached moq.* helpers (votes key on member_id; rest on unique_member_code)"
+        degrade: "every card has an honest '—' empty path; one empty domain never breaks the grid"
 
     section_content:
 
@@ -432,7 +453,8 @@ ui_creativity_budget:
     - filter_bar_density
     - new_shared_css_classes_for_new_sections
   must_preserve:
-    - expander_order_and_ids
+    - section_ids                               # sid values stable (deep links / bookmarks)
+    - overview_default_and_votes_first          # 2026-06-22 tab ordering
     - hero_treatment
     - stat_strip_3_cell_pattern
     - prev_next_member_nav
@@ -443,8 +465,11 @@ acceptance_tests:
     - back_button_at_top_of_stage2_main_content
     - prev_next_member_nav_present_and_working
     - url_query_param_loads_stage2_directly
-    - all_seven_expanders_present
-    - each_expander_lazy_loads_body
+    - section_router_defaults_to_overview
+    - section_chip_carries_member_param          # spa_links replaces whole query string
+    - only_active_section_body_renders
+    - deep_link_member_and_section_loads_directly # ?member=X&section=votes
+    - overview_card_links_switch_section
     - no_st_dataframe_on_primary_views
     - no_unsafe_allow_html
     - no_use_container_width_on_buttons
@@ -457,7 +482,7 @@ acceptance_tests:
     - no_modelling_joins_or_groupby_in_streamlit
 
   questions_section:
-    - questions_expander_present_between_votes_and_legislation
+    - questions_section_reachable_via_router_chip
     - header_strip_renders_concentration_total_top_topics
     - concentration_pill_hidden_below_100_questions
     - focus_shift_subtitle_renders_when_view_returns_row

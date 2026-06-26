@@ -47,6 +47,33 @@ def planning_overturn(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     return _run(conn, "SELECT * FROM v_la_planning_overturn WHERE local_authority = ?", [la])
 
 
+def noac_scorecard(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Seven NOAC 2024 accountability indicators (finance/workforce/roads/fire/litter) for
+    one council, each with the national median; powers the dossier scorecard cards."""
+    return _run(conn, "SELECT * FROM v_la_noac_scorecard WHERE local_authority = ?", [la])
+
+
+def noac_scorecard_history(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Scorecard metrics across NOAC report years (2022-2024) for one council — feeds the
+    trend sparklines beside each headline metric."""
+    return _run(conn, "SELECT * FROM v_la_noac_scorecard_history WHERE local_authority = ? ORDER BY year", [la])
+
+
+def noac_indicators(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Every published NOAC 2024 indicator for one council (~125 series, raw values) — the
+    'All NOAC indicators' reference drill-down."""
+    return _run(conn, "SELECT family, series_label, raw_value, source_page, deep_link "
+                      "FROM v_la_noac_indicators WHERE local_authority = ? "
+                      "ORDER BY family, indicator_code, series_label", [la])
+
+
+def cash_signals(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """The three published finance/collection figures (revenue balance, rates collection,
+    derelict-levy collection) for one council, co-located, each beside its national median.
+    No relationship between them is asserted."""
+    return _run(conn, "SELECT * FROM v_la_cash_signals WHERE local_authority = ?", [la])
+
+
 def derelict_sites_levy(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     return _run(conn, "SELECT * FROM v_la_derelict_sites_levy WHERE local_authority = ?", [la])
 

@@ -41,6 +41,9 @@ from data_access.local_government_data import (
     fetch_la_map_layers_result,
     fetch_la_outlines,
     fetch_national_summary_result,
+    fetch_noac_indicators_result,
+    fetch_noac_scorecard_history_result,
+    fetch_noac_scorecard_result,
     fetch_planning_overturn_result,
 )
 from ui.components import (
@@ -90,40 +93,42 @@ def _num1(v) -> str:
     return "—" if v is None or pd.isna(v) else f"{float(v):.1f}"
 
 
-def _bench(value, national, fmt: str, higher_is_better: bool | None) -> str:
-    """The 'national X ▲/▼' benchmark sub-line for a metric. The arrow is a neutral
-    direction marker vs the national median (▲ above / ▼ below), tinted only when a
-    direction-of-good is defined; higher_is_better=None → no arrow (ambiguous metric).
-    Firewall-safe: published value + published benchmark, no 'good/bad' word."""
+def _bench(value, national, fmt: str, higher_is_better: bool | None = None) -> str:
+    """The 'national X ▲/▼' benchmark sub-line for a metric. The arrow is a NEUTRAL
+    position marker vs the national median (▲ above / ▼ below) — no good/bad colour.
+    Firewall-safe: published value + published benchmark, no 'good/bad' word, and the
+    direction-of-good is deliberately NOT encoded in colour (it would put the verdict in
+    colour alone — lost under deuteranopia — and contradict 'no judgement implied'). The
+    ``higher_is_better`` arg is retained for call-site compatibility but unused."""
     if value is None or pd.isna(value) or national is None or pd.isna(national):
         return ""
-    above = float(value) >= float(national)
-    arrow = "▲" if above else "▼"
-    cls = ""
-    if higher_is_better is not None:
-        good = above if higher_is_better else not above
-        cls = "lg-arrow-up" if good else "lg-arrow-down"
-    arrow_html = f'<span class="{cls}">{arrow}</span>' if cls else arrow
-    return f"national {fmt.format(national)} {arrow_html}"
+    arrow = "▲" if float(value) >= float(national) else "▼"
+    return f'national {fmt.format(national)} <span class="lg-arrow-neutral">{arrow}</span>'
 
 
-def _metric(value: str, label: str, bench: str = "") -> str:
+def _metric(value: str, label: str, bench: str = "", doc_url: str = "", doc_page: int | None = None) -> str:
+    """One metric row. Optional ``doc_url`` renders a small source deep-link after the label
+    (-> the exact NOAC report page)."""
+    doc = (f' <a class="lg-metric-doc" href="{_h(doc_url)}" target="_blank" rel="noopener" '
+           f'title="NOAC report, page {doc_page}">NOAC p.{doc_page} ↗</a>') if doc_url else ""
     return (
         '<div class="lg-metric"><div class="lg-metric-main">'
         f'<span class="lg-metric-value">{value}</span>'
-        f'<span class="lg-metric-label">{label}</span></div>'
+        f'<span class="lg-metric-label">{label}{doc}</span></div>'
         f'<div class="lg-metric-bench">{bench}</div></div>'
     )
 
 
-def _stat_card(title: str, rows: list[str], source: str, extra: str = "") -> str:
+def _stat_card(title: str, rows: list[str], source: str, extra: str = "", src_url: str = "") -> str:
     body = "".join(r for r in rows if r)
     if not body:
         return ""
+    src = (f'<a href="{_h(src_url)}" target="_blank" rel="noopener">{_h(source)} ↗</a>'
+           if src_url else _h(source))
     return (
         f'<div class="lg-card"><div class="lg-card-title">{_h(title)}</div>'
         f"{body}{extra}"
-        f'<div class="lg-card-src">{_h(source)}</div></div>'
+        f'<div class="lg-card-src">{src}</div></div>'
     )
 
 
@@ -376,6 +381,10 @@ def _render_index() -> None:
         empty_state("No match", f"No council matches “{query}”.")
         return
 
+    # Choropleth moved ABOVE the card grid (2026-06-22, user request — it previously
+    # sat below the grid). The map is a static <img>, so it renders fine inline here.
+    _render_choropleth()
+
     cards = [
         clickable_card_link(
             href=f"?la={quote(str(r['local_authority']))}",
@@ -389,12 +398,6 @@ def _render_index() -> None:
         f"{len(shown)} of {len(df)} local authorities · Chief Executives verified against each "
         "council's own site / the CCMA (data/_meta/la_chief_executives.csv)."
     )
-
-    # The map is exploratory, not the primary task — it now sits BELOW the searchable
-    # council grid (what the reader came for) rather than pushing it down the fold
-    # (audit 2026-06-21). Kept inline rather than in a collapsed expander because a
-    # folium/iframe map renders at 0 width inside a collapsed expander.
-    _render_choropleth()
 
 
 # ── DOSSIER ───────────────────────────────────────────────────────────────────
@@ -551,6 +554,97 @@ def _card_council_money(name: str) -> str:
     )
 
 
+# ── NOAC scorecard cards (v_la_noac_scorecard) ───────────────────────────────
+# Seven 2024 indicators grouped into two single-theme cards. Per-metric source deep-link
+# goes to the exact NOAC report page (#page=); card source links the report landing page.
+_NOAC_PDF = ("https://cdn.noac.ie/wp-content/uploads/2025/09/"
+             "NOAC-Local-Authority-Performance-Indicator-Report-2024.pdf")
+_NOAC_REPORT = "https://www.noac.ie/noac_publications/report-77-noac-performance-indicator-report-2024/"
+# metric key -> (value col, national-median col, label, value+benchmark fmt, NOAC PDF page)
+_SCORECARD = {
+    "revenue_balance": ("revenue_balance_pct", "nat_revenue_balance_pct", "Revenue balance", "{:.1f}%", 185),
+    "overhead": ("mgmt_overhead_pct", "nat_mgmt_overhead_pct", "Management overhead", "{:.1f}%", 190),
+    "insurance": ("insurance_claims_per_capita_eur", "nat_insurance_claims_per_capita_eur",
+                  "Insurance claims / person", "€{:.2f}", 189),
+    "sickness": ("sickness_absence_pct", "nat_sickness_absence_pct", "Sick-leave days lost", "{:.1f}%", 170),
+    "roads": ("roads_poor_pct", "nat_roads_poor_pct", "Roads in poor condition", "{:.1f}%", 63),
+    "fire": ("fire_within_10min_pct", "nat_fire_within_10min_pct", "Fires reached in 10 min", "{:.0f}%", 134),
+    "litter": ("litter_problem_pct", "nat_litter_problem_pct", "Area with a litter problem", "{:.0f}%", 99),
+}
+_FIRE_NA_NOTE = "fire service provided regionally"
+
+
+def _spark(series) -> str:
+    """A tiny neutral trend line (NOAC 2022-2024) for one metric. No good/bad colour — it
+    only shows the shape of the change; missing years are skipped. Returns '' if <2 points."""
+    pts = [(yr, v) for yr, v in (series or []) if v is not None and not pd.isna(v)]
+    if len(pts) < 2:
+        return ""
+    years = [yr for yr, _ in (series or [])]
+    y0, yn = min(years), max(years)
+    span = (yn - y0) or 1
+    vals = [v for _, v in pts]
+    lo, hi = min(vals), max(vals)
+    rng = (hi - lo) or 1
+    w, h, pad = 52, 14, 2
+
+    def xy(yr, v):
+        return ((yr - y0) / span * (w - 2 * pad) + pad, h - pad - (v - lo) / rng * (h - 2 * pad))
+
+    poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in (xy(yr, v) for yr, v in pts))
+    lx, ly = xy(*pts[-1])
+    # st.html strips inline <svg>, so embed as a base64 data-URI <img> (same technique as the
+    # index choropleth). Muted stroke (no good/bad colour); the dot marks the latest year.
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
+        f'<polyline points="{poly}" fill="none" stroke="#9a8f80" stroke-width="1.3" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="1.8" fill="#9a8f80"/></svg>'
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return (f'<img class="lg-spark" src="data:image/svg+xml;base64,{b64}" width="{w}" height="{h}" '
+            f'alt="{y0}–{yn} trend" title="{y0}–{yn} trend"/>')
+
+
+def _scorecard_metric(r, key: str, series=None) -> str:
+    col, nat_col, label, fmt, page = _SCORECARD[key]
+    v = r.get(col)
+    value = "n/a" if v is None or pd.isna(v) else fmt.format(float(v))
+    if key == "fire" and (v is None or pd.isna(v)):
+        bench = f'<span class="lg-na-note">{_FIRE_NA_NOTE}</span>'
+    else:
+        bench = _bench(v, r.get(nat_col), fmt) + _spark(series)
+    return _metric(value, label, bench, doc_url=f"{_NOAC_PDF}#page={page}", doc_page=page)
+
+
+def _scorecard_card(name: str, title: str, keys: list[str]) -> str:
+    res = fetch_noac_scorecard_result(name)
+    if not res.ok or res.data.empty:
+        return ""
+    r = res.data.iloc[0]
+    # one history fetch -> per-metric (year, value) series for the spark trend
+    hist: dict[str, list] = {}
+    hres = fetch_noac_scorecard_history_result(name)
+    if hres.ok and not hres.data.empty:
+        hd = hres.data.sort_values("year")
+        for k in keys:
+            col = _SCORECARD[k][0]
+            if col in hd.columns:
+                hist[col] = list(zip(hd["year"].astype(int), hd[col]))
+    rows = [_scorecard_metric(r, k, hist.get(_SCORECARD[k][0])) for k in keys]
+    return _stat_card(title, rows, "NOAC Performance Indicator Report 2024 (2022–24 trend)",
+                      src_url=_NOAC_REPORT)
+
+
+def _card_how_run(name: str) -> str:
+    return _scorecard_card(name, "How the council is run",
+                           ["revenue_balance", "overhead", "insurance", "sickness"])
+
+
+def _card_services(name: str) -> str:
+    return _scorecard_card(name, "Services to residents", ["roads", "fire", "litter"])
+
+
 def _render_performance(name: str) -> None:
     cards = [
         _card_money_collected(name),
@@ -558,6 +652,8 @@ def _render_performance(name: str) -> None:
         _card_derelict(name),
         _card_planning(name),
         _card_council_money(name),
+        _card_how_run(name),
+        _card_services(name),
     ]
     cards = [c for c in cards if c]
 
@@ -566,12 +662,43 @@ def _render_performance(name: str) -> None:
         empty_state("No indicators yet", "No published performance indicators are mapped for this council.")
         return
     st.html(
-        '<p class="con-section-note">Published indicators, each beside the <strong>national '
-        "benchmark</strong> (median across the 31 councils). These are <strong>executive</strong> "
-        "responsibilities — the Chief Executive's administration, not the elected councillors. "
-        "▲/▼ shows where the council sits relative to the benchmark; no judgement is implied.</p>"
+        '<p class="con-section-note">Indicators published by bodies including the <strong>National '
+        "Oversight &amp; Audit Commission (NOAC)</strong>, An Bord Pleanála and the Department of "
+        "Housing — each beside the <strong>national benchmark</strong> (median across the 31 "
+        "councils). These are <strong>executive</strong> responsibilities — the Chief Executive's "
+        "administration, not the elected councillors. ▲/▼ shows where the council sits relative to "
+        "the benchmark; no judgement is implied.</p>"
     )
     st.html(f'<div class="lg-perf-grid">{"".join(cards)}</div>')
+    _render_all_indicators(name)
+
+
+def _render_all_indicators(name: str) -> None:
+    """Single reference drill-down: EVERY published NOAC indicator for the council, as
+    published. Secondary (behind one expander) so the headline cards stay the primary view;
+    a dense table is the right tool here, not more cards."""
+    res = fetch_noac_indicators_result(name)
+    if not res.ok or res.data.empty:
+        return
+    df = res.data.rename(columns={
+        "family": "Service", "series_label": "Indicator", "raw_value": "Value", "deep_link": "Source",
+    })
+    with st.expander(f"All {len(df)} published NOAC indicators for {name} (2024)"):
+        st.caption(
+            "Everything NOAC publishes for this council, exactly as published — the cards above are "
+            "the curated headline subset. Source links open the relevant NOAC report page."
+        )
+        st.dataframe(
+            df[["Service", "Indicator", "Value", "Source"]],
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "Service": st.column_config.TextColumn("Service", width="small"),
+                "Indicator": st.column_config.TextColumn("Indicator", width="large"),
+                "Value": st.column_config.TextColumn("Value", width="small"),
+                "Source": st.column_config.LinkColumn("Source", display_text="NOAC ↗", width="small"),
+            },
+        )
 
 
 def _render_dossier(name: str) -> None:
