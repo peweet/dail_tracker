@@ -657,7 +657,7 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
         total_html = (
             '<div class="q-strip-cell-label">Ministries engaged</div>'
             f'<div class="q-total-num">{distinct_min}</div>'
-            '<div class="q-total-sub">Out of around 26 in cabinet</div>'
+            '<div class="q-total-sub">Out of 26 ministries on record</div>'
         )
     else:
         total_html = (

@@ -18,7 +18,7 @@ Sections (top → bottom):
   1. Editorial hero + glossary strip (SPV / ICAV / SCARP / MVL / CVL) +
      constitutional / privacy caveat
   2. Featured: receiver-appointer ranking (by parent fund) + year sparkline
-     of the receiver wave. Honest 31%-coverage subhead.
+     of the receiver wave. Honest live-coverage-% subhead (runtime-computed).
   3. EXPERIMENTAL: regulated firms in repeat distress — CBI-authorised firms
      that appear in 2+ genuine-distress notices. Sourced from
      v_corporate_cbi_repeat_distress (sandbox), see
