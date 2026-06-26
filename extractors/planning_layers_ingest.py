@@ -92,7 +92,7 @@ SPECS: dict[str, LayerSpec] = {
         f"{_NMS}/SMROpenData/FeatureServer/0",
         "point",
         ("ENTITY_ID", "MONUMENT_CLASS", "TOWNLAND", "ZONE_ID_1"),
-        bbox=GALWAY_BBOX,
+        # NATIONAL (was Galway/Cork/Dublin) — monument NAMING for every county; ~151k points.
     ),
     # MyPlan zoning composite (material-contravention context)
     "zoning_gzt": LayerSpec(
@@ -118,7 +118,7 @@ SPECS: dict[str, LayerSpec] = {
         f"{_GSI}/IE_GSI_Karst_Datasets_40K_IE32_ITM/FeatureServer/0",
         "point",
         ("KARST_TYPE", "KARST_NAME"),
-        bbox=GALWAY_BBOX,
+        # NATIONAL (was Galway/Cork/Dublin) — karst -> septic severity for every county; ~18k points.
     ),
     # per-LA Galway heritage / landscape (Heritage Council org; CC-BY 4.0)
     "galway_county_rps": LayerSpec(
@@ -155,7 +155,7 @@ SPECS: dict[str, LayerSpec] = {
         ("QSED_TYPE", "LEGENDDESC"),
         max_page_size=1000,
         timeout=180,
-        bbox=GALWAY_BBOX,
+        # NATIONAL (was Galway/Cork/Dublin) — peat/blanket-bog subsoil for every county; ~206k polys.
     ),
 }
 

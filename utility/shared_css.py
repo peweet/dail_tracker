@@ -5590,6 +5590,42 @@ def inject_css() -> None:
             font-size: 0.86rem; color: var(--ink-700); line-height: 1.55; max-width: 64rem;
         }
         .pr-caveat strong { color: var(--signal-bad-deep); }
+        /* ── "How public money moves" lifecycle strip ──────────────────────────
+           The page's sections (open / wins / paid) ARE the four realisation tiers of one
+           contract's life. This strip names that sequence ONCE, above the section bar, so a
+           first-time reader sees four stages of one thing rather than four unrelated lists.
+           Honesty rail: stages sit side by side and are NEVER summed; AFS is a sibling
+           measure (different grain) deliberately set OFF the line. Per-stage accent is set
+           inline via --lc-accent. */
+        .pr-lc { max-width: 64rem; margin: 0.2rem 0 0.9rem; }
+        .pr-lc-head { font-size: 0.86rem; color: var(--ink-700); line-height: 1.5; margin-bottom: 0.55rem; }
+        .pr-lc-head strong { color: var(--ink-strong); }
+        .pr-lc-track { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.35rem; }
+        .pr-lc-stage {
+            flex: 1 1 11rem; min-width: 9.5rem; text-decoration: none;
+            background: #ffffff; border: 1px solid var(--border);
+            border-top: 3px solid var(--lc-accent, var(--accent)); border-radius: 10px;
+            padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.22rem;
+            transition: box-shadow 0.12s ease, transform 0.12s ease;
+        }
+        .pr-lc-stage:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.08); transform: translateY(-1px); }
+        .pr-lc-tier {
+            font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+            color: var(--lc-accent, var(--accent));
+        }
+        .pr-lc-q { font-weight: 700; color: var(--ink-strong); font-size: 0.91rem; line-height: 1.25; }
+        .pr-lc-note { font-size: 0.755rem; color: var(--text-meta); line-height: 1.4; }
+        .pr-lc-go { font-size: 0.73rem; font-weight: 650; color: var(--accent); margin-top: auto; padding-top: 0.2rem; }
+        .pr-lc-arrow { align-self: center; color: var(--border-strong); font-size: 1rem; flex: none; }
+        @media (max-width: 720px) { .pr-lc-arrow { display: none; } }
+        /* AFS sibling — visually OFF the lifecycle line (different grain, never summed);
+           teal left-rule matches the council dossier's "Running the services" lane. */
+        .pr-lc-sibling {
+            margin-top: 0.55rem; font-size: 0.78rem; color: var(--ink-700); line-height: 1.5;
+            border-left: 3px solid #3a6b7e; background: var(--surface-deep); border-radius: 0 8px 8px 0;
+            padding: 0.5rem 0.8rem; max-width: 64rem;
+        }
+        .pr-lc-sibling strong { color: #2c5260; }
         /* scale anchor / trust strip under the caveat: real corpus magnitude +
            what's in / out. Numbers are tabular; labels are quiet meta. */
         /* "The €570bn that isn't" — naive total shown struck-through only to demolish it.

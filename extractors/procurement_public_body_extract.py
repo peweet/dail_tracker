@@ -323,6 +323,11 @@ PUBLISHERS: list[dict] = [
         listing="https://www.gov.ie/en/department-of-defence/collections/purchase-orders-over-20000/",
         semantics="po_committed",
         grain="purchase_order",
+        # 5-column NUMBER/CATEGORY/SUPPLIER/CURRENCY/AMOUNT layout (two header orderings) that the
+        # generic word-geometry reader scrambles — category→po_number, supplier suffix split — leaving
+        # 1,191 empty-supplier rows whose real name sits in po_number (DQ audit 2026-06; validated in
+        # pipeline_sandbox/courts_reader/). The bespoke reading-order reader recovers supplier+ref+amount.
+        reader="reading_order_defence",
     ),
     cfg(
         "dept_culture",
@@ -1380,6 +1385,87 @@ def read_courts(b: bytes, max_pages: int | None) -> list[dict]:
     return recs
 
 
+# Department of Defence PO reading-order reader. The PDFs are a 5-column record
+#   NUMBER (PO) | CATEGORY (unit) | SUPPLIER | CURRENCY (EUR/USD…) | AMOUNT
+# published in TWO header orderings (Number,Category,Supplier vs Number,Supplier,Category). The
+# generic word-geometry parser scrambles them — category→po_number, PO→description, the supplier's
+# legal suffix split off — leaving 1,191 empty-supplier rows whose real name lands in po_number
+# (DQ audit 2026-06; validated in pipeline_sandbox/courts_reader/). Anchoring on the CURRENCY line
+# (a lone 3-letter code) with the AMOUNT right after it, then walking back to the leading PO digit
+# line, recovers PO + supplier + amount cleanly and is robust to the two header orderings.
+_DD_CUR = re.compile(r"^(EUR|USD|GBP|CHF|SEK|NOK|DKK|JPY|CAD|AUD|PLN|CZK|HUF|ZAR|SGD|HKD|NZD)$")
+_DD_AMT = re.compile(r"^[€$£]?\s*([\d,]+\.\d{2})$")
+_DD_PO = re.compile(r"^\d{4,7}$")
+_DD_PO_NAME = re.compile(r"^(\d{4,7})\s+(.+)$")  # merged 'PO NAME' (4-field layout)
+_DD_BOILER = {"number", "category", "supplier", "vendor", "currency", "amount", "po number",
+              "po no", "po no.", "po"}
+
+
+def _dd_supplier_first(doc) -> bool:
+    """Header order: does SUPPLIER/VENDOR come before CATEGORY on the first page?"""
+    head = " ".join(line.strip().lower() for line in doc[0].get_text().splitlines()[:8])
+    si = min([head.find(k) for k in ("supplier", "vendor") if head.find(k) >= 0] or [9999])
+    ci = head.find("category")
+    return si < ci if (si < 9999 and ci >= 0) else False
+
+
+def read_defence(b: bytes, max_pages: int | None) -> list[dict]:
+    """Reading-order reader for the Department of Defence PO PDFs → list of
+    {ref, supplier, category, amount} dicts (period comes from the file URL)."""
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+    sup_first = _dd_supplier_first(doc)
+    lines: list[str] = []
+    for pi in range(limit):
+        for raw in doc[pi].get_text().splitlines():
+            s = re.sub(r"\s+", " ", raw.replace("\xa0", " ").replace("€", "")).strip()
+            low = s.lower()
+            if not s or low in _DD_BOILER or "purchase order" in low or "department of defence" in low:
+                continue
+            lines.append(s)
+    doc.close()
+
+    n = len(lines)
+    recs: list[dict] = []
+    i = 0
+    while i < n:
+        # anchor on a currency line immediately followed by an amount line
+        if _DD_CUR.match(lines[i]) and i + 1 < n and _DD_AMT.match(lines[i + 1]):
+            amount = float(_DD_AMT.match(lines[i + 1]).group(1).replace(",", ""))
+            # walk back: PO is the nearest preceding pure-digit line; the 1-2 lines between PO and
+            # the currency are CATEGORY + SUPPLIER (assigned by the file's header order).
+            k = i - 1
+            mid: list[str] = []
+            po = None
+            while k >= 0:
+                if _DD_PO.match(lines[k]):  # pure-digit PO line (5-field layout)
+                    po = lines[k]
+                    break
+                m = _DD_PO_NAME.match(lines[k])  # merged 'PO NAME' line (4-field layout)
+                if m:
+                    po = m.group(1)
+                    mid.insert(0, m.group(2).strip())
+                    break
+                if _DD_CUR.match(lines[k]) or _DD_AMT.match(lines[k]):  # ran into the previous record
+                    break
+                mid.insert(0, lines[k])
+                k -= 1
+            category = supplier = None
+            if len(mid) == 1:
+                supplier = mid[0]
+            elif len(mid) >= 2:
+                if sup_first:
+                    category, supplier = mid[-1], " ".join(mid[:-1])
+                else:
+                    category, supplier = mid[0], " ".join(mid[1:])
+            if supplier and re.search(r"[A-Za-z]", supplier):
+                recs.append({"ref": po, "supplier": supplier.strip(), "category": category, "amount": amount})
+            i += 2
+            continue
+        i += 1
+    return recs
+
+
 # ---- XLSX / XLS / CSV ----
 def _tabular_from_raw(raw: list[list]):
     """Shared header-pick + body-trim for any 2D cell grid (openpyxl or xlrd)."""
@@ -1555,6 +1641,17 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
         for srn, r in enumerate(recs):
             sup = clean_supplier(r["supplier"])
             rows_out.append(base(srn, 1, sup, r["amount"], r["desc"], r["ref"], r["paid"]))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
+    elif fmt == "pdf" and cf.get("reader") == "reading_order_defence":
+        # Department of Defence "PO over €20k" reading-order reader (period from the file URL).
+        # ref → po_number; the CATEGORY (procurement unit) → description; suppliers recovered intact.
+        recs = read_defence(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            sup = clean_supplier(r["supplier"])
+            rows_out.append(base(srn, 1, sup, r["amount"], r["category"], r["ref"], None))
             good += 1
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 

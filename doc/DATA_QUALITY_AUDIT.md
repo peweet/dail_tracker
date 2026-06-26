@@ -233,11 +233,34 @@ end-to-end (parser + re-parse + re-consolidate, all reconciliation-checked, reve
    untouched; spend-category coverage 93.0%→93.2%.
 
 Tests: `test/extractors/test_procurement_garble_guards.py` (3 unit + 2 integration) — green; the full
-569-test extractor suite passes. **Still spotted, recorded for supervised follow-up** (money mostly
-correct): dept_defence po/description scramble (supplier intact; po holds unit names like `AIR CORPS`);
-dept_education 2,138 null-year rows (GUID filenames defeat `period_from_url`); ~9,962 code-prefixed
-descriptions; ie_la_sligo €79.9m Roadbridge / galway_city €31.5m single rows look like real capital, not
-totals. Full log: `c:/tmp/dq_audit/procurement_findings.md`.
+569-test extractor suite passes.
+
+> ⚠️ **2026-06-26:** the §6.0/§6.0b fixes above were uncommitted and were swept by branch-level git
+> operations (reset/checkout/merge); the gold fact reverted to its broken state and the fixes are being
+> re-applied in a separate session. Treat the "FIXED/SALVAGED" labels as "built + validated,
+> re-application in progress". **Commit audit fixes to a branch promptly on this repo.**
+
+**Remaining items — investigated (2026-06-26), all confirmed REAL + data-backed:**
+- **dept_defence scramble — REAL; salvage PROVEN, reader not yet graduated.** 11,043 rows / €1,657.6m;
+  1,191 empty-supplier rows whose real name sits in `po_number` (Doyle Shipping, Pilatus, Fujitsu…). The
+  source is a clean 5-column reading-order layout (NUMBER/CATEGORY/SUPPLIER/CURRENCY/AMOUNT) with three
+  variants. A sandbox reader (`pipeline_sandbox/courts_reader/dept_defence_reading_order.py`) recovers
+  **10,716 records, 0 empty suppliers** with correct names (Airbus Defence & Space €231m, Pilatus €70m,
+  Chief of Defence Force New Zealand — now full, was fragmented). Held back from prod: the reader-vs-gold
+  amount multiset still has a ~485-row delta (incl. 375 sub-€100k) across the layout variants that isn't
+  reconciled — won't push a possibly-lossy parser unsupervised. **Supervised follow-up** (same playbook
+  as courts).
+- **dept_education 2,138 null-year rows — REAL.** 15 GUID-named files carry no date → `period_from_url`
+  returns None → invisible to year filters. Recoverable via landing-date mapping / per-row date.
+- **~9,962 code-prefixed descriptions — REAL.** A PO/code bled into the description prefix; ie_la_meath
+  4,436 + ie_la_galway_city 598 have `po_number` empty (recoverable); dept_defence 1,660 are part of its
+  scramble. Low-severity metadata cleanup.
+- **ie_la_sligo €79.9m Roadbridge / galway_city €31.5m O'Connell — REAL PAYMENTS, not garble (verified).**
+  Roadbridge won the N4 Collooney–Castlebaldwin scheme (**€150m, design-build, Jan 2019**); the €79.9m is
+  a plausible first-year commitment (single line, real supplier). O'Connell is a real Galway civil firm.
+  No action. ([Irish Building Magazine](https://irishbuildingmagazine.ie/2019/02/27/roadbridge-to-commence-sligo-n4-dual-carriageway-project/))
+
+Full log: `c:/tmp/dq_audit/procurement_findings.md`; dept_defence sandbox reader retained for the follow-up.
 
 ## 6.1 Procurement defects (the "is procurement a mess?" answer)
 The generic public-body parser's **column-role heuristic (`_pick_roles`) is the systemic weak point** —

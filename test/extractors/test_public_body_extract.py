@@ -81,3 +81,102 @@ def test_read_reading_order_both_column_orders():
     assert by_ref["42958"]["supplier"] == "MOSNEY HOLIDAYS PLC"  # date-last layout still pairs
     assert by_ref["42958"]["amount"] == 3255828.09
     assert by_ref["42958"]["date"] == "2023-07-06"
+
+
+# ── reading-order reader (Department of Defence layout) ───────────────────────
+def _defence_pdf(header: str, body: str) -> bytes:
+    """One-page synthetic Defence PO PDF: a header line then reading-order records."""
+    import fitz
+
+    doc = fitz.open()
+    doc.new_page().insert_text((40, 50), header + "\n" + body)
+    b = doc.tobytes()
+    doc.close()
+    return b
+
+
+def test_read_defence_category_first_layout():
+    """5-column NUMBER/CATEGORY/SUPPLIER/CURRENCY/AMOUNT (category before supplier). The reader
+    anchors on the currency line, walks back to the PO digit line, and — given a category-first
+    header — assigns the first mid line to category and the rest to the supplier."""
+    from extractors.procurement_public_body_extract import read_defence
+
+    b = _defence_pdf(
+        "Number\nCategory\nSupplier\nCurrency\nAmount",
+        "319124\nTRANSPORT EQUIPMENT\nA.G. BLOCK LTD\nEUR\n85,312.00\n"
+        "320402\nSERVICES MISCELLANEOUS\nACME DEFENCE LTD\nEUR\n31,985.10\n",
+    )
+    recs = read_defence(b, None)
+    by_ref = {r["ref"]: r for r in recs}
+    assert by_ref["319124"]["supplier"] == "A.G. BLOCK LTD"
+    assert by_ref["319124"]["category"] == "TRANSPORT EQUIPMENT"
+    assert by_ref["319124"]["amount"] == 85312.00
+    assert by_ref["320402"]["supplier"] == "ACME DEFENCE LTD"
+    assert by_ref["320402"]["amount"] == 31985.10
+
+
+def test_read_defence_supplier_first_layout_and_foreign_currency():
+    """The OTHER published header order puts SUPPLIER before CATEGORY; the reader must flip the
+    mid-line assignment. Also covers a non-EUR currency anchor (USD) — the amount is read as-is."""
+    from extractors.procurement_public_body_extract import read_defence
+
+    b = _defence_pdf(
+        "Number\nSupplier\nCategory\nCurrency\nAmount",
+        "440011\nAIRBUS DEFENCE & SPACE SAU SPAIN\nAIR CORPS\nUSD\n234,760.00\n",
+    )
+    recs = read_defence(b, None)
+    assert len(recs) == 1
+    r = recs[0]
+    assert r["ref"] == "440011"
+    assert r["supplier"] == "AIRBUS DEFENCE & SPACE SAU SPAIN"
+    assert r["category"] == "AIR CORPS"
+    assert r["amount"] == 234760.00
+
+
+def test_read_defence_merged_po_name_layout():
+    """Older quarters merge the PO and supplier onto one line ('PO NAME') with no category. The
+    single mid line is taken as the supplier and category stays empty — no scrambling."""
+    from extractors.procurement_public_body_extract import read_defence
+
+    b = _defence_pdf(
+        "Number\nCategory\nSupplier\nCurrency\nAmount",
+        "500777 PILATUS AIRCRAFT LTD\nEUR\n754,600.00\n",
+    )
+    recs = read_defence(b, None)
+    assert len(recs) == 1
+    assert recs[0]["ref"] == "500777"
+    assert recs[0]["supplier"] == "PILATUS AIRCRAFT LTD"
+    assert recs[0]["category"] is None
+    assert recs[0]["amount"] == 754600.00
+
+
+# ── reading-order reader (Courts Service "PO analysis report" layout) ─────────
+def test_read_courts_recovers_supplier_and_skips_total():
+    """The Courts PDFs merge 'PO SupplierName' on one line, then amount / (blank) / description /
+    Paid. The reader recovers PO+supplier+amount+paid and must DROP the period TOTAL summary line
+    (which has no PO and would otherwise be ingested as a giant payment — DQ audit P1)."""
+    import fitz
+
+    from extractors.procurement_public_body_extract import read_courts
+
+    doc = fitz.open()
+    doc.new_page().insert_text(
+        (40, 50),
+        "PO No.\nSupplier Name\nAmount\nDescription\nPaid Yes/No\n"
+        "94232 IPP CCC GP1 LTD\n1,833,172.55\nPPP Unitary Payment\nY\n"
+        "93409 EIR\n149,005.68\nTelecoms\nN\n"
+        "Total\n1,982,178.23\n",
+    )
+    b = doc.tobytes()
+    doc.close()
+
+    recs = read_courts(b, None)
+    by_ref = {r["ref"]: r for r in recs}
+    assert by_ref["94232"]["supplier"] == "IPP CCC GP1 LTD"
+    assert by_ref["94232"]["amount"] == 1833172.55
+    assert by_ref["94232"]["paid"] == "Y"
+    assert by_ref["93409"]["supplier"] == "EIR"
+    assert by_ref["93409"]["amount"] == 149005.68
+    # the Total summary line carries no PO and must not become a supplier row
+    assert all("total" not in (r["supplier"] or "").lower() for r in recs)
+    assert 1982178.23 not in [r["amount"] for r in recs]
