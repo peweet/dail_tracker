@@ -859,6 +859,15 @@ def save_gold_outputs(activities_df: pl.DataFrame, lobbying_df: pl.DataFrame) ->
             con.execute(f"CREATE VIEW {name} AS SELECT * FROM read_parquet('{p.as_posix()}')")
             registered.add(name)
 
+    # Silver committees Parquet (committee_assignments — wide format used by the committee_* gold
+    # views). It lives in the silver/committees/ sibling subdir, so the flat silver/parquet glob
+    # above misses it; register it explicitly. (Was historically a gold CSV; now a tracked parquet.)
+    for p in sorted((SILVER_PARQUET_DIR.parent / "committees").glob("*.parquet")):
+        name = p.stem
+        if name not in registered:
+            con.execute(f"CREATE VIEW {name} AS SELECT * FROM read_parquet('{p.as_posix()}')")
+            registered.add(name)
+
     # Silver lobbying Parquet outputs written earlier this run
     for p in sorted(LOBBY_PARQUET_DIR.glob("*.parquet")):
         name = p.stem
