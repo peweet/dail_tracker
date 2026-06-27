@@ -22,7 +22,7 @@ import requests
 import responses
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from services.http_engine import fetch_all, fetch_json
+from services.http_engine import fetch_all, fetch_all_text, fetch_json, fetch_text
 
 # ---------------------------------------------------------------------------
 # fetch_json — single-URL path
@@ -236,4 +236,145 @@ def test_fetch_all_handles_json_decode_error_as_failure():
     results, _, failures = fetch_all([url], max_workers=1)
 
     assert results == []
+    assert failures == 1
+
+
+@responses.activate
+def test_fetch_json_exhausts_connection_error_then_raises(monkeypatch):
+    """A ConnectionError on EVERY attempt must propagate after the loop (line that
+    re-raises the last transient exception) — the contract fetch_all counts on."""
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/always-down"
+    for _ in range(he.RETRY_MAX_ATTEMPTS):
+        responses.add(responses.GET, url, body=requests.exceptions.ConnectionError("boom"))
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        he.fetch_json(url)
+    assert len(responses.calls) == he.RETRY_MAX_ATTEMPTS
+
+
+# ---------------------------------------------------------------------------
+# fetch_text — single-URL non-JSON path (AKN XML etc.)
+# ---------------------------------------------------------------------------
+
+
+@responses.activate
+def test_fetch_text_returns_body_and_byte_count():
+    url = "https://api.example.com/debate/main.xml"
+    xml = "<akomaNtoso><debate>…</debate></akomaNtoso>"
+    responses.add(responses.GET, url, body=xml, status=200)
+
+    text, raw_bytes = fetch_text(url)
+
+    assert text == xml
+    assert raw_bytes > 0 and isinstance(raw_bytes, int)
+
+
+@responses.activate
+def test_fetch_text_raises_on_4xx_without_retry(monkeypatch):
+    """A 403 from the AKN/S3 bucket means the object key does not exist — fail
+    fast (no retry), the caller counts it as a miss."""
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/missing.xml"
+    responses.add(responses.GET, url, status=403)
+
+    with pytest.raises(requests.HTTPError):
+        he.fetch_text(url)
+    assert len(responses.calls) == 1  # no retry on permanent 4xx
+
+
+@responses.activate
+def test_fetch_text_retries_503_then_succeeds(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/flaky.xml"
+    responses.add(responses.GET, url, status=503)  # attempt 1 (retryable)
+    responses.add(responses.GET, url, body="<ok/>", status=200)  # attempt 2
+
+    text, _ = he.fetch_text(url)
+
+    assert text == "<ok/>"
+    assert len(responses.calls) == 2
+
+
+@responses.activate
+def test_fetch_text_exhausts_retries_then_raises(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/down.xml"
+    responses.add(responses.GET, url, status=503)
+
+    with pytest.raises(requests.HTTPError):
+        he.fetch_text(url)
+    assert len(responses.calls) == he.RETRY_MAX_ATTEMPTS
+
+
+@responses.activate
+def test_fetch_text_retries_connection_error_then_succeeds(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/blip.xml"
+    responses.add(responses.GET, url, body=requests.exceptions.ConnectionError("boom"))
+    responses.add(responses.GET, url, body="<ok/>", status=200)
+
+    text, _ = he.fetch_text(url)
+
+    assert text == "<ok/>"
+    assert len(responses.calls) == 2
+
+
+@responses.activate
+def test_fetch_text_exhausts_connection_error_then_raises(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/dead.xml"
+    for _ in range(he.RETRY_MAX_ATTEMPTS):
+        responses.add(responses.GET, url, body=requests.exceptions.ConnectionError("boom"))
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        he.fetch_text(url)
+    assert len(responses.calls) == he.RETRY_MAX_ATTEMPTS
+
+
+# ---------------------------------------------------------------------------
+# fetch_all_text — concurrent (url, text) path
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_all_text_empty_input_returns_empty_immediately():
+    results, total_bytes, failures = fetch_all_text([], max_workers=5)
+    assert results == [] and total_bytes == 0 and failures == 0
+
+
+@responses.activate
+def test_fetch_all_text_returns_url_text_pairs():
+    """Unlike fetch_all, results are (url, text) pairs so a caller can name an
+    output file per source URL — assert the pairing is preserved."""
+    urls = ["https://api.example.com/a.xml", "https://api.example.com/b.xml"]
+    responses.add(responses.GET, urls[0], body="<a/>", status=200)
+    responses.add(responses.GET, urls[1], body="<bb/>", status=200)
+
+    results, total_bytes, failures = fetch_all_text(urls, max_workers=2)
+
+    assert dict(results) == {urls[0]: "<a/>", urls[1]: "<bb/>"}
+    assert failures == 0 and total_bytes > 0
+
+
+@responses.activate
+def test_fetch_all_text_counts_failures_without_aborting():
+    urls = ["https://api.example.com/ok.xml", "https://api.example.com/bad.xml"]
+    responses.add(responses.GET, urls[0], body="<ok/>", status=200)
+    responses.add(responses.GET, urls[1], status=404)
+
+    results, _, failures = fetch_all_text(urls, max_workers=2)
+
+    assert [u for u, _ in results] == [urls[0]]
     assert failures == 1
