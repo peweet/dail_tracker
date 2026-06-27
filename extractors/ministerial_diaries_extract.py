@@ -174,11 +174,24 @@ DEPT_SOURCES: list[tuple[str, str]] = [
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2023/"),
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2022/"),
     ("DECC", "https://www.gov.ie/en/collection/89b20-ministers-diaries/"),
-    # TODO (still unresolved after the 2026-06-19 re-probe): Social Protection (the generic
-    # "ministers-diaries" search result resolved to DECC above, not DSP — DSP's own slug is still
-    # unpinned), Foreign Affairs (only ministerial-briefs, no diary collection found), Agriculture,
-    # Defence, Children (no dedicated diary collection surfaced — may not publish on gov.ie). A 404 /
-    # "no diary collection" on a search ≠ proof of absence; re-probe each from a fresh session.
+    # Added 2026-06-27 (round 3 re-probe): three departments that DO publish, found via gov.ie search.
+    #   DSP   — Social Protection publishes as a per-MINISTER PUBLICATION page (Calleary), quarterly
+    #           PDFs (Q1/Q2 2025…), NOT a /collections/ page — which is why the slug-based probes
+    #           missed it. Per-minister, so add the incumbent's page when the portfolio rotates.
+    #   RURAL — Dept of Rural & Community Development AND THE GAELTACHT: a proper /collections/ page.
+    ("DSP", "https://www.gov.ie/en/department-of-social-protection/publications/diary-minister-dara-calleary-dsp/"),
+    (
+        "RURAL",
+        "https://www.gov.ie/en/department-of-rural-and-community-development-and-the-gaeltacht/collections/ministers-diaries/",
+    ),
+    # Two generic GUID "ministers-diaries" collection hubs surfaced by search — probe what depts they
+    # carry (may overlap existing labels; dedupe is by entry_id so duplicates are harmless).
+    ("MISC", "https://www.gov.ie/en/collection/5f6f1-ministers-diaries/"),
+    ("MISC", "https://www.gov.ie/en/collection/ab070-ministerial-diaries/"),
+    # STILL NOT pullable (re-confirmed 2026-06-27): Foreign Affairs (ministerial-briefs + FOI only,
+    # no diary publication), Defence (none found), Children/DCEDIY (ministerial briefings only, no
+    # diary). Agriculture publishes a Minister's diary but on agriculture.gov.ie (own domain, monthly)
+    # — not on gov.ie/assets.gov.ie; needs a bespoke fetch off the DAFM site (TODO).
 ]
 
 MONTHS = [

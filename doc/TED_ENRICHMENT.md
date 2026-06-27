@@ -7,7 +7,7 @@ enrichment moves that remain. Companion to:
 
 - `PROCUREMENT_MASTER.md` — authoritative procurement plan (TED uplift = Stage B, **shipped 2026-06-06**).
 - `ENRICHMENTS.md` §B.2 — the original "is this worth investigating?" card for TED.
-- `ted_data_ingestion_links.md` — every official TED ingest endpoint (API, bulk XML, SPARQL, schema).
+- `archive/ted_data_ingestion_links.md` — every official TED ingest endpoint (API, bulk XML, SPARQL, schema).
 
 > **TED is not an unbuilt idea.** It is a production *silver* dataset with SQL
 > views, a page tab, core queries, and tests already in the repo. This doc exists

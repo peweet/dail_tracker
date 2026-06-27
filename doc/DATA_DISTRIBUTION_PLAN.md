@@ -1,6 +1,6 @@
 # Data Distribution Plan — stop using git as the data channel
 
-Sibling to [SCALABILITY_PLAN.md](SCALABILITY_PLAN.md). That doc scales *serving*
+Sibling to [archive/SCALABILITY_PLAN.md](archive/SCALABILITY_PLAN.md). That doc scales *serving*
 (concurrent users). This one scales the *data footprint*: the read-only parquet
 that has to reach every deployment, and the push/clone cost of carrying it in git.
 

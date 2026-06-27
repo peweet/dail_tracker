@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-21 · **Audience:** future-you, or a collaborator who has never seen this break before.
 
-This is the operational counterpart to `doc/SOURCE_FRAGILITY_PLAN.md` (which covers *detection*).
+This is the operational counterpart to `doc/archive/SOURCE_FRAGILITY_PLAN.md` (which covers *detection*).
 This doc covers *response*: a source broke — now what. The goal is that nobody ever has to
 re-derive the recovery from scratch.
 
@@ -111,7 +111,7 @@ rebuild; our parquet is the only surviving public copy).
    (`data/_meta/backup_manifest.tsv`).
 3. **Confirm the row-floor protects it** so no future re-run can shrink it. HSE's gold fact is
    floored at 150k; if your dead source's fact is *not* floored, add `min_rows=` now
-   (see `SOURCE_FRAGILITY_PLAN.md` P1.1).
+   (see `archive/SOURCE_FRAGILITY_PLAN.md` P1.1).
 4. **Repoint the dead source URL + add a caveat**, the way `tools/patch_hse_dead_source_url.py`
    did: point `source_file_url` at a live landing page and append a `source_caveat` explaining
    the source was removed and this is the surviving copy. Use that script as the template (it
@@ -221,5 +221,5 @@ Fragility: **H**igh (scrape/OCR/manual/hardcoded-URL), **M**edium, **L**ow (stab
 | Hand-curated CSVs (`data/_meta`) | manual | L | n/a | git | identity refs; edit by hand, no harvest |
 
 > Keep this table in sync as sources are added/retired — it is the breadth-budget checklist
-> (`SOURCE_FRAGILITY_PLAN.md` Part C, item 6). A source with no row in this table is a source
+> (`archive/SOURCE_FRAGILITY_PLAN.md` Part C, item 6). A source with no row in this table is a source
 > nobody knows how to recover.

@@ -36,6 +36,7 @@ from data_access.local_government_data import (
 from data_access.procurement_data import fetch_council_summary_result
 from pages_code.local_government import (
     _render_ce_hero,
+    _render_choropleth,
     _render_performance,
     _render_power_explainer,
 )
@@ -118,6 +119,11 @@ def _render_index() -> None:
         dek="Your county or city council in one place — who runs it (the appointed Chief Executive), "
         "the councillors you elect, and what it spends. Pick a council.",
     )
+    # Clickable national map first (the visual entry point) — reuses the local_government choropleth,
+    # linking each council to this page's ?council= dossier. Degrades silently to the cards if the
+    # map geometry/layers aren't available.
+    _render_choropleth(link_key="council")
+
     res = fetch_chief_executives_result()
     if not res.ok or res.data.empty:
         empty_state(
