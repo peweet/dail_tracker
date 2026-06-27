@@ -161,6 +161,63 @@ def supplier_lines(
     return _run(conn, sql, params)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# "What the money buys" — category lens (doc/PAYMENTS_CATEGORY_LENS_DESIGN.md).
+# All three views are pre-aggregated per (spend_category[, publisher|supplier],
+# realisation_tier); this layer only reads + orders. One row per tier, NEVER blended.
+# ──────────────────────────────────────────────────────────────────────────────
+_CATEGORY_ORDER = {
+    "value": "total_safe_eur DESC NULLS LAST, n_lines DESC",
+    "lines": "n_lines DESC",
+}
+
+_CATEGORY_COLS = (
+    "spend_category, realisation_tier, n_lines, n_bodies, n_suppliers,"
+    " first_year, last_year, total_safe_eur"
+)
+
+
+def categories(conn: duckdb.DuckDBPyConnection, *, order_by: str = "value") -> QueryResult:
+    """The spend-category overview: one row per (category × realisation_tier), with the
+    sum-safe total and counts. ``realisation_tier`` is SPENT ('paid') or COMMITTED ('ordered')
+    — the page renders one tier at a time and never blends them. Pre-aggregated in
+    ``v_payments_by_category``; this only orders."""
+    order = _CATEGORY_ORDER.get(order_by, _CATEGORY_ORDER["value"])
+    return _run(conn, f"SELECT {_CATEGORY_COLS} FROM v_payments_by_category ORDER BY {order}")
+
+
+def category_suppliers(
+    conn: duckdb.DuckDBPyConnection, spend_category: str, *, limit: int | None = None
+) -> QueryResult:
+    """The named vendors paid/ordered within one spend category (the drill). ``cro_company_num``
+    is surfaced for the optional Company-dossier link, NOT operator-merged — 'Mosney' and
+    'Mosney Holidays' stay distinct. One row per (supplier × tier)."""
+    sql = (
+        "SELECT spend_category, supplier, supplier_normalised, cro_company_num, realisation_tier,"
+        " n_lines, n_bodies, first_year, last_year, total_safe_eur"
+        " FROM v_payments_category_suppliers WHERE spend_category = ?"
+        " ORDER BY total_safe_eur DESC NULLS LAST, n_lines DESC"
+    )
+    params: list = [spend_category]
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def category_publishers(conn: duckdb.DuckDBPyConnection, spend_category: str) -> QueryResult:
+    """The bodies whose published spend drives one category (the attribution block). One row
+    per (publisher × tier), sum-safe value DESC."""
+    return _run(
+        conn,
+        "SELECT publisher_id, publisher_name, publisher_type, spend_category, realisation_tier,"
+        " n_lines, n_suppliers, first_year, last_year, total_safe_eur"
+        " FROM v_payments_by_category_publisher WHERE spend_category = ?"
+        " ORDER BY total_safe_eur DESC NULLS LAST, n_lines DESC",
+        [spend_category],
+    )
+
+
 def supplier_quarter_totals(
     conn: duckdb.DuckDBPyConnection,
     supplier_normalised: str,

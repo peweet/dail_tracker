@@ -31,6 +31,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from data_access.corporate_data import fetch_isif_portfolio
 from data_access.freshness_data import freshness_line
 from data_access.procurement_data import (
     fetch_entity_search_result,
@@ -413,6 +414,59 @@ def _render_search() -> None:
 
 
 # ── landing ───────────────────────────────────────────────────────────────────
+def _isif_amount(stated, currency, is_up_to) -> str:
+    """Currency-aware compact amount for an ISIF commitment: '€140m' / 'up to $20m'.
+    Never summed across rows (mixed currency / 'up to' ceilings)."""
+    try:
+        n = float(stated)
+    except (TypeError, ValueError):
+        return ""
+    sym = {"EUR": "€", "USD": "$", "GBP": "£"}.get(_coalesce(currency) or "EUR", "")
+    if n >= 1_000_000:
+        amt = f"{sym}{n / 1_000_000:.0f}m"
+    elif n >= 1_000:
+        amt = f"{sym}{n / 1_000:.0f}k"
+    else:
+        amt = f"{sym}{n:,.0f}"
+    return f"up to {amt}" if bool(is_up_to) else amt
+
+
+def _render_isif_lane() -> None:
+    """STATE AS INVESTOR — the other direction of the money trail. Beyond what public bodies
+    PAY, the State (via the Ireland Strategic Investment Fund) also INVESTS in companies. Newest
+    commitments, as a named list. NEVER summed (mixed currency / 'up to' ceilings); display-only.
+    Silently no-ops if the view is unavailable."""
+    df = fetch_isif_portfolio(limit=10)
+    if df is None or df.empty:
+        return
+    rows: list[str] = []
+    for r in df.itertuples():
+        name = _esc(getattr(r, "investee_name", None)) or "—"
+        amt = _esc(_isif_amount(getattr(r, "amount_stated", None), getattr(r, "amount_currency", None), getattr(r, "amount_is_up_to", None)))
+        yr = _esc(str(getattr(r, "commitment_year_label", "") or ""))
+        desc = _esc(getattr(r, "description", None) or "")
+        if len(desc) > 150:
+            desc = desc[:147] + "…"
+        amt_html = f'<span class="mf-isif-amt">{amt}</span>' if amt else ""
+        rows.append(
+            '<div class="mf-isif-row">'
+            f'<div class="mf-isif-head"><span class="mf-isif-name">{name}</span>{amt_html}'
+            f'<span class="mf-isif-yr">{yr}</span></div>'
+            f'<div class="mf-isif-desc">{desc}</div>'
+            "</div>"
+        )
+    st.html(
+        '<section class="mf-isif" aria-label="State as investor — ISIF commitments">'
+        '<div class="mf-isif-kick">STATE AS INVESTOR</div>'
+        '<div class="mf-isif-sub">The other direction of the trail: beyond what public bodies '
+        "<em>pay</em>, the State also <strong>invests</strong> in companies through the Ireland "
+        "Strategic Investment Fund. Recent commitments — a <strong>different instrument</strong> from "
+        "payments, in mixed currencies, <strong>never added together</strong>.</div>"
+        + "".join(rows)
+        + "</section>"
+    )
+
+
 def _render_landing() -> None:
     hero_banner(
         kicker="PUBLIC MONEY",
@@ -444,6 +498,8 @@ def _render_landing() -> None:
         "What a company then pays its own subcontractors is not published anywhere — so the trail "
         "ends at each body's own line items, never below them.</div>"
     )
+    # The other direction of the trail — the State as investor (ISIF), not just payer.
+    _render_isif_lane()
     # The full start-from picker — the existing paid landing (top bodies / top companies), whose
     # cards already link into the same ?paid_* scheme this page's rail tracks.
     _render_payments()

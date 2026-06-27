@@ -60,9 +60,43 @@ def cbi_repeat_distress(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_corporate_cbi_repeat_distress")
 
 
+def cbi_enforcement(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Central Bank of Ireland enforcement actions — settlements / sanctions, one row per
+    published notice, biggest disclosed fine first. ``fine_amount_eur`` is the single fine on
+    that notice (NOT summable across notices — settlements differ in basis; value_safe_to_sum
+    is False on the view). Summary/aggregate notices carry a null fine. The page lists named
+    actions; it never totals them."""
+    return _run(
+        conn,
+        "SELECT notice_date, title, party_name, doc_type, fine_amount_eur, pdf_url, source_url"
+        " FROM v_corporate_cbi_enforcement"
+        " ORDER BY fine_amount_eur DESC NULLS LAST, notice_date DESC NULLS LAST",
+    )
+
+
 def brand_aliases(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Brand -> parent_fund -> fund_type curated alias map."""
     return _run(conn, "SELECT * FROM v_corporate_brand_aliases")
+
+
+def isif_portfolio(conn: duckdb.DuckDBPyConnection, *, limit: int | None = None) -> QueryResult:
+    """ISIF (Ireland Strategic Investment Fund) sovereign-fund investment commitments — the
+    State putting money INTO companies, one row per investee, newest commitment first.
+
+    NOT summable: amounts are in mixed currencies (EUR/USD), some are 'up to' ceilings, and
+    value_safe_to_sum is False on the view. The page lists named commitments; it never totals
+    them. A commitment is a public investment record, not evidence of anything else."""
+    sql = (
+        "SELECT investee_name, commitment_date, commitment_year_label, description,"
+        " amount_stated, amount_currency, amount_is_up_to, source_url"
+        " FROM v_corporate_isif_portfolio"
+        " ORDER BY commitment_date DESC NULLS LAST"
+    )
+    params: list = []
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
 
 
 def receiver_appointers(conn: duckdb.DuckDBPyConnection) -> QueryResult:

@@ -338,6 +338,9 @@ PUBLISHERS: list[dict] = [
         semantics="po_committed",
         grain="purchase_order",
         caveat="contains very large NBI infrastructure POs; check outlier share before any total",
+        # No PO column: supplier / 'amount description' reading-order; 3 sub-layouts. The generic
+        # reader lost whole quarters (coverage_qa: ~86% with files at 0).
+        reader="reading_order_culture",
     ),
     # ---- Cheap wins 2026-06-08: gov.ie / enterprise.gov.ie departments already published, files
     # cached in c:/tmp but never wired. Both parse clean with the generic reader (offline-validated).
@@ -352,6 +355,9 @@ PUBLISHERS: list[dict] = [
         caveat="DPENDR+OGCIO+OGP PO-over-20000 listing; note the SEPARATE pre-existing bug that the "
         "Dept Climate gov.ie collection mis-serves a 'DPER_Payments_over_20K' file (filename/dept "
         "mismatch) — that is payment-grain and ingested under dept_climate, distinct from these POs",
+        # OGCIO (dated) + DPENDR (undated) reading-order layouts, 13-digit PO; generic reader got
+        # OGCIO at 58.8% and ingested grand-total lines as phantom payments (coverage_qa).
+        reader="reading_order_dper",
     ),
     cfg(
         "dept_enterprise",
@@ -510,6 +516,9 @@ PUBLISHERS: list[dict] = [
         grain="payment",
         tier="C",
         direct=["https://www.revenue.ie/en/corporate/documents/procurement/payments-over-20000-quarter4-2025.pdf"],
+        # ref/supplier/description each on their own line then the amount line — the generic
+        # word-geometry reader mis-columned these (quarter4-2025 at 0% yield, coverage_qa).
+        reader="reading_order_revenue",
     ),
     cfg(
         "ie_atu",
@@ -561,6 +570,9 @@ PUBLISHERS: list[dict] = [
         tier="C",
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|over.?20k",
         caveat="Purchase-Orders quarterly files (PO grain); contracts-awarded list excluded",
+        # 13-digit 'PO supplier' merged line + leading € amount — Courts-style but wider; the
+        # generic reader recovered ~6 of 163 rows (coverage_qa).
+        reader="reading_order_tailte",
     ),
     cfg(
         "dept_housing",
@@ -1233,21 +1245,31 @@ def read_pdf(b: bytes, max_pages: int | None) -> dict:
 
 # ---- reading-order PDF (DCEDIY / dept_children) ----
 _RO_REF = re.compile(r"^(\d{4,7})\s+(.+\S)\s*$")
+_RO_REF_ALONE = re.compile(r"^\d{4,7}$")  # Layout B: the reference sits on its OWN line
 _RO_DATE = re.compile(r"^(\d{2})/(\d{2})/(\d{4})(?:\s+(.*))?$")
 _RO_AMT = re.compile(r"^\D{0,3}([\d,]+\.\d{2})\s*(.*)$")
 _RO_HEADER = {
     "reference", "name", "supplier name", "amount", "total paid",
     "description", "payment", "payment date", "date",
 }  # fmt: skip
+# Boilerplate / footnote lines that bleed into the text layer between records (the DCEDIY
+# "Please note: … inclusive of VAT …" footer block). Excluded so they never become a row or
+# contaminate a description (user req: never ingest headers/footers).
+_RO_BOILER = re.compile(
+    r"please note|inclusive of vat|purchase orders? (are|for)|may have been|would appear", re.I
+)
 
 
 def read_reading_order(b: bytes, max_pages: int | None) -> list[dict]:
     """Line-pair reader for the DCEDIY PO layout the generic word-geometry reader can't parse.
 
-    Each record is a 'ref supplier' line followed by a payment date and a '€amount description'
-    line in EITHER order (two published column layouts — date-middle and date-last). Order-
-    agnostic: classify each post-ref line by pattern, flush on the next ref. Carries a PER-ROW
-    payment date (the value here — provider spend over time), unlike the file-period schema.
+    Two published sub-layouts, handled together:
+      A. 'ref supplier' on ONE line, then date + '€amount description' (in either order); and
+      B. the reference ALONE on its own line, then supplier on the next line, then amount/desc/date
+         — the layout the original reader silently dropped (e.g. 36d03592 yielded 1 of 252 rows,
+         and several quarters yielded zero, ~8k rows absent from the fact: coverage_qa caught it).
+    Order-agnostic: classify each post-ref line by pattern, flush on the next ref. Carries a
+    PER-ROW payment date (the value here — provider spend over time), unlike the file-period schema.
     """
     doc = fitz.open(stream=b, filetype="pdf")
     limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
@@ -1263,14 +1285,21 @@ def read_reading_order(b: bytes, max_pages: int | None) -> list[dict]:
     for pi in range(limit):
         for raw in doc[pi].get_text().splitlines():
             line = raw.strip()
-            if not line or line.lower() in _RO_HEADER:
+            if not line or line.lower() in _RO_HEADER or _RO_BOILER.search(line):
                 continue
             m = _RO_REF.match(line)
-            if m:
+            if m:  # Layout A: 'ref supplier' inline
                 flush()
                 cur = {"ref": m.group(1), "supplier": m.group(2).strip(), "date": None, "amount": None, "desc": "", "page": pi + 1}
                 continue
+            if _RO_REF_ALONE.match(line):  # Layout B: reference alone -> supplier on the next line
+                flush()
+                cur = {"ref": line, "supplier": None, "date": None, "amount": None, "desc": "", "page": pi + 1}
+                continue
             if cur is None:
+                continue
+            if cur["supplier"] is None and not _RO_AMT.match(line) and not _RO_DATE.match(line):
+                cur["supplier"] = line  # Layout B: first line after the bare ref is the supplier
                 continue
             dm = _RO_DATE.match(line)
             if dm and cur["date"] is None:
@@ -1393,7 +1422,13 @@ def read_courts(b: bytes, max_pages: int | None) -> list[dict]:
 # (DQ audit 2026-06; validated in pipeline_sandbox/courts_reader/). Anchoring on the CURRENCY line
 # (a lone 3-letter code) with the AMOUNT right after it, then walking back to the leading PO digit
 # line, recovers PO + supplier + amount cleanly and is robust to the two header orderings.
-_DD_CUR = re.compile(r"^(EUR|USD|GBP|CHF|SEK|NOK|DKK|JPY|CAD|AUD|PLN|CZK|HUF|ZAR|SGD|HKD|NZD)$")
+# Currency code on its own line — the anchor. Older Defence quarters (e.g. jan-mar-2019)
+# print the WORD form ("EURO"/"US DOLLAR"/"STERLING") instead of the ISO code, so a code-only
+# regex anchored 0 of those records (jan-mar-2019 fell to ~14% yield). Accept both forms.
+_DD_CUR = re.compile(
+    r"^(EUR|EURO|USD|US DOLLAR|GBP|STERLING|POUND STERLING|CHF|SEK|NOK|DKK|JPY|CAD|AUD|PLN|CZK|HUF|ZAR|SGD|HKD|NZD)$",
+    re.I,
+)
 _DD_AMT = re.compile(r"^[€$£]?\s*([\d,]+\.\d{2})$")
 _DD_PO = re.compile(r"^\d{4,7}$")
 _DD_PO_NAME = re.compile(r"^(\d{4,7})\s+(.+)$")  # merged 'PO NAME' (4-field layout)
@@ -1463,6 +1498,276 @@ def read_defence(b: bytes, max_pages: int | None) -> list[dict]:
             i += 2
             continue
         i += 1
+    return recs
+
+
+# ---- Revenue Commissioners reading-order reader. Each record is the reference, supplier and
+# description on their own lines, then the amount line (the amount carries an inline paid flag
+# in some quarters: "102,534.41 Y"; others print the amount alone with the € and Y on separate
+# lines, or "€2,372,503.95 Y" with a leading €). The generic word-geometry reader mis-columned
+# these → ~726 rows lost (coverage_qa: quarter4-2025 at 0%). Reference-led: split on the bare
+# reference line, classify the amount by its 2-decimals, supplier=first text line, rest=description.
+_REV_REF = re.compile(r"^\d{4,7}$")
+_REV_AMT = re.compile(r"^€?\s*([\d,]+\.\d{2})\s*(Y|N|Yes|No)?\s*$", re.I)
+_REV_HDR = {
+    "reference", "supplier", "supplier ", "description", "amount", "paid", "ledger amount",
+    "customer/supplier description",
+}  # fmt: skip
+
+
+def read_revenue(b: bytes, max_pages: int | None) -> list[dict]:
+    """Reading-order reader for the Revenue Commissioners payments PDFs → list of
+    {ref, supplier, amount, desc, paid} dicts (period from the file URL)."""
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+    lines: list[str] = []
+    for pi in range(limit):
+        for raw in doc[pi].get_text().splitlines():
+            s = raw.replace("\xa0", " ").strip()
+            if s:
+                lines.append(s)
+    doc.close()
+
+    recs: list[dict] = []
+    n = len(lines)
+    i = 0
+    while i < n:
+        if _REV_REF.match(lines[i]) and not _REV_AMT.match(lines[i]):
+            ref = lines[i]
+            j = i + 1
+            sup = None
+            desc: list[str] = []
+            amt = paid = None
+            while j < n and not (_REV_REF.match(lines[j]) and not _REV_AMT.match(lines[j])):
+                line = lines[j]
+                if line.lower() in _REV_HDR:
+                    j += 1
+                    continue
+                m = _REV_AMT.match(line)
+                if m:
+                    amt, paid = float(m.group(1).replace(",", "")), m.group(2)
+                    j += 1
+                    break
+                if sup is None:
+                    sup = line
+                else:
+                    desc.append(line)
+                j += 1
+            if amt is not None and amt >= 20000 and sup:
+                recs.append({"ref": ref, "supplier": sup, "amount": amt, "desc": " ".join(desc) or None, "paid": paid})
+            i = j
+        else:
+            i += 1
+    return recs
+
+
+# ---- Tailte Éireann reading-order reader. Same shape as the Courts reader (amount-anchored,
+# 'PO supplier' merged on one line, supplier sometimes wraps to a 2nd line) BUT with 13-digit PO
+# numbers (Courts uses 4-7) and a leading € on the amount — so it needs its own widened regexes.
+# The generic reader recovered ~6 of 163 rows.
+_TT_AMT = re.compile(r"^€?\s*([\d,]+\.\d{2})\b\s*(.*)$")
+_TT_PO_NAME = re.compile(r"^(\d{4,13})\s+(.+)$")
+_TT_PO_ONLY = re.compile(r"^\d{4,13}$")
+_TT_PAID = re.compile(r"^(Y|N|Yes|No)$", re.I)
+
+
+def read_tailte(b: bytes, max_pages: int | None) -> list[dict]:
+    """Reading-order reader for the Tailte Éireann PO PDFs → list of
+    {ref, supplier, amount, desc, paid} dicts (period from the file URL)."""
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+    lines: list[str] = []
+    for pi in range(limit):
+        for raw in doc[pi].get_text().splitlines():
+            s = re.sub(r"\s+", " ", raw.replace("\xa0", " ").replace("�", " ")).strip()
+            if not s:
+                continue
+            low = s.lower()
+            if low.startswith("purchase orders") or "incl vat" in low or "please note" in low:
+                continue
+            if low in {"po", "supplier", "total", "description", "paid", "(incl vat)"}:
+                continue
+            if re.match(r"(?i)^total\b\s*[:€]?\s*[\d,]", s):
+                continue
+            lines.append(s)
+    doc.close()
+
+    n = len(lines)
+    recs: list[dict] = []
+    rec_start = 0
+    i = 0
+    while i < n:
+        am = _TT_AMT.match(lines[i])
+        if not am:
+            i += 1
+            continue
+        amount = float(am.group(1).replace(",", ""))
+        head = lines[rec_start:i]
+        j = i + 1
+        desc: list[str] = []
+        if am.group(2).strip():
+            desc.append(am.group(2).strip())
+        paid = None
+        while j < n and not _TT_AMT.match(lines[j]):
+            if _TT_PAID.match(lines[j]):
+                paid = lines[j]
+                j += 1
+                break
+            if _TT_PO_NAME.match(lines[j]) or _TT_PO_ONLY.match(lines[j]):
+                break
+            desc.append(lines[j])
+            j += 1
+        headtext = " ".join(head).strip()
+        last = None
+        for mm in re.finditer(r"(\d{4,13})\s+", headtext):
+            if re.search(r"[A-Za-z]", headtext[mm.end():]):
+                last = mm
+        if last is not None:
+            po, supplier = last.group(1), headtext[last.end():].strip()
+        else:
+            po, supplier = None, headtext
+        if (
+            supplier
+            and re.search(r"[A-Za-z]", supplier)
+            and amount >= 20000
+            and not re.fullmatch(r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier)
+        ):
+            recs.append({"ref": po, "supplier": supplier, "amount": amount, "desc": " ".join(desc).strip() or None, "paid": paid})
+        rec_start = j
+        i = j
+    return recs
+
+
+# ---- DPER / OGCIO reading-order reader. Two layout families under one publisher:
+#   OGCIO   : PO(13-digit) / supplier / PO-date / amount / description / paid   (6 lines)
+#   DPENDR  : PO(13-digit) / supplier / '€amount description' / paid            (no date, amount inline)
+# plus 'PO supplier' merged on one line in some quarters. Amount-anchored (Courts/Tailte family)
+# with a 13-digit PO and a trailing-date strip; naturally drops the file's grand-total line (no
+# supplier) that the generic word-geometry reader ingested as a phantom payment. coverage_qa: OGCIO
+# was 58.8% (191 of 325).
+_DP_AMT = re.compile(r"^€?\s*([\d,]+\.\d{2})\b\s*(.*)$")
+_DP_PO_NAME = re.compile(r"^(\d{10,})\s+(.+)$")
+_DP_PO_ONLY = re.compile(r"^\d{10,}$")
+_DP_DATE = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
+_DP_PAID = re.compile(r"^(Y|N|Yes|No)$", re.I)
+_DP_HDR = re.compile(
+    r"^(po(\s|$)|po no|po number|po total|po amount|po date|total po value|supplier|supplier name|"
+    r"description|paid|total$|purchase orders? for)", re.I
+)
+_DP_BOILER = re.compile(r"please note|inclusive of vat|€20,000 or|for dpendr|for ogcio|for the dep", re.I)
+
+
+def read_dper(b: bytes, max_pages: int | None) -> list[dict]:
+    """Reading-order reader for the DPER/OGCIO PO PDFs → {ref, supplier, amount, desc, paid}
+    dicts (period from the file URL). Handles the dated (OGCIO) and undated (DPENDR) layouts."""
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+    lines: list[str] = []
+    for pi in range(limit):
+        for raw in doc[pi].get_text().splitlines():
+            s = re.sub(r"\s+", " ", raw.replace("\xa0", " ").replace("�", " ")).strip()
+            if not s or _DP_HDR.match(s) or _DP_BOILER.search(s.lower()):
+                continue
+            if re.match(r"(?i)^total\b\s*[:€]?\s*[\d,]", s):
+                continue
+            lines.append(s)
+    doc.close()
+
+    n = len(lines)
+    recs: list[dict] = []
+    rec_start = 0
+    i = 0
+    while i < n:
+        am = _DP_AMT.match(lines[i])
+        if not am or float(am.group(1).replace(",", "")) < 20000:
+            i += 1
+            continue
+        amount = float(am.group(1).replace(",", ""))
+        head = lines[rec_start:i]
+        j = i + 1
+        desc: list[str] = []
+        if am.group(2).strip():
+            desc.append(am.group(2).strip())
+        paid = None
+        while j < n and not _DP_AMT.match(lines[j]):
+            if _DP_PAID.match(lines[j]):
+                paid = lines[j]
+                j += 1
+                break
+            if _DP_PO_NAME.match(lines[j]) or _DP_PO_ONLY.match(lines[j]):
+                break
+            desc.append(lines[j])
+            j += 1
+        headtext = " ".join(head).strip()
+        po = None
+        last = None
+        for mm in re.finditer(r"(\d{10,})\s+", headtext):
+            if re.search(r"[A-Za-z]", headtext[mm.end():]):
+                last = mm
+        if last is not None:
+            po, supplier = last.group(1), headtext[last.end():].strip()
+        elif head and _DP_PO_ONLY.match(head[-1]):
+            po, supplier = head[-1], None
+        else:
+            supplier = headtext
+        if supplier:  # strip a trailing PO-date that bled into the supplier (OGCIO layout)
+            dm = _DP_DATE.search(supplier)
+            if dm:
+                supplier = supplier[: dm.start()].strip()
+        if (
+            supplier
+            and re.search(r"[A-Za-z]", supplier)
+            and not re.fullmatch(r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier)
+        ):
+            recs.append({"ref": po, "supplier": supplier, "amount": amount, "desc": " ".join(desc).strip() or None, "paid": paid})
+        rec_start = j
+        i = j
+    return recs
+
+
+# ---- Dept of Culture reading-order reader. NO reference/PO column: each record is a supplier
+# line then an amount line that carries the description inline ("42,903.39 National Archives"),
+# on the next line, or not at all (3 sub-layouts across quarters). Amount-anchored: supplier is
+# the line immediately above the amount; description is the inline tail plus any lines up to the
+# next record's supplier. The generic word-geometry reader managed ~86% and lost whole files.
+_CU_AMT = re.compile(r"^€?\s*([\d,]+\.\d{2})(?:\s+(.*\S))?\s*$")
+_CU_HDR = re.compile(r"^(supplier|total\s*€?|description|paid|po\b|purchase orders?|payments?)", re.I)
+_CU_BOILER = re.compile(r"please note|inclusive of vat|€20,000|for the dep|for 20|quarter", re.I)
+
+
+def read_culture(b: bytes, max_pages: int | None) -> list[dict]:
+    """Reading-order reader for the Dept of Culture PO PDFs (no PO column) →
+    {ref, supplier, amount, desc} dicts (period from the file URL)."""
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+    lines: list[str] = []
+    for pi in range(limit):
+        for raw in doc[pi].get_text().splitlines():
+            s = re.sub(r"\s+", " ", raw.replace("\xa0", " ").replace("�", " ")).strip()
+            if not s or _CU_HDR.match(s) or _CU_BOILER.search(s.lower()):
+                continue
+            if re.match(r"(?i)^total\b\s*[:€]?\s*[\d,]", s):
+                continue
+            lines.append(s)
+    doc.close()
+
+    amts = [i for i, ln in enumerate(lines) if _CU_AMT.match(ln) and float(_CU_AMT.match(ln).group(1).replace(",", "")) >= 20000]
+    recs: list[dict] = []
+    for k, i in enumerate(amts):
+        m = _CU_AMT.match(lines[i])
+        amount = float(m.group(1).replace(",", ""))
+        supplier = lines[i - 1] if i > 0 and not _CU_AMT.match(lines[i - 1]) else None
+        desc: list[str] = []
+        if m.group(2):
+            desc.append(m.group(2).strip())
+        nxt = amts[k + 1] if k + 1 < len(amts) else len(lines)
+        for q in range(i + 1, max(i + 1, nxt - 1)):  # stop before the next record's supplier line
+            if not _CU_AMT.match(lines[q]):
+                desc.append(lines[q])
+        if supplier and re.search(r"[A-Za-z]", supplier) and not re.fullmatch(
+            r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier
+        ):
+            recs.append({"ref": None, "supplier": supplier, "amount": amount, "desc": " ".join(desc).strip() or None})
     return recs
 
 
@@ -1641,6 +1946,42 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
         for srn, r in enumerate(recs):
             sup = clean_supplier(r["supplier"])
             rows_out.append(base(srn, 1, sup, r["amount"], r["desc"], r["ref"], r["paid"]))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
+    elif fmt == "pdf" and cf.get("reader") == "reading_order_revenue":
+        # Revenue Commissioners reading-order reader (period from the file URL). ref -> po_number.
+        recs = read_revenue(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], r["paid"]))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
+    elif fmt == "pdf" and cf.get("reader") == "reading_order_culture":
+        # Dept of Culture reading-order reader (no PO column; period from the file URL).
+        recs = read_culture(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], None, None))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
+    elif fmt == "pdf" and cf.get("reader") == "reading_order_dper":
+        # DPER/OGCIO reading-order reader (period from the file URL). ref -> po_number.
+        recs = read_dper(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], r["paid"]))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
+    elif fmt == "pdf" and cf.get("reader") == "reading_order_tailte":
+        # Tailte Éireann reading-order reader (period from the file URL). ref -> po_number.
+        recs = read_tailte(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], r["paid"]))
             good += 1
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 
