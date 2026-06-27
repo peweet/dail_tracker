@@ -91,6 +91,24 @@ Re-ran council GPU OCR: **Louth 0 → 7 meetings**; `meeting_history.jsonl` **21
 30 → 31 councils**. Galway City stays at 4 (its 2022-23 archive is behind a base64 JS file-browser
 — a discovery limit, low value to chase). Fix generalises to other year-sub-page councils.
 
+## GE2020 election finance — extracted, validated, READY for the elections-hub tab (2026-06-27)
+Reused the GE2024 Part-4 parsers on the GE2020 national-agent returns (identical SIPO form).
+After a mid-run **RAM-exhaustion crash** (box at ~2.7 GB free + an MCP-server respawn pileup —
+see [[feedback_ocr_memory_exhaustion_crash]]; killed the MCP orphans, they stayed dead), the
+remaining docs were OCR'd under a RAM-gated mobile-detector fallback, then the 4 national-agent
+docs that mattered were re-OCR'd at server quality (recreate-every-doc, no crash —
+[[feedback_mobile_detector_degrades_financial_ocr]]).
+
+**GE2020 national-agent central spend (printed official overall per party; headline = printed
+total, not Σitems — same contract as GE2024):**
+FG €850,679 · FF €640,915 · SF €191,428 · Labour €112,111 · Green €53,859 · SocDem €39,476 ·
+Solidarity–PBP €5,770 · Irish Freedom €1,727 · Renua €1,620 · Aontú €436. **10 parties; 7 with
+fully-reconciling line items.** SF/IFP/Aontú line items are `reconciles=false` (SF: a duplicate
+upload 283548≈283549 + ×100 decimal-drops on amounts — its €191,428 printed overall is the
+trustworthy figure). Silver in `C:/tmp/sipo_job3/extract/ge2020_ne_{items,categories}.parquet`.
+Also: 78 GE2020 candidate-donation rows (partial — needs GE2020-form parser tuning).
+**NOT yet promoted** — pending sign-off on the final numbers + committing to gold/public page.
+
 ## Net-new this session
 - **SIPO**: real recovery, committed (Part-4 items 2→12 parties, 922 rows; minor-party Part-3/items).
 - **Diaries / council**: already-extracted in prior runs; this run reproduced + assessed them.
