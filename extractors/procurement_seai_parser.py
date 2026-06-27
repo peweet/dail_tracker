@@ -171,37 +171,7 @@ def main() -> None:
     df = pl.DataFrame(rows, infer_schema_length=None)
     df = pbe.classify_and_flag(df)
 
-    SCHEMA_COLS = [
-        "publisher_id",
-        "publisher_name",
-        "publisher_type",
-        "sector",
-        "source_landing_url",
-        "source_file_url",
-        "source_file_hash",
-        "period",
-        "year",
-        "quarter",
-        "supplier_raw",
-        "supplier_normalised",
-        "amount_eur",
-        "amount_semantics",
-        "value_safe_to_sum",
-        "description",
-        "po_number",
-        "paid_flag",
-        "source_row_number",
-        "source_page_number",
-        "parser_name",
-        "parser_version",
-        "extraction_status",
-        "extraction_confidence",
-        "caveat_text_detected",
-        "supplier_class",
-        "privacy_status",
-        "public_display",
-        "source_caveat",
-    ]
+    SCHEMA_COLS = pbe.PAYMENTS_FACT_SCHEMA_COLS  # single source of truth in pbe
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)

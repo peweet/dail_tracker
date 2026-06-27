@@ -3,7 +3,7 @@
 **Status:** design / not built (the supporting **gold views are already built & tested**; the UI is not).
 **Created:** 2026-06-13.
 **Owner intent:** "I love this idea — preserve it very precisely." This doc is the canonical spec.
-**Companion:** `doc/MONEY_FLOW_DATA_AUDIT.md` (the data backbone + the §0a build log that produced the views).
+**Companion:** `doc/archive/MONEY_FLOW_DATA_AUDIT.md` (the data backbone + the §0a build log that produced the views).
 
 > One line: a **"What the money buys"** lens on the **Public Payments** page — browse public-body spend by
 > the bodies' OWN published purpose (category) → drill to the named vendors that received it → out to each
@@ -216,7 +216,7 @@ on primary views. No new dependency.
 
 Four money pages — **Payments** (PSA), **Election 2024**, **Procurement** (awarded), **Public Payments**
 (paid) — plus the hidden **Company** dossier, is a lot for a citizen who just thinks *"where does my money
-go."* They must already know AWARDED-vs-PAID-vs-PSA to land on the right page. The `MONEY_FLOW_DATA_AUDIT.md`
+go."* They must already know AWARDED-vs-PAID-vs-PSA to land on the right page. The `archive/MONEY_FLOW_DATA_AUDIT.md`
 §6 floated a single **"Follow the money" hub**: one entry that explains the tiers and routes to the right
 register (by recipient / by body / by category / by place), with the three honest lanes (Contracts awarded /
 Money paid out / Money to politics) that never share a total.

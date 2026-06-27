@@ -81,6 +81,43 @@ MIN_FACT_ROWS = 60_000
 
 DATA_EXT = (".pdf", ".xlsx", ".xls", ".csv")
 
+# The canonical column contract for the public-body payments fact (order-defining).
+# Sibling publisher parsers (nphdb/nta/seai/hse_tusla) all load this module as `pbe`
+# and reference `pbe.PAYMENTS_FACT_SCHEMA_COLS` so the schema lives in ONE place.
+# The downstream consolidator validates by name/set and concats name-aligned, so the
+# fact is order-independent — but keep this list authoritative for new columns.
+PAYMENTS_FACT_SCHEMA_COLS = [
+    "publisher_id",
+    "publisher_name",
+    "publisher_type",
+    "sector",
+    "source_landing_url",
+    "source_file_url",
+    "source_file_hash",
+    "period",
+    "year",
+    "quarter",
+    "supplier_raw",
+    "supplier_normalised",
+    "amount_eur",
+    "amount_semantics",
+    "value_safe_to_sum",
+    "description",
+    "po_number",
+    "paid_flag",
+    "source_row_number",
+    "source_page_number",
+    "parser_name",
+    "parser_version",
+    "extraction_status",
+    "extraction_confidence",
+    "caveat_text_detected",
+    "supplier_class",
+    "privacy_status",
+    "public_display",
+    "source_caveat",
+]
+
 # ----------------------------------------------------------------------------- regexes
 MONEY_RE = re.compile(r"(?:€|EUR)?\s?\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2}")
 NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
@@ -2413,37 +2450,7 @@ def main() -> None:
             print(line)
         return
 
-    SCHEMA_COLS = [
-        "publisher_id",
-        "publisher_name",
-        "publisher_type",
-        "sector",
-        "source_landing_url",
-        "source_file_url",
-        "source_file_hash",
-        "period",
-        "year",
-        "quarter",
-        "supplier_raw",
-        "supplier_normalised",
-        "amount_eur",
-        "amount_semantics",
-        "value_safe_to_sum",
-        "description",
-        "po_number",
-        "paid_flag",
-        "source_row_number",
-        "source_page_number",
-        "parser_name",
-        "parser_version",
-        "extraction_status",
-        "extraction_confidence",
-        "caveat_text_detected",
-        "supplier_class",
-        "privacy_status",
-        "public_display",
-        "source_caveat",
-    ]
+    SCHEMA_COLS = PAYMENTS_FACT_SCHEMA_COLS
     df = pl.DataFrame(all_rows, infer_schema_length=None)
     df, rows_deduped = dedup_source_repeats(df)
     if rows_deduped:

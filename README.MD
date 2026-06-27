@@ -37,16 +37,18 @@ Inspired by [TheyWorkForYou](https://github.com/mysociety/theyworkforyou),
 |---|---|---|
 | [Oireachtas Open Data API](https://api.oireachtas.ie/) | Members, legislation, questions, votes | API / JSON |
 | [data.oireachtas.ie](https://data.oireachtas.ie/) | Attendance, allowances, Register of Members' Interests | PDF |
+| Google News RSS | Per-member news-mention feed (member profile) | RSS |
 | [lobbying.ie](https://www.lobbying.ie/app/home/search) | Lobbying returns | CSV |
 | [Companies Registration Office](https://cro.ie/) | Director / shareholding cross-reference | Bulk export |
 | [Charities Regulator](https://www.charitiesregulator.ie/) | Trustee cross-reference | XLSX |
 | [Iris Oifigiúil](https://www.irisoifigiuil.ie/) | Statutory instruments, appointments, official notices | PDF |
 | [eTenders / OGP](https://www.etenders.gov.ie/) | Public procurement awards (supplier → CRO match) | CSV |
 | [TED](https://ted.europa.eu/) | EU-journal Irish award + tender notices (silver only) | API / JSON / XML |
-| [SIPO](https://www.sipo.ie/) | Party donations + GE2024 election spending | PDF (OCR) |
+| [SIPO](https://www.sipo.ie/) | Party donations + GE2024 & GE2020 election spending | PDF (OCR) |
 | Public-body PO / payment disclosures | Payments over €20k — departments, agencies, HSE, Tusla, 31 local authorities | PDF / CSV / XLSX |
 | [Courts Service](https://www.courts.ie/) | Bench roster, Legal Diary, case clearance & waiting times | PDF / HTML |
 | [CSO PxStat](https://data.cso.ie/) | Government-finance & housing denominators | API / JSON |
+| [Housing Agency](https://www.housingagency.ie/) | Social-housing waiting list (SSHA) — demand by county | PDF |
 | [Central Bank of Ireland registers](https://registers.centralbank.ie/) | Regulated-entity cross-reference for corporate notices | PDF |
 | [Local Authority Annual Financial Statements](https://www.gov.ie/) | Council spend by service division | PDF |
 | [NOAC](https://noac.ie/) / [DHLGH](https://www.gov.ie/) | Local-authority accountability — revenue-collection rates, derelict-sites levy | PDF / XLSX |
@@ -111,30 +113,40 @@ exit code, summary line, and error for every chain.
 The chains, in run order:
 
 - **Core domains:** `bootstrap` (PDF/API polling + member & debate flattening),
-  `members` (Wikidata + ministerial tenure + committees), `payments`,
-  `attendance`, `seanad` (parity, reuses the Dáil parsers), `interests`,
-  `lobbying` (+ CRO + charities join), `iris` (SIs + appointments + corporate
-  notices), and `legislation` (bills + questions + amendments + votes).
+  `members` (Wikidata + ministerial tenure + committees), `news_mentions`
+  (per-member Google-News RSS feed), `payments`, `attendance`, `seanad` (parity,
+  reuses the Dáil parsers), `member_contact` (scrape oireachtas.ie profile
+  pages), `interests`, `lobbying` (+ CRO + charities join), `iris` (SIs +
+  appointments + corporate notices), and `legislation` (bills + questions +
+  amendments + votes).
+- **Participation & committees:** `participation` (the "showing up" model —
+  division turnout, absence gaps, presence-vs-vote divergence, 120-day TAA
+  compliance) and `committee_evidence` / `committee_evidence_promote` (committee
+  meeting history — date, topics, witnesses, transcript link).
 - **Courts & judiciary:** `judiciary_bench` (promote validated bench / appointments
   / clearance / waiting roster to gold), `legal_diary_poller` (archive the daily
   Legal Diary `.docx`), `legal_diary_extract` (privacy-tiered schedule / counts /
   cases), and `judiciary_diary_link` (map surname-only diary judges to the bench).
 - **Cross-reference & enrichment:** `afs` (LA financial statements → spend by
   division), `cbi` (Central Bank register ↔ corporate notices), `cro` (CRO
-  company register ↔ corporate notices), `procurement` (eTenders awards +
+  company register ↔ corporate notices), `corporate_receiver` (receiver-appointer
+  ranking + operator-firm concentration), `procurement` (eTenders awards +
   supplier→CRO match), `procurement_lobbying` (supplier ↔ lobbying overlap),
   `ted` / `ted_tenders` (EU award and tender notices, silver only), `cso`
   (PxStat government-finance & housing denominators), and `stateboards` (DPER
   state-boards roster + body universe).
 - **Public payments (privacy-gated):** `public_body_payments` (departmental and
-  agency PO/payment disclosures over €20k), `hse_tusla_payments`, and
-  `la_payments` (31 local authorities) feed three schema-aligned fact tables,
-  which `procurement_consolidate` folds into one listing-rot-guarded gold
-  `procurement_payments_fact`.
+  agency PO/payment disclosures over €20k), `hse_tusla_payments`,
+  `disclosed_bq_po` (a disclosed national PO extract recovering missing HSE
+  history; no-op when its manual drop is absent), and `la_payments` (31 local
+  authorities) feed schema-aligned fact tables, which `procurement_consolidate`
+  folds into one listing-rot-guarded gold `procurement_payments_fact`.
 - **Local-authority accountability:** `noac_collection` (NOAC per-LA
-  revenue-collection rates), `derelict_sites` (DHLGH derelict-sites levy levied /
-  collected / outstanding), and `planning_appeal_outcomes` (council vs An
-  Coimisiún Pleanála overturn rate).
+  revenue-collection rates), `noac_scorecard` / `noac_scorecard_history` /
+  `noac_indicators` (the citizen-facing accountability scorecard, its 2022–2024
+  trend, and the full per-LA indicator set), `derelict_sites` (DHLGH
+  derelict-sites levy levied / collected / outstanding), and
+  `planning_appeal_outcomes` (council vs An Coimisiún Pleanála overturn rate).
 - **Monitoring (read-only, never mutate pipeline data):** `freshness`
   (data-age signal per domain → `data/_meta/freshness.json`), `source_health`
   (per-source staleness / listing reachability →
@@ -170,13 +182,25 @@ uv sync --extra pipeline --group dev          # full local dev: + ETL deps + tes
 streamlit run utility/app.py
 ```
 
-A Streamlit app (titled *Dáil Tracker*) with seventeen pages — a Home
-landing view, Member Overview (the canonical TheyWorkForYou-style profile),
-Attendance, Votes, Interests, Committees, Payments, Election 2024 (SIPO
-donations + campaign spending), Procurement, Public Payments, Legislation,
-Statutory Instruments, Corporate Notices, Courts & Judiciary (bench roster,
-appointments, court performance, Legal Diary), Lobbying, Public Appointments,
-and a Glossary.
+A Streamlit app (titled *Dáil Tracker*) with twenty-seven pages grouped into
+eight top-nav sections:
+
+- **What They Own** — the plain-language front door to the Register of Members'
+  Interests (property / shares / companies, across sitting *and* former members).
+- **Your Area** — a constituency- and council-first dossier: Constituencies,
+  Your Council, Who Runs Your County, Your Councillors, Council Spending, and
+  Housing (social-housing waiting list).
+- **Members & Parliament** — Member Overview (the canonical
+  TheyWorkForYou-style profile), Attendance, Votes, and Committees.
+- **The Money** — Payments, Election 2024 (SIPO donations + campaign spending),
+  Procurement, Follow the Money, Accommodation Spend, Public Payments, and a
+  Companies dossier.
+- **Law & Records** — Legislation, Statutory Instruments, Corporate Notices, and
+  Courts & Judiciary (bench roster, appointments, court performance, Legal Diary).
+- **Influence** — Lobbying, Who Ministers Meet (ministerial diaries), and
+  Appointments.
+- **Planning** — Siting Check (an experimental geospatial designation engine).
+- **Glossary**.
 
 Streamlit is a thin presentation layer: pages read **only** through registered
 DuckDB views and are restricted to `SELECT / WHERE / ORDER BY / LIMIT`. All
@@ -214,13 +238,20 @@ several datasets exist in gold/silver before they get a dedicated page.
 
 - **Government-finance denominators** — the `cso` chain lands government-finance
   aggregates (`v_gov_finance_annual`); the council spend-by-division (`afs`),
-  collection-rate, and derelict-sites data now surface on the Council Spending
-  and Who Runs Your County pages, with per-capita denominator usage still to come.
-  Plan in [`doc/PER_LA_AFS_BUILD_PLAN.md`](doc/PER_LA_AFS_BUILD_PLAN.md).
+  collection-rate, and derelict-sites data surface on the Council Spending and
+  Who Runs Your County pages, and the Housing page now uses CSO population for
+  per-capita waiting-list figures. A dedicated national government-finance view
+  is still to come. Plan in
+  [`doc/PER_LA_AFS_BUILD_PLAN.md`](doc/PER_LA_AFS_BUILD_PLAN.md).
 - **GE2024 candidate expenses** — per-candidate expense statements already show
   on the Election 2024 page, with 473 of the 614 sourced candidates extracted so
   far; OCR of the remainder is in progress and the coverage gap is shown
   in-app, never implied complete.
+- **GE2020 election spending** — national-agent party expenses, OCR'd from
+  scanned returns, now land in gold (`sipo_ge2020_expense_*`) and in registered
+  views (`v_sipo_ge2020_party_national_*`); a UI surface for them is the next
+  step. Kept as separate facts so the GE2024 hub is untouched and the two
+  elections are never summed.
 - **Bulk data exports** — parquet downloads of the gold layer via the API
   (Phase 2 of [`doc/API_LAYER_PLAN.md`](doc/API_LAYER_PLAN.md)), demand-gated.
 - **Scheduled data refresh** — read-only canaries already run on GitHub Actions
@@ -267,7 +298,9 @@ Public sources change format and cadence, so expect drift. Notable points:
   per firm — never unioned or summed; TED's naive total is dominated by pan-EU
   research-framework outliers.
 - Several datasets are scoped or sandbox-grade: judiciary is sandbox-only,
-  political finance is GE2024-only and re-OCR'd, ministerial diaries are
+  political finance covers GE2024 (donations + spending) plus GE2020
+  national-agent party expenses — much of it re-OCR'd from scanned returns and
+  carried as separate, never-summed facts — ministerial diaries are
   self-curated and quarterly-in-arrears, and CSO housing figures are by council
   area (not constituency).
 - Cross-reference panels that name private individuals (CRO directors, charity
