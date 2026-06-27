@@ -386,6 +386,58 @@ def finding_lede(sentences: list[str], *, source_html: str = "") -> None:
     st.html(f'<div class="dt-finding-lede">{body}{src}</div>')
 
 
+def _bn_eur(val) -> str:
+    """Compact national-scale euro: €133.8bn / €149.0bn."""
+    try:
+        n = float(val)
+    except (TypeError, ValueError):
+        return "—"
+    if abs(n) >= 1_000_000_000:
+        return f"€{n / 1_000_000_000:.1f}bn"
+    if abs(n) >= 1_000_000:
+        return f"€{n / 1_000_000:.0f}m"
+    return f"€{n:,.0f}"
+
+
+def render_national_finance_context(*, year: int | None = None, note: str = "") -> None:
+    """Reusable national-scale anchor from the (previously orphaned) ``v_gov_finance_annual``
+    view: the State's total general-government revenue / expenditure / balance for one year,
+    as a denominator a reader can eyeball big public-money figures against.
+
+    DELIBERATELY NOT a computed "% of total spend": general-government expenditure is a
+    whole-economy national-accounts measure, NOT a clean superset of any single register here
+    (published over-€20k payments, contract awards, etc. mix bases and tiers). Stating it as a
+    share would be the "never mix registers" trap. So this renders the denominator as context
+    only, with that caveat. Silently no-ops if the view is unavailable. ``note`` appends a
+    page-specific framing sentence.
+    """
+    # Lazy import keeps ui/ free of a hard data_access dependency at module load.
+    from data_access.publicfinance_data import fetch_gov_finance_annual_result
+
+    res = fetch_gov_finance_annual_result()
+    if not res.ok or res.data.empty:
+        return
+    df = res.data  # newest-first
+    row = df[df["year"] == year] if year is not None else df.head(1)
+    if row.empty:
+        row = df.head(1)
+    r = row.iloc[0]
+    yr = int(r["year"])
+    rev, exp, bal = r.get("revenue_eur"), r.get("expenditure_eur"), r.get("surplus_deficit_eur")
+    balance_word = "surplus" if (bal is not None and float(bal) >= 0) else "deficit"
+    extra = f" {_h(note)}" if note else ""
+    st.html(
+        '<div class="dt-natfin">'
+        f'<span class="dt-natfin-k">National scale · {yr}</span>'
+        f'<span class="dt-natfin-v">Total government spending <strong>{_bn_eur(exp)}</strong> · '
+        f'revenue <strong>{_bn_eur(rev)}</strong> · '
+        f'<strong>{_bn_eur(abs(float(bal)) if bal is not None else None)}</strong> {balance_word}</span>'
+        '<span class="dt-natfin-c">A whole-economy national-accounts measure (CSO) — context for the '
+        f'figures here, not a total they sum into.{extra}</span>'
+        "</div>"
+    )
+
+
 def card_sources_html(links: list[str]) -> str:
     """Quiet conduit row for a card footer — splice into card HTML.
 

@@ -5683,6 +5683,17 @@ def inject_css() -> None:
             height: 100%;
         }
         .pr-card-head { display: flex; align-items: baseline; gap: 0.5rem; }
+        /* National-scale finance anchor (render_national_finance_context). */
+        .dt-natfin { display: flex; flex-direction: column; gap: 0.1rem; margin: 0.6rem 0 0.9rem;
+            padding: 0.6rem 0.85rem; border-left: 3px solid #3a6b7e; background: var(--surface-1, #faf7f0);
+            border-radius: 0 8px 8px 0; }
+        .dt-natfin-k { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+            font-weight: 700; color: #3a6b7e; }
+        .dt-natfin-v { font-size: 1rem; color: var(--ink-strong); font-variant-numeric: tabular-nums; }
+        .dt-natfin-c { font-size: 0.78rem; color: var(--text-meta); line-height: 1.4; }
+        .pr-card-src { margin-top: 0.4rem; font-size: 0.8rem; }
+        .pr-card-src a { color: var(--link, #2b6b7e); text-decoration: none; }
+        .pr-card-src a:hover { text-decoration: underline; }
         .pr-rank {
             font-weight: 700; color: var(--accent); font-size: 0.82rem;
             font-variant-numeric: tabular-nums; flex: none;
@@ -5791,6 +5802,19 @@ def inject_css() -> None:
             background: var(--surface); border: 1px dashed var(--border); border-radius: 8px;
             padding: 0.6rem 0.85rem; margin: 0 0 1.1rem; max-width: 60rem; }
         .mf-wall strong { color: var(--ink-strong); }
+        /* State-as-investor (ISIF) lane on the Follow-the-money landing. */
+        .mf-isif { max-width: 60rem; margin: 0 0 1.2rem; padding: 0.85rem 1rem;
+            border: 1px solid var(--border); border-left: 3px solid #2f7d5b; border-radius: 0 8px 8px 0;
+            background: var(--surface-1, #faf7f0); }
+        .mf-isif-kick { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; color: #2f7d5b; margin-bottom: 0.25rem; }
+        .mf-isif-sub { font-size: 0.84rem; color: var(--ink-700); line-height: 1.5; margin-bottom: 0.7rem; }
+        .mf-isif-row { padding: 0.45rem 0; border-top: 1px solid var(--border); }
+        .mf-isif-head { display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap; }
+        .mf-isif-name { font-weight: 700; color: var(--ink-strong); }
+        .mf-isif-amt { font-weight: 700; color: #2f7d5b; font-variant-numeric: tabular-nums; }
+        .mf-isif-yr { font-size: 0.78rem; color: var(--text-meta); margin-left: auto; }
+        .mf-isif-desc { font-size: 0.8rem; color: var(--ink-700); line-height: 1.4; margin-top: 0.15rem; }
         .pr-cap { font-size: 0.86rem; color: var(--ink-700); line-height: 1.5; margin: 0.2rem 0 0.6rem; max-width: 60rem; }
         .pr-cap em { color: var(--text-meta); font-style: italic; }
         /* stale-snapshot warning — rust (signal-bad), NEVER true red: this is a freshness
@@ -5870,6 +5894,17 @@ def inject_css() -> None:
             overflow: hidden; margin: 0.22rem 0 0.1rem; }
         .pr-afsbar-fill { height: 100%; border-radius: 5px; min-width: 2px; }
         .pr-afsbar-note { font-size: 0.76rem; color: var(--text-meta); line-height: 1.4; }
+        /* "What the money buys" category lens — clickable ranked bars + publisher chips. */
+        .pp-cat-bars a { display: block; text-decoration: none; color: inherit;
+            padding: 0.5rem 0.7rem; margin: 0.3rem 0; border: 1px solid transparent;
+            border-radius: 8px; transition: background 0.12s, border-color 0.12s; }
+        .pp-cat-bars a:hover { background: var(--surface-1, #faf7f0); border-color: var(--border-strong); }
+        .pp-cat-bars .pr-afsbar { margin: 0; }
+        .pp-cat-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.1rem 0 0.9rem; }
+        .pp-cat-chip { font-size: 0.84rem; padding: 0.22rem 0.6rem; border-radius: 999px;
+            background: var(--surface-2, #eee7dc); color: var(--ink-strong); text-decoration: none;
+            white-space: nowrap; }
+        .pp-cat-chip:hover { background: var(--border-strong); }
         /* "Your council" index — province bands + lifecycle-tier pills.
            Province band header is a SEMANTIC <h3> (heading-navigable for screen
            readers); geography is encoded by the fixed N->S band order, never colour. */

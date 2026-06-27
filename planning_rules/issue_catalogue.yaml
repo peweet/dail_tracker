@@ -160,15 +160,18 @@ nodes:
       predicate: "within(gaeltacht)"
       source_layers: [gaeltacht]
     flag_template: >
-      This site is in the {gt_name} Gaeltacht. By law the development plan must protect Irish as the
-      community language (Planning and Development Act s.10(2)), so the Irish language is a material
-      planning consideration here: a Linguistic Impact Statement is typically required for housing, and
-      in the stronger Gaeltacht sub-areas a planning condition can tie occupancy of new houses to
-      Irish-language competence/commitment. The exact requirement varies by sub-area and is set by the
-      council's Gaeltacht chapter.
+      This site is in the {gt_name} Gaeltacht, where protecting Irish as the community language is a
+      material planning consideration (Planning and Development Act s.10(2)). Whether that becomes a
+      real requirement — a Linguistic Impact Statement, or a condition tying occupancy to Irish-language
+      competence — DEPENDS ON THE SUB-AREA: it bites hardest in the strong-Irish core (e.g. Cois
+      Fharraige) and may be light or absent toward the periphery (such conditions have been overturned
+      on appeal in weaker/urban-fringe areas). Being inside the Gaeltacht boundary does NOT by itself
+      mean a language condition will apply — confirm the specific requirement in the council's Gaeltacht
+      policy for this exact location.
     engage: ["planning consultant (Gaeltacht / linguistic impact)"]
     rule_ref: { checklist: [] }
     mitigation_class: D
+    conditional: true   # the coarse boundary can't say whether the language condition actually applies here (tiered: strong core vs fringe like Menlo) -> a CHECK to confirm, not an asserted finding
     mitigates: "Submit a Linguistic Impact Statement assessing the effect on the Irish-speaking community; engage with Udaras na Gaeltachta / the area language plan; accept the development plan's Irish-language occupancy condition where it applies."
     precedents: [ { curate: true, keywords: ["Gaeltacht", "linguistic impact", "Irish language condition"] } ]
     risk_note: "Statutory (PDA s.10(2)); strongest in the Cois Fharraige / south Connemara core (Barna-Carna). Tiered + contested — ABP has overturned language conditions in weaker Gaeltacht areas (e.g. Claregalway). The forthcoming National Planning Statement on Rural Housing (H2 2026) may refine it."

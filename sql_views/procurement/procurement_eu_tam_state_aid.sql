@@ -15,7 +15,28 @@
 --   equivalent for guarantees/loans; small-band disclosures publish a RANGE kept as text in
 --   *_raw (then *_value is NULL). value_safe_to_sum is FALSE on every row — NEVER SUM these and
 --   never union with payment facts (these are AWARDS, not drawdowns).
+-- SCHEME-TOTAL CONTAMINATION (2026-06-27): the EC register sometimes records a SCHEME's whole
+--   budget against ONE named beneficiary. Example: under SA.105798 ("Scheme of Investment Aid for
+--   Horticulture", 139 awards, median €38,950) one row reads €2,767,727,677 — the scheme total, not
+--   that firm's aid (the same firm also appears correctly at €10,628). This is a SOURCE artifact, not
+--   a parse error (aid_element_raw literally carries the figure). We can't correct the number, so we
+--   FLAG it: aid_element_suspect_scheme_total is TRUE for a row that, within its scheme (sa_number),
+--   is the single largest by >100x over the next award AND is ≥€100m AND the scheme has ≥2 awards.
+--   A genuine large single-award scheme (e.g. SA.54472, National Broadband, the only award in its
+--   scheme at €2.977bn) is NOT flagged. The page sets flagged rows aside from the ranked register.
 CREATE OR REPLACE VIEW v_procurement_eu_tam_state_aid AS
+WITH _src AS (
+    SELECT *,
+        ROW_NUMBER() OVER (PARTITION BY sa_number ORDER BY aid_element_value DESC NULLS LAST) AS _aid_rank,
+        COUNT(aid_element_value) OVER (PARTITION BY sa_number)                                AS _scheme_n_awards
+    FROM read_parquet('data/gold/parquet/eu_tam_state_aid.parquet')
+    WHERE beneficiary_name IS NOT NULL
+),
+_flagged AS (
+    SELECT *,
+        MAX(CASE WHEN _aid_rank >= 2 THEN aid_element_value END) OVER (PARTITION BY sa_number) AS _scheme_second_val
+    FROM _src
+)
 SELECT
     ref_no,
     sa_number,
@@ -42,6 +63,13 @@ SELECT
     value_kind,
     realisation_tier,
     value_safe_to_sum,
-    ingested_date
-FROM read_parquet('data/gold/parquet/eu_tam_state_aid.parquet')
-WHERE beneficiary_name IS NOT NULL;
+    ingested_date,
+    (
+        _aid_rank = 1
+        AND sa_number IS NOT NULL
+        AND _scheme_n_awards >= 2
+        AND aid_element_value >= 100000000
+        AND _scheme_second_val IS NOT NULL
+        AND aid_element_value > 100 * _scheme_second_val
+    ) AS aid_element_suspect_scheme_total
+FROM _flagged;

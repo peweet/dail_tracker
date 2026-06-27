@@ -45,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.corporate_data import (
     fetch_brand_aliases,
+    fetch_cbi_enforcement,
     fetch_cbi_repeat_distress,
     fetch_corporate_notices,
     fetch_receiver_appointers,
@@ -889,6 +890,12 @@ def load_cbi_repeat_distress() -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
+def load_cbi_enforcement() -> pd.DataFrame:
+    """CBI enforcement actions (settlements/sanctions with fines) — biggest fine first."""
+    return fetch_cbi_enforcement()
+
+
+@st.cache_data(show_spinner=False)
 def load_brand_aliases() -> pd.DataFrame:
     """Curated brand → parent → fund_type table for the methodology expander."""
     return fetch_brand_aliases()
@@ -1664,6 +1671,86 @@ def _render_cbi_repeat_distress(df_cbi: pd.DataFrame) -> None:
     )
 
 
+def _fine_eur(val) -> str:
+    """Compact fine label: €30.7m / €452k / €51.8k / €— ."""
+    try:
+        n = float(val)
+    except (TypeError, ValueError):
+        return "—"
+    if n <= 0:
+        return "—"
+    if n >= 1_000_000:
+        return f"€{n / 1_000_000:.1f}m"
+    if n >= 1_000:
+        return f"€{n / 1_000:.0f}k"
+    return f"€{n:,.0f}"
+
+
+def _render_cbi_enforcement(df_enf: pd.DataFrame) -> None:
+    """logic_firewall: display_only — Central Bank enforcement settlements/sanctions from
+    v_corporate_cbi_enforcement, biggest disclosed fine first. Fines are NEVER summed
+    (settlements differ in basis); the panel lists named actions and links each to its
+    published notice PDF. Each is a regulatory settlement of record, not a court conviction."""
+    if df_enf is None or df_enf.empty:
+        return
+
+    # Display-only slice: rows that carry a named party AND a positive fine lead the panel
+    # (summary/aggregate notices with a null fine are filtered out for the ranked list).
+    named = df_enf[df_enf["party_name"].notna() & df_enf["fine_amount_eur"].notna()]
+    if named.empty:
+        return
+    n_actions = len(named)
+    years = named["notice_date"].dropna().astype(str).str[:4]
+    first_year = years.min() if not years.empty else ""
+
+    rows_html: list[str] = [
+        '<div class="corp-cbi-row corp-cbi-row-head">'
+        "<div>Firm (CBI-regulated)</div>"
+        '<div style="text-align:right;">Fine /<br>settlement</div>'
+        '<div style="text-align:right;">Date</div>'
+        "<div>Notice</div>"
+        "</div>"
+    ]
+    for _, r in named.head(15).iterrows():
+        name = _safe(r.get("party_name")) or "—"
+        fine = _fine_eur(r.get("fine_amount_eur"))
+        date = _safe(r.get("notice_date"))[:10]
+        pdf = _safe(r.get("pdf_url"))
+        link = (
+            f'<a href="{html.escape(pdf, quote=True)}" target="_blank" rel="noopener">settlement notice ↗</a>'
+            if pdf.startswith("http")
+            else ""
+        )
+        link_to_firm = f"?clear=year&q={html.escape(name, quote=True)}"
+        rows_html.append(
+            '<div class="corp-cbi-row">'
+            f'<div class="corp-cbi-name" title="{html.escape(name)}">'
+            f'<a href="{link_to_firm}" target="_self"><strong>{html.escape(name)}</strong></a></div>'
+            f'<div class="corp-cbi-count">{html.escape(fine)}</div>'
+            f'<div class="corp-cbi-count-routine">{html.escape(date)}</div>'
+            f'<div class="corp-cbi-reg">{link}</div>'
+            "</div>"
+        )
+
+    top = named.iloc[0]
+    top_line = (
+        f"largest is <strong>{html.escape(_safe(top.get('party_name')))}</strong> at "
+        f"<strong>{html.escape(_fine_eur(top.get('fine_amount_eur')))}</strong>"
+    )
+    st.markdown(
+        '<section class="corp-cbi-panel" aria-label="Central Bank enforcement settlements">'
+        '<div class="corp-cbi-kicker">Central Bank of Ireland · enforcement</div>'
+        '<h2 class="corp-cbi-h">Regulator fines &amp; settlements</h2>'
+        '<div class="corp-cbi-sub">'
+        f"The Central Bank has published <strong>{n_actions}</strong> enforcement settlements with a "
+        f"disclosed monetary penalty since <strong>{html.escape(first_year)}</strong> — {top_line}. "
+        "Each is a regulatory settlement of record (often confirmed by the High Court), not a criminal "
+        "conviction; fines differ in basis and are <strong>never added together</strong>."
+        "</div>" + "".join(rows_html) + "</section>",
+        unsafe_allow_html=True,
+    )
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Corporate-rescue panel — Examinership + SCARP. Counterbalances the
 # distress story with the rescue story. logic_firewall: display_only.
@@ -2090,6 +2177,7 @@ def corporate_page() -> None:
 
     df = load_corporate()
     cbi_repeat = load_cbi_repeat_distress()
+    cbi_enforcement = load_cbi_enforcement()
     brand_aliases = load_brand_aliases()
 
     # URL handlers — run before widgets so session_state is right.
@@ -2232,6 +2320,8 @@ def corporate_page() -> None:
         _render_operator_strip()
     with st.expander("Regulated firms in repeat distress (experimental)", expanded=False):
         _render_cbi_repeat_distress(cbi_repeat)
+    with st.expander("Central Bank fines & settlements", expanded=False):
+        _render_cbi_enforcement(cbi_enforcement)
     with st.expander("Firms in rescue — examinership & SCARP", expanded=False):
         _render_rescue_panel(df)
     # Methodology already renders as its own collapsed <details> (+ CSV download), so it

@@ -18,13 +18,32 @@ def test_gaeltacht_layer_ingested():
     assert "gaeltacht" in _STORE.available()
 
 
-def test_node_validates_and_flag_states_the_statutory_rule():
+def test_node_is_a_conditional_check_not_an_asserted_requirement():
+    # The coarse 7-county Gaeltacht boundary can't say whether the language condition actually
+    # applies (it's tiered: strong core vs fringe like Menlo), so the node must be a CHECK, never
+    # an assertion that a Linguistic Impact Statement / occupancy condition is required.
     cat = load_catalogue()  # _validate() runs — source_layer glossary + class must resolve
     n = cat.node("gaeltacht")
     assert "gaeltacht" in n.source_layers
     assert n.mitigation_classes == frozenset({"D"})
-    assert "Linguistic Impact Statement" in n.flag_template
     assert "s.10(2)" in n.flag_template
+    assert n.conditional is True
+    assert "DEPENDS ON THE SUB-AREA" in n.flag_template  # honest tiered framing, not a blanket assertion
+
+
+def test_gaeltacht_routes_to_checks_not_a_constraint(monkeypatch):
+    # End-to-end: at Menlo (in the Gaeltacht, but a fringe area where the condition didn't bite)
+    # the brief must file gaeltacht under "checks to confirm", NOT as a hard/shaping constraint.
+    import dail_tracker_core.siting.dem as _dem
+    from dail_tracker_core.siting.dem import Terrain
+
+    monkeypatch.setattr(_dem, "terrain", lambda lon, lat: Terrain(None, None, None, False, False, "off"))
+    from dail_tracker_core.siting.brief import build_brief
+    from dail_tracker_core.siting.engine import evaluate
+
+    b = build_brief(evaluate(-9.0520, 53.3062, dev_type="one_off_house", council_slug="galway_county_council", store=_STORE))
+    assert "gaeltacht" in {i.node_id for i in b.to_verify}
+    assert "gaeltacht" not in {i.node_id for i in (b.hard_constraints + b.shaping_constraints)}
 
 
 def test_fires_in_connemara_spiddal():

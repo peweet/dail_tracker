@@ -433,3 +433,135 @@ def guard_payment_fact(
     if hard:
         report.raise_if_failed()
     return report
+
+
+# --------------------------------------------------------------------------- plausibility
+# The vocab gate above catches *unknown labels*; this catches *absurd numbers* — a stray,
+# fat-fingered or mis-OCR'd figure (a €999,999,999 donation) that is the right TYPE, in the
+# right column, but is simply not a real value. Trust is the product, so a single ridiculous
+# number reaching a published total is the failure to avoid. The pattern is dead-letter /
+# quarantine: split the frame, let the plausible rows flow, divert the rest to the quarantine
+# dir for review, and HALT only if the bad FRACTION spikes (which means the source changed
+# shape — a units change, a parser break — not one bad cell).
+
+_NUMERIC_DTYPES = (
+    pl.Float64, pl.Float32,
+    pl.Int64, pl.Int32, pl.Int16, pl.Int8,
+    pl.UInt64, pl.UInt32, pl.UInt16, pl.UInt8,
+)
+
+
+@dataclass(frozen=True)
+class BoundRule:
+    """An 'absurd-only' numeric plausibility bound on one column.
+
+    A non-null value ``< min_value`` or ``> max_value`` is implausible. Bounds are meant to
+    be set WIDE — so wide that only genuine garbage trips them (a single Irish political
+    donation over €1bn is physically impossible) — NOT as tight business rules: a tight
+    bound is a straitjacket coupled to the source. Use ``None`` for an open side.
+    """
+
+    column: str
+    min_value: float | None = None
+    max_value: float | None = None
+    # A few stray cells are quarantined and the run continues; a fraction past this means
+    # the SOURCE changed shape (units, a parser break) rather than a fat-finger — halt.
+    max_offending_frac: float = 0.02
+
+
+class ImplausibleValueSpike(ContractViolation):
+    """Raised when implausible values exceed tolerance — a structural change, not a stray
+    cell. Subclasses :class:`ContractViolation` so existing pipeline halts still catch it."""
+
+
+def _bound_offending_expr(rule: BoundRule) -> pl.Expr:
+    col = pl.col(rule.column)
+    cond = pl.lit(False)
+    if rule.min_value is not None:
+        cond = cond | (col < rule.min_value)
+    if rule.max_value is not None:
+        cond = cond | (col > rule.max_value)
+    return col.is_not_null() & cond
+
+
+def partition_implausible(
+    df: pl.DataFrame,
+    *,
+    name: str,
+    bounds: tuple[BoundRule, ...],
+    quarantine_dir: Path = QUARANTINE_DIR,
+    write_quarantine: bool = True,
+) -> tuple[pl.DataFrame, pl.DataFrame, ContractReport]:
+    """Split ``df`` into ``(plausible, implausible)`` rows by absurd-only numeric bounds.
+
+    The plausible frame is safe to propagate; implausible rows are quarantined to disk
+    (full rows + a tracked JSON summary, the SAME convention as the vocab gate) tagged with
+    a per-row ``_quarantine_reason``, and the event is reported. Surviving rows keep their
+    order; the only side effect is the quarantine write.
+
+    Raises :class:`ImplausibleValueSpike` if any rule's offending fraction exceeds its
+    ``max_offending_frac`` (evidence is quarantined first, so it survives the halt). A bounded
+    column that is ABSENT is skipped (a loader may not carry it); a column that is PRESENT but
+    non-numeric raises ``ValueError`` — a mis-wired gate, caught at dev time, not waved through.
+    """
+    for rule in bounds:
+        if rule.column in df.columns:
+            dt = df.schema[rule.column]
+            if dt != pl.Null and dt not in _NUMERIC_DTYPES:
+                raise ValueError(
+                    f"partition_implausible[{name}]: column '{rule.column}' is {dt}, not numeric — "
+                    f"cast it before gating (this is a wiring error, not data drift)."
+                )
+
+    report = ContractReport(name=name, n_rows=df.height)
+    union = pl.Series("_m", [False] * df.height, dtype=pl.Boolean)
+    fired: list[BoundRule] = []
+    spike = False
+    for rule in bounds:
+        if rule.column not in df.columns or df.schema[rule.column] == pl.Null:
+            continue
+        mask = df.select(_bound_offending_expr(rule).alias("_m")).to_series()
+        n_off = int(mask.sum())
+        if n_off == 0:
+            continue
+        frac = n_off / df.height if df.height else 0.0
+        samples = df.filter(mask).select(pl.col(rule.column)).to_series().head(8).to_list()
+        escalated = frac > rule.max_offending_frac
+        spike = spike or escalated
+        report.vocab_breaches[rule.column] = {
+            "severity": "bound",
+            "n_offending": n_off,
+            "frac": round(frac, 4),
+            "samples": [str(s) for s in samples],
+            "escalated": escalated,
+            "bounds": [rule.min_value, rule.max_value],
+        }
+        union = union | mask
+        fired.append(rule)
+
+    n_q = int(union.sum())
+    report.n_quarantined_rows = n_q
+    plausible = df.filter(~union)
+    implausible = df.filter(union)
+
+    if n_q and write_quarantine:
+        reason_expr = pl.concat_str(
+            [
+                pl.when(_bound_offending_expr(r)).then(pl.lit(f"{r.column};")).otherwise(pl.lit(""))
+                for r in fired
+            ]
+        ).str.strip_chars_end(";")
+        q = df.with_columns(reason_expr.alias("_quarantine_reason")).filter(union)
+        report.quarantine_parquet, report.quarantine_summary = _write_quarantine(
+            name=name, frame=q, report=report, quarantine_dir=quarantine_dir
+        )
+
+    if spike:
+        worst = {c: b for c, b in report.vocab_breaches.items() if b.get("escalated")}
+        raise ImplausibleValueSpike(
+            f"implausible-value SPIKE in '{name}': {worst} exceeded tolerance — the SOURCE likely "
+            f"changed shape (units / parser), this is not a stray cell. Investigate before publishing. "
+            + (f"Offending rows quarantined -> {report.quarantine_parquet}" if report.quarantine_parquet else "")
+        )
+
+    return plausible, implausible, report

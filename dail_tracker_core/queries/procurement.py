@@ -1168,6 +1168,54 @@ def afs_vs_po_coverage(conn: duckdb.DuckDBPyConnection, council: str, *, year: i
     return _run(conn, sql + " ORDER BY year", params)
 
 
+def afs_national_by_division(conn: duckdb.DuckDBPyConnection, year: int | None = None) -> QueryResult:
+    """The national amalgamated AFS — all 31 councils' audited net cost by service division, for
+    one year (or every year if ``year`` is None). The complete audited local-government picture, a
+    BUDGET grain never summed with the PO euros. Pre-ordered (year DESC, net DESC) in the view."""
+    sql = (
+        "SELECT year, division, gross_expenditure_eur, income_eur, net_expenditure_eur,"
+        " net_expenditure_prior_yr_eur FROM v_procurement_afs_national_by_division"
+    )
+    params: list = []
+    if year is not None:
+        sql += " WHERE year = ?"
+        params.append(int(year))
+    return _run(conn, sql, params)
+
+
+def afs_national_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """National amalgamated AFS totals per year (Σ across divisions) — the 2016–2023 spine."""
+    return _run(
+        conn,
+        "SELECT year, gross_expenditure_eur, income_eur, net_expenditure_eur, n_divisions"
+        " FROM v_procurement_afs_national_by_year ORDER BY year",
+    )
+
+
+def eu_tam_state_aid(conn: duckdb.DuckDBPyConnection, *, limit: int | None = None) -> QueryResult:
+    """EU State-Aid Transparency awards to Irish beneficiaries — the grant/subsidy register
+    (IDA, Enterprise Ireland, DAFM…), one row per disclosed award, biggest first.
+
+    Ranks on ``aid_element_value`` (the actual subsidy value — ~86% filled), NOT
+    ``nominal_amount_value`` (~73% null, register-blank) — see the EU-TAM aid-element gotcha.
+    These are subsidies/grants, a DIFFERENT instrument from contract awards — never summed with
+    eTenders/TED values. value_safe_to_sum is False on the view (mixed bases), so the page lists
+    named awards and never totals them."""
+    sql = (
+        "SELECT beneficiary_name, beneficiary_type, cro_company_num, aid_measure_title,"
+        " granting_authority, aid_instrument, objective, sector_nace,"
+        " aid_element_value, nominal_amount_value, date_granted, award_detail_url,"
+        " aid_element_suspect_scheme_total"
+        " FROM v_procurement_eu_tam_state_aid"
+        " ORDER BY aid_element_value DESC NULLS LAST, date_granted DESC NULLS LAST"
+    )
+    params: list = []
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
 def lobbying_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Companies on BOTH the procurement and lobbying registers (co-occurrence
     disclosure only — never causation; see the view header)."""

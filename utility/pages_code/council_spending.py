@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.freshness_data import freshness_line
 from pages_code.procurement import (
+    _render_afs_national,
     _render_councils,
     _render_payment_lines,
     _render_payments_publisher_profile,
@@ -77,6 +78,10 @@ def council_spending_page() -> None:
         dek="What Ireland's county and city councils spend — the suppliers they pay and "
         "their audited accounts, council by council.",
     )
+    # National frame FIRST — the complete audited picture of what all 31 councils spend by
+    # service (amalgamated AFS), before the per-council index. A BUDGET grain, never summed
+    # with the over-€20k purchase orders the per-council dossiers carry.
+    _render_afs_national()
     _render_councils()
 
     provenance_expander(

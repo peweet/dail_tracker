@@ -57,11 +57,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "extractors"))
 from _publisher_regime import regime_for  # noqa: E402
-from extractors._paid_flag_clean import clean_paid_flag  # noqa: E402
 
+from extractors._paid_flag_clean import clean_paid_flag  # noqa: E402
+from services import parse_qa  # noqa: E402
 from services.data_contracts import guard_payment_fact, reconciliation_violations  # noqa: E402
-from services.parquet_io import save_parquet  # noqa: E402
 from services.deflator import value_plausible_expr  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
 with contextlib.suppress(Exception):
@@ -832,6 +833,17 @@ def main() -> None:
     # Magnitude-plausibility flag (parse-artefact guard) — additive, never alters amount_eur.
     # Lets a real-terms / sum view exclude sub-€100 noise before any deflator scales it.
     df = df.with_columns(value_plausible_expr("amount_eur").alias("value_plausible"))
+
+    # PARSE-QUALITY GATE (services/parse_qa): catch a parser regression that collapses
+    # several records into one cell — a whole PO table or OCR'd page dumped into a single
+    # description (max/p99 ratio + an absolute-length backstop that survives p99 inflation).
+    # tolerate=20 covers the KNOWN dept_children (DCEDIY) reading-order residual: those PDFs
+    # need the bespoke reading-order parser, not a regex (a heuristic truncation clips ~944
+    # legit descriptions — see project_dept_children_asylum_spend_gap). The gate trips if that
+    # residual grows or a new column starts collapsing, while staying green on today's data.
+    for _r in parse_qa.scan_frame(df):
+        print(f"  parse-qa residual: {_r}")
+    parse_qa.assert_clean(df, tolerate=20)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT, min_rows=MIN_FACT_ROWS)

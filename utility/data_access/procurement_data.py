@@ -289,6 +289,26 @@ def fetch_afs_capital_by_division_result(council: str, year: int) -> QueryResult
     return _q.afs_capital_by_division(get_procurement_conn(), council, year)
 
 
+# ── National amalgamated AFS (all-31-LA audited service spend) ─────────────────
+@st.cache_data(ttl=600)
+def fetch_afs_national_by_division_result(year: int | None = None) -> QueryResult:
+    """All 31 councils' audited net cost by service division (one year or all)."""
+    return _q.afs_national_by_division(get_procurement_conn(), year)
+
+
+@st.cache_data(ttl=600)
+def fetch_afs_national_by_year_result() -> QueryResult:
+    """National amalgamated AFS totals per year (2016–2023 spine)."""
+    return _q.afs_national_by_year(get_procurement_conn())
+
+
+# ── EU State Aid (grants/subsidies) — separate register, never summed with awards ──
+@st.cache_data(ttl=300)
+def fetch_eu_tam_state_aid_result(limit: int | None = 60) -> QueryResult:
+    """EU State-Aid Transparency awards to Irish beneficiaries, ranked by aid_element_value."""
+    return _q.eu_tam_state_aid(get_procurement_conn(), limit=limit)
+
+
 # ── TED (EU-journal awards) — separate register ───────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_ted_corpus_stats_result() -> QueryResult:

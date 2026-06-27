@@ -40,6 +40,7 @@ from pathlib import Path
 import polars as pl
 
 from extractors._diary_minister import resolve_minister
+from services import parse_qa
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -80,6 +81,15 @@ def main() -> int:
     overlap = _read("diary_lobbying_overlap_ranked.parquet").with_columns(
         (pl.col("sector") == STATE_SECTOR).alias("is_state_body")
     )
+
+    # PARSE-QUALITY GATE (services/parse_qa): the diaries are OCR'd, so a layout the parser
+    # can't read collapses a whole month-view calendar page into one engagement `subject`
+    # (max/p99 ratio + absolute-length backstop). tolerate=40 covers the KNOWN OCR residual
+    # (historic scanned diaries are a dead-end — see project_ministerial_diaries); the gate
+    # trips if a fresh refresh starts collapsing more pages or a new field breaks.
+    for _r in parse_qa.scan_frame(engagements):
+        logging.info("parse-qa residual: %s", _r)
+    parse_qa.assert_clean(engagements, tolerate=40)
 
     # Floors: refuse to atomically replace good gold with a botched (tiny) promotion.
     save_parquet(engagements, GOLD / "ministerial_diary_engagements.parquet", min_rows=1000)

@@ -27,7 +27,30 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.data_contracts import ColumnRule, enforce_contract  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
+
+# The elections we hold validated OCR ground-truth for. A gold fact carrying any
+# other tag was built from a source we have not checked — that is drift, not data.
+SIPO_ELECTION_EVENTS = frozenset({"GE2024"})
+
+
+def _guard_sipo(df: pl.DataFrame, *, name: str, money_cols: tuple[str, ...]) -> None:
+    """Runtime drift gate run BEFORE the gold write (mirrors the inline PII guard below).
+
+    Pure-Polars via services.data_contracts — no test-only dependency, so it imports
+    cleanly on the Cloud core-deps install. These facts are OCR-derived, so it halts
+    the promote when the silent failure mode shows up:
+      * a negative euro figure (an OCR sign / column-misalignment parse error);
+      * an ``election_event`` outside the validated set (an unverified source).
+    Anchored 2026-06-27: passes on all current gold (0 negatives, election_event=GE2024).
+    """
+    negatives = {c: df.filter(pl.col(c) < 0).height for c in money_cols if c in df.columns}
+    negatives = {c: n for c, n in negatives.items() if n}
+    if negatives:
+        raise RuntimeError(f"{name}: negative euro values {negatives} — OCR sign/parse error, refusing to promote")
+    rules = (ColumnRule("election_event", SIPO_ELECTION_EVENTS, "hard"),) if "election_event" in df.columns else ()
+    enforce_contract(df, name=name, rules=rules, required_columns=("party",), nonnull_columns=()).raise_if_failed()
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -82,6 +105,7 @@ def promote_donations() -> None:
         raise RuntimeError(f"PII leak: address column(s) {leaked} must not reach gold")
     GOLD.mkdir(parents=True, exist_ok=True)
     out = GOLD / "sipo_donations.parquet"
+    _guard_sipo(df, name="sipo_donations", money_cols=("value_eur",))
     save_parquet(df, out)
     print(f"  donations -> {out.relative_to(ROOT)}  ({df.height} rows, address dropped: {bool(drop)})")
     print("  parties:", sorted(df["party"].unique().to_list()))
@@ -99,6 +123,11 @@ def promote_expenses() -> None:
     df = pl.read_parquet(src)
     GOLD.mkdir(parents=True, exist_ok=True)
     out = GOLD / "sipo_expenses_fact.parquet"
+    _guard_sipo(
+        df,
+        name="sipo_expenses_fact",
+        money_cols=("expenditure_eur", "amount_assigned_eur", "statutory_limit_eur"),
+    )
     save_parquet(df, out)
     blank = df.filter(pl.col("candidate_name_raw").str.strip_chars() == "").height
     print(f"  expenses  -> {out.relative_to(ROOT)}  ({df.height} rows, {blank} blank-name)")
@@ -121,6 +150,7 @@ def promote_expense_categories() -> None:
     )
     GOLD.mkdir(parents=True, exist_ok=True)
     out = GOLD / "sipo_expense_categories.parquet"
+    _guard_sipo(df, name="sipo_expense_categories", money_cols=("category_total_eur", "items_sum_eur"))
     save_parquet(df, out)
     print(f"  categories-> {out.relative_to(ROOT)}  ({df.height} rows)")
     print("  parties:", sorted(df["party"].unique().to_list()))
@@ -141,6 +171,7 @@ def promote_expense_items() -> None:
     )
     GOLD.mkdir(parents=True, exist_ok=True)
     out = GOLD / "sipo_expense_items.parquet"
+    _guard_sipo(df, name="sipo_expense_items", money_cols=("cost_eur",))
     save_parquet(df, out)
     print(f"  items     -> {out.relative_to(ROOT)}  ({df.height} rows)")
     print("  parties:", sorted(df["party"].unique().to_list()))

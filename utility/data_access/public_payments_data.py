@@ -29,7 +29,13 @@ _ROOT = Path(__file__).resolve().parents[2]
 
 @st.cache_resource
 def get_public_payments_conn() -> duckdb.DuckDBPyConnection:
-    return connect_with_views(["procurement_public_payments.sql"], swallow_errors=True)
+    # procurement_payments_by_category.sql carries the "What the money buys" lens views
+    # (v_payments_by_category[_publisher] / v_payments_category_suppliers); both files read
+    # the same gold payment fact, so registering them together is the whole dependency set.
+    return connect_with_views(
+        ["procurement_public_payments.sql", "procurement_payments_by_category.sql"],
+        swallow_errors=True,
+    )
 
 
 @st.cache_data(ttl=600)
@@ -86,3 +92,22 @@ def fetch_supplier_lines_result(
 @st.cache_data(ttl=300)
 def fetch_supplier_quarter_totals_result(supplier_normalised: str, limit: int | None = None) -> QueryResult:
     return _q.supplier_quarter_totals(get_public_payments_conn(), supplier_normalised, limit=limit)
+
+
+# "What the money buys" — category lens (doc/PAYMENTS_CATEGORY_LENS_DESIGN.md).
+@st.cache_data(ttl=300)
+def fetch_categories_result(order_by: str = "value") -> QueryResult:
+    """Spend-category overview (category × tier). Tier is never blended on the page."""
+    return _q.categories(get_public_payments_conn(), order_by=order_by)
+
+
+@st.cache_data(ttl=300)
+def fetch_category_suppliers_result(spend_category: str, limit: int | None = None) -> QueryResult:
+    """Named vendors paid/ordered within one category (CRO surfaced, not merged)."""
+    return _q.category_suppliers(get_public_payments_conn(), spend_category, limit=limit)
+
+
+@st.cache_data(ttl=300)
+def fetch_category_publishers_result(spend_category: str) -> QueryResult:
+    """Bodies whose published spend drives one category (attribution block)."""
+    return _q.category_publishers(get_public_payments_conn(), spend_category)

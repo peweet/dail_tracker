@@ -40,6 +40,8 @@ from data_access.procurement_data import (
     fetch_afs_by_division_result,
     fetch_afs_capital_by_division_result,
     fetch_afs_capital_by_year_result,
+    fetch_afs_national_by_division_result,
+    fetch_afs_national_by_year_result,
     fetch_afs_total_by_year_result,
     fetch_afs_vs_po_coverage_result,
     fetch_authority_summary_result,
@@ -58,6 +60,7 @@ from data_access.procurement_data import (
     fetch_dependency_top_result,
     fetch_entity_chain_for_company_result,
     fetch_entity_search_result,
+    fetch_eu_tam_state_aid_result,
     fetch_incumbency_for_supplier_result,
     fetch_incumbency_top_result,
     fetch_lobbying_overlap_result,
@@ -870,7 +873,23 @@ def _council_tier_pills(row) -> list[str]:
         pills.append(f'<span class="pr-pill pr-pill-paid">{_eur(row.paid_safe_eur)} paid</span>')
     if _n(getattr(row, "n_ordered", 0)) > 0:
         pills.append(f'<span class="pr-pill pr-pill-ordered">{_eur(row.ordered_safe_eur)} ordered</span>')
+    # A council that publishes audited accounts but no purchase-order list (Dublin City, DLR, Louth,
+    # Tipperary) carries no euro pill here — flag the audited-accounts lane so the card isn't bare and
+    # the reader knows there IS data behind it (the figures live in the dossier's two budget lanes).
+    if not pills and (_truthy(getattr(row, "has_running", False)) or _truthy(getattr(row, "has_building", False))):
+        pills.append('<span class="pr-pill pr-pill-ordered">Audited accounts</span>')
     return pills
+
+
+def _council_summary_row(council: str) -> dict | None:
+    """Look up one council's row in the directory view (v_procurement_council_summary — the UNION of
+    the three lanes). Used to render a dossier for a council that publishes audited accounts but no
+    purchase-order list, so has no row in the payments fact. Returns a plain dict, or None."""
+    res = fetch_council_summary_result()
+    if not res.ok or res.data.empty:
+        return None
+    hit = res.data[res.data["council"] == council]
+    return hit.iloc[0].to_dict() if not hit.empty else None
 
 
 def _render_councils() -> None:
@@ -896,11 +915,12 @@ def _render_councils() -> None:
     span = f"{_n(df['min_year'].min())}–{_n(df['max_year'].max())}"
     st.html(
         '<div class="pr-caveat"><strong>What your county and city councils spend.</strong> '
-        f"The {n_councils} local authorities that publish their purchase orders and payments "
-        f"over €20,000 ({span}), grouped by province. Each council shows money <em>ordered</em> "
-        "(purchase-order commitments) or <em>paid</em> (actual payments) — different stages of "
-        "public money, shown per council and <strong>never added together</strong>. Click a "
-        "council for its suppliers and audited-accounts context.</div>"
+        f"The {n_councils} local authorities that publish their spending — purchase orders and "
+        f"payments over €20,000, or their audited annual accounts ({span}) — grouped by province. "
+        "Each council shows money <em>ordered</em> (purchase-order commitments) or <em>paid</em> "
+        "(actual payments) — different stages of public money, shown per council and "
+        "<strong>never added together</strong>. A few publish audited accounts but no purchase-order "
+        "list. Click a council for its suppliers and audited-accounts context.</div>"
     )
 
     # Province bands, North->South via province_order; councils pre-ordered by scale within
@@ -919,10 +939,22 @@ def _render_councils() -> None:
         cards = []
         for r in band.itertuples():
             n_sup = _n(r.n_suppliers)
-            # Guard the year span: a council whose source carries no usable year (e.g. Mayo)
-            # would otherwise render "0–0". Drop the span rather than show a sentinel.
-            yr_span = f" · {_n(r.min_year)}–{_n(r.max_year)}" if _n(r.min_year) and _n(r.max_year) else ""
-            meta = f"{n_sup:,} supplier{'s' if n_sup != 1 else ''}{yr_span}"
+            has_po = _n(r.n_paid) > 0 or _n(r.n_ordered) > 0
+            if has_po:
+                # Guard the year span: a council whose source carries no usable year (e.g. Mayo)
+                # would otherwise render "0–0". Drop the span rather than show a sentinel.
+                yr_span = f" · {_n(r.min_year)}–{_n(r.max_year)}" if _n(r.min_year) and _n(r.max_year) else ""
+                meta = f"{n_sup:,} supplier{'s' if n_sup != 1 else ''}{yr_span}"
+            else:
+                # Audited-accounts-only council (no purchase-order list): describe the AFS span so
+                # the card carries real information instead of "0 suppliers".
+                acc = [
+                    int(y)
+                    for y in (r.running_min_year, r.running_max_year, r.building_min_year, r.building_max_year)
+                    if _truthy(y)
+                ]
+                acc_span = f" · {min(acc)}–{max(acc)}" if acc and min(acc) != max(acc) else (f" · {acc[0]}" if acc else "")
+                meta = f"Audited accounts{acc_span}"
             # Land the dossier on the tier the council actually publishes, so it opens populated.
             tier = "SPENT" if _n(r.n_paid) > 0 else "COMMITTED"
             inner = _card(f"<span>{_esc(r.council)}</span>", meta, _council_tier_pills(r))
@@ -1088,16 +1120,17 @@ def _render_council_running_lane(council: str, active_tier: str, *, po_max_year:
     return latest
 
 
-def _render_council_building_lane(council: str, *, accounts_latest: int | None) -> None:
+def _render_council_building_lane(council: str, *, accounts_latest: int | None) -> int | None:
     """LANE 2 — BUILDING (audited capital account). What the council is investing in / acquiring —
     the homes, roads and facilities being built. A THIRD, DISTINCT grain: the revenue account shows
     housing netting to ~€0 (rents/HAP recoupment pass through), so the real housing investment only
     shows up here. NEVER summed with the revenue net cost or the purchase-order euros.
 
-    Silently omitted for a council whose capital appendix isn't in the fact yet."""
+    Returns the latest capital-account year present (so the caller can tell whether this lane
+    rendered), or None when this council's capital appendix isn't in the fact yet."""
     by_year = fetch_afs_capital_by_year_result(council)
     if not by_year.ok or by_year.data.empty:
-        return
+        return None
     cy = by_year.data
     cap_years = {int(y) for y in cy["year"].dropna()}
     cap_latest = max(cap_years)
@@ -1145,16 +1178,38 @@ def _render_council_building_lane(council: str, *, accounts_latest: int | None) 
             for r in bd.data.itertuples()
         ]
         st.html(f'<div class="pr-afsbars">{"".join(rows)}</div>')
+    return cap_latest
 
 
-def _render_council_accounts_context(council: str, active_tier: str, *, po_max_year: int | None = None) -> None:
+def _render_council_accounts_context(
+    council: str, active_tier: str, *, po_max_year: int | None = None, has_paying: bool = True
+) -> None:
     """The two AUDITED-ACCOUNTS lanes of a local-authority dossier, in civic reading order:
     RUNNING THE SERVICES (revenue net cost) then BUILDING (capital investment). Both are BUDGET
     grain — sibling facts, each pre-aggregated in its view, NEVER summed with each other or with the
     purchase-order euros in the PAYING lane. ``po_max_year`` lets the running lane flag the AFS
-    arrears lag against the PO data."""
-    accounts_latest = _render_council_running_lane(council, active_tier, po_max_year=po_max_year)
-    _render_council_building_lane(council, accounts_latest=accounts_latest)
+    arrears lag against the PO data.
+
+    Lane honesty: a council can publish a purchase-order list but NOT a machine-readable audited
+    statement (e.g. Mayo / Wexford / Kildare publish their AFS only through an interactive viewer or
+    a scanned image). When neither accounts lane is available we say so explicitly — otherwise the
+    missing lanes read as 'this council doesn't run services', which is false. ``has_paying`` keeps
+    the note honest: it only points the reader 'down to the purchase orders' when that lane exists."""
+    ran = _render_council_running_lane(council, active_tier, po_max_year=po_max_year)
+    built = _render_council_building_lane(council, accounts_latest=ran)
+    if ran is None and built is None:
+        tail = (
+            " The purchase orders below are the only machine-readable spending we hold for it."
+            if has_paying
+            else ""
+        )
+        st.html(
+            '<div class="pr-caveat"><strong>Audited accounts:</strong> we don’t yet hold '
+            f"{_esc(council)}’s audited <strong>Annual Financial Statement</strong> in a "
+            "machine-readable form (some councils publish it only through an interactive viewer or "
+            "as a scanned image), so the <em>Running the services</em> and <em>Building</em> views "
+            f"aren’t shown here — not because it has none.{tail}</div>"
+        )
 
 
 def _render_payments_publisher_profile(
@@ -1176,16 +1231,37 @@ def _render_payments_publisher_profile(
     n_ordered = _n(prow.get("n_ordered_lines")) if prow is not None else 0
     tiers_present = [t for t, c in (("SPENT", n_paid), ("COMMITTED", n_ordered)) if c]
 
-    is_la = prow is not None and _coalesce(prow.get("publisher_type")) == "local_authority"
+    # A council can publish audited accounts but NO purchase-order list (Dublin City, Dún
+    # Laoghaire-Rathdown, Louth, Tipperary). Those carry no row in the payments fact, so look them up
+    # in the council directory (the union view) and render the audited-accounts dossier rather than
+    # bail with "No payments found" — the old behaviour made the largest LA in the State unreachable.
+    csum = _council_summary_row(publisher_name) if prow is None else None
+    is_afs_only = csum is not None and (_truthy(csum.get("has_running")) or _truthy(csum.get("has_building")))
+
+    is_la = (prow is not None and _coalesce(prow.get("publisher_type")) == "local_authority") or is_afs_only
     kicker = "LOCAL AUTHORITY" if is_la else "PUBLIC BODY"
     sector = _coalesce(prow.get("sector")) if prow is not None else ""
     n_sup = _n(prow.get("n_suppliers")) if prow is not None else 0
     span = ""
     if prow is not None and _n(prow.get("min_year")):
         span = f"{_n(prow.get('min_year'))}–{_n(prow.get('max_year'))}"
-    sub_parts = [f"{n_sup:,} supplier{'s' if n_sup != 1 else ''} over €20,000"]
-    if span:
-        sub_parts.append(span)
+    if is_afs_only:
+        # Describe the audited-accounts coverage span instead of "0 suppliers over €20,000".
+        acc_years = [
+            int(y)
+            for y in (csum.get("running_min_year"), csum.get("running_max_year"),
+                      csum.get("building_min_year"), csum.get("building_max_year"))
+            if _truthy(y)
+        ]
+        acc_span = (
+            f"{min(acc_years)}–{max(acc_years)}" if acc_years and min(acc_years) != max(acc_years)
+            else (str(acc_years[0]) if acc_years else "")
+        )
+        sub_parts = ["Audited accounts" + (f" · {acc_span}" if acc_span else "")]
+    else:
+        sub_parts = [f"{n_sup:,} supplier{'s' if n_sup != 1 else ''} over €20,000"]
+        if span:
+            sub_parts.append(span)
     kick = kicker + (f" · {sector.upper()}" if sector and not is_la else "")
     # Forward edge for councils: cross-link the spending dossier to the council's
     # "Who Runs Your County" accountability page (the two council views otherwise
@@ -1217,6 +1293,18 @@ def _render_payments_publisher_profile(
             st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(tier_pills)}</div>')
 
     if not tiers_present:
+        if is_afs_only:
+            # Audited-accounts-only council: render the Running + Building lanes, then say plainly
+            # that no purchase-order list is published (the PAYING lane is absent, not empty).
+            _render_council_accounts_context(publisher_name, "COMMITTED", has_paying=False)
+            st.html(
+                '<div class="pr-caveat"><strong>Purchase orders:</strong> '
+                f"{_esc(publisher_name)} does not publish a machine-readable list of its purchase "
+                "orders / payments over €20,000, so the <em>Who it pays</em> named-supplier view "
+                "isn’t available — its spending is shown through the audited accounts above.</div>"
+            )
+            st.html(_FOOT_HTML)
+            return
         empty_state("No payments found", "This body has no sum-safe records, or the link didn't match.")
         return
 
@@ -1740,6 +1828,165 @@ def _ted_competition_strip() -> None:
         + ". These are factual disclosures recorded in the notices themselves — a single tender or "
         "a negotiated procedure is a matter of record, not evidence of wrongdoing. Competition detail "
         "is only recorded from 2024 (eForms); earlier years show winners and value only.</p>"
+    )
+
+
+def _render_afs_national() -> None:
+    """NATIONAL amalgamated AFS — what all 31 county & city councils spend by service, audited
+    (2016–2023). The only COMPLETE, AUDITED national picture of local-government finance: a BUDGET
+    grain, a sibling of the per-council AFS, NEVER summed with the over-€20k purchase orders below.
+    Surfacing-only: figures arrive pre-aggregated/pre-ordered from the views. Silent no-op if the
+    amalgamated fact isn't present."""
+    by_year_res = fetch_afs_national_by_year_result()
+    if not by_year_res.ok or by_year_res.data.empty:
+        return
+    ay = by_year_res.data
+    years = {int(y) for y in ay["year"].dropna()}
+    latest = max(years)
+    span = f"{min(years)}–{latest}" if len(years) > 1 else str(latest)
+    lrow = ay[ay["year"] == latest].iloc[0]
+    gross, net = lrow.get("gross_expenditure_eur"), lrow.get("net_expenditure_eur")
+
+    st.html(
+        _lane_header(
+            "ALL 31 COUNCILS · revenue account, audited",
+            "What local government spends, nationally",
+            "Every county and city council publishes audited <strong>Annual Financial Statements</strong>. "
+            f"Amalgamated across all 31 ({_esc(span)}), the audited <strong>{latest}</strong> accounts show "
+            f"<strong>{_eur_scale(gross)}</strong> of gross service spending — of which "
+            f"<strong>{_eur_scale(net)}</strong> is the <strong>net cost</strong> the local taxpayer funds "
+            "(rates, Local Property Tax, State grant) after each service’s own income and grants. This is the "
+            "<strong>complete audited picture</strong>; the council-by-council purchase orders below are a far "
+            "narrower over-€20,000 slice, and the two are <strong>never added together</strong>.",
+        )
+    )
+
+    bd_res = fetch_afs_national_by_division_result(latest)
+    if bd_res.ok and not bd_res.data.empty:
+        st.caption(f"Net cost to the local taxpayer by service, all councils, {latest} — bar width = net cost")
+        bd = bd_res.data
+        nets = [float(r.net_expenditure_eur) for r in bd.itertuples() if _truthy(r.net_expenditure_eur)]
+        max_net = max([n for n in nets if n > 0], default=0.0)
+        rows = []
+        has_misc = False
+        for r in bd.itertuples():
+            net = getattr(r, "net_expenditure_eur", None)
+            is_pos = _truthy(net) and float(net) > 0
+            if r.division == "Miscellaneous Services":
+                has_misc = True
+            fig = (
+                f"<strong>{_eur(net)}</strong>"
+                if is_pos
+                else '<span class="pr-afsbar-zero">income covers it</span>'
+            )
+            note = (
+                "carries the rates / Local Property Tax income — not a single service"
+                if r.division == "Miscellaneous Services"
+                else ""
+            )
+            rows.append(
+                _afs_bar_row(r.division, net if is_pos else 0, max_net, fig_html=fig, note=note, accent="#3a6b7e")
+            )
+        st.html(f'<div class="pr-afsbars">{"".join(rows)}</div>')
+        if has_misc:
+            st.caption(
+                "“Miscellaneous Services” carries councils’ rates / Local Property Tax income, so it can show "
+                "as more than covered (a negative net cost) — it isn’t a single service."
+            )
+
+    # Net cost over time — the national spine (a distinct teal from the PO chart's brown).
+    if len(ay) > 1:
+        st.caption("Net cost funded by the local taxpayer per year (revenue account, audited €)")
+        st.bar_chart(
+            _yr_axis(ay),
+            x="year",
+            y="net_expenditure_eur",
+            x_label="Year",
+            y_label="Net € funded locally",
+            height=180,
+            color="#3a6b7e",
+        )
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> Department of Housing’s audited amalgamation of all 31 '
+        "local authorities’ Annual Financial Statements (gov.ie). A whole-budget BUDGET measure — never added "
+        "to the over-€20,000 purchase-order euros below, a different and far narrower register.</div>"
+    )
+    st.html('<div style="height:1.2rem"></div>')
+
+
+def _render_eu_tam() -> None:
+    """EU State-Aid Transparency register — the grant/subsidy leg of public support (IDA,
+    Enterprise Ireland, DAFM…). A DIFFERENT instrument from contract awards: subsidies, not
+    purchases, and never summed with eTenders/TED values. Ranked by aid_element_value (the real
+    subsidy value). Surfacing-only: the view pre-orders; this lists named awards, never totals."""
+    res = fetch_eu_tam_state_aid_result(limit=_TOP)
+    if not res.ok or res.data.empty:
+        empty_state(
+            "EU State-Aid data isn't available right now",
+            "The State-Aid register couldn't be loaded — a source/pipeline issue, not an empty result.",
+        )
+        return
+    raw = res.data
+    # Set aside rows the view flags as scheme-level totals mis-recorded against one beneficiary
+    # (a source artifact — see the view header). Display-only split; the flag is computed upstream.
+    suspect = raw["aid_element_suspect_scheme_total"].fillna(False).astype(bool)
+    n_setaside = int(suspect.sum())
+    df = raw[~suspect]
+    if df.empty:
+        empty_state("EU State-Aid data isn't available right now", "No per-beneficiary awards to show.")
+        return
+    years = df["date_granted"].dropna().astype(str).str[:4]
+    span = f"{years.min()}–{years.max()}" if not years.empty else ""
+    top = df.iloc[0]
+    st.html(
+        '<p class="pr-cap">'
+        f"The largest <strong>{len(df)}</strong> disclosed EU State-Aid awards to Irish beneficiaries"
+        f"{f' ({_esc(span)})' if span else ''} — grants and subsidies from bodies like IDA Ireland, "
+        "Enterprise Ireland and the Dept of Agriculture, published on the EU Transparency register. "
+        f"The largest here is <strong>{_eur_scale(top.get('aid_element_value'))}</strong> to "
+        f"<strong>{_esc(top.get('beneficiary_name'))}</strong>. These are <strong>subsidies, a different "
+        "instrument from contract awards</strong> — a separate register, never added to eTenders / TED "
+        "values. Ranked by the actual subsidy value (aid element), not the often-blank nominal amount.</p>"
+    )
+    cards: list[str] = []
+    for i, r in enumerate(df.itertuples(), start=1):
+        beneficiary = _esc(getattr(r, "beneficiary_name", None)) or "—"
+        authority = _esc(getattr(r, "granting_authority", None))
+        measure = _esc(getattr(r, "aid_measure_title", None))
+        date = _esc(str(getattr(r, "date_granted", "") or ""))[:10]
+        meta = " · ".join(p for p in (authority, measure, date) if p)
+        pills = [f'<span class="pr-pill pr-pill-val">{_eur_scale(getattr(r, "aid_element_value", None))} aid element</span>']
+        btype = _esc(getattr(r, "beneficiary_type", None))
+        if btype:
+            pills.append(f'<span class="pr-pill">{btype}</span>')
+        url = str(getattr(r, "award_detail_url", "") or "")
+        src = (
+            f'<div class="pr-card-src"><a href="{_esc(url)}" target="_blank" rel="noopener">'
+            "EU register ↗</a></div>"
+            if url.startswith("http")
+            else ""
+        )
+        cards.append(
+            f'<div class="pr-card"><div class="pr-card-head"><span class="pr-rank">#{i}</span>'
+            f'<div class="pr-name">{beneficiary}</div></div>'
+            f'<div class="pr-meta">{meta}</div>'
+            f'<div class="pr-pills">{"".join(pills)}</div>{src}</div>'
+        )
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    if n_setaside:
+        st.html(
+            f'<div class="pr-caveat"><strong>{n_setaside} row{"s" if n_setaside != 1 else ""} set aside.</strong> '
+            "The EC register occasionally records a <strong>scheme’s whole budget against a single named "
+            "beneficiary</strong> (e.g. a horticulture investment scheme’s total shown against one firm). "
+            f"{'Those rows are' if n_setaside != 1 else 'That row is'} excluded from this ranking as a "
+            "source artifact, not a real single-firm award.</div>"
+        )
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> European Commission State-Aid Transparency '
+        "register (awards over €100,000). Aid element is the subsidy value the grantor reported; "
+        "tax-incentive measures and aid to individuals are excluded. A disclosed award is a public "
+        "record of State support, not evidence of wrongdoing — and is never added to contract-award "
+        "values, a different register.</div>"
     )
 
 
@@ -3824,7 +4071,7 @@ def procurement_page() -> None:
     if section == "wins":
         register = st.segmented_control(
             "Register",
-            ["National register (eTenders)", "EU register (TED)", "Register overlaps"],
+            ["National register (eTenders)", "EU register (TED)", "EU State Aid (grants)", "Register overlaps"],
             default="National register (eTenders)",
             key="pr_register",
             label_visibility="collapsed",
@@ -3833,6 +4080,10 @@ def procurement_page() -> None:
             # TED contract awards WON (2016–2026). The pre-award tender pipeline moved to
             # the top-level "Open right now" section (different grain, never summed).
             _render_ted()
+        elif register == "EU State Aid (grants)":
+            # State-Aid grants/subsidies (IDA/EI/DAFM…) — a DIFFERENT instrument from contract
+            # awards. Separate register, never value-merged with eTenders/TED.
+            _render_eu_tam()
         elif register == "Register overlaps":
             # Co-occurrence disclosures (same pattern, two registers). All-time scope.
             ov_lens = st.segmented_control(

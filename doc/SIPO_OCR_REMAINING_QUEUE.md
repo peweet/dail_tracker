@@ -1,5 +1,13 @@
 # SIPO OCR — remaining work queue (run OFF-BOX, one at a time)
 
+> ✅ **JOB 1 + JOB 2 COMPLETE — 2026-06-26.** Ran on the local **GPU** (single process, zero
+> crashes; see doc/OCR_RUN_ASSESSMENT_2026_06_26.md + [[feedback_paddleocr_crashes_local_box]]).
+> Promoted to gold (commit 8bc0096/43630ce): `sipo_expense_items.parquet` now **922 rows / 12
+> parties** (was 2). Remaining: **JOB 3 still PARKED** (needs go/no-go). Open follow-up (NOT OCR,
+> free re-parse from cached `_ckpt_items`): green/lab/pbp/socdem Part-4 "Expenses Review" summary
+> pages + some heading totals weren't captured; minor parties are near-NIL and 4/5 Part-3 parsed
+> to 0 rows (parser-fit gap — do not invent rows).
+
 Lined up 2026-06-18. State verified against `data/silver/sipo/by_party/` checkpoints +
 `data/bronze/sipo_candidate_expenses/_manifest.csv`.
 

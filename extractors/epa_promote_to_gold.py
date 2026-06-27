@@ -49,14 +49,22 @@ _COUNTS = [
     "n_open",
 ]
 
+# any committed-gold column whose name contains one of these tokens is a potential person/address
+# identifier and must never reach the public repo. company_num is the ONLY identity EPA gold ships.
+_PII_TOKENS = ("address", "location", "town", "name", "facility")
 
-def promote_supplier_compliance() -> None:
-    src = SANDBOX / "epa_accountability_view.parquet"
-    if not src.exists():
-        print(f"  !! no accountability view at {src} — run pipeline_sandbox/epa_accountability_view.py first")
-        return
-    df = pl.read_parquet(src)
 
+def gold_pii_columns(columns) -> list[str]:
+    """Columns whose names would leak a person/address identifier into committed gold.
+    Single source of truth for the privacy invariant — shared with test_epa_promote_privacy."""
+    return [c for c in columns if any(t in c.lower() for t in _PII_TOKENS)]
+
+
+def project_supplier_compliance(df: pl.DataFrame) -> pl.DataFrame:
+    """Pure sandbox-frame → gold-projection transform: DROP named individuals + non-CRO rows,
+    select the counts/flags/licence portfolio (NO money), and enforce the PII-column invariant
+    BEFORE any write. Split out from IO so the privacy + projection contract is unit-testable
+    without a built sandbox parquet."""
     # only CRO-matched COMPANIES (the dossier keys on company_num); DROP named individuals (PII)
     df = df.filter(pl.col("cro_company_num").is_not_null() & ~pl.col("looks_individual"))
 
@@ -75,11 +83,18 @@ def promote_supplier_compliance() -> None:
 
     # PRIVACY INVARIANT (runtime, -O-proof; BEFORE the write): no named-individual licence holder and no
     # address/location/town/name column may reach committed gold. company_num is the only identity that ships.
-    leaked = [
-        c for c in out.columns if any(t in c.lower() for t in ("address", "location", "town", "name", "facility"))
-    ]
+    leaked = gold_pii_columns(out.columns)
     if leaked:
         raise RuntimeError(f"PII leak: column(s) {leaked} must not reach gold")
+    return out
+
+
+def promote_supplier_compliance() -> None:
+    src = SANDBOX / "epa_accountability_view.parquet"
+    if not src.exists():
+        print(f"  !! no accountability view at {src} — run pipeline_sandbox/epa_accountability_view.py first")
+        return
+    out = project_supplier_compliance(pl.read_parquet(src))
 
     GOLD.mkdir(parents=True, exist_ok=True)
     dest = GOLD / "epa_supplier_compliance.parquet"

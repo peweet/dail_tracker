@@ -95,6 +95,14 @@ DPI = 300
 LOW_CONF = 0.85
 REF_RE = re.compile(r"^([A-H])(\d{1,3})$")
 SECTION_RE = re.compile(r"^4([A-H])\b")
+# The "Expenses Review" page uses TWO numbering schemes across form versions: the
+# standard 4A–4H and an alternate 5J–5R (same 8 statutory headings, skipping I/O).
+# Normalise both to the canonical 4A–4H code so line items (tagged 4A–4H) reconcile.
+SECTION_NORMALISE: dict[str, str] = {
+    "4A": "4A", "4B": "4B", "4C": "4C", "4D": "4D", "4E": "4E", "4F": "4F", "4G": "4G", "4H": "4H",
+    "5J": "4A", "5K": "4B", "5L": "4C", "5M": "4D", "5N": "4E", "5P": "4F", "5Q": "4G", "5R": "4H",
+}
+SECTION_TOKEN_RE = re.compile(r"\b([45])\s*([A-R])\b")
 
 
 def hr(t: str) -> None:
@@ -193,25 +201,37 @@ def parse_item_row(row, width) -> dict | None:
 
 
 def parse_summary_row(row, width) -> dict | None:
-    """A row on the 'Expenses Review' page: '4A - Advertising' + total, or the
-    'Overall Expense total:' grand total."""
-    label = " ".join(c["text"] for c in row if c["x0"] < width * 0.55).strip()
-    money = rightmost_money(row, width)
-    if money is None:
+    """A row on the 'Expenses Review' page: a heading ('4A - Advertising' or the
+    alternate '5J - Advertising') + its total, or the 'Overall Expense total:' grand
+    total. Position-agnostic: the section token and the money cell may sit on either
+    side of the row (parties' forms flip the column order), and the section may be the
+    4A–4H or 5J–5R scheme (normalised to 4A–4H)."""
+    low = " ".join(c["text"] for c in row).lower()
+    is_overall = "overall" in low and "total" in low
+    # locate a section token anywhere in the row; remember its cell so it isn't read as money
+    code = None
+    sec_cell = None
+    for c in row:
+        m = SECTION_TOKEN_RE.search(c["text"].upper().replace(" ", ""))
+        if m and (m.group(1) + m.group(2)) in SECTION_NORMALISE:
+            code, sec_cell = SECTION_NORMALISE[m.group(1) + m.group(2)], c
+            break
+    if code is None and not is_overall:
         return None
-    cost_cell, total = money
-    norm = label.replace(" ", "")
-    ms = SECTION_RE.match(norm)
-    if ms:
-        code = f"4{ms.group(1)}"
-        return {
-            "section": code,
-            "category": SECTION_NAME[code],
-            "category_total_eur": round(total, 2),
-            "total_confidence": round(cost_cell["score"], 3),
-            "is_overall": False,
-        }
-    if "overall" in label.lower() and "total" in label.lower():
+    # money = the largest plausible amount in the row, excluding the section-token cell
+    # (so '4C' isn't misread as €4 and a real €0.00 heading isn't shadowed by it)
+    monies = []
+    for c in row:
+        if c is sec_cell:
+            continue
+        if "€" in c["text"] or re.search(r"\d", c["text"]):
+            v = parse_money(c["text"])
+            if v is not None:
+                monies.append((c, v))
+    if not monies:
+        return None
+    cost_cell, total = max(monies, key=lambda m: m[1])
+    if is_overall:
         return {
             "section": "TOTAL",
             "category": "Overall Expense total",
@@ -219,7 +239,13 @@ def parse_summary_row(row, width) -> dict | None:
             "total_confidence": round(cost_cell["score"], 3),
             "is_overall": True,
         }
-    return None
+    return {
+        "section": code,
+        "category": SECTION_NAME[code],
+        "category_total_eur": round(total, 2),
+        "total_confidence": round(cost_cell["score"], 3),
+        "is_overall": False,
+    }
 
 
 def process_party(ocr, key, pdf_path, party):

@@ -55,6 +55,18 @@ def fetch_cbi_repeat_distress() -> pd.DataFrame:
     return _q.cbi_repeat_distress(get_corporate_conn()).data
 
 
+@st.cache_data(ttl=300)
+def fetch_cbi_enforcement() -> pd.DataFrame:
+    """CBI enforcement actions — settlements / sanctions with fines (gold). Not summed."""
+    return _q.cbi_enforcement(get_corporate_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_isif_portfolio(limit: int | None = 12) -> pd.DataFrame:
+    """ISIF sovereign-fund investment commitments (gold) — newest first, never summed."""
+    return _q.isif_portfolio(get_corporate_conn(), limit=limit).data
+
+
 @st.cache_data(ttl=600)
 def fetch_brand_aliases() -> pd.DataFrame:
     """Brand → parent_fund → fund_type curated alias map. Falls back to a

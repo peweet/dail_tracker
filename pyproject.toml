@@ -135,6 +135,7 @@ dev = [
     "ruff>=0.11",
     "responses>=0.25",        # HTTP mocking for tests of services/http_engine.py and API scrapers
     "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
+    "hypothesis>=6.100",      # property-based fuzzing of the data_contracts engine (uses polars.testing.parametric)
     "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
     "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
 ]
