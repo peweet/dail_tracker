@@ -1213,7 +1213,8 @@ def _render_council_accounts_context(
 
 
 def _render_payments_publisher_profile(
-    publisher_name: str, tier: str = "SPENT", *, on_back=None, back_label: str = "← Back to procurement"
+    publisher_name: str, tier: str = "SPENT", *, on_back=None, back_label: str = "← Back to procurement",
+    show_back: bool = True,
 ) -> None:
     """Per-buyer dossier (the per-council profile): which tiers the body publishes, both totals
     shown side by side (never summed), and its top suppliers in the active tier. Councils mostly
@@ -1221,8 +1222,10 @@ def _render_payments_publisher_profile(
 
     ``on_back`` overrides the Back action (default: return to the procurement 'paid' section) so a
     reusing page — e.g. the Follow-the-money trail — can step back through its own breadcrumb
-    instead. ``None`` preserves the exact original behaviour for the procurement / council pages."""
-    if back_button(back_label, key="prpaypub"):
+    instead. ``None`` preserves the exact original behaviour for the procurement / council pages.
+    ``show_back=False`` suppresses the back button entirely — for embedding this dossier as a section
+    of a host page (the Your Council hub) that already provides its own back affordance."""
+    if show_back and back_button(back_label, key="prpaypub"):
         (on_back or (lambda: _return_to_browse("paid")))()
 
     prof = fetch_payments_publisher_profile_result(publisher_name)
