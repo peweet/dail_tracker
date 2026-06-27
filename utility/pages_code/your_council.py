@@ -20,6 +20,7 @@ param keys all three.
 from __future__ import annotations
 
 import sys
+from collections import defaultdict
 from html import escape as _h
 from pathlib import Path
 from urllib.parse import quote
@@ -32,6 +33,7 @@ from data_access.local_government_data import (
     fetch_chief_executive_result,
     fetch_chief_executives_result,
 )
+from data_access.procurement_data import fetch_council_summary_result
 from pages_code.local_government import (
     _render_ce_hero,
     _render_performance,
@@ -39,6 +41,7 @@ from pages_code.local_government import (
 )
 from pages_code.procurement import (
     _council_summary_row,
+    _eur,
     _render_payment_lines,
     _render_payments_publisher_profile,
     _render_payments_supplier_profile,
@@ -54,6 +57,12 @@ from ui.components import (
 )
 
 _SECTIONS = ["Who runs it", "Your councillors", "Spending"]
+
+# Province grouping is fixed Irish geography (the 4 historic provinces, North->South), the same basis
+# the spending index encodes in SQL. The summary view carries province for the 27 councils with a
+# spending row; these 4 fallbacks cover the councils that publish neither POs nor a readable AFS.
+_PROVINCE_ORDER = {"Ulster": 1, "Connacht": 2, "Leinster": 3, "Munster": 4}
+_PROVINCE_FALLBACK = {"Carlow": "Leinster", "Cavan": "Ulster", "Kerry": "Munster", "Roscommon": "Connacht"}
 
 
 # ── routing helpers ───────────────────────────────────────────────────────────
@@ -74,6 +83,34 @@ def _tier_from(params) -> str:
 
 
 # ── index (the directory) ─────────────────────────────────────────────────────
+def _spend_headline(s) -> str:
+    """One civic line for a council's index card: the firmest money it publishes, the audited-accounts
+    flag, or an honest 'nothing readable yet'. ``s`` is its v_procurement_council_summary row (or None).
+    NEVER blends the two never-summed lifecycle tiers — shows whichever the council actually publishes."""
+    if s is None:
+        return "No spending published yet"
+    if int(s.get("n_paid") or 0) > 0:
+        return f"{_eur(s.get('paid_safe_eur'))} paid"
+    if int(s.get("n_ordered") or 0) > 0:
+        return f"{_eur(s.get('ordered_safe_eur'))} ordered"
+    if bool(s.get("has_running")) or bool(s.get("has_building")):
+        return "Audited accounts"
+    return "No spending published yet"
+
+
+def _spend_scale(s) -> float:
+    """Within-province sort key — biggest publisher first, accounts-only next, empty last. SORT ONLY,
+    never a displayed figure and never a sum of the two never-summed tiers."""
+    if s is None:
+        return -2.0
+    paid, ordered = float(s.get("paid_safe_eur") or 0), float(s.get("ordered_safe_eur") or 0)
+    if paid or ordered:
+        return max(paid, ordered)
+    if bool(s.get("has_running")) or bool(s.get("has_building")):
+        return -1.0
+    return -2.0
+
+
 def _render_index() -> None:
     hero_banner(
         kicker="YOUR AREA",
@@ -88,26 +125,38 @@ def _render_index() -> None:
             "The local-authority roster couldn't be loaded — a source/pipeline issue, not an empty result.",
         )
         return
-    df = res.data.sort_values("council_name")
-    cards = []
-    for r in df.itertuples():
+    summ = fetch_council_summary_result()
+    srows = {str(r["council"]): r for _, r in summ.data.iterrows()} if summ.ok and not summ.data.empty else {}
+
+    # Bucket the 31 councils into province bands (North->South). province comes from the summary row;
+    # the 4 councils with no spending row fall back to the fixed geography map.
+    bands: dict[tuple[int, str], list] = defaultdict(list)
+    for r in res.data.itertuples():
         la = str(r.local_authority)
-        ce = _h(str(getattr(r, "chief_executive", "") or "—"))
-        title = _h(str(getattr(r, "head_title", "") or "Chief Executive"))
-        inner = (
-            f'<div class="con-card-inner"><div class="con-card-name">{_h(str(getattr(r, "council_name", la)))}</div>'
-            f'<div class="con-card-meta">{title}: <strong>{ce}</strong></div>'
-            f'<div class="con-card-sub">Who runs it · councillors · spending</div></div>'
-        )
-        cards.append(
-            clickable_card_link(
-                href=f"?council={quote(la)}",
-                inner_html=inner,
-                aria_label=f"Open {la} council",
+        s = srows.get(la)
+        prov = str(s["province"]) if s is not None and s.get("province") else _PROVINCE_FALLBACK.get(la, "Leinster")
+        bands[(_PROVINCE_ORDER.get(prov, 3), prov)].append((la, r, s))
+
+    for (_order, prov), rows in sorted(bands.items()):
+        subsection_heading(prov)
+        cards = []
+        for la, r, s in sorted(rows, key=lambda t: (-_spend_scale(t[2]), t[0])):
+            ce = _h(str(getattr(r, "chief_executive", "") or "—"))
+            title = _h(str(getattr(r, "head_title", "") or "Chief Executive"))
+            cname = _h(str(getattr(r, "council_name", la) or la))
+            inner = (
+                f'<div class="con-card-inner"><div class="con-card-name">{cname}</div>'
+                f'<div class="con-card-meta">{title}: <strong>{ce}</strong></div>'
+                f'<div class="con-card-sub">{_h(_spend_headline(s))}</div></div>'
             )
-        )
-    subsection_heading("Every council")
-    st.html(f'<div class="con-card-grid">{"".join(cards)}</div>')
+            cards.append(
+                clickable_card_link(
+                    href=f"?council={quote(la)}",
+                    inner_html=inner,
+                    aria_label=f"Open {la} council — who runs it, councillors and spending",
+                )
+            )
+        st.html(f'<div class="con-card-grid">{"".join(cards)}</div>')
 
 
 # ── the three sections ────────────────────────────────────────────────────────
@@ -155,11 +204,10 @@ def _section_spending(council: str) -> None:
             "can read yet, so there's nothing to show in this section — not that it has no spending.",
         )
         return
-    # The shared per-council dossier (RUNNING / BUILDING / PAYING lanes). Its own Back returns to the
-    # council directory. Supplier drill-downs inside it are handled by this page's leaf dispatch.
-    _render_payments_publisher_profile(
-        council, "COMMITTED", on_back=lambda: _go(), back_label="← All councils"
-    )
+    # The shared per-council dossier (RUNNING / BUILDING / PAYING lanes). show_back=False because the
+    # hub already renders one "← All councils" affordance above the section switcher (no double back).
+    # Supplier drill-downs inside it are handled by this page's leaf dispatch.
+    _render_payments_publisher_profile(council, "COMMITTED", show_back=False)
 
 
 # ── the hub ───────────────────────────────────────────────────────────────────
