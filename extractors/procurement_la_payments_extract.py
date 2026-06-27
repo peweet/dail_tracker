@@ -131,6 +131,7 @@ def la(
     anchor_listing=False,
     status="READY",
     caveat="",
+    pdf_reader=None,
 ) -> dict:
     """One local authority. value_kind ∈ {po_committed (→COMMITTED), payment_actual (→SPENT)}."""
     return {
@@ -857,6 +858,60 @@ def read_pdf(b: bytes) -> tuple[list[dict], int]:
     return rows, chars  # chars>200 on page-sample ⇒ digital
 
 
+# Offaly GL30 reading-order PDFs: each field on its OWN line (the word-geometry reader above
+# under-reads them ~50%). 4 sub-layouts across years — [suppid][supplier][product][ordered][received]
+# (5-line), [suppid supplier][product][ordered][received] (4-line), [supplier][product][value]
+# (3-line, single amount), and a 3-line variant whose amounts omit decimals ("330360" = €330,360).
+# Offaly's files are "Purchase Orders GREATER THAN €20,000", so every amount is ≥€20k while the
+# supplier-id is ~5 digits (<€20k) — the threshold cleanly separates the two. Anchor on the amount
+# line; the text lines before it are supplier (first, minus any inline suppid) + product.
+_OFF_AMT = re.compile(r"^(\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)$")
+_OFF_HDR = re.compile(
+    r"supp\.?id|product|order(ed)?\s+(value|amount)|received amount|purchase orders|greater than|"
+    r"^page\b|^screen|^user|^\d{2}/\d{2}/\d{4}",
+    re.I,
+)
+_OFF_NUM = re.compile(r"^\d{1,3}(?:,\d{3})*(?:\.\d{2})?$|^\d+(?:\.\d{2})?$")
+
+
+def read_pdf_offaly(b: bytes) -> tuple[list[dict], int]:
+    doc = fitz.open(stream=b, filetype="pdf")
+    chars = sum(len(doc[i].get_text("text").strip()) for i in range(min(3, doc.page_count)))
+    lines = [ln.strip() for pi in range(doc.page_count) for ln in doc[pi].get_text().splitlines() if ln.strip()]
+    doc.close()
+
+    def amt(ln: str) -> float | None:
+        m = _OFF_AMT.match(ln)
+        if not m:
+            return None
+        v = float(m.group(1).replace(",", ""))
+        return v if 20000 <= v <= 50_000_000 else None
+
+    recs: list[dict] = []
+    buf: list[str] = []
+    last_was_amt = False
+    for ln in lines:
+        if _OFF_HDR.match(ln) or TOTAL_RE.search(ln):
+            buf, last_was_amt = [], False
+            continue
+        a = amt(ln)
+        if a is not None:
+            if buf:  # close the record on its (first/ordered) amount line
+                supplier = re.sub(r"^\d{3,6}\s+", "", buf[0]).strip()  # strip an inline supp-id
+                description = " ".join(buf[1:]) or None
+                if len(supplier) >= 3 and not _OFF_NUM.match(supplier):
+                    recs.append({"supplier": supplier, "eur": a, "description": description, "po": None, "paid": None, "page": 1})
+                buf, last_was_amt = [], True
+            else:  # a trailing 'received amount' duplicate — ignore
+                last_was_amt = True
+            continue
+        if last_was_amt:  # first line after an amount run starts a new record
+            buf = []
+        buf.append(ln)
+        last_was_amt = False
+    return recs, chars
+
+
 # ---- XLSX / CSV: header-detect + content-fallback (handles odd headers e.g. Ap/Ar ID) ----
 def _col_roles(header: list[str], data: list[list]) -> dict[str, int | None]:
     # "money-ness" of a column: how many cells parse to a PLAUSIBLE PO/payment amount
@@ -1214,8 +1269,17 @@ def main() -> None:
     # fact is OVERWRITTEN each run, so a low cap silently downgrades silver to a recent slice
     # and the next consolidate would wipe gold history. Pass a low value for smoke tests only.
     ap.add_argument("--max-files", type=int, default=99, help="cap files parsed per council (recent-first)")
+    ap.add_argument(
+        "--merge",
+        action="store_true",
+        help="with --only: update JUST those councils inside the existing fact (all other councils "
+        "kept) instead of overwriting the whole parquet. Mirrors procurement_public_body_extract's "
+        "--merge; lets one council be fixed+re-run without wiping the other 22 (a plain --only would).",
+    )
     args = ap.parse_args()
     only = {x.strip() for x in args.only.split(",") if x.strip()} or None
+    if args.merge and not only:
+        raise SystemExit("--merge requires --only (it updates the named councils in place)")
 
     councils = [
         c
@@ -1366,6 +1430,21 @@ def main() -> None:
     _removed = _before - df.height
     _eur_removed = 0.0  # informational only
     print(f"cross-period republish dedupe: dropped {_removed:,} re-listed lines ({_removed / max(_before,1):.1%})")
+
+    # MERGE MODE: fold the freshly-parsed councils into the existing fact instead of replacing it.
+    # Drop any prior rows for the councils we just (re)parsed — idempotent — then concat the
+    # untouched councils back on. The kept rows are already classified to the same FACT_COLS, so
+    # no re-classification is needed; diagonal_relaxed aligns dtypes defensively.
+    if args.merge and OUT_FACT.exists():
+        existing = pl.read_parquet(OUT_FACT)
+        sel_ids = [f"ie_la_{c['slug']}" for c in councils]
+        kept = existing.filter(~pl.col("publisher_id").is_in(sel_ids))
+        print(
+            f"MERGE: existing fact {existing.height:,} rows / {existing['publisher_id'].n_unique()} councils; "
+            f"replacing {existing.height - kept.height:,} rows for {sorted(set(sel_ids) & set(existing['publisher_id'].unique().to_list()))}, "
+            f"keeping {kept.height:,} rows for the rest"
+        )
+        df = pl.concat([kept, df], how="diagonal_relaxed").sort(["publisher_id", "year", "quarter"])
 
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_FACT, min_rows=MIN_FACT_ROWS)
