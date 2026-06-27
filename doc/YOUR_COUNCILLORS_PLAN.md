@@ -1,7 +1,7 @@
 # Your Councillors — feature plan & data-pull strategy
 
 Status: **SCOPED + SOURCE-TESTED (2026-06-22). Build not started.** Companion to
-`doc/FRONT_DOOR_PROTOTYPES.md` §B ("your area" personal hook) and the existing
+`doc/archive/FRONT_DOOR_PROTOTYPES.md` §B ("your area" personal hook) and the existing
 "Who runs your county" page (`utility/pages_code/local_government.py`).
 
 ---

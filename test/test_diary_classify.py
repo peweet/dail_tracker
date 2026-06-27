@@ -23,9 +23,10 @@ mistake surfacing as a silently mis-filtered page.
 
 from __future__ import annotations
 
+import polars as pl
 import pytest
 
-from extractors.diary_entry_classify import classify
+from extractors.diary_entry_classify import classify, entry_class_expr
 
 # (subject, expected_class) — hand-labelled from the real DETE corpus.
 GOLDEN: list[tuple[str, str]] = [
@@ -127,3 +128,14 @@ def test_classify_golden(subject: str, expected: str) -> None:
 def test_classify_handles_empty() -> None:
     assert classify(None) == "other"
     assert classify("") == "other"
+
+
+def test_entry_class_expr_matches_scalar_classify() -> None:
+    """The vectorised pipeline path (entry_class_expr) must agree with the scalar
+    classify() the golden test pins — including null/empty subjects. Guards against
+    a Rust-regex vs Python-re divergence sneaking into the written parquet."""
+    subjects = [s for s, _ in GOLDEN] + ["", None]
+    df = pl.DataFrame({"subject": subjects}, schema={"subject": pl.String})
+    got = df.with_columns(entry_class_expr())["entry_class"].to_list()
+    expected = [classify(s) for s in subjects]
+    assert got == expected

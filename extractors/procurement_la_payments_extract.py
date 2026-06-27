@@ -150,6 +150,7 @@ def la(
         "anchor_listing": anchor_listing,
         "status": status,
         "caveat": caveat,
+        "pdf_reader": pdf_reader,
     }
 
 
@@ -355,6 +356,7 @@ SCHEMA_MAP: list[dict] = [
         fmt="pdf",
         listing="https://www.westmeathcoco.ie/en/ourservices/finance/procurement/purchaseorders/",
         value_kind="po_committed",
+        pdf_reader="reading_order",  # [item-no][supplier][€amount desc] field-per-line; +216 vs word-geometry
     ),
     la(
         "waterford",
@@ -391,6 +393,7 @@ SCHEMA_MAP: list[dict] = [
         value_kind="payment_actual",
         include=r"payment|20k|over.?20|greater",
         caveat="GL30 'Payments Greater than €20k' → SPENT grain",
+        pdf_reader="offaly",  # field-per-line reading-order layout; generic word-geometry under-reads ~50%
     ),
     la(
         "longford",
@@ -912,6 +915,56 @@ def read_pdf_offaly(b: bytes) -> tuple[list[dict], int]:
     return recs, chars
 
 
+# Generic amount-anchored reading-order reader for councils whose PDFs put supplier on the line
+# BEFORE the amount and description inline/after it (Westmeath: [item-no][supplier][€amount desc];
+# Cork City uses a similar shape but its word-geometry parse is already complete — do NOT route it
+# here, it would regress). Anchor on the €amount line; supplier = nearest preceding text line.
+_RO_AMT = re.compile(r"^€?\s*([\d,]+\.\d{2})\b\s*(.*)$")
+_RO_PURENUM = re.compile(r"^\d{1,6}$")
+_RO_HDR = re.compile(
+    r"alpha name|sum of gross|gross amount|^description$|item|^no\b|supplier|order value|in euro|"
+    r"purchase order|publication|introduction|public service|department|reform|page \d|under the|"
+    r"interpreted|payments for|^westmeath|greater than|^total\b",
+    re.I,
+)
+
+
+def read_pdf_reading_order(b: bytes, min_eur: float = 1000.0) -> tuple[list[dict], int]:
+    doc = fitz.open(stream=b, filetype="pdf")
+    chars = sum(len(doc[i].get_text("text").strip()) for i in range(min(3, doc.page_count)))
+    lines = [ln.strip() for pi in range(doc.page_count) for ln in doc[pi].get_text().splitlines() if ln.strip()]
+    doc.close()
+    amt_idx = [i for i, ln in enumerate(lines) if _RO_AMT.match(ln) and float(_RO_AMT.match(ln).group(1).replace(",", "")) >= min_eur]
+    recs: list[dict] = []
+    n = len(lines)
+    for k, i in enumerate(amt_idx):
+        m = _RO_AMT.match(lines[i])
+        eur = float(m.group(1).replace(",", ""))
+        supplier = None
+        p = i - 1
+        while p > max(-1, i - 4):
+            ln = lines[p]
+            if _RO_AMT.match(ln):
+                break
+            if not _RO_PURENUM.match(ln) and not _RO_HDR.match(ln) and not TOTAL_RE.search(ln) and re.search(r"[A-Za-z]", ln):
+                supplier = ln
+                break
+            p -= 1
+        desc = [m.group(2).strip()] if m.group(2).strip() else []
+        nxt = amt_idx[k + 1] if k + 1 < len(amt_idx) else n
+        for q in range(i + 1, nxt):
+            ln = lines[q]
+            if _RO_PURENUM.match(ln):
+                continue
+            if re.search(r"[A-Za-z]", ln) and not _RO_HDR.match(ln) and not TOTAL_RE.search(ln):
+                if q == nxt - 1 and nxt < n:  # the last text line before the next amount is its supplier
+                    break
+                desc.append(ln)
+        if supplier and re.search(r"[A-Za-z]", supplier):
+            recs.append({"supplier": supplier, "eur": eur, "description": " ".join(desc) or None, "po": None, "paid": None, "page": 1})
+    return recs, chars
+
+
 # ---- XLSX / CSV: header-detect + content-fallback (handles odd headers e.g. Ap/Ar ID) ----
 def _col_roles(header: list[str], data: list[list]) -> dict[str, int | None]:
     # "money-ness" of a column: how many cells parse to a PLAUSIBLE PO/payment amount
@@ -1077,7 +1130,12 @@ def emit_file(cf: dict, file_url: str, b: bytes, ext: str) -> tuple[list[dict], 
     # use it when present, else fall back to the URL.
     override = cf.get("_period_by_url", {}).get(file_url)
     period, year, quarter = override if override else period_from_url(file_url)
-    recs, scanned_hint = READERS[ext](b)
+    if ext == ".pdf" and cf.get("pdf_reader") == "offaly":
+        recs, scanned_hint = read_pdf_offaly(b)  # per-council reading-order override
+    elif ext == ".pdf" and cf.get("pdf_reader") == "reading_order":
+        recs, scanned_hint = read_pdf_reading_order(b, MIN_EUR)
+    else:
+        recs, scanned_hint = READERS[ext](b)
     digital = scanned_hint > 200 if ext == ".pdf" else True
 
     # debit-sign convention: several councils (Kilkenny, Limerick, …) publish amounts as

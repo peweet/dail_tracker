@@ -678,10 +678,11 @@ The bench / appointments / courts / Legal-Diary feature is **sandbox-grade, not 
 
 ---
 
-## 20. Political finance — SIPO donations and GE2024 election spending
+## 20. Political finance — SIPO donations and GE2024 / GE2020 election spending
 
-Scope is **locked to GE2024**; there are no 2025+ returns, and the separate annual per-TD/Senator/MEP donation register is not yet ingested.
+Scope is **two general elections, kept strictly apart**: GE2024 (donations + the national agent's per-candidate spend + candidates' own expense statements) and GE2020 (national-agent party expenses only). There are no 2025+ returns, and the separate annual per-TD/Senator/MEP donation register is not yet ingested.
 
+- **GE2020 is national-agent party expenses only** — OCR'd from scanned returns and held as a **separate** gold fact (`sipo_ge2020_expense_items` / `sipo_ge2020_expense_categories`) and view set (`v_sipo_ge2020_party_national_*`), never unioned with GE2024 or with any candidate apportionment. The printed `category_total_eur` (`is_overall`) is the trustworthy headline; a `reconciles = false` flag marks parties (Sinn Féin, Irish Freedom Party, Aontú) whose OCR'd line items don't sum to the printed overall — a duplicate upload plus ×100 decimal-drops on Sinn Féin — so those must be verified against the official SIPO PDF before use. As of writing the GE2020 facts/views exist in the data layer but are not yet surfaced on a page.
 - **Three incompatible grains must never be summed**: donations declared (money in), the national agent's per-candidate spend, and candidates' own expenses statements are different records at different grains. The rollup uses their sum only as a hidden sort key, never as a presented total.
 - Agent-spend **under-counts** parties that book spend centrally, and agent-spend vs candidate-spend are overlapping views of the same campaign spend — non-additive.
 - The party-expenses fact is a **PaddleOCR re-OCR of scanned returns**; every figure carries a "verify against the official SIPO PDF (page N)" caveat and a confidence/flag column.

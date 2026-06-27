@@ -3,7 +3,7 @@
 **A standalone assessment of a data partnership between publicinformation.ie (gingertechie) and Dáil
 Tracker.** Self-contained — share this document on its own. Detailed sub-analyses live in four
 companion docs (`FOI_PARTNERSHIP_PUBLICINFORMATION.md`, `JOURNALIST_FOI_FLOW_DESIGN.md`,
-`FOI_CASE_LIBRARY.md`, `FRONT_DOOR_PROTOTYPES.md`) but everything needed to judge viability is here.
+`FOI_CASE_LIBRARY.md`, `archive/FRONT_DOOR_PROTOTYPES.md`) but everything needed to judge viability is here.
 
 Date: 2026-06-22. Status: assessment + evidence-backed design. No code built. All figures from live
 queries against both datasets; caveats inline.

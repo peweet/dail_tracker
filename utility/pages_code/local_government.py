@@ -216,11 +216,14 @@ def _paths_bbox(paths: dict, names: set[str]) -> tuple[float, float, float, floa
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland") -> str:
+def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland", *, link_key: str = "la") -> str:
     """All 31 authorities filled by quintile, as a FIXED-SIZE <img> data-URI with a
-    clickable <map> overlay (each → ?la= soft-nav). When ``zoom`` names a region the
+    clickable <map> overlay (each → ?<link_key>= soft-nav). When ``zoom`` names a region the
     SVG viewBox is cropped to that region's bounds and the image re-scaled to fill,
-    enlarging otherwise-unclickable city targets. '' if no map geometry."""
+    enlarging otherwise-unclickable city targets. '' if no map geometry.
+
+    ``link_key`` is the query param each area links to — "la" for this page's own dossier
+    (the default), "council" when the Your Council hub reuses the same map."""
     outlines = fetch_la_outlines()
     paths = outlines.get("local_authorities", {})
     if not paths:
@@ -267,7 +270,7 @@ def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland") ->
                 coords = ",".join(f"{(x - cx0) * scale:.1f},{(y - cy0) * scale:.1f}" for x, y in best)
                 area_html = (
                     f'<area shape="poly" coords="{coords}" '
-                    f'href="?la={quote(name)}" alt="{_h(name)}" title="{_h(name)}">'
+                    f'href="?{link_key}={quote(name)}" alt="{_h(name)}" title="{_h(name)}">'
                 )
         items.append((size, path_html, area_html))
     body = [p for _, p, _ in sorted(items, key=lambda t: -t[0])]  # big first → enclave on top
@@ -295,7 +298,9 @@ def _choro_legend() -> str:
     )
 
 
-def _render_choropleth() -> None:
+def _render_choropleth(*, link_key: str = "la") -> None:
+    """Clickable national choropleth. ``link_key`` is the dossier query param each council links to —
+    "la" for this page (default), "council" when the Your Council hub reuses the same map."""
     res = fetch_la_map_layers_result()
     if not res.ok or res.data.empty:
         return  # silent — the searchable grid below remains the reliable selector
@@ -308,7 +313,9 @@ def _render_choropleth() -> None:
         zoom = st.radio("Zoom in on", list(_ZOOMS.keys()), horizontal=True, key="lg_map_zoom")
     qcol, phrase = _MAP_LAYERS[choice]
     quint = {str(r["local_authority"]): r[qcol] for _, r in df.iterrows() if pd.notna(r[qcol])}
-    map_html = _choropleth_html(quint, alt=f"Map of the 31 local authorities shaded by {choice}", zoom=zoom)
+    map_html = _choropleth_html(
+        quint, alt=f"Map of the 31 local authorities shaded by {choice}", zoom=zoom, link_key=link_key
+    )
     if not map_html:
         return
     st.html(f'<div class="con-choro">{map_html}{_choro_legend()}</div>')
@@ -630,7 +637,7 @@ def _scorecard_card(name: str, title: str, keys: list[str]) -> str:
         for k in keys:
             col = _SCORECARD[k][0]
             if col in hd.columns:
-                hist[col] = list(zip(hd["year"].astype(int), hd[col]))
+                hist[col] = list(zip(hd["year"].astype(int), hd[col], strict=False))
     rows = [_scorecard_metric(r, k, hist.get(_SCORECARD[k][0])) for k in keys]
     return _stat_card(title, rows, "NOAC Performance Indicator Report 2024 (2022–24 trend)",
                       src_url=_NOAC_REPORT)

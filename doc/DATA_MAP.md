@@ -11,8 +11,8 @@
 >
 > Companion docs: `PROCUREMENT_MASTER.md` (procurement + value taxonomy §4b),
 > `PER_LA_AFS_BUILD_PLAN.md`, `PUBLIC_PAYMENTS_FACT_SCHEMA.md`,
-> `new_public_money_legal_sources_claude_backlog.md` (tier-⓪ new sources),
-> `new_sources_value_and_features_claude_plan.md` (feature ideas).
+> `archive/new_public_money_legal_sources_claude_backlog.md` (tier-⓪ new sources),
+> `archive/new_sources_value_and_features_claude_plan.md` (feature ideas).
 
 ---
 
@@ -204,7 +204,7 @@ Effort is better spent surfacing the ②/③ backlog than starting new ⓪ inges
 4. **Wire the ④ SI enhancements** (legal-state / amendment-graph / LRC) onto the existing SI
    page — built, just need UI.
 
-Feature concepts that combine these (per `new_sources_value_and_features_claude_plan.md`):
+Feature concepts that combine these (per `archive/new_sources_value_and_features_claude_plan.md`):
 LA Profile · Public Body Profile · Supplier Dossier · Infrastructure Project Profile · FOI
 Lead Pack.
 

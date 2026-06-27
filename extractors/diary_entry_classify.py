@@ -158,6 +158,24 @@ def classify(subject: str | None) -> str:
     return "other"
 
 
+def entry_class_expr(col: str = "subject") -> pl.Expr:
+    """Vectorised polars equivalent of :func:`classify` for the pipeline write path.
+
+    Folds the SAME ``RULES`` (order is load-bearing) into a first-match-wins
+    ``when/then`` ladder, so we avoid a per-row Python callback over the whole
+    frame. ``(?i)`` reproduces the ``re.IGNORECASE`` the scalar patterns compile
+    with; a null/empty subject matches no branch and falls through to ``"other"`` —
+    identical to ``classify``. ``test_diary_classify`` pins the two against each other.
+    """
+    subject = pl.col(col)
+    expr: pl.Expr | None = None
+    for cls, pat in RULES:
+        cond = subject.str.contains("(?i)" + pat.pattern)
+        expr = pl.when(cond).then(pl.lit(cls)) if expr is None else expr.when(cond).then(pl.lit(cls))
+    assert expr is not None  # RULES is non-empty
+    return expr.otherwise(pl.lit("other")).alias("entry_class")
+
+
 def main() -> int:
     setup_standalone_logging("diary_entry_classify")
     if not ENTRIES.exists():
@@ -167,7 +185,7 @@ def main() -> int:
     e = pl.read_parquet(ENTRIES)
     if "entry_class" in e.columns:  # idempotent re-derive
         e = e.drop("entry_class")
-    e = e.with_columns(pl.col("subject").map_elements(classify, return_dtype=pl.String).alias("entry_class"))
+    e = e.with_columns(entry_class_expr())
     save_parquet(e, ENTRIES)
     e.write_csv(ENTRIES.with_suffix(".csv"))
 
