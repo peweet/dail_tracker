@@ -27,9 +27,11 @@ YEAR_RX = re.compile(r"202[4-9]")
 SOURCES = {
     "Galway City": ["https://www.galwaycity.ie/services/your-council/your-council-services/council-meeting-archive"],
     "Galway County": ["https://www.galway.ie/en/council-meetings"],
-    "Louth": ["https://www.louthcoco.ie/en/services/your-council/council-meetings/",
-              "https://www.louthcoco.ie/en/services/your-council/council-meetings/council-meetings-2025/",
-              "https://www.louthcoco.ie/en/services/your-council/council-meetings/council-meetings-2026/"],
+    # 2026-06: old /services/your-council/council-meetings/ paths 404'd (site moved). Minutes now
+    # live under /louth_county_council/minutes_of_statutory_meetings/<YEAR>/ — harvest follows the
+    # 2024-2026 year sub-pages (signed-minutes-county-council-<month>-<year>.pdf).
+    "Louth": ["https://www.louthcoco.ie/en/louth_county_council/minutes_of_statutory_meetings/",
+              "https://www.louthcoco.ie/en/louth_county_council/agenda-council-meetings/"],
     "Wicklow": ["https://www.wicklow.ie/Living/Your-Council/Council-Meetings/Minutes-Agendas"],
 }
 
@@ -45,7 +47,14 @@ def get(u, t=30):
 def harvest(pages):
     pdfs, seen = [], set()
     todo = list(pages)
-    for pg in todo[:10]:
+    # index-based queue (NOT `for pg in todo[:10]` — that froze the slice, so year
+    # sub-pages appended below were never crawled; councils that list PDFs only on
+    # /<year>/ sub-pages, e.g. Louth, yielded 0). Process up to 18 pages, following
+    # year sub-pages discovered along the way.
+    i = 0
+    while i < len(todo) and i < 18:
+        pg = todo[i]
+        i += 1
         r = get(pg)
         if not r:
             continue

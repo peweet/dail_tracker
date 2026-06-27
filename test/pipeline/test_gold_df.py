@@ -337,3 +337,175 @@ def test_committee_schema(committee_df):
 @pytest.mark.integration
 def test_most_lobbied_schema(most_lobbied_df):
     MostLobbiedPoliticiansSchema.validate(most_lobbied_df)
+
+
+# ---------------------------------------------------------------------------
+# SEANAD PARITY
+# The Dáil has driver-table contracts (MasterTD + EnrichedAttendance) above; the
+# Seanad twins had none, despite identical integrity stakes. master/attendance for
+# the upper house get the same guards here.
+# ---------------------------------------------------------------------------
+
+
+class SeanadMasterSchema(pa.DataFrameModel):
+    """
+    data/gold/seanad_master_list.csv — one row per senator; the Seanad twin of
+    master_td_list. Same stakes: a duplicate identifier or join_key silently
+    multiplies rows in every downstream LEFT JOIN.
+    """
+
+    identifier: str = pa.Field(nullable=False)
+    first_name: str = pa.Field(nullable=False)
+    last_name: str = pa.Field(nullable=False)
+    full_name: str = pa.Field(nullable=False)
+    year_elected: int = pa.Field(ge=1900, le=2030, nullable=True)
+    join_key: str = pa.Field(nullable=False)
+    party: str = pa.Field(nullable=True)
+    constituency: str = pa.Field(nullable=True)
+
+    class Config:
+        strict = False
+        name = "seanad_master_list"
+
+    @pa.dataframe_check
+    def senator_count_in_range(cls, data) -> bool:
+        df = _df(data)
+        # 60 Seanad seats; the record can edge above it over a term as casual
+        # vacancies are filled (anchored 2026-06-27: 60). Cap at 75 to still
+        # catch a runaway join.
+        return 1 <= len(df) <= 75
+
+    @pa.dataframe_check
+    def unique_identifiers(cls, data) -> bool:
+        df = _df(data)
+        return df["identifier"].n_unique() == len(df)
+
+    @pa.dataframe_check
+    def unique_join_keys(cls, data) -> bool:
+        df = _df(data)
+        return df["join_key"].n_unique() == len(df)
+
+
+class SeanadAttendanceSchema(pa.DataFrameModel):
+    """
+    data/gold/enriched_senator_attendance.csv — the Seanad twin of enriched_td_attendance.
+    NOTE: this file is committee-exploded (≈122 rows per senator-year), so unlike the
+    TD file it is NOT member-year unique. We therefore assert key non-nullness, party
+    coverage and plausible day counts — NOT grain uniqueness.
+    """
+
+    unique_member_code: str = pa.Field(nullable=False)
+    full_name: str = pa.Field(nullable=False)
+    join_key: str = pa.Field(nullable=False)
+    party: str = pa.Field(nullable=True)
+
+    class Config:
+        strict = False
+        name = "enriched_senator_attendance"
+
+    @pa.dataframe_check
+    def party_coverage(cls, data) -> bool:
+        df = _df(data)
+        # Senators are overwhelmingly party-affiliated; low coverage means the join
+        # key is failing (anchored 2026-06-27: 100%).
+        non_null = df["party"].drop_nulls()
+        return len(non_null) / len(df) > 0.80
+
+    @pa.dataframe_check
+    def day_counts_plausible(cls, data) -> bool:
+        df = _df(data)
+        # Day counts are read off the same PDFs as the TD file; a 999 is a mis-parse.
+        # Typed loosely (Int vs Float varies with how the CSV nulls infer) — cast and
+        # range-check the values rather than pinning a dtype.
+        for c in ("sitting_days_count", "other_days_count"):
+            if c in df.columns:
+                col = df[c].drop_nulls().cast(pl.Float64)
+                if len(col) and (col.lt(0).any() or col.gt(300).any()):
+                    return False
+        return True
+
+
+SAMPLE_SEANAD_MASTER = pl.DataFrame(
+    {
+        "identifier": ["Sen2020A", "Sen2016B"],
+        "first_name": ["Aoife", "Liam"],
+        "last_name": ["Kelly", "Walsh"],
+        "full_name": ["Aoife Kelly", "Liam Walsh"],
+        "year_elected": [2020, 2016],
+        "join_key": ["aaefikkloy", "aahilllmsw"],
+        "party": ["Fianna Fáil", "Fine Gael"],
+        "constituency": ["Agricultural Panel", "Industrial and Commercial Panel"],
+    }
+)
+
+SAMPLE_SEANAD_MASTER_DUP = SAMPLE_SEANAD_MASTER.with_columns(
+    pl.Series("join_key", ["aaefikkloy", "aaefikkloy"])  # duplicate join_key — must fail
+)
+
+SAMPLE_SEANAD_ATTENDANCE = pl.DataFrame(
+    {
+        "unique_member_code": ["SC2020A", "SC2016B"],
+        "full_name": ["Aoife Kelly", "Liam Walsh"],
+        "join_key": ["aaefikkloy", "aahilllmsw"],
+        "party": ["Fianna Fáil", "Fine Gael"],
+        "sitting_days_count": [42.0, 51.0],
+        "other_days_count": [10.0, 6.0],
+    }
+)
+
+SAMPLE_SEANAD_ATTENDANCE_BAD_DAYS = SAMPLE_SEANAD_ATTENDANCE.with_columns(
+    pl.Series("sitting_days_count", [999.0, 51.0])  # mis-parsed PDF row — must fail
+)
+
+
+def test_seanad_master_schema_accepts_valid_data():
+    SeanadMasterSchema.validate(SAMPLE_SEANAD_MASTER)
+
+
+def test_seanad_master_schema_rejects_duplicate_join_keys():
+    with pytest.raises(pa.errors.SchemaError):
+        SeanadMasterSchema.validate(SAMPLE_SEANAD_MASTER_DUP)
+
+
+def test_seanad_attendance_schema_accepts_valid_data():
+    SeanadAttendanceSchema.validate(SAMPLE_SEANAD_ATTENDANCE)
+
+
+def test_seanad_attendance_rejects_out_of_range_days():
+    with pytest.raises(pa.errors.SchemaError):
+        SeanadAttendanceSchema.validate(SAMPLE_SEANAD_ATTENDANCE_BAD_DAYS)
+
+
+@pytest.fixture(scope="module")
+def seanad_master_df():
+    path = GOLD_DIR / "seanad_master_list.csv"
+    if not path.exists():
+        pytest.skip(f"Gold file not found: {path} — run pipeline.py first")
+    return pl.read_csv(path)
+
+
+@pytest.fixture(scope="module")
+def seanad_attendance_df():
+    path = GOLD_DIR / "enriched_senator_attendance.csv"
+    if not path.exists():
+        pytest.skip(f"Gold file not found: {path} — run pipeline.py first")
+    return pl.read_csv(
+        path,
+        columns=["unique_member_code", "full_name", "join_key", "party", "sitting_days_count", "other_days_count"],
+    )
+
+
+@pytest.mark.integration
+def test_seanad_master_schema(seanad_master_df):
+    SeanadMasterSchema.validate(seanad_master_df)
+
+
+@pytest.mark.integration
+def test_seanad_master_no_null_join_keys(seanad_master_df):
+    n = seanad_master_df["join_key"].null_count()
+    assert n == 0, f"{n} null join_keys in seanad_master_list — these rows will silently drop from joins"
+
+
+@pytest.mark.integration
+def test_seanad_attendance_schema(seanad_attendance_df):
+    SeanadAttendanceSchema.validate(seanad_attendance_df)

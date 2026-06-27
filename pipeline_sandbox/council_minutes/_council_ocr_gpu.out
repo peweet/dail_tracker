@@ -1,0 +1,71 @@
+Galway City: 4 recent scanned/minutes docs to OCR
+Galway County: 23 recent scanned/minutes docs to OCR
+Louth: 0 recent scanned/minutes docs to OCR
+Wicklow: 24 recent scanned/minutes docs to OCR
+
+GPU OCR'ing 51 docs (serial, 1 PaddleOCR process) ...
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0626 23:29:20.379683 34964 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.6, Driver API Version: 12.5, Runtime API Version: 11.8
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+W0626 23:29:23.292934 34964 gpu_resources.cc:245] WARNING: device: 0. The installed Paddle is compiled with CUDNN 8.9, but CUDNN version in your machine is 8.9, which may cause serious incompatible bug. Please recompile or reinstall Paddle with compatible CUDNN version.
+  [1/51] Galway City    14 October 2 -> 6 [gpu-ocr]
+  [2/51] Galway City    26 November  -> 1 [gpu-ocr]
+  [3/51] Galway City    26 November  -> 1 [gpu-ocr]
+  [4/51] Galway City    27 March 201 -> 0 [gpu-ocr]
+  [5/51] Galway County  19/06/2026   -> 3 [text]
+  [6/51] Galway County  Agenda  22.0 -> 15 [text]
+  [7/51] Galway County  15/06/2026   -> 6 [text]
+  [8/51] Galway County  21/05/2026   -> 5 [text]
+  [9/51] Galway County  25/05/2026   -> 15 [text]
+  [10/51] Galway County  25/05/2026   -> 10 [gpu-ocr]
+  [11/51] Galway County  27/04/2026   -> 15 [text]
+  [12/51] Galway County  27/04/2026   -> 10 [gpu-ocr]
+  [13/51] Galway County  23/04/2026   -> 4 [text]
+  [14/51] Galway County  23/04/2026   -> 4 [text]
+  [15/51] Galway County  25/03/2026   -> 6 [text]
+  [16/51] Galway County  12/01/2026   -> 0 [gpu-ocr]
+  [17/51] Galway County  09/02/2026   -> 6 [gpu-ocr]
+  [18/51] Galway County  09/03/2026   -> 4 [gpu-ocr]
+  [19/51] Galway County  31/03/2026   -> 1 [gpu-ocr]
+  [20/51] Galway County  13/04/2026   -> 4 [gpu-ocr]
+  [21/51] Galway County  Clár - Agend -> 15 [text]
+  [22/51] Galway County  Minutes 23.0 -> 8 [gpu-ocr]
+  [23/51] Galway County  31/03/2026   -> 1 [gpu-ocr]
+  [24/51] Galway County  26/03/2026   -> 4 [text]
+  [25/51] Galway County  26/03/2026   -> 0 [gpu-ocr]
+  [26/51] Galway County  20/02/2026   -> 0 [text]
+  [27/51] Galway County  Minutes  20. -> 9 [text]
+  [28/51] Wicklow        12 January 2 -> 9 [gpu-ocr]
+  [29/51] Wicklow        9 February 2 -> 0 [gpu-ocr]
+  [30/51] Wicklow        2 March 2026 -> 10 [gpu-ocr]
+  [31/51] Wicklow        30 March 202 -> 4 [gpu-ocr]
+  [32/51] Wicklow        13 April 202 -> 15 [gpu-ocr]
+  [33/51] Wicklow        13 January 2 -> 12 [text]
+  [34/51] Wicklow        10 February  -> 15 [text]
+  [35/51] Wicklow        3 March 2025 -> 15 [text]
+  [36/51] Wicklow        7 April 2025 -> 15 [text]
+  [37/51] Wicklow        12 May 2025  -> 15 [text]
+  [38/51] Wicklow        9 June 2025  -> 11 [text]
+  [39/51] Wicklow        7 July 2025  -> 15 [text]
+  [40/51] Wicklow        16 June 2025 -> 15 [text]
+  [41/51] Wicklow        16 June 2025 -> 7 [text]
+  [42/51] Wicklow        1 September  -> 15 [text]
+  [43/51] Wicklow        6 October 20 -> 15 [text]
+  [44/51] Wicklow        3 November 2 -> 10 [gpu-ocr]
+  [45/51] Wicklow        24 November  -> 9 [gpu-ocr]
+  [46/51] Wicklow        1 December 2 -> 7 [gpu-ocr]
+  [47/51] Wicklow        8 January 20 -> 15 [text]
+  [48/51] Wicklow        12 February  -> 14 [text]
+  [49/51] Wicklow        4 March 2024 -> 11 [text]
+  [50/51] Wicklow        8 April 2024 -> 15 [text]
+  [51/51] Wicklow        13 May 2024  -> 10 [text]
+
+OCR done. agendas extracted: 46/51; added 0 new meetings.
+meeting_history now: 212 meetings; 30 councils
+scanned-council counts: {'Galway City': 3, 'Galway County': 21, 'Wicklow': 25}
