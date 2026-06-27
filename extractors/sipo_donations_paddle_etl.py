@@ -49,6 +49,7 @@ sys.path.insert(0, str(ROOT))
 import contextlib  # noqa: E402
 
 from services.parquet_io import save_parquet  # noqa: E402
+from tools.data_fidelity import fidelity_gate  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -303,6 +304,11 @@ def main() -> None:
     if mode in ("parse", "both"):
         print("=== PARSE stage ===", flush=True)
         df = parse_stage()
+        # Fidelity gate before the bronze→silver write: a fat-fingered / mis-OCR'd amount
+        # must not reach the app. €1bn is an absurd-only ceiling — no real SIPO donation
+        # approaches it — so a stray row is quarantined (with its source_pdf + page for
+        # tracing, see tools/quarantine_report.py) and excluded; the rest flow through.
+        df = fidelity_gate(df, name="sipo_donations_bronze", bounds={"value_eur": (0, 1_000_000_000)})
         if df.height:
             save_parquet(df, OUT_PARQUET)
             print(f"\n{df.height} donations parsed -> {OUT_PARQUET.relative_to(ROOT)}")

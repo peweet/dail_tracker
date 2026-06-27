@@ -12,7 +12,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-from hypothesis import given
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
@@ -94,6 +94,9 @@ def test_quarantine_artifacts_written_to_disk(tmp_path):
 
 
 # --------------------------------------------------------------------------- property
+# Each example builds a Polars frame, so disable the per-example deadline / slow-data
+# health check — this is real (light) compute, not slow strategy generation.
+@settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(
     values=st.lists(
         st.floats(allow_nan=False, allow_infinity=False, min_value=-1e12, max_value=1e12),

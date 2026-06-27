@@ -1235,7 +1235,9 @@ def _render_payments_publisher_profile(
     # Laoghaire-Rathdown, Louth, Tipperary). Those carry no row in the payments fact, so look them up
     # in the council directory (the union view) and render the audited-accounts dossier rather than
     # bail with "No payments found" — the old behaviour made the largest LA in the State unreachable.
-    csum = _council_summary_row(publisher_name) if prow is None else None
+    # NB the profile query is an ungrouped aggregate, so for an unknown publisher it returns a single
+    # ALL-NULL row (prow is not None) with no tiers — gate on tiers_present, not on prow being None.
+    csum = _council_summary_row(publisher_name) if not tiers_present else None
     is_afs_only = csum is not None and (_truthy(csum.get("has_running")) or _truthy(csum.get("has_building")))
 
     is_la = (prow is not None and _coalesce(prow.get("publisher_type")) == "local_authority") or is_afs_only

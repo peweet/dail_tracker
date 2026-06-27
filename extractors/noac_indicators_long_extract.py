@@ -72,7 +72,12 @@ def _clean(s) -> str:
 def _label(header: str) -> str:
     """Turn a raw NOAC column header into a readable series label."""
     s = _clean(header)
-    s = re.sub(r"^[A-Z]\s*[\(\.]?\s*[a-z0-9]?\)?[:.]?\s*", "", s)   # strip 'A. ' / 'B (b): ' enumerators
+    # Strip enumerators ONLY when a real delimiter is present — 'A. ' / 'A) ' / 'B (b): '.
+    # The delimiter ( or . must NOT be optional: an all-optional pattern matched a bare
+    # leading capital + the next letter and ate the first chars of ordinary prose headers
+    # ("Buildings…" -> "ildings…", "Net expenditure" -> "t expenditure").
+    s = re.sub(r"^[A-Z]\s*[\(\.]\s*[a-z0-9]?\)?[:.]?\s*", "", s)    # 'A. ' / 'B (b): '
+    s = re.sub(r"^[A-Z]\d{1,2}[\.\)]?\s+", "", s)                   # 'H1 ' / 'R2. ' code prefix
     s = re.sub(r"\s*(for|in|during|by|as at|to)\s*\d{0,2}/?\d{0,2}/?20\d\d.*$", "", s, flags=re.I)  # trailing dates
     s = re.sub(r"\s*\(?based on .*?census\)?", "", s, flags=re.I)
     return (s.strip(" .,-") or header)[:90]

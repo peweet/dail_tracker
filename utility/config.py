@@ -17,6 +17,9 @@ SILVER_DIR = PROJECT_ROOT / "data" / "silver"
 # READS this committed JSON — never parquet — for "data updated" lines.
 # Mirrored in root config.py; keep both in sync (dual-config convention).
 FRESHNESS_JSON = PROJECT_ROOT / "data" / "_meta" / "freshness.json"
+# Values the fidelity/contract gates held back from the app (single traceable ledger).
+# Mirrored in root config.py; keep both in sync (dual-config convention).
+QUARANTINE_LEDGER_JSON = PROJECT_ROOT / "data" / "_meta" / "quarantine_ledger.json"
 SILVER_PARQUET_DIR = PROJECT_ROOT / "data" / "silver" / "parquet"
 GOLD_PARQUET_DIR = PROJECT_ROOT / "data" / "gold" / "parquet"
 

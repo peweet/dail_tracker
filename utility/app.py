@@ -23,6 +23,7 @@ from pages_code.public_payments import public_payments_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
 from pages_code.what_they_own import what_they_own_page
+from pages_code.your_council import your_council_page
 from pages_code.your_councillors import your_councillors_page
 from shared_css import inject_css
 from ui.page_analytics import log_page_view
@@ -141,6 +142,16 @@ pg = st.navigation(
                 title="Constituencies",
                 icon=":material/map:",
                 url_path="constituencies",
+            ),
+            # Your Council — Phase 1 of the council-pages consolidation: one council, one dossier
+            # (who runs it · councillors · spending). Recomposes the existing local_government +
+            # procurement renderers; the three pages below stay for now and are retired once this is
+            # validated (Phase 4). See pages_code/your_council.py.
+            st.Page(
+                your_council_page,
+                title="Your Council",
+                icon=":material/location_city:",
+                url_path="your-council",
             ),
             st.Page(
                 local_government_page,

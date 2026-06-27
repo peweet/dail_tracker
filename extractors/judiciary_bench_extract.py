@@ -137,7 +137,16 @@ def _load_aliases() -> dict[str, str]:
 def normalise_key(name: str, aliases: dict[str, str]) -> str:
     """Stable join key for a judge name: strip accents/honorifics/punctuation,
     lowercase, apply the alias map per token, preserve order (NO letter-sort —
-    that over-collides distinct people). 'BRIAN O'SHEA' / 'Brian O'Shea' -> 'brian oshea'."""
+    that over-collides distinct people).
+
+    NOTE: punctuation (incl. the apostrophe) becomes a SPACE and single-letter tokens
+    are then dropped, so "Brian O'Shea" -> "brian shea" (the bare "o" is discarded), not
+    "brian oshea". This is self-consistent across every source that runs through this
+    function, so the joins hold (verified: 0 key collisions on the bench, 0 unmatched
+    diary rows). It does mean an alias whose canonical is written "oshea" would not
+    match, and a source spelling a name without the apostrophe ("OShea" -> "oshea")
+    would diverge — change the apostrophe handling here only with a coordinated re-promote
+    of all judiciary parquets + the diary map (the key format would shift)."""
     if name is None or (isinstance(name, float) and pd.isna(name)):
         return ""
     s = unicodedata.normalize("NFD", str(name))
