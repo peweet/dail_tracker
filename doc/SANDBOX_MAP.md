@@ -51,6 +51,24 @@ privacy mask, but only view-level smoke coverage) — was closed by extracting a
 `test/extractors/test_epa_promote_privacy.py` (8 tests, incl. an integration check on the
 committed parquet). Behaviour unchanged.
 
+## Obsolete prototypes — feature ALREADY promoted to a self-contained extractor (RETIRED 2026-06-27)
+
+A third category the original map missed: prototypes whose feature is **fully promoted** to a
+production extractor that fetches **and** transforms itself (reads NO sandbox output) — unlike the
+live scrapers above, nothing depends on the sandbox copy, so it is pure dead weight. Verified
+self-contained + no code/test references (only narrative doc mentions). Removed; restore tracked code
+with `git checkout 936650a -- <path>` (untracked prototype parquets/csvs were not in history).
+
+| Retired sandbox dir | Superseded by (self-contained prod extractor) |
+|---|---|
+| `noac_accountability/` | `extractors/noac_indicators_long_extract.py` + `noac_scorecard_extract.py` (live on local_government page, tested) |
+| `participation/` | `extractors/participation_extract.py` (gold + attendance page) |
+| `member_contact/` | `extractors/member_contact_extract.py` (gold + member-overview) |
+| `dept_children_payments/` | `extractors/procurement_dept_readingorder_parser.py` (gold + accommodation-spend page) |
+
+Still-WIP prototypes (NOT promoted, kept): `disclosed_po_spend/` (TIER1-B genuine gap, verified
+2026-06-27), `spend_service_bridge/`, `pq_disclosures/`, `historic_members/`.
+
 ## Dead-probe candidates for a FUTURE retirement pass (NOT yet removed)
 
 Zero references in live code or tests; cold 3+ weeks. When/if retired, **git history is

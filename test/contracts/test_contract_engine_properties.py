@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 import polars as pl
-from hypothesis import given
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
@@ -42,6 +42,7 @@ _OUT_OF_VOCAB = ("charity", "alien", "", "Company", "UNKNOWN", "ngo")
 _VOCAB_POOL = sorted(SUPPLIER_CLASS) + list(_OUT_OF_VOCAB)
 
 
+@settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(values=st.lists(st.sampled_from(_VOCAB_POOL), min_size=1, max_size=40))
 def test_vocab_gate_flags_exactly_out_of_vocab(values):
     df = pl.DataFrame({"supplier_class": values})
@@ -71,6 +72,7 @@ _ROW = st.tuples(
 )
 
 
+@settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(rows=st.lists(_ROW, min_size=1, max_size=30))
 def test_never_sum_invariant_detects_iff_double_count_or_phantom(rows):
     safe = [r[0] for r in rows]

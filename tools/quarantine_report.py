@@ -88,6 +88,11 @@ def build_ledger(
             for reason in df[_REASON].drop_nulls().to_list():
                 offending_cols.update(c for c in str(reason).split(";") if c)
 
+        try:
+            rel_parquet = str(parquet.relative_to(ROOT))
+        except ValueError:
+            rel_parquet = str(parquet)  # quarantine dir outside the repo (tests / custom dir)
+
         present_prov = [c for c in PROVENANCE_CANDIDATES if c in df.columns]
         # one row = reason + the offending column value(s) + whatever provenance exists.
         keep = list(
@@ -103,7 +108,7 @@ def build_ledger(
             "n_held": df.height,
             "offending_columns": sorted(offending_cols),
             "provenance_columns": present_prov,
-            "quarantine_parquet": str(parquet.relative_to(ROOT)),
+            "quarantine_parquet": rel_parquet,
             "rows": rows,
         }
         summary_json = quarantine_dir / f"{name}_quarantine.json"

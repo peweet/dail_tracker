@@ -122,19 +122,21 @@ def test_clean(raw, expected):
 @pytest.mark.parametrize(
     ("header", "expected"),
     [
-        # Enumerator strip: "A. " and "B (b): " prefixes are removed.
+        # Enumerator strip: "A. " / "B (b): " / "H1 " / "R2. " prefixes are removed.
         ("A. Number of houses", "Number of houses"),
         ("B (b): Percentage poor", "Percentage poor"),
+        ("H1 Households", "Households"),
+        ("R2. Roads maintained", "Roads maintained"),
         # Trailing "as at <date>" clause is dropped.
-        ("Total dwellings as at 31/12/2024", "tal dwellings"),
+        ("Total dwellings as at 31/12/2024", "Total dwellings"),
         # Trailing "(based on … census)" clause is dropped.
-        ("Cost per capita (based on 2022 census)", "st per capita"),
-        # IMPORTANT regression pin: the enumerator regex is greedy and also eats the
-        # first one or two leading chars of an ordinary header (it matches a leading
-        # capital + optional single alnum), e.g. "Simple header" -> "mple header",
-        # "Total …" -> "tal …", "Cost …" -> "st …". This is current behaviour; if the
-        # regex is ever tightened these expectations must be revisited deliberately.
-        ("Simple header", "mple header"),
+        ("Cost per capita (based on 2022 census)", "Cost per capita"),
+        # Ordinary prose headers must survive intact — the enumerator strip only fires
+        # when a real delimiter is present, so it no longer eats leading characters.
+        ("Simple header", "Simple header"),
+        ("Buildings inspected as a percentage", "Buildings inspected as a percentage"),
+        ("Net expenditure", "Net expenditure"),
+        ("% Area Grossly Polluted", "% Area Grossly Polluted"),
         # Empty header falls back to the original input ("" stays "").
         ("", ""),
     ],

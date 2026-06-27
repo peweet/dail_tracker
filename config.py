@@ -18,6 +18,10 @@ LOG_DIR = BASE_DIR / "logs"
 # and the Streamlit provenance lines read it). Mirrored in utility/config.py;
 # keep both in sync (dual-config convention).
 FRESHNESS_JSON = DATA_DIR / "_meta" / "freshness.json"
+# Consolidated record of values the fidelity/contract gates held back from the app
+# (built by tools/quarantine_report.py from the per-resource quarantine parquets).
+# Mirrored in utility/config.py; keep both in sync (dual-config convention).
+QUARANTINE_LEDGER_JSON = DATA_DIR / "_meta" / "quarantine_ledger.json"
 
 # Medallion architecture layers
 BRONZE_DIR = DATA_DIR / "bronze"
