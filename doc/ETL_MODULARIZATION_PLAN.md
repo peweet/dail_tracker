@@ -112,6 +112,47 @@ ones that cost effort. T1.3 is the one architectural win that *was* also cheap.
 | T3.2 | Procurement parser scaffolding (`_confidence`/`summarise_outlier`/`build_coverage`) onto `pbe` | nphdb/nta/seai | parser scaffolding in one place | med — **add a SCHEMA_COLS order-pin test first** |
 | T3.3 | Collapse `db.py` ↔ `utility/data_access/_sql_registry.py` duplication | read-layer | one view-registration path | med (already team-planned) |
 
+## 2c. Bloat-strategy investigation (2026-06-28) — firewall / libraries / OO / bend-the-curve
+
+Multi-agent pass (27 agents) over the UI + a 10-category library scan + an OO devil's-advocate.
+
+**Streamlit firewall audit:** 38 candidate leaks raised, ~6 confirmed by an adversarial verify
+pass (which correctly killed its own false positives, e.g. `corporate.py:1312/1293`). Real,
+confirmed UI business-logic leaks to migrate to **DuckDB views**: `ui/vote_explorer.py:618`
+(SQL-in-UI), `pages_code/ministerial_diaries.py:351` (pandas fact-derivation),
+`procurement.py:1539/1659` (the recurring-charge `>=2` never-sum threshold, *duplicated*),
+`your_councillors.py:230`, `statutory_instruments.py:528`, `election_2024.py:88`. 27/38 → view.
+Low-sev display items (`scale_max` bar-sizing, `_spend_scale` sort key) correctly respect the
+firewall — leave. Bounded, not systemic.
+
+**Library scan:** the project is ALREADY library-disciplined (`flatten_json`,
+`pandas.json_normalize`, `dateutil`, polars dates, **bs4 in 6+ extractors**, `shapely`,
+`hashlib`, `lru_cache` = "already_using"). Only genuine adopt: **bs4 in ~5 more hand-rolled HTML
+scrapers** (already a dep, ~60–120 LOC). The fuzzy/name/date/money "candidates" are TRAPS —
+they're exact join keys / expected-value cross-checks; rapidfuzz/unidecode/dateutil-fuzzy would
+silently change which rows match (firewall hazard). Bloat is STRUCTURAL, not reinvented-wheels.
+
+**OO verdict:** the maintainer's instinct is right. Repo has ZERO behavioral inheritance (one
+exception subclass aside) — already function + config-dict + frozen-dataclass, like dbt/polars/
+Airflow. Light OO already earns its keep (`QueryResult`, `Deflator`, `Breaker`) — do NOT flatten.
+Only arguable OO move: a Template-Method base over the 5 payment parsers, templating LIFECYCLE
+ONLY (never `parse`) — would fix a real inconsistency (nphdb/nta enforce the `min_rows` row-floor;
+**seai + hse_tusla silently omit it**). Even so, marginal since `pbe`-as-module already centralises
+most of it.
+
+**Bend-the-curve levers (ranked; with skepticism applied):**
+1. **AST firewall-guard test** (low effort, high value) — no test enforces the firewall today; one
+   that fails on `conn.execute`/raw-SQL/fact-derivation in `utility/pages_code|ui` PREVENTS the 26k-
+   LOC UI re-accreting logic. Changes the trajectory. **Top pick.**
+2. **Payment-parser lifecycle template** (med) — ~1,635 LOC; 6th publisher 120→30 lines + fixes the
+   row-floor drift.
+3. **Shared HTTP-retry helper** (ted_search + 4 wikidata copy the loop) + **bs4 in 5 scrapers** — bounded.
+4. **Extend the contract engine with tuples, not a class DSL** (the live memory task).
+- ⚠️ The synthesis's "finish paths.py migration, ~700–1,000 LOC" is **OVERSTATED**: the bootstrap
+  ordering paradox blocks it for the ~226 subprocess-invoked scripts (you need `ROOT`+`sys.path.insert`
+  *before* you can import `paths`). The real structural fix is **packaging** (editable install →
+  preamble disappears), i.e. the parked reorg plan — not a 226-file edit.
+
 ## 3. Explicitly NOT doing (honest guardrails)
 - ❌ A single mega "all regexes" file — incohesive and firewall-risky (see §4).
 - ❌ Force-merging money/PO/PDF parsers — deliberate per-source divergence feeds money facts.

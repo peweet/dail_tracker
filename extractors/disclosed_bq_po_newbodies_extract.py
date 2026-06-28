@@ -81,16 +81,28 @@ def _clean(col: str) -> pl.Expr:
     return pl.when(e.str.to_lowercase().is_in(list(_NULL_TOKENS))).then(None).otherwise(e)
 
 
+PARSER_NAME = "disclosed_bq_newbodies"
+
+
 def _assert_disjoint(my_ids: set[str]) -> None:
-    """Fail-closed: HALT if any emitted publisher_id is already present in another lane or gold."""
+    """Fail-closed: HALT if any emitted publisher_id is already present in ANOTHER lane or gold.
+
+    Gold is rebuilt from silver each run and already holds THIS lane's own rows from the prior build
+    (parser_name=disclosed_bq_newbodies) — those are not "another lane", so exclude them, else every
+    re-run after the first would false-trip on its own output (mirrors the LA carry-forward fix)."""
     seen: dict[str, str] = {}
-    paths = [(SILVER / f, f) for f in _OTHER_LANES] + ([(GOLD, "gold")] if GOLD.exists() else [])
-    for path, label in paths:
+    for f in _OTHER_LANES:
+        path = SILVER / f
         if not path.exists():
             continue
         ids = set(pl.read_parquet(path, columns=["publisher_id"])["publisher_id"].unique().to_list())
         for pid in my_ids & ids:
-            seen[pid] = label
+            seen[pid] = f
+    if GOLD.exists():
+        gold = pl.read_parquet(GOLD, columns=["publisher_id", "parser_name"]).filter(pl.col("parser_name") != PARSER_NAME)
+        gids = set(gold["publisher_id"].unique().to_list())
+        for pid in my_ids & gids:
+            seen[pid] = "gold"
     if seen:
         raise SystemExit(
             f"disclosed_bq_po_newbodies: DOUBLE-COUNT GUARD TRIPPED — publisher_id(s) already in another "
