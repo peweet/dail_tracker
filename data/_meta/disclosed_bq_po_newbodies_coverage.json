@@ -1,11 +1,13 @@
 {
-  "built_at": "2026-06-27T21:27:14.445956+00:00",
+  "built_at": "2026-06-28T05:13:04.152293+00:00",
   "source_csv": "bq-results-20260619-122315-1781871808837.csv",
   "source_file_hash": "67a2908e5a55c62b",
   "scope": "new-body coverage Tranche 1 (po_committed, source-authoritative)",
-  "rows": 83504,
-  "publishers": 11,
+  "rows": 100760,
+  "publishers": 16,
   "publisher_ids": [
+    "dept_housing",
+    "ie_corketb",
     "ie_epa",
     "ie_garda",
     "ie_la_carlow",
@@ -16,9 +18,12 @@
     "ie_la_louth",
     "ie_la_roscommon",
     "ie_la_tipperary",
-    "ie_lmetb"
+    "ie_lcetb",
+    "ie_lmetb",
+    "ie_lwetb",
+    "ie_rsa"
   ],
-  "gross_eur": 10054987701.529999,
-  "summable_eur": 9859757840.65,
-  "rows_review_personal_data": 17782
+  "gross_eur": 11713721027.170002,
+  "summable_eur": 11494975674.35,
+  "rows_review_personal_data": 23899
 }

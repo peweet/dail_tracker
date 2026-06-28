@@ -329,9 +329,7 @@ def _dept_drill(dept_code: str, meetings: pd.DataFrame, eng: pd.DataFrame) -> No
         .sort_values("meetings", ascending=False)
     )
     agg["depts"] = agg["minister"].map(_minister_depts(meetings))  # full portfolio for badge context
-    most = _most_met_strip(
-        _top_orgs(eng, "department", top=6).get(dept_code, []), tag="p", style="margin-top:0.4rem"
-    )
+    most = _most_met_strip(_top_orgs(eng, "department", top=6).get(dept_code, []), tag="p", style="margin-top:0.4rem")
     st.html(
         f'<div class="dt-diary-hero"><h2>{_h(_dept_full(dept_code))}</h2>'
         f"<p>{len(m):,} external meetings logged · {len(agg)} ministers · "
@@ -441,7 +439,7 @@ def _render_search(meetings: pd.DataFrame, suggestions: list[str]) -> None:
         st.html(_meeting_rows(rows, show_minister=True))
 
 
-def _render_by_minister(meetings: pd.DataFrame) -> None:
+def _render_by_minister(meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
     m = meetings[meetings["minister"].notna() & (meetings["minister"] != "")]
     agg = (  # logic_firewall: display_only — counting the active (period-filtered) set, not a metric
         m.groupby("minister")
@@ -449,13 +447,39 @@ def _render_by_minister(meetings: pd.DataFrame) -> None:
         .reset_index()
         .sort_values("meetings", ascending=False)
     )
+    agg["depts"] = agg["minister"].map(_minister_depts(meetings))  # which ministry/ministries
+    most_met = _top_orgs(eng, "minister")
     q = st.text_input("Search minister", "", placeholder="e.g. Burke, Martin, Ryan…")
     if q.strip():
         agg = agg[agg["minister"].str.contains(_re_escape(q.strip()), case=False, na=False, regex=True)]
     if agg.empty:
         empty_state("No matches", "No ministers match that search.")
         return
-    st.html("\n".join(_minister_card(r) for _, r in agg.iterrows()))
+    st.html("\n".join(_minister_card(r, most_met) for _, r in agg.iterrows()))
+
+
+def _render_by_dept(meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
+    m = meetings[meetings["department"].notna() & (meetings["department"] != "")]
+    if m.empty:
+        empty_state("No data", "No departmental diaries in this period.")
+        return
+    agg = (  # logic_firewall: display_only — counting the active (period-filtered) set, not a metric
+        m.groupby("department")
+        .agg(
+            meetings=("subject", "size"),
+            ministers=("minister", pd.Series.nunique),
+            first=("entry_date", "min"),
+            last=("entry_date", "max"),
+        )
+        .reset_index()
+        .sort_values("meetings", ascending=False)
+    )
+    most_met = _top_orgs(eng, "department")
+    st.caption(
+        f"{len(agg)} departments publish a diary — pick one to see its ministers "
+        "(current and former) and who they logged meeting."
+    )
+    st.html("\n".join(_dept_card(r, most_met) for _, r in agg.iterrows()))
 
 
 def _render_by_org(overlap: pd.DataFrame, meetings: pd.DataFrame, period_active: bool) -> None:
