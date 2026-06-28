@@ -72,11 +72,12 @@ SILVER = ROOT / "data/silver/parquet"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 OUT = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_payments_fact_coverage.json"
-# Row floor for the consolidated gold fact (219,713 rows 2026-06-20). Consolidate
-# unions the upstream silver facts; if one came in truncated (its own floor was
-# bypassed, or a non-floored source emptied), gold should not be rebuilt smaller.
-# ~30% headroom; force a deliberate small rebuild with DAIL_SKIP_ROW_FLOOR=1.
-MIN_FACT_ROWS = 150_000
+# Row floor for the consolidated gold fact (406,733 rows 2026-06-27 after the disclosed_bq_po
+# new-bodies Tranche 1 + HSE history). Consolidate unions the upstream silver facts; if one came in
+# truncated (its own floor was bypassed, or a non-floored source emptied), gold should not be rebuilt
+# smaller. ~30% headroom; force a deliberate small rebuild with DAIL_SKIP_ROW_FLOOR=1. Raise again
+# when a future tranche/lane lands (plan §11g).
+MIN_FACT_ROWS = 280_000
 # Hand-curated supplier-class overrides (firms/foreign/semi-states the regex+CRO can't resolve).
 # Only sum-neutral classes (company/foreign_company); transfer bodies live in a separate review CSV.
 CLASS_OVERRIDES = ROOT / "data/_meta/procurement_supplier_class_overrides.csv"
@@ -98,6 +99,14 @@ SOURCE_FACTS = [
     # publisher overlap with the above. Adds ~€2.35bn sum-safe (Justice €1.47bn, Transport €486m,
     # DFAT €394m) — incl. BearingPoint/Accenture/Capita consultancy + asylum-accommodation providers.
     "dept_readingorder_payments_fact.parquet",
+    # DISCLOSED national PO/payments-over-€20k BigQuery extract — GENUINELY-NEW bodies lane
+    # (extractors/disclosed_bq_po_newbodies_extract.py, registry data/_meta/procurement_disclosed_bodies.csv).
+    # Tranche 1 = 8 county councils (6 already in the LA SCHEMA_MAP but with a broken live harvest →
+    # 0 gold rows; Tipperary+Louth verified) + An Garda + EPA + Louth&Meath ETB, ALL po_committed,
+    # regime source-authoritative. Disjoint from every other lane (asserted in the extractor AND in
+    # main() below). NOTE this is SEPARATE from the HSE-history sidecar (disclosed_bq_po_payments_fact),
+    # which folds into hse_tusla above so ie_hse stays single-source.
+    "disclosed_bq_po_newbodies_fact.parquet",
 ]
 
 # Publishers known to publish VAT-INCLUSIVE figures (mixing bases would corrupt any
@@ -358,8 +367,18 @@ def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
     # replay). Carry such a council's rows forward from the existing gold fact, loudly.
     if OUT.exists():
         gold = pl.read_parquet(OUT)
-        gone = set(gold.filter(pl.col("publisher_type") == "local_authority")["publisher_id"].unique()) - set(
-            la["publisher_id"].unique()
+        # A council already provided by ANOTHER lane THIS run is NOT "gone": the
+        # disclosed_bq_po_newbodies lane owns the 6 LA-config councils whose live harvest is broken
+        # (Dublin City, DLR, Cavan, Kerry, Roscommon, Carlow) + Tipperary/Louth, and those rows are
+        # already in `base`. Without this exclusion the LA carry-forward would resurrect them from
+        # the prior gold AND the disclosed lane would fold them again = double-count (the reconcile
+        # then trips on the +rows drift on the SECOND rebuild). A genuine LA-lane listing-rot council
+        # is in neither the LA silver NOR base, so it is still carried forward as before.
+        owned_elsewhere = set(base["publisher_id"].unique())
+        gone = (
+            set(gold.filter(pl.col("publisher_type") == "local_authority")["publisher_id"].unique())
+            - set(la["publisher_id"].unique())
+            - owned_elsewhere
         )
         if gone:
             carried = (
@@ -766,6 +785,26 @@ def main() -> None:
     print("Consolidating payment-grain facts → gold:")
     base = _load_facts()
     la = _load_la_fact(base)
+
+    # CROSS-LANE DISJOINTNESS GUARD (plan §10): the reconciliation audit below keys on each source's
+    # publisher set and so CANNOT detect a publisher_id that appears in TWO lanes (it would
+    # double-count AND reconcile to itself — the documented silent trap). Prevent it structurally:
+    # assert every publisher_id belongs to exactly one source fact. No-op on today's disjoint data;
+    # fires only if e.g. a recovered LA harvest starts emitting a council the disclosed lane owns.
+    _owner: dict[str, str] = {}
+    _dups: dict[str, list[str]] = {}
+    for _label, _stats in _SOURCE_STATS.items():
+        for _pid in _stats["publishers"]:
+            if _pid in _owner:
+                _dups.setdefault(_pid, [_owner[_pid]]).append(_label)
+            else:
+                _owner[_pid] = _label
+    if _dups:
+        raise SystemExit(
+            "CROSS-LANE DOUBLE-COUNT — publisher_id present in multiple source facts (would silently "
+            f"double-count in gold): {_dups}. Resolve ownership (one lane per publisher_id) before rebuilding."
+        )
+
     df = pl.concat([base, la], how="vertical") if la is not None else base
     df = _canonicalise_split_entities(df)
     df = _clean_supplier_names(df)
@@ -837,13 +876,19 @@ def main() -> None:
     # PARSE-QUALITY GATE (services/parse_qa): catch a parser regression that collapses
     # several records into one cell — a whole PO table or OCR'd page dumped into a single
     # description (max/p99 ratio + an absolute-length backstop that survives p99 inflation).
-    # tolerate=20 covers the KNOWN dept_children (DCEDIY) reading-order residual: those PDFs
-    # need the bespoke reading-order parser, not a regex (a heuristic truncation clips ~944
-    # legit descriptions — see project_dept_children_asylum_spend_gap). The gate trips if that
-    # residual grows or a new column starts collapsing, while staying green on today's data.
+    # tolerate covers the KNOWN, VERIFIED-GENUINE long-description residual, NOT collapsed cells:
+    #  (a) dept_children (DCEDIY) reading-order PDFs (a heuristic truncation clips ~944 legit
+    #      descriptions — see project_dept_children_asylum_spend_gap); and
+    #  (b) the disclosed_bq_po_newbodies lane (2026-06-27): councils publish verbose single-PO
+    #      specs (e.g. Dublin City street-lighting lantern specs, ≤231 chars) — confirmed genuine,
+    #      and parse_qa.scan_frame() on that lane ALONE is clean, so it adds no collapsed cells; it
+    #      only shifts the frame-wide distribution, raising the outlier count to ~86. tolerate=110
+    #      keeps headroom while the absolute >2000-char backstop (n_huge, untouched here) still
+    #      catches any true mass-collapse regardless of this budget.
+    # The gate trips if the residual grows materially or a new column starts collapsing.
     for _r in parse_qa.scan_frame(df):
         print(f"  parse-qa residual: {_r}")
-    parse_qa.assert_clean(df, tolerate=20)
+    parse_qa.assert_clean(df, tolerate=110)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT, min_rows=MIN_FACT_ROWS)

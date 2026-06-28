@@ -106,8 +106,22 @@ Solidarity–PBP €5,770 · Irish Freedom €1,727 · Renua €1,620 · Aontú 
 fully-reconciling line items.** SF/IFP/Aontú line items are `reconciles=false` (SF: a duplicate
 upload 283548≈283549 + ×100 decimal-drops on amounts — its €191,428 printed overall is the
 trustworthy figure). Silver in `C:/tmp/sipo_job3/extract/ge2020_ne_{items,categories}.parquet`.
-Also: 78 GE2020 candidate-donation rows (partial — needs GE2020-form parser tuning).
-**NOT yet promoted** — pending sign-off on the final numbers + committing to gold/public page.
+**GE2020 candidate-level layers (parsed from cached cells, no OCR; silver in data/silver/sipo/):**
+- **Candidate DONATIONS — done well.** Bundle-aware parser (each PDF holds many candidates):
+  `ge2020_candidate_donations.parquet` = **77 donor rows across 36 candidates**, 76 attributed,
+  all valued (€143–€2,770; 49× €1,000), clean party + nature (e.g. Ciarán Ahern/Labour,
+  Carly Bailey/SocDem, Frankie Daly/Independent).
+- **Candidate EXPENSES — financials done, names partial.** Reused the national-agent Part-5
+  parsers: `ge2020_candidate_expenses.parquet` (30 statements, **25 with overall totals**,
+  €9.7k–€70k) + `ge2020_candidate_expense_items.parquet` (**1,713 line items**). Candidate-name
+  attribution was solved WITHOUT OCR by re-reading the SIPO reports listing (the doc titles
+  carry the name) and joining media_id→title — now **30/30 named** (surname only, the listing's
+  granularity: McGuinness €70k, O'Boyle €45k, Cahill €39k, Ó Broin €12.6k, Lahart €12.5k…).
+  media_id→title map saved at data/silver/sipo/_ge2020_media_titles.json. Overalls keep the
+  `reconciles` flag (most don't reconcile — same OCR decimal/two-page fragility as elsewhere;
+  headline = printed overall).
+
+**NOT yet promoted** — pending sign-off + committing to gold/public page.
 
 ## Net-new this session
 - **SIPO**: real recovery, committed (Part-4 items 2→12 parties, 922 rows; minor-party Part-3/items).

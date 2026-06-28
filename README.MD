@@ -141,6 +141,9 @@ The chains, in run order:
   history; no-op when its manual drop is absent), and `la_payments` (31 local
   authorities) feed schema-aligned fact tables, which `procurement_consolidate`
   folds into one listing-rot-guarded gold `procurement_payments_fact`.
+  `ministerial_diaries` then runs the deterministic diary tail (classify →
+  org-match → lobbying overlap → promote → company-influence), reading the
+  consolidated payments gold; it no-ops when its manual diary input is absent.
 - **Local-authority accountability:** `noac_collection` (NOAC per-LA
   revenue-collection rates), `noac_scorecard` / `noac_scorecard_history` /
   `noac_indicators` (the citizen-facing accountability scorecard, its 2022–2024
@@ -192,9 +195,9 @@ eight top-nav sections:
   Housing (social-housing waiting list).
 - **Members & Parliament** — Member Overview (the canonical
   TheyWorkForYou-style profile), Attendance, Votes, and Committees.
-- **The Money** — Payments, Election 2024 (SIPO donations + campaign spending),
-  Procurement, Follow the Money, Accommodation Spend, Public Payments, and a
-  Companies dossier.
+- **The Money** — Payments, Election Finance (SIPO donations + GE2024 & GE2020
+  spending), Procurement, Follow the Money, Accommodation Spend, Public Payments,
+  and a Companies dossier.
 - **Law & Records** — Legislation, Statutory Instruments, Corporate Notices, and
   Courts & Judiciary (bench roster, appointments, court performance, Legal Diary).
 - **Influence** — Lobbying, Who Ministers Meet (ministerial diaries), and
@@ -248,10 +251,11 @@ several datasets exist in gold/silver before they get a dedicated page.
   far; OCR of the remainder is in progress and the coverage gap is shown
   in-app, never implied complete.
 - **GE2020 election spending** — national-agent party expenses, OCR'd from
-  scanned returns, now land in gold (`sipo_ge2020_expense_*`) and in registered
-  views (`v_sipo_ge2020_party_national_*`); a UI surface for them is the next
-  step. Kept as separate facts so the GE2024 hub is untouched and the two
-  elections are never summed.
+  scanned returns, land in gold (`sipo_ge2020_expense_*`) and registered views
+  (`v_sipo_ge2020_party_national_*`), and now ship on the Election Finance page
+  as a dedicated "Election 2020" tab. Kept as separate facts so the GE2024 hub is
+  untouched and the two elections are never summed. (The Election page was
+  renamed from "Election 2024" to "Election Finance" to cover both.)
 - **Bulk data exports** — parquet downloads of the gold layer via the API
   (Phase 2 of [`doc/API_LAYER_PLAN.md`](doc/API_LAYER_PLAN.md)), demand-gated.
 - **Scheduled data refresh** — read-only canaries already run on GitHub Actions
@@ -305,9 +309,13 @@ Public sources change format and cadence, so expect drift. Notable points:
   area (not constituency).
 - Cross-reference panels that name private individuals (CRO directors, charity
   trustees, CBI-register firms) sit in the sandbox layer, not gold.
+- The per-member news feed is a name-matched Google-News search (any "John
+  Murphy" can appear), and the social-housing waiting list (SSHA) is an annual
+  self-reported snapshot at council-area grain — both are discovery aids, not
+  authoritative records.
 
 Full detail in [`doc/DATA_LIMITATIONS.md`](doc/DATA_LIMITATIONS.md), which now carries
-a per-dataset section for each of these (§15–§22).
+a per-dataset section for each of these (§15–§25).
 
 ---
 

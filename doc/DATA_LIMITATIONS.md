@@ -26,9 +26,10 @@ The project has expanded well beyond individual-member data. Several major datas
 - Corporate notices and regulated-entity cross-references (Iris Oifigiúil, CRO, Central Bank registers) — §15
 - Courts and judiciary (bench roster, appointments, court performance, Legal Diary) — §18
 - Ministerial diaries and their lobbying-register cross-reference — §19
-- Political finance (SIPO donations and GE2024 election spending) — §20
-- Local-authority accountability (annual financial statements, NOAC collection rates, derelict-sites levy, planning-appeal overturn rates) — §21
+- Political finance (SIPO donations + GE2024 and GE2020 election spending) — §20
+- Local-authority accountability (annual financial statements, NOAC collection rates and scorecard, derelict-sites levy, planning-appeal overturn rates) — §21
 - CSO statistical data (housing supply on the Constituency page; the CPI deflator used to put procurement values in real terms) — §22
+- Social-housing waiting list (Housing Agency SSHA, on the Housing page) — §24
 
 These carry the limitations documented in their own sections below and do not inherit the "sitting members only" scope.
 
@@ -682,7 +683,7 @@ The bench / appointments / courts / Legal-Diary feature is **sandbox-grade, not 
 
 Scope is **two general elections, kept strictly apart**: GE2024 (donations + the national agent's per-candidate spend + candidates' own expense statements) and GE2020 (national-agent party expenses only). There are no 2025+ returns, and the separate annual per-TD/Senator/MEP donation register is not yet ingested.
 
-- **GE2020 is national-agent party expenses only** — OCR'd from scanned returns and held as a **separate** gold fact (`sipo_ge2020_expense_items` / `sipo_ge2020_expense_categories`) and view set (`v_sipo_ge2020_party_national_*`), never unioned with GE2024 or with any candidate apportionment. The printed `category_total_eur` (`is_overall`) is the trustworthy headline; a `reconciles = false` flag marks parties (Sinn Féin, Irish Freedom Party, Aontú) whose OCR'd line items don't sum to the printed overall — a duplicate upload plus ×100 decimal-drops on Sinn Féin — so those must be verified against the official SIPO PDF before use. As of writing the GE2020 facts/views exist in the data layer but are not yet surfaced on a page.
+- **GE2020 is national-agent party expenses only** — OCR'd from scanned returns and held as a **separate** gold fact (`sipo_ge2020_expense_items` / `sipo_ge2020_expense_categories`) and view set (`v_sipo_ge2020_party_national_*`), never unioned with GE2024 or with any candidate apportionment. The printed `category_total_eur` (`is_overall`) is the trustworthy headline; a `reconciles = false` flag marks parties (Sinn Féin, Irish Freedom Party, Aontú) whose OCR'd line items don't sum to the printed overall — a duplicate upload plus ×100 decimal-drops on Sinn Féin — so those must be verified against the official SIPO PDF before use. The GE2020 figures ship on the Election Finance page (formerly "Election 2024") under a dedicated "Election 2020" tab; its headline sums only the parties whose figures reconcile, and the non-reconciling parties are shown individually with a "verify" mark rather than folded into a total.
 - **Three incompatible grains must never be summed**: donations declared (money in), the national agent's per-candidate spend, and candidates' own expenses statements are different records at different grains. The rollup uses their sum only as a hidden sort key, never as a presented total.
 - Agent-spend **under-counts** parties that book spend centrally, and agent-spend vs candidate-spend are overlapping views of the same campaign spend — non-additive.
 - The party-expenses fact is a **PaddleOCR re-OCR of scanned returns**; every figure carries a "verify against the official SIPO PDF (page N)" caveat and a confidence/flag column.
@@ -727,7 +728,28 @@ Scope is **two general elections, kept strictly apart**: GE2024 (donations + the
 
 ---
 
-## 23. Minimum verification before public use
+## 23. Per-member news mentions (Google News RSS)
+
+The Member Overview "In the news" feed is one Google-News RSS *search per member* (exact-quoted name, Irish locale, recent window), so the article only needs to *contain* the name.
+
+- **Each row is a name match, not an assertion the article is about that politician.** A quoted search for "John Murphy" can return any John Murphy. The Irish locale + recent window reduce this, and `match_in_title` flags the higher-confidence headline hits, but person-level attribution is not guaranteed.
+- The corpus **accumulates** across runs (dedup on `article_url` × member), so older articles persist; but coverage depends on Google News indexing each run's window — anything not indexed in any run is simply absent. This is a discovery aid, not an authoritative or comprehensive press record.
+- The cross-member "In the News" page stays parked in the sandbox; only the per-member feed ships.
+
+## 24. Social-housing waiting list (SSHA)
+
+The Housing page surfaces the Housing Agency **Summary of Social Housing Assessments (SSHA)**, an annual point-in-time count self-reported by local authorities.
+
+- It is **net qualified need** (households assessed as qualified and still waiting), not gross applications, and a **snapshot**, not a flow. The latest year is 2025, with 2024 carried only for year-on-year.
+- The source is at **local-authority grain (31 LAs)**; the county league table sums the four Dublin / two Cork / two Galway LAs into 26 counties. **Per-capita (`waiters_per_1000`) is shown only at county/national grain** — CSO PEA08 population is county-grain, so an LA has no honest denominator and per-capita is left null there.
+- Demographic composition stripes (main need, tenure, employment, age, household, income, accommodation need, citizenship) are reproduced as published; citizenship carries a sensitivity caption. Figures are never apportioned to a constituency.
+
+## 25. Committee meeting history and the participation model
+
+- **Committee meeting history** (date · topics · witnesses · transcript link) is enumerated from the Oireachtas `/v1/debates` feed and parsed from AKN-XML transcripts. The window **starts 2024-09** (~1k meetings / 74 committees) and the chain re-fetches the full window each run (no incremental-since guard yet). Topics and witnesses are XML-extraction-derived and inherit the brittleness of any transcript parse.
+- The **participation model** (division turnout, absence gaps, presence-vs-vote divergence, 120-day TAA compliance) is a deterministic transform over gold the pipeline already built (vote history + attendance), not a new source. It therefore inherits the attendance caveats of §4: plenary / division activity is only one visible slice of parliamentary work, and a low figure is not proof of inactivity.
+
+## 26. Minimum verification before public use
 
 Before using the data in reporting, publication, or public claims:
 

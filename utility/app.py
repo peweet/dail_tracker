@@ -234,7 +234,7 @@ pg = st.navigation(
             # unified GE2024 hub (donations + party spending + candidate spending).
             st.Page(
                 election_2024_page,
-                title="Election 2024",
+                title="Election Finance",
                 icon=":material/savings:",
                 url_path="rankings-election-spending",
             ),

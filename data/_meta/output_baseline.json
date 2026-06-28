@@ -1077,7 +1077,7 @@
         "Tender ID",
         "Awarded Suppliers",
         "Contracting Authority",
-        "Sum of Awarded Value (€)",
+        "Sum of Awarded Value (\u20ac)",
         "Notice Published Date/Contract Created Date",
         "Competition Type",
         "Parent Agreement ID",
@@ -1128,7 +1128,7 @@
       ]
     },
     "procurement_payments_fact.parquet": {
-      "rows": 219707,
+      "rows": 406733,
       "columns": [
         "publisher_id",
         "publisher_name",
@@ -1169,7 +1169,8 @@
         "regime_note",
         "cro_company_num",
         "cro_company_status",
-        "spend_category"
+        "spend_category",
+        "value_plausible"
       ]
     },
     "procurement_supplier_cro_match.parquet": {

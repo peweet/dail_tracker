@@ -621,6 +621,9 @@ PUBLISHERS: list[dict] = [
         grain="payment",
         tier="C",
         caveat="prior sample was a privacy statement; using the gov.ie payments collection (slug renamed to procurement-related-payments-over-20000-euro 2026-06)",
+        # ≥5 sub-layouts across years defeat the generic word-geometry reader (0/scrambled rows);
+        # bespoke data-derived-column reader recovers 99.2% (3,529/3,557 rows), coverage_qa.
+        reader="reading_order_housing",
     ),
     cfg(
         "ie_cdetb",
@@ -1808,6 +1811,148 @@ def read_culture(b: bytes, max_pages: int | None) -> list[dict]:
     return recs
 
 
+# DHLGH "procurement-related-payments-over-€20,000" PDFs publish in ≥5 sub-layouts across the
+# years that the generic word-geometry reader cannot read (it yields 0 / scrambled rows because
+# the "Payment Amount" header wraps to two lines and the column ORDER varies): (A) Date|Supplier|
+# Description|Amount with the amount far right; (B) the amount column sits BETWEEN supplier and
+# description (2014-15); (C) amount+description merged in one cell ("20,595.33 ICT Helpdesk");
+# (D) date+supplier merged in one cell ("17/07/2024 BDO EATON SQUARE LTD"); and (E) a 2024
+# split-column layout where the Amount column is rendered on its OWN pages after the text pages.
+# Rather than hard-code each, derive the columns from the DATA line x0s (gap clustering), label
+# them by content (dates -> date col, leading-money -> amount col; the remaining columns split
+# left=supplier / right=description, unless the supplier rides in the date cell), peel money
+# merged into a cell, and zip amount-only pages onto the text records in order.
+_HS_DATE = re.compile(r"\b\d{2}/\d{2}/\d{4}\b")
+_HS_MONEY = re.compile(r"-?(?:€\s*)?\d{1,3}(?:,\d{3})*\.\d{2}\b")
+_HS_MONEY0 = re.compile(r"^\s*-?(?:€\s*)?\d{1,3}(?:,\d{3})*\.\d{2}\b")
+_HS_TITLE = re.compile(
+    r"payment date|supplier|description|amount|payments? (?:of|for) €|department of|for the period",
+    re.I,
+)
+
+
+def read_housing(b: bytes, max_pages: int | None) -> list[dict]:
+    """Data-derived-column reader for the DHLGH payments PDFs → {ref, supplier, amount, desc,
+    date} dicts (per-row Payment Date). Handles the five sub-layouts described above."""
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+
+    def page_lines(page):
+        d = page.get_text("dict")
+        out = []
+        for blk in d.get("blocks", []):
+            for ln in blk.get("lines", []):
+                txt = "".join(s["text"] for s in ln.get("spans", [])).strip()
+                if txt:
+                    out.append((ln["bbox"][1], ln["bbox"][0], txt))
+        out.sort(key=lambda t: (round(t[0], 1), t[1]))
+        return out  # (y0, x0, text)
+
+    def columns(x0s, gap=22):
+        xs = sorted(x0s)
+        if not xs:
+            return []
+        cols = [[xs[0]]]
+        for x in xs[1:]:
+            (cols.append([x]) if x - cols[-1][-1] > gap else cols[-1].append(x))
+        return [sum(c) / len(c) for c in cols]
+
+    def col_of(centers, x):  # index of the nearest column centre
+        return min(range(len(centers)), key=lambda i: abs(centers[i] - x))
+
+    out: list[dict] = []
+    orphan_amounts: list[str] = []  # amounts from amount-only pages (split-column layout)
+    for pi in range(limit):
+        lines = [
+            (y, x, t)
+            for (y, x, t) in page_lines(doc[pi])
+            if not (_HS_TITLE.search(t) and not _HS_DATE.search(t) and not _HS_MONEY.search(t))
+        ]
+        if not lines:
+            continue
+        has_date = any(_HS_DATE.match(t.strip()) for _y, _x, t in lines)
+        has_money = any(_HS_MONEY0.match(t) for _y, _x, t in lines)
+        if has_money and not has_date:  # amount-only page: collect in reading order
+            orphan_amounts += [_HS_MONEY.search(t).group(0) for _y, _x, t in lines if _HS_MONEY0.match(t)]
+            continue
+        centers = columns([x for _y, x, _t in lines])
+        if len(centers) < 2:
+            continue
+        ndate = [0] * len(centers)
+        nmoney = [0] * len(centers)
+        for _y, x, t in lines:
+            ci = col_of(centers, x)
+            if _HS_DATE.match(t.strip()):
+                ndate[ci] += 1
+            if _HS_MONEY0.match(t):
+                nmoney[ci] += 1
+        date_col = max(range(len(centers)), key=lambda i: ndate[i]) if any(ndate) else 0
+        amt_cands = [i for i in range(len(centers)) if i != date_col]
+        amt_col = max(amt_cands, key=lambda i: nmoney[i]) if amt_cands and any(nmoney) else None
+        rest = sorted(i for i in range(len(centers)) if i not in (date_col, amt_col))
+        # supplier in the date cell ("DD/MM/YYYY SUPPLIER")? then no separate supplier column.
+        n_date = n_rem = 0
+        for _y, x, t in lines:
+            md = _HS_DATE.match(t.strip())
+            if md and col_of(centers, x) == date_col:
+                n_date += 1
+                if t.strip()[md.end():].strip():
+                    n_rem += 1
+        if n_date and n_rem > 0.5 * n_date:
+            sup_col, desc_cols = None, set(rest)
+        else:
+            sup_col, desc_cols = (rest[0] if rest else None), set(rest[1:])
+
+        cur = None
+        for _y, x, t in lines:
+            ci = col_of(centers, x)
+            md = _HS_DATE.match(t.strip())
+            if ci == date_col and md:
+                if cur and (cur["amt"] is not None or cur["sup"] or cur["desc"]):
+                    out.append(cur)
+                cur = {"date": md.group(0), "sup": [], "desc": [], "amt": None}
+                rem = t.strip()[md.end():].strip()
+                if rem:
+                    cur["sup"].append(rem)
+            elif cur is not None:
+                m = _HS_MONEY.search(t)
+                if ci == amt_col and m:
+                    cur["amt"] = m.group(0)
+                    tail = (t[: m.start()] + " " + t[m.end():]).strip()
+                    if tail:
+                        cur["desc"].append(tail)
+                elif ci == sup_col:
+                    cur["sup"].append(t)
+                elif ci in desc_cols:
+                    cur["desc"].append(t)
+                elif m and cur["amt"] is None:
+                    cur["amt"] = m.group(0)
+        if cur and (cur["amt"] is not None or cur["sup"] or cur["desc"]):
+            out.append(cur)
+    doc.close()
+
+    if orphan_amounts:  # split-column layout: fill stub records from the amount-only pages
+        # non-strict: an amount-only page may carry one extra grand-total beyond the stub count
+        for r, a in zip([r for r in out if r["amt"] is None], orphan_amounts, strict=False):
+            r["amt"] = a
+    recs: list[dict] = []
+    for r in out:
+        if r["amt"] is None:
+            continue
+        try:
+            amount = float(r["amt"].replace("€", "").replace(",", "").strip())
+        except ValueError:
+            continue
+        recs.append({
+            "ref": None,
+            "supplier": " ".join(r["sup"]).strip() or None,
+            "amount": amount,
+            "desc": " ".join(r["desc"]).strip() or None,
+            "date": r["date"],
+        })
+    return recs
+
+
 # ---- XLSX / XLS / CSV ----
 def _tabular_from_raw(raw: list[list]):
     """Shared header-pick + body-trim for any 2D cell grid (openpyxl or xlrd)."""
@@ -2019,6 +2164,23 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
         good = 0
         for srn, r in enumerate(recs):
             rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], r["paid"]))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
+    elif fmt == "pdf" and cf.get("reader") == "reading_order_housing":
+        # DHLGH payments-over-€20k PDFs (≥5 sub-layouts, data-derived columns). No PO column;
+        # per-row Payment Date (DD/MM/YYYY) → period/year/quarter (the file URL slug is unreliable).
+        recs = read_housing(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            dd = r["date"]
+            try:
+                yr = int(dd[6:10])
+                q = (int(dd[3:5]) - 1) // 3 + 1
+                per = f"{yr}-Q{q}"
+            except (ValueError, IndexError):
+                per, yr, q = period, year, quarter
+            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], None, None, period=per, year=yr, quarter=q))
             good += 1
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 

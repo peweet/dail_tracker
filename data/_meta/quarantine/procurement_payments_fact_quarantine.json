@@ -1,14 +1,14 @@
 {
-  "generated_utc": "2026-06-27T20:55:24.505934+00:00",
+  "generated_utc": "2026-06-28T04:39:14.736290+00:00",
   "fact": "procurement_payments_fact",
-  "n_rows_total": 323230,
+  "n_rows_total": 406733,
   "n_rows_quarantined": 891,
-  "frac_quarantined": 0.0028,
+  "frac_quarantined": 0.0022,
   "breaches": {
     "paid_flag": {
       "severity": "quarantine",
       "n_offending": 891,
-      "frac": 0.0028,
+      "frac": 0.0022,
       "samples": [
         "Part Paid",
         "P",

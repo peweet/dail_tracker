@@ -12,17 +12,14 @@ import logging
 
 import duckdb
 
+from dail_tracker_core.queries import run_query
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
 
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
-    except Exception as exc:  # noqa: BLE001
-        _log.exception("your_councillors query failed")
-        return QueryResult.unavailable(f"your_councillors query failed: {exc}")
+    return run_query(conn, sql, params, label="your_councillors", log=_log)
 
 
 def councils(conn: duckdb.DuckDBPyConnection) -> QueryResult:

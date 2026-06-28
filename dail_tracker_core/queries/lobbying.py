@@ -26,17 +26,14 @@ import logging
 import duckdb
 import pandas as pd
 
+from dail_tracker_core.queries import run_query
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
 
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
-    except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
-        _log.warning("lobbying query failed: %s | %s", sql[:120], exc)
-        return QueryResult.unavailable(f"lobbying query failed: {exc}")
+    return run_query(conn, sql, params, label="lobbying", log=_log)
 
 
 # Full enrichment column set for the lobbying page (leaderboard + org profile).

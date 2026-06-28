@@ -174,24 +174,22 @@ DEPT_SOURCES: list[tuple[str, str]] = [
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2023/"),
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2022/"),
     ("DECC", "https://www.gov.ie/en/collection/89b20-ministers-diaries/"),
-    # Added 2026-06-27 (round 3 re-probe): three departments that DO publish, found via gov.ie search.
-    #   DSP   — Social Protection publishes as a per-MINISTER PUBLICATION page (Calleary), quarterly
-    #           PDFs (Q1/Q2 2025…), NOT a /collections/ page — which is why the slug-based probes
-    #           missed it. Per-minister, so add the incumbent's page when the portfolio rotates.
-    #   RURAL — Dept of Rural & Community Development AND THE GAELTACHT: a proper /collections/ page.
-    ("DSP", "https://www.gov.ie/en/department-of-social-protection/publications/diary-minister-dara-calleary-dsp/"),
+    # Added 2026-06-27 (round 3 re-probe): Dept of Rural & Community Development AND THE GAELTACHT
+    # publishes a proper /collections/ diaries page — 40 born-digital diary PDFs, a genuinely NEW
+    # department not previously in the fact. (Verified by smoke run: text-layer, on-box-parseable.)
     (
         "RURAL",
         "https://www.gov.ie/en/department-of-rural-and-community-development-and-the-gaeltacht/collections/ministers-diaries/",
     ),
-    # Two generic GUID "ministers-diaries" collection hubs surfaced by search — probe what depts they
-    # carry (may overlap existing labels; dedupe is by entry_id so duplicates are harmless).
-    ("MISC", "https://www.gov.ie/en/collection/5f6f1-ministers-diaries/"),
-    ("MISC", "https://www.gov.ie/en/collection/ab070-ministerial-diaries/"),
-    # STILL NOT pullable (re-confirmed 2026-06-27): Foreign Affairs (ministerial-briefs + FOI only,
-    # no diary publication), Defence (none found), Children/DCEDIY (ministerial briefings only, no
-    # diary). Agriculture publishes a Minister's diary but on agriculture.gov.ie (own domain, monthly)
-    # — not on gov.ie/assets.gov.ie; needs a bespoke fetch off the DAFM site (TODO).
+    # Probed 2026-06-27 and DELIBERATELY NOT added:
+    #   - gov.ie/en/collection/5f6f1-ministers-diaries/ = Minister Browne (Housing) 2025, 153 PDFs —
+    #     a DUPLICATE of the HOUSING source above (Browne already in the fact to 2025-11-12); adding it
+    #     would mislabel HOUSING entries. ab070-ministerial-diaries = 404.
+    #   - DSP (Social Protection): Calleary's diary is a per-minister PUBLICATION page that exposes no
+    #     crawlable PDF links (0 found) — needs the actual diary-PDF URLs, deferred.
+    # STILL NOT pullable (re-confirmed 2026-06-27): Foreign Affairs (ministerial-briefs + FOI only),
+    # Defence (none), Children/DCEDIY (briefings only). Agriculture publishes a Minister's diary but on
+    # agriculture.gov.ie (own domain, monthly), not gov.ie/assets.gov.ie — needs a bespoke DAFM fetch.
 ]
 
 MONTHS = [

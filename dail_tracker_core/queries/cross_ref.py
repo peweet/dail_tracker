@@ -26,6 +26,7 @@ import logging
 
 import duckdb
 
+from dail_tracker_core.queries import run_query
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
@@ -53,11 +54,7 @@ _MATCH_LIMIT = 2000
 
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
-    except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
-        _log.warning("cross_ref query failed: %s | params=%s | error=%s", sql[:120], params, exc)
-        return QueryResult.unavailable(f"cross_ref query failed: {exc}")
+    return run_query(conn, sql, params, label="cross_ref", log=_log)
 
 
 def division_interest_breakdown(conn: duckdb.DuckDBPyConnection, vote_id: str) -> QueryResult:
