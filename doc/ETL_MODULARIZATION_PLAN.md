@@ -140,10 +140,19 @@ ONLY (never `parse`) — would fix a real inconsistency (nphdb/nta enforce the `
 **seai + hse_tusla silently omit it**). Even so, marginal since `pbe`-as-module already centralises
 most of it.
 
+**SHIPPED 2026-06-28 (clear win, data-tested):** the one real SQL-in-UI leak —
+`ui/vote_explorer.py` (3 inline `conn.execute` SELECTs) — was migrated into the read layer as
+`dail_tracker_core.queries.votes.member_vote_summary/_vote_history/_year_summary`; the UI now calls
+them with the conn it already holds. **Data-parity tested on real vote data** (3 tests assert the
+moved SQL returns byte-identical frames; ran, not skipped). The **AST firewall-guard test**
+(`test/utility/test_firewall_no_raw_db_in_ui.py`) is in and GREEN with an empty allowlist — the UI
+presentation layer is now provably free of raw `conn.execute`/duckdb/`read_parquet`. 296 core tests
+pass, ruff clean. Remaining ~5 verified leaks (procurement recurring threshold, ministerial_diaries
+fact-derivation, etc.) are pandas-in-page business logic → DuckDB-view migrations, still pending.
+
 **Bend-the-curve levers (ranked; with skepticism applied):**
-1. **AST firewall-guard test** (low effort, high value) — no test enforces the firewall today; one
-   that fails on `conn.execute`/raw-SQL/fact-derivation in `utility/pages_code|ui` PREVENTS the 26k-
-   LOC UI re-accreting logic. Changes the trajectory. **Top pick.**
+1. ✅ **AST firewall-guard test** — DONE (see above). Now PREVENTS the 26k-LOC UI re-accreting raw
+   DB access. The trajectory-changer; ratchet stays at zero allowlist.
 2. **Payment-parser lifecycle template** (med) — ~1,635 LOC; 6th publisher 120→30 lines + fixes the
    row-floor drift.
 3. **Shared HTTP-retry helper** (ted_search + 4 wikidata copy the loop) + **bs4 in 5 scrapers** — bounded.

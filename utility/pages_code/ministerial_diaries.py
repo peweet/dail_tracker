@@ -34,9 +34,22 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_access.ministerial_diary_data import fetch_engagements, fetch_meetings, fetch_org_overlap
+from data_access.ministerial_diary_data import (
+    fetch_engagements,
+    fetch_meetings,
+    fetch_minister_briefs,
+    fetch_org_overlap,
+)
 from shared_css import inject_css
-from ui.components import clickable_card_link, empty_state, glossary_strip, hero_banner, hide_sidebar
+from ui.components import (
+    clickable_card_link,
+    empty_state,
+    glossary_strip,
+    hero_banner,
+    hide_sidebar,
+    info_card,
+    subsection_heading,
+)
 
 _GLOSSARY = [
     (
@@ -347,6 +360,65 @@ def _re_escape(s: str) -> str:
 
 
 # ── page ────────────────────────────────────────────────────────────────────────────────
+def _brief_chips(items: list) -> str:
+    if items is None or len(items) == 0:
+        return ""
+    spans = "".join(
+        '<span style="display:inline-block;background:#f1f3f5;border:1px solid rgba(0,0,0,0.08);'
+        'border-radius:10px;padding:1px 8px;margin:2px 4px 2px 0;font-size:0.78rem;color:#333;">'
+        f"{_h(c)}</span>"
+        for c in items
+    )
+    return f'<div style="margin-top:0.45rem;">{spans}</div>'
+
+
+def _brief_bullets(items: list, color: str) -> str:
+    if items is None or len(items) == 0:
+        return ""
+    lis = "".join(f'<li style="margin:1px 0;">{_h(x)}</li>' for x in items)
+    return f'<ul style="margin:0.3rem 0 0 1.1rem;padding:0;color:{color};">{lis}</ul>'
+
+
+def _brief_card_html(row: pd.Series) -> str:
+    parts: list[str] = []
+    if row.get("vision_mission"):
+        parts.append(f'<div style="font-style:italic;color:#555;margin-bottom:0.3rem;">“{_h(row["vision_mission"])}”</div>')
+    if row.get("strategic_goals") is not None and len(row["strategic_goals"]):
+        parts.append('<div style="font-weight:600;font-size:0.82rem;color:#1d6a8c;">Strategic goals</div>')
+        parts.append(_brief_bullets(row["strategic_goals"], "#222"))
+    if row.get("immediate_priorities") is not None and len(row["immediate_priorities"]):
+        parts.append('<div style="font-weight:600;font-size:0.82rem;color:#b8430f;margin-top:0.4rem;">Immediate priorities</div>')
+        parts.append(_brief_bullets(row["immediate_priorities"], "#222"))
+    if row.get("machinery_of_government") is not None and len(row["machinery_of_government"]):
+        parts.append('<div style="font-weight:600;font-size:0.82rem;color:#6a1b9a;margin-top:0.4rem;">Machinery-of-government changes</div>')
+        parts.append(_brief_bullets(row["machinery_of_government"], "#222"))
+    if row.get("key_issue_areas") is not None and len(row["key_issue_areas"]):
+        parts.append('<div style="font-weight:600;font-size:0.82rem;color:#555;margin-top:0.4rem;">Key issue areas</div>')
+        parts.append(_brief_chips(row["key_issue_areas"]))
+    parts.append(
+        f'<div style="margin-top:0.5rem;font-size:0.74rem;color:#888;">{_h(row["edition"])} · '
+        f'<a href="{_h(row["source_url"])}" target="_blank" rel="noopener">incoming-minister brief ↗</a></div>'
+    )
+    return "".join(parts)
+
+
+def _render_department_priorities() -> None:
+    """Per-department agenda from each dept's incoming-minister brief — the goals/priorities the
+    diary doesn't carry. Display-only: the department's own published words, never ranked."""
+    briefs = fetch_minister_briefs()
+    if briefs is None or briefs.empty:
+        empty_state("Briefs unavailable", "The minister-briefs view did not load.")
+        return
+    st.caption(
+        f"What {len(briefs)} departments told their incoming minister were their priorities — "
+        "stated goals, immediate priorities and machinery-of-government changes, shown as published."
+    )
+    accent = {"scanned": "#6a1b9a", "born-digital": "#1d6a8c"}
+    for _, row in briefs.iterrows():
+        subsection_heading(row["department"])
+        info_card(_brief_card_html(row), border_left_color=accent.get(row["source_type"], "rgba(0,0,0,0.14)"))
+
+
 def ministerial_diaries_page() -> None:
     hide_sidebar()
     inject_css()
@@ -393,7 +465,7 @@ def ministerial_diaries_page() -> None:
 
     mode = st.segmented_control(
         "Browse",
-        ["Search meetings", "By department", "By minister", "By organisation"],
+        ["Search meetings", "By department", "By minister", "By organisation", "Department priorities"],
         default="Search meetings",
         key="diary_mode",
     )
@@ -403,6 +475,8 @@ def ministerial_diaries_page() -> None:
         _render_by_dept(meetings, eng)
     elif mode == "By minister":
         _render_by_minister(meetings, eng)
+    elif mode == "Department priorities":
+        _render_department_priorities()  # the incoming-minister BRIEF agenda layer (period-independent)
     else:
         _render_by_org(overlap, meetings, period_active)
     _provenance()

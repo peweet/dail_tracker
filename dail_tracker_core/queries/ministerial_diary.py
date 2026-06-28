@@ -45,6 +45,13 @@ def meetings(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_ministerial_diary_meetings")
 
 
+def minister_briefs(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Incoming-minister BRIEF corpus — per-department stated goals / priorities / machinery-of-
+    government changes (the agenda layer that pairs with the diaries). Display-only, the dept's own
+    words; view = v_minister_briefs (sql_views/diary/minister_briefs.sql)."""
+    return _run(conn, "SELECT * FROM v_minister_briefs")
+
+
 # ── Parameterised retrieval for the MCP/API surface (no Streamlit page to facet) ──────────
 
 
