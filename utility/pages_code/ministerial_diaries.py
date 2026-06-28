@@ -58,6 +58,87 @@ def _h(s: object) -> str:
     return html.escape(str(s if s is not None else ""))
 
 
+# ── department friendly names (display formatting only) ─────────────────────────────────
+# The gold view carries the terse source code per meeting (DETE / DPER / DCCS …). These map
+# it to a human label — (badge_short, hero_full) — so a minister card can show "which
+# ministry", and a department can be browsed as the recognisable entity it is. Full names
+# track the current departmental titles on gov.ie.
+_DEPT_LABELS: dict[str, tuple[str, str]] = {
+    "DETE": ("Enterprise", "Enterprise, Trade & Employment"),
+    "DPER": ("Public Expenditure", "Public Expenditure, NDP Delivery & Reform"),
+    "DCCS": ("Culture & Sport", "Culture, Communications & Sport"),
+    "DFHERIS": ("Higher Education", "Further & Higher Education, Research, Innovation & Science"),
+    "DECC": ("Climate", "Environment, Climate & Communications"),
+    "FINANCE": ("Finance", "Finance"),
+    "HEALTH": ("Health", "Health"),
+    "HOUSING": ("Housing", "Housing, Local Government & Heritage"),
+    "JUSTICE": ("Justice", "Justice, Home Affairs & Migration"),
+    "EDUCATION": ("Education", "Education"),
+    "TRANSPORT": ("Transport", "Transport"),
+    "TAOISEACH": ("Taoiseach", "The Taoiseach"),
+    "RURAL": ("Rural & Community", "Rural & Community Development & the Gaeltacht"),
+}
+
+
+def _dept_short(code: object) -> str:
+    c = str(code)
+    return _DEPT_LABELS.get(c, (c.title(), c.title()))[0]
+
+
+def _dept_full(code: object) -> str:
+    c = str(code)
+    return _DEPT_LABELS.get(c, (c.title(), c.title()))[1]
+
+
+def _dept_badges(codes: list[str]) -> str:
+    return "".join(f'<span class="dt-diary-badge">{_h(_dept_short(c))}</span>' for c in codes)
+
+
+def _shorten(s: object, n: int = 30) -> str:
+    t = str(s)
+    return t if len(t) <= n else t[: n - 1].rstrip() + "…"
+
+
+def _most_met_strip(orgs: list[str], *, tag: str = "div", style: str = "") -> str:
+    """The subtle 'most-met · A · B · C' line shared by minister and department cards."""
+    if not orgs:
+        return ""
+    sty = f' style="{style}"' if style else ""
+    body = " · ".join(_h(_shorten(o)) for o in orgs)
+    return f'<{tag} class="dt-diary-most"{sty}><b>Most-met</b> · {body}</{tag}>'
+
+
+def _top_orgs(eng: pd.DataFrame, key_col: str, top: int = 3) -> dict[str, list[str]]:
+    """Top organisations logged per minister / per department (display_only — counts org
+    mentions in the active engagement set; NOT a ranked metric, just card context)."""
+    if eng is None or eng.empty or key_col not in eng.columns or "organisation" not in eng.columns:
+        return {}
+    sub = eng[eng[key_col].notna() & eng["organisation"].notna()]
+    if sub.empty:
+        return {}
+    counts = (  # logic_firewall: display_only
+        sub.groupby([key_col, "organisation"]).size().reset_index(name="n").sort_values("n", ascending=False)
+    )
+    out: dict[str, list[str]] = {}
+    for _, r in counts.iterrows():
+        lst = out.setdefault(r[key_col], [])
+        if len(lst) < top:
+            lst.append(str(r["organisation"]))
+    return out
+
+
+def _minister_depts(meetings: pd.DataFrame) -> dict[str, list[str]]:
+    """Each minister's portfolio(s) over the active set — a minister may hold several depts
+    (e.g. Ryan = Transport + Climate). display_only context for the card badges."""
+    m = meetings[meetings["minister"].notna() & (meetings["minister"] != "")]
+    if m.empty:
+        return {}
+    g = (  # logic_firewall: display_only
+        m.groupby("minister")["department"].agg(lambda s: sorted({x for x in s if pd.notna(x)}))
+    )
+    return g.to_dict()
+
+
 # ── period filter (year / month) — display_only faceting on entry_date ──────────────────
 _MONTHS = [
     "January",
@@ -117,18 +198,44 @@ def _org_card(row: pd.Series) -> str:
     )
 
 
-def _minister_card(row: pd.Series) -> str:
+def _minister_card(row: pd.Series, most_met: dict[str, list[str]]) -> str:
+    badges = _dept_badges(list(row.get("depts") or []))
+    most = _most_met_strip(most_met.get(row["minister"], []))
     inner = (
         f'<div class="dt-diary-card">'
-        f'<div class="dt-diary-main"><div class="dt-diary-title">{_h(row["minister"])}</div>'
-        f'<div class="dt-diary-sub">{_h(row["first"])} → {_h(row["last"])}</div></div>'
+        f'<div class="dt-diary-main">'
+        f'<div class="dt-diary-title">{_h(row["minister"])}</div>'
+        f'<div class="dt-diary-badges">{badges}</div>'
+        f"{most}</div>"
         f'<div class="dt-diary-metrics">'
-        f'<span class="dt-diary-metric"><b>{int(row["meetings"])}</b> meetings</span></div></div>'
+        f'<span class="dt-diary-metric"><b>{int(row["meetings"])}</b> meetings</span>'
+        f'<span class="dt-diary-metric">{_h(row["first"])} → {_h(row["last"])}</span>'
+        f"</div></div>"
     )
     return clickable_card_link(
         href=f"?minister={quote(str(row['minister']), safe='')}",
         inner_html=inner,
         aria_label=f"Meetings by Minister {row['minister']}",
+    )
+
+
+def _dept_card(row: pd.Series, most_met: dict[str, list[str]]) -> str:
+    code = str(row["department"])
+    most = _most_met_strip(most_met.get(code, []))
+    inner = (
+        f'<div class="dt-diary-card">'
+        f'<div class="dt-diary-main">'
+        f'<div class="dt-diary-title">{_h(_dept_full(code))}</div>'
+        f"{most}</div>"
+        f'<div class="dt-diary-metrics">'
+        f'<span class="dt-diary-metric"><b>{int(row["meetings"])}</b> meetings</span>'
+        f'<span class="dt-diary-metric"><b>{int(row["ministers"])}</b> ministers</span>'
+        f"</div></div>"
+    )
+    return clickable_card_link(
+        href=f"?dept={quote(code, safe='')}",
+        inner_html=inner,
+        aria_label=f"Ministers in {_dept_full(code)}",
     )
 
 
@@ -185,7 +292,7 @@ def _org_drill(org: str, engagements: pd.DataFrame) -> None:
     st.html(_meeting_rows(rows, show_minister=True))
 
 
-def _minister_drill(minister: str, meetings: pd.DataFrame) -> None:
+def _minister_drill(minister: str, meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
     st.html('<a class="dt-diary-back" href="?" target="_self">← back</a>')
     rows = meetings[meetings["minister"] == minister].sort_values("entry_date", ascending=False)
     if rows.empty:
@@ -195,12 +302,44 @@ def _minister_drill(minister: str, meetings: pd.DataFrame) -> None:
     # diary keys ministers by SURNAME only ("Ryan", "Donohoe"), which the member
     # registry can't resolve unambiguously. Deferred until the diary view carries
     # a minister member_code (pipeline) — see project_ui_clutter_audit memory.
+    badges = _dept_badges(sorted({x for x in rows["department"] if pd.notna(x)}))
+    most = _most_met_strip(_top_orgs(eng, "minister", top=6).get(minister, []), tag="p", style="margin-top:0.4rem")
     st.html(
         f'<div class="dt-diary-hero"><h2>Minister {_h(minister)}</h2>'
-        f"<p>{len(rows)} external meetings logged · {_h(rows['entry_date'].min())} → "
-        f"{_h(rows['entry_date'].max())}</p></div>"
+        f'<div class="dt-diary-badges" style="margin:0.15rem 0 0.4rem">{badges}</div>'
+        f"<p>{len(rows):,} external meetings logged · {_h(rows['entry_date'].min())} → "
+        f"{_h(rows['entry_date'].max())}</p>{most}</div>"
     )
     st.html(_meeting_rows(rows, show_minister=False))
+
+
+def _dept_drill(dept_code: str, meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
+    """A department as the entity: its ministers (current + former) and who they met — the
+    reverse of 'minister → ministry' the flat list never showed."""
+    st.html('<a class="dt-diary-back" href="?" target="_self">← back</a>')
+    m = meetings[meetings["department"] == dept_code]
+    if m.empty:
+        empty_state("Not found", f"No logged meetings for {_dept_full(dept_code)}.")
+        return
+    agg = (  # logic_firewall: display_only
+        m[m["minister"].notna() & (m["minister"] != "")]
+        .groupby("minister")
+        .agg(meetings=("subject", "size"), first=("entry_date", "min"), last=("entry_date", "max"))
+        .reset_index()
+        .sort_values("meetings", ascending=False)
+    )
+    agg["depts"] = agg["minister"].map(_minister_depts(meetings))  # full portfolio for badge context
+    most = _most_met_strip(
+        _top_orgs(eng, "department", top=6).get(dept_code, []), tag="p", style="margin-top:0.4rem"
+    )
+    st.html(
+        f'<div class="dt-diary-hero"><h2>{_h(_dept_full(dept_code))}</h2>'
+        f"<p>{len(m):,} external meetings logged · {len(agg)} ministers · "
+        f"{_h(m['entry_date'].min())} → {_h(m['entry_date'].max())}</p>{most}</div>"
+    )
+    st.caption("Ministers who held this department, by meetings logged — pick one for their full diary.")
+    # most-met stays in the hero; the per-minister cards carry portfolio badges (no repeat strip)
+    st.html("\n".join(_minister_card(r, {}) for _, r in agg.iterrows()))
 
 
 def _re_escape(s: str) -> str:
@@ -239,8 +378,12 @@ def ministerial_diaries_page() -> None:
         _org_drill(org, eng)
         _provenance()
         return
+    if (dept := st.query_params.get("dept")) is not None:
+        _dept_drill(dept, meetings, eng)
+        _provenance()
+        return
     if (minister := st.query_params.get("minister")) is not None:
-        _minister_drill(minister, meetings)
+        _minister_drill(minister, meetings, eng)
         _provenance()
         return
 
@@ -251,12 +394,17 @@ def ministerial_diaries_page() -> None:
     )
 
     mode = st.segmented_control(
-        "Browse", ["Search meetings", "By minister", "By organisation"], default="Search meetings", key="diary_mode"
+        "Browse",
+        ["Search meetings", "By department", "By minister", "By organisation"],
+        default="Search meetings",
+        key="diary_mode",
     )
     if mode == "Search meetings":
         _render_search(meetings, _search_suggestions(overlap))
+    elif mode == "By department":
+        _render_by_dept(meetings, eng)
     elif mode == "By minister":
-        _render_by_minister(meetings)
+        _render_by_minister(meetings, eng)
     else:
         _render_by_org(overlap, meetings, period_active)
     _provenance()
