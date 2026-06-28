@@ -639,6 +639,24 @@ PUBLISHERS: list[dict] = [
         caveat="prior sample was the procurement policy; excluding policy docs",
     ),
     cfg(
+        "ie_lmetb",
+        "Louth & Meath ETB",
+        "education_body",
+        "education",
+        listing="https://www.lmetb.ie/category/finance/purchase-orders-over-e20000/",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="C",
+        include=r"payment|purchase|po[s]?[-_ ]?over|20[,]?000|over.?20k|quarter|q[1-4]",
+        # Field-per-line layout (Account Code / supplier / Base Amount): the word-geometry reader
+        # finds false columns on the OCR-garbled quarters, so force the reading-order fallback
+        # (~98% on the 7 clean quarters; the 2 garbled "CGAO36" quarters fail its garble guard and
+        # are dropped as unparsed rather than ingested as numeric noise — they need re-OCR).
+        reader="reading_order_fallback",
+        caveat="Account Code/supplier/Base Amount field-per-line; 2 OCR-garbled quarters dropped",
+    ),
+    cfg(
         "ie_enterprise_ireland",
         "Enterprise Ireland",
         "semi_state",
@@ -1953,6 +1971,82 @@ def read_housing(b: bytes, max_pages: int | None) -> list[dict]:
     return recs
 
 
+# Generic amount-anchored reading-order FALLBACK for publishers whose PDFs put each field on its
+# OWN line (so the word-geometry reader finds no column grid and yields 0 rows): ie_bim, ie_lmetb,
+# the ie_atu q2-2022 quarter, and any future look-alike. Two record shapes, detected per amount:
+#   amount-LAST   : [ref/code?] [supplier] [description?] AMOUNT   (bim "Supplier/Desc/Amount", lmetb)
+#   amount-MIDDLE : [PO supplier] then "AMOUNT description"        (atu q2-2022)
+# Wired as a FALLBACK (only when the geometry reader got nothing), so it can never change a file
+# that already parses — no per-publisher reader flag and no regression risk.
+_ROF_HDR = re.compile(
+    r"^(supplier|description|amount|por\b|po number|account|code|base amount|date|vat|"
+    r"payments?\s+(?:over|of)|excluding|vendor name|total paid|supplier id|order date|order no|"
+    r"vat inc|name)\b",
+    re.I,
+)
+_ROF_REF = re.compile(r"^(?:POR[-\s]?\d+|[A-Z]{1,4}\d{3,}|\d{4,})$")  # POR-x / account codes / PO ints
+_ROF_BOILER = re.compile(r"^payments?\s+(?:over|of)\b|^\s*page\b|^\s*(grand\s+)?total\b", re.I)
+_ROF_DATE = re.compile(r"^\d{1,2}/\d{1,2}/\d{2,4}\b")
+_ROF_PO_LEAD = re.compile(r"^\d{4,}\s+(\S.*)$")  # "178186 Kedington Ltd"
+_ROF_MONEY_PURE = re.compile(r"^€?\s*\d{1,3}(?:,\d{3})*\.\d{2}$|^€?\s*\d+\.\d{2}$")
+_ROF_MONEY_LEAD = re.compile(r"^€?\s*(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})\s+(\S.*)$")
+
+
+def read_pdf_reading_order_fallback(b: bytes, max_pages: int | None, min_eur: float = 20000.0) -> list[dict]:
+    """Amount-anchored reading-order reader → {ref, supplier, amount, desc} dicts. See the comment
+    above for the two layouts handled. Returns [] for image/columnar PDFs (no usable text lines)."""
+    doc = fitz.open(stream=b, filetype="pdf")
+    limit = min(doc.page_count, max_pages) if max_pages else doc.page_count
+    lines = [
+        re.sub(r"\s+", " ", ln.replace("\xa0", " ").replace(" ", " ").replace("�", " ")).strip()
+        for pi in range(limit)
+        for ln in doc[pi].get_text().splitlines()
+    ]
+    doc.close()
+    lines = [ln for ln in lines if ln]
+    recs: list[dict] = []
+    prev_amt = -1
+    for i, ln in enumerate(lines):
+        mp = _ROF_MONEY_PURE.match(ln)
+        ml = None if mp else _ROF_MONEY_LEAD.match(ln)
+        if mp:
+            amt = float(re.sub(r"[^\d.]", "", ln))
+            if amt >= min_eur:
+                txt = []
+                for x in lines[prev_amt + 1:i]:  # text between the previous amount and this one
+                    if _ROF_REF.match(x) or _ROF_BOILER.search(x) or (_ROF_HDR.match(x) and len(x) < 30):
+                        continue
+                    md = _ROF_DATE.match(x)
+                    x = x[md.end():].strip() if md else x  # strip a leading "DD/MM/YYYY supplier" date
+                    if x:
+                        txt.append(x)
+                if txt:
+                    recs.append({"ref": None, "supplier": txt[0], "amount": amt,
+                                 "desc": " ".join(txt[1:]) or None})
+            prev_amt = i
+        elif ml:
+            amt = float(ml.group(1).replace("€", "").replace(",", "").strip())
+            if amt >= min_eur:
+                sup = lines[i - 1] if i > 0 else None
+                if sup and not (_ROF_HDR.match(sup) and len(sup) < 30):
+                    pm = _ROF_PO_LEAD.match(sup)
+                    recs.append({"ref": None, "supplier": pm.group(1) if pm else sup,
+                                 "amount": amt, "desc": ml.group(2).strip() or None})
+            prev_amt = i
+    # Garble guard: a column-split / OCR-mangled PDF (LMETB's "CGAO36" quarters: codes, suppliers and
+    # amounts each clustered in their own block) yields rows whose "suppliers" are numbers — the line
+    # picked before each amount is another amount. OCR also swaps digits for letters ("L95,75r.40"),
+    # so test the DIGIT RATIO, not letter-presence: a real name is not 40%+ digits. If most suppliers
+    # are digit-heavy, the file is unreadable from its text layer (needs re-OCR); emit nothing.
+    def _digit_heavy(s: str) -> bool:
+        return bool(s) and sum(c.isdigit() for c in s) > 0.4 * len(s)
+
+    named = [r["supplier"] for r in recs if r["supplier"]]
+    if len(named) >= 5 and sum(_digit_heavy(s) for s in named) > 0.6 * len(named):
+        return []
+    return recs
+
+
 # ---- XLSX / XLS / CSV ----
 def _tabular_from_raw(raw: list[list]):
     """Shared header-pick + body-trim for any 2D cell grid (openpyxl or xlrd)."""
@@ -2184,6 +2278,18 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             good += 1
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 
+    elif fmt == "pdf" and cf.get("reader") == "reading_order_fallback":
+        # Publishers whose PDFs are ALWAYS field-per-line (LMETB): the word-geometry reader finds
+        # FALSE columns on the OCR-garbled quarters and emits numeric garbage, so skip it and use
+        # the reading-order fallback directly. Its garble guard returns [] for the unreadable
+        # column-split quarters (→ unparsed, not noise); the clean quarters parse at ~98%.
+        recs = read_pdf_reading_order_fallback(b, max_pages)
+        good = 0
+        for srn, r in enumerate(recs):
+            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], None))
+            good += 1
+        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+
     elif fmt == "pdf" and cf.get("reader") == "reading_order_defence":
         # Department of Defence "PO over €20k" reading-order reader (period from the file URL).
         # ref → po_number; the CATEGORY (procurement unit) → description; suppliers recovered intact.
@@ -2198,7 +2304,46 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
     elif fmt == "pdf":
         info = read_pdf(b, max_pages)
         caveat_detected = bool(CAVEAT_RE.search(info["page0"]) or CAVEAT_RE.search(info["header_label"]))
-        if not info["digital"] or not info["cols"] or "amount" not in info["roles"]:
+        geom_ok = info["digital"] and info["cols"] and "amount" in info["roles"]
+        good = 0
+        if geom_ok:
+            sup_i = info["roles"].get("supplier")
+            amt_i = info["roles"]["amount"]
+            desc_i, po_i, paid_i = (info["roles"].get(k) for k in ("description", "po", "paid"))
+            for srn, (page, rec) in enumerate(info["rows"]):
+                amt = to_eur(rec[amt_i]) if amt_i < len(rec) else None
+                if amt is None:
+                    continue
+                sup = clean_supplier(rec[sup_i]) if sup_i is not None and sup_i < len(rec) else None
+                desc = rec[desc_i] if desc_i is not None and desc_i < len(rec) else None
+                # Drop total/category/title-masquerade rows. The page banner ("... Payments greater
+                # than €20,000") splits across cells — "greater than" into the description, the
+                # "€20,000" into the amount column — so no single cell holds the whole phrase. Test
+                # TITLE_ROW against the JOINED row (bucket order re-adjoins "greater than … 20,000").
+                rowtext = " ".join(str(x) for x in rec if x)
+                if (sup and CATEGORY_WORD.search(sup)) or TITLE_ROW.search(rowtext):
+                    continue
+                good += 1
+                rows_out.append(
+                    base(
+                        srn,
+                        page,
+                        sup,
+                        amt,
+                        desc,
+                        clean_supplier(rec[po_i]) if po_i is not None and po_i < len(rec) else None,
+                        rec[paid_i] if paid_i is not None and paid_i < len(rec) else None,
+                    )
+                )
+        if good == 0:
+            # The word-geometry reader found no usable rows (no column grid / amount header wrapped).
+            # Try the amount-anchored reading-order fallback. This runs ONLY here, so a publisher
+            # whose files already parse via geometry is never touched (no regression).
+            rows_out = []
+            for srn, r in enumerate(read_pdf_reading_order_fallback(b, max_pages)):
+                rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], None))
+                good += 1
+        if good == 0:
             return [], {
                 "status": "unparsed",
                 "reason": "scanned/no-header/no-amount",
@@ -2206,35 +2351,6 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
                 "confidence": "low",
                 "pages": info.get("pages"),
             }
-        sup_i = info["roles"].get("supplier")
-        amt_i = info["roles"]["amount"]
-        desc_i, po_i, paid_i = (info["roles"].get(k) for k in ("description", "po", "paid"))
-        good = 0
-        for srn, (page, rec) in enumerate(info["rows"]):
-            amt = to_eur(rec[amt_i]) if amt_i < len(rec) else None
-            if amt is None:
-                continue
-            sup = clean_supplier(rec[sup_i]) if sup_i is not None and sup_i < len(rec) else None
-            desc = rec[desc_i] if desc_i is not None and desc_i < len(rec) else None
-            # Drop total/category/title-masquerade rows. The page banner ("... Payments greater
-            # than €20,000") splits across cells — "greater than" into the description, the
-            # "€20,000" into the amount column — so no single cell holds the whole phrase. Test
-            # TITLE_ROW against the JOINED row (bucket order re-adjoins "greater than … 20,000").
-            rowtext = " ".join(str(x) for x in rec if x)
-            if (sup and CATEGORY_WORD.search(sup)) or TITLE_ROW.search(rowtext):
-                continue
-            good += 1
-            rows_out.append(
-                base(
-                    srn,
-                    page,
-                    sup,
-                    amt,
-                    desc,
-                    clean_supplier(rec[po_i]) if po_i is not None and po_i < len(rec) else None,
-                    rec[paid_i] if paid_i is not None and paid_i < len(rec) else None,
-                )
-            )
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 
     else:  # xlsx / xls / csv

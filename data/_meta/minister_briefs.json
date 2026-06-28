@@ -1,0 +1,263 @@
+[
+  {
+    "department": "Justice, Home Affairs & Migration",
+    "slug": "department-of-justice-home-affairs-and-migration",
+    "edition": "January 2025",
+    "source_type": "scanned",
+    "source_url": "https://www.gov.ie/en/department-of-justice-home-affairs-and-migration/publications/briefing-document-for-the-minister-for-justice/",
+    "vision_mission": null,
+    "strategic_goals": [],
+    "immediate_priorities": [
+      "Transfer of functions (machinery-of-government changes)",
+      "Garda recruitment — workforce 14,191 sworn (end-2024) toward 15,000 target",
+      "Prison overcrowding — 112% capacity; Thornton prison; +1,500 spaces"
+    ],
+    "machinery_of_government": [
+      "IN: Integration/Accommodation (asylum) from D/CEDIY (~400 staff, €2.2bn)",
+      "IN: National Cyber Security Centre from D/ECC (~75 staff, €11m)",
+      "IN: National Security Authority from D/Foreign Affairs",
+      "OUT: Property Services Regulatory Authority to D/Housing",
+      "OUT: Irish Film Classification Office to D/Media"
+    ],
+    "key_issue_areas": [
+      "Civil Justice: Immigration Service Delivery",
+      "Civil Justice: Policy & Legislation",
+      "Civil Justice: Governance",
+      "Criminal Justice: Policing",
+      "Criminal Justice: Penal Policy",
+      "Criminal Justice: DSGBV/Victims/Youth Justice",
+      "Criminal Justice: Cyber",
+      "Security & Northern Ireland",
+      "Justice Service Delivery",
+      "Central: Transparency"
+    ],
+    "n_strategic_goals": 0,
+    "n_priorities": 3,
+    "n_mog_changes": 5,
+    "extraction_method": "vision-read"
+  },
+  {
+    "department": "Climate, Energy & Environment (DECC)",
+    "slug": "department-of-climate-energy-and-the-environment",
+    "edition": "2025",
+    "source_type": "scanned",
+    "source_url": "https://www.gov.ie/en/department-of-climate-energy-and-the-environment/organisation-information/briefing-for-ministers-2025/",
+    "vision_mission": null,
+    "strategic_goals": [
+      "Be a recognised leader in climate action",
+      "Transform our energy system for a secure and affordable net zero emissions future",
+      "Restore, protect and enhance our natural environment",
+      "Deliver world class connectivity and communications",
+      "Deliver improved cyber security defence and resilience across Government and Society",
+      "Develop our people, culture and organisation"
+    ],
+    "immediate_priorities": [],
+    "machinery_of_government": [],
+    "key_issue_areas": [
+      "Climate action",
+      "Energy / net zero",
+      "Natural environment",
+      "Connectivity & communications",
+      "Cyber security (NCSC)",
+      "EU & international"
+    ],
+    "n_strategic_goals": 6,
+    "n_priorities": 0,
+    "n_mog_changes": 0,
+    "extraction_method": "vision-read"
+  },
+  {
+    "department": "Education & Youth",
+    "slug": "department-of-education",
+    "edition": "2025 (Statement of Strategy 2025-2028)",
+    "source_type": "scanned",
+    "source_url": "https://www.gov.ie/en/department-of-education/publications/briefing-for-ministers-2025/",
+    "vision_mission": "A world-class education system where every child and young person is supported and nurtured to achieve their full potential and where barriers to their learning are removed.",
+    "strategic_goals": [
+      "Deliver a learning experience for students to highest international standards",
+      "Break down barriers for groups at risk of exclusion",
+      "Equip learners of all ages and abilities to participate and succeed in a changing world",
+      "Support Ireland to be a leader across a broad range of fields",
+      "Support students and all those who work in the education sector"
+    ],
+    "immediate_priorities": [],
+    "machinery_of_government": [],
+    "key_issue_areas": [
+      "Curriculum, Assessment & Teacher Professional Learning",
+      "Senior Cycle Redevelopment",
+      "Special Education (NEPS)",
+      "Residential Institutions Redress",
+      "Schools, Social Inclusion & Youth",
+      "Teacher Allocations"
+    ],
+    "n_strategic_goals": 5,
+    "n_priorities": 0,
+    "n_mog_changes": 0,
+    "extraction_method": "vision-read"
+  },
+  {
+    "department": "Health",
+    "slug": "department-of-health",
+    "edition": "2025",
+    "source_type": "born-digital",
+    "source_url": "https://www.gov.ie/en/organisation-information/9071c-department-of-health-divisional-briefing-for-new-minister/",
+    "vision_mission": null,
+    "strategic_goals": [],
+    "immediate_priorities": [
+      "Access to Hospital Services — reduce wait times and lists (Waiting List Action Plan)",
+      "Children's Hospital Programme",
+      "Reform of Pre-Hospital Emergency Care",
+      "National Strategies & associated strategic developments",
+      "Development and oversight of Acute Hospital Services"
+    ],
+    "machinery_of_government": [],
+    "key_issue_areas": [],
+    "n_strategic_goals": 0,
+    "n_priorities": 5,
+    "n_mog_changes": 0,
+    "extraction_method": "fitz-text + curated"
+  },
+  {
+    "department": "Further & Higher Education (DFHERIS)",
+    "slug": "department-of-further-and-higher-education-research-innovation-and-science",
+    "edition": "February 2025",
+    "source_type": "born-digital",
+    "source_url": "https://www.gov.ie/en/department-of-further-and-higher-education-research-innovation-and-science/publications/briefing-for-minister-february-2025/",
+    "vision_mission": null,
+    "strategic_goals": [
+      "Empowerment through Education",
+      "Economic and Social Contribution",
+      "Competitiveness and Innovation",
+      "Regional Development",
+      "Future-Oriented Vision"
+    ],
+    "immediate_priorities": [],
+    "machinery_of_government": [],
+    "key_issue_areas": [],
+    "n_strategic_goals": 5,
+    "n_priorities": 0,
+    "n_mog_changes": 0,
+    "extraction_method": "fitz-text + curated"
+  },
+  {
+    "department": "Public Expenditure (DPER)",
+    "slug": "department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation",
+    "edition": "2025 (Incoming Minister's Brief)",
+    "source_type": "born-digital",
+    "source_url": "https://www.gov.ie/en/department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation/organisation-information/incoming-ministers-brief/",
+    "vision_mission": null,
+    "strategic_goals": [],
+    "immediate_priorities": [
+      "Priorities for the short to medium term (per division)"
+    ],
+    "machinery_of_government": [],
+    "key_issue_areas": [
+      "Climate Division",
+      "Expenditure Policy Division",
+      "Public Service Reform",
+      "Infrastructure / NDP Delivery",
+      "Digitalisation (OGCIO)",
+      "Public Procurement (OGP)"
+    ],
+    "n_strategic_goals": 0,
+    "n_priorities": 1,
+    "n_mog_changes": 0,
+    "extraction_method": "fitz-text + curated"
+  },
+  {
+    "department": "Transport",
+    "slug": "department-of-transport",
+    "edition": "January 2025 (Incoming Ministerial Brief)",
+    "source_type": "born-digital",
+    "source_url": "https://www.gov.ie/en/department-of-transport/publications/incoming-ministerial-brief/",
+    "vision_mission": null,
+    "strategic_goals": [],
+    "immediate_priorities": [
+      "Land Transport Funding",
+      "Transport Decarbonisation — climate commitments & sectoral emissions ceilings",
+      "EU, North-South and International engagement"
+    ],
+    "machinery_of_government": [],
+    "key_issue_areas": [
+      "Aviation & Emergency Planning",
+      "Transport Investment & Public Transport Policy",
+      "Climate Action & EU and International Affairs",
+      "Maritime",
+      "Road Transport Services and Digital Hub",
+      "Irish Coast Guard",
+      "Corporate Affairs and Central Policy"
+    ],
+    "n_strategic_goals": 0,
+    "n_priorities": 3,
+    "n_mog_changes": 0,
+    "extraction_method": "fitz-text + curated"
+  },
+  {
+    "department": "Finance",
+    "slug": "department-of-finance",
+    "edition": "December 2025",
+    "source_type": "born-digital",
+    "source_url": "https://www.gov.ie/en/department-of-finance/publications/ministers-brief-december-2025/",
+    "vision_mission": null,
+    "strategic_goals": [],
+    "immediate_priorities": [],
+    "machinery_of_government": [],
+    "key_issue_areas": [
+      "Economic / Strategic Economic Development",
+      "Domestic & Indirect Tax Policy",
+      "Business & International Tax Policy",
+      "Capital Taxes, Stamp Duties & Residential Zoned Land Tax",
+      "Tax Administration, Revenue Powers & Local Property Tax",
+      "Financial Services"
+    ],
+    "n_strategic_goals": 0,
+    "n_priorities": 0,
+    "n_mog_changes": 0,
+    "extraction_method": "fitz-text + curated"
+  },
+  {
+    "department": "Enterprise, Tourism & Employment (DETE)",
+    "slug": "department-of-enterprise-tourism-and-employment",
+    "edition": "January 2025",
+    "source_type": "born-digital",
+    "source_url": "https://www.gov.ie/en/department-of-enterprise-tourism-and-employment/collections/department-brief-for-minister/",
+    "vision_mission": null,
+    "strategic_goals": [],
+    "immediate_priorities": [],
+    "machinery_of_government": [],
+    "key_issue_areas": [
+      "Commerce, Consumer and Competition",
+      "Corporate Services",
+      "Digital and EU Affairs",
+      "Enterprise Strategy, Competitiveness & Evaluation",
+      "Indigenous Enterprise",
+      "Innovation and Investment",
+      "Trade"
+    ],
+    "n_strategic_goals": 0,
+    "n_priorities": 0,
+    "n_mog_changes": 0,
+    "extraction_method": "fitz-text + curated"
+  },
+  {
+    "department": "Defence",
+    "slug": "department-of-defence",
+    "edition": "January 2025 (2025 Ministerial Brief)",
+    "source_type": "born-digital",
+    "source_url": "https://www.gov.ie/en/publication/818d5-2025-ministerial-brief/",
+    "vision_mission": null,
+    "strategic_goals": [],
+    "immediate_priorities": [],
+    "machinery_of_government": [],
+    "key_issue_areas": [
+      "Statutory framework & organisation of Defence",
+      "The Defence Forces (military)",
+      "Civil-military relationship",
+      "Bodies under aegis"
+    ],
+    "n_strategic_goals": 0,
+    "n_priorities": 0,
+    "n_mog_changes": 0,
+    "extraction_method": "fitz-text + curated"
+  }
+]

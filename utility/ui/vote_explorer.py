@@ -5,16 +5,21 @@ from __future__ import annotations
 import sys
 from html import escape as _h
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from ui.components import empty_state, evidence_heading, outcome_badge, pagination_controls, stat_strip, todo_callout
 from ui.entity_links import entity_cta_html, member_link_html, member_profile_url, source_link_html
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
+
+from dail_tracker_core.queries import votes as _vq
+
+if TYPE_CHECKING:  # pandas is referenced only in type annotations (PEP 563 stringised)
+    import pandas as pd
 
 _VOTE_COLOURS: dict[str, str] = {
     "Voted Yes": "#2d7a52",
@@ -636,20 +641,19 @@ def render_member_votes(
         empty_state("Vote data unavailable", "No DuckDB connection.")
         return
 
-    try:
-        td_df = conn.execute(
-            "SELECT member_id, member_name, party_name, constituency,"
-            " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-            " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
-            (member_id,),
-        ).df()
-    except Exception:
+    # Retrieval SQL lives in the read layer (dail_tracker_core.queries.votes) — the
+    # firewall keeps the UI free of raw conn.execute. A DuckDB failure surfaces as an
+    # unavailable QueryResult, whose .data is an empty frame, matching the old
+    # try/except-to-empty behaviour exactly.
+    summary_res = _vq.member_vote_summary(conn, member_id)
+    if not summary_res.ok:
         empty_state(
             "TD not found",
             "td_vote_summary returned no record for this member id.",
         )
         return
 
+    td_df = summary_res.data
     if td_df.empty:
         empty_state(
             "No vote data for this member",
@@ -657,33 +661,10 @@ def render_member_votes(
         )
         return
 
-    hist_clauses: list[str] = ["member_id = ?"]
-    hist_params: list = [member_id]
-    if date_from:
-        hist_clauses.append("vote_date >= ?")
-        hist_params.append(date_from)
-    if date_to:
-        hist_clauses.append("vote_date <= ?")
-        hist_params.append(date_to)
-    where = " AND ".join(hist_clauses)
-    hist_sql = (
-        "SELECT vote_id, vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
-        f" FROM v_vote_member_detail WHERE {where} ORDER BY vote_date DESC LIMIT ?"
-    )
-    hist_params.append(_TD_HISTORY_LIMIT)
-    try:
-        history_df = conn.execute(hist_sql, hist_params).df()
-    except Exception:
-        history_df = pd.DataFrame()
-
-    try:
-        year_df = conn.execute(
-            "SELECT year, yes_count, no_count, abstained_count"
-            " FROM td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
-            (member_id,),
-        ).df()
-    except Exception:
-        year_df = pd.DataFrame()
+    history_df = _vq.member_vote_history(
+        conn, member_id, date_from=date_from, date_to=date_to, limit=_TD_HISTORY_LIMIT
+    ).data
+    year_df = _vq.member_year_summary(conn, member_id).data
 
     render_td_panel(
         td_df.iloc[0],
