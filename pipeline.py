@@ -169,6 +169,13 @@ CHAINS: list[tuple[str, str]] = [
     # already in gold. Runs BEFORE procurement_consolidate. (Phases 2/3 = 141 new bodies + 53
     # renames are gated on a fail-closed registry + per-body semantics; see DISCLOSED_PO_INTEGRATION_PLAN.md.)
     ("disclosed_bq_po", "extractors/disclosed_bq_po_extract.py"),
+    # disclosed_bq_po_newbodies: the SAME disclosed BigQuery extract, GENUINELY-NEW bodies lane
+    # (registry data/_meta/procurement_disclosed_bodies.csv) -> silver disclosed_bq_po_newbodies_fact,
+    # folded into gold as its OWN disjoint SOURCE_FACTS entry. Tranche 1 = 8 councils (6 LA-config
+    # recoveries w/ broken live harvest + Tipperary/Louth verified) + An Garda + EPA + Louth&Meath ETB,
+    # all po_committed (source-authoritative; NO blank-PO guess). Fail-closed registry + cross-lane
+    # disjointness guard. NO-OP-SAFE on absent raw drop. Runs BEFORE procurement_consolidate.
+    ("disclosed_bq_po_newbodies", "extractors/disclosed_bq_po_newbodies_extract.py"),
     # la_payments: the 31 local authorities' Purchase-Orders/Payments-over-€20k (Circular
     # 07/2012) -> silver la_payments_fact (20/31 councils parse clean; no OCR). Standalone,
     # self-fetches + caches per-council files to bronze, headless-safe. Privacy-classed
@@ -290,6 +297,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "public_body_payments": "public-body PO/payment disclosures over €20k -> sandbox public_payments_fact (privacy-gated, bronze-cached)",
     "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> sandbox hse_tusla_payments_fact (privacy-gated, high-risk)",
     "disclosed_bq_po": "disclosed national PO BigQuery extract -> silver disclosed_bq_po_payments_fact (Phase 1: HSE 2017-2020 + 2025Q4/2026Q1 history recovery; no-op-safe; folded into hse_tusla)",
+    "disclosed_bq_po_newbodies": "disclosed national PO BigQuery extract -> silver disclosed_bq_po_newbodies_fact (Tranche 1: 8 councils + Garda + EPA + Louth&Meath ETB, all po_committed source-authoritative; fail-closed registry; own SOURCE_FACTS entry)",
     "la_payments": "31 local authorities' PO/payments-over-€20k -> silver la_payments_fact (full back-catalogue)",
     "procurement_consolidate": "fold public_body + hse_tusla + LA facts -> gold procurement_payments_fact (listing-rot guarded)",
     "ministerial_diaries": "diary classify->match->overlap->promote->company_influence (transform tail; no-op if sandbox absent)",

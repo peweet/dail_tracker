@@ -21,6 +21,7 @@ import logging
 
 import duckdb
 
+from dail_tracker_core.queries import run_query
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
@@ -33,11 +34,7 @@ _COLS = (
 
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
-    except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
-        _log.warning("ministerial query failed: %s | params=%s | error=%s", sql[:120], params, exc)
-        return QueryResult.unavailable(f"ministerial query failed: {exc}")
+    return run_query(conn, sql, params, label="ministerial", log=_log)
 
 
 def departments(conn: duckdb.DuckDBPyConnection) -> QueryResult:

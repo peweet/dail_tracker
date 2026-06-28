@@ -82,3 +82,55 @@ def fetch_party_national_overall(party: str) -> float | None:
 def fetch_party_national_items(party: str) -> pd.DataFrame:
     """One party's Part-4 line items — section, ref, description, cost, verify flag."""
     return _q.party_national_items(get_expenses_conn(), party).data
+
+
+# ── GE2020 national-agent party expenses (a SEPARATE election; OCR'd) ───────────────
+# Reads v_sipo_ge2020_party_national_* on the same sipo_*.sql connection. Party-level
+# national-agent spend only — no Part-3 apportionment, no donations. NEVER summed with
+# the GE2024 figures above or across elections.
+
+
+@st.cache_data(ttl=300)
+def fetch_ge2020_totals() -> dict[str, float | int]:
+    """Headline across parties — count filed + summed printed overall (reconciling only)."""
+    r = _q.ge2020_totals(get_expenses_conn())
+    if not r.ok or r.is_empty:
+        return {"parties": 0, "total_reconciling": 0.0, "unreconciled_parties": 0}
+    row = r.data.iloc[0]
+    return {
+        "parties": int(row["parties"]) if pd.notna(row["parties"]) else 0,
+        "total_reconciling": float(row["total_reconciling"]) if pd.notna(row["total_reconciling"]) else 0.0,
+        "unreconciled_parties": int(row["unreconciled_parties"]) if pd.notna(row["unreconciled_parties"]) else 0,
+    }
+
+
+@st.cache_data(ttl=300)
+def fetch_ge2020_by_party() -> pd.DataFrame:
+    """One row per party — printed Overall total + reconcile flag (drives the GE2020 cards)."""
+    return _q.ge2020_by_party(get_expenses_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_ge2020_party_categories(party: str) -> pd.DataFrame:
+    """The 8 statutory headings for one party — printed totals + reconcile flag."""
+    return _q.ge2020_party_categories(get_expenses_conn(), party).data
+
+
+@st.cache_data(ttl=300)
+def fetch_ge2020_party_overall(party: str) -> dict[str, float | int | bool | None] | None:
+    """One party's printed Overall national-agent total (with reconcile flag + page), or None."""
+    r = _q.ge2020_party_overall(get_expenses_conn(), party)
+    if not r.ok or r.is_empty:
+        return None
+    row = r.data.iloc[0]
+    return {
+        "total": float(row["category_total_eur"]) if pd.notna(row["category_total_eur"]) else None,
+        "reconciles": bool(row["reconciles"]),
+        "source_page": int(row["source_page"]) if pd.notna(row["source_page"]) else None,
+    }
+
+
+@st.cache_data(ttl=300)
+def fetch_ge2020_party_items(party: str) -> pd.DataFrame:
+    """One party's national-agent line items — section, ref, description, cost, verify flag."""
+    return _q.ge2020_party_items(get_expenses_conn(), party).data

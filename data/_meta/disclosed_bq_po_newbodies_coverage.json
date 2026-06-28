@@ -1,0 +1,24 @@
+{
+  "built_at": "2026-06-27T21:27:14.445956+00:00",
+  "source_csv": "bq-results-20260619-122315-1781871808837.csv",
+  "source_file_hash": "67a2908e5a55c62b",
+  "scope": "new-body coverage Tranche 1 (po_committed, source-authoritative)",
+  "rows": 83504,
+  "publishers": 11,
+  "publisher_ids": [
+    "ie_epa",
+    "ie_garda",
+    "ie_la_carlow",
+    "ie_la_cavan",
+    "ie_la_dlr",
+    "ie_la_dublin_city",
+    "ie_la_kerry",
+    "ie_la_louth",
+    "ie_la_roscommon",
+    "ie_la_tipperary",
+    "ie_lmetb"
+  ],
+  "gross_eur": 10054987701.529999,
+  "summable_eur": 9859757840.65,
+  "rows_review_personal_data": 17782
+}

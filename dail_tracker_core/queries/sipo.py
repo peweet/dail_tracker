@@ -23,17 +23,14 @@ import logging
 
 import duckdb
 
+from dail_tracker_core.queries import run_query
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
 
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
-    except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
-        _log.warning("sipo query failed: %s | %s", sql[:120], exc)
-        return QueryResult.unavailable(f"sipo query failed: {exc}")
+    return run_query(conn, sql, params, label="sipo", log=_log)
 
 
 # ── Donations ─────────────────────────────────────────────────────────────────
@@ -272,4 +269,77 @@ def ge2024_party_finance(conn: duckdb.DuckDBPyConnection) -> QueryResult:
         " agent_spend_eur, agent_candidate_count, agent_verify_count, agent_excluded_count,"
         " candidate_spend_eur, candidate_count, candidate_verify_count"
         " FROM v_sipo_ge2024_party_finance",
+    )
+
+
+# ── GE2020 national-agent party expenses (a SEPARATE election) ───────────────────
+# Reads v_sipo_ge2020_party_national_* (sipo_ge2020_party_national.sql). PARTY-level
+# national-agent spend only — no Part-3 candidate apportionment, no donations. OCR'd
+# from the scanned returns; the printed `category_total_eur` (is_overall) is the
+# trustworthy headline, and `reconciles = false` flags parties whose line items don't
+# sum to it. NEVER summed with GE2024 or across elections (different election + grain).
+
+
+def ge2020_totals(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Headline across parties: count filed + summed printed overall for the parties whose
+    figures reconcile. A non-reconciling overall can be an OCR decimal mis-read, so it is
+    kept OUT of the grand total (but still shown per-party with a flag)."""
+    return _run(
+        conn,
+        "SELECT COUNT(*) AS parties,"
+        " SUM(CASE WHEN reconciles THEN category_total_eur END) AS total_reconciling,"
+        " SUM(CASE WHEN NOT reconciles THEN 1 ELSE 0 END) AS unreconciled_parties"
+        " FROM v_sipo_ge2020_party_national_categories"
+        " WHERE is_overall",
+    )
+
+
+def ge2020_by_party(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One row per party — the printed Overall total + reconcile flag (drives the cards)."""
+    return _run(
+        conn,
+        "SELECT party, category_total_eur AS overall_total_eur, reconciles,"
+        " total_confidence, source_page"
+        " FROM v_sipo_ge2020_party_national_categories"
+        " WHERE is_overall"
+        " ORDER BY category_total_eur DESC NULLS LAST",
+    )
+
+
+def ge2020_party_categories(conn: duckdb.DuckDBPyConnection, party: str) -> QueryResult:
+    """The 8 statutory headings for one party — printed category totals + reconcile flag.
+    Excludes the Overall row (fetched separately)."""
+    return _run(
+        conn,
+        "SELECT section, category_label, category_total_eur, items_sum_eur,"
+        " reconciles, total_confidence, source_page"
+        " FROM v_sipo_ge2020_party_national_categories"
+        " WHERE party = ? AND NOT is_overall"
+        " ORDER BY section",
+        [party],
+    )
+
+
+def ge2020_party_overall(conn: duckdb.DuckDBPyConnection, party: str) -> QueryResult:
+    """One party's printed Overall national-agent total row (is_overall)."""
+    return _run(
+        conn,
+        "SELECT category_total_eur, reconciles, source_page"
+        " FROM v_sipo_ge2020_party_national_categories"
+        " WHERE party = ? AND is_overall"
+        " LIMIT 1",
+        [party],
+    )
+
+
+def ge2020_party_items(conn: duckdb.DuckDBPyConnection, party: str) -> QueryResult:
+    """One party's national-agent line items — section, ref, description, cost, verify flag."""
+    return _run(
+        conn,
+        "SELECT section, category_label, ref, item_description, cost_eur,"
+        " flag, is_verified, source_page"
+        " FROM v_sipo_ge2020_party_national_items"
+        " WHERE party = ?"
+        " ORDER BY cost_eur DESC NULLS LAST",
+        [party],
     )
