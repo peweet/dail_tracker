@@ -1,0 +1,12 @@
+entity_clean,publisher_id,publisher_name,publisher_type,sector,amount_semantics,source_landing_url,regime_source
+Dublin City Council,ie_la_dublin_city,Dublin City Council,local_authority,local_government,po_committed,https://www.dublincity.ie/council/budgets-and-finance/public-procurement,LA_SCHEMA_MAP dublin_city READY po_committed
+Dun Laoghaire Rathdown County Council,ie_la_dlr,Dún Laoghaire-Rathdown County Council,local_authority,local_government,po_committed,https://www.dlrcoco.ie/governance/procurement,LA_SCHEMA_MAP dlr READY po_committed
+Cavan County Council,ie_la_cavan,Cavan County Council,local_authority,local_government,po_committed,https://www.cavancoco.ie/file-library/business/procurement/over-20k/,LA_SCHEMA_MAP cavan READY po_committed
+Kerry County Council,ie_la_kerry,Kerry County Council,local_authority,local_government,po_committed,https://www.kerrycoco.ie/finance/financial-documents/,LA_SCHEMA_MAP kerry READY po_committed
+Roscommon County Council,ie_la_roscommon,Roscommon County Council,local_authority,local_government,po_committed,https://www.roscommoncoco.ie/en/Download-It/Finance-Publications/,LA_SCHEMA_MAP roscommon READY po_committed
+Carlow County Council,ie_la_carlow,Carlow County Council,local_authority,local_government,po_committed,https://carlow.ie/information-technology/statistics-and-reports/financial-statistical-reports,LA_SCHEMA_MAP carlow READY po_committed
+Tipperary County Council,ie_la_tipperary,Tipperary County Council,local_authority,local_government,po_committed,https://www.tipperarycoco.ie/finance/procurement-data-publication,verified_source_pdf 'Report on Purchase Orders greater than EUR20k'
+Louth County Council,ie_la_louth,Louth County Council,local_authority,local_government,po_committed,https://www.louthcoco.ie/en/publications/finance_reports/pos-over-20000/,verified_source_pdf 'POs over 20000' lcc-pos-over-20k
+An Garda Síochána,ie_garda,An Garda Síochána,state_body,justice,po_committed,https://www.garda.ie/en/freedom-of-information/publication-scheme/budgets-and-spending/,publishers_seed grain=purchase_order
+EPA,ie_epa,Environmental Protection Agency,agency,environment,po_committed,https://www.epa.ie/who-we-are/corporate-compliance/procurement/purchase-orders/,publishers_seed grain=purchase_order
+Louth and Meath ETB,ie_lmetb,Louth & Meath ETB,education_body,education,po_committed,https://www.lmetb.ie/category/finance/purchase-orders-over-e20000/,publishers_seed landing purchase-orders-over-e20000

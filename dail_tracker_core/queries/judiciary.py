@@ -19,17 +19,14 @@ import logging
 
 import duckdb
 
+from dail_tracker_core.queries import run_query
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
 
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
-    except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
-        _log.exception("judiciary query failed")
-        return QueryResult.unavailable(f"judiciary query failed: {exc}")
+    return run_query(conn, sql, params, label="judiciary", log=_log)
 
 
 def legal_diary_schedule(conn: duckdb.DuckDBPyConnection) -> QueryResult:

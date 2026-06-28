@@ -180,3 +180,73 @@ def test_read_courts_recovers_supplier_and_skips_total():
     # the Total summary line carries no PO and must not become a supplier row
     assert all("total" not in (r["supplier"] or "").lower() for r in recs)
     assert 1982178.23 not in [r["amount"] for r in recs]
+
+
+# ── reading-order/geometry reader (DHLGH / dept_housing layout) ───────────────
+def _housing_pdf(rows: list[tuple], cols: dict) -> bytes:
+    """Synthetic DHLGH payments PDF: each cell placed at its column's x so the reader must
+    DERIVE the columns from x0s (not from header order). `rows` = list of (date, supplier,
+    desc, amount) at the given column x-positions."""
+    import fitz
+
+    doc = fitz.open()
+    page = doc.new_page(width=900, height=600)  # wide so distinct cells don't merge horizontally
+    page.insert_text((cols["date"], 50), "Payment Date")
+    page.insert_text((cols["supplier"], 50), "Supplier")
+    page.insert_text((cols["desc"], 50), "Description")
+    page.insert_text((cols["amount"], 50), "Payment Amount")
+    y = 80
+    for date, supplier, desc, amount in rows:
+        if date:
+            page.insert_text((cols["date"], y), date)
+        if supplier:
+            page.insert_text((cols["supplier"], y), supplier)
+        if desc:
+            page.insert_text((cols["desc"], y), desc)
+        if amount:
+            page.insert_text((cols["amount"], y), amount)
+        y += 22
+    b = doc.tobytes()
+    doc.close()
+    return b
+
+
+def test_read_housing_derives_columns_clean_supplier_description():
+    """Layout A: Date | Supplier | Description | Amount in four well-separated columns. The
+    reader derives the columns from the data x0s and keeps supplier/description separate."""
+    from extractors.procurement_public_body_extract import read_housing
+
+    b = _housing_pdf(
+        [
+            ("04/10/2022", "BORD NA MONA ENERGY LTD", "Peatlands Restoration Works", "28,404.00"),
+            ("06/10/2022", "EIR (EIRCOM)", "Telecoms", "32,650.24"),
+        ],
+        cols={"date": 40, "supplier": 140, "desc": 420, "amount": 720},
+    )
+    recs = read_housing(b, None)
+    assert len(recs) == 2
+    assert recs[0]["supplier"] == "BORD NA MONA ENERGY LTD"
+    assert recs[0]["desc"] == "Peatlands Restoration Works"
+    assert recs[0]["amount"] == 28404.00
+    assert recs[0]["date"] == "04/10/2022"
+    assert recs[1]["amount"] == 32650.24
+
+
+def test_read_housing_handles_date_supplier_merged_cell():
+    """Layout D: the date column holds 'DD/MM/YYYY SUPPLIER' in one cell (no separate supplier
+    column), description and amount follow. The reader must split the date off, route the
+    remainder to supplier, and NOT mislabel the description column as supplier."""
+    from extractors.procurement_public_body_extract import read_housing
+
+    b = _housing_pdf(
+        [
+            ("17/07/2024 BDO EATON SQUARE LTD", "", "CRM Platform Project", "66,572.77"),
+            ("18/07/2024 CHARLES ALEXANDER LTD", "", "Branded Goods", "24,600.00"),
+        ],
+        cols={"date": 40, "supplier": 140, "desc": 420, "amount": 720},
+    )
+    recs = read_housing(b, None)
+    assert len(recs) == 2
+    assert recs[0]["supplier"] == "BDO EATON SQUARE LTD"
+    assert recs[0]["desc"] == "CRM Platform Project"
+    assert recs[0]["amount"] == 66572.77

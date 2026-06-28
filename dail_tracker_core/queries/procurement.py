@@ -17,6 +17,7 @@ import logging
 
 import duckdb
 
+from dail_tracker_core.queries import run_query
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
@@ -41,18 +42,7 @@ _COMPETITION_ORDER = {  # buyer competition ranking
 
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    """Execute retrieval SQL and wrap the outcome.
-
-    A DuckDB error (missing view, missing parquet, bad column) becomes an
-    ``unavailable`` result rather than the old swallow-to-empty-DataFrame, so the
-    caller can tell "source down" from "no rows". The exception is logged for the
-    server-side trail exactly as the old ``_safe`` did.
-    """
-    try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
-    except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
-        _log.exception("procurement query failed")
-        return QueryResult.unavailable(f"procurement query failed: {exc}")
+    return run_query(conn, sql, params, label="procurement", log=_log)
 
 
 _SUPPLIER_COLS = (

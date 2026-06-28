@@ -1,4 +1,4 @@
-"""Election 2024 — unified GE2024 political-finance hub.
+"""Election Finance — unified Irish general-election political-finance hub.
 
 One page for the whole 2024 general-election money story, drawn from THREE separate
 official SIPO records that used to be scattered across two pages:
@@ -7,8 +7,13 @@ official SIPO records that used to be scattered across two pages:
   * Party spending — each party's national-agent spend ON its candidates (Part 3).
   * Candidates     — each candidate's OWN Expenses Statement, down to Part-5 lines.
 
-A tab strip (?view=overview|donations|party|candidates) routes between them; drill
-params (?dparty / ?eparty / ?cand) take precedence and open a detail view.
+A fourth tab adds GE2020 party national-agent spending — a SEPARATE election, OCR'd
+from scanned returns, never summed with the 2024 figures.
+
+A tab strip (?view=overview|donations|party|candidates|ge2020) routes between them;
+drill params (?dparty / ?eparty / ?cand / ?gparty) take precedence and open a detail
+view. The page title is "Election Finance"; ?view=ge2020 swaps the hero to a GE2020
+banner. (Module/function still named election_2024 — url_path is unchanged.)
 
 Layout / controls / HTML only — NO business logic. Every figure comes from the
 v_sipo_* views via the three sipo_*_data data-access wrappers (which forbid parquet
@@ -50,6 +55,11 @@ from data_access.sipo_donations_data import (
 from data_access.sipo_expenses_data import (
     fetch_expenses_by_party,
     fetch_expenses_totals,
+    fetch_ge2020_by_party,
+    fetch_ge2020_party_categories,
+    fetch_ge2020_party_items,
+    fetch_ge2020_party_overall,
+    fetch_ge2020_totals,
     fetch_party_candidates,
     fetch_party_national_categories,
     fetch_party_national_items,
@@ -88,6 +98,7 @@ _TABS = [
     ("donations", "Donations"),
     ("party", "Party spending"),
     ("candidates", "Candidates"),
+    ("ge2020", "Election 2020"),
 ]
 
 _DON_CAVEAT = (
@@ -109,6 +120,14 @@ _CAND_CAVEAT = (
     "scanned returns; rows marked “verify” should be checked against the source PDF. "
     "Spending here is what a candidate spent campaigning — nothing implies influence "
     "or wrongdoing."
+)
+_GE2020_CAVEAT = (
+    "Source: Standards in Public Office Commission, 2020 National-Agent election "
+    "expenses statements. Figures are OCR-read from the official scanned returns; the "
+    "printed party total is the headline, and parties marked “verify” are where the "
+    "OCR'd line items don't sum to that total — check those against the source PDF. "
+    "This is party-level national-agent spend, never added to the 2024 figures, and "
+    "nothing here implies influence or wrongdoing."
 )
 
 
@@ -155,16 +174,29 @@ def _category_bars(by_cat: pd.DataFrame) -> str:
 # ── page head + tab strip ─────────────────────────────────────────────────────────
 
 
-def _render_head() -> None:
-    hero_banner(
-        kicker="POLITICAL FINANCE · GENERAL ELECTION 2024",
-        title="Election 2024",
-        dek=(
-            "Three official records for the 2024 general election — what donors gave "
-            "to parties, what party agents spent on candidates, and what each candidate "
-            "spent themselves. Separate returns at different grains, not a single ledger."
-        ),
-    )
+def _render_head(view: str = "") -> None:
+    if view == "ge2020":
+        hero_banner(
+            kicker="POLITICAL FINANCE · GENERAL ELECTION 2020",
+            title="Election 2020",
+            dek=(
+                "What each party's national agent spent at the 2020 general election, "
+                "OCR-read from the official scanned SIPO returns. Party-level national-agent "
+                "spend only — not donations or per-candidate returns — and never added to "
+                "the 2024 figures."
+            ),
+        )
+    else:
+        hero_banner(
+            kicker="POLITICAL FINANCE · GENERAL ELECTIONS",
+            title="Election Finance",
+            dek=(
+                "The money behind recent Irish general elections. The 2024 picture in full — "
+                "what donors gave to parties, what party agents spent on candidates, and what "
+                "each candidate spent themselves — plus party spending from 2020 on its own "
+                "tab. Separate official returns at different grains, never a single ledger."
+            ),
+        )
     glossary_strip(
         [
             ("SIPO", "Standards in Public Office Commission"),
@@ -547,6 +579,106 @@ def _render_expenses_tab() -> None:
     st.caption(_EXP_CAVEAT)
 
 
+# ── GE2020 tab + drill (national-agent party spending, a SEPARATE election) ────────
+
+
+def _ge2020_party_card(row: pd.Series) -> str:
+    party = str(row["party"])
+    stripe = party_colour(party)
+    total = float(row["overall_total_eur"] or 0)
+    note = "" if bool(row["reconciles"]) else '<span class="don-vmark">verify · SIPO PDF</span>'
+    return (
+        f'<a class="don-card" href="?gparty={quote(party)}" target="_self" '
+        f'style="--don-stripe:{stripe}">'
+        f'<span class="don-dir">↓ national-agent spend · 2020</span>'
+        f'<div class="don-ptitle"><span class="don-swatch"></span><h3>{_h(party)}</h3></div>'
+        f'<div class="don-amount">€{total:,.0f}</div>'
+        f'<div class="don-sub">printed party total</div>'
+        f'<div class="don-cardfoot"><span class="go">View breakdown →</span>{note}</div>'
+        "</a>"
+    )
+
+
+def _render_ge2020_party(party: str) -> None:
+    if back_button("← All parties", key="ge2020_back"):
+        st.query_params.pop("gparty", None)
+        st.rerun()
+    st.markdown(f"#### {_h(party)} · 2020 national-agent spending")
+
+    overall = fetch_ge2020_party_overall(party)
+    if overall is None or overall["total"] is None:
+        empty_state(
+            "No national-agent return loaded",
+            f"{party} has no processed 2020 national-agent expenses statement.",
+        )
+        return
+
+    totals_strip([(f"€{float(overall['total']):,.0f}", "national-agent spend · printed total")])
+    if not overall["reconciles"]:
+        pg = f" (p.{overall['source_page']})" if overall["source_page"] else ""
+        st.caption(
+            f"⚠ {party}'s OCR'd line items don't sum to the printed total — verify against the "
+            f"official SIPO PDF{pg} before using this figure."
+        )
+
+    cats = fetch_ge2020_party_categories(party)
+    if not cats.empty:
+        st.markdown("##### Where the party spent · by category")
+        st.html(_national_category_bars(cats))
+
+    items = fetch_ge2020_party_items(party)
+    if not items.empty:
+        with st.expander(f"All {len(items)} national-agent line items"):
+            rows = []
+            for _, it in items.iterrows():
+                sec = _h(str(it["section"] or ""))
+                desc = _h(str(it["item_description"])) if pd.notna(it["item_description"]) else "—"
+                cost = float(it["cost_eur"] or 0)
+                vmark = "" if bool(it["is_verified"]) else '<span class="don-vmark">verify</span>'
+                rows.append(
+                    f'<div class="esp-irow"><span class="esp-icat">{sec}</span>'
+                    f'<span class="esp-ivendor">{desc} {vmark}</span>'
+                    f'<span class="esp-icost">€{cost:,.2f}</span></div>'
+                )
+            st.html(f'<div class="esp-items">{"".join(rows)}</div>')
+            st.caption(
+                "“Expenditure item” is the agent's free-text entry — a mix of supplier "
+                "names and item descriptions, not a verified vendor list."
+            )
+    st.caption(_GE2020_CAVEAT)
+
+
+def _render_ge2020_tab() -> None:
+    st.caption(
+        "What each party's national agent spent at the 2020 general election — the 2020 "
+        "counterpart of the Party-spending tab. Party-level totals only (no per-candidate "
+        "apportionment); open a party to see its itemised spend by category."
+    )
+    totals = fetch_ge2020_totals()
+    strip = [
+        (f"{totals['parties']}", "parties filed"),
+        (f"€{totals['total_reconciling']:,.0f}", "spend · reconciling parties"),
+    ]
+    if totals["unreconciled_parties"]:
+        strip.append((f"{totals['unreconciled_parties']}", "to verify"))
+    totals_strip(strip)
+
+    by_party = fetch_ge2020_by_party()
+    if by_party.empty:
+        empty_state(
+            "No 2020 returns loaded",
+            "Party national-agent expenses for the 2020 general election appear here once processed.",
+        )
+        return
+    cards = "".join(_ge2020_party_card(r) for _, r in by_party.iterrows())
+    st.html(f'<div class="don-grid">{cards}</div>')
+    st.caption(
+        "The headline sums the parties whose figures reconcile; parties marked “verify” are "
+        "shown individually but kept out of that total because their OCR'd figure needs "
+        "checking. " + _GE2020_CAVEAT
+    )
+
+
 # ── Candidates tab + drill (per-candidate own statements) ─────────────────────────
 
 
@@ -809,7 +941,25 @@ def _render_candidates_tab() -> None:
 # ── provenance (whole-page) ───────────────────────────────────────────────────────
 
 
-def _render_provenance() -> None:
+def _render_provenance(view: str = "") -> None:
+    if view == "ge2020":
+        provenance_expander(
+            sections=[
+                "**What this is.** Each party's National-Agent election-expenses return for the "
+                "2020 general election — party-level national-agent spend, itemised by statutory "
+                "category. A different election and a different return from the 2024 figures on "
+                "the other tabs; the two are never added together.",
+                "**OCR-derived.** Values are read from the official scanned SIPO PDFs. The "
+                "printed party total is the headline; where the itemised lines don't sum to it "
+                "the party is marked “verify”, and decimal-loss mis-reads are flagged rather "
+                "than shown as fact.",
+                "**No inference.** Spending is a matter of public record — nothing here implies "
+                "influence or wrongdoing.",
+            ],
+            source_caption="Source: Standards in Public Office Commission — GE2020 National-Agent "
+            "election-expenses statements.",
+        )
+        return
     provenance_expander(
         sections=[
             "**What this is.** The complete 2024 general-election money picture from three "
@@ -858,11 +1008,15 @@ def election_2024_page() -> None:
         _render_head()
         _render_party_candidate_list(qp.get("eparty"))
         return
+    if qp.get("gparty"):
+        _render_head("ge2020")
+        _render_ge2020_party(qp.get("gparty"))
+        return
 
-    _render_head()
     view = qp.get("view") or "overview"
     if view not in {slug for slug, _ in _TABS}:
         view = "overview"
+    _render_head("ge2020" if view == "ge2020" else "")
     _tab_strip(view)
 
     if view == "donations":
@@ -871,7 +1025,9 @@ def election_2024_page() -> None:
         _render_expenses_tab()
     elif view == "candidates":
         _render_candidates_tab()
+    elif view == "ge2020":
+        _render_ge2020_tab()
     else:
         _render_overview()
 
-    _render_provenance()
+    _render_provenance(view)

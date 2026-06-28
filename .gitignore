@@ -379,6 +379,11 @@ data/silver/sipo_candidate/
 # pipeline_sandbox/procurement_dept_readingorder_parser.py) — folded into gold
 # procurement_payments_fact by consolidate; commit so it survives source rot / machine loss
 !data/silver/parquet/dept_readingorder_payments_fact.parquet
+# disclosed BigQuery PO extract — genuinely-new bodies lane (disclosed_bq_po_newbodies_extract.py;
+# registry data/_meta/procurement_disclosed_bodies.csv) folded into gold by consolidate. The raw
+# CSV drop is gitignored, and this lane has NO carry-forward, so commit the silver or a cloud
+# rebuild (without the raw drop) silently loses these 11 new bodies.
+!data/silver/parquet/disclosed_bq_po_newbodies_fact.parquet
 # per-LA AFS revenue fact (la_afs_extract.py) — read by tests + future gold views/UI; commit
 # so it survives machine failure / is Cloud-readable even if a council removes its source PDF
 !data/silver/parquet/la_afs_divisions.parquet

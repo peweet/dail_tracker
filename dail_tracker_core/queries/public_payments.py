@@ -25,6 +25,7 @@ import logging
 
 import duckdb
 
+from dail_tracker_core.queries import run_query
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
@@ -50,13 +51,7 @@ _LINE_ORDER = {
 
 
 def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    """Execute retrieval SQL; a DuckDB error (missing view/parquet/column) becomes an
-    ``unavailable`` result so the caller can tell 'source down' from 'no rows'."""
-    try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
-    except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
-        _log.exception("public_payments query failed")
-        return QueryResult.unavailable(f"public_payments query failed: {exc}")
+    return run_query(conn, sql, params, label="public_payments", log=_log)
 
 
 def coverage_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
