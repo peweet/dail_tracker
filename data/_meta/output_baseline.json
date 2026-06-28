@@ -1128,7 +1128,7 @@
       ]
     },
     "procurement_payments_fact.parquet": {
-      "rows": 406733,
+      "rows": 423989,
       "columns": [
         "publisher_id",
         "publisher_name",

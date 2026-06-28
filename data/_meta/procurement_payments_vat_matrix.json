@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-28T04:33:41Z",
+  "generated_at": "2026-06-28T05:14:32Z",
   "source": "data/gold/parquet/procurement_payments_fact.parquet",
   "note": "VAT basis per publisher as carried on the gold payments fact. 'unknown' means the publisher's payment list does not document whether amounts include VAT — totals summed across publishers with differing/unknown bases are NOT comparable. Treat per-publisher figures as internally consistent; treat cross-publisher totals as indicative only until the unknowns are closed.",
   "summary": {
-    "n_publishers": 83,
-    "n_rows": 406733,
-    "n_rows_vat_unknown": 312873,
-    "pct_rows_vat_unknown": 76.9
+    "n_publishers": 88,
+    "n_rows": 423989,
+    "n_rows_vat_unknown": 330129,
+    "pct_rows_vat_unknown": 77.9
   },
   "publishers": {
     "dept_agriculture": {
@@ -151,6 +151,19 @@
       "safe_value_eur": 118503583.2,
       "min_year": 2012,
       "max_year": 2026
+    },
+    "dept_housing": {
+      "publisher_name": "Department of Housing, Local Government and Heritage",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3502,
+          "safe_value_eur": 208776136.95
+        }
+      },
+      "n_rows": 3502,
+      "safe_value_eur": 208776136.95,
+      "min_year": 2014,
+      "max_year": 2025
     },
     "dept_justice": {
       "publisher_name": "Department of Justice, Home Affairs and Migration",
@@ -304,6 +317,19 @@
       "n_rows": 356,
       "safe_value_eur": 25742718.1,
       "min_year": 2023,
+      "max_year": 2025
+    },
+    "ie_corketb": {
+      "publisher_name": "Cork ETB",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 2713,
+          "safe_value_eur": 313316747.75
+        }
+      },
+      "n_rows": 2713,
+      "safe_value_eur": 313316747.75,
+      "min_year": 2012,
       "max_year": 2025
     },
     "ie_courts": {
@@ -813,6 +839,19 @@
       "min_year": 2016,
       "max_year": 2025
     },
+    "ie_lcetb": {
+      "publisher_name": "Limerick & Clare ETB",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 2420,
+          "safe_value_eur": 315056729.72
+        }
+      },
+      "n_rows": 2420,
+      "safe_value_eur": 315056729.72,
+      "min_year": 2013,
+      "max_year": 2025
+    },
     "ie_lmetb": {
       "publisher_name": "Louth & Meath ETB",
       "vat_status_mix": {
@@ -838,6 +877,19 @@
       "safe_value_eur": 129187262.24,
       "min_year": 2013,
       "max_year": 2026
+    },
+    "ie_lwetb": {
+      "publisher_name": "Longford & Westmeath ETB",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 2839,
+          "safe_value_eur": 277264495.62
+        }
+      },
+      "n_rows": 2839,
+      "safe_value_eur": 277264495.62,
+      "min_year": 2016,
+      "max_year": 2025
     },
     "ie_marine": {
       "publisher_name": "Marine Institute",
@@ -967,6 +1019,19 @@
       "n_rows": 4557,
       "safe_value_eur": 690967468.61,
       "min_year": 2020,
+      "max_year": 2025
+    },
+    "ie_rsa": {
+      "publisher_name": "Road Safety Authority",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 5782,
+          "safe_value_eur": 520803723.66
+        }
+      },
+      "n_rows": 5782,
+      "safe_value_eur": 520803723.66,
+      "min_year": 2012,
       "max_year": 2025
     },
     "ie_screen": {

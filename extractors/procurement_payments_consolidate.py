@@ -72,12 +72,12 @@ SILVER = ROOT / "data/silver/parquet"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 OUT = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_payments_fact_coverage.json"
-# Row floor for the consolidated gold fact (406,733 rows 2026-06-27 after the disclosed_bq_po
-# new-bodies Tranche 1 + HSE history). Consolidate unions the upstream silver facts; if one came in
-# truncated (its own floor was bypassed, or a non-floored source emptied), gold should not be rebuilt
-# smaller. ~30% headroom; force a deliberate small rebuild with DAIL_SKIP_ROW_FLOOR=1. Raise again
-# when a future tranche/lane lands (plan §11g).
-MIN_FACT_ROWS = 280_000
+# Row floor for the consolidated gold fact (423,989 rows 2026-06-28 after disclosed_bq_po new-bodies
+# Tranche 1+2 + HSE history). Consolidate unions the upstream silver facts; if one came in truncated
+# (its own floor was bypassed, or a non-floored source emptied), gold should not be rebuilt smaller.
+# ~30% headroom; force a deliberate small rebuild with DAIL_SKIP_ROW_FLOOR=1. Raise again when a
+# future tranche/lane lands (plan §11g).
+MIN_FACT_ROWS = 295_000
 # Hand-curated supplier-class overrides (firms/foreign/semi-states the regex+CRO can't resolve).
 # Only sum-neutral classes (company/foreign_company); transfer bodies live in a separate review CSV.
 CLASS_OVERRIDES = ROOT / "data/_meta/procurement_supplier_class_overrides.csv"

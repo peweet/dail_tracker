@@ -133,7 +133,11 @@ BRIEFS: list[dict] = [
         "source_url": "https://www.gov.ie/en/department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation/organisation-information/incoming-ministers-brief/",
         "vision_mission": None, "strategic_goals": [],
         "immediate_priorities": ["Priorities for the short to medium term (per division)"],
-        "machinery_of_government": [], "key_issue_areas": [],
+        "machinery_of_government": [],
+        "key_issue_areas": [  # divisions, each with "Key Strategic Issues for Incoming Minister"
+            "Climate Division", "Expenditure Policy Division", "Public Service Reform",
+            "Infrastructure / NDP Delivery", "Digitalisation (OGCIO)", "Public Procurement (OGP)",
+        ],
     },
     {
         "department": "Transport",
@@ -143,9 +147,15 @@ BRIEFS: list[dict] = [
         "vision_mission": None, "strategic_goals": [],
         "immediate_priorities": [
             "Land Transport Funding", "Transport Decarbonisation — climate commitments & sectoral emissions ceilings",
-            "EU, North-South and International engagement", "Strategic Priorities 2025 by pillar (Aviation, etc.)",
+            "EU, North-South and International engagement",
         ],
-        "machinery_of_government": [], "key_issue_areas": [],
+        "machinery_of_government": [],
+        "key_issue_areas": [  # Strategic Priorities 2025 by pillar
+            "Aviation & Emergency Planning", "Transport Investment & Public Transport Policy",
+            "Climate Action & EU and International Affairs", "Maritime",
+            "Road Transport Services and Digital Hub", "Irish Coast Guard",
+            "Corporate Affairs and Central Policy",
+        ],
     },
     {
         "department": "Finance",
@@ -153,7 +163,12 @@ BRIEFS: list[dict] = [
         "edition": "December 2025", "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/department-of-finance/publications/ministers-brief-december-2025/",
         "vision_mission": None, "strategic_goals": [],
-        "immediate_priorities": [], "machinery_of_government": [], "key_issue_areas": [],
+        "immediate_priorities": [], "machinery_of_government": [],
+        "key_issue_areas": [  # divisions
+            "Economic / Strategic Economic Development", "Domestic & Indirect Tax Policy",
+            "Business & International Tax Policy", "Capital Taxes, Stamp Duties & Residential Zoned Land Tax",
+            "Tax Administration, Revenue Powers & Local Property Tax", "Financial Services",
+        ],
     },
     {
         "department": "Enterprise, Tourism & Employment (DETE)",
@@ -161,7 +176,12 @@ BRIEFS: list[dict] = [
         "edition": "January 2025", "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/department-of-enterprise-tourism-and-employment/collections/department-brief-for-minister/",
         "vision_mission": None, "strategic_goals": [],
-        "immediate_priorities": [], "machinery_of_government": [], "key_issue_areas": [],
+        "immediate_priorities": [], "machinery_of_government": [],
+        "key_issue_areas": [  # divisions (each "key priorities and strategic issues for…")
+            "Commerce, Consumer and Competition", "Corporate Services", "Digital and EU Affairs",
+            "Enterprise Strategy, Competitiveness & Evaluation", "Indigenous Enterprise",
+            "Innovation and Investment", "Trade",
+        ],
     },
     {
         "department": "Defence",
@@ -169,7 +189,11 @@ BRIEFS: list[dict] = [
         "edition": "January 2025 (2025 Ministerial Brief)", "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/publication/818d5-2025-ministerial-brief/",
         "vision_mission": None, "strategic_goals": [],
-        "immediate_priorities": [], "machinery_of_government": [], "key_issue_areas": [],
+        "immediate_priorities": [], "machinery_of_government": [],
+        "key_issue_areas": [  # brief is statutory/organisational rather than priority-led
+            "Statutory framework & organisation of Defence", "The Defence Forces (military)",
+            "Civil-military relationship", "Bodies under aegis",
+        ],
     },
 ]
 
