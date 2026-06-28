@@ -101,6 +101,55 @@ def td_name_by_id(conn: duckdb.DuckDBPyConnection, member_id: str) -> QueryResul
     )
 
 
+def member_vote_summary(conn: duckdb.DuckDBPyConnection, member_id: str) -> QueryResult:
+    """Per-TD headline row from td_vote_summary, looked up by member_id (LIMIT 1).
+
+    Sibling of :func:`td_row_by_name` (by name) — used by the member-votes UI body.
+    """
+    return _run(
+        conn,
+        "SELECT member_id, member_name, party_name, constituency,"
+        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
+        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+        [member_id],
+    )
+
+
+def member_vote_history(
+    conn: duckdb.DuckDBPyConnection,
+    member_id: str,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int = 5000,
+) -> QueryResult:
+    """A TD's individual division votes (most recent first), optionally date-bounded."""
+    clauses: list[str] = ["member_id = ?"]
+    params: list = [member_id]
+    if date_from:
+        clauses.append("vote_date >= ?")
+        params.append(date_from)
+    if date_to:
+        clauses.append("vote_date <= ?")
+        params.append(date_to)
+    where = _and_clauses(clauses)
+    sql = (
+        "SELECT vote_id, vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
+        f" FROM v_vote_member_detail WHERE {where} ORDER BY vote_date DESC LIMIT ?"
+    )
+    params.append(limit)
+    return _run(conn, sql, params)
+
+
+def member_year_summary(conn: duckdb.DuckDBPyConnection, member_id: str) -> QueryResult:
+    """A TD's per-year yes/no/abstain tallies for the yearly turnout chart."""
+    return _run(
+        conn,
+        "SELECT year, yes_count, no_count, abstained_count"
+        " FROM td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
+        [member_id],
+    )
+
+
 def vote_index(conn: duckdb.DuckDBPyConnection, date_from, date_to, outcome, house: str = "Dáil") -> QueryResult:
     clauses: list[str] = ["house = ?"]
     params: list = [house]

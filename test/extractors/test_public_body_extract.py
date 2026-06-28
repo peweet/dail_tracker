@@ -232,6 +232,74 @@ def test_read_housing_derives_columns_clean_supplier_description():
     assert recs[1]["amount"] == 32650.24
 
 
+def _ro_pdf(text: str) -> bytes:
+    import fitz
+
+    doc = fitz.open()
+    doc.new_page().insert_text((40, 50), text)
+    b = doc.tobytes()
+    doc.close()
+    return b
+
+
+def test_reading_order_fallback_amount_last_supplier_desc_amount():
+    """ie_bim / lmetb shape: each field on its own line, AMOUNT last
+    ('[supplier] [description] AMOUNT'). The fallback anchors on the amount and reads the text
+    above it (dropping ref/header/total lines)."""
+    from extractors.procurement_public_body_extract import read_pdf_reading_order_fallback
+
+    b = _ro_pdf(
+        "Supplier Name\nDescription\nAmount Excluding Vat\n"
+        "Kevin Keogh Electrical Ltd\nElectrical Contracting Services\n208,410.00\n"
+        "Marine Institute\nMesopelagic Resources Study\n135,000.00\n"
+    )
+    recs = read_pdf_reading_order_fallback(b, None)
+    assert len(recs) == 2
+    assert recs[0]["supplier"] == "Kevin Keogh Electrical Ltd"
+    assert recs[0]["desc"] == "Electrical Contracting Services"
+    assert recs[0]["amount"] == 208410.00
+    assert recs[1]["supplier"] == "Marine Institute"
+    assert recs[1]["amount"] == 135000.00
+
+
+def test_reading_order_fallback_amount_middle_po_supplier_then_amount_desc():
+    """ie_atu q2-2022 shape: '[PO supplier]' line then 'AMOUNT description' line. The fallback
+    strips the leading PO number off the supplier and takes the inline trailing description."""
+    from extractors.procurement_public_body_extract import read_pdf_reading_order_fallback
+
+    # (no euro glyph: fitz's default font renders € as a middle-dot; the real PDFs carry a proper
+    # € and MONEY_LEAD's optional €? matches it — validated end-to-end on the live atu file.)
+    b = _ro_pdf(
+        "PO Number\nSupplier\nAmount\nDescription\n"
+        "178186 Kedington Ltd\n20,398.32 Computer Networking\n"
+        "178331 MARSH IRELAND BROKERS LIMITED\n21,000.00 Insurance\n"
+    )
+    recs = read_pdf_reading_order_fallback(b, None)
+    assert len(recs) == 2
+    assert recs[0]["supplier"] == "Kedington Ltd"
+    assert recs[0]["amount"] == 20398.32
+    assert recs[0]["desc"] == "Computer Networking"
+    assert recs[1]["supplier"] == "MARSH IRELAND BROKERS LIMITED"
+
+
+def test_reading_order_fallback_garble_guard_drops_ocr_mangled_file():
+    """An OCR-mangled column-split quarter (LMETB 'CGAO36' files) parses to rows whose 'suppliers'
+    are digit-heavy noise ('61,6,074.72', 'L95,75r.40'). The garble guard returns [] so the file is
+    dropped as unparsed rather than ingested as numeric noise."""
+    from extractors.procurement_public_body_extract import read_pdf_reading_order_fallback
+
+    b = _ro_pdf(
+        "Account Code\nDescription\nBase Amount\n"
+        "61,6,074.72\n432,870.50\n"
+        "L95,75r.40\n314,633.72\n"
+        "773,716.9t\n254,782.96\n"
+        "84,975.OO\n197,462.40\n"
+        "r29,9!1.O\n178,180.82\n"
+        "60,577.O4\n167,650.00\n"
+    )
+    assert read_pdf_reading_order_fallback(b, None) == []
+
+
 def test_read_housing_handles_date_supplier_merged_cell():
     """Layout D: the date column holds 'DD/MM/YYYY SUPPLIER' in one cell (no separate supplier
     column), description and amount follow. The reader must split the date off, route the

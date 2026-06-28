@@ -9,8 +9,10 @@ don't carry. HYBRID provenance:
   - scanned briefs (2: DECC, Education): all fields curated from the 2026-06-28 vision read
     (render→Read; Tesseract not installed) — Justice Jan-2025 likewise vision-read.
 Sources fetched via the diary extractor's warmed session (gov.ie 403s WebFetch); PDFs cached in
-the session scratchpad. This is NOT a fully-automated pipeline (scanned fields need vision), so it
-lives in data/sandbox/enrichment/ and is rebuilt deliberately, not via pipeline.py.
+the session scratchpad. This is NOT a fully-automated pipeline (scanned fields need vision) and so
+is NOT in pipeline.py — rebuild deliberately. PROMOTED to gold 2026-06-28: writes
+data/gold/parquet/minister_briefs.parquet, surfaced via sql_views/diary/minister_briefs.sql ->
+v_minister_briefs -> the "Department priorities" section of the ministerial_diaries page.
 
 Run: ./.venv/Scripts/python.exe extractors/ministerial_briefs_extract.py
 """
@@ -28,9 +30,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
 
-OUT_DIR = ROOT / "data/sandbox/enrichment"
-OUT_PARQUET = OUT_DIR / "minister_briefs.parquet"
-OUT_JSON = OUT_DIR / "minister_briefs.json"
+OUT_PARQUET = ROOT / "data/gold/parquet/minister_briefs.parquet"  # PROMOTED to gold 2026-06-28
+OUT_JSON = ROOT / "data/_meta/minister_briefs.json"
+OUT_DIR = OUT_PARQUET.parent
 
 # Curated, VERIFIED brief records (2026-06-27/28). edition + source_type + url per dept; the
 # qualitative fields are from the actual reads (born-digital text / scanned vision).
@@ -258,7 +260,8 @@ def main() -> None:
             "strategic_goals", "immediate_priorities", "machinery_of_government", "key_issue_areas",
             "n_strategic_goals", "n_priorities", "n_mog_changes", "extraction_method"]
     df = pl.DataFrame(rows).select(cols)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
+    OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_PARQUET)
     OUT_JSON.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"wrote {df.height} department briefs -> {OUT_PARQUET}")
