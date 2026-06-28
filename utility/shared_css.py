@@ -2590,6 +2590,17 @@ def inject_css() -> None:
             border-radius: 999px; padding: 0.15rem 0.6rem; white-space: nowrap;
         }
         .dt-diary-corr.is-muted { color: var(--text-meta); background: transparent; border-color: var(--border-strong); }
+        /* Department chips on a minister/department card + the "most-met" strip — both are
+           descriptive context, deliberately neutral (no accent) so they never read as a
+           ranking or influence flag. */
+        .dt-diary-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.28rem; }
+        .dt-diary-badge {
+            font-size: 0.72rem; font-weight: 600; color: var(--text-secondary);
+            background: #ffffff; border: 1px solid var(--border-strong);
+            border-radius: 999px; padding: 0.12rem 0.55rem; white-space: nowrap;
+        }
+        .dt-diary-most { font-size: 0.78rem; color: var(--text-meta); margin-top: 0.3rem; }
+        .dt-diary-most b { color: var(--text-secondary); font-weight: 600; }
         .dt-diary-hero { margin: 0.4rem 0 0.9rem; }
         .dt-diary-hero h2 { margin: 0 0 0.2rem; font-size: 1.5rem; }
         .dt-diary-hero p { margin: 0; color: var(--text-secondary); font-size: 0.92rem; }

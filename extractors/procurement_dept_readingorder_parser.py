@@ -53,6 +53,17 @@ PARSER_VERSION = "0.1.0"
 # A money token on its own line: optional €, thousands-grouped or bare, always 2 decimals. PO numbers
 # (pure ints, no decimal) and reference numbers never match, so they can't be mistaken for an amount.
 MONEY_LINE = re.compile(r"^\s*€?\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*$|^\s*€?\s*\d+\.\d{2}\s*$")
+# Money at the START of a line, capturing the trailing token (the "20K Purchase Order" Transport
+# layout merges the amount and the Paid/Drawdown flag: "6,554,307.17 Drawdown"). Only treated as
+# the merged layout when that trailing token is an actual paid flag (PAID_FLAG) — otherwise the
+# line is "amount description …" (a different layout: q2/q3-2018) and is left to the pure path.
+MONEY_START = re.compile(r"^\s*€?\s*(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})\s+(\S.*)$")
+# The trailing must LEAD with a Paid/Drawdown flag for the line to be the merged layout — capturing
+# the flag and any inline description after it ("Drawdown IRCG: Helicopter"). A line whose trailing
+# is "Helicopter Service Drawdown" (description THEN flag, q2/q3-2018) does NOT match and is left to
+# the pure-money path, so those files are unchanged. Restricted to drawdown/paid (the only flags
+# these files use) so a description that merely starts with "No"/"Yes" can't be misread as a flag.
+PAID_LEAD = re.compile(r"^(drawdown|part[\s-]?paid|paid)\b\.?\s*(.*)$", re.I)
 PO_INLINE = re.compile(r"^\s*(\d{6,})\s+(.+\S)\s*$")  # "100037880 CHC (Ireland) Ltd" (Transport-Q1)
 PURE_INT = re.compile(r"^\s*\d{4,}\s*$")  # a standalone PO/reference number line
 # A grand-total / category-subtotal row masquerading as a supplier. Two shapes: STANDALONE
@@ -123,9 +134,15 @@ def transport_records(lines: list[str]):
     [Drawdown/Paid] [desc]. Detect per-record from the line above the amount."""
     n = len(lines)
     for i, ln in enumerate(lines):
-        if not MONEY_LINE.match(ln) or i < 1:
+        if i < 1:
             continue
-        amt = to_eur(ln)
+        ms = MONEY_START.match(ln)
+        mlead = PAID_LEAD.match(ms.group(2).strip()) if ms else None  # trailing leads with a paid flag?
+        merged = ms if mlead else None  # "AMOUNT Drawdown [description]"
+        pure = MONEY_LINE.match(ln)  # amount alone on its line (2026/Q1 layouts)
+        if not (merged or pure):
+            continue
+        amt = to_eur(merged.group(1) if merged else ln)
         if amt is None:
             continue
         prev = lines[i - 1]
@@ -139,11 +156,22 @@ def transport_records(lines: list[str]):
             po = lines[i - 2].strip() if i >= 2 and PURE_INT.match(lines[i - 2]) else None
         if MONEY_LINE.match(supplier) or supplier.lower() in {"amount", "supplier name"}:
             continue
-        paid = lines[i + 1] if i + 1 < n else None
-        desc = lines[i + 2] if i + 2 < n and not MONEY_LINE.match(lines[i + 2]) else None
-        # Q1's line after amount is the Paid/Drawdown flag then the description; 2026's is paid then desc
-        if paid and MONEY_LINE.match(paid):
-            paid, desc = None, None
+        if merged:
+            # the amount line leads with the Paid/Drawdown flag; an inline description may follow it,
+            # otherwise the description is the next line
+            paid = mlead.group(1)
+            inline = mlead.group(2).strip()
+            if inline:
+                desc = inline
+            else:
+                nxt = lines[i + 1] if i + 1 < n else None
+                desc = nxt if nxt and not (MONEY_START.match(nxt) or MONEY_LINE.match(nxt)) else None
+        else:
+            paid = lines[i + 1] if i + 1 < n else None
+            desc = lines[i + 2] if i + 2 < n and not MONEY_LINE.match(lines[i + 2]) else None
+            # Q1's line after amount is the Paid/Drawdown flag then the description; 2026's is paid then desc
+            if paid and MONEY_LINE.match(paid):
+                paid, desc = None, None
         yield {"supplier": supplier, "amount": amt, "description": desc, "po": po, "paid": paid}
 
 
