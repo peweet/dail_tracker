@@ -215,6 +215,22 @@ def si_by_bill(
     )
 
 
+def act_commencement(conn: duckdb.DuckDBPyConnection, bill_id: str) -> QueryResult:
+    """Commencement-order timeline for an Act — one row per commencement SI made
+    under it (exact bill match only). A commencement HISTORY, not a consolidated
+    in-force status. Empty (success, no rows) when the Act has no commencement
+    order (likely self-executing)."""
+    return _run(
+        conn,
+        "SELECT si_id, si_year, si_number, si_title, si_commenced_sections,"
+        " si_signed_date, si_minister_name, si_minister_member_code,"
+        " si_responsible_actor, si_department_label, order_current_state, eisb_url"
+        " FROM v_act_commencement WHERE bill_id = ?"
+        " ORDER BY si_signed_date ASC NULLS LAST, si_number",
+        [bill_id],
+    )
+
+
 # ── Statutory Instruments — first-class entity (full universe) ────────────────
 
 

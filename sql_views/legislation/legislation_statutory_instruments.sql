@@ -18,6 +18,7 @@ SELECT
     si_number,
     si_id,
     si_title,
+    si_commenced_sections,    -- sections/parts an order names in its title, else NULL
     si_signed_date,
     si_minister,              -- role string, e.g. 'The Minister for Finance'
     si_minister_named,        -- person name extracted from raw_text, nullable

@@ -164,6 +164,67 @@ _RESOURCES = [
         "filters": [],
         "count_view": "v_public_appointments",
     },
+    {
+        "resource": "attendance",
+        "list": "/v1/attendance/turnout",
+        "item": None,
+        "description": "Participation model: division turnout, longest absence runs, and TAA "
+        "(120-day allowance) compliance by year. Office-holders are flagged, not hidden — a low "
+        "rate is context, not a verdict. Also /v1/attendance/absences, /taa-compliance, "
+        "/missing-members and /years.",
+        "filters": ["year", "house"],
+        "count_view": "v_attendance_participation_turnout",
+    },
+    {
+        "resource": "housing",
+        "list": "/v1/housing/waiting-list",
+        "item": None,
+        "description": "National social-housing demand (waiting list by county/LA/national), supply "
+        "& affordability (/v1/housing/supply), and state asylum/Ukraine accommodation spend from the "
+        "over-€20k PO registers (/v1/housing/accommodation-spend).",
+        "filters": ["grain"],
+        "count_view": "v_ssha_waiting_list_totals",
+    },
+    {
+        "resource": "public-finance",
+        "list": "/v1/public-finance/government-finance",
+        "item": None,
+        "description": "CSO general-government revenue/expenditure/balance per year (GFA01) — the "
+        "'share of total public spend' denominator. National-accounts aggregate; never summed with "
+        "transaction-level registers.",
+        "filters": [],
+        "count_view": "v_gov_finance_annual",
+    },
+    {
+        "resource": "local-government",
+        "list": "/v1/local-government/councils",
+        "item": "/v1/local-government/councils/{local_authority}",
+        "description": "Council accountability: the 31-council index + per-council dossier (NOAC "
+        "scorecard, cash signals, planning-overturn, over-€20k procurement scale). Each figure stands "
+        "alone beside the national benchmark — never apportioned, never summed across measures.",
+        "filters": [],
+        "count_view": "v_la_chief_executives",
+    },
+    {
+        "resource": "constituencies",
+        "list": "/v1/constituencies",
+        "item": "/v1/constituencies/{name}/dossier",
+        "description": "Per-constituency dossier: demographics, current Dáil TDs, party breakdown, "
+        "Dáil work since GE2024, housing context, and the serving councils' money (each council figure "
+        "stands alone).",
+        "filters": [],
+        "count_view": "v_constituency_registry",
+    },
+    {
+        "resource": "councillors",
+        "list": "/v1/councillors",
+        "item": None,
+        "description": "Elected local-authority members by council/LEA + the council's meeting-coverage "
+        "data-state and Chief Executive (/v1/councillors/councils lists councils). Roll-call vote "
+        "coverage is sparse (Carlow only so far).",
+        "filters": ["council", "lea"],
+        "count_view": "v_la_councillors",
+    },
 ]
 
 

@@ -57,6 +57,30 @@ _EXPECTED_COLUMNS = {
         "n_authorities",
         "n_categories",
     },
+    "cpv_summary_real": {
+        "cpv_code",
+        "cpv_description",
+        "n_awards_valued",
+        "median_award_eur",
+        "n_awards_valued_real",
+        "median_award_real_eur",
+        "p25_award_real_eur",
+        "p75_award_real_eur",
+        "n_real_excluded",
+        "real_base_year",
+        "deflator_index",
+    },
+    "payments_real_by_year": {
+        "year",
+        "realisation_tier",
+        "vat_status",
+        "n_lines",
+        "total_nominal_eur",
+        "total_real_eur",
+        "n_real_excluded",
+        "real_base_year",
+        "deflator_index",
+    },
 }
 
 
@@ -580,3 +604,43 @@ def test_payment_group_members_tier_whitelist(conn):
     # An injection-shaped tier falls back to SPENT (no raw string reaches SQL).
     r = q.payment_group_members(conn, "bam", tier="'; DROP TABLE x; --")
     assert r.ok is True
+
+
+# ---------------------------------------------------------------------------
+# Inflation-adjusted (real-terms) lenses
+# ---------------------------------------------------------------------------
+def test_cpv_summary_real_columns_and_limit(conn):
+    r = _result_or_skip(q.cpv_summary_real(conn, limit=5))
+    assert _EXPECTED_COLUMNS["cpv_summary_real"].issubset(set(r.data.columns))
+    assert len(r.data) <= 5  # LIMIT respected
+    # the real sample is a subset of the nominal one (non-adjustable awards dropped), and
+    # n_real_excluded reconciles the two — the page shows this, never blends them
+    for _, row in r.data.iterrows():
+        assert int(row["n_awards_valued_real"]) <= int(row["n_awards_valued"])
+        assert int(row["n_real_excluded"]) == int(row["n_awards_valued"]) - int(row["n_awards_valued_real"])
+        assert row["deflator_index"] == "CSO_CPA07_CPI"
+
+
+def test_payments_real_by_year_tier_filter_and_grain(conn):
+    r = _result_or_skip(q.payments_real_by_year(conn, tier="SPENT"))
+    assert _EXPECTED_COLUMNS["payments_real_by_year"].issubset(set(r.data.columns))
+    assert set(r.data["realisation_tier"].unique()) <= {"SPENT"}  # tier filter scopes
+    assert (r.data["deflator_index"] == "CSO_GOV_CONSUMPTION").all()  # public money → gov-consumption index
+    # some payments carry no year (an honest "unknown" bucket); the dated rows are chronological
+    years = [int(y) for y in r.data["year"].dropna().tolist()]
+    assert years == sorted(years)
+
+
+def test_payments_real_by_year_tier_whitelist_rejects_injection(conn):
+    # An injection-shaped tier is ignored (returns all tiers); no raw string reaches SQL.
+    r = q.payments_real_by_year(conn, tier="'; DROP TABLE x; --")
+    if r.ok and not r.is_empty:
+        assert set(r.data["realisation_tier"].unique()) <= {"SPENT", "COMMITTED"}
+
+
+def test_cpv_summary_real_missing_view_is_unavailable():
+    c = duckdb.connect()  # no views → must surface unavailable, not crash
+    try:
+        assert q.cpv_summary_real(c).ok is False
+    finally:
+        c.close()

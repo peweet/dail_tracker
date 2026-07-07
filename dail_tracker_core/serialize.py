@@ -91,10 +91,16 @@ def envelope(
     truncated: bool = False,
     mart_version: str | None = None,
     generated_at: str | None = None,
+    caveat: str | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The standard ``{head, results}`` envelope (mirrors the Oireachtas API).
 
     ``head`` carries pagination + freshness metadata; ``results`` is the array.
+    ``caveat`` attaches the canonical provenance string (from
+    ``dail_tracker_core.caveats``) so a list response carries the same qualifier the
+    composed dossiers do; ``meta`` merges any extra scope keys (e.g. the resolved
+    ``year``/``house`` for a list that was filtered to a default) into ``head``.
     """
     head: dict[str, Any] = {}
     if limit is not None:
@@ -108,4 +114,8 @@ def envelope(
         head["mart_version"] = mart_version
     if generated_at is not None:
         head["generated_at"] = generated_at
+    if meta:
+        head.update(meta)
+    if caveat is not None:
+        head["caveat"] = caveat
     return {"head": head, "results": results}

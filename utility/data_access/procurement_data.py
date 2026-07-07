@@ -89,6 +89,35 @@ def fetch_value_contrast_result() -> QueryResult:
     return _q.value_contrast(get_procurement_conn())
 
 
+# ── EXPERIMENTAL: inflation-adjusted (real-terms) lenses. Cached pass-throughs only; the
+#    deflation + index choice live in the views and services/deflator.py. A page must gate
+#    these behind DAIL_EXPERIMENTAL (like the bid-signal section). ───────────────────────────
+@st.cache_data(ttl=600)
+def fetch_cpv_summary_real_result(min_valued: int = 1, limit: int | None = None) -> QueryResult:
+    """Per-CPV award benchmark, nominal band beside the inflation-adjusted (CPI) band
+    (v_procurement_cpv_summary_real). Carries n_real_excluded + the index/base so the page can
+    show "in 2025 prices" honestly. Cached pass-through — no computation here."""
+    return _q.cpv_summary_real(get_procurement_conn(), min_valued=min_valued, limit=limit)
+
+
+@st.cache_data(ttl=600)
+def fetch_payments_real_by_year_result(tier: str | None = None) -> QueryResult:
+    """Annual public-spend totals, nominal vs real (government-consumption deflator), kept
+    separate by realisation_tier × vat_status (v_procurement_payments_real_by_year). Cached
+    pass-through; the never-sum-across-tier discipline is enforced in the view."""
+    return _q.payments_real_by_year(get_procurement_conn(), tier=tier)
+
+
+@st.cache_data(ttl=3600)
+def fetch_inflation_indices() -> list[dict]:
+    """The deflation index registry (CPI / government-consumption / construction tender-price /
+    materials) for the real-terms lens picker — each with its label, what it applies to, source
+    and caveat. Pure metadata from services.deflator; no DB access and no computation here."""
+    from services.deflator import list_indices
+
+    return list_indices()
+
+
 @st.cache_data(ttl=300)
 def fetch_coverage_stats_result() -> QueryResult:
     """Live one-row corpus summary (counts, date span, sum-safe total) for the hero

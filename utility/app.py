@@ -143,39 +143,47 @@ pg = st.navigation(
                 icon=":material/map:",
                 url_path="constituencies",
             ),
-            # Your Council — Phase 1 of the council-pages consolidation: one council, one dossier
-            # (who runs it · councillors · spending). Recomposes the existing local_government +
-            # procurement renderers; the three pages below stay for now and are retired once this is
-            # validated (Phase 4). See pages_code/your_council.py.
+            # Your Council — the ONE council entry in the nav (consolidation Phase 4). One council,
+            # one dossier: an at-a-glance triptych (who runs it · spending · your councillors) over a
+            # section switcher that opens each concern in full. Recomposes the existing
+            # local_government + procurement renderers. See pages_code/your_council.py.
             st.Page(
                 your_council_page,
                 title="Your Council",
                 icon=":material/location_city:",
                 url_path="your-council",
             ),
+            # The three pages below are RETIRED FROM THE NAV but kept routable (visibility="hidden",
+            # the same pattern as the /rankings-interests redirect): their content now lives inside
+            # Your Council, but their routes stay alive so existing deep links / entity_links /
+            # council_accountability_url() / the Your Council cross-links keep resolving. Reachable
+            # only by URL now, not as competing menu items.
             st.Page(
                 local_government_page,
                 title="Who Runs Your County",
                 icon=":material/account_balance:",
                 url_path="local-government",
+                visibility="hidden",
             ),
             # PREVIEW (sandbox data, not yet promoted to gold/views) — councillor roster + per-LEA
-            # representation + honest per-council voting card. See doc/YOUR_COUNCILLORS_UI_BRIEF.md.
+            # representation + honest per-council voting card. Reached via the Your Council
+            # "See your councillors" card. See doc/YOUR_COUNCILLORS_UI_BRIEF.md.
             st.Page(
                 your_councillors_page,
                 title="Your Councillors",
                 icon=":material/groups:",
                 url_path="your-councillors",
+                visibility="hidden",
             ),
-            # Council Spending sits alongside "Who Runs Your County": both are local-government
-            # finance for the citizen's own county, so the spending dossier belongs in "Your Area"
-            # rather than the national "The Money" group. url_path keeps its historic
-            # "rankings-council-spending" so existing deep links / entity_links resolve.
+            # url_path keeps its historic "rankings-council-spending" so existing deep links /
+            # entity_links resolve; the per-council dossier is embedded in Your Council's Spending
+            # section.
             st.Page(
                 council_spending_page,
                 title="Council Spending",
                 icon=":material/location_city:",
                 url_path="rankings-council-spending",
+                visibility="hidden",
             ),
             st.Page(
                 housing_page,

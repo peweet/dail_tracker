@@ -36,6 +36,13 @@ def roster(conn: duckdb.DuckDBPyConnection, la: str, lea: str) -> QueryResult:
                       "WHERE local_authority = ? AND lea = ? ORDER BY name", [la, lea])
 
 
+def roster_council(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Every elected member for a whole council (all LEAs) — the API's council-wide roster
+    (the page rosters one LEA at a time; the API serves the full council in one call)."""
+    return _run(conn, "SELECT name, party, lea, status FROM v_la_councillors "
+                      "WHERE local_authority = ? ORDER BY lea, name", [la])
+
+
 def councillor(conn: duckdb.DuckDBPyConnection, la: str, name: str) -> QueryResult:
     return _run(conn, "SELECT name, party, lea, status FROM v_la_councillors "
                       "WHERE local_authority = ? AND name = ?", [la, name])

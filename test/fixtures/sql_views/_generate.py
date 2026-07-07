@@ -1104,6 +1104,63 @@ PROCUREMENT_LOBBYING_OVERLAP = pl.DataFrame(
 )
 
 
+# ---------------------------------------------------------------------------
+# cso_cpi_deflator.parquet — the CPI deflator gold table for the EXPERIMENTAL real-terms
+# procurement views (v_cpi_deflator / v_procurement_awards_real / *_real bands). Synthetic:
+# a clean 2%/yr index, base 2025, so deflator_to_base is an exact power of 1.02 (2025 → 1.0).
+# Covers the award years in the awards fixture (2021–2024) plus the 2025 base. Schema mirrors
+# extractors/cso_pxstat_extract.py:build_cpi_deflator (year, cpi_index_chained,
+# deflator_to_base, base_year) — the columns v_cpi_deflator + services/deflator.py read.
+# ---------------------------------------------------------------------------
+_DEFL_BASE_YEAR = 2025
+_DEFL_YEARS = list(range(2013, 2026))
+# cpi_index_chained rounded to 6dp (as build_cpi_deflator does); deflator_to_base is then the
+# EXACT ratio base_idx/year_idx of those rounded values — NOT independently rounded — so SQL
+# (value × deflator_to_base) == the Python Deflator (value × idx[base]/idx[year]) bit-for-bit,
+# exactly as the real gold table behaves. The parity test depends on this.
+_DEFL_IDX = {y: round(100.0 * (1.02 ** (y - 2013)), 6) for y in _DEFL_YEARS}
+CSO_CPI_DEFLATOR = pl.DataFrame(
+    {
+        "year": _DEFL_YEARS,
+        "cpi_index_chained": [_DEFL_IDX[y] for y in _DEFL_YEARS],
+        "deflator_to_base": [_DEFL_IDX[_DEFL_BASE_YEAR] / _DEFL_IDX[y] for y in _DEFL_YEARS],
+        "base_year": [_DEFL_BASE_YEAR] * len(_DEFL_YEARS),
+    }
+).with_columns(pl.col("base_year").cast(pl.Int32))
+
+
+# SCSI Tender Price Index deflator fixture (for v_scsi_tpi_deflator + the sector lens on
+# v_procurement_awards_real). Synthetic 6%/yr construction index (construction ran far hotter
+# than CPI), base 2025, deflator_to_base = exact idx ratio so the SQL == Deflator parity holds.
+_TPI_BASE_YEAR = 2025
+_TPI_YEARS = list(range(2013, 2026))
+_TPI_IDX = {y: round(100.0 * (1.06 ** (y - 2013)), 6) for y in _TPI_YEARS}
+SCSI_TPI_DEFLATOR = pl.DataFrame(
+    {
+        "year": _TPI_YEARS,
+        "tpi_index": [_TPI_IDX[y] for y in _TPI_YEARS],
+        "deflator_to_base": [_TPI_IDX[_TPI_BASE_YEAR] / _TPI_IDX[y] for y in _TPI_YEARS],
+        "base_year": [_TPI_BASE_YEAR] * len(_TPI_YEARS),
+    }
+).with_columns(pl.col("base_year").cast(pl.Int32))
+
+
+# Government-consumption deflator fixture (for v_govt_consumption_deflator + the public-spend
+# real lens). Synthetic 1.5%/yr govt-price index (public prices rose slower than CPI), base 2024
+# (annual NA currently ends 2024); deflator_to_base = exact idx ratio for SQL==Deflator parity.
+_GOV_BASE_YEAR = 2024
+_GOV_YEARS = list(range(2012, 2025))
+_GOV_IDX = {y: round(1.0 * (1.015 ** (y - 2012)), 6) for y in _GOV_YEARS}
+CSO_GOVT_CONSUMPTION_DEFLATOR = pl.DataFrame(
+    {
+        "year": _GOV_YEARS,
+        "gov_price_index": [_GOV_IDX[y] for y in _GOV_YEARS],
+        "deflator_to_base": [_GOV_IDX[_GOV_BASE_YEAR] / _GOV_IDX[y] for y in _GOV_YEARS],
+        "base_year": [_GOV_BASE_YEAR] * len(_GOV_YEARS),
+    }
+).with_columns(pl.col("base_year").cast(pl.Int32))
+
+
 def main() -> None:
     SILVER_PQ.mkdir(parents=True, exist_ok=True)
     GOLD_PQ.mkdir(parents=True, exist_ok=True)
@@ -1138,6 +1195,9 @@ def main() -> None:
         (PROCUREMENT_AWARDS, "gold/parquet/procurement_awards.parquet"),
         (PROCUREMENT_CRO_MATCH, "gold/parquet/procurement_supplier_cro_match.parquet"),
         (PROCUREMENT_LOBBYING_OVERLAP, "gold/parquet/procurement_lobbying_overlap.parquet"),
+        (CSO_CPI_DEFLATOR, "gold/parquet/cso_cpi_deflator.parquet"),
+        (SCSI_TPI_DEFLATOR, "gold/parquet/scsi_tpi_deflator.parquet"),
+        (CSO_GOVT_CONSUMPTION_DEFLATOR, "gold/parquet/cso_govt_consumption_deflator.parquet"),
     ]
     for df, rel in hardcoded:
         path = _wp(df, rel)

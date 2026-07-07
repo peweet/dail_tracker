@@ -17,20 +17,26 @@ from fastapi import FastAPI
 from api import __version__
 from api.routers import (
     appointments,
+    attendance,
     catalog,
     charities,
     committees,
+    constituencies,
     corporate,
+    councillors,
     exports,
     health,
+    housing,
     judiciary,
     legislation,
     lobbying,
+    local_government,
     members,
     ministerial,
     payments,
     political_finance,
     procurement,
+    public_finance,
     public_payments,
     votes,
 )
@@ -77,6 +83,12 @@ app.include_router(charities.router, prefix="/v1")
 app.include_router(public_payments.router, prefix="/v1")
 app.include_router(appointments.router, prefix="/v1")
 app.include_router(corporate.router, prefix="/v1")
+app.include_router(attendance.router, prefix="/v1")
+app.include_router(housing.router, prefix="/v1")
+app.include_router(public_finance.router, prefix="/v1")
+app.include_router(local_government.router, prefix="/v1")
+app.include_router(constituencies.router, prefix="/v1")
+app.include_router(councillors.router, prefix="/v1")
 app.include_router(exports.router, prefix="/v1")
 
 
@@ -135,6 +147,21 @@ def root() -> dict:
             "/v1/public-appointments",
             "/v1/lobbying/dpo/{individual_name}",
             "/v1/search/votes-by-topic",
+            "/v1/attendance/turnout",
+            "/v1/attendance/absences",
+            "/v1/attendance/taa-compliance",
+            "/v1/attendance/missing-members",
+            "/v1/attendance/years",
+            "/v1/housing/waiting-list",
+            "/v1/housing/supply",
+            "/v1/housing/accommodation-spend",
+            "/v1/public-finance/government-finance",
+            "/v1/local-government/councils",
+            "/v1/local-government/councils/{local_authority}",
+            "/v1/constituencies",
+            "/v1/constituencies/{name}/dossier",
+            "/v1/councillors",
+            "/v1/councillors/councils",
             "/v1/coverage",
             "/v1/data",
             "/v1/data/{resource}",

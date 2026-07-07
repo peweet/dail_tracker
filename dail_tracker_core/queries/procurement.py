@@ -247,6 +247,55 @@ def value_contrast(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
+# ---------------------------------------------------------------------------
+# Inflation-adjusted (real-terms) lenses — EXPERIMENTAL. The deflation math lives in
+# the views (v_procurement_*_real) and services/deflator.py; these are retrieval-only
+# pass-throughs that carry the chosen index + caveat columns up to the page. NOTHING is
+# computed here — the page must gate consumption behind DAIL_EXPERIMENTAL.
+# ---------------------------------------------------------------------------
+
+_PAYMENTS_REAL_TIERS = {"SPENT", "COMMITTED"}  # whitelist — no raw tier string ever reaches SQL
+
+
+def cpv_summary_real(conn: duckdb.DuckDBPyConnection, *, min_valued: int = 1, limit: int | None = None) -> QueryResult:
+    """Per-CPV award benchmark carrying BOTH the nominal band and the inflation-adjusted (CPI,
+    today's-prices) band, from ``v_procurement_cpv_summary_real``. ``n_real_excluded`` is the
+    honest count of sum-safe awards that could not be adjusted (year outside the index), so the
+    two bands are over slightly different samples — the page shows that, never hides it. All
+    aggregation + deflation is in the view; this only filters/orders/limits."""
+    sql = (
+        "SELECT cpv_code, cpv_description, n_awards_valued, median_award_eur, p25_award_eur, p75_award_eur,"
+        " n_awards_valued_real, median_award_real_eur, p25_award_real_eur, p75_award_real_eur,"
+        " min_award_real_eur, max_award_real_eur, n_real_excluded, real_base_year, deflator_index"
+        " FROM v_procurement_cpv_summary_real WHERE n_awards_valued >= ?"
+        " ORDER BY n_awards_valued DESC"
+    )
+    params: list = [int(min_valued)]
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def payments_real_by_year(conn: duckdb.DuckDBPyConnection, *, tier: str | None = None) -> QueryResult:
+    """Annual public-spend totals, nominal vs real (the GOVERNMENT-CONSUMPTION deflator — the
+    agency-standard index for public money, not CPI), from ``v_procurement_payments_real_by_year``.
+    The grain is year × realisation_tier × vat_status, so SPENT and COMMITTED (and differing VAT
+    bases) are NEVER summed together. ``tier`` optionally scopes to one realisation tier
+    (whitelisted: an unrecognised value is ignored and all tiers are returned)."""
+    sql = (
+        "SELECT year, realisation_tier, vat_status, n_lines, total_nominal_eur, total_real_eur,"
+        " n_real_excluded, real_base_year, deflator_index"
+        " FROM v_procurement_payments_real_by_year"
+    )
+    params: list = []
+    if tier in _PAYMENTS_REAL_TIERS:
+        sql += " WHERE realisation_tier = ?"
+        params.append(tier)
+    sql += " ORDER BY year, realisation_tier, vat_status"
+    return _run(conn, sql, params)
+
+
 def awards_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
     """Every award row for one supplier (detail view), most recent first.
 

@@ -10,12 +10,19 @@ Read this before reusing or redistributing anything here.
 Copyright © 2026 Patrick Glynn.
 
 The original source code in this repository — the ETL pipeline, parsers, SQL
-views, and Streamlit application — is licensed under the **GNU Affero General
-Public License v3.0** (see [`LICENSE`](LICENSE)).
+views, and Streamlit application — is **dual-licensed**:
 
-In short: you may use, study, modify, and redistribute it, but any **hosted /
-network-deployed** version that includes modifications must also make its
-complete source code available under the same licence.
+- under the **GNU Affero General Public License v3.0** (see [`LICENSE`](LICENSE)),
+  free of charge; **or**
+- under a separate **commercial licence** from the author, for uses that AGPL's
+  copyleft does not suit (e.g. closed-source or hosted/SaaS use without source
+  disclosure). See [`COMMERCIAL-LICENSE.md`](COMMERCIAL-LICENSE.md).
+
+In short, under the AGPL: you may use, study, modify, and redistribute the code,
+but any **hosted / network-deployed** version that includes modifications must
+also make its complete source code available under the same licence. To avoid
+that obligation, obtain a commercial licence. Contributions are accepted under
+the [`CLA.md`](CLA.md), which preserves this dual-licensing.
 
 ---
 
@@ -139,7 +146,7 @@ kept in the sandbox layer pending a documented lawful basis. Personal insolvency
 
 | Material | Licence | Can you redistribute? |
 |---|---|---|
-| This project's **code** | AGPL-3.0-or-later | Yes, under AGPL terms |
+| This project's **code** | AGPL-3.0-or-later **OR** commercial | Yes, under AGPL terms; commercial licence available |
 | **Oireachtas** data (votes, debates, PQs, bills) | CC BY 4.0 (PSI) | Yes, **with attribution** |
 | **lobbying.ie** data (SIPO) | PSI re-use policy (free reuse) | Yes, **acknowledge SIPO** |
 | **CRO** companies (open-data portal) | CC BY 4.0 | Yes, **with attribution** |

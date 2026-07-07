@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-06-28T05:13:57.178463+00:00",
+  "generated_utc": "2026-06-28T10:03:05.091102+00:00",
   "fact": "procurement_payments_fact",
-  "n_rows_total": 423989,
+  "n_rows_total": 425544,
   "n_rows_quarantined": 891,
   "frac_quarantined": 0.0021,
   "breaches": {

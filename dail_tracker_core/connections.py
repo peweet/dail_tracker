@@ -45,6 +45,11 @@ DOMAIN_FILES = [
     "payments_base.sql",
     "payments_member_detail.sql",
     "payments_yearly_evolution.sql",
+    # v_lobbying_revolving_door LEFT JOINs v_lobbying_base_member_codes (the shared
+    # normalised member-name → code resolver). The base view must register FIRST —
+    # this connection registers revolving_door explicitly (not via the lobbying_*.sql
+    # glob), so the base view has to be listed here too, immediately ahead of it.
+    "lobbying_base_member_codes.sql",
     "lobbying_revolving_door.sql",
     "legislation_index.sql",
     "legislation_si_current_state.sql",
@@ -208,7 +213,6 @@ CONSTITUENCY_FILES = [
     "constituency_la_noac_indicators.sql",  # full NOAC indicator set (~125 series) for the All-indicators drill-down (reads gold parquet; no deps)
     "constituency_la_accountability_summary.sql",  # 1-row national headline; MUST follow the 3 LA views above
     "constituency_la_cash_signals.sql",  # 3 cash figures co-located (M1+M2+derelict); JOINs scorecard+collection_rates+derelict, so MUST follow them
-
     "constituency_members.sql",
     "constituency_party_breakdown.sql",
     "constituency_registry.sql",
@@ -318,4 +322,21 @@ def api_conn() -> duckdb.DuckDBPyConnection:
     # CREATE OR REPLACE of vote_base / member_registry must re-inject the paths
     # rather than register a literal-placeholder view.
     register_views(conn, _API_DOMAIN_GLOBS, substitutions=_member_view_substitutions(), swallow_errors=True)
+
+    # Full attendance view set. The member set already registered the participation +
+    # year-rank subset (in load-bearing order); this glob adds summary / member_summary /
+    # missing_members for the attendance resource. All CREATE OR REPLACE = idempotent, and
+    # the sorted glob keeps member_year_summary ahead of its dependent year_rank.
+    register_views(conn, ["attendance_*.sql"], swallow_errors=True)
+    # National housing screen — and the SSHA composition view the constituency set JOINs,
+    # so this must precede CONSTITUENCY_FILES below. Each housing view reads gold directly.
+    register_views(conn, ["housing_*.sql"], swallow_errors=True)
+    # CSO general-government finance series (publicfinance resource). Self-contained.
+    register_views(conn, ["publicfinance_*.sql"], swallow_errors=True)
+    # Local-government / your-councillors / per-constituency dossier views, in the proven
+    # dependency order (same list constituency_conn uses). They JOIN the member, interests,
+    # procurement and housing view sets already registered above — no substitutions (these
+    # read their parquet via absolutize). swallow_errors degrades a missing optional fact to
+    # one empty section, not a dead connection.
+    register_views(conn, CONSTITUENCY_FILES, swallow_errors=True)
     return conn
