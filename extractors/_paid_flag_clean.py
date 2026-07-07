@@ -33,11 +33,29 @@ import polars as pl
 # Whole-value flag tokens (compared lower+trimmed). These are the ONLY values a clean
 # ``paid_flag`` may hold (besides null). Sourced from the real distribution across
 # publishers: Y/N/Paid/Not Paid/Part Paid dominate; SEAI uses P=paid.
-FLAG_TOKENS: frozenset[str] = frozenset({
-    "paid", "not paid", "notpaid", "part paid", "part-paid", "partpaid", "partially paid",
-    "unpaid", "fully paid", "paid in full", "outstanding", "pending",
-    "y", "n", "p", "yes", "no", "true", "false",
-})
+FLAG_TOKENS: frozenset[str] = frozenset(
+    {
+        "paid",
+        "not paid",
+        "notpaid",
+        "part paid",
+        "part-paid",
+        "partpaid",
+        "partially paid",
+        "unpaid",
+        "fully paid",
+        "paid in full",
+        "outstanding",
+        "pending",
+        "y",
+        "n",
+        "p",
+        "yes",
+        "no",
+        "true",
+        "false",
+    }
+)
 
 # A leak value that "looks like a month/date" (payment-month column leaked in) —
 # e.g. Dec-21, Jan 2024, 01/12/2023. Routed to null (no-inference: don't backfill period).
@@ -86,9 +104,7 @@ def clean_paid_flag(df: pl.DataFrame) -> tuple[pl.DataFrame, dict[str, int]]:
 
     exprs = [pl.when(is_flag).then(pf_t).otherwise(None).alias("paid_flag")]
     if has_desc:
-        exprs.append(
-            pl.when(recover).then(pf_t).otherwise(pl.col("description")).alias("description")
-        )
+        exprs.append(pl.when(recover).then(pf_t).otherwise(pl.col("description")).alias("description"))
     df = df.with_columns(exprs)
     return df, {k: int(v) for k, v in s.items()}
 
@@ -99,5 +115,9 @@ def paid_flag_is_clean(df: pl.DataFrame) -> int:
     if "paid_flag" not in df.columns:
         return 0
     lpf = pl.col("paid_flag").cast(pl.Utf8).str.strip_chars().str.to_lowercase()
-    bad = pl.col("paid_flag").is_not_null() & (pl.col("paid_flag").cast(pl.Utf8).str.strip_chars() != "") & ~lpf.is_in(list(FLAG_TOKENS))
+    bad = (
+        pl.col("paid_flag").is_not_null()
+        & (pl.col("paid_flag").cast(pl.Utf8).str.strip_chars() != "")
+        & ~lpf.is_in(list(FLAG_TOKENS))
+    )
     return int(df.select(bad.sum()).item())

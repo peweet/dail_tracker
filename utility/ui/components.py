@@ -430,10 +430,10 @@ def render_national_finance_context(*, year: int | None = None, note: str = "") 
         '<div class="dt-natfin">'
         f'<span class="dt-natfin-k">National scale · {yr}</span>'
         f'<span class="dt-natfin-v">Total government spending <strong>{_bn_eur(exp)}</strong> · '
-        f'revenue <strong>{_bn_eur(rev)}</strong> · '
-        f'<strong>{_bn_eur(abs(float(bal)) if bal is not None else None)}</strong> {balance_word}</span>'
+        f"revenue <strong>{_bn_eur(rev)}</strong> · "
+        f"<strong>{_bn_eur(abs(float(bal)) if bal is not None else None)}</strong> {balance_word}</span>"
         '<span class="dt-natfin-c">A whole-economy national-accounts measure (CSO) — context for the '
-        f'figures here, not a total they sum into.{extra}</span>'
+        f"figures here, not a total they sum into.{extra}</span>"
         "</div>"
     )
 

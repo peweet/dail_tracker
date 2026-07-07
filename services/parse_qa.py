@@ -46,9 +46,9 @@ from pathlib import Path
 import polars as pl
 
 # --- detection knobs -------------------------------------------------------
-DEFAULT_RATIO = 10.0   # cell flagged when len > RATIO * column-p99
-DEFAULT_FLOOR = 120    # ...and len exceeds this absolute floor (skip tiny cols)
-MAX_EXAMPLES = 5       # worst cells captured per flagged column
+DEFAULT_RATIO = 10.0  # cell flagged when len > RATIO * column-p99
+DEFAULT_FLOOR = 120  # ...and len exceeds this absolute floor (skip tiny cols)
+MAX_EXAMPLES = 5  # worst cells captured per flagged column
 
 # A money amount like 1,234.56 / 1234.00 — the signature of a collapsed ledger.
 _MONEY = re.compile(r"\d[\d,]*\.\d{2}\b")

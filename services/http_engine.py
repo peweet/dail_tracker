@@ -104,8 +104,15 @@ def fetch_text(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[str, int]
                 _sleep_backoff(attempt)
                 continue
             response.raise_for_status()
-            raw_bytes = len(response.content)
-            return response.text, raw_bytes
+            content = response.content
+            raw_bytes = len(content)
+            # Decode deterministically rather than via response.text: when the server sends no
+            # charset, requests' .text sniffs one with chardet.detect(), and a broken/namespace
+            # chardet install (seen 2026-07-07 shadowing charset_normalizer -> AttributeError:
+            # module 'chardet' has no attribute 'detect') makes that raise. Use the server-declared
+            # charset if present, else UTF-8 — correct for the Oireachtas AKN debate XML this fetches.
+            text = content.decode(response.encoding or "utf-8", errors="replace")
+            return text, raw_bytes
         except _RETRYABLE_EXC as exc:
             last_exc = exc
             if attempt < RETRY_MAX_ATTEMPTS:

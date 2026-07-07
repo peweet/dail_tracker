@@ -218,7 +218,9 @@ def promote_cbi() -> None:
     assert_no_pii_columns(out)
     dest = GOLD / "cbi_enforcement_actions.parquet"
     save_parquet(out, dest)
-    print(f"  cbi_enforcement_actions -> {dest.relative_to(ROOT)}  ({out.height} firms, {n_in - out.height} individuals dropped)")
+    print(
+        f"  cbi_enforcement_actions -> {dest.relative_to(ROOT)}  ({out.height} firms, {n_in - out.height} individuals dropped)"
+    )
 
 
 def promote_eu_tam() -> None:
@@ -234,7 +236,9 @@ def promote_eu_tam() -> None:
     # curated-allowlist rows and drops every sole-trader, herd-number farmer and personal-ID
     # beneficiary. ~5,576 carry a CRO.
     df = df.filter(tam_organisation_mask(df, load_org_allowlist()))
-    assert_tam_no_named_person(df)  # -O-proof: no Sole-Trader / Personal-ID row survived (before national_id is dropped)
+    assert_tam_no_named_person(
+        df
+    )  # -O-proof: no Sole-Trader / Personal-ID row survived (before national_id is dropped)
     # national_id deliberately excluded (can be a natural-person id); cro_company_num is the parsed
     # companies-only join key. country (always IRL) + all-null EU columns dropped.
     out = df.select(

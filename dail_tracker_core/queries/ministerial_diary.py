@@ -94,7 +94,9 @@ def meeting_search(
     conn: duckdb.DuckDBPyConnection, minister: str = "", topic: str = "", limit: int = 30
 ) -> QueryResult:
     """Search every logged external meeting by minister surname and/or a subject keyword."""
-    sql = "SELECT minister, department, entry_date, subject, source_pdf_url FROM v_ministerial_diary_meetings WHERE TRUE"
+    sql = (
+        "SELECT minister, department, entry_date, subject, source_pdf_url FROM v_ministerial_diary_meetings WHERE TRUE"
+    )
     params: list = []
     if minister:
         sql += " AND lower(coalesce(minister, '')) LIKE ?"

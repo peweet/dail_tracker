@@ -355,9 +355,7 @@ def test_build_bench_ex_officio_salary_suppressed():
                 "iris_source_pdf": [None],
             }
         ),
-        pd.DataFrame(
-            {"appointee": [], "appointed_date": [], "current_court": [], "status": []}
-        ),
+        pd.DataFrame({"appointee": [], "appointed_date": [], "current_court": [], "status": []}),
         {},
     )
     hc = pd.DataFrame({"judge": [], "assignment": [], "term": []})

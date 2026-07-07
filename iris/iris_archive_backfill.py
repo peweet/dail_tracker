@@ -139,8 +139,12 @@ def main(argv: list[str]) -> int:
         description=__doc__.splitlines()[1],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--dest", type=Path, default=DEFAULT_DEST, help="destination dir (default: bronze/iris_oifigiuil)")
-    parser.add_argument("--year", type=int, nargs="+", required=True, metavar="YYYY", help="calendar year(s) to backfill")
+    parser.add_argument(
+        "--dest", type=Path, default=DEFAULT_DEST, help="destination dir (default: bronze/iris_oifigiuil)"
+    )
+    parser.add_argument(
+        "--year", type=int, nargs="+", required=True, metavar="YYYY", help="calendar year(s) to backfill"
+    )
     parser.add_argument("--dry-run", action="store_true", help="list what would be downloaded without fetching")
     args = parser.parse_args(argv)
 

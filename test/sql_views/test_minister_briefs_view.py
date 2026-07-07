@@ -35,8 +35,16 @@ def test_view_registers_and_has_rows(con):
 
 def test_expected_columns(con):
     cols = {d[0] for d in con.execute("SELECT * FROM v_minister_briefs LIMIT 0").description}
-    for c in ["department", "edition", "source_type", "strategic_goals", "immediate_priorities",
-              "machinery_of_government", "key_issue_areas", "source_url"]:
+    for c in [
+        "department",
+        "edition",
+        "source_type",
+        "strategic_goals",
+        "immediate_priorities",
+        "machinery_of_government",
+        "key_issue_areas",
+        "source_url",
+    ]:
         assert c in cols, f"view missing {c}"
 
 
@@ -59,7 +67,6 @@ def test_no_empty_rows(con):
 
 def test_source_type_vocab(con):
     bad = con.execute(
-        "SELECT DISTINCT source_type FROM v_minister_briefs "
-        "WHERE source_type NOT IN ('born-digital','scanned')"
+        "SELECT DISTINCT source_type FROM v_minister_briefs WHERE source_type NOT IN ('born-digital','scanned')"
     ).fetchall()
     assert not bad, f"unexpected source_type: {bad}"

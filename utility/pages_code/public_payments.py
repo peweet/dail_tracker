@@ -341,9 +341,7 @@ def _quarter_header_html(period: str, subtotal, n_lines: int) -> str:
     subtotal + line count on the right. Inline-styled (a one-off section rule, not a
     reusable card) to keep all the reusable CSS in shared_css.py."""
     sub = _eur(subtotal)
-    right = (
-        f"{sub} sum-safe · {_lines_word(n_lines)}" if sub != "—" else _lines_word(n_lines)
-    )
+    right = f"{sub} sum-safe · {_lines_word(n_lines)}" if sub != "—" else _lines_word(n_lines)
     return (
         '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.75rem;'
         'margin:1.4rem 0 0.6rem;padding-bottom:0.35rem;border-bottom:2px solid #e3ddd1;">'
@@ -562,9 +560,7 @@ def _cat_tier_picker(df: pd.DataFrame, key: str) -> str:
     default_code = "SPENT" if "SPENT" in tiers else tiers[0]
     labels = {"Paid (actual)": "SPENT", "Ordered (committed)": "COMMITTED"}
     default_label = next(k for k, v in labels.items() if v == default_code)
-    choice = st.segmented_control(
-        "Tier", list(labels), default=default_label, key=key, label_visibility="collapsed"
-    )
+    choice = st.segmented_control("Tier", list(labels), default=default_label, key=key, label_visibility="collapsed")
     return labels.get(choice or default_label, default_code)
 
 
@@ -679,7 +675,7 @@ def _render_category_profile(category: str) -> None:
             continue
         pills.append(
             f'<span class="pr-pill pr-pill-val">{_eur_scale(tr.total_safe_eur)} {_tier_label(tr.realisation_tier)}'
-            f' · {_lines_word(_n(tr.n_lines))}</span>'
+            f" · {_lines_word(_n(tr.n_lines))}</span>"
         )
     if pills:
         st.html(f'<div class="pr-pills" style="margin:0.2rem 0 0.8rem">{"".join(pills)}</div>')
@@ -706,7 +702,9 @@ def _render_category_profile(category: str) -> None:
         cards = []
         for i, r in enumerate(sv.head(_TOP).itertuples(), start=1):
             cro = _coalesce(getattr(r, "cro_company_num", None))
-            meta_bits = [f"{_lines_word(_n(r.n_lines))} · {_n(r.n_bodies):,} bod{'y' if _n(r.n_bodies) == 1 else 'ies'}"]
+            meta_bits = [
+                f"{_lines_word(_n(r.n_lines))} · {_n(r.n_bodies):,} bod{'y' if _n(r.n_bodies) == 1 else 'ies'}"
+            ]
             if cro:
                 meta_bits.append(f"CRO {cro}")
             tier_pill = (
@@ -714,7 +712,9 @@ def _render_category_profile(category: str) -> None:
                 if _eur(r.total_safe_eur) != "—"
                 else ""
             )
-            inner = _card(f"<span>{_esc(r.supplier)}</span>", " · ".join(meta_bits), [tier_pill] if tier_pill else [], rank=i)
+            inner = _card(
+                f"<span>{_esc(r.supplier)}</span>", " · ".join(meta_bits), [tier_pill] if tier_pill else [], rank=i
+            )
             cards.append(
                 clickable_card_link(
                     href=company_profile_url(r.supplier_normalised),
@@ -782,9 +782,7 @@ def public_payments_page() -> None:
     _stats_strip(stats, cov)
     # National-scale anchor from the (previously orphaned) gov-finance series — a denominator
     # to eyeball these figures against, explicitly NOT a share they sum into (different bases).
-    render_national_finance_context(
-        note="The published payments below are one slice of this, not the whole."
-    )
+    render_national_finance_context(note="The published payments below are one slice of this, not the whole.")
     glossary_strip(
         [
             ("Ordered", "a purchase-order commitment — money the body committed to spend, not yet paid"),

@@ -327,9 +327,7 @@ def what_they_own_page() -> None:
     )
     if category == "Everyone":
         evidence_heading(f"Members with declared interests · {year_tag} · {len(members_df)} {member_label}")
-        none_note = (
-            f" A further **{none_declared}** declared no interests in {year_tag}." if none_declared else ""
-        )
+        none_note = f" A further **{none_declared}** declared no interests in {year_tag}." if none_declared else ""
         st.caption(f"Ranked by declarations in {scope}.{none_note} {pill_legend}")
     else:
         evidence_heading(f"{category} · {year_tag} · {len(members_df)} members")

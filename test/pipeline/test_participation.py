@@ -53,7 +53,9 @@ def test_turnout_never_exceeds_100(con):
 
 
 def test_voted_plus_missed_equals_total(con):
-    bad = _df(con, "SELECT count(*) AS n FROM v_attendance_participation_turnout WHERE voted_in + missed <> total_divisions")
+    bad = _df(
+        con, "SELECT count(*) AS n FROM v_attendance_participation_turnout WHERE voted_in + missed <> total_divisions"
+    )
     assert bad["n"][0] == 0
 
 
@@ -151,12 +153,6 @@ def test_ceann_comhairle_not_in_turnout(con):
 def test_taa_below_excludes_office_holders(con):
     # the below-120 list must contain no minister/chair (they aren't paid TAA on
     # the attendance basis).
-    bad = _df(
-        con,
-        "SELECT count(*) AS n FROM v_attendance_taa_compliance t "
-        "JOIN v_attendance_participation_turnout p USING (unique_member_code, house, year) "
-        "WHERE t.meets_120 = FALSE AND (p.is_minister OR p.is_chair)",
-    )
     # ministers/chairs may still appear in the raw compliance view, but the query
     # layer filters them — assert the genuine-claimant set is non-empty and clean.
     real = _df(

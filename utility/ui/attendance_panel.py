@@ -111,10 +111,7 @@ def render_member_attendance(
         reason = str(abs_row.get("reason_label", "") or abs_row.get("source_title", "") or "")
         evidence_heading("Longest absence")
         if url:
-            chip = (
-                f'<a class="part-news-chip" href="{_h(url)}" target="_blank" rel="noopener">'
-                f"📰 {_h(reason)} ↗</a>"
-            )
+            chip = f'<a class="part-news-chip" href="{_h(url)}" target="_blank" rel="noopener">📰 {_h(reason)} ↗</a>'
         else:
             chip = '<span class="part-noexpl">No public explanation found</span>'
         st.html(
@@ -130,7 +127,9 @@ def render_member_attendance(
             t = taa.sort_values("year", ascending=False).iloc[0]
             days = int(t.get("total_days") or 0)
             if bool(t.get("meets_120")):
-                st.caption(f"✓ Met the 120-day Travel & Accommodation Allowance threshold ({days} days) in {int(t['year'])}.")
+                st.caption(
+                    f"✓ Met the 120-day Travel & Accommodation Allowance threshold ({days} days) in {int(t['year'])}."
+                )
             else:
                 ded = int(t.get("deduction_pct") or 0)
                 st.caption(

@@ -215,9 +215,7 @@ def _reconcile_against_published(pdf_dir: Path) -> int:
             continue
         doc = fitz.open(str(pdf_path))
         published = _published_totals_for_doc(doc)
-        per_member: dict[str, dict[str, set[pd.Timestamp]]] = defaultdict(
-            lambda: {"sitting": set(), "other": set()}
-        )
+        per_member: dict[str, dict[str, set[pd.Timestamp]]] = defaultdict(lambda: {"sitting": set(), "other": set()})
         for identifier, _fn, _ln, _text, kind, iso in _extract_pdf_member_dates(doc):
             per_member[identifier][kind].add(iso)
         for ident, (pub_s, pub_o) in published.items():
@@ -226,7 +224,12 @@ def _reconcile_against_published(pdf_dir: Path) -> int:
                 total_mismatches += 1
                 logger.warning(
                     "attendance reconcile MISMATCH %s in %s: published=(%d,%d) extracted=(%d,%d)",
-                    ident, pdf_path.name, pub_s, pub_o, len(got["sitting"]), len(got["other"]),
+                    ident,
+                    pdf_path.name,
+                    pub_s,
+                    pub_o,
+                    len(got["sitting"]),
+                    len(got["other"]),
                 )
         pdfs += 1
     print(

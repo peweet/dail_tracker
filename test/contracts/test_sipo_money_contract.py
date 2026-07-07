@@ -55,10 +55,9 @@ class SipoMoneySchema(pa.DataFrameModel):
     def _eur_columns_non_negative(cls, data) -> bool:
         df = _df(data)
         for col, dtype in df.schema.items():
-            if col.endswith("_eur") and dtype in _NUMERIC:
-                # null is allowed (an un-extracted OCR cell); a negative is not.
-                if df[col].drop_nulls().lt(0).any():
-                    return False
+            # null is allowed (an un-extracted OCR cell); a negative is not.
+            if col.endswith("_eur") and dtype in _NUMERIC and df[col].drop_nulls().lt(0).any():
+                return False
         return True
 
     @pa.dataframe_check

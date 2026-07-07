@@ -608,9 +608,7 @@ def _council_perf_card(row) -> str:
             "homeless adults long-term",
             row.get("nat_longterm_homeless_pct"),
         ),
-        _perf_pill(
-            row.get("rent_collection_pct"), "{:.0f}%", "rent collected", row.get("nat_rent_collection_pct")
-        ),
+        _perf_pill(row.get("rent_collection_pct"), "{:.0f}%", "rent collected", row.get("nat_rent_collection_pct")),
     ]
     # Derelict Sites Levy enforcement gap — the cumulative amount still uncollected.
     der_out = row.get("derelict_outstanding_eur")
@@ -814,8 +812,7 @@ def _render_council_context(name: str) -> None:
     councils = list(dict.fromkeys(str(la) for la in df["local_authority"]))
     if councils:
         links = " · ".join(
-            f'<a class="dt-source-link" href="{_h(council_accountability_url(la))}" '
-            f'target="_self">{_h(la)}</a>'
+            f'<a class="dt-source-link" href="{_h(council_accountability_url(la))}" target="_self">{_h(la)}</a>'
             for la in councils
         )
         whose = "these councils" if len(councils) > 1 else "this council"

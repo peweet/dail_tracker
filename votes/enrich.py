@@ -295,7 +295,10 @@ def main() -> int:
         enriched_df.write_csv(enriched_csv_out)
         logging.info("Enriched TD attendance CSV created successfully.")
         _build_attendance_by_year(
-            members_wide_df, fact_csv, attendance_year_csv, attendance_year_parquet,
+            members_wide_df,
+            fact_csv,
+            attendance_year_csv,
+            attendance_year_parquet,
             SILVER_DIR / "historic_members_dail.csv",
         )
     else:
@@ -362,7 +365,10 @@ def main_seanad() -> int:
         enriched_df = _build_enriched_attendance(members_wide_df, fact_csv)
         enriched_df.write_csv(enriched_csv_out)
         _build_attendance_by_year(
-            members_wide_df, fact_csv, attendance_year_csv, attendance_year_parquet,
+            members_wide_df,
+            fact_csv,
+            attendance_year_csv,
+            attendance_year_parquet,
             SILVER_DIR / "historic_members_seanad.csv",
         )
     else:

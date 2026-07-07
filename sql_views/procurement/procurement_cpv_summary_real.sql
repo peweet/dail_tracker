@@ -29,7 +29,15 @@ SELECT
     -- honest "couldn't adjust" count (sum-safe awards whose year is outside the index / implausible)
     COUNT(*)                            FILTER (WHERE value_safe_to_sum AND value_eur > 0 AND value_eur_real IS NULL) AS n_real_excluded,
     any_value(real_base_year)                                                                   AS real_base_year,
-    any_value(deflator_index)                                                                   AS deflator_index
+    any_value(deflator_index)                                                                   AS deflator_index,
+    -- Sector-aware band: construction CPVs (45*/71*) use the SCSI Tender Price Index (tender
+    -- prices rose ~2x faster than CPI), everything else uses CPI. value_eur_real_sector already
+    -- carries the right index per row; deflator_index_sector names it (constant within a CPV).
+    COUNT(*)                                   FILTER (WHERE value_safe_to_sum AND value_eur_real_sector > 0) AS n_awards_valued_real_sector,
+    median(value_eur_real_sector)              FILTER (WHERE value_safe_to_sum AND value_eur_real_sector > 0) AS median_award_real_sector_eur,
+    quantile_cont(value_eur_real_sector, 0.25) FILTER (WHERE value_safe_to_sum AND value_eur_real_sector > 0) AS p25_award_real_sector_eur,
+    quantile_cont(value_eur_real_sector, 0.75) FILTER (WHERE value_safe_to_sum AND value_eur_real_sector > 0) AS p75_award_real_sector_eur,
+    any_value(deflator_index_sector)                                                            AS deflator_index_sector
 FROM v_procurement_awards_real
 WHERE cpv_code IS NOT NULL AND cpv_code NOT IN ('', 'NULL')
 GROUP BY cpv_code;

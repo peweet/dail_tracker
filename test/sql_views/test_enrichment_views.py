@@ -68,36 +68,50 @@ def test_no_person_identifier_column_survives(view):
 
 
 def test_isif_currency_constrained_when_amount_present():
-    bad = _con("v_corporate_isif_portfolio").execute(
-        "SELECT count(*) FROM v_corporate_isif_portfolio "
-        "WHERE amount_stated IS NOT NULL AND amount_currency NOT IN ('EUR','USD','GBP')"
-    ).fetchone()[0]
+    bad = (
+        _con("v_corporate_isif_portfolio")
+        .execute(
+            "SELECT count(*) FROM v_corporate_isif_portfolio "
+            "WHERE amount_stated IS NOT NULL AND amount_currency NOT IN ('EUR','USD','GBP')"
+        )
+        .fetchone()[0]
+    )
     assert bad == 0
 
 
 def test_cbi_individual_flag_column_dropped():
-    cols = [r[0] for r in _con("v_corporate_cbi_enforcement").execute("DESCRIBE v_corporate_cbi_enforcement").fetchall()]
+    cols = [
+        r[0] for r in _con("v_corporate_cbi_enforcement").execute("DESCRIBE v_corporate_cbi_enforcement").fetchall()
+    ]
     assert "party_is_individual_suspected" not in cols
 
 
 def test_cbi_fine_non_negative_when_present():
-    bad = _con("v_corporate_cbi_enforcement").execute(
-        "SELECT count(*) FROM v_corporate_cbi_enforcement WHERE fine_amount_eur < 0"
-    ).fetchone()[0]
+    bad = (
+        _con("v_corporate_cbi_enforcement")
+        .execute("SELECT count(*) FROM v_corporate_cbi_enforcement WHERE fine_amount_eur < 0")
+        .fetchone()[0]
+    )
     assert bad == 0
 
 
 def test_eu_tam_cro_company_num_is_clean_or_null():
     """cro_company_num is the companies-only join key: 5-7 digits or NULL, never a raw id."""
-    bad = _con("v_procurement_eu_tam_state_aid").execute(
-        "SELECT count(*) FROM v_procurement_eu_tam_state_aid "
-        "WHERE cro_company_num IS NOT NULL AND NOT regexp_matches(cro_company_num, '^[0-9]{5,7}$')"
-    ).fetchone()[0]
+    bad = (
+        _con("v_procurement_eu_tam_state_aid")
+        .execute(
+            "SELECT count(*) FROM v_procurement_eu_tam_state_aid "
+            "WHERE cro_company_num IS NOT NULL AND NOT regexp_matches(cro_company_num, '^[0-9]{5,7}$')"
+        )
+        .fetchone()[0]
+    )
     assert bad == 0
 
 
 def test_eu_tam_is_awarded_tier():
-    n_wrong = _con("v_procurement_eu_tam_state_aid").execute(
-        "SELECT count(*) FROM v_procurement_eu_tam_state_aid WHERE realisation_tier <> 'AWARDED'"
-    ).fetchone()[0]
+    n_wrong = (
+        _con("v_procurement_eu_tam_state_aid")
+        .execute("SELECT count(*) FROM v_procurement_eu_tam_state_aid WHERE realisation_tier <> 'AWARDED'")
+        .fetchone()[0]
+    )
     assert n_wrong == 0

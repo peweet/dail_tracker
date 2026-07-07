@@ -6,6 +6,7 @@ next full re-harvest. Idempotent. Uses the SAME definition the extractors now pe
 Additive only: never alters value_eur / amount_eur. Rewrites via save_parquet (atomic,
 row-floor: min_rows = current row count, so a truncated read can never shrink the fact).
 """
+
 from __future__ import annotations
 
 import sys
@@ -42,8 +43,10 @@ def main() -> int:
         flagged = df.filter(df[col].is_not_null() & ~df["value_plausible"]).height
         save_parquet(df, path, min_rows=n)  # never shrink the fact
         added = "value_plausible" not in before_cols
-        print(f"  {fname}: rows={n:,} valued={valued:,} plausible={plausible:,} "
-              f"flagged_implausible={flagged:,}  ({'added' if added else 'refreshed'} value_plausible)")
+        print(
+            f"  {fname}: rows={n:,} valued={valued:,} plausible={plausible:,} "
+            f"flagged_implausible={flagged:,}  ({'added' if added else 'refreshed'} value_plausible)"
+        )
     print("done.")
     return 0
 

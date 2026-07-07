@@ -138,9 +138,7 @@ def summarise(current: dict[str, dict]) -> dict:
     return {
         "tables_with_all_null_cols": {k: v["all_null_cols"] for k, v in current.items() if v.get("all_null_cols")},
         "tables_with_dup_rows": {
-            k: {"dup_rows": v["dup_rows"], "rows": v["rows"]}
-            for k, v in current.items()
-            if v.get("dup_rows")
+            k: {"dup_rows": v["dup_rows"], "rows": v["rows"]} for k, v in current.items() if v.get("dup_rows")
         },
         "tables_with_encoding_artifacts": {k: v["encoding"] for k, v in current.items() if v.get("encoding")},
         "tables_with_sentinels": {k: v["sentinels"] for k, v in current.items() if v.get("sentinels")},
@@ -199,7 +197,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"gold quality guard: OK — {len(baseline)} gold tables, no content drift vs baseline.")
 
     if args.echo:
-        sys.stdout.buffer.write(orjson.dumps({"regressions": regressions, "summary": summary}, option=orjson.OPT_INDENT_2))
+        sys.stdout.buffer.write(
+            orjson.dumps({"regressions": regressions, "summary": summary}, option=orjson.OPT_INDENT_2)
+        )
         print()
 
     return 1 if (args.strict and regressions) else 0

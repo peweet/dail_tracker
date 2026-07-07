@@ -75,7 +75,7 @@ def test_extract_meeting_full_record(monkeypatch):
     meeting metadata, reconciliation=True, the topics spine (deduped, housekeeping dropped,
     verbatim), witness orgs from headings (primary) + welcome (corroboration), and witness
     PERSONS = non-member honorific speakers only (TDs/chair excluded)."""
-    xml = f"""
+    xml = """
     <akomaNtoso>
       <FRBRthis value="/akn/ie/debateRecord/committee_of_public_accounts/2024-11-21/main@"/>
       <heading>Operations of Tailte Éireann</heading>

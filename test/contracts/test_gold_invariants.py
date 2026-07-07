@@ -77,6 +77,8 @@ def test_corporate_notices_flags_vocab_and_year(conn):
         "notice_category",
         {"corporate_insolvency", "corporate_notice", "corporate_rescue", "investment_vehicle_register_notice"},
     )
-    bad_year = conn.execute(f"SELECT count(*) FROM {r} WHERE year IS NOT NULL AND (year < 2010 OR year > 2030)").fetchone()[0]
+    bad_year = conn.execute(
+        f"SELECT count(*) FROM {r} WHERE year IS NOT NULL AND (year < 2010 OR year > 2030)"
+    ).fetchone()[0]
     assert bad_year == 0, f"{bad_year} corporate notices with an implausible year"
     inv.no_sentinels(conn, r, "entity_name")

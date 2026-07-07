@@ -1,6 +1,13 @@
 # Inflation-Adjusted Procurement Benchmarking — Design
 
-**Status:** P0–P1 VIEWS GRADUATED (2026-06-28). The five views below are now in
+**Status:** FEATURE COMPLETE end-to-end (2026-07-07), behind `DAIL_EXPERIMENTAL`. Data → 4-index
+registry → real-terms views (awards/CPV+sector/payments) → firewall-clean data_access wrappers →
+gated Streamlit UI (CPV benchmark CPI + construction tender-price band; public-spend real trend) →
+gated API endpoints (`/v1/procurement/inflation/{indices,cpv,spend-trend}`, hidden + 404 when the
+flag is off). All layers tested (131 pass) + Playwright-verified. Only graduation (un-gating +
+gold-commit) and optional MCP-tool fields remain — both user decisions. Detail below.
+
+**Status (history):** P0–P1 VIEWS GRADUATED (2026-06-28). The five views below are now in
 `sql_views/procurement/` (`procurement_aa_cpi_deflator`, `procurement_awards_real`,
 `procurement_cpv_summary_real`, `procurement_cpv_buyer_real`, `procurement_bid_signal_real`),
 with 3 contract tests in `test/sql_views/test_sql_views.py` (parity SQL==`Deflator.inflate`
@@ -52,9 +59,33 @@ banner + an `st.popover` "How is this adjusted?" (index/source/method/caveat str
 marker. Page computes nothing (firewall + logic-firewall checker green); it looks the real band up
 by CPV from `fetch_cpv_summary_real_result`. Playwright-verified on a fresh server (7/7 checks:
 default-OFF, band appears on toggle, rail + popover render, no traceback; construction €495k→€566k
-matches the data). STILL PENDING: UI Step 2 (public spend real-by-year in the "paid" section, via
-`fetch_payments_real_by_year_result`; needs a view/core `real_uplift_pct` metric to stay firewall-
-clean), Step 3 (construction-TPI band on 45*/71* cards — needs a sector-aware CPV summary), and API fields.
+matches the data).
+
+**UI STEP 2 SHIPPED (gated, 2026-07-07).** The "paid" section gains a real-terms trend view. New
+view `v_procurement_payments_real_trend` (year × tier indicative-floor rollup of the vat-separated
+grain, with `real_uplift_pct` computed over ADJUSTABLE rows in SQL — the "+X%" metric stays below
+the firewall); core `payments_real_trend()` + `fetch_payments_real_trend_result`. `_render_payments`
+gets an "In real terms ⚗" view option → `_render_payments_real_trend()`: the shared rail (gov-
+consumption index), a narrative, and a **single-series per-year uplift bar** (2012 +18% → 2024 0%),
+plus an explicit "2025+ not yet adjustable — National Accounts pending" note (the deflator ends
+2024). **Impact measured first** (per user): the per-year lens de-biases 2012–18 by +10–18%, but the
+aggregate is only +4% (recency-skewed) and 27% of SPENT € can't be adjusted — so it's framed as a
+per-year trend, NOT a "real total". Chose the uplift chart over nominal-vs-real absolute bars because
+those stacked into a false sum and hid the (old-year) story. Firewall + logic-firewall + 127 tests
+green; Playwright-verified (8/8 + chart paints 14 bars). **GOTCHA logged:** an `st.bar_chart` y-field
+name with spaces/"%" silently renders an EMPTY chart — use a plain column name + `y_label` for the
+axis title (the working awards-by-year pattern). **UI STEP 3 + API SHIPPED (gated, 2026-07-07).** Step 3: `v_procurement_cpv_summary_real` gains a
+sector-aware band (aggregates `value_eur_real_sector` + `deflator_index_sector`), core
+`cpv_summary_real` carries it, and `_render_cpv` shows construction (45*/71*) cards "in 2025 tender
+prices" (SCSI TPI) and others "in 2025 prices" (CPI), with a caption naming the split. HONEST NOTE:
+the construction *median* barely moves vs CPI (€565,549 → €565,695) — construction awards skew
+recent, so this is a correctness/labelling win, not a magnitude one. API: three gated endpoints in
+`api/routers/procurement.py` — `/procurement/inflation/{indices,cpv,spend-trend}` — with
+`include_in_schema=_EXPERIMENTAL` + a 404 gate, so they're invisible and unreachable on the deployed
+API (flag unset) and return data locally. Caveat string on every envelope. Tests:
+`test_api_inflation_gating.py` (404 + hidden-from-schema when off) + core/sql column tests; 131 pass.
+STILL PENDING (both user decisions): graduation (un-gate + commit the new gold parquets) and,
+optionally, MCP-tool real-terms fields.
 **Scope:** integrate the existing CPI deflator into tender/bid intelligence so award values
 can be shown in original € and today's €, and so benchmark bands are computed on
 inflation-adjusted values — without ever implying *adjusted award value = current cost =

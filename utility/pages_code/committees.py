@@ -313,15 +313,13 @@ def _witness_line(orgs: list[str], persons: list[str]) -> str:
     """
     parts: list[str] = []
     if orgs:
-        parts.append(
-            '<span class="cmt-w-label">Evidence from:</span> ' + _h(", ".join(orgs))
-        )
+        parts.append('<span class="cmt-w-label">Evidence from:</span> ' + _h(", ".join(orgs)))
     if persons:
         shown = ", ".join(persons[:6])
         more = f" +{len(persons) - 6} more" if len(persons) > 6 else ""
         parts.append(
             f'<span class="cmt-w-label">{len(persons)} witness'
-            f'{"es" if len(persons) != 1 else ""}:</span> {_h(shown)}{_h(more)}'
+            f"{'es' if len(persons) != 1 else ''}:</span> {_h(shown)}{_h(more)}"
         )
     if not parts:
         return '<span class="cmt-w-none">No witnesses recorded in the transcript.</span>'
@@ -382,8 +380,7 @@ def _meeting_history(committee_name: str) -> None:
             else '<p class="cmt-meeting-witnesses cmt-w-none">No agenda topics recorded.</p>'
         )
         transcript_html = (
-            f'<a class="cmt-meeting-transcript" href="{_h(url)}" target="_blank" rel="noopener">'
-            f"Transcript ↗</a>"
+            f'<a class="cmt-meeting-transcript" href="{_h(url)}" target="_blank" rel="noopener">Transcript ↗</a>'
             if url.startswith("http")
             else ""
         )

@@ -1,0 +1,19 @@
+{
+  "count": 2,
+  "detected": [
+    {
+      "source": "payments",
+      "filename": "2026-06-02_parliamentary-standard-allowance-payments-to-deputies-for-april-2026_en.pdf",
+      "url": "https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2026/2026-06-02_parliamentary-standard-allowance-payments-to-deputies-for-april-2026_en.pdf",
+      "held_bytes": 72990,
+      "remote_bytes": 72989
+    },
+    {
+      "source": "payments_seanad",
+      "filename": "2026-06-02_parliamentary-standard-allowance-payments-to-senators-for-april-2026_en.pdf",
+      "url": "https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2026/2026-06-02_parliamentary-standard-allowance-payments-to-senators-for-april-2026_en.pdf",
+      "held_bytes": 63172,
+      "remote_bytes": 67288
+    }
+  ]
+}

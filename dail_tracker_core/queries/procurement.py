@@ -266,7 +266,10 @@ def cpv_summary_real(conn: duckdb.DuckDBPyConnection, *, min_valued: int = 1, li
     sql = (
         "SELECT cpv_code, cpv_description, n_awards_valued, median_award_eur, p25_award_eur, p75_award_eur,"
         " n_awards_valued_real, median_award_real_eur, p25_award_real_eur, p75_award_real_eur,"
-        " min_award_real_eur, max_award_real_eur, n_real_excluded, real_base_year, deflator_index"
+        " min_award_real_eur, max_award_real_eur, n_real_excluded, real_base_year, deflator_index,"
+        # sector-aware band: construction CPVs use the SCSI tender-price index, others CPI
+        " n_awards_valued_real_sector, median_award_real_sector_eur, p25_award_real_sector_eur,"
+        " p75_award_real_sector_eur, deflator_index_sector"
         " FROM v_procurement_cpv_summary_real WHERE n_awards_valued >= ?"
         " ORDER BY n_awards_valued DESC"
     )
@@ -294,6 +297,23 @@ def payments_real_by_year(conn: duckdb.DuckDBPyConnection, *, tier: str | None =
         params.append(tier)
     sql += " ORDER BY year, realisation_tier, vat_status"
     return _run(conn, sql, params)
+
+
+def payments_real_trend(conn: duckdb.DuckDBPyConnection, *, tier: str = "SPENT") -> QueryResult:
+    """Per-year public-spend total, nominal vs real (government-consumption deflator), for the
+    real-terms TREND chart, from ``v_procurement_payments_real_trend``. Year-level INDICATIVE
+    FLOOR (VAT combined — the same basis as the corpus 'at least €X' headline), one tier only
+    (SPENT/COMMITTED never blended). ``real_uplift_pct`` is the pure inflation uplift on the
+    adjustable rows; ``n_unadjustable_lines`` flags years the deflator can't yet reach (2025+).
+    All aggregation is in the view; this only scopes to a tier and orders chronologically."""
+    t = tier if tier in _PAYMENTS_REAL_TIERS else "SPENT"  # whitelist — no raw string to SQL
+    return _run(
+        conn,
+        "SELECT year, realisation_tier, total_nominal_eur, total_nominal_adjustable_eur,"
+        " total_real_eur, real_uplift_pct, n_unadjustable_lines, real_base_year, deflator_index"
+        " FROM v_procurement_payments_real_trend WHERE realisation_tier = ? ORDER BY year",
+        [t],
+    )
 
 
 def awards_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
@@ -558,8 +578,7 @@ def epa_supplier_index(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     display-only membership lookup against supplier rows by company_num."""
     return _run(
         conn,
-        "SELECT company_num, n_licences, n_enforcement_events"
-        " FROM v_procurement_epa_compliance WHERE n_licences > 0",
+        "SELECT company_num, n_licences, n_enforcement_events FROM v_procurement_epa_compliance WHERE n_licences > 0",
     )
 
 
@@ -1078,9 +1097,7 @@ def payment_group_header(conn: duckdb.DuckDBPyConnection, group_slug: str) -> Qu
     )
 
 
-def payment_group_members(
-    conn: duckdb.DuckDBPyConnection, group_slug: str, *, tier: str = "SPENT"
-) -> QueryResult:
+def payment_group_members(conn: duckdb.DuckDBPyConnection, group_slug: str, *, tier: str = "SPENT") -> QueryResult:
     """The member entities of a corporate group in one lifecycle tier, biggest first — each a
     row the Follow-the-money node renders as a card that drills into that entity's own
     paid-supplier profile (?paid_supplier=). entity_kind/note ride along so the card can badge a

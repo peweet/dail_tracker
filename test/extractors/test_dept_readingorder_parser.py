@@ -14,9 +14,18 @@ def test_transport_amount_drawdown_paid_only_desc_next_line():
     This whole family was previously gate-excluded (the amount line never matched a pure-money
     regex, so the file yielded ~0 rows)."""
     lines = [
-        "OrderNo", "SuppID(T)", "Amount", "Paid /", "Drawdown", "Description",
-        "100035535 CHC (Ireland) Ltd", "6,554,307.17 Drawdown", "IRCG: Helicopter Service",
-        "100037704 Actian Europe Limited", "1,320,000.00 Drawdown", "NVDF: Licencing Expenses",
+        "OrderNo",
+        "SuppID(T)",
+        "Amount",
+        "Paid /",
+        "Drawdown",
+        "Description",
+        "100035535 CHC (Ireland) Ltd",
+        "6,554,307.17 Drawdown",
+        "IRCG: Helicopter Service",
+        "100037704 Actian Europe Limited",
+        "1,320,000.00 Drawdown",
+        "NVDF: Licencing Expenses",
     ]
     recs = {r["po"]: r for r in transport_records(lines)}
     assert recs["100035535"]["supplier"] == "CHC (Ireland) Ltd"
@@ -31,9 +40,16 @@ def test_transport_amount_drawdown_with_inline_description():
     The reader peels the leading flag and keeps the rest as the description (it must not swallow
     the description into the paid field)."""
     lines = [
-        "OrderNo", "SuppID(T)", "Amount", "Paid /", "Drawdown", "Description",
-        "100028057 CHC (Ireland) Ltd", "6,450,781.30 Drawdown IRCG: Helicopter -Standing Charge",
-        "100027996 Eurocontrol", "1,594,118.77 Drawdown Subscription",
+        "OrderNo",
+        "SuppID(T)",
+        "Amount",
+        "Paid /",
+        "Drawdown",
+        "Description",
+        "100028057 CHC (Ireland) Ltd",
+        "6,450,781.30 Drawdown IRCG: Helicopter -Standing Charge",
+        "100027996 Eurocontrol",
+        "1,594,118.77 Drawdown Subscription",
     ]
     recs = {r["po"]: r for r in transport_records(lines)}
     assert recs["100028057"]["paid"] == "Drawdown"
@@ -47,8 +63,14 @@ def test_transport_description_then_flag_line_not_treated_as_merged():
     must NOT be parsed as the merged amount layout — the amount sits on its own pure-money line
     here, so the merged path must stay off and not mislabel the flag-trailing line as an amount."""
     lines = [
-        "100019506 94863", "CHC (Ireland) Ltd", "6,363,903.48", "Helicopter Service Drawdown",
-        "100019502 100604", "CHC Shannon", "3,184,822.35", "Helicopter Service Drawdown",
+        "100019506 94863",
+        "CHC (Ireland) Ltd",
+        "6,363,903.48",
+        "Helicopter Service Drawdown",
+        "100019502 100604",
+        "CHC Shannon",
+        "3,184,822.35",
+        "Helicopter Service Drawdown",
     ]
     recs = transport_records(lines)
     amounts = sorted(r["amount"] for r in recs)

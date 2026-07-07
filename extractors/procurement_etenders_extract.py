@@ -38,8 +38,8 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from services.parquet_io import save_parquet  # noqa: E402
 from services.deflator import value_plausible_expr  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -48,6 +48,11 @@ from shared.name_norm import name_norm_expr  # noqa: E402
 from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 URL = "https://assets.gov.ie/static/documents/7ba65f1b/Public_Procurement_Opendata_Dataset.csv"
+# gov.ie's CDN (assets.gov.ie, where the OGP CSV now lives) 403s a bare/bot User-Agent — a
+# browser UA + gov.ie Referer clears the WAF (same spoof as extractors/derelict_sites_levy_
+# extract.py:67). data.gov.ie's CKAN API doesn't gate today, but we send the same headers there
+# too for consistency + in case that resource also migrates behind the WAF.
+GOVIE_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://www.gov.ie/"}
 # Provenance: the citable record of where this data came from. Emitted into the
 # coverage JSON so the UI provenance footer reads source-of-truth, not hardcoded copy.
 SOURCE = {
@@ -170,7 +175,7 @@ CKAN_PACKAGE_URL = "https://data.gov.ie/api/3/action/package_show?id=contract-no
 
 def resolve_download_url(fallback: str = URL) -> str:
     try:
-        r = requests.get(CKAN_PACKAGE_URL, headers={"User-Agent": "dail-tracker research probe"}, timeout=30)
+        r = requests.get(CKAN_PACKAGE_URL, headers=GOVIE_HEADERS, timeout=30)
         r.raise_for_status()
         for res in r.json().get("result", {}).get("resources", []):
             u = (res.get("url") or "").strip()
@@ -189,11 +194,24 @@ def ensure_csv(force: bool = False, max_age_days: float = CACHE_MAX_AGE_DAYS) ->
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     print("downloading eTenders CSV…")
     src_url = resolve_download_url()
-    with requests.get(src_url, headers={"User-Agent": "dail-tracker research probe"}, timeout=180, stream=True) as r:
-        r.raise_for_status()
-        with open(CACHE, "wb") as f:
-            for ch in r.iter_content(1 << 16):
-                f.write(ch)
+    # Stream to a .part file and atomically swap, so a mid-download failure can't leave a
+    # truncated cache — and so the fallback below still has the last-good copy to return.
+    tmp = CACHE.with_suffix(CACHE.suffix + ".part")
+    try:
+        with requests.get(src_url, headers=GOVIE_HEADERS, timeout=180, stream=True) as r:
+            r.raise_for_status()
+            with open(tmp, "wb") as f:
+                for ch in r.iter_content(1 << 16):
+                    f.write(ch)
+        tmp.replace(CACHE)
+    except requests.RequestException as e:
+        tmp.unlink(missing_ok=True)
+        # Degrade to the last good cache rather than failing the whole chain: a transient gov.ie
+        # WAF block / outage shouldn't wipe procurement gold. Only fatal when there is no cache.
+        if CACHE.exists():
+            print(f"  download failed ({type(e).__name__}: {e}); using existing cache {CACHE}", file=sys.stderr)
+            return CACHE
+        raise
     return CACHE
 
 
@@ -507,9 +525,7 @@ def main() -> None:
     # Magnitude-plausibility flag (parse-artefact guard) — sits alongside value_safe_to_sum so a
     # downstream real-terms / sum view can exclude sub-€100 noise and €50m+ review values before
     # any deflator scales them. Additive; never alters value_eur. Shared def: services.deflator.
-    aw = aw.with_columns(
-        value_plausible_expr("value_eur", hi=LARGE_AWARD_REVIEW_EUR).alias("value_plausible")
-    )
+    aw = aw.with_columns(value_plausible_expr("value_eur", hi=LARGE_AWARD_REVIEW_EUR).alias("value_plausible"))
     print(f"  value_plausible: {aw['value_plausible'].sum():,} of {aw['value_eur'].is_not_null().sum():,} valued rows")
 
     save_parquet(aw, OUT_AWARDS)

@@ -22,8 +22,10 @@ pytestmark = pytest.mark.skipif(not H2.exists(), reason="NOAC H-series gold abse
 @pytest.fixture(scope="module")
 def con():
     c = duckdb.connect()
-    ce = SQL_DIR.joinpath("constituency_la_chief_executives.sql").read_text(encoding="utf-8").replace(
-        "data/_meta/la_chief_executives.csv", str(CSV).replace("\\", "/")
+    ce = (
+        SQL_DIR.joinpath("constituency_la_chief_executives.sql")
+        .read_text(encoding="utf-8")
+        .replace("data/_meta/la_chief_executives.csv", str(CSV).replace("\\", "/"))
     )
     c.execute(ce)
     # dependency chain: crosswalk -> council_housing_performance -> la_housing_performance

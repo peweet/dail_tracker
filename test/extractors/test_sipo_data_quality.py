@@ -233,9 +233,17 @@ def test_part4_sections_valid(cats):
     assert not bad, f"unexpected Part-4 sections: {bad}"
 
 
-def test_part4_one_overall_per_party(cats):
-    over = cats.filter(pl.col("is_overall")).group_by("party").len().filter(pl.col("len") != 1)
-    assert over.height == 0, f"parties without exactly one Overall total: {over.to_dicts()}"
+def test_part4_overall_totals_well_formed(cats):
+    # A party's consolidated PDF can carry MULTIPLE returns (e.g. Fine Gael files two, at
+    # pp.19 and 36), each ending in its own Overall/TOTAL — so "one Overall per party" is the
+    # wrong grain. The real invariants: every party must have at least one Overall total (a
+    # party with none = a parse failure), and no single return page may carry two Overalls
+    # (a duplicate grand total = a mis-flag).
+    over = cats.filter(pl.col("is_overall"))
+    missing = set(cats["party"].unique()) - set(over["party"].unique())
+    assert not missing, f"parties with no Overall total: {sorted(missing)}"
+    dup = over.group_by("source_pdf", "source_page").len().filter(pl.col("len") > 1)
+    assert dup.height == 0, f"duplicate Overall total on a single return page: {dup.to_dicts()}"
 
 
 def test_part4_totals_non_negative(cats):

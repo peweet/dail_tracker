@@ -53,26 +53,30 @@ def _sandbox_frame(rows):
 
 
 def test_project_drops_named_individuals():
-    df = _sandbox_frame([
-        {"cro_company_num": 111, "looks_individual": False},
-        {"cro_company_num": 222, "looks_individual": True},  # sole-trader / named person → DROP
-    ])
+    df = _sandbox_frame(
+        [
+            {"cro_company_num": 111, "looks_individual": False},
+            {"cro_company_num": 222, "looks_individual": True},  # sole-trader / named person → DROP
+        ]
+    )
     assert project_supplier_compliance(df)["company_num"].to_list() == [111]
 
 
 def test_project_drops_rows_without_a_cro_company():
-    df = _sandbox_frame([
-        {"cro_company_num": 111, "looks_individual": False},
-        {"cro_company_num": None, "looks_individual": False},  # unmatched → not a known company → DROP
-    ])
+    df = _sandbox_frame(
+        [
+            {"cro_company_num": 111, "looks_individual": False},
+            {"cro_company_num": None, "looks_individual": False},  # unmatched → not a known company → DROP
+        ]
+    )
     assert project_supplier_compliance(df)["company_num"].to_list() == [111]
 
 
 def test_project_ships_company_num_as_only_identity_no_pii():
     out = project_supplier_compliance(_sandbox_frame([{"cro_company_num": 555}]))
-    assert gold_pii_columns(out.columns) == []          # the decoy facility_name was not selected
+    assert gold_pii_columns(out.columns) == []  # the decoy facility_name was not selected
     assert "facility_name" not in out.columns
-    assert "looks_individual" not in out.columns         # the drop flag itself never ships
+    assert "looks_individual" not in out.columns  # the drop flag itself never ships
     assert "company_num" in out.columns
 
 

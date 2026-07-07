@@ -99,8 +99,22 @@ SECTION_RE = re.compile(r"^4([A-H])\b")
 # standard 4A–4H and an alternate 5J–5R (same 8 statutory headings, skipping I/O).
 # Normalise both to the canonical 4A–4H code so line items (tagged 4A–4H) reconcile.
 SECTION_NORMALISE: dict[str, str] = {
-    "4A": "4A", "4B": "4B", "4C": "4C", "4D": "4D", "4E": "4E", "4F": "4F", "4G": "4G", "4H": "4H",
-    "5J": "4A", "5K": "4B", "5L": "4C", "5M": "4D", "5N": "4E", "5P": "4F", "5Q": "4G", "5R": "4H",
+    "4A": "4A",
+    "4B": "4B",
+    "4C": "4C",
+    "4D": "4D",
+    "4E": "4E",
+    "4F": "4F",
+    "4G": "4G",
+    "4H": "4H",
+    "5J": "4A",
+    "5K": "4B",
+    "5L": "4C",
+    "5M": "4D",
+    "5N": "4E",
+    "5P": "4F",
+    "5Q": "4G",
+    "5R": "4H",
 }
 SECTION_TOKEN_RE = re.compile(r"\b([45])\s*([A-R])\b")
 

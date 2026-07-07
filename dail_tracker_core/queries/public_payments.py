@@ -167,8 +167,7 @@ _CATEGORY_ORDER = {
 }
 
 _CATEGORY_COLS = (
-    "spend_category, realisation_tier, n_lines, n_bodies, n_suppliers,"
-    " first_year, last_year, total_safe_eur"
+    "spend_category, realisation_tier, n_lines, n_bodies, n_suppliers, first_year, last_year, total_safe_eur"
 )
 
 

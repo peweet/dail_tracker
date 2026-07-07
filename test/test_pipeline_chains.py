@@ -39,6 +39,8 @@ def test_no_orphan_blurbs():
 
 def test_promoted_chains_are_registered():
     # The 2026-06-21 promotion sweep — guard against an accidental revert.
+    # news_mentions was intentionally delisted 2026-07-07 (low relevance / slowest chain),
+    # so it is dropped from this guard on purpose — see the commented tuple in pipeline.py.
     names = {name for name, _ in CHAINS}
-    for expected in ("news_mentions", "member_contact", "ministerial_diaries"):
+    for expected in ("member_contact", "ministerial_diaries"):
         assert expected in names, f"{expected!r} missing from CHAINS"
