@@ -41,7 +41,20 @@ tier-whitelisted); `utility/data_access/procurement_data.py` gains cached pass-t
 (the registry picker, via `services.deflator.list_indices`). NO computation in either layer — all
 deflation stays in the views + `services/deflator.py`. Tests in `test_core_procurement_queries.py`
 (columns, tier whitelist, sample-reconciliation, unavailable-on-missing-view); core stays
-Streamlit-free. STILL PENDING: the UI itself (gated toggle / popover / caveat banner) and API fields.
+Streamlit-free.
+
+**UI STEP 1 SHIPPED (gated, 2026-07-07).** The CPV benchmark ("wins" → By category,
+`_render_cpv`) gains an EXPERIMENTAL real-terms lens: a default-OFF `st.toggle` (only when
+`DAIL_EXPERIMENTAL=1` AND all-time) that adds "in 2025 prices €X–€Y (median €Z)" beside the
+nominal typical-award band on each card, plus a shared `_render_real_terms_rail()` — a caveat
+banner + an `st.popover` "How is this adjusted?" (index/source/method/caveat straight from
+`fetch_inflation_indices` → `services.deflator.list_indices`) + the "⚗ Experimental · local only"
+marker. Page computes nothing (firewall + logic-firewall checker green); it looks the real band up
+by CPV from `fetch_cpv_summary_real_result`. Playwright-verified on a fresh server (7/7 checks:
+default-OFF, band appears on toggle, rail + popover render, no traceback; construction €495k→€566k
+matches the data). STILL PENDING: UI Step 2 (public spend real-by-year in the "paid" section, via
+`fetch_payments_real_by_year_result`; needs a view/core `real_uplift_pct` metric to stay firewall-
+clean), Step 3 (construction-TPI band on 45*/71* cards — needs a sector-aware CPV summary), and API fields.
 **Scope:** integrate the existing CPI deflator into tender/bid intelligence so award values
 can be shown in original € and today's €, and so benchmark bands are computed on
 inflation-adjusted values — without ever implying *adjusted award value = current cost =
