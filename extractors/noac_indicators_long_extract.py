@@ -13,6 +13,7 @@ Writes: data/gold/parquet/noac_indicators_long.parquet
         (local_authority, family, indicator_code, series_label, raw_value, numeric_value,
          source_page, deep_link, year)
 """
+
 from __future__ import annotations
 
 import re
@@ -29,26 +30,55 @@ from services.parquet_io import save_parquet  # noqa: E402
 
 SRC = ROOT / "doc/source_pdfs/NOAC_LA_PerfInd_2024.pdf"
 DEST = ROOT / "data/gold/parquet/noac_indicators_long.parquet"
-PDF_URL = ("https://cdn.noac.ie/wp-content/uploads/2025/09/"
-           "NOAC-Local-Authority-Performance-Indicator-Report-2024.pdf")
+PDF_URL = "https://cdn.noac.ie/wp-content/uploads/2025/09/NOAC-Local-Authority-Performance-Indicator-Report-2024.pdf"
 
 # noac label -> page `local_authority` key (same map as v_la_noac_scorecard), squish-matched.
 _PAIRS = {
-    "Carlow County": "Carlow", "Cavan County": "Cavan", "Clare County": "Clare",
-    "Cork City": "Cork City", "Cork County": "Cork County", "Donegal County": "Donegal",
-    "Dublin City": "Dublin City", "Dun Laoghaire-Rathdown": "Dun Laoghaire-Rathdown",
-    "Fingal County": "Fingal", "Galway City": "Galway City", "Galway County": "Galway County",
-    "Kerry County": "Kerry", "Kildare County": "Kildare", "Kilkenny County": "Kilkenny",
-    "Laois County": "Laois", "Leitrim County": "Leitrim", "Limerick City and County": "Limerick",
-    "Longford County": "Longford", "Louth County": "Louth", "Mayo County": "Mayo",
-    "Meath County": "Meath", "Monaghan County": "Monaghan", "Offaly County": "Offaly",
-    "Roscommon County": "Roscommon", "Sligo County": "Sligo", "South Dublin County": "South Dublin",
-    "Tipperary County": "Tipperary", "Waterford City and County": "Waterford",
-    "Westmeath County": "Westmeath", "Wexford County": "Wexford", "Wicklow County": "Wicklow",
+    "Carlow County": "Carlow",
+    "Cavan County": "Cavan",
+    "Clare County": "Clare",
+    "Cork City": "Cork City",
+    "Cork County": "Cork County",
+    "Donegal County": "Donegal",
+    "Dublin City": "Dublin City",
+    "Dun Laoghaire-Rathdown": "Dun Laoghaire-Rathdown",
+    "Fingal County": "Fingal",
+    "Galway City": "Galway City",
+    "Galway County": "Galway County",
+    "Kerry County": "Kerry",
+    "Kildare County": "Kildare",
+    "Kilkenny County": "Kilkenny",
+    "Laois County": "Laois",
+    "Leitrim County": "Leitrim",
+    "Limerick City and County": "Limerick",
+    "Longford County": "Longford",
+    "Louth County": "Louth",
+    "Mayo County": "Mayo",
+    "Meath County": "Meath",
+    "Monaghan County": "Monaghan",
+    "Offaly County": "Offaly",
+    "Roscommon County": "Roscommon",
+    "Sligo County": "Sligo",
+    "South Dublin County": "South Dublin",
+    "Tipperary County": "Tipperary",
+    "Waterford City and County": "Waterford",
+    "Westmeath County": "Westmeath",
+    "Wexford County": "Wexford",
+    "Wicklow County": "Wicklow",
 }
-FAMILY = {"H": "Housing", "R": "Roads", "W": "Water", "E": "Environment", "P": "Planning",
-          "F": "Fire", "L": "Library", "Y": "Youth/Community", "C": "Corporate", "M": "Finance",
-          "J": "Economic"}
+FAMILY = {
+    "H": "Housing",
+    "R": "Roads",
+    "W": "Water",
+    "E": "Environment",
+    "P": "Planning",
+    "F": "Fire",
+    "L": "Library",
+    "Y": "Youth/Community",
+    "C": "Corporate",
+    "M": "Finance",
+    "J": "Economic",
+}
 CODE_RE = re.compile(r"\b([HRWEPFLYCMJ])\s?(\d{1,2})\b")
 
 
@@ -76,8 +106,8 @@ def _label(header: str) -> str:
     # The delimiter ( or . must NOT be optional: an all-optional pattern matched a bare
     # leading capital + the next letter and ate the first chars of ordinary prose headers
     # ("Buildings…" -> "ildings…", "Net expenditure" -> "t expenditure").
-    s = re.sub(r"^[A-Z]\s*[\(\.]\s*[a-z0-9]?\)?[:.]?\s*", "", s)    # 'A. ' / 'B (b): '
-    s = re.sub(r"^[A-Z]\d{1,2}[\.\)]?\s+", "", s)                   # 'H1 ' / 'R2. ' code prefix
+    s = re.sub(r"^[A-Z]\s*[\(\.]\s*[a-z0-9]?\)?[:.]?\s*", "", s)  # 'A. ' / 'B (b): '
+    s = re.sub(r"^[A-Z]\d{1,2}[\.\)]?\s+", "", s)  # 'H1 ' / 'R2. ' code prefix
     s = re.sub(r"\s*(for|in|during|by|as at|to)\s*\d{0,2}/?\d{0,2}/?20\d\d.*$", "", s, flags=re.I)  # trailing dates
     s = re.sub(r"\s*\(?based on .*?census\)?", "", s, flags=re.I)
     return (s.strip(" .,-") or header)[:90]
@@ -123,17 +153,30 @@ def main() -> None:
                 for r in la_rows:
                     if ci >= len(r) or not r[ci]:
                         continue
-                    recs.append({
-                        "local_authority": _la(r[0]), "family": family, "indicator_code": code,
-                        "series_label": label, "raw_value": r[ci], "numeric_value": _numeric(r[ci]),
-                        "source_page": p + 1, "deep_link": f"{PDF_URL}#page={p + 1}", "year": 2024,
-                    })
-    df = pl.DataFrame(recs).unique(["local_authority", "family", "indicator_code", "series_label"]).sort(
-        ["local_authority", "family", "indicator_code", "series_label"])
+                    recs.append(
+                        {
+                            "local_authority": _la(r[0]),
+                            "family": family,
+                            "indicator_code": code,
+                            "series_label": label,
+                            "raw_value": r[ci],
+                            "numeric_value": _numeric(r[ci]),
+                            "source_page": p + 1,
+                            "deep_link": f"{PDF_URL}#page={p + 1}",
+                            "year": 2024,
+                        }
+                    )
+    df = (
+        pl.DataFrame(recs)
+        .unique(["local_authority", "family", "indicator_code", "series_label"])
+        .sort(["local_authority", "family", "indicator_code", "series_label"])
+    )
     save_parquet(df, DEST, min_rows=2000)
     print(f"wrote {DEST}  ({df.height} rows)")
-    print(f"  series: {df.select(pl.struct('family','indicator_code','series_label')).n_unique()}  "
-          f"councils: {df['local_authority'].n_unique()}  families: {sorted(df['family'].unique())}")
+    print(
+        f"  series: {df.select(pl.struct('family', 'indicator_code', 'series_label')).n_unique()}  "
+        f"councils: {df['local_authority'].n_unique()}  families: {sorted(df['family'].unique())}"
+    )
 
 
 if __name__ == "__main__":

@@ -19,7 +19,10 @@ import services.legislation_unscoped as lu  # noqa: E402
 
 
 def _page(result_count, n, source="Government"):
-    body = {"head": {"counts": {"resultCount": result_count}}, "results": [{"bill": {"source": source}} for _ in range(n)]}
+    body = {
+        "head": {"counts": {"resultCount": result_count}},
+        "results": [{"bill": {"source": source}} for _ in range(n)],
+    }
     return body, 100  # (payload, raw_bytes)
 
 

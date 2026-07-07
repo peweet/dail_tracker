@@ -225,14 +225,22 @@ def _drop_unattributable(df: pl.DataFrame, label: str) -> pl.DataFrame:
     "payment to (no payee)" when browsing a publisher. Applied BEFORE _capture_stats so the
     source-fact reconciliation baseline is computed post-drop (stays exact). Logged per source.
     """
+
     def _blank(c: str) -> pl.Expr:
         return pl.col(c).is_null() | (pl.col(c).cast(pl.Utf8).str.strip_chars() == "")
 
     # A description that is ONLY the bled amount ('€ 2,532,553.23', nothing else) carries no info —
     # treat it as blank here so the row is dropped at load (before the stats baseline), rather than
     # surviving until _strip_bled_amount blanks it post-baseline and leaks an all-blank row to gold.
-    _lead = pl.col("description").str.extract(r"^[€$£]?\s*([0-9][0-9,]*\.?[0-9]{0,2})", 1).str.replace_all(",", "").cast(pl.Float64, strict=False)
-    _resid = pl.col("description").cast(pl.Utf8).str.replace(r"^[€$£]?\s*[0-9][0-9,]*\.?[0-9]{0,2}\s*", "").str.strip_chars()
+    _lead = (
+        pl.col("description")
+        .str.extract(r"^[€$£]?\s*([0-9][0-9,]*\.?[0-9]{0,2})", 1)
+        .str.replace_all(",", "")
+        .cast(pl.Float64, strict=False)
+    )
+    _resid = (
+        pl.col("description").cast(pl.Utf8).str.replace(r"^[€$£]?\s*[0-9][0-9,]*\.?[0-9]{0,2}\s*", "").str.strip_chars()
+    )
     _desc_is_just_amount = _lead.is_not_null() & ((_lead - pl.col("amount_eur")).abs() < 1) & (_resid == "")
     desc_blank = _blank("description") | _desc_is_just_amount
 
@@ -240,7 +248,9 @@ def _drop_unattributable(df: pl.DataFrame, label: str) -> pl.DataFrame:
     n = df.filter(mask).height
     if n:
         eur = float(df.filter(mask)["amount_eur"].sum() or 0.0)
-        print(f"    dropped {n} unattributable rows from {label} (€{eur / 1e6:.1f}m, blank supplier+desc+po, non-summable)")
+        print(
+            f"    dropped {n} unattributable rows from {label} (€{eur / 1e6:.1f}m, blank supplier+desc+po, non-summable)"
+        )
         df = df.filter(~mask)
     return df
 
@@ -302,7 +312,7 @@ def _load_facts() -> pl.DataFrame:
                     df = pl.concat([df, _extra], how="vertical")
                     print(f"    + folded disclosed HSE history into hse_tusla: {_extra.height:,} rows")
                 else:
-                    print(f"    WARN disclosed HSE sidecar schema mismatch, NOT folded")
+                    print("    WARN disclosed HSE sidecar schema mismatch, NOT folded")
             elif OUT.exists():
                 # Carry-forward (same philosophy as the LA listing-rot guard): the raw drop + its
                 # gitignored silver are absent (e.g. a cloud run), so regenerate-from-source is
@@ -312,7 +322,9 @@ def _load_facts() -> pl.DataFrame:
                 if _prior.height and set(df.columns) <= set(_prior.columns):
                     _prior = _prior.select(df.columns).cast(dict(df.schema))
                     df = pl.concat([df, _prior], how="vertical")
-                    print(f"    ! carry-forward disclosed HSE history (sidecar absent): kept {_prior.height:,} gold rows")
+                    print(
+                        f"    ! carry-forward disclosed HSE history (sidecar absent): kept {_prior.height:,} gold rows"
+                    )
         if base_cols is None:
             base_cols = set(df.columns)
         elif set(df.columns) != base_cols:
@@ -814,8 +826,10 @@ def main() -> None:
     # the published-description spend category. Schema/row/€ preserving (reconciliation-safe).
     df, _pf = clean_paid_flag(df)
     if _pf.get("n_leak"):
-        print(f"  paid_flag repair: cleared {_pf['n_leak']:,} leaked values, "
-              f"recovered {_pf.get('n_recovered', 0):,} category texts into description")
+        print(
+            f"  paid_flag repair: cleared {_pf['n_leak']:,} leaked values, "
+            f"recovered {_pf.get('n_recovered', 0):,} category texts into description"
+        )
     df = _conform(df)
     df = _attach_regime(df)
     df = _attach_cro(df)

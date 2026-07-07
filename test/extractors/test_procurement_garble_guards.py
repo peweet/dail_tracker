@@ -21,27 +21,31 @@ GOLD = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
 
 
 def test_drop_unattributable_removes_total_rows_only():
-    df = pl.DataFrame({
-        "supplier_raw": ["ACME LTD", "", None, "  "],
-        "description": ["Repairs", "", None, ""],
-        "po_number": ["123", "", None, ""],
-        "amount_eur": [1000.0, 155_000_000.0, 74_000_000.0, 50.0],
-    })
+    df = pl.DataFrame(
+        {
+            "supplier_raw": ["ACME LTD", "", None, "  "],
+            "description": ["Repairs", "", None, ""],
+            "po_number": ["123", "", None, ""],
+            "amount_eur": [1000.0, 155_000_000.0, 74_000_000.0, 50.0],
+        }
+    )
     out = _drop_unattributable(df, "test")
     assert out.height == 1  # only the real ACME row survives
     assert out["supplier_raw"].to_list() == ["ACME LTD"]
 
 
 def test_strip_bled_amount_only_when_equals_amount():
-    df = pl.DataFrame({
-        "description": [
-            "€80,000,000.00 Third Level Building",  # leading == amount -> strip
-            "70% Bitumen Emulsion",                  # spec, leading != amount -> keep
-            "240350384 Minor Contracts",             # code prefix != amount -> keep
-            "Repairs",                               # no leading number -> keep
-        ],
-        "amount_eur": [80_000_000.0, 30_985.78, 132_619.15, 500.0],
-    })
+    df = pl.DataFrame(
+        {
+            "description": [
+                "€80,000,000.00 Third Level Building",  # leading == amount -> strip
+                "70% Bitumen Emulsion",  # spec, leading != amount -> keep
+                "240350384 Minor Contracts",  # code prefix != amount -> keep
+                "Repairs",  # no leading number -> keep
+            ],
+            "amount_eur": [80_000_000.0, 30_985.78, 132_619.15, 500.0],
+        }
+    )
     out = _strip_bled_amount(df)
     assert out["description"].to_list() == [
         "Third Level Building",
@@ -62,11 +66,15 @@ def test_strip_bled_amount_preserves_amount_column():
 def test_gold_has_no_unattributable_rows():
     if not GOLD.exists():
         pytest.skip("gold fact not built")
-    n = duckdb.connect().execute(
-        f"SELECT count(*) FROM read_parquet('{GOLD.as_posix()}') "
-        "WHERE coalesce(trim(supplier_raw),'')='' AND coalesce(trim(description),'')='' "
-        "AND coalesce(trim(po_number),'')=''"
-    ).fetchone()[0]
+    n = (
+        duckdb.connect()
+        .execute(
+            f"SELECT count(*) FROM read_parquet('{GOLD.as_posix()}') "
+            "WHERE coalesce(trim(supplier_raw),'')='' AND coalesce(trim(description),'')='' "
+            "AND coalesce(trim(po_number),'')=''"
+        )
+        .fetchone()[0]
+    )
     assert n == 0, f"{n} unattributable (blank supplier+desc+po) rows leaked into gold"
 
 

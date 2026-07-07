@@ -52,6 +52,7 @@ def _guard_sipo(df: pl.DataFrame, *, name: str, money_cols: tuple[str, ...]) -> 
     rules = (ColumnRule("election_event", SIPO_ELECTION_EVENTS, "hard"),) if "election_event" in df.columns else ()
     enforce_contract(df, name=name, rules=rules, required_columns=("party",), nonnull_columns=()).raise_if_failed()
 
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 

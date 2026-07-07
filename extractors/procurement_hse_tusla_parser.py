@@ -175,6 +175,7 @@ def hse_spec_for(year: int | None) -> tuple[list[float], object]:
     """Return (x-cuts, row-builder) for an HSE file by its year (defaults to the historic layout)."""
     return (HSE_CUTS_BY_ERA.get(year or 0, [180, 270, 450, 515]), hse_row)
 
+
 # Tusla changes its PDF column geometry year to year (the NTA lesson). Word-centre x-cuts measured
 # 2026-06-13 from each yearly file; the builder/bucket count differs for 2025 (no Year column).
 # Years not listed fall back to the 2021/2023 layout.

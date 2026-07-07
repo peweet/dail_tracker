@@ -69,6 +69,12 @@ _EXPECTED_COLUMNS = {
         "n_real_excluded",
         "real_base_year",
         "deflator_index",
+        # sector-aware band (construction → SCSI tender-price index, others → CPI)
+        "n_awards_valued_real_sector",
+        "median_award_real_sector_eur",
+        "p25_award_real_sector_eur",
+        "p75_award_real_sector_eur",
+        "deflator_index_sector",
     },
     "payments_real_by_year": {
         "year",
@@ -484,7 +490,10 @@ def test_payment_leaf_flags_recurring_charges(conn):
     for r in (
         q.payment_lines_for_supplier(conn, norm, tier="SPENT"),
         q.payment_lines_for_pair(
-            conn, norm, q.payment_lines_for_supplier(conn, norm, tier="SPENT").data.iloc[0]["publisher_name"], tier="SPENT"
+            conn,
+            norm,
+            q.payment_lines_for_supplier(conn, norm, tier="SPENT").data.iloc[0]["publisher_name"],
+            tier="SPENT",
         ),
     ):
         assert r.ok and "recurring_years" in r.data.columns
@@ -619,6 +628,10 @@ def test_cpv_summary_real_columns_and_limit(conn):
         assert int(row["n_awards_valued_real"]) <= int(row["n_awards_valued"])
         assert int(row["n_real_excluded"]) == int(row["n_awards_valued"]) - int(row["n_awards_valued_real"])
         assert row["deflator_index"] == "CSO_CPA07_CPI"
+        # sector index is the tender-price index for construction CPVs (45*/71*), CPI otherwise
+        code = str(row["cpv_code"])
+        expected = "SCSI_TPI_CONSTRUCTION" if code[:2] in ("45", "71") else "CSO_CPA07_CPI"
+        assert row["deflator_index_sector"] == expected
 
 
 def test_payments_real_by_year_tier_filter_and_grain(conn):
@@ -644,3 +657,38 @@ def test_cpv_summary_real_missing_view_is_unavailable():
         assert q.cpv_summary_real(c).ok is False
     finally:
         c.close()
+
+
+def test_payments_real_trend_single_tier_uplift_and_cliff(conn):
+    r = _result_or_skip(q.payments_real_trend(conn, tier="SPENT"))
+    assert {
+        "year",
+        "realisation_tier",
+        "total_nominal_eur",
+        "total_nominal_adjustable_eur",
+        "total_real_eur",
+        "real_uplift_pct",
+        "n_unadjustable_lines",
+        "real_base_year",
+        "deflator_index",
+    }.issubset(set(r.data.columns))
+    assert set(r.data["realisation_tier"].unique()) <= {"SPENT"}  # one tier, never blended
+    assert (r.data["deflator_index"] == "CSO_GOV_CONSUMPTION").all()  # public money → gov-consumption
+    years = [int(y) for y in r.data["year"].dropna().tolist()]
+    assert years == sorted(years)  # chronological for the trend
+    # base-year uplift is ~0 (identity); older years carry a positive uplift
+    base = int(r.data["real_base_year"].dropna().iloc[0])
+    base_row = r.data[r.data["year"] == base]
+    if not base_row.empty and base_row.iloc[0]["real_uplift_pct"] is not None:
+        assert abs(float(base_row.iloc[0]["real_uplift_pct"])) < 0.5
+    # the coverage cliff is honest: years past the deflator carry unadjustable lines + null uplift
+    post = r.data[r.data["year"] > base]
+    if not post.empty:
+        assert (post["n_unadjustable_lines"] > 0).any()
+
+
+def test_payments_real_trend_tier_whitelist(conn):
+    # An injection-shaped tier falls back to SPENT (no raw string reaches SQL).
+    r = q.payments_real_trend(conn, tier="'; DROP TABLE x; --")
+    if r.ok and not r.is_empty:
+        assert set(r.data["realisation_tier"].unique()) <= {"SPENT"}

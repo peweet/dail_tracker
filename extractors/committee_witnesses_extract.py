@@ -74,7 +74,8 @@ _HEADING_TOPIC_PREFIX = re.compile(
 )
 _HEADING_CHAPTER_PREFIX = re.compile(r"^Chapter\s+\d+\s*[-–—:]\s*", re.I)
 _HEADING_ACCOUNTING_TAIL = re.compile(
-    r"\s*[-–—:]\s*(?:Financial Statements|Appropriation Accounts|Annual Report)\b.*$", re.I)
+    r"\s*[-–—:]\s*(?:Financial Statements|Appropriation Accounts|Annual Report)\b.*$", re.I
+)
 # Headings that are pure topics/accounting artefacts (no body to extract) — dropped.
 _HEADING_DROP = re.compile(
     r"^(?:Appropriation Accounts|Financial Statements|Report on the Accounts|"
@@ -94,21 +95,35 @@ _WELCOME_PATTERNS = [
 # Tightening: a welcome capture often runs into the name list / time / clause that follows.
 # Cut at the first of these boundaries.
 _WELCOME_TAIL_CUT = re.compile(
-    r"\s+(?:Mr|Ms|Mrs|Dr|Professor)\b.*$|"      # name list begins
-    r"\s+(?:at|from)\s+\d.*$|"                    # "... at 10", "... from 10"
+    r"\s+(?:Mr|Ms|Mrs|Dr|Professor)\b.*$|"  # name list begins
+    r"\s+(?:at|from)\s+\d.*$|"  # "... at 10", "... from 10"
     r"\s+(?:immediately|on completion|were before|to make|to give|to discuss|who).*$",  # trailing clause
     re.I,
 )
 
 # Bare generic captures (over-trimmed welcome text) that name no specific body — dropped.
-_GENERIC_ORG = {"department", "departments", "office", "agency", "committee", "board",
-                "commission", "council", "minister", "officials", "representatives"}
+_GENERIC_ORG = {
+    "department",
+    "departments",
+    "office",
+    "agency",
+    "committee",
+    "board",
+    "commission",
+    "council",
+    "minister",
+    "officials",
+    "representatives",
+}
 
 # Procedural session headings that are housekeeping, not a topic of the meeting —
 # excluded from the per-meeting TOPIC list (the timeline spine). The witness-org
 # parser already ignores "business of"; the meeting topics drop the same noise.
-_TOPIC_DROP = re.compile(r"^\s*(?:business of|minutes|votes? and proceedings|"
-                         r"any other business|agenda|introduction)\b", re.I)
+_TOPIC_DROP = re.compile(
+    r"^\s*(?:business of|minutes|votes? and proceedings|"
+    r"any other business|agenda|introduction)\b",
+    re.I,
+)
 
 _TAG = re.compile(r"<[^>]+>")
 _FROM = re.compile(r"<from[^>]*>(.*?)</from>", re.S)
@@ -163,15 +178,15 @@ def _clean_heading_org(h: str) -> str | None:
     if not h or h.lower().startswith("business of") or _HEADING_DROP.search(h):
         return None
     org = _HEADING_FORMAT_TAIL.sub("", h).strip()
-    vm = re.match(r"Vote\s+\d+\s*[-–—]\s*(.+)", org)          # "Vote 45 - Dept ..." -> dept
+    vm = re.match(r"Vote\s+\d+\s*[-–—]\s*(.+)", org)  # "Vote 45 - Dept ..." -> dept
     if vm:
         org = vm.group(1).strip()
     fm = re.match(r"(?:Financial Statements|Appropriation Accounts)[^:]*:\s*(.+)", org, re.I)
-    if fm:                                                     # "...: National Training Fund" -> body
+    if fm:  # "...: National Training Fund" -> body
         org = fm.group(1).strip()
     org = _HEADING_CHAPTER_PREFIX.sub("", org)
-    org = _HEADING_ACCOUNTING_TAIL.sub("", org).strip()       # "Body – Financial Statements 2024" -> Body
-    org = _HEADING_TOPIC_PREFIX.sub("", org).strip()          # "Operations of X" -> X
+    org = _HEADING_ACCOUNTING_TAIL.sub("", org).strip()  # "Body – Financial Statements 2024" -> Body
+    org = _HEADING_TOPIC_PREFIX.sub("", org).strip()  # "Operations of X" -> X
     return org if 3 < len(org) < 90 else None
 
 
@@ -249,9 +264,13 @@ def run(codes: set[str] | None, since: str, max_per_committee: int) -> None:
             continue
         counts[code] = counts.get(code, 0) + 1
         capped.append(rec)
-    logger.info("scanning %d meetings across %d committees since %s%s",
-                len(capped), len(counts), since,
-                f" (--max-meetings cap dropped {skipped_cap} older meetings)" if skipped_cap else "")
+    logger.info(
+        "scanning %d meetings across %d committees since %s%s",
+        len(capped),
+        len(counts),
+        since,
+        f" (--max-meetings cap dropped {skipped_cap} older meetings)" if skipped_cap else "",
+    )
 
     meeting_rows: list[dict] = []
     org_rows: list[dict] = []
@@ -263,18 +282,24 @@ def run(codes: set[str] | None, since: str, max_per_committee: int) -> None:
         ev = extract_meeting(rec)
         if not ev["reconciled"]:
             dropped += 1
-            logger.warning("DROP unreconciled meeting api=%s frbr=%s date=%s",
-                           ev["committee_code"], ev["frbr_path_code"], ev["date"])
+            logger.warning(
+                "DROP unreconciled meeting api=%s frbr=%s date=%s",
+                ev["committee_code"],
+                ev["frbr_path_code"],
+                ev["date"],
+            )
             continue
         base = {k: ev[k] for k in ("committee_code", "committee_name", "house_no", "date", "source_xml")}
         # per-meeting spine: one row per (committee, date) with topics + counts.
-        meeting_rows.append({
-            **base,
-            "topics": ev["topics"],
-            "n_topics": len(ev["topics"]),
-            "n_orgs": len(ev["orgs"]),
-            "n_persons": len(ev["persons"]),
-        })
+        meeting_rows.append(
+            {
+                **base,
+                "topics": ev["topics"],
+                "n_topics": len(ev["topics"]),
+                "n_orgs": len(ev["orgs"]),
+                "n_persons": len(ev["persons"]),
+            }
+        )
         for o in ev["orgs"]:
             org_rows.append({**base, **o})
         for p in ev["persons"]:
@@ -287,28 +312,47 @@ def run(codes: set[str] | None, since: str, max_per_committee: int) -> None:
         return
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    meetings_df = pl.DataFrame(meeting_rows).unique(["committee_code", "date"]).sort(
-        ["committee_code", "date"], descending=[False, True])
-    orgs_df = pl.DataFrame(org_rows).unique(["committee_code", "date", "witness_org"]).sort(
-        ["committee_code", "date", "witness_org"]) if org_rows else pl.DataFrame()
-    persons_df = pl.DataFrame(person_rows).unique(["committee_code", "date", "witness_person"]).sort(
-        ["committee_code", "date", "witness_person"]) if person_rows else pl.DataFrame()
+    meetings_df = (
+        pl.DataFrame(meeting_rows)
+        .unique(["committee_code", "date"])
+        .sort(["committee_code", "date"], descending=[False, True])
+    )
+    orgs_df = (
+        pl.DataFrame(org_rows)
+        .unique(["committee_code", "date", "witness_org"])
+        .sort(["committee_code", "date", "witness_org"])
+        if org_rows
+        else pl.DataFrame()
+    )
+    persons_df = (
+        pl.DataFrame(person_rows)
+        .unique(["committee_code", "date", "witness_person"])
+        .sort(["committee_code", "date", "witness_person"])
+        if person_rows
+        else pl.DataFrame()
+    )
     save_parquet(meetings_df, OUT_DIR / "committee_meetings.parquet")
     if not orgs_df.is_empty():
         save_parquet(orgs_df, OUT_DIR / "committee_witnesses.parquet")
     if not persons_df.is_empty():
         save_parquet(persons_df, OUT_DIR / "committee_witness_persons.parquet")
-    logger.info("wrote %d meeting rows, %d witness-org rows, %d witness-person rows -> %s",
-                meetings_df.height, orgs_df.height, persons_df.height, OUT_DIR)
+    logger.info(
+        "wrote %d meeting rows, %d witness-org rows, %d witness-person rows -> %s",
+        meetings_df.height,
+        orgs_df.height,
+        persons_df.height,
+        OUT_DIR,
+    )
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Committee-evidence witness extractor (-> silver).")
-    ap.add_argument("--committees", default="all",
-                    help="'all' (default, every committee) or a comma list of named shortcuts: "
-                         + ",".join(COMMITTEES))
-    ap.add_argument("--max-meetings", type=int, default=0,
-                    help="cap meetings PER committee (0 = no cap; newest first)")
+    ap.add_argument(
+        "--committees",
+        default="all",
+        help="'all' (default, every committee) or a comma list of named shortcuts: " + ",".join(COMMITTEES),
+    )
+    ap.add_argument("--max-meetings", type=int, default=0, help="cap meetings PER committee (0 = no cap; newest first)")
     ap.add_argument("--since", default="2024-09-01", help="ignore meetings before this ISO date")
     args = ap.parse_args()
     setup_standalone_logging("committee_witnesses")

@@ -222,9 +222,9 @@ def main() -> None:
     pl.Config.set_fmt_str_lengths(34)
     pl.Config.set_tbl_rows(12)
     print(
-        xref.filter(pl.col("cross_register_count") >= 2).select(
-            "display_name", "company_num", "lobby_returns", "corporate_notices", "is_charity", "has_epa_licence"
-        ).head(12)
+        xref.filter(pl.col("cross_register_count") >= 2)
+        .select("display_name", "company_num", "lobby_returns", "corporate_notices", "is_charity", "has_epa_licence")
+        .head(12)
     )
     print(f"\nwrote {OUT}\nwrote coverage {OUT_COV}")
 

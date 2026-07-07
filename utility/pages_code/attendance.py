@@ -160,11 +160,7 @@ def _absence_row(row: pd.Series) -> str:
         span = f"{start.strftime('%d %b')} → {end.strftime('%d %b %Y')}"
     cal = int(row.get("run_calendar_days") or 0)
     has_reason = bool(str(row.get("source_url", "") or ""))
-    reason_html = (
-        _news_chip(row)
-        if has_reason
-        else '<span class="part-noexpl">No public explanation found</span>'
-    )
+    reason_html = _news_chip(row) if has_reason else '<span class="part-noexpl">No public explanation found</span>'
     inner = (
         f'<div class="part-absence-row">'
         f'<div class="part-absence-id">'
@@ -311,8 +307,11 @@ def attendance_page() -> None:
     if qp_legacy:
         st.query_params.pop("member", None)
         member_moved_callout(
-            qp_legacy, section="attendance", section_label="Per-member participation",
-            legacy_param="att_td", state_keys=("selected_td_att",),
+            qp_legacy,
+            section="attendance",
+            section_label="Per-member participation",
+            legacy_param="att_td",
+            state_keys=("selected_td_att",),
         )
 
     hide_sidebar()
@@ -326,8 +325,11 @@ def attendance_page() -> None:
 
     house = (
         st.segmented_control(
-            "Chamber", options=["Dáil", "Seanad"], default="Dáil",
-            key="part_house", label_visibility="collapsed",
+            "Chamber",
+            options=["Dáil", "Seanad"],
+            default="Dáil",
+            key="part_house",
+            label_visibility="collapsed",
         )
         or "Dáil"
     )
@@ -364,20 +366,21 @@ def attendance_page() -> None:
     # NOT a chamber-wide ranking. Routes to /member-overview#attendance.
     turnout = _fetch_turnout(selected_year, house)  # used for the member list + CSV
     evidence_heading(f"Look up a {term.lower()}'s participation")
-    st.caption(
-        f"How often any {term.lower()} voted this term, and any stretches they were "
-        "absent — on their profile."
-    )
+    st.caption(f"How often any {term.lower()} voted this term, and any stretches they were absent — on their profile.")
     if not turnout.empty:
         picked = member_jump_panel(
             sorted(turnout["member_name"].tolist()),
-            search_key_prefix="part", session_key="selected_td_att",
+            search_key_prefix="part",
+            session_key="selected_td_att",
             label=f"Find a {term.lower()}",
-            notable=None if is_seanad else NOTABLE_TDS, chip_key_prefix="chip_part",
+            notable=None if is_seanad else NOTABLE_TDS,
+            chip_key_prefix="chip_part",
         )
         if picked:
             member_moved_callout(
-                picked, section="attendance", section_label="Per-member participation",
+                picked,
+                section="attendance",
+                section_label="Per-member participation",
                 state_keys=("selected_td_att",),
             )
 
@@ -401,8 +404,9 @@ def attendance_page() -> None:
     # Full participation table stays exportable (data access without a leaderboard).
     if not turnout.empty:
         export_button(
-            turnout[["member_name", "party_name", "constituency", "voted_in", "missed",
-                     "total_divisions", "turnout_pct"]],
+            turnout[
+                ["member_name", "party_name", "constituency", "voted_in", "missed", "total_divisions", "turnout_pct"]
+            ],
             label=f"Export full participation table · {len(turnout)} {terms.lower()}",
             filename=f"dail_tracker_participation_{house.lower()}_{selected_year}.csv",
             key="part_turnout_export",
@@ -416,8 +420,7 @@ def _render_provenance(year: int | None, house: str) -> None:
     provenance_expander(
         sections=[_CAVEAT, _TURNOUT_NOTE.format(chamber=house), _TAA_NOTE],
         source_caption=(
-            "Data: Oireachtas division records + TAA verification (data.oireachtas.ie)"
-            + (f" · {year}" if year else "")
+            "Data: Oireachtas division records + TAA verification (data.oireachtas.ie)" + (f" · {year}" if year else "")
         ),
         pdf_links=pdf_links,
     )

@@ -27,6 +27,7 @@ import pandas as pd
 import streamlit as st
 
 from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.queries import entity as _ent
 from dail_tracker_core.queries import procurement as _q
 from dail_tracker_core.results import QueryResult
 
@@ -36,6 +37,15 @@ _ROOT = Path(__file__).resolve().parents[2]
 @st.cache_resource
 def get_procurement_conn() -> duckdb.DuckDBPyConnection:
     return connect_with_views(["procurement_*.sql"], swallow_errors=True)
+
+
+@st.cache_data(ttl=300)
+def fetch_entity_xref_result(supplier_norm: str) -> QueryResult:
+    """One supplier's cross-register presence row from the organisation-360 spine
+    (v_supplier_entity_xref): CRO / lobbying / corporate-notice / charity / EPA flags +
+    counts, fused on the canonical name key. Retrieval only — the extractor + view own the
+    logic; the page renders from this. Empty QueryResult when the supplier isn't on the spine."""
+    return _ent.xref_summary(get_procurement_conn(), supplier_norm)
 
 
 @st.cache_data(ttl=600)
@@ -106,6 +116,14 @@ def fetch_payments_real_by_year_result(tier: str | None = None) -> QueryResult:
     separate by realisation_tier × vat_status (v_procurement_payments_real_by_year). Cached
     pass-through; the never-sum-across-tier discipline is enforced in the view."""
     return _q.payments_real_by_year(get_procurement_conn(), tier=tier)
+
+
+@st.cache_data(ttl=600)
+def fetch_payments_real_trend_result(tier: str = "SPENT") -> QueryResult:
+    """Per-year public-spend total, nominal vs real (government-consumption deflator) + the
+    per-year uplift, for the real-terms trend chart (v_procurement_payments_real_trend). Year-level
+    indicative floor, one tier. Cached pass-through — the rollup + uplift live in the view."""
+    return _q.payments_real_trend(get_procurement_conn(), tier=tier)
 
 
 @st.cache_data(ttl=3600)

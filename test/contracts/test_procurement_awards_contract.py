@@ -73,9 +73,7 @@ class ProcurementAwardsSchema(pa.DataFrameModel):
         df = _df(data)
         if "value_safe_to_sum" not in df.columns or "value_eur" not in df.columns:
             return True
-        bad = df.filter(
-            pl.col("value_safe_to_sum") & (pl.col("value_eur").is_null() | (pl.col("value_eur") <= 0))
-        )
+        bad = df.filter(pl.col("value_safe_to_sum") & (pl.col("value_eur").is_null() | (pl.col("value_eur") <= 0)))
         return bad.height == 0
 
 

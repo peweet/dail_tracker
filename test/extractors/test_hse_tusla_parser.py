@@ -51,11 +51,11 @@ def test_cols_by_xcuts_buckets_by_word_centre():
     exact: a word straddling a cut belongs to whichever side its midpoint lands on."""
     words = [
         _w(100, 140, "ACME"),  # centre 120  -> bucket 0 (<180)
-        _w(150, 170, "LTD"),   # centre 160  -> bucket 0 (<180)
+        _w(150, 170, "LTD"),  # centre 160  -> bucket 0 (<180)
         _w(200, 240, "PO123"),  # centre 220  -> bucket 1 (180-270)
-        _w(300, 400, "GL"),    # centre 350  -> bucket 2 (270-450)
+        _w(300, 400, "GL"),  # centre 350  -> bucket 2 (270-450)
         _w(460, 500, "1,234.50"),  # centre 480 -> bucket 3 (450-515)
-        _w(520, 560, "Q4"),    # centre 540  -> bucket 4 (>515)
+        _w(520, 560, "Q4"),  # centre 540  -> bucket 4 (>515)
         _w(565, 600, "2021"),  # centre 582  -> bucket 4 (>515)
     ]
     assert cols_by_xcuts(words, [180, 270, 450, 515]) == [

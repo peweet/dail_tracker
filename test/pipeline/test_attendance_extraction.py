@@ -53,6 +53,7 @@ def _member_page(doc, name, sitting_dates, other_dates, sub_sitting=None, sub_ot
 
 # ── _parse_member_name ───────────────────────────────────────────────────────
 
+
 def test_parse_member_name_split_on_first_space():
     """identifier = raw header spaces→underscores; name split on the FIRST space only,
     so a multi-word surname keeps the join key (identifier) stable."""
@@ -68,6 +69,7 @@ def test_parse_member_name_single_token():
 
 
 # ── x-coordinate column assignment (the core fix) ────────────────────────────
+
 
 def test_dates_split_into_sitting_vs_other_by_x():
     doc = fitz.open()
@@ -105,10 +107,10 @@ def test_continuation_page_dates_attributed_to_member():
 
 # ── published-Sub-total reconciliation ───────────────────────────────────────
 
+
 def test_published_totals_parsed_from_subtotal_block():
     doc = fitz.open()
-    _member_page(doc, "Murphy Ann", ["01/01/2024", "02/01/2024"], ["08/01/2024"],
-                 sub_sitting=2, sub_other=1)
+    _member_page(doc, "Murphy Ann", ["01/01/2024", "02/01/2024"], ["08/01/2024"], sub_sitting=2, sub_other=1)
     totals = att._published_totals_for_doc(doc)
     assert totals["Murphy_Ann"] == (2, 1)
 
@@ -117,8 +119,9 @@ def test_extracted_counts_match_published_subtotals(tmp_path):
     """The reconciler must report zero mismatches when the x-split assignment reproduces
     the PDF's own published figures — this is the bug's regression tripwire."""
     doc = fitz.open()
-    _member_page(doc, "Murphy Ann", ["01/01/2024", "02/01/2024", "03/01/2024"], ["08/01/2024"],
-                 sub_sitting=3, sub_other=1)
+    _member_page(
+        doc, "Murphy Ann", ["01/01/2024", "02/01/2024", "03/01/2024"], ["08/01/2024"], sub_sitting=3, sub_other=1
+    )
     pdf = tmp_path / "verification-of-attendance-2024.pdf"
     doc.save(str(pdf))
     assert att._reconcile_against_published(tmp_path) == 0
@@ -128,14 +131,16 @@ def test_reconcile_flags_a_dropped_sitting_day(tmp_path):
     """If the published sub-total claims more sitting days than the geometry yields, the
     reconciler must count a mismatch (i.e. it would catch a regression of the bug)."""
     doc = fitz.open()
-    _member_page(doc, "Murphy Ann", ["01/01/2024"], ["08/01/2024"],
-                 sub_sitting=5, sub_other=1)  # published 5, only 1 extractable
+    _member_page(
+        doc, "Murphy Ann", ["01/01/2024"], ["08/01/2024"], sub_sitting=5, sub_other=1
+    )  # published 5, only 1 extractable
     pdf = tmp_path / "verification-of-attendance-2024.pdf"
     doc.save(str(pdf))
     assert att._reconcile_against_published(tmp_path) == 1
 
 
 # ── _build_fact_table counting ───────────────────────────────────────────────
+
 
 def test_build_fact_table_counts_unique_days_per_member_year(tmp_path):
     """sitting/other counts are distinct days per (identifier, year); the total is their

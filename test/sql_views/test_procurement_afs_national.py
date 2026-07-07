@@ -84,9 +84,7 @@ def test_by_year_reconciles_to_division_sum(con):
 
 
 def test_by_year_is_eight_years_ascending(con):
-    rows = con.execute(
-        "SELECT year FROM v_procurement_afs_national_by_year ORDER BY year"
-    ).fetchall()
+    rows = con.execute("SELECT year FROM v_procurement_afs_national_by_year ORDER BY year").fetchall()
     years = [r[0] for r in rows]
     assert years == sorted(years)
     assert years == list(range(2016, 2024))
@@ -95,11 +93,6 @@ def test_by_year_is_eight_years_ascending(con):
 def test_budget_grain_firewall_fields_present(con):
     """realisation_tier + value_kind ride along so this BUDGET grain is never unioned/summed
     with the narrower over-€20k PO euros (see project_procurement_phase_taxonomy)."""
-    cols = [
-        d[0]
-        for d in con.execute(
-            "SELECT * FROM v_procurement_afs_national_by_division LIMIT 0"
-        ).description
-    ]
+    cols = [d[0] for d in con.execute("SELECT * FROM v_procurement_afs_national_by_division LIMIT 0").description]
     assert "realisation_tier" in cols
     assert "value_kind" in cols

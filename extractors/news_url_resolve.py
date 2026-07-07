@@ -45,8 +45,12 @@ def run(max_resolve: int, delay: float) -> int:
     if not pending:
         log.info("no Google-News redirect URLs pending — all %d rows already point at publishers", df.height)
         return 0
-    log.info("resolving %d Google-News redirect URLs (%d total rows)%s",
-             len(pending), df.height, f", capped at {max_resolve}" if max_resolve else "")
+    log.info(
+        "resolving %d Google-News redirect URLs (%d total rows)%s",
+        len(pending),
+        df.height,
+        f", capped at {max_resolve}" if max_resolve else "",
+    )
 
     mapping = resolve_many(pending, make_session(), delay=delay, max_resolve=max_resolve)
     if not mapping:
@@ -54,9 +58,7 @@ def run(max_resolve: int, delay: float) -> int:
         return 0
 
     # Replace only the URLs we resolved; everything else (real URLs, failures) is unchanged.
-    df = df.with_columns(
-        pl.col("article_url").replace(mapping).alias("article_url")
-    )
+    df = df.with_columns(pl.col("article_url").replace(mapping).alias("article_url"))
     still_pending = sum(1 for u in df["article_url"].to_list() if is_gn_redirect(u))
     save_parquet(df, OUT)
     log.info("rewrote %d URLs -> real publishers (%d still pending) -> %s", len(mapping), still_pending, OUT)

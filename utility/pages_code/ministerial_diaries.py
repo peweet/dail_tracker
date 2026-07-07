@@ -382,18 +382,26 @@ def _brief_bullets(items: list, color: str) -> str:
 def _brief_card_html(row: pd.Series) -> str:
     parts: list[str] = []
     if row.get("vision_mission"):
-        parts.append(f'<div style="font-style:italic;color:#555;margin-bottom:0.3rem;">“{_h(row["vision_mission"])}”</div>')
+        parts.append(
+            f'<div style="font-style:italic;color:#555;margin-bottom:0.3rem;">“{_h(row["vision_mission"])}”</div>'
+        )
     if row.get("strategic_goals") is not None and len(row["strategic_goals"]):
         parts.append('<div style="font-weight:600;font-size:0.82rem;color:#1d6a8c;">Strategic goals</div>')
         parts.append(_brief_bullets(row["strategic_goals"], "#222"))
     if row.get("immediate_priorities") is not None and len(row["immediate_priorities"]):
-        parts.append('<div style="font-weight:600;font-size:0.82rem;color:#b8430f;margin-top:0.4rem;">Immediate priorities</div>')
+        parts.append(
+            '<div style="font-weight:600;font-size:0.82rem;color:#b8430f;margin-top:0.4rem;">Immediate priorities</div>'
+        )
         parts.append(_brief_bullets(row["immediate_priorities"], "#222"))
     if row.get("machinery_of_government") is not None and len(row["machinery_of_government"]):
-        parts.append('<div style="font-weight:600;font-size:0.82rem;color:#6a1b9a;margin-top:0.4rem;">Machinery-of-government changes</div>')
+        parts.append(
+            '<div style="font-weight:600;font-size:0.82rem;color:#6a1b9a;margin-top:0.4rem;">Machinery-of-government changes</div>'
+        )
         parts.append(_brief_bullets(row["machinery_of_government"], "#222"))
     if row.get("key_issue_areas") is not None and len(row["key_issue_areas"]):
-        parts.append('<div style="font-weight:600;font-size:0.82rem;color:#555;margin-top:0.4rem;">Key issue areas</div>')
+        parts.append(
+            '<div style="font-weight:600;font-size:0.82rem;color:#555;margin-top:0.4rem;">Key issue areas</div>'
+        )
         parts.append(_brief_chips(row["key_issue_areas"]))
     parts.append(
         f'<div style="margin-top:0.5rem;font-size:0.74rem;color:#888;">{_h(row["edition"])} · '

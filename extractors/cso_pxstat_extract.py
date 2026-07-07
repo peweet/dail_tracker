@@ -282,7 +282,7 @@ def build_cpi_deflator(cpa07: pl.DataFrame, base_year: int = DEFLATOR_BASE_YEAR)
     label_col = next((c for c in ("Statistic Label", "STATISTIC Label", "Statistic") if c in cpa07.columns), None)
     if label_col is None:
         raise ValueError("CPA07: no Statistic label column found")
-    pct_label = next(l for l in cpa07[label_col].unique().to_list() if "Percentage Change" in l)
+    pct_label = next(lbl for lbl in cpa07[label_col].unique().to_list() if "Percentage Change" in lbl)
     pct = (
         cpa07.filter((pl.col("Commodity Group") == "All Items") & (pl.col(label_col) == pct_label))
         .select(
@@ -298,7 +298,7 @@ def build_cpi_deflator(cpa07: pl.DataFrame, base_year: int = DEFLATOR_BASE_YEAR)
     # Chain-link into a continuous index (first available year = 100.0).
     level = 100.0
     rows = []
-    for yr, p in zip(pct["Year"].to_list(), pct["cpi_pct_change"].to_list()):
+    for yr, p in zip(pct["Year"].to_list(), pct["cpi_pct_change"].to_list(), strict=False):
         level *= 1 + p / 100.0
         rows.append({"year": yr, "cpi_pct_change": p, "cpi_index_chained": round(level, 6)})
     idx = pl.DataFrame(rows)
@@ -317,7 +317,9 @@ def build_cpi_deflator(cpa07: pl.DataFrame, base_year: int = DEFLATOR_BASE_YEAR)
 _GOV_ITEM = "Final consumption expenditure of government"  # ESA P.3 — the clean govt-consumption aggregate
 
 
-def build_govt_consumption_deflator(na007: pl.DataFrame, na008: pl.DataFrame, base_year: int | None = None) -> pl.DataFrame:
+def build_govt_consumption_deflator(
+    na007: pl.DataFrame, na008: pl.DataFrame, base_year: int | None = None
+) -> pl.DataFrame:
     """Government final consumption expenditure (GFCE) IMPLIED deflator = current / constant.
 
     The agency-standard way to deflate public spending (cf. HM Treasury's GDP deflator). We use
@@ -326,6 +328,7 @@ def build_govt_consumption_deflator(na007: pl.DataFrame, na008: pl.DataFrame, ba
     NA currently ends 2024). Columns: year, gov_price_index (implied price = current/constant),
     deflator_to_base (= price[base]/price[year]; 1.0 at base), base_year. Pure arithmetic.
     """
+
     def _series(df: pl.DataFrame) -> dict[int, float]:
         s = (
             df.filter(pl.col("Item").str.contains(_GOV_ITEM, literal=True))
@@ -379,7 +382,9 @@ def build_construction_materials_deflator(wpm39: pl.DataFrame, base_year: int = 
         .filter(pl.col("n_months") == 12)  # complete years only
         .sort("year")
     )
-    idx = {int(r["year"]): round(float(r["idx"]), 6) for r in lvl.iter_rows(named=True)}  # round first (parity contract)
+    idx = {
+        int(r["year"]): round(float(r["idx"]), 6) for r in lvl.iter_rows(named=True)
+    }  # round first (parity contract)
     if base_year not in idx:
         raise ValueError(f"construction-materials deflator: base year {base_year} not a complete year in WPM39")
     rows = [
@@ -398,10 +403,10 @@ def build_scsi_tpi_deflator(base_year: int = 2025) -> pl.DataFrame:
     """
     csv = _ROOT / "data" / "_meta" / "scsi_tender_price_index.csv"
     tpi = pl.read_csv(csv, comment_prefix="#")
-    ann = (
-        tpi.group_by("year").agg(pl.col("index_base_1998h1").mean().alias("idx")).sort("year")
-    )
-    idx = {int(r["year"]): round(float(r["idx"]), 6) for r in ann.iter_rows(named=True)}  # round first (parity contract)
+    ann = tpi.group_by("year").agg(pl.col("index_base_1998h1").mean().alias("idx")).sort("year")
+    idx = {
+        int(r["year"]): round(float(r["idx"]), 6) for r in ann.iter_rows(named=True)
+    }  # round first (parity contract)
     if base_year not in idx:
         raise ValueError(f"SCSI TPI deflator: base year {base_year} absent")
     rows = [
@@ -416,9 +421,13 @@ def _build_derived_deflators(frames: dict[str, pl.DataFrame], dry_run: bool) -> 
     Each is additive and idempotent; a missing/failed source skips just that deflator."""
     jobs = []
     if "NA007" in frames and "NA008" in frames:
-        jobs.append(("cso_govt_consumption_deflator", lambda: build_govt_consumption_deflator(frames["NA007"], frames["NA008"])))
+        jobs.append(
+            ("cso_govt_consumption_deflator", lambda: build_govt_consumption_deflator(frames["NA007"], frames["NA008"]))
+        )
     if "WPM39" in frames:
-        jobs.append(("cso_construction_materials_deflator", lambda: build_construction_materials_deflator(frames["WPM39"])))
+        jobs.append(
+            ("cso_construction_materials_deflator", lambda: build_construction_materials_deflator(frames["WPM39"]))
+        )
     # TPI is sourced from the committed _meta CSV (no network) — only rebuild it alongside a
     # deflator-relevant run so a housing-only pull doesn't touch it.
     if frames.keys() & {"CPA07", "NA007", "NA008", "WPM39"}:

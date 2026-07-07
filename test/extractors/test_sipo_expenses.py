@@ -92,9 +92,17 @@ def test_no_duplicate_candidate_rows(df):
 
 
 def test_no_candidate_in_two_parties(df):
-    # a person stands for exactly one party at a general election (ignore blank names)
+    # A person stands for exactly one party in a given constituency at a general election.
+    # Key on (name, constituency), NOT name alone: two *different* people can share a name
+    # across constituencies (e.g. GE2024 has a Fine Gael "Barry Ward" in Dún Laoghaire and a
+    # separate Irish Freedom Party "Barry Ward" in Dublin South-Central). Both are legitimate;
+    # only the SAME (name, constituency) appearing under two parties signals a real mismatch.
     named = df.filter(pl.col("candidate_name_raw").str.strip_chars() != "")
-    multi = named.group_by("candidate_name_raw").agg(pl.col("party").n_unique().alias("n")).filter(pl.col("n") > 1)
+    multi = (
+        named.group_by("candidate_name_raw", "constituency")
+        .agg(pl.col("party").n_unique().alias("n"))
+        .filter(pl.col("n") > 1)
+    )
     assert multi.height == 0, multi.to_dicts()
 
 

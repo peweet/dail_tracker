@@ -52,8 +52,10 @@ def main() -> None:
     print(f"  items     -> sipo_ge2020_expense_items.parquet ({items.height} rows)")
     print(f"  categories-> sipo_ge2020_expense_categories.parquet ({cats.height} rows)")
     ov = cats.filter(pl.col("is_overall"))
-    print(f"  parties with a printed overall: {ov['party'].n_unique()} "
-          f"(reconciling item detail: {ov.filter(pl.col('reconciles'))['party'].n_unique()})")
+    print(
+        f"  parties with a printed overall: {ov['party'].n_unique()} "
+        f"(reconciling item detail: {ov.filter(pl.col('reconciles'))['party'].n_unique()})"
+    )
     print("done.")
 
 

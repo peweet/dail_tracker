@@ -90,7 +90,10 @@ INDEX_REGISTRY: dict[str, dict] = {
 
 def list_indices() -> list[dict]:
     """The registry as a list of {code, label, applies_to, source, caveat} — for a UI/API picker."""
-    return [{"code": c, **{k: v for k, v in spec.items() if k != "index_col" and k != "file"}} for c, spec in INDEX_REGISTRY.items()]
+    return [
+        {"code": c, **{k: v for k, v in spec.items() if k != "index_col" and k != "file"}}
+        for c, spec in INDEX_REGISTRY.items()
+    ]
 
 
 class Deflator:
@@ -106,21 +109,21 @@ class Deflator:
 
     # ---- constructors -------------------------------------------------------
     @classmethod
-    def load(cls, path: Path | str = _DEFAULT_PATH) -> "Deflator":
+    def load(cls, path: Path | str = _DEFAULT_PATH) -> Deflator:
         """Load the CPI deflator from a precomputed gold parquet (the cached index). Kept for
         backward compatibility; for any other index use ``load_index``."""
         import polars as pl
 
         df = pl.read_parquet(path)
         base = int(df["base_year"][0])
-        idx = {int(y): float(v) for y, v in zip(df["year"], df["cpi_index_chained"])}
+        idx = {int(y): float(v) for y, v in zip(df["year"], df["cpi_index_chained"], strict=False)}
         d = cls(idx, base)
         d.index_code = DEFAULT_INDEX
         d.meta = INDEX_REGISTRY[DEFAULT_INDEX]
         return d
 
     @classmethod
-    def load_index(cls, index_code: str = DEFAULT_INDEX, gold_dir: Path | str = _GOLD) -> "Deflator":
+    def load_index(cls, index_code: str = DEFAULT_INDEX, gold_dir: Path | str = _GOLD) -> Deflator:
         """Load ANY registered index by code (CPI / government-consumption / construction TPI /
         materials). Mirrors palewire ``cpi``'s ``series_id`` selector. The returned Deflator
         carries ``.index_code`` and ``.meta`` (label/source/caveat) so a consumer can always
@@ -132,7 +135,7 @@ class Deflator:
             raise KeyError(f"unknown index_code {index_code!r}; known: {sorted(INDEX_REGISTRY)}")
         df = pl.read_parquet(Path(gold_dir) / spec["file"])
         base = int(df["base_year"][0])
-        idx = {int(y): float(v) for y, v in zip(df["year"], df[spec["index_col"]])}
+        idx = {int(y): float(v) for y, v in zip(df["year"], df[spec["index_col"]], strict=False)}
         d = cls(idx, base)
         d.index_code = index_code
         d.meta = spec
@@ -191,8 +194,8 @@ class Deflator:
 # This is DISTINCT from value_safe_to_sum (a dedup/ceiling concern): it catches parse
 # artefacts — sub-€100 noise (e.g. a year/qty mis-read into the value), giant typos — BEFORE
 # any deflation can scale them. Tuned to the eTenders extractor's own constants.
-PLAUSIBLE_FLOOR_EUR = 100.0          # below this, a "contract award/payment" is almost certainly noise
-PLAUSIBLE_CEILING_EUR = 5e8          # generic upper sanity bound; awards pass the tighter €50m review floor
+PLAUSIBLE_FLOOR_EUR = 100.0  # below this, a "contract award/payment" is almost certainly noise
+PLAUSIBLE_CEILING_EUR = 5e8  # generic upper sanity bound; awards pass the tighter €50m review floor
 
 
 def value_plausible_expr(col, lo: float = PLAUSIBLE_FLOOR_EUR, hi: float = PLAUSIBLE_CEILING_EUR):

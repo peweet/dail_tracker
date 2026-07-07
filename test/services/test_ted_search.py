@@ -44,12 +44,16 @@ def test_single_page_returns_all_notices():
 @responses.activate
 def test_paginates_via_iteration_token():
     responses.add(
-        responses.POST, URL,
-        json={"totalNoticeCount": 4, "notices": [{"pn": "1"}, {"pn": "2"}], "iterationNextToken": "tok1"}, status=200,
+        responses.POST,
+        URL,
+        json={"totalNoticeCount": 4, "notices": [{"pn": "1"}, {"pn": "2"}], "iterationNextToken": "tok1"},
+        status=200,
     )
     responses.add(
-        responses.POST, URL,
-        json={"totalNoticeCount": 4, "notices": [{"pn": "3"}, {"pn": "4"}], "iterationNextToken": "tok2"}, status=200,
+        responses.POST,
+        URL,
+        json={"totalNoticeCount": 4, "notices": [{"pn": "3"}, {"pn": "4"}], "iterationNextToken": "tok2"},
+        status=200,
     )
     out = ts.fetch_ted_search("q", ["pn"])
     assert len(out) == 4
@@ -62,8 +66,10 @@ def test_paginates_via_iteration_token():
 def test_completeness_assertion_catches_silent_truncation():
     # server declares 10 but returns 2 then stops (no token) → must NOT be written silently.
     responses.add(
-        responses.POST, URL,
-        json={"totalNoticeCount": 10, "notices": [{"pn": "1"}, {"pn": "2"}], "iterationNextToken": None}, status=200,
+        responses.POST,
+        URL,
+        json={"totalNoticeCount": 10, "notices": [{"pn": "1"}, {"pn": "2"}], "iterationNextToken": None},
+        status=200,
     )
     with pytest.raises(AssertionError):
         ts.fetch_ted_search("q", ["pn"])
@@ -72,8 +78,10 @@ def test_completeness_assertion_catches_silent_truncation():
 @responses.activate
 def test_max_pages_partial_pull_skips_assertion():
     responses.add(
-        responses.POST, URL,
-        json={"totalNoticeCount": 10, "notices": [{"pn": "1"}, {"pn": "2"}], "iterationNextToken": "tok1"}, status=200,
+        responses.POST,
+        URL,
+        json={"totalNoticeCount": 10, "notices": [{"pn": "1"}, {"pn": "2"}], "iterationNextToken": "tok1"},
+        status=200,
     )
     out = ts.fetch_ted_search("q", ["pn"], max_pages=1)  # deliberate partial, no assertion
     assert len(out) == 2
@@ -83,8 +91,10 @@ def test_max_pages_partial_pull_skips_assertion():
 def test_post_retries_503_then_succeeds():
     responses.add(responses.POST, URL, status=503)  # attempt 1
     responses.add(
-        responses.POST, URL,
-        json={"totalNoticeCount": 1, "notices": [{"pn": "1"}], "iterationNextToken": None}, status=200,
+        responses.POST,
+        URL,
+        json={"totalNoticeCount": 1, "notices": [{"pn": "1"}], "iterationNextToken": None},
+        status=200,
     )
     out = ts.fetch_ted_search("q", ["pn"])
     assert len(out) == 1
@@ -102,8 +112,10 @@ def test_post_4xx_raises_immediately():
 def test_post_retries_connection_error_then_succeeds():
     responses.add(responses.POST, URL, body=requests.exceptions.ConnectionError("boom"))  # attempt 1
     responses.add(
-        responses.POST, URL,
-        json={"totalNoticeCount": 1, "notices": [{"pn": "1"}], "iterationNextToken": None}, status=200,
+        responses.POST,
+        URL,
+        json={"totalNoticeCount": 1, "notices": [{"pn": "1"}], "iterationNextToken": None},
+        status=200,
     )
     out = ts.fetch_ted_search("q", ["pn"])
     assert len(out) == 1

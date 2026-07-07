@@ -20,6 +20,7 @@ absent drop -> leaves existing silver untouched, exit 0; the fold carry-forwards
 
 Run:  ./.venv/Scripts/python.exe extractors/disclosed_bq_po_newbodies_extract.py
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -51,20 +52,48 @@ MIN_ROWS = 70_000  # ~84% of the first healthy run (83,504); a truncated CSV mus
 
 # Other silver lanes whose publisher_id sets must stay disjoint from this lane (the double-count guard).
 _OTHER_LANES = [
-    "public_payments_fact.parquet", "hse_tusla_payments_fact.parquet", "nta_payments_fact.parquet",
-    "nphdb_payments_fact.parquet", "seai_payments_fact.parquet", "dept_readingorder_payments_fact.parquet",
-    "la_payments_fact.parquet", "disclosed_bq_po_payments_fact.parquet",
+    "public_payments_fact.parquet",
+    "hse_tusla_payments_fact.parquet",
+    "nta_payments_fact.parquet",
+    "nphdb_payments_fact.parquet",
+    "seai_payments_fact.parquet",
+    "dept_readingorder_payments_fact.parquet",
+    "la_payments_fact.parquet",
+    "disclosed_bq_po_payments_fact.parquet",
 ]
 
 # EXACT base column ORDER of the SOURCE_FACTS lanes (public_payments_fact …) — _load_facts concats
 # directly with no reorder, so order must match byte-for-byte (public_display BEFORE source_caveat).
 SCHEMA_COLS = [
-    "publisher_id", "publisher_name", "publisher_type", "sector", "source_landing_url",
-    "source_file_url", "source_file_hash", "period", "year", "quarter", "supplier_raw",
-    "supplier_normalised", "amount_eur", "amount_semantics", "value_safe_to_sum", "description",
-    "po_number", "paid_flag", "source_row_number", "source_page_number", "parser_name",
-    "parser_version", "extraction_status", "extraction_confidence", "caveat_text_detected",
-    "supplier_class", "privacy_status", "public_display", "source_caveat",
+    "publisher_id",
+    "publisher_name",
+    "publisher_type",
+    "sector",
+    "source_landing_url",
+    "source_file_url",
+    "source_file_hash",
+    "period",
+    "year",
+    "quarter",
+    "supplier_raw",
+    "supplier_normalised",
+    "amount_eur",
+    "amount_semantics",
+    "value_safe_to_sum",
+    "description",
+    "po_number",
+    "paid_flag",
+    "source_row_number",
+    "source_page_number",
+    "parser_name",
+    "parser_version",
+    "extraction_status",
+    "extraction_confidence",
+    "caveat_text_detected",
+    "supplier_class",
+    "privacy_status",
+    "public_display",
+    "source_caveat",
 ]
 _NULL_TOKENS = {"null", "na", "n/a", "none", ""}
 
@@ -99,7 +128,9 @@ def _assert_disjoint(my_ids: set[str]) -> None:
         for pid in my_ids & ids:
             seen[pid] = f
     if GOLD.exists():
-        gold = pl.read_parquet(GOLD, columns=["publisher_id", "parser_name"]).filter(pl.col("parser_name") != PARSER_NAME)
+        gold = pl.read_parquet(GOLD, columns=["publisher_id", "parser_name"]).filter(
+            pl.col("parser_name") != PARSER_NAME
+        )
         gids = set(gold["publisher_id"].unique().to_list())
         for pid in my_ids & gids:
             seen[pid] = "gold"
@@ -114,7 +145,9 @@ def _assert_disjoint(my_ids: set[str]) -> None:
 def build() -> int:
     raw = _find_raw()
     if raw is None:
-        print(f"disclosed_bq_po_newbodies: no raw drop under {RAW_DIR}/bq-results-*.csv — leaving existing silver untouched, exit 0")
+        print(
+            f"disclosed_bq_po_newbodies: no raw drop under {RAW_DIR}/bq-results-*.csv — leaving existing silver untouched, exit 0"
+        )
         return 0
     if not REGISTRY.exists():
         print(f"disclosed_bq_po_newbodies: registry missing ({REGISTRY}) — cannot ship un-typed bodies. exit 0")
@@ -133,9 +166,18 @@ def build() -> int:
             print(f"  WARN registry body absent from raw extract: {b!r}")
 
     lane = df.filter(pl.col("body").is_in(reg_bodies)).join(
-        reg.select("entity_clean", "publisher_id", "publisher_name", "publisher_type", "sector",
-                   "amount_semantics", "source_landing_url"),
-        left_on="body", right_on="entity_clean", how="left",
+        reg.select(
+            "entity_clean",
+            "publisher_id",
+            "publisher_name",
+            "publisher_type",
+            "sector",
+            "amount_semantics",
+            "source_landing_url",
+        ),
+        left_on="body",
+        right_on="entity_clean",
+        how="left",
     )
     if lane.is_empty():
         print("disclosed_bq_po_newbodies: no registered bodies present in raw. exit 0")
@@ -157,9 +199,13 @@ def build() -> int:
         pl.lit("disclosed_bq_newbodies").alias("parser_name"),
         pl.lit("0.1.0").alias("parser_version"),
         pl.lit("extracted").alias("extraction_status"),
-        pl.lit("medium").alias("extraction_confidence"),  # faithful BQ copy; regime authoritative, lines not independently re-parsed
+        pl.lit("medium").alias(
+            "extraction_confidence"
+        ),  # faithful BQ copy; regime authoritative, lines not independently re-parsed
         pl.lit(False).alias("caveat_text_detected"),
-        pl.lit("Disclosed BigQuery PO extract; new-body coverage (Tranche 1, regime=po_committed, source-authoritative).").alias("source_caveat"),
+        pl.lit(
+            "Disclosed BigQuery PO extract; new-body coverage (Tranche 1, regime=po_committed, source-authoritative)."
+        ).alias("source_caveat"),
     )
     # supplier_normalised + supplier_class + privacy_status + public_display + value_safe_to_sum
     lane = pbe.classify_and_flag(lane)
@@ -171,7 +217,9 @@ def build() -> int:
     # privacy invariant (refuse to write a leak)
     leak = lane.filter(pl.col("public_display") & (pl.col("supplier_class") == "sole_trader_or_individual")).height
     if leak:
-        raise SystemExit(f"disclosed_bq_po_newbodies: privacy quarantine breached — {leak} individual rows public_display=True")
+        raise SystemExit(
+            f"disclosed_bq_po_newbodies: privacy quarantine breached — {leak} individual rows public_display=True"
+        )
 
     # cross-lane double-count guard (fail-closed)
     _assert_disjoint(set(lane["publisher_id"].unique().to_list()))
@@ -192,8 +240,8 @@ def build() -> int:
     COVERAGE.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(
         f"disclosed_bq_po_newbodies: wrote {lane.height:,} rows / {cov['publishers']} new publishers "
-        f"-> {OUT.relative_to(ROOT)}  (€{cov['gross_eur']/1e9:,.2f}bn gross, "
-        f"€{cov['summable_eur']/1e9:,.2f}bn summable-within-body, {cov['rows_review_personal_data']:,} privacy-gated)"
+        f"-> {OUT.relative_to(ROOT)}  (€{cov['gross_eur'] / 1e9:,.2f}bn gross, "
+        f"€{cov['summable_eur'] / 1e9:,.2f}bn summable-within-body, {cov['rows_review_personal_data']:,} privacy-gated)"
     )
     return 0
 

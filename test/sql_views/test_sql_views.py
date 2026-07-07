@@ -2131,42 +2131,66 @@ def test_v_procurement_awards_real_invariants():
     _load_awards_real(con)
     df = con.execute("SELECT * FROM v_procurement_awards_real").pl()
     _assert_cols(
-        df, "value_eur", "value_eur_real", "real_base_year",
-        "deflator_index", "deflator_factor", "real_caveat", "award_year",
+        df,
+        "value_eur",
+        "value_eur_real",
+        "real_base_year",
+        "deflator_index",
+        "deflator_factor",
+        "real_caveat",
+        "award_year",
     )
     assert len(df) > 0
     # the framework/DPS ceiling in the fixture (Bigco, 5m) is never deflated
-    assert con.execute(
-        "SELECT count(*) FROM v_procurement_awards_real WHERE is_framework_or_dps AND value_eur_real IS NOT NULL"
-    ).fetchone()[0] == 0
+    assert (
+        con.execute(
+            "SELECT count(*) FROM v_procurement_awards_real WHERE is_framework_or_dps AND value_eur_real IS NOT NULL"
+        ).fetchone()[0]
+        == 0
+    )
     # any non-adjustable caveat ⇒ NULL real value
-    assert con.execute(
-        "SELECT count(*) FROM v_procurement_awards_real "
-        "WHERE real_caveat IN ('NO_VALUE','CEILING_NOT_ADJUSTED','IMPLAUSIBLE','YEAR_MISSING') "
-        "AND value_eur_real IS NOT NULL"
-    ).fetchone()[0] == 0
+    assert (
+        con.execute(
+            "SELECT count(*) FROM v_procurement_awards_real "
+            "WHERE real_caveat IN ('NO_VALUE','CEILING_NOT_ADJUSTED','IMPLAUSIBLE','YEAR_MISSING') "
+            "AND value_eur_real IS NOT NULL"
+        ).fetchone()[0]
+        == 0
+    )
     # value_eur_real non-NULL IFF caveat adjustable
-    assert con.execute(
-        "SELECT count(*) FROM v_procurement_awards_real "
-        "WHERE (real_caveat IN ('OK','MULTI_YEAR_APPROX')) != (value_eur_real IS NOT NULL)"
-    ).fetchone()[0] == 0
+    assert (
+        con.execute(
+            "SELECT count(*) FROM v_procurement_awards_real "
+            "WHERE (real_caveat IN ('OK','MULTI_YEAR_APPROX')) != (value_eur_real IS NOT NULL)"
+        ).fetchone()[0]
+        == 0
+    )
     # base-year awards: real == nominal (factor 1.0)
     base = con.execute("SELECT base_year FROM v_cpi_deflator LIMIT 1").fetchone()[0]
-    assert con.execute(
-        f"SELECT count(*) FROM v_procurement_awards_real WHERE award_year = {base} "
-        "AND value_eur_real IS NOT NULL AND abs(value_eur_real - value_eur) > 0.005"
-    ).fetchone()[0] == 0
+    assert (
+        con.execute(
+            f"SELECT count(*) FROM v_procurement_awards_real WHERE award_year = {base} "
+            "AND value_eur_real IS NOT NULL AND abs(value_eur_real - value_eur) > 0.005"
+        ).fetchone()[0]
+        == 0
+    )
     # deflating to the latest base year never shrinks a past value (factor >= 1.0 ⇒ real >= nominal)
-    assert con.execute(
-        "SELECT count(*) FROM v_procurement_awards_real WHERE value_eur_real IS NOT NULL "
-        "AND deflator_factor >= 1.0 AND value_eur_real < value_eur - 0.005"
-    ).fetchone()[0] == 0
+    assert (
+        con.execute(
+            "SELECT count(*) FROM v_procurement_awards_real WHERE value_eur_real IS NOT NULL "
+            "AND deflator_factor >= 1.0 AND value_eur_real < value_eur - 0.005"
+        ).fetchone()[0]
+        == 0
+    )
     # sector lens: construction CPVs (45*/71*) are tagged to the SCSI TPI, everything else to CPI
     _assert_cols(df, "value_eur_real_sector", "deflator_index_sector")
-    assert con.execute(
-        "SELECT count(*) FROM v_procurement_awards_real WHERE "
-        "(substr(cpv_code,1,2) IN ('45','71')) != (deflator_index_sector = 'SCSI_TPI_CONSTRUCTION')"
-    ).fetchone()[0] == 0
+    assert (
+        con.execute(
+            "SELECT count(*) FROM v_procurement_awards_real WHERE "
+            "(substr(cpv_code,1,2) IN ('45','71')) != (deflator_index_sector = 'SCSI_TPI_CONSTRUCTION')"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 @pytest.mark.sql
@@ -2185,8 +2209,7 @@ def test_v_procurement_awards_real_parity_with_deflator_function():
     _load_awards_real(con)
     # CPI baseline column
     for value_eur, award_year, sql_real in con.execute(
-        "SELECT value_eur, award_year, value_eur_real FROM v_procurement_awards_real "
-        "WHERE value_eur_real IS NOT NULL"
+        "SELECT value_eur, award_year, value_eur_real FROM v_procurement_awards_real WHERE value_eur_real IS NOT NULL"
     ).fetchall():
         py = cpi.inflate(value_eur, award_year)
         assert py is not None and abs(sql_real - py) <= 1e-9 * max(1.0, abs(py))
@@ -2211,11 +2234,25 @@ def test_v_procurement_cpv_summary_real_band():
     con.execute(_load("procurement_cpv_summary_real.sql"))
     df = con.execute("SELECT * FROM v_procurement_cpv_summary_real").pl()
     _assert_cols(
-        df, "cpv_code", "cpv_description", "median_award_eur", "median_award_real_eur",
-        "p25_award_real_eur", "p75_award_real_eur", "n_real_excluded",
-        "real_base_year", "deflator_index",
+        df,
+        "cpv_code",
+        "cpv_description",
+        "median_award_eur",
+        "median_award_real_eur",
+        "p25_award_real_eur",
+        "p75_award_real_eur",
+        "n_real_excluded",
+        "real_base_year",
+        "deflator_index",
+        "median_award_real_sector_eur",
+        "deflator_index_sector",
     )
     assert len(df) > 0
+    # sector index is the construction tender-price index for 45*/71* CPVs, CPI otherwise
+    for code, idx in con.execute(
+        "SELECT cpv_code, deflator_index_sector FROM v_procurement_cpv_summary_real"
+    ).fetchall():
+        assert idx == ("SCSI_TPI_CONSTRUCTION" if str(code)[:2] in ("45", "71") else "CSO_CPA07_CPI")
     # The real band is computed over a SUBSET of the nominal band (non-adjustable awards —
     # year outside the index / implausible — are dropped), so the two medians are NOT directly
     # comparable; n_real_excluded reconciles the sample sizes exactly. (This is why the UI must
@@ -2237,9 +2274,10 @@ def test_v_govt_consumption_deflator_executes():
     _assert_cols(df, "year", "gov_price_index", "deflator_to_base", "base_year", "index_code")
     assert len(df) > 0
     base = con.execute("SELECT base_year FROM v_govt_consumption_deflator LIMIT 1").fetchone()[0]
-    assert con.execute(
-        f"SELECT deflator_to_base FROM v_govt_consumption_deflator WHERE year = {base}"
-    ).fetchone()[0] == 1.0
+    assert (
+        con.execute(f"SELECT deflator_to_base FROM v_govt_consumption_deflator WHERE year = {base}").fetchone()[0]
+        == 1.0
+    )
 
 
 def _load_payments_real(con):
@@ -2264,9 +2302,12 @@ def test_v_procurement_payments_real_invariants_and_parity():
     _load_payments_real(con)
     df = con.execute("SELECT * FROM v_procurement_payments_real LIMIT 5").pl()
     _assert_cols(df, "amount_eur", "amount_eur_real", "real_base_year", "deflator_index", "real_caveat")
-    assert con.execute(
-        "SELECT count(*) FROM v_procurement_payments_real WHERE real_caveat <> 'OK' AND amount_eur_real IS NOT NULL"
-    ).fetchone()[0] == 0
+    assert (
+        con.execute(
+            "SELECT count(*) FROM v_procurement_payments_real WHERE real_caveat <> 'OK' AND amount_eur_real IS NOT NULL"
+        ).fetchone()[0]
+        == 0
+    )
     rows = con.execute(
         "SELECT amount_eur, year, amount_eur_real FROM v_procurement_payments_real "
         "WHERE amount_eur_real IS NOT NULL USING SAMPLE 500 ROWS"
@@ -2291,10 +2332,13 @@ def test_v_procurement_payments_real_by_year_keeps_tiers_separate():
     _assert_cols(df, "year", "realisation_tier", "vat_status", "total_nominal_eur", "total_real_eur", "n_real_excluded")
     assert len(df) > 0
     # grain integrity: exactly one row per (year, tier, vat) — tiers are never summed together
-    assert con.execute(
-        "SELECT count(*) - count(DISTINCT (year, realisation_tier, vat_status)) "
-        "FROM v_procurement_payments_real_by_year"
-    ).fetchone()[0] == 0
+    assert (
+        con.execute(
+            "SELECT count(*) - count(DISTINCT (year, realisation_tier, vat_status)) "
+            "FROM v_procurement_payments_real_by_year"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 @pytest.mark.sql
@@ -2919,8 +2963,15 @@ def test_ssha_waiting_list_national_views_build():
     comp = con.execute("SELECT * FROM v_ssha_waiting_list_composition").pl()
     assert set(comp["grain"].unique()) == {"national", "county", "la"}
     assert set(comp["dimension"].unique()) == {
-        "time_on_list", "tenure", "employment", "household", "citizenship",
-        "age", "income", "main_need", "accom_need",
+        "time_on_list",
+        "tenure",
+        "employment",
+        "household",
+        "citizenship",
+        "age",
+        "income",
+        "main_need",
+        "accom_need",
     }
     # every category is labelled — no SSHA column-slug leaked through as a category in ANY
     # dimension (a slug looks like lowercase_with_underscores; labels are Title Case)
@@ -3126,8 +3177,7 @@ def test_v_committee_meetings_executes():
     # the formation half: every meeting key must be free of a leading Joint/Select
     # prefix, so the Select page and Joint page of one committee share a key.
     formation_key = con.execute(
-        "SELECT count(*) FROM v_committee_meetings WHERE committee_key ~ "
-        " '^(joint|select|comhchoiste|roghchoiste)\\b'"
+        "SELECT count(*) FROM v_committee_meetings WHERE committee_key ~  '^(joint|select|comhchoiste|roghchoiste)\\b'"
     ).fetchone()[0]
     assert formation_key == 0, "committee_key must strip the Joint/Select formation prefix"
 

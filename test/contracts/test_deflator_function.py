@@ -51,8 +51,8 @@ def test_inflate_to_arbitrary_year(d):
 def test_round_trip_is_lossless(d):
     # inflate to base then back to source year must recover the original.
     for yr in SYN:
-        up = d.inflate(54321.0, yr)            # yr -> base
-        back = d.inflate(up, BASE, to=yr)      # base -> yr
+        up = d.inflate(54321.0, yr)  # yr -> base
+        back = d.inflate(up, BASE, to=yr)  # base -> yr
         assert back == pytest.approx(54321.0, rel=1e-12)
 
 
@@ -74,10 +74,10 @@ def test_missing_year_returns_none_not_one(d):
 def test_deflate_series_nulls_missing_and_keeps_nominal(d):
     df = pl.DataFrame({"v": [100.0, 100.0, 100.0], "yr": [2020, 2021, 1999]})
     out = d.deflate_series(df, "v", "yr", "v_real")
-    assert out["v"].to_list() == [100.0, 100.0, 100.0]          # nominal untouched
+    assert out["v"].to_list() == [100.0, 100.0, 100.0]  # nominal untouched
     assert out["v_real"][0] == pytest.approx(121.0)
     assert out["v_real"][1] == pytest.approx(110.0)
-    assert out["v_real"][2] is None                              # missing year -> null, not nominal
+    assert out["v_real"][2] is None  # missing year -> null, not nominal
 
 
 def test_constructor_rejects_absent_base():
@@ -106,7 +106,7 @@ def test_function_matches_table_all_years():
     deflator_to_base. Pin them equal so the two code paths can never drift."""
     d = Deflator.load()
     tbl = pl.read_parquet(_DEFLATOR)
-    for year, stored in zip(tbl["year"].to_list(), tbl["deflator_to_base"].to_list()):
+    for year, stored in zip(tbl["year"].to_list(), tbl["deflator_to_base"].to_list(), strict=False):
         assert d.factor(int(year)) == pytest.approx(float(stored), rel=1e-9)
 
 
@@ -154,7 +154,7 @@ from services.deflator import DEFAULT_INDEX, INDEX_REGISTRY, list_indices  # noq
 
 def test_registry_metadata_complete():
     # every entry must carry the fields a consumer needs to attach provenance + a caveat
-    for code, spec in INDEX_REGISTRY.items():
+    for _code, spec in INDEX_REGISTRY.items():
         assert {"file", "index_col", "label", "applies_to", "source", "caveat"} <= set(spec)
     codes = {it["code"] for it in list_indices()}
     assert codes == set(INDEX_REGISTRY)
@@ -187,8 +187,10 @@ def test_indices_diverge_as_expected_construction_hotter_than_cpi():
     cumulative inflation than CPI, and the government-consumption deflator shows LESS — the whole
     reason a single CPI lens is wrong for these value types."""
     g = _DEFLATOR.parent
-    if not all((g / INDEX_REGISTRY[c]["file"]).exists() for c in
-               ("SCSI_TPI_CONSTRUCTION", "CSO_GOV_CONSUMPTION", "CSO_CPA07_CPI")):
+    if not all(
+        (g / INDEX_REGISTRY[c]["file"]).exists()
+        for c in ("SCSI_TPI_CONSTRUCTION", "CSO_GOV_CONSUMPTION", "CSO_CPA07_CPI")
+    ):
         pytest.skip("not all index tables built")
     cpi = Deflator.load_index("CSO_CPA07_CPI").factor(2016)
     tpi = Deflator.load_index("SCSI_TPI_CONSTRUCTION").factor(2016)

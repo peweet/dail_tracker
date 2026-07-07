@@ -610,9 +610,7 @@ def _section_commencement_timeline(bill_id: str) -> None:
 
     for _, row in df.iterrows():
         date_disp = (
-            pd.to_datetime(row["si_signed_date"]).strftime("%d %b %Y")
-            if pd.notna(row["si_signed_date"])
-            else "—"
+            pd.to_datetime(row["si_signed_date"]).strftime("%d %b %Y") if pd.notna(row["si_signed_date"]) else "—"
         )
         sections = row.get("si_commenced_sections")
         if isinstance(sections, str) and sections.strip():
@@ -665,7 +663,7 @@ def _section_commencement_timeline(bill_id: str) -> None:
             f'<div class="leg-si-meta">{html.escape(si_num)} · {minister_html}'
             + (f" · {si_link}" if si_link else "")
             + "</div>"
-            f"</div>"
+            "</div>"
         )
 
 
@@ -778,10 +776,8 @@ def _section_statutory_instruments(bill_id: str) -> None:
             f'<div class="leg-bill-card-title">{html.escape(str(row["si_title"]))}</div>'
             f'<div class="leg-si-meta">'
             f"{html.escape(operation)} · {html.escape(domain)} · "
-            f"{minister_html} · {url_html}"
-            + (f" · {si_detail_link}" if si_detail_link else "")
-            + f"</div>"
-            f"</div>"
+            f"{minister_html} · {url_html}" + (f" · {si_detail_link}" if si_detail_link else "") + "</div>"
+            "</div>"
         )
 
 

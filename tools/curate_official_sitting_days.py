@@ -117,7 +117,10 @@ def curate() -> pd.DataFrame:
             )
             _log.info(
                 "%s %d: %d sitting days (%s)",
-                house, year, len(by_year[year]), "complete" if complete else "PARTIAL/in-progress",
+                house,
+                year,
+                len(by_year[year]),
+                "complete" if complete else "PARTIAL/in-progress",
             )
     df = pd.DataFrame(rows).sort_values(["house", "year"]).reset_index(drop=True)
     _OUT.parent.mkdir(parents=True, exist_ok=True)

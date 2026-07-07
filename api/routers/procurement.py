@@ -8,13 +8,34 @@ no-inference caveat the core composition layer attaches — never re-derived her
 
 from __future__ import annotations
 
+import os
+
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.deps import get_cursor
 from dail_tracker_core import dossiers, serialize
+from dail_tracker_core.queries import procurement as _q
+from services.deflator import list_indices
 
 router = APIRouter(tags=["procurement"])
+
+# EXPERIMENTAL real-terms (inflation-adjusted) endpoints. Gated to the same DAIL_EXPERIMENTAL flag
+# as the Streamlit lens so the feature stays local until vetted: routes are hidden from the public
+# OpenAPI schema AND return 404 on the deployed API (the flag is unset there). All deflation lives
+# in the views + services/deflator.py; these are retrieval pass-throughs with the caveat attached.
+_EXPERIMENTAL = os.getenv("DAIL_EXPERIMENTAL") == "1"
+_REAL_CAVEAT = (
+    "EXPERIMENTAL real-terms lens. Re-expresses past disclosed values in today's money (purchasing "
+    "power) — NOT a current cost and NOT a recommended bid price. General CPI is not construction, "
+    "materials, labour-rate or tender-price inflation; public spend uses the government-consumption "
+    "deflator. Each figure names the index it used. See /procurement/inflation/indices."
+)
+
+
+def _require_experimental() -> None:
+    if not _EXPERIMENTAL:
+        raise HTTPException(status_code=404, detail="experimental endpoint not enabled")
 
 
 @router.get("/procurement/suppliers", summary="Supplier ranking (CRO + lobbying-overlap enriched)")
@@ -113,3 +134,50 @@ def open_tenders(
 ) -> dict:
     records, total, truncated = dossiers.list_open_tenders(cur, only_open=only_open, skip=skip, limit=limit)
     return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+
+
+# ── EXPERIMENTAL real-terms (inflation-adjusted) endpoints (gated) ────────────────────────────
+@router.get(
+    "/procurement/inflation/indices",
+    summary="EXPERIMENTAL — the deflation index registry (CPI / gov-consumption / construction TPI / materials)",
+    include_in_schema=_EXPERIMENTAL,
+)
+def inflation_indices() -> dict:
+    """The registered price indices, each with its label, what it applies to, source and caveat —
+    so any adjusted figure can be traced to the index that produced it."""
+    _require_experimental()
+    return serialize.envelope(list_indices(), caveat=_REAL_CAVEAT)
+
+
+@router.get(
+    "/procurement/inflation/cpv",
+    summary="EXPERIMENTAL — per-CPV award benchmark, nominal + inflation-adjusted band "
+    "(construction categories use tender prices, others CPI)",
+    include_in_schema=_EXPERIMENTAL,
+)
+def inflation_cpv(
+    min_valued: int = Query(8, ge=1, description="Drop categories with fewer sum-safe valued awards"),
+    limit: int = Query(100, ge=1, le=1000),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    _require_experimental()
+    res = _q.cpv_summary_real(cur, min_valued=min_valued, limit=limit)
+    if not res.ok:
+        raise HTTPException(status_code=503, detail=res.unavailable_reason or "real-terms view unavailable")
+    return serialize.envelope(serialize.to_records(res.data), limit=limit, caveat=_REAL_CAVEAT)
+
+
+@router.get(
+    "/procurement/inflation/spend-trend",
+    summary="EXPERIMENTAL — per-year public spend, nominal vs real (government-consumption deflator) + uplift",
+    include_in_schema=_EXPERIMENTAL,
+)
+def inflation_spend_trend(
+    tier: str = Query("SPENT", description="'SPENT' (paid) or 'COMMITTED' (ordered) — never blended"),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    _require_experimental()
+    res = _q.payments_real_trend(cur, tier=tier)
+    if not res.ok:
+        raise HTTPException(status_code=503, detail=res.unavailable_reason or "real-terms view unavailable")
+    return serialize.envelope(serialize.to_records(res.data), caveat=_REAL_CAVEAT)

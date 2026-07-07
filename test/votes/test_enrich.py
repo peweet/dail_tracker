@@ -151,7 +151,13 @@ def test_attendance_by_year_totals_and_filters_null_year(tmp_path):
             # row; the null-year McDonald row must be filtered; Memberservices is junk.
             "first_name": ["Mary Lou", "Mary Lou", "Mary Lou", "John", "AP"],
             "last_name": ["McDonald", "McDonald", "McDonald", "Doe", "Memberservices"],
-            "identifier": ["McDonald_Mary Lou", "McDonald_Mary Lou", "McDonald_Mary Lou", "Doe_John", "Memberservices_AP"],
+            "identifier": [
+                "McDonald_Mary Lou",
+                "McDonald_Mary Lou",
+                "McDonald_Mary Lou",
+                "Doe_John",
+                "Memberservices_AP",
+            ],
             "year": [2023, 2023, None, 2022, 2023],
             "sitting_days_count": [10, 8, 99, 5, 4],
             "other_days_count": [2, 2, 1, 1, 1],
@@ -228,7 +234,10 @@ def test_attendance_resolves_former_member_via_historic_roster(tmp_path):
     assert coveney["unique_member_code"][0] == "Simon.Coveney.D.2011-02-25"
     assert coveney["party_name"][0] == "FG"
     # current member unaffected: keeps its current-roster code, not overwritten by the fallback
-    assert out.filter(pl.col("full_name") == "Mary Lou McDonald")["unique_member_code"][0] == "MaryLou.McDonald.D.2011-02-25"
+    assert (
+        out.filter(pl.col("full_name") == "Mary Lou McDonald")["unique_member_code"][0]
+        == "MaryLou.McDonald.D.2011-02-25"
+    )
 
 
 # ── _build_vote_history ──────────────────────────────────────────────────────

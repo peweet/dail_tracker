@@ -35,7 +35,11 @@ def con():
     _load(
         c,
         "constituency_la_chief_executives.sql",
-        **{"data/_meta/la_chief_executives.csv": str(PROJECT_ROOT / "data/_meta/la_chief_executives.csv").replace("\\", "/")},
+        **{
+            "data/_meta/la_chief_executives.csv": str(PROJECT_ROOT / "data/_meta/la_chief_executives.csv").replace(
+                "\\", "/"
+            )
+        },
     )
     _load(
         c,
@@ -58,9 +62,7 @@ def test_31_councils_join_ce(con):
 
 
 def test_national_medians_constant(con):
-    n = con.execute(
-        "SELECT count(DISTINCT nat_commercial_rates_pct) FROM v_la_collection_rates"
-    ).fetchone()[0]
+    n = con.execute("SELECT count(DISTINCT nat_commercial_rates_pct) FROM v_la_collection_rates").fetchone()[0]
     assert n == 1, "national median should be identical on every row"
 
 

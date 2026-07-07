@@ -58,7 +58,7 @@ from data_access.procurement_data import (
     fetch_cpv_summary_result,
     fetch_cpv_summary_real_result,
     fetch_inflation_indices,
-    fetch_payments_real_by_year_result,
+    fetch_payments_real_trend_result,
     fetch_dependency_for_supplier_result,
     fetch_dependency_top_result,
     fetch_entity_chain_for_company_result,
@@ -437,7 +437,9 @@ def _concentration_and_trend() -> None:
     tr = fetch_awards_by_year_result()
     if tr.ok and not tr.data.empty and len(tr.data) > 1:
         with st.expander("Award activity over time"):
-            st.bar_chart(_yr_axis(tr.data), x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e")
+            st.bar_chart(
+                _yr_axis(tr.data), x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e"
+            )
 
 
 def _render_suppliers(year: int | None) -> None:
@@ -593,6 +595,11 @@ def _render_cpv(year: int | None) -> None:
             if rres.ok and not rres.data.empty:
                 real_lookup = {str(rr.cpv_code): rr for rr in rres.data.itertuples()}
             _render_real_terms_rail("CSO_CPA07_CPI")
+            st.caption(
+                "Construction categories (CPV 45/71) are shown in **tender prices** (SCSI index — "
+                "construction costs rose far faster than CPI); every other category uses CPI. "
+                "Each band names the index it used."
+            )
     by = "sum-safe awarded value" if order == "value" else "number of awards"
     st.caption(
         f"Top {len(df):,} procurement categories (CPV){_year_label(year)} by {by}. "
@@ -619,11 +626,17 @@ def _render_cpv(year: int | None) -> None:
             # enough to be meaningful). Shown beside the nominal band, never replacing it.
             if show_real:
                 rr = real_lookup.get(str(r.cpv_code))
-                rn = _n(getattr(rr, "n_awards_valued_real", 0)) if rr is not None else 0
-                if rr is not None and rn >= 8 and getattr(rr, "median_award_real_eur", None):
+                # Sector-aware band: construction CPVs (45*/71*) use the SCSI tender-price index
+                # (the right "cost to procure" lens — construction rose far faster than CPI),
+                # every other category uses CPI. deflator_index_sector names the index used.
+                rn = _n(getattr(rr, "n_awards_valued_real_sector", 0)) if rr is not None else 0
+                if rr is not None and rn >= 8 and getattr(rr, "median_award_real_sector_eur", None):
+                    idx = getattr(rr, "deflator_index_sector", "") or ""
+                    lens = "2025 tender prices" if idx == "SCSI_TPI_CONSTRUCTION" else "2025 prices"
                     meta += (
-                        f" · in 2025 prices {_eur_scale(rr.p25_award_real_eur)}–"
-                        f"{_eur_scale(rr.p75_award_real_eur)} (median {_eur_scale(rr.median_award_real_eur)})"
+                        f" · in {lens} {_eur_scale(rr.p25_award_real_sector_eur)}–"
+                        f"{_eur_scale(rr.p75_award_real_sector_eur)} "
+                        f"(median {_eur_scale(rr.median_award_real_sector_eur)})"
                     )
         inner = _card(f"<span>{title}</span>", meta, [_value_pill(r.awarded_value_safe_eur)], rank=i)
         cards.append(
@@ -790,6 +803,8 @@ def _render_payments() -> None:
         tier = _tier_toggle("pr_pay_tier")
     with c2:
         view_labels = {"Top suppliers": "supplier", "Top public bodies": "publisher"}
+        if _EXPERIMENTAL:  # local-only real-terms trend lens (gov-consumption deflator)
+            view_labels["In real terms ⚗"] = "realtrend"
         view = view_labels.get(
             st.segmented_control(
                 "View", list(view_labels), default="Top suppliers", key="pr_pay_view", label_visibility="collapsed"
@@ -800,6 +815,8 @@ def _render_payments() -> None:
 
     if view == "supplier":
         _render_paid_suppliers(tier)
+    elif view == "realtrend":
+        _render_payments_real_trend(tier)
     else:
         _render_paid_publishers(tier)
     st.html(
@@ -810,6 +827,62 @@ def _render_payments() -> None:
         "thresholds differ by body. Suppliers are named as published. "
         "Paid (actual spend) and ordered (purchase orders) are different stages and are never summed "
         "together; totals are never summed across bodies with different VAT bases; never added to award values.</div>"
+    )
+
+
+def _render_payments_real_trend(tier: str) -> None:
+    """EXPERIMENTAL real-terms trend for public spend, deflated by the government-consumption index
+    (the agency-standard for public money). Shows the per-year nominal-vs-real gap — the honest use
+    of this lens: nominal figures increasingly understate OLDER spend, and the effect on recent
+    years is small. Years the National Accounts deflator can't yet reach (2025+) are shown in
+    nominal terms and flagged, never blended into the real series. The page computes nothing — the
+    rollup + per-year uplift live in v_procurement_payments_real_trend."""
+    _render_real_terms_rail("CSO_GOV_CONSUMPTION")
+    res = fetch_payments_real_trend_result(tier=tier)
+    if not res.ok or res.data.empty:
+        empty_state("Real-terms trend unavailable", "The real-terms payments view did not load.")
+        return
+    df = res.data
+    base = _n(df["real_base_year"].dropna().iloc[0]) if df["real_base_year"].notna().any() else "the base year"
+    verb = _paid_verb(tier)
+    adj = df[df["real_uplift_pct"].notna()]  # years the deflator reaches
+    unadj = df[df["real_uplift_pct"].isna()]  # the 2025+ coverage cliff
+    if not adj.empty:
+        first = adj.iloc[0]  # earliest adjustable year — the widest gap (rows are year-ordered)
+        st.markdown(
+            f"**In today's money, older public spend is bigger than it looks.** {verb.capitalize()} in "
+            f"**{_n(first['year'])}** is worth **+{first['real_uplift_pct']:.0f}%** more in {base} prices; "
+            f"the gap narrows to ~0% by {base}. Each bar is how much more that year's {verb} spend is "
+            f"worth once re-expressed in {base} prices (government-consumption deflator) — so the same "
+            "spending compares like-for-like across years, not left understated in older money."
+        )
+        # A SINGLE series — the per-year uplift %. Deliberately NOT nominal-vs-real absolute bars:
+        # those stack into a false "sum", and the real story (big uplift on OLD years) is invisible
+        # because older years are tiny in absolute €. The uplift ratio is VAT-independent.
+        # Plain field name + y_label for the human axis title — a field name with spaces/"%"
+        # silently renders an empty Vega chart (matches the working awards-by-year chart pattern).
+        chart = adj[["year", "real_uplift_pct"]]
+        st.bar_chart(
+            _yr_axis(chart),
+            x="year",
+            y="real_uplift_pct",
+            x_label="Year",
+            y_label="% more in today's money (vs nominal)",
+            height=280,
+            color="#9c5b2e",
+        )
+    if not unadj.empty:
+        yrs = ", ".join(str(_n(y)) for y in sorted(unadj["year"].tolist()))
+        st.info(
+            f"**{yrs} not yet adjustable.** The CSO government-consumption deflator currently ends "
+            f"{base} — National Accounts for later years aren't published yet — so {verb} spend for "
+            "these years is shown in nominal terms only, never blended into the real series.",
+            icon="🕓",
+        )
+    st.caption(
+        "Government-consumption deflator (CSO National Accounts) — the index statistical agencies "
+        "use for public spending, not consumer prices. Real-terms re-expresses purchasing power; it "
+        "is not a current cost. Paid and ordered are never summed; neither is added to award values."
     )
 
 
@@ -1014,7 +1087,9 @@ def _render_councils() -> None:
                     for y in (r.running_min_year, r.running_max_year, r.building_min_year, r.building_max_year)
                     if _truthy(y)
                 ]
-                acc_span = f" · {min(acc)}–{max(acc)}" if acc and min(acc) != max(acc) else (f" · {acc[0]}" if acc else "")
+                acc_span = (
+                    f" · {min(acc)}–{max(acc)}" if acc and min(acc) != max(acc) else (f" · {acc[0]}" if acc else "")
+                )
                 meta = f"Audited accounts{acc_span}"
             # Land the dossier on the tier the council actually publishes, so it opens populated.
             tier = "SPENT" if _n(r.n_paid) > 0 else "COMMITTED"
@@ -1218,7 +1293,13 @@ def _render_council_building_lane(council: str, *, accounts_latest: int | None) 
     if len(cy) > 1:
         st.caption("Capital invested per year (audited €)")
         st.bar_chart(
-            _yr_axis(cy), x="year", y="capital_expenditure_eur", x_label="Year", y_label="€ invested", height=180, color="#2f7d5b"
+            _yr_axis(cy),
+            x="year",
+            y="capital_expenditure_eur",
+            x_label="Year",
+            y_label="€ invested",
+            height=180,
+            color="#2f7d5b",
         )
 
     # Capital by service in the latest year — bars, largest investment first (view pre-orders).
@@ -1259,11 +1340,7 @@ def _render_council_accounts_context(
     ran = _render_council_running_lane(council, active_tier, po_max_year=po_max_year)
     built = _render_council_building_lane(council, accounts_latest=ran)
     if ran is None and built is None:
-        tail = (
-            " The purchase orders below are the only machine-readable spending we hold for it."
-            if has_paying
-            else ""
-        )
+        tail = " The purchase orders below are the only machine-readable spending we hold for it." if has_paying else ""
         st.html(
             '<div class="pr-caveat"><strong>Audited accounts:</strong> we don’t yet hold '
             f"{_esc(council)}’s audited <strong>Annual Financial Statement</strong> in a "
@@ -1274,7 +1351,11 @@ def _render_council_accounts_context(
 
 
 def _render_payments_publisher_profile(
-    publisher_name: str, tier: str = "SPENT", *, on_back=None, back_label: str = "← Back to procurement",
+    publisher_name: str,
+    tier: str = "SPENT",
+    *,
+    on_back=None,
+    back_label: str = "← Back to procurement",
     show_back: bool = True,
 ) -> None:
     """Per-buyer dossier (the per-council profile): which tiers the body publishes, both totals
@@ -1315,12 +1396,17 @@ def _render_payments_publisher_profile(
         # Describe the audited-accounts coverage span instead of "0 suppliers over €20,000".
         acc_years = [
             int(y)
-            for y in (csum.get("running_min_year"), csum.get("running_max_year"),
-                      csum.get("building_min_year"), csum.get("building_max_year"))
+            for y in (
+                csum.get("running_min_year"),
+                csum.get("running_max_year"),
+                csum.get("building_min_year"),
+                csum.get("building_max_year"),
+            )
             if _truthy(y)
         ]
         acc_span = (
-            f"{min(acc_years)}–{max(acc_years)}" if acc_years and min(acc_years) != max(acc_years)
+            f"{min(acc_years)}–{max(acc_years)}"
+            if acc_years and min(acc_years) != max(acc_years)
             else (str(acc_years[0]) if acc_years else "")
         )
         sub_parts = ["Audited accounts" + (f" · {acc_span}" if acc_span else "")]
@@ -1940,11 +2026,7 @@ def _render_afs_national() -> None:
             is_pos = _truthy(net) and float(net) > 0
             if r.division == "Miscellaneous Services":
                 has_misc = True
-            fig = (
-                f"<strong>{_eur(net)}</strong>"
-                if is_pos
-                else '<span class="pr-afsbar-zero">income covers it</span>'
-            )
+            fig = f"<strong>{_eur(net)}</strong>" if is_pos else '<span class="pr-afsbar-zero">income covers it</span>'
             note = (
                 "carries the rates / Local Property Tax income — not a single service"
                 if r.division == "Miscellaneous Services"
@@ -2021,14 +2103,15 @@ def _render_eu_tam() -> None:
         measure = _esc(getattr(r, "aid_measure_title", None))
         date = _esc(str(getattr(r, "date_granted", "") or ""))[:10]
         meta = " · ".join(p for p in (authority, measure, date) if p)
-        pills = [f'<span class="pr-pill pr-pill-val">{_eur_scale(getattr(r, "aid_element_value", None))} aid element</span>']
+        pills = [
+            f'<span class="pr-pill pr-pill-val">{_eur_scale(getattr(r, "aid_element_value", None))} aid element</span>'
+        ]
         btype = _esc(getattr(r, "beneficiary_type", None))
         if btype:
             pills.append(f'<span class="pr-pill">{btype}</span>')
         url = str(getattr(r, "award_detail_url", "") or "")
         src = (
-            f'<div class="pr-card-src"><a href="{_esc(url)}" target="_blank" rel="noopener">'
-            "EU register ↗</a></div>"
+            f'<div class="pr-card-src"><a href="{_esc(url)}" target="_blank" rel="noopener">EU register ↗</a></div>'
             if url.startswith("http")
             else ""
         )
@@ -2098,7 +2181,9 @@ def _render_ted() -> None:
     tr = fetch_ted_awards_by_year_result()
     if tr.ok and not tr.data.empty and len(tr.data) > 1:
         with st.expander("EU awards over time"):
-            st.bar_chart(_yr_axis(tr.data), x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e")
+            st.bar_chart(
+                _yr_axis(tr.data), x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e"
+            )
 
     res = fetch_ted_supplier_summary_result(limit=_TOP, order_by="awards")
     df = res.data if res.ok else pd.DataFrame()
@@ -3757,7 +3842,7 @@ def _data_completeness_note() -> None:
 
 
 def _lifecycle_strip() -> None:
-    """"How public money moves" — names the four realisation tiers (PLANNED → AWARDED →
+    """ "How public money moves" — names the four realisation tiers (PLANNED → AWARDED →
     COMMITTED → SPENT) the page's sections already embody, so a reader sees one contract's
     life rather than four unrelated lists.
 
@@ -3772,14 +3857,10 @@ def _lifecycle_strip() -> None:
     # (plain-language question, tier word, reliability caveat, accent) — no ?tab link: this is
     # an explainer, not navigation, so the section bar is the one place a reader picks a stage.
     stages = [
-        ("What's being bought", "Planned",
-         "Open tenders — the pipeline, before any contract is awarded", "#6b7a8a"),
-        ("Who won it", "Awarded",
-         "A value at the point of award — a ceiling, not money paid", "#b8862b"),
-        ("What was ordered", "Committed",
-         "Purchase orders placed against a contract", "#9c5b2e"),
-        ("What was actually paid", "Spent",
-         "Payments out to named suppliers — the real money", "#2f7d5b"),
+        ("What's being bought", "Planned", "Open tenders — the pipeline, before any contract is awarded", "#6b7a8a"),
+        ("Who won it", "Awarded", "A value at the point of award — a ceiling, not money paid", "#b8862b"),
+        ("What was ordered", "Committed", "Purchase orders placed against a contract", "#9c5b2e"),
+        ("What was actually paid", "Spent", "Payments out to named suppliers — the real money", "#2f7d5b"),
     ]
     cells: list[str] = []
     for i, (question, tier, note, accent) in enumerate(stages):
@@ -3865,7 +3946,7 @@ def _band_bar(p25, med, p75, scale_max: float, *, ceiling: bool = False) -> str:
         f'<div class="bs-track"><div class="{fill}" style="left:{left:.1f}%;width:{width:.1f}%"></div>'
         f'<div class="{medc}" style="left:{medpos:.1f}%"></div></div>'
         f'<div class="bs-band-lab"><span>{_eur(p25)}</span>'
-        f'<span>median {_eur(med)}</span><span>{_eur(p75)}</span></div>'
+        f"<span>median {_eur(med)}</span><span>{_eur(p75)}</span></div>"
     )
 
 
@@ -3890,26 +3971,28 @@ def _bid_signal_card(r) -> str:
             return float(x)
         except (TypeError, ValueError):
             return 0.0
+
     scale_max = max(_f(a_p75), _f(c_p75))
 
     spread = _spread_x(a_p25, a_p75)
     spread_pill = (
-        f'<span class="bs-warn">spread ×{spread:.1f} — a band, not a quote</span>'
-        if spread and spread >= 3 else ""
+        f'<span class="bs-warn">spread ×{spread:.1f} — a band, not a quote</span>' if spread and spread >= 3 else ""
     )
 
     band_award = _band_bar(a_p25, a_med, a_p75, scale_max)
     award_block = (
         f'<div class="bs-band-cap">① Typical <b>single contract award</b> '
-        f'({n_aw:,} awards · {n_recent:,} since 2022){spread_pill}</div>{band_award}'
-        if band_award else ""
+        f"({n_aw:,} awards · {n_recent:,} since 2022){spread_pill}</div>{band_award}"
+        if band_award
+        else ""
     )
     band_ceil = _band_bar(c_p25, c_med, c_p75, scale_max, ceiling=True)
     ceil_block = (
         f'<div class="bs-band-cap2">② <b>Framework / multi-supplier ceiling</b> '
-        f'({n_ceil:,} agreement{"s" if n_ceil != 1 else ""}) — money that <em>may</em> be drawn '
-        f'down, not one job</div>{band_ceil}'
-        if band_ceil else ""
+        f"({n_ceil:,} agreement{'s' if n_ceil != 1 else ''}) — money that <em>may</em> be drawn "
+        f"down, not one job</div>{band_ceil}"
+        if band_ceil
+        else ""
     )
 
     n_bid = _n(r.get("n_with_bid_data"))
@@ -3985,7 +4068,9 @@ def _render_bid_signal() -> None:
         sector = st.selectbox("Sector", sectors, index=0, key="bs_sector")
     with c2:
         q = st.text_input(
-            "Find your trade (CPV category name)", value="", key="bs_filter",
+            "Find your trade (CPV category name)",
+            value="",
+            key="bs_filter",
             placeholder="e.g. electrical, road, cleaning, software…",
         )
     view = df
@@ -4005,7 +4090,7 @@ def _render_bid_signal() -> None:
             break
         st.html(
             f'<div class="pr-register-rule"><span>{html.escape(str(sector_label))} '
-            f'&middot; {len(grp)} categor{"y" if len(grp) == 1 else "ies"}</span></div>'
+            f"&middot; {len(grp)} categor{'y' if len(grp) == 1 else 'ies'}</span></div>"
         )
         rows = grp.head(60 - shown)
         st.html("".join(_bid_signal_card(r) for _, r in rows.iterrows()))

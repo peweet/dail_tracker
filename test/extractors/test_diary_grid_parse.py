@@ -17,7 +17,13 @@ from extractors.diary_grid_parse import parse_day_grid, parse_day_grid_page, par
 
 
 def _cell(t, x0, y0, x1=None, y1=None):
-    return {"t": t, "x0": x0, "y0": y0, "x1": x1 if x1 is not None else x0 + 200, "y1": y1 if y1 is not None else y0 + 36}
+    return {
+        "t": t,
+        "x0": x0,
+        "y0": y0,
+        "x1": x1 if x1 is not None else x0 + 200,
+        "y1": y1 if y1 is not None else y0 + 36,
+    }
 
 
 # weekday header row (x-centres from the real Smyth scan); shared by the grid fixtures

@@ -109,8 +109,7 @@ def test_no_member_sitting_days_exceed_official(house: str):
     """Numerator never beats the denominator (the truncation / 82-vs-94 bug class)."""
     off = _official()
     official_by_year = {
-        int(r["year"]): int(r["official_sitting_days"])
-        for _, r in off[off["house"] == house].iterrows()
+        int(r["year"]): int(r["official_sitting_days"]) for _, r in off[off["house"] == house].iterrows()
     }
     fact = _fact(house)
     max_member = fact.groupby("year")["sitting_days_count"].max().astype(int).to_dict()

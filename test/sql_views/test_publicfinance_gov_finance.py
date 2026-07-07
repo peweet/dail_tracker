@@ -23,9 +23,7 @@ pytestmark = pytest.mark.skipif(not GFA.exists(), reason=f"gold source absent (C
 @pytest.fixture(scope="module")
 def con():
     c = duckdb.connect()
-    sql = SQL.read_text(encoding="utf-8").replace(
-        "data/gold/parquet/cso_gfa01.parquet", str(GFA).replace("\\", "/")
-    )
+    sql = SQL.read_text(encoding="utf-8").replace("data/gold/parquet/cso_gfa01.parquet", str(GFA).replace("\\", "/"))
     c.execute(sql)
     return c
 
@@ -33,9 +31,7 @@ def con():
 def test_one_row_per_year_no_double_count(con):
     """GFA01's native grain is (Year x Item) with one row per pair, so the conditional
     pivot must collapse to exactly one row per year."""
-    n, distinct_years = con.execute(
-        "SELECT count(*), count(DISTINCT year) FROM v_gov_finance_annual"
-    ).fetchone()
+    n, distinct_years = con.execute("SELECT count(*), count(DISTINCT year) FROM v_gov_finance_annual").fetchone()
     assert n == distinct_years
     assert n >= 25
 
@@ -50,12 +46,8 @@ def test_units_multiplied_to_whole_euros(con):
 def test_surplus_sign_convention(con):
     """B9 is positive for a surplus, negative for a deficit. 2024 (Apple windfall) must be
     a surplus; an austerity-era year (2010) must be a deficit."""
-    s2024 = con.execute(
-        "SELECT surplus_deficit_eur FROM v_gov_finance_annual WHERE year = 2024"
-    ).fetchone()[0]
-    s2010 = con.execute(
-        "SELECT surplus_deficit_eur FROM v_gov_finance_annual WHERE year = 2010"
-    ).fetchone()[0]
+    s2024 = con.execute("SELECT surplus_deficit_eur FROM v_gov_finance_annual WHERE year = 2024").fetchone()[0]
+    s2010 = con.execute("SELECT surplus_deficit_eur FROM v_gov_finance_annual WHERE year = 2010").fetchone()[0]
     assert s2024 > 0
     assert s2010 < 0
 

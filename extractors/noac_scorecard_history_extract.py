@@ -13,6 +13,7 @@ Coverage is honest: where a year's report phrases a header too differently (or o
 indicator), that (metric, year) cell is simply absent — never guessed. Per-year coverage
 is printed and saved to data/_meta/noac_scorecard_history_coverage.json.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,23 +34,50 @@ COV = ROOT / "data/_meta/noac_scorecard_history_coverage.json"
 
 # (year, pdf filename, source url). Add a year by dropping its PDF here — nothing else changes.
 REPORTS = [
-    (2024, "NOAC_LA_PerfInd_2024.pdf",
-     "https://cdn.noac.ie/wp-content/uploads/2025/09/NOAC-Local-Authority-Performance-Indicator-Report-2024.pdf"),
-    (2023, "NOAC_PI_2023.pdf",
-     "https://cdn.noac.ie/wp-content/uploads/2024/10/NOAC-PI-Report-2023-FINAL.pdf"),
-    (2022, "NOAC_PI_2022.pdf",
-     "https://cdn.noac.ie/wp-content/uploads/2023/10/20231009-NOAC-PI-Report-2022-FINAL.pdf"),
+    (
+        2024,
+        "NOAC_LA_PerfInd_2024.pdf",
+        "https://cdn.noac.ie/wp-content/uploads/2025/09/NOAC-Local-Authority-Performance-Indicator-Report-2024.pdf",
+    ),
+    (2023, "NOAC_PI_2023.pdf", "https://cdn.noac.ie/wp-content/uploads/2024/10/NOAC-PI-Report-2023-FINAL.pdf"),
+    (2022, "NOAC_PI_2022.pdf", "https://cdn.noac.ie/wp-content/uploads/2023/10/20231009-NOAC-PI-Report-2022-FINAL.pdf"),
 ]
 
 CANON = {
-    "Carlow County", "Cavan County", "Clare County", "Cork City", "Cork County",
-    "Donegal County", "Dublin City", "Dun Laoghaire-Rathdown", "Fingal County",
-    "Galway City", "Galway County", "Kerry County", "Kildare County", "Kilkenny County",
-    "Laois County", "Leitrim County", "Limerick City and County", "Longford County",
-    "Louth County", "Mayo County", "Meath County", "Monaghan County", "Offaly County",
-    "Roscommon County", "Sligo County", "South Dublin County", "Tipperary County",
-    "Waterford City and County", "Westmeath County", "Wexford County", "Wicklow County",
+    "Carlow County",
+    "Cavan County",
+    "Clare County",
+    "Cork City",
+    "Cork County",
+    "Donegal County",
+    "Dublin City",
+    "Dun Laoghaire-Rathdown",
+    "Fingal County",
+    "Galway City",
+    "Galway County",
+    "Kerry County",
+    "Kildare County",
+    "Kilkenny County",
+    "Laois County",
+    "Leitrim County",
+    "Limerick City and County",
+    "Longford County",
+    "Louth County",
+    "Mayo County",
+    "Meath County",
+    "Monaghan County",
+    "Offaly County",
+    "Roscommon County",
+    "Sligo County",
+    "South Dublin County",
+    "Tipperary County",
+    "Waterford City and County",
+    "Westmeath County",
+    "Wexford County",
+    "Wicklow County",
 }
+
+
 def _squish(s: str) -> str:
     """Accent-fold + lowercase + drop every non-alphanumeric char, so council labels match
     regardless of footnote marks, hyphen spacing, or cell line-wraps ('Dún Laoghaire-\\nRathdown')."""
@@ -142,25 +170,54 @@ def main() -> None:
         per = {}
         for la in CANON:
             rec = {"la": la, "year": year, "source_file_url": url}
-            for m in ("revenue_balance_pct", "m3_claims_per_capita_eur", "m4_central_mgmt_charge_pct",
-                      "sickness_certified_pct", "roads_poor_pct", "fire_within_10min_pct"):
+            for m in (
+                "revenue_balance_pct",
+                "m3_claims_per_capita_eur",
+                "m4_central_mgmt_charge_pct",
+                "sickness_certified_pct",
+                "roads_poor_pct",
+                "fire_within_10min_pct",
+            ):
                 rec[m] = loc[m].get(la)
-            lm, ls, lg = (loc["litter_moderate_pct"].get(la), loc["litter_significant_pct"].get(la),
-                          loc["litter_grossly_pct"].get(la))
-            rec["litter_problem_pct"] = None if lm is None and ls is None and lg is None else \
-                (lm or 0) + (ls or 0) + (lg or 0)
+            lm, ls, lg = (
+                loc["litter_moderate_pct"].get(la),
+                loc["litter_significant_pct"].get(la),
+                loc["litter_grossly_pct"].get(la),
+            )
+            rec["litter_problem_pct"] = (
+                None if lm is None and ls is None and lg is None else (lm or 0) + (ls or 0) + (lg or 0)
+            )
             recs.append(rec)
             per[la] = rec
-        coverage[str(year)] = {m: sum(1 for la in CANON if per[la][m] is not None)
-                               for m in ("revenue_balance_pct", "m3_claims_per_capita_eur",
-                                         "m4_central_mgmt_charge_pct", "sickness_certified_pct",
-                                         "roads_poor_pct", "fire_within_10min_pct", "litter_problem_pct")}
+        coverage[str(year)] = {
+            m: sum(1 for la in CANON if per[la][m] is not None)
+            for m in (
+                "revenue_balance_pct",
+                "m3_claims_per_capita_eur",
+                "m4_central_mgmt_charge_pct",
+                "sickness_certified_pct",
+                "roads_poor_pct",
+                "fire_within_10min_pct",
+                "litter_problem_pct",
+            )
+        }
 
-    df = pl.DataFrame(recs).select(
-        "la", "year", "revenue_balance_pct", "m3_claims_per_capita_eur", "m4_central_mgmt_charge_pct",
-        "sickness_certified_pct", "roads_poor_pct", "fire_within_10min_pct", "litter_problem_pct",
-        "source_file_url",
-    ).sort(["la", "year"])
+    df = (
+        pl.DataFrame(recs)
+        .select(
+            "la",
+            "year",
+            "revenue_balance_pct",
+            "m3_claims_per_capita_eur",
+            "m4_central_mgmt_charge_pct",
+            "sickness_certified_pct",
+            "roads_poor_pct",
+            "fire_within_10min_pct",
+            "litter_problem_pct",
+            "source_file_url",
+        )
+        .sort(["la", "year"])
+    )
     save_parquet(df, DEST, min_rows=60)
     COV.write_text(json.dumps(coverage, indent=2), encoding="utf-8")
     print(f"wrote {DEST}  ({df.height} rows, {df['year'].n_unique()} years)")

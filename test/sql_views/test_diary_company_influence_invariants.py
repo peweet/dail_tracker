@@ -43,7 +43,9 @@ def test_money_flags_and_values(conn) -> None:
     inv.flag_consistent(conn, _CI, "won_public_money", "awards_eur > 0 OR paid_eur > 0")
     inv.nonneg(conn, _CI, "awards_eur", "paid_eur")
     # an award € must carry the matched supplier name it came from (human-verifiable attribution)
-    assert conn.execute(f"SELECT count(*) FROM {_CI} WHERE awards_eur > 0 AND matched_supplier IS NULL").fetchone()[0] == 0
+    assert (
+        conn.execute(f"SELECT count(*) FROM {_CI} WHERE awards_eur > 0 AND matched_supplier IS NULL").fetchone()[0] == 0
+    )
 
 
 def test_corroborated_matches_lobbied_and_met(conn) -> None:
@@ -67,7 +69,9 @@ def test_no_state_or_semi_state_bodies(conn) -> None:
         f"SELECT lower(body) FROM read_parquet('{_STATEBOARDS}') WHERE body IS NOT NULL",
     )
     for body in ("An Post", "Higher Education Authority", "Grangegorman Development Agency"):
-        assert conn.execute(f"SELECT count(*) FROM {_CI} WHERE lower(organisation) = lower('{body}')").fetchone()[0] == 0
+        assert (
+            conn.execute(f"SELECT count(*) FROM {_CI} WHERE lower(organisation) = lower('{body}')").fetchone()[0] == 0
+        )
 
 
 def test_no_garbage_minister_attribution(conn) -> None:

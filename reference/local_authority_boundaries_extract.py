@@ -144,8 +144,7 @@ def build_outlines(geojson_path: Path) -> dict:
         by_name.setdefault(name, []).append(geom)
 
     shapes = {
-        name: unary_union(parts).simplify(_SIMPLIFY_DEG, preserve_topology=True)
-        for name, parts in by_name.items()
+        name: unary_union(parts).simplify(_SIMPLIFY_DEG, preserve_topology=True) for name, parts in by_name.items()
     }
 
     # Shared projection: one bbox over ALL authorities (Ireland extent), lon scaled by

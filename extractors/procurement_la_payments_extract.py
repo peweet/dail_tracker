@@ -908,7 +908,16 @@ def read_pdf_offaly(b: bytes) -> tuple[list[dict], int]:
                 supplier = re.sub(r"^\d{3,6}\s+", "", buf[0]).strip()  # strip an inline supp-id
                 description = " ".join(buf[1:]) or None
                 if len(supplier) >= 3 and not _OFF_NUM.match(supplier):
-                    recs.append({"supplier": supplier, "eur": a, "description": description, "po": None, "paid": None, "page": 1})
+                    recs.append(
+                        {
+                            "supplier": supplier,
+                            "eur": a,
+                            "description": description,
+                            "po": None,
+                            "paid": None,
+                            "page": 1,
+                        }
+                    )
                 buf, last_was_amt = [], True
             else:  # a trailing 'received amount' duplicate — ignore
                 last_was_amt = True
@@ -939,7 +948,11 @@ def read_pdf_reading_order(b: bytes, min_eur: float = 1000.0) -> tuple[list[dict
     chars = sum(len(doc[i].get_text("text").strip()) for i in range(min(3, doc.page_count)))
     lines = [ln.strip() for pi in range(doc.page_count) for ln in doc[pi].get_text().splitlines() if ln.strip()]
     doc.close()
-    amt_idx = [i for i, ln in enumerate(lines) if _RO_AMT.match(ln) and float(_RO_AMT.match(ln).group(1).replace(",", "")) >= min_eur]
+    amt_idx = [
+        i
+        for i, ln in enumerate(lines)
+        if _RO_AMT.match(ln) and float(_RO_AMT.match(ln).group(1).replace(",", "")) >= min_eur
+    ]
     recs: list[dict] = []
     n = len(lines)
     for k, i in enumerate(amt_idx):
@@ -951,7 +964,12 @@ def read_pdf_reading_order(b: bytes, min_eur: float = 1000.0) -> tuple[list[dict
             ln = lines[p]
             if _RO_AMT.match(ln):
                 break
-            if not _RO_PURENUM.match(ln) and not _RO_HDR.match(ln) and not TOTAL_RE.search(ln) and re.search(r"[A-Za-z]", ln):
+            if (
+                not _RO_PURENUM.match(ln)
+                and not _RO_HDR.match(ln)
+                and not TOTAL_RE.search(ln)
+                and re.search(r"[A-Za-z]", ln)
+            ):
                 supplier = ln
                 break
             p -= 1
@@ -966,7 +984,16 @@ def read_pdf_reading_order(b: bytes, min_eur: float = 1000.0) -> tuple[list[dict
                     break
                 desc.append(ln)
         if supplier and re.search(r"[A-Za-z]", supplier):
-            recs.append({"supplier": supplier, "eur": eur, "description": " ".join(desc) or None, "po": None, "paid": None, "page": 1})
+            recs.append(
+                {
+                    "supplier": supplier,
+                    "eur": eur,
+                    "description": " ".join(desc) or None,
+                    "po": None,
+                    "paid": None,
+                    "page": 1,
+                }
+            )
     return recs, chars
 
 
@@ -1492,7 +1519,7 @@ def main() -> None:
     )
     _removed = _before - df.height
     _eur_removed = 0.0  # informational only
-    print(f"cross-period republish dedupe: dropped {_removed:,} re-listed lines ({_removed / max(_before,1):.1%})")
+    print(f"cross-period republish dedupe: dropped {_removed:,} re-listed lines ({_removed / max(_before, 1):.1%})")
 
     # MERGE MODE: fold the freshly-parsed councils into the existing fact instead of replacing it.
     # Drop any prior rows for the councils we just (re)parsed — idempotent — then concat the
