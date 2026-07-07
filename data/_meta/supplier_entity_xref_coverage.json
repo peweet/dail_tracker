@@ -1,0 +1,12 @@
+{
+  "supplier_entities": 10004,
+  "with_cro": 6447,
+  "on_lobbying_register": 236,
+  "with_corporate_notice": 245,
+  "is_charity": 69,
+  "has_epa_licence": 38,
+  "on_2plus_extra_registers": 50,
+  "anchor": "procurement supplier universe (supplier_norm), company-class + non-truncated",
+  "match_method": "exact CANONICAL normalised-name (shared/name_norm.name_norm_expr) + CRO company_num",
+  "caveat": "Co-occurrence by ENTITY only \u2014 the SAME organisation appears on several public registers. NOT evidence one caused another; there is no key linking a specific lobby or meeting to a specific contract. Exact normalised-name / CRO matching UNDERCOUNTS (subsidiary and trading-name variants missed) and short generic names can collide \u2014 counts are floors, not verdicts. Sole traders / individuals excluded upstream."
+}
