@@ -306,7 +306,7 @@ def _section_spending(council: str) -> None:
 # ── at-a-glance triptych (the gist of all three concerns, before any switcher) ──
 _GLANCE_PREVIEW_BADGE = (
     '<span style="font-size:0.6rem;letter-spacing:0.04em;text-transform:uppercase;'
-    'color:#8a6d2f;background:#f4ecd8;border-radius:3px;padding:0.05rem 0.32rem;'
+    "color:#8a6d2f;background:#f4ecd8;border-radius:3px;padding:0.05rem 0.32rem;"
     'margin-left:0.4rem;vertical-align:middle">Preview</span>'
 )
 
@@ -325,7 +325,9 @@ def _spend_glance_sub(summ) -> str:
     return "No machine-readable spending we can read yet"
 
 
-def _glance_card(council: str, section: str, kicker: str, figure: str, sub: str, accent: str, *, preview: bool = False) -> str:
+def _glance_card(
+    council: str, section: str, kicker: str, figure: str, sub: str, accent: str, *, preview: bool = False
+) -> str:
     """One whole-card-clickable summary tile — a solid bordered card showing the
     firmest fact a concern publishes, with a left accent stripe. Clicking opens that
     section's deep dive (via the consumable ?yc= param). Display only: every figure
@@ -409,8 +411,12 @@ def _render_glance(council: str, ce_nm: str, head_title: str, summ) -> None:
     subsection_heading("At a glance")
     cards = [
         _glance_card(
-            council, "Who runs it", "Who runs it", ce_nm or "—",
-            f"{head_title or 'Chief Executive'} — appointed, not elected", "#16243a",
+            council,
+            "Who runs it",
+            "Who runs it",
+            ce_nm or "—",
+            f"{head_title or 'Chief Executive'} — appointed, not elected",
+            "#16243a",
         ),
         _glance_card(council, "Spending", "Spending", _spend_headline(summ), _spend_glance_sub(summ), "#3d719c"),
         _glance_card(council, "Your councillors", "Your councillors", *_councillor_glance(council), "#3a6b7e"),
@@ -479,8 +485,11 @@ def your_council_page() -> None:
     if p.get("paid_supplier") and p.get("paid_publisher"):
         name = p.get("paid_publisher")
         _render_payment_lines(
-            p.get("paid_supplier"), name, _tier_from(p),
-            on_back=lambda: _go(name, section="Spending"), back_label=f"← Back to {name}",
+            p.get("paid_supplier"),
+            name,
+            _tier_from(p),
+            on_back=lambda: _go(name, section="Spending"),
+            back_label=f"← Back to {name}",
         )
         return
     if p.get("paid_supplier"):

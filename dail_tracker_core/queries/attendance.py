@@ -138,7 +138,7 @@ def participation_absences(conn: duckdb.DuckDBPyConnection, year: int, house: st
 
 
 def participation_divergence(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil") -> QueryResult:
-    """"Badged in, didn't vote" — present in the TAA record but low turnout
+    """ "Badged in, didn't vote" — present in the TAA record but low turnout
     (backbenchers only). Most divergent first (lowest turnout)."""
     return _run(
         conn,

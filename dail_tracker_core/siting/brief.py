@@ -124,8 +124,15 @@ class Brief:
 
 def _item(i) -> BriefItem:
     reports = tuple(c.document for c in i.rule.checklist) if i.rule else ()
-    return BriefItem(title=i.title, why=i.flag, action=i.mitigates, reports=reports,
-                     path=tuple(i.mitigation_path), node_id=i.node_id, passfail="F" in i.mitigation_classes)
+    return BriefItem(
+        title=i.title,
+        why=i.flag,
+        action=i.mitigates,
+        reports=reports,
+        path=tuple(i.mitigation_path),
+        node_id=i.node_id,
+        passfail="F" in i.mitigation_classes,
+    )
 
 
 @dataclass
@@ -135,8 +142,8 @@ class TieredIssues:
     they can never diverge. See catalogue.Node for the universal/conditional/elevated semantics."""
 
     site_specific: list  # notable at THIS location (non-universal, or a universal node elevated by severity)
-    standard: list       # apply to essentially every rural one-off here (universal, not elevated)
-    checks: list         # depend on a layer we can't read / site features we can't see (flood + bats)
+    standard: list  # apply to essentially every rural one-off here (universal, not elevated)
+    checks: list  # depend on a layer we can't read / site features we can't see (flood + bats)
     access: object | None  # the road node (its own access/entrance section), or None
 
 
@@ -144,8 +151,9 @@ def tier_issues(result: SitingResult) -> TieredIssues:
     """Group result.fired into tiers (pure, deterministic — catalogue order preserved)."""
     fired = result.fired
     checks = [i for i in fired if i.data_status == "deep_link_only" or i.conditional]
-    rest = [i for i in fired if i.node_id != "road_sightlines"
-            and i.data_status != "deep_link_only" and not i.conditional]
+    rest = [
+        i for i in fired if i.node_id != "road_sightlines" and i.data_status != "deep_link_only" and not i.conditional
+    ]
     standard = [i for i in rest if i.universal and not i.elevated]
     site_specific = [i for i in rest if not (i.universal and not i.elevated)]
     access = next((i for i in result.issues if i.node_id == "road_sightlines" and i.fired), None)
@@ -153,7 +161,6 @@ def tier_issues(result: SitingResult) -> TieredIssues:
 
 
 def build_brief(result: SitingResult, terrain=None) -> Brief:
-    fired = result.fired  # catalogue order -> deterministic
     # TIERING (restores site-specific signal without suppressing anything — see catalogue.Node):
     #  - CHECKS the user must confirm: deep-link layers we can't read (flood) + conditional nodes whose
     #    binding trigger is a site feature we can't see (bats: trees/old structures/watercourses). Never
@@ -203,8 +210,11 @@ def build_brief(result: SitingResult, terrain=None) -> Brief:
         )
     else:
         tightness = (
-            "tight — several site-specific constraints stack" if nF >= 3
-            else "moderate" if n_site >= 1 else "no site-specific hard constraints surfaced"
+            "tight — several site-specific constraints stack"
+            if nF >= 3
+            else "moderate"
+            if n_site >= 1
+            else "no site-specific hard constraints surfaced"
         )
         n_std = len(obligations)
         headline = (

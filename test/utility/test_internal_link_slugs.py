@@ -22,8 +22,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
-
 _ROOT = Path(__file__).resolve().parents[2]
 _UTIL = _ROOT / "utility"
 _APP = _UTIL / "app.py"
@@ -67,7 +65,7 @@ def test_hand_rolled_internal_hrefs_point_to_registered_slugs():
         for lineno, line in enumerate(text.splitlines(), start=1):
             for slug in _HREF_RE.findall(line):
                 if slug not in registered:
-                    offenders.append(f"{py.name}:{lineno}  href=\"/{slug}\"  (not a registered url_path)")
+                    offenders.append(f'{py.name}:{lineno}  href="/{slug}"  (not a registered url_path)')
     assert not offenders, "Dead internal links (slug not registered in app.py):\n  " + "\n  ".join(offenders)
 
 

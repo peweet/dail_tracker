@@ -38,7 +38,6 @@ from extractors.participation_extract import (
     build_presence,
 )
 
-
 # ── fixture builders ─────────────────────────────────────────────────────────
 
 
@@ -93,11 +92,16 @@ def _empty_leaders() -> pl.DataFrame:
     return _leaders_df([])
 
 
-def _vote(code, name, vid, *, party="IND", vtype="Tá", year=2025, house="Dáil",
-          day=dt.date(2025, 1, 1)):
+def _vote(code, name, vid, *, party="IND", vtype="Tá", year=2025, house="Dáil", day=dt.date(2025, 1, 1)):
     return {
-        "house": house, "year": year, "vote_id": vid, "unique_member_code": code,
-        "full_name": name, "party": party, "vote_type": vtype, "d": day,
+        "house": house,
+        "year": year,
+        "vote_id": vid,
+        "unique_member_code": code,
+        "full_name": name,
+        "party": party,
+        "vote_type": vtype,
+        "d": day,
     }
 
 
@@ -113,11 +117,13 @@ def test_participation_denominator_is_distinct_divisions_per_house_year():
     computed per-member (e.g. counting only the divisions a member appears in) turnout
     would always be 100% and 'missed' would always be 0. Pinning total_divisions=2 for
     BOTH members guards that."""
-    votes = _votes_df([
-        _vote("A", "Ann A", 1),
-        _vote("A", "Ann A", 2),
-        _vote("B", "Ben B", 1),  # B is simply absent from division 2 (no row)
-    ])
+    votes = _votes_df(
+        [
+            _vote("A", "Ann A", 1),
+            _vote("A", "Ann A", 2),
+            _vote("B", "Ben B", 1),  # B is simply absent from division 2 (no row)
+        ]
+    )
     out = build_participation(votes, _empty_office(), _empty_leaders())
 
     by_code = {r["unique_member_code"]: r for r in out.iter_rows(named=True)}
@@ -141,19 +147,21 @@ def test_participation_denominator_is_scoped_per_house_and_year():
     turnout cannot be diluted by Seanad divisions or by a different year's divisions.
     Here Dáil-2025 has 2 divisions and Seanad-2025 has 1 — each member's denominator
     must reflect only its own (house, year) slice."""
-    votes = _votes_df([
-        _vote("D1", "Dee 1", 1, house="Dáil"),
-        _vote("D1", "Dee 1", 2, house="Dáil"),
-        _vote("D2", "Dee 2", 1, house="Dáil"),
-        _vote("S1", "Sue 1", 9, house="Seanad"),
-    ])
+    votes = _votes_df(
+        [
+            _vote("D1", "Dee 1", 1, house="Dáil"),
+            _vote("D1", "Dee 1", 2, house="Dáil"),
+            _vote("D2", "Dee 2", 1, house="Dáil"),
+            _vote("S1", "Sue 1", 9, house="Seanad"),
+        ]
+    )
     out = build_participation(votes, _empty_office(), _empty_leaders())
     by_code = {r["unique_member_code"]: r for r in out.iter_rows(named=True)}
 
     assert by_code["D1"]["total_divisions"] == 2
     assert by_code["D2"]["total_divisions"] == 2  # shares the Dáil denominator, not 1
     assert by_code["S1"]["total_divisions"] == 1  # isolated Seanad denominator
-    assert by_code["D2"]["turnout_pct"] == 50.0   # voted 1 of the 2 Dáil divisions
+    assert by_code["D2"]["turnout_pct"] == 50.0  # voted 1 of the 2 Dáil divisions
     assert by_code["S1"]["turnout_pct"] == 100.0
 
 
@@ -161,11 +169,13 @@ def test_participation_duplicate_vote_rows_do_not_inflate_counts():
     """vote_id is counted with n_unique on BOTH the denominator and the per-member
     numerator, so a duplicated member-division row (a known data hazard) must not push
     voted_in or total_divisions above the true distinct count, nor turnout above 100%."""
-    votes = _votes_df([
-        _vote("A", "Ann A", 1),
-        _vote("A", "Ann A", 1),  # exact duplicate row
-        _vote("A", "Ann A", 2),
-    ])
+    votes = _votes_df(
+        [
+            _vote("A", "Ann A", 1),
+            _vote("A", "Ann A", 1),  # exact duplicate row
+            _vote("A", "Ann A", 2),
+        ]
+    )
     out = build_participation(votes, _empty_office(), _empty_leaders())
     row = out.row(0, named=True)
     assert row["total_divisions"] == 2
@@ -179,13 +189,15 @@ def test_participation_abstentions_count_as_voted_in():
     so it must count toward voted_in / turnout, while ALSO being tallied separately in
     `abstentions`. Abstaining is participation, not absence — conflating the two would
     re-introduce the censoring the redesign set out to remove."""
-    votes = _votes_df([
-        _vote("A", "Ann A", 1, vtype="Tá"),
-        _vote("A", "Ann A", 2, vtype="Abstained"),
-    ])
+    votes = _votes_df(
+        [
+            _vote("A", "Ann A", 1, vtype="Tá"),
+            _vote("A", "Ann A", 2, vtype="Abstained"),
+        ]
+    )
     out = build_participation(votes, _empty_office(), _empty_leaders())
     row = out.row(0, named=True)
-    assert row["voted_in"] == 2          # abstention counted as participation
+    assert row["voted_in"] == 2  # abstention counted as participation
     assert row["abstentions"] == 1
     assert row["turnout_pct"] == 100.0
 
@@ -201,23 +213,43 @@ def test_participation_role_priority_and_leader_join():
         with the curated leader_note,
       * a plain backbencher → role '' and the missing office/leader flags fill to False.
     """
-    votes = _votes_df([
-        _vote("CHAIR", "Chair Person", 1),
-        _vote("MIN", "Min Ister", 1),
-        _vote("LEAD", "Lead Er", 1),
-        _vote("BACK", "Back Bencher", 1),
-    ])
-    office = _office_df([
-        # chair that is ALSO a minister → chair must win the priority chain
-        {"unique_member_code": "CHAIR", "holds_office": True, "is_minister": True,
-         "is_chair": True, "office_name": "Ceann Comhairle"},
-        {"unique_member_code": "MIN", "holds_office": True, "is_minister": True,
-         "is_chair": False, "office_name": "Minister for Finance"},
-    ])
-    leaders = _leaders_df([
-        {"full_name": "Lead Er", "house": "Dáil", "is_leader": True,
-         "leader_note": "Party leader — votes via pairing"},
-    ])
+    votes = _votes_df(
+        [
+            _vote("CHAIR", "Chair Person", 1),
+            _vote("MIN", "Min Ister", 1),
+            _vote("LEAD", "Lead Er", 1),
+            _vote("BACK", "Back Bencher", 1),
+        ]
+    )
+    office = _office_df(
+        [
+            # chair that is ALSO a minister → chair must win the priority chain
+            {
+                "unique_member_code": "CHAIR",
+                "holds_office": True,
+                "is_minister": True,
+                "is_chair": True,
+                "office_name": "Ceann Comhairle",
+            },
+            {
+                "unique_member_code": "MIN",
+                "holds_office": True,
+                "is_minister": True,
+                "is_chair": False,
+                "office_name": "Minister for Finance",
+            },
+        ]
+    )
+    leaders = _leaders_df(
+        [
+            {
+                "full_name": "Lead Er",
+                "house": "Dáil",
+                "is_leader": True,
+                "leader_note": "Party leader — votes via pairing",
+            },
+        ]
+    )
     out = build_participation(votes, office, leaders)
     by_code = {r["unique_member_code"]: r for r in out.iter_rows(named=True)}
 
@@ -283,23 +315,32 @@ def test_absence_gap_counts_interior_missed_sitting_days():
     cal = [dt.date(2025, 1, d) for d in (6, 7, 8, 9, 10)]  # 5 plenary sitting dates
     rows = []
     for d in cal:  # FILL is present every sitting day → defines the calendar
-        rows.append({"identifier": "FILL", "house": "Dáil", "year": 2025,
-                     "present_date": d, "is_plenary": True})
-    rows.append({"identifier": "M", "house": "Dáil", "year": 2025,
-                 "present_date": cal[0], "is_plenary": True})
-    rows.append({"identifier": "M", "house": "Dáil", "year": 2025,
-                 "present_date": cal[4], "is_plenary": True})
+        rows.append({"identifier": "FILL", "house": "Dáil", "year": 2025, "present_date": d, "is_plenary": True})
+    rows.append({"identifier": "M", "house": "Dáil", "year": 2025, "present_date": cal[0], "is_plenary": True})
+    rows.append({"identifier": "M", "house": "Dáil", "year": 2025, "present_date": cal[4], "is_plenary": True})
     att = _att_dates_df(rows)
-    code_map = _code_map_df([
-        {"identifier": "M", "house": "Dáil", "year": 2025,
-         "unique_member_code": "M.CODE", "full_name": "Em Member"},
-        {"identifier": "FILL", "house": "Dáil", "year": 2025,
-         "unique_member_code": "FILL.CODE", "full_name": "Fill Er"},
-    ])
+    code_map = _code_map_df(
+        [
+            {
+                "identifier": "M",
+                "house": "Dáil",
+                "year": 2025,
+                "unique_member_code": "M.CODE",
+                "full_name": "Em Member",
+            },
+            {
+                "identifier": "FILL",
+                "house": "Dáil",
+                "year": 2025,
+                "unique_member_code": "FILL.CODE",
+                "full_name": "Fill Er",
+            },
+        ]
+    )
     out = build_absence_gaps(att, code_map)
     m = out.filter(pl.col("unique_member_code") == "M.CODE").row(0, named=True)
 
-    assert m["longest_run_sitting_days"] == 3       # days 1,2,3 missed between 0 and 4
+    assert m["longest_run_sitting_days"] == 3  # days 1,2,3 missed between 0 and 4
     assert m["run_start"] == cal[0]
     assert m["run_end"] == cal[4]
     # calendar span between the two present dates = 10 Jan - 6 Jan = 4 days
@@ -315,21 +356,24 @@ def test_absence_gap_present_committee_day_breaks_the_run():
     cal = [dt.date(2025, 1, d) for d in (6, 7, 8, 9, 10)]
     rows = []
     for d in cal:
-        rows.append({"identifier": "FILL", "house": "Dáil", "year": 2025,
-                     "present_date": d, "is_plenary": True})
+        rows.append({"identifier": "FILL", "house": "Dáil", "year": 2025, "present_date": d, "is_plenary": True})
     # M plenary-present on days 0 and 4
-    rows.append({"identifier": "M", "house": "Dáil", "year": 2025,
-                 "present_date": cal[0], "is_plenary": True})
-    rows.append({"identifier": "M", "house": "Dáil", "year": 2025,
-                 "present_date": cal[4], "is_plenary": True})
+    rows.append({"identifier": "M", "house": "Dáil", "year": 2025, "present_date": cal[0], "is_plenary": True})
+    rows.append({"identifier": "M", "house": "Dáil", "year": 2025, "present_date": cal[4], "is_plenary": True})
     # M committee-present (non-plenary) on day 2 — in the building, breaks the run
-    rows.append({"identifier": "M", "house": "Dáil", "year": 2025,
-                 "present_date": cal[2], "is_plenary": False})
+    rows.append({"identifier": "M", "house": "Dáil", "year": 2025, "present_date": cal[2], "is_plenary": False})
     att = _att_dates_df(rows)
-    code_map = _code_map_df([
-        {"identifier": "M", "house": "Dáil", "year": 2025,
-         "unique_member_code": "M.CODE", "full_name": "Em Member"},
-    ])
+    code_map = _code_map_df(
+        [
+            {
+                "identifier": "M",
+                "house": "Dáil",
+                "year": 2025,
+                "unique_member_code": "M.CODE",
+                "full_name": "Em Member",
+            },
+        ]
+    )
     out = build_absence_gaps(att, code_map)
     m = out.filter(pl.col("unique_member_code") == "M.CODE").row(0, named=True)
     # runs are day1 (between idx0 and idx2) and day3 (between idx2 and idx4): each length 1
@@ -341,13 +385,19 @@ def test_absence_gap_perfect_attendance_is_zero_not_null():
     must fill that to 0 (a real 'no notable absence'), never null — a null would break
     downstream numeric ranking / sorting in the gold table."""
     cal = [dt.date(2025, 1, d) for d in (6, 7, 8)]
-    rows = [{"identifier": "M", "house": "Dáil", "year": 2025,
-             "present_date": d, "is_plenary": True} for d in cal]
+    rows = [{"identifier": "M", "house": "Dáil", "year": 2025, "present_date": d, "is_plenary": True} for d in cal]
     att = _att_dates_df(rows)
-    code_map = _code_map_df([
-        {"identifier": "M", "house": "Dáil", "year": 2025,
-         "unique_member_code": "M.CODE", "full_name": "Em Member"},
-    ])
+    code_map = _code_map_df(
+        [
+            {
+                "identifier": "M",
+                "house": "Dáil",
+                "year": 2025,
+                "unique_member_code": "M.CODE",
+                "full_name": "Em Member",
+            },
+        ]
+    )
     out = build_absence_gaps(att, code_map)
     m = out.filter(pl.col("unique_member_code") == "M.CODE").row(0, named=True)
     assert m["longest_run_sitting_days"] == 0
@@ -360,18 +410,22 @@ def test_absence_gap_drops_members_without_code():
     cal = [dt.date(2025, 1, d) for d in (6, 7, 8)]
     rows = []
     for d in cal:
-        rows.append({"identifier": "FILL", "house": "Dáil", "year": 2025,
-                     "present_date": d, "is_plenary": True})
-    rows.append({"identifier": "GHOST", "house": "Dáil", "year": 2025,
-                 "present_date": cal[0], "is_plenary": True})
-    rows.append({"identifier": "GHOST", "house": "Dáil", "year": 2025,
-                 "present_date": cal[2], "is_plenary": True})
+        rows.append({"identifier": "FILL", "house": "Dáil", "year": 2025, "present_date": d, "is_plenary": True})
+    rows.append({"identifier": "GHOST", "house": "Dáil", "year": 2025, "present_date": cal[0], "is_plenary": True})
+    rows.append({"identifier": "GHOST", "house": "Dáil", "year": 2025, "present_date": cal[2], "is_plenary": True})
     att = _att_dates_df(rows)
     # code_map only resolves FILL — GHOST has no code.
-    code_map = _code_map_df([
-        {"identifier": "FILL", "house": "Dáil", "year": 2025,
-         "unique_member_code": "FILL.CODE", "full_name": "Fill Er"},
-    ])
+    code_map = _code_map_df(
+        [
+            {
+                "identifier": "FILL",
+                "house": "Dáil",
+                "year": 2025,
+                "unique_member_code": "FILL.CODE",
+                "full_name": "Fill Er",
+            },
+        ]
+    )
     out = build_absence_gaps(att, code_map)
     assert "GHOST" not in out["full_name"].to_list()
     assert out.filter(pl.col("unique_member_code").is_null()).height == 0
@@ -413,13 +467,18 @@ def _part_for_presence(rows: list[dict]) -> pl.DataFrame:
     )
 
 
-def _att_row(code, name, total, *, sitting=None, other=0, house="Dáil", year=2025,
-             party="IND", const="Dublin"):
+def _att_row(code, name, total, *, sitting=None, other=0, house="Dáil", year=2025, party="IND", const="Dublin"):
     sitting = total - other if sitting is None else sitting
     return {
-        "unique_member_code": code, "house": house, "year": year, "full_name": name,
-        "party_name": party, "constituency": const, "sitting_days": sitting,
-        "other_days": other, "total_days": total,
+        "unique_member_code": code,
+        "house": house,
+        "year": year,
+        "full_name": name,
+        "party_name": party,
+        "constituency": const,
+        "sitting_days": sitting,
+        "other_days": other,
+        "total_days": total,
     }
 
 
@@ -432,11 +491,13 @@ def test_presence_120_day_compliance_and_deduction():
       * 110 days        → 10 below → 10% deduction,
       * 5 days          → 115 below → deduction CAPPED at 100, not 115.
     Getting the cap or the >= boundary wrong mis-states real money owed/deducted."""
-    att = _att_presence_df([
-        _att_row("EXACT", "Ex Act", 120),
-        _att_row("UNDER", "Un Der", 110),
-        _att_row("TINY", "Ti Ny", 5),
-    ])
+    att = _att_presence_df(
+        [
+            _att_row("EXACT", "Ex Act", 120),
+            _att_row("UNDER", "Un Der", 110),
+            _att_row("TINY", "Ti Ny", 5),
+        ]
+    )
     part = _part_for_presence([])  # no votes needed for the compliance arithmetic
     out = build_presence(att, part, _empty_office(), _empty_leaders())
     by_code = {r["unique_member_code"]: r for r in out.iter_rows(named=True)}
@@ -465,64 +526,116 @@ def test_presence_divergence_excludes_office_holders_and_leaders():
       * office holder      → FALSE (gated out),
       * party leader       → FALSE (gated out),
       * backbencher at 51% turnout → FALSE (turnout threshold not met)."""
-    att = _att_presence_df([
-        _att_row("BACK", "Back Bencher", 150),
-        _att_row("OFFICE", "Off Holder", 150),
-        _att_row("LEADER", "Lead Er", 150),
-        _att_row("OKVOTE", "Ok Voter", 150),
-    ])
-    part = _part_for_presence([
-        {"unique_member_code": "BACK", "house": "Dáil", "year": 2025,
-         "voted_in": 30, "total_divisions": 100, "turnout_pct": 30.0},
-        {"unique_member_code": "OFFICE", "house": "Dáil", "year": 2025,
-         "voted_in": 30, "total_divisions": 100, "turnout_pct": 30.0},
-        {"unique_member_code": "LEADER", "house": "Dáil", "year": 2025,
-         "voted_in": 30, "total_divisions": 100, "turnout_pct": 30.0},
-        {"unique_member_code": "OKVOTE", "house": "Dáil", "year": 2025,
-         "voted_in": 51, "total_divisions": 100, "turnout_pct": 51.0},
-    ])
-    office = _office_df([
-        {"unique_member_code": "OFFICE", "holds_office": True, "is_minister": True,
-         "is_chair": False, "office_name": "Minister for Health"},
-    ])
-    leaders = _leaders_df([
-        {"full_name": "Lead Er", "house": "Dáil", "is_leader": True,
-         "leader_note": "leader"},
-    ])
+    att = _att_presence_df(
+        [
+            _att_row("BACK", "Back Bencher", 150),
+            _att_row("OFFICE", "Off Holder", 150),
+            _att_row("LEADER", "Lead Er", 150),
+            _att_row("OKVOTE", "Ok Voter", 150),
+        ]
+    )
+    part = _part_for_presence(
+        [
+            {
+                "unique_member_code": "BACK",
+                "house": "Dáil",
+                "year": 2025,
+                "voted_in": 30,
+                "total_divisions": 100,
+                "turnout_pct": 30.0,
+            },
+            {
+                "unique_member_code": "OFFICE",
+                "house": "Dáil",
+                "year": 2025,
+                "voted_in": 30,
+                "total_divisions": 100,
+                "turnout_pct": 30.0,
+            },
+            {
+                "unique_member_code": "LEADER",
+                "house": "Dáil",
+                "year": 2025,
+                "voted_in": 30,
+                "total_divisions": 100,
+                "turnout_pct": 30.0,
+            },
+            {
+                "unique_member_code": "OKVOTE",
+                "house": "Dáil",
+                "year": 2025,
+                "voted_in": 51,
+                "total_divisions": 100,
+                "turnout_pct": 51.0,
+            },
+        ]
+    )
+    office = _office_df(
+        [
+            {
+                "unique_member_code": "OFFICE",
+                "holds_office": True,
+                "is_minister": True,
+                "is_chair": False,
+                "office_name": "Minister for Health",
+            },
+        ]
+    )
+    leaders = _leaders_df(
+        [
+            {"full_name": "Lead Er", "house": "Dáil", "is_leader": True, "leader_note": "leader"},
+        ]
+    )
     out = build_presence(att, part, office, leaders)
     by_code = {r["unique_member_code"]: r for r in out.iter_rows(named=True)}
 
     assert by_code["BACK"]["divergence_present_low_vote"] is True
-    assert by_code["OFFICE"]["divergence_present_low_vote"] is False   # office gate
-    assert by_code["LEADER"]["divergence_present_low_vote"] is False   # leader gate
-    assert by_code["OKVOTE"]["divergence_present_low_vote"] is False   # turnout gate
+    assert by_code["OFFICE"]["divergence_present_low_vote"] is False  # office gate
+    assert by_code["LEADER"]["divergence_present_low_vote"] is False  # leader gate
+    assert by_code["OKVOTE"]["divergence_present_low_vote"] is False  # turnout gate
 
 
 def test_presence_divergence_requires_minimum_presence_and_handles_null_turnout():
     """Two more divergence boundaries:
-      * total_days < 100 → not enough presence to call it 'present but not voting', so a
-        low-turnout member who barely attended is NOT flagged (their problem is absence,
-        captured elsewhere). 99 days @ 10% → FALSE; 100 days @ 10% → TRUE (>= boundary).
-      * a member with NO vote rows joins to null turnout_pct; fill_null(0) treats that as
-        0% so a heavily-present non-voter still divergence-flags rather than slipping
-        through on a null comparison."""
-    att = _att_presence_df([
-        _att_row("LOWATT", "Low Att", 99),
-        _att_row("ATBOUND", "At Bound", 100),
-        _att_row("NOVOTE", "No Voter", 150),
-    ])
-    part = _part_for_presence([
-        {"unique_member_code": "LOWATT", "house": "Dáil", "year": 2025,
-         "voted_in": 10, "total_divisions": 100, "turnout_pct": 10.0},
-        {"unique_member_code": "ATBOUND", "house": "Dáil", "year": 2025,
-         "voted_in": 10, "total_divisions": 100, "turnout_pct": 10.0},
-        # NOVOTE deliberately absent from participation → null turnout after the left join
-    ])
+    * total_days < 100 → not enough presence to call it 'present but not voting', so a
+      low-turnout member who barely attended is NOT flagged (their problem is absence,
+      captured elsewhere). 99 days @ 10% → FALSE; 100 days @ 10% → TRUE (>= boundary).
+    * a member with NO vote rows joins to null turnout_pct; fill_null(0) treats that as
+      0% so a heavily-present non-voter still divergence-flags rather than slipping
+      through on a null comparison."""
+    att = _att_presence_df(
+        [
+            _att_row("LOWATT", "Low Att", 99),
+            _att_row("ATBOUND", "At Bound", 100),
+            _att_row("NOVOTE", "No Voter", 150),
+        ]
+    )
+    part = _part_for_presence(
+        [
+            {
+                "unique_member_code": "LOWATT",
+                "house": "Dáil",
+                "year": 2025,
+                "voted_in": 10,
+                "total_divisions": 100,
+                "turnout_pct": 10.0,
+            },
+            {
+                "unique_member_code": "ATBOUND",
+                "house": "Dáil",
+                "year": 2025,
+                "voted_in": 10,
+                "total_divisions": 100,
+                "turnout_pct": 10.0,
+            },
+            # NOVOTE deliberately absent from participation → null turnout after the left join
+        ]
+    )
     out = build_presence(att, part, _empty_office(), _empty_leaders())
     by_code = {r["unique_member_code"]: r for r in out.iter_rows(named=True)}
 
-    assert by_code["LOWATT"]["divergence_present_low_vote"] is False   # < 100 days
-    assert by_code["ATBOUND"]["divergence_present_low_vote"] is True   # exactly 100 days
+    assert by_code["LOWATT"]["divergence_present_low_vote"] is False  # < 100 days
+    assert by_code["ATBOUND"]["divergence_present_low_vote"] is True  # exactly 100 days
     # null turnout → coalesced to 0% < 50 → present non-voter is flagged
     assert by_code["NOVOTE"]["turnout_pct"] is None
     assert by_code["NOVOTE"]["divergence_present_low_vote"] is True
@@ -532,14 +645,24 @@ def test_presence_left_join_preserves_attendance_rows_without_votes():
     """build_presence is attendance-driven via a LEFT join onto participation: a member in
     the TAA record who cast no votes must SURVIVE (height preserved) with null vote columns,
     not be dropped. Dropping them would hide the worst non-voters from the feature."""
-    att = _att_presence_df([
-        _att_row("HASVOTE", "Has Vote", 130),
-        _att_row("NOVOTE", "No Vote", 130),
-    ])
-    part = _part_for_presence([
-        {"unique_member_code": "HASVOTE", "house": "Dáil", "year": 2025,
-         "voted_in": 90, "total_divisions": 100, "turnout_pct": 90.0},
-    ])
+    att = _att_presence_df(
+        [
+            _att_row("HASVOTE", "Has Vote", 130),
+            _att_row("NOVOTE", "No Vote", 130),
+        ]
+    )
+    part = _part_for_presence(
+        [
+            {
+                "unique_member_code": "HASVOTE",
+                "house": "Dáil",
+                "year": 2025,
+                "voted_in": 90,
+                "total_divisions": 100,
+                "turnout_pct": 90.0,
+            },
+        ]
+    )
     out = build_presence(att, part, _empty_office(), _empty_leaders())
     assert out.height == 2
     novote = out.filter(pl.col("unique_member_code") == "NOVOTE").row(0, named=True)
@@ -558,14 +681,17 @@ def test_absence_news_returns_curated_schema_when_no_csv(monkeypatch, tmp_path):
     import extractors.participation_extract as mod
 
     monkeypatch.setattr(mod, "EXPLANATIONS_CSV", tmp_path / "does_not_exist.csv")
-    name_to_code = pl.DataFrame(
-        {"full_name": ["Em Member"], "house": ["Dáil"], "unique_member_code": ["M.CODE"]}
-    )
+    name_to_code = pl.DataFrame({"full_name": ["Em Member"], "house": ["Dáil"], "unique_member_code": ["M.CODE"]})
     out = build_absence_news(name_to_code)
     assert out.height == 0
     assert set(out.columns) == {
-        "unique_member_code", "year", "reason_label",
-        "source_title", "source_url", "outlet", "is_curated",
+        "unique_member_code",
+        "year",
+        "reason_label",
+        "source_title",
+        "source_url",
+        "outlet",
+        "is_curated",
     }
 
 
@@ -589,9 +715,7 @@ def test_absence_news_resolves_curated_csv_to_member_code(monkeypatch, tmp_path)
     ).write_csv(csv)
     monkeypatch.setattr(mod, "EXPLANATIONS_CSV", csv)
 
-    name_to_code = pl.DataFrame(
-        {"full_name": ["Em Member"], "house": ["Dáil"], "unique_member_code": ["M.CODE"]}
-    )
+    name_to_code = pl.DataFrame({"full_name": ["Em Member"], "house": ["Dáil"], "unique_member_code": ["M.CODE"]})
     out = build_absence_news(name_to_code)
     # only the matched member survives; the unknown-name curated row is dropped
     assert out.height == 1

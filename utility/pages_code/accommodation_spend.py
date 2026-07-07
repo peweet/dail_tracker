@@ -141,7 +141,7 @@ def _render_by_year(df) -> None:
             f"{int(n):,}" if pd.notna(n) else "—",
         ]
         for y, ip, uk, tot, n in zip(
-            yt["year"], yt["ip_eur"], yt["ukraine_eur"], yt["total_eur"], yt["n_providers"]
+            yt["year"], yt["ip_eur"], yt["ukraine_eur"], yt["total_eur"], yt["n_providers"], strict=False
         )
     ]
     st.html(
@@ -173,7 +173,13 @@ def _render_providers(df) -> None:
             f"{int(a)}–{int(b)}" if a != b else f"{int(a)}",
         ]
         for prov, tot, ip, uk, a, b in zip(
-            df["provider"], df["total_eur"], df["ip_eur"], df["ukraine_eur"], df["first_year"], df["last_year"]
+            df["provider"],
+            df["total_eur"],
+            df["ip_eur"],
+            df["ukraine_eur"],
+            df["first_year"],
+            df["last_year"],
+            strict=False,
         )
     ]
     st.html(

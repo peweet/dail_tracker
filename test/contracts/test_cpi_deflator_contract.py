@@ -33,7 +33,11 @@ def defl() -> pl.DataFrame:
 
 def test_schema_and_no_nulls(defl):
     assert set(defl.columns) == {
-        "year", "cpi_pct_change", "cpi_index_chained", "deflator_to_base", "base_year",
+        "year",
+        "cpi_pct_change",
+        "cpi_index_chained",
+        "deflator_to_base",
+        "base_year",
     }
     assert defl.null_count().to_numpy().sum() == 0, "deflator must have no nulls"
 
@@ -93,21 +97,22 @@ def test_money_facts_keep_nominal_columns():
         aw = _GOLD / "procurement_awards.parquet"
         pay = _GOLD / "procurement_payments_fact.parquet"
         if aw.exists():
-            cols = {r[0] for r in conn.execute(
-                f"DESCRIBE SELECT * FROM read_parquet('{aw.as_posix()}')").fetchall()}
+            cols = {r[0] for r in conn.execute(f"DESCRIBE SELECT * FROM read_parquet('{aw.as_posix()}')").fetchall()}
             assert "value_eur" in cols, "awards must retain canonical nominal value_eur"
         if pay.exists():
-            cols = {r[0] for r in conn.execute(
-                f"DESCRIBE SELECT * FROM read_parquet('{pay.as_posix()}')").fetchall()}
+            cols = {r[0] for r in conn.execute(f"DESCRIBE SELECT * FROM read_parquet('{pay.as_posix()}')").fetchall()}
             assert "amount_eur" in cols, "payments must retain canonical nominal amount_eur"
     finally:
         conn.close()
 
 
-@pytest.mark.parametrize("fact,col", [
-    ("procurement_awards", "value_eur"),
-    ("procurement_payments_fact", "amount_eur"),
-])
+@pytest.mark.parametrize(
+    "fact,col",
+    [
+        ("procurement_awards", "value_eur"),
+        ("procurement_payments_fact", "amount_eur"),
+    ],
+)
 def test_value_plausible_flag_present_and_consistent(fact, col):
     """The parse-artefact guard must exist, be boolean, and agree with its definition:
     a present value is plausible IFF it sits in the band; a null value -> null flag."""
@@ -121,7 +126,9 @@ def test_value_plausible_flag_present_and_consistent(fact, col):
     assert df["value_plausible"].dtype == pl.Boolean
     # any value below the floor must be flagged not-plausible (the user's sub-€100 worry)
     low_unflagged = df.filter(
-        (pl.col(col).is_not_null()) & (pl.col(col) > 0) & (pl.col(col) < PLAUSIBLE_FLOOR_EUR)
+        (pl.col(col).is_not_null())
+        & (pl.col(col) > 0)
+        & (pl.col(col) < PLAUSIBLE_FLOOR_EUR)
         & (pl.col("value_plausible") != False)  # noqa: E712
     ).height
     assert low_unflagged == 0, f"{low_unflagged} sub-€{PLAUSIBLE_FLOOR_EUR:.0f} values not flagged implausible"

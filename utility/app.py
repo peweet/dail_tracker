@@ -47,6 +47,7 @@ except ImportError as _err:  # pragma: no cover - env-dependent
         )
         st.caption(f"(unavailable here: {_siting_import_error})")
 
+
 st.set_page_config(
     page_title="Dáil Tracker",
     page_icon=":material/account_balance:",

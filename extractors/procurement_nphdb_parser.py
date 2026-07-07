@@ -94,8 +94,7 @@ FILES = [
     {
         # Historical backfill: the board's full 2020–2023 listing (uploaded 2026/03), older
         # than the poller's held_through so it is not flagged FRESH — added by hand 2026-06-21.
-        "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/03/"
-        "PO-Listing-Q1-2020-to-Q4-2023.pdf",
+        "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/03/PO-Listing-Q1-2020-to-Q4-2023.pdf",
         "period": "2020-Q1..2023-Q4",
         "year": None,
         "quarter": None,
@@ -111,16 +110,14 @@ FILES = [
         "caveat": _BAM_CAVEAT,
     },
     {
-        "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/01/"
-        "Quarterly-PO-Listing-Q3-2025-ID-183186.pdf",
+        "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/01/Quarterly-PO-Listing-Q3-2025-ID-183186.pdf",
         "period": "2025-Q3",
         "year": 2025,
         "quarter": 3,
         "caveat": _GENERIC_CAVEAT,
     },
     {
-        "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/06/"
-        "Quarterly-PO-Listing-Q4-2025-ID-195073.pdf",
+        "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/06/Quarterly-PO-Listing-Q4-2025-ID-195073.pdf",
         "period": "2025-Q4",
         "year": 2025,
         "quarter": 4,
@@ -333,7 +330,15 @@ def main() -> None:
 
     # Single-file override (legacy / ad-hoc): parse one local PDF as a span-tagged file.
     if args.pdf:
-        specs = [{"url": args.url or f"file://{args.pdf}", "period": OVERALL_SPAN, "year": None, "quarter": None, "caveat": _BAM_CAVEAT}]
+        specs = [
+            {
+                "url": args.url or f"file://{args.pdf}",
+                "period": OVERALL_SPAN,
+                "year": None,
+                "quarter": None,
+                "caveat": _BAM_CAVEAT,
+            }
+        ]
         local = {specs[0]["url"]: Path(args.pdf).read_bytes()}
     else:
         specs = FILES
@@ -358,7 +363,14 @@ def main() -> None:
         sub = float(sum(r["amount_eur"] for r in rows) or 0)
         print(f"  {spec['period']:<18} {pages:>3} pages  {len(recs):>5,} records  €{sub:>15,.2f}")
         per_file.append(
-            {"period": spec["period"], "url": spec["url"], "hash": fhash, "rows": len(rows), "sum_eur": sub, "status": "ok"}
+            {
+                "period": spec["period"],
+                "url": spec["url"],
+                "hash": fhash,
+                "rows": len(rows),
+                "sum_eur": sub,
+                "status": "ok",
+            }
         )
 
     if not all_rows:

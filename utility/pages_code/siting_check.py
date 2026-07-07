@@ -157,10 +157,12 @@ def _render_exclusion_banner(exclusions) -> None:
     States the FACT (the designation covers the point) and the narrow real route that could still
     permit development — never an absolute 'cannot build' verdict (it may be possible to mitigate).
     """
-    rows = ['<div class="sc-excl"><h2>⛔ Excluded — statutory protected land</h2>'
-            '<p class="sc-flag">This point lies inside a protected designation, where ordinary '
-            "development is presumed against. This is a fact about the land, not the planning "
-            "decision — and it may still be possible via the narrow statutory route below.</p>"]
+    rows = [
+        '<div class="sc-excl"><h2>⛔ Excluded — statutory protected land</h2>'
+        '<p class="sc-flag">This point lies inside a protected designation, where ordinary '
+        "development is presumed against. This is a fact about the land, not the planning "
+        "decision — and it may still be possible via the narrow statutory route below.</p>"
+    ]
     for e in exclusions:
         rows.append(f'<p class="sc-site">Inside {_h(e.site_name)} — {_h(e.designation)}</p>')
         if getattr(e, "mitigation", ""):
@@ -180,8 +182,10 @@ def _render_verify_card(issue) -> None:
         parts.append(f'<p class="sc-flag">{_h(issue.flag)}</p>')
     if issue.extra.get("flood_link"):
         link = issue.extra["flood_link"]
-        parts.append(f'<p class="sc-note">↗ <a href="{_h(link)}" target="_blank">'
-                     f"Open the statutory flood maps for this exact point (floodinfo.ie)</a></p>")
+        parts.append(
+            f'<p class="sc-note">↗ <a href="{_h(link)}" target="_blank">'
+            f"Open the statutory flood maps for this exact point (floodinfo.ie)</a></p>"
+        )
     parts.append("</div>")
     st.html("".join(parts))
 
@@ -219,12 +223,14 @@ def _render_card(issue) -> None:
         ref, outcome, note = p.get("ref", ""), p.get("outcome", ""), p.get("note", "")
         parts.append(
             f'<div class="sc-prec"><b>Precedent</b> — {_h(ref)} '
-            f'({_h(str(outcome).replace("_", " "))}): {_h(note)}</div>'
+            f"({_h(str(outcome).replace('_', ' '))}): {_h(note)}</div>"
         )
     if issue.extra.get("flood_link"):
         link = issue.extra["flood_link"]
-        parts.append(f'<p class="sc-note">↗ <a href="{_h(link)}" target="_blank">'
-                     f"View statutory flood maps for this site (floodinfo.ie)</a></p>")
+        parts.append(
+            f'<p class="sc-note">↗ <a href="{_h(link)}" target="_blank">'
+            f"View statutory flood maps for this site (floodinfo.ie)</a></p>"
+        )
     parts.append("</div>")
     st.html("".join(parts))
 
@@ -265,10 +271,15 @@ def _render_standard(issue) -> None:
     De-emphasised vs a site-specific card — these are the baseline everyone addresses, not
     something unusual about this site. The rural-housing-need gate is flagged pass/fail because it
     is the key rural hurdle even though it is universal."""
-    badge = ('<span class="sc-tag" style="background:#b3261e1a;color:#b3261e">Pass/fail gate</span>'
-             if "F" in issue.mitigation_classes else "")
-    parts = ['<div class="sc-card" style="border-left-color:#bbb;padding:.5rem .8rem">',
-             f"<h3 style='font-size:.97rem;margin:.05rem 0 .25rem 0'>{_h(issue.title)} {badge}</h3>"]
+    badge = (
+        '<span class="sc-tag" style="background:#b3261e1a;color:#b3261e">Pass/fail gate</span>'
+        if "F" in issue.mitigation_classes
+        else ""
+    )
+    parts = [
+        '<div class="sc-card" style="border-left-color:#bbb;padding:.5rem .8rem">',
+        f"<h3 style='font-size:.97rem;margin:.05rem 0 .25rem 0'>{_h(issue.title)} {badge}</h3>",
+    ]
     line = issue.mitigates or issue.flag
     if line:
         parts.append(f'<p class="sc-note" style="margin:0">{_h(line)}</p>')
@@ -305,19 +316,22 @@ def siting_check_page() -> None:
         on_change=_apply_maps_url,
         placeholder="paste any Maps link — full URL or a maps.app.goo.gl share link",
         help="Paste a Google Maps URL (the @lat,lon kind), a short share link "
-             "(maps.app.goo.gl/…) which we resolve for you, or bare coordinates like "
-             "53.34980, -6.26030. Tip: drag the orange figure onto your exact site first.",
+        "(maps.app.goo.gl/…) which we resolve for you, or bare coordinates like "
+        "53.34980, -6.26030. Tip: drag the orange figure onto your exact site first.",
     )
     msg = st.session_state.get("sc_url_msg")
     if msg and msg[0] == "ok":
         st.success(f"Located {msg[1][0]:.5f}, {msg[1][1]:.5f} — adjust below if needed.")
     elif msg and msg[0] == "short":
-        st.warning("Couldn't resolve that short share link (network issue or it had no "
-                   "coordinates). Open it in Google Maps and copy the full URL, or paste "
-                   "coordinates like 53.34980, -6.26030.")
+        st.warning(
+            "Couldn't resolve that short share link (network issue or it had no "
+            "coordinates). Open it in Google Maps and copy the full URL, or paste "
+            "coordinates like 53.34980, -6.26030."
+        )
     elif msg and msg[0] == "err":
-        st.warning("Couldn't find coordinates in that text. Paste a Google Maps URL or "
-                   "coordinates like 53.34980, -6.26030.")
+        st.warning(
+            "Couldn't find coordinates in that text. Paste a Google Maps URL or coordinates like 53.34980, -6.26030."
+        )
 
     c1, c2, c3 = st.columns([1, 1, 1.2])
     with c1:
@@ -325,8 +339,9 @@ def siting_check_page() -> None:
     with c2:
         lon = st.number_input("Longitude", format="%.5f", key="sc_lon")
     with c3:
-        dev = st.selectbox("What do you want to build?", list(_DEV_TYPES),
-                           format_func=lambda k: _DEV_TYPES[k], key="sc_dev")
+        dev = st.selectbox(
+            "What do you want to build?", list(_DEV_TYPES), format_func=lambda k: _DEV_TYPES[k], key="sc_dev"
+        )
 
     # scale inputs only matter for housing schemes / commercial — they drive the
     # scale-gated obligations (design statement, mobility, climate, EIA …)
@@ -334,16 +349,20 @@ def siting_check_page() -> None:
     if dev in ("multi_unit", "commercial"):
         s1, s2 = st.columns(2)
         with s1:
-            num_units = st.number_input("Number of units (if known)", min_value=0, value=0,
-                                        step=1, key="sc_units") or None
+            num_units = (
+                st.number_input("Number of units (if known)", min_value=0, value=0, step=1, key="sc_units") or None
+            )
         with s2:
-            floor_area = st.number_input("Gross floor area m² (if known)", min_value=0, value=0,
-                                         step=100, key="sc_fa") or None
+            floor_area = (
+                st.number_input("Gross floor area m² (if known)", min_value=0, value=0, step=100, key="sc_fa") or None
+            )
     go = st.button("Check this site", type="primary")
 
     if not go:
-        st.caption("Tip: in Google Maps, drag the orange 'little man' (bottom-right) onto your "
-                   "exact site, then paste the address-bar link above — the point fills in for you.")
+        st.caption(
+            "Tip: in Google Maps, drag the orange 'little man' (bottom-right) onto your "
+            "exact site, then paste the address-bar link above — the point fills in for you."
+        )
         return
 
     if not (51.0 <= lat <= 56.0 and -11.0 <= lon <= -5.0):
@@ -351,9 +370,13 @@ def siting_check_page() -> None:
         return
 
     with st.spinner("Evaluating the site against the designation layers and the rulebook…"):
-        res = evaluate_site(float(lon), float(lat), dev,
-                            num_units=int(num_units) if num_units else None,
-                            floor_area_m2=float(floor_area) if floor_area else None)
+        res = evaluate_site(
+            float(lon),
+            float(lat),
+            dev,
+            num_units=int(num_units) if num_units else None,
+            floor_area_m2=float(floor_area) if floor_area else None,
+        )
 
     st.map({"lat": [lat], "lon": [lon]}, zoom=12, size=60)
 
@@ -368,6 +391,7 @@ def siting_check_page() -> None:
     else:
         bnd = " (inferred from the nearest planning application)"
     from data_access.siting_data import site_terrain
+
     t = site_terrain(float(lon), float(lat))
     elev = f"{t.elevation_m} m" if t.ok else "n/a"
     exp = " · elevated/exposed" if (t.ok and t.exposed) else ""
@@ -395,9 +419,11 @@ def siting_check_page() -> None:
         for issue in site:
             _render_card(issue)
     elif not getattr(res, "excluded", False):
-        st.success("No location-specific designation constraints fired here from the layers loaded — "
-                   "the standard requirements below still apply, and an empty list is not proof the "
-                   "site is developable.")
+        st.success(
+            "No location-specific designation constraints fired here from the layers loaded — "
+            "the standard requirements below still apply, and an empty list is not proof the "
+            "site is developable."
+        )
 
     # 2) ACCESS & ENTRANCE — the road node, its own section (sightlines / junction).
     if tiers.access is not None:
@@ -410,9 +436,11 @@ def siting_check_page() -> None:
         std = sorted(tiers.standard, key=lambda i: "F" not in i.mitigation_classes)
         dev_label = _DEV_TYPES.get(dev, "development").lower()
         with st.expander(f"Standard requirements for any {dev_label} here ({len(std)})"):
-            st.caption("These apply to essentially every application of this type — the baseline, not "
-                       "something unusual about your site. Any pass/fail gate (e.g. rural-housing need) "
-                       "is flagged.")
+            st.caption(
+                "These apply to essentially every application of this type — the baseline, not "
+                "something unusual about your site. Any pass/fail gate (e.g. rural-housing need) "
+                "is flagged."
+            )
             for issue in std:
                 _render_standard(issue)
 
@@ -420,15 +448,19 @@ def siting_check_page() -> None:
     # (e.g. bats: trees/old structures/watercourses we can't see). Verification steps, not findings.
     if tiers.checks:
         st.subheader("Checks to run yourself")
-        st.caption("These depend on a layer we can't read (the licensed OPW flood maps) or on features "
-                   "of your specific site or building (e.g. a bat survey) — verification steps, not "
-                   "issues this point is confirmed to trigger.")
+        st.caption(
+            "These depend on a layer we can't read (the licensed OPW flood maps) or on features "
+            "of your specific site or building (e.g. a bat survey) — verification steps, not "
+            "issues this point is confirmed to trigger."
+        )
         for issue in tiers.checks:
             _render_card(issue)
 
     if res.missing_layers:
         pretty = ", ".join(m.replace("_", " ") for m in res.missing_layers)
-        st.info(f"Not yet assessed here (data layer pending): {pretty}. "
-                "Absence of a flag is not confirmation the issue does not apply.")
+        st.info(
+            f"Not yet assessed here (data layer pending): {pretty}. "
+            "Absence of a flag is not confirmation the issue does not apply."
+        )
 
     st.caption(res.disclaimer)

@@ -23,6 +23,7 @@ locally to regenerate the silver from the raw CSV.
 
 Run:  ./.venv/Scripts/python.exe extractors/disclosed_bq_po_extract.py
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -55,12 +56,35 @@ COVERAGE = ROOT / "data/_meta/disclosed_bq_po_coverage.json"
 ROLLUP_BODIES = {"Irish Water", "Eirgrid", "Gas Networks Ireland"}
 
 SCHEMA_COLS = [
-    "publisher_id", "publisher_name", "publisher_type", "sector", "source_landing_url",
-    "source_file_url", "source_file_hash", "period", "year", "quarter", "supplier_raw",
-    "supplier_normalised", "amount_eur", "amount_semantics", "value_safe_to_sum", "description",
-    "po_number", "paid_flag", "source_row_number", "source_page_number", "parser_name",
-    "parser_version", "extraction_status", "extraction_confidence", "caveat_text_detected",
-    "supplier_class", "privacy_status", "source_caveat", "public_display",
+    "publisher_id",
+    "publisher_name",
+    "publisher_type",
+    "sector",
+    "source_landing_url",
+    "source_file_url",
+    "source_file_hash",
+    "period",
+    "year",
+    "quarter",
+    "supplier_raw",
+    "supplier_normalised",
+    "amount_eur",
+    "amount_semantics",
+    "value_safe_to_sum",
+    "description",
+    "po_number",
+    "paid_flag",
+    "source_row_number",
+    "source_page_number",
+    "parser_name",
+    "parser_version",
+    "extraction_status",
+    "extraction_confidence",
+    "caveat_text_detected",
+    "supplier_class",
+    "privacy_status",
+    "source_caveat",
+    "public_display",
 ]
 _NULL_TOKENS = {"null", "na", "n/a", "none", ""}
 
@@ -81,14 +105,29 @@ def _clean(col: str) -> pl.Expr:
 def build() -> int:
     raw = _find_raw()
     if raw is None:
-        print(f"disclosed_bq_po: no raw drop under {RAW_DIR}/bq-results-*.csv — leaving existing silver untouched, exit 0")
+        print(
+            f"disclosed_bq_po: no raw drop under {RAW_DIR}/bq-results-*.csv — leaving existing silver untouched, exit 0"
+        )
         return 0
     if not GOLD.exists():
-        print("disclosed_bq_po: gold fact missing — cannot inherit ie_hse identity/semantics; run procurement_consolidate first. exit 0")
+        print(
+            "disclosed_bq_po: gold fact missing — cannot inherit ie_hse identity/semantics; run procurement_consolidate first. exit 0"
+        )
         return 0
 
     # ie_hse identity + AUTHORITATIVE semantics + already-held periods, from gold (not guessed).
-    g = pl.read_parquet(GOLD, columns=["publisher_id", "publisher_name", "publisher_type", "sector", "amount_semantics", "period", "parser_name"])
+    g = pl.read_parquet(
+        GOLD,
+        columns=[
+            "publisher_id",
+            "publisher_name",
+            "publisher_type",
+            "sector",
+            "amount_semantics",
+            "period",
+            "parser_name",
+        ],
+    )
     hse_g = g.filter(pl.col("publisher_id") == "ie_hse")
     if hse_g.is_empty():
         print("disclosed_bq_po: ie_hse absent from gold — nothing to anchor to. exit 0")
@@ -134,7 +173,9 @@ def build() -> int:
         pl.lit("extracted").alias("extraction_status"),
         pl.lit("high").alias("extraction_confidence"),  # cent-reconciled to our independent parse
         pl.lit(False).alias("caveat_text_detected"),
-        pl.lit("Disclosed BigQuery PO/payments extract; HSE history recovery (periods absent from hse_tusla lane).").alias("source_caveat"),
+        pl.lit(
+            "Disclosed BigQuery PO/payments extract; HSE history recovery (periods absent from hse_tusla lane)."
+        ).alias("source_caveat"),
     )
     # privacy + supplier_class + supplier_normalised + value_safe_to_sum (battle-tested classifier)
     lane = pbe.classify_and_flag(lane)
@@ -163,7 +204,7 @@ def build() -> int:
     COVERAGE.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(
         f"disclosed_bq_po: wrote {lane.height:,} HSE rows ({len(netnew)} periods {netnew[0]}..{netnew[-1]}) "
-        f"-> {OUT.relative_to(ROOT)}  (€{cov['gross_eur']/1e6:,.0f}m gross, {cov['rows_review_personal_data']:,} privacy-gated)"
+        f"-> {OUT.relative_to(ROOT)}  (€{cov['gross_eur'] / 1e6:,.0f}m gross, {cov['rows_review_personal_data']:,} privacy-gated)"
     )
     return 0
 

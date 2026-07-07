@@ -37,8 +37,8 @@ def test_resolved_url_wins_over_body_pins():
     # OTHER places' !3d!4d pins. The URL's coordinate must win — not the first body pin.
     final_url = "https://www.google.com/maps/place/Shared+Pin/@53.3500,-6.2600,17z/data=!4m2"
     body = (
-        '<html>...!3d40.0000!4d-3.0000... a nearby cafe ...'
-        '@10.0000,20.0000 some viewport ...!3d12.3456!4d-7.6543 unrelated POI...</html>'
+        "<html>...!3d40.0000!4d-3.0000... a nearby cafe ..."
+        "@10.0000,20.0000 some viewport ...!3d12.3456!4d-7.6543 unrelated POI...</html>"
     )
     resolved = f"{final_url}\n{body}"
     assert coords_from_resolved(resolved) == (53.3500, -6.2600)

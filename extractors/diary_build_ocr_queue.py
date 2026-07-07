@@ -72,7 +72,10 @@ def main() -> int:
         log.info("  %-15s %d files", r["action"], r["files"])
     # OCR-only breakdown by department (the actual off-box workload)
     ocr_by_dept = (
-        queue.filter(pl.col("action") == "ocr").group_by("department").agg(pl.len().alias("files")).sort("files", descending=True)
+        queue.filter(pl.col("action") == "ocr")
+        .group_by("department")
+        .agg(pl.len().alias("files"))
+        .sort("files", descending=True)
     )
     log.info("OCR files by department: %s", {r["department"]: r["files"] for r in ocr_by_dept.iter_rows(named=True)})
     return 0

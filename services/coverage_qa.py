@@ -280,7 +280,7 @@ def _main(argv: list[str]) -> int:
         ap.error("pass --publisher <id> or --all")
         return 2
 
-    reports.sort(key=lambda r: (r.yield_frac if r.expected else 9))
+    reports.sort(key=lambda r: r.yield_frac if r.expected else 9)
     failing = [r for r in reports if r.expected >= 20 and r.yield_frac < a.min_yield]
     shown = failing if a.only_failing else reports
     print(f"coverage-qa: {len(reports)} PDF source(s), {len(failing)} below {a.min_yield:.0%} yield")

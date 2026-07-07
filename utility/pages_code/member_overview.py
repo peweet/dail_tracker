@@ -1744,7 +1744,9 @@ def _ov_interests(house: str, member_name: str, join_key: str) -> str:
 def _ov_lobbying(conn, join_key: str) -> str:
     df = _lobbying_rd(conn, join_key)
     if df.empty:
-        return _ov_card("lobbying", "Lobbying", "—", _h("No revolving-door flag. Open for lobbying activity."), join_key)
+        return _ov_card(
+            "lobbying", "Lobbying", "—", _h("No revolving-door flag. Open for lobbying activity."), join_key
+        )
     r = df.iloc[0]
     pos = str(r.get("former_position", "")).strip()
     rc = int(r.get("return_count", 0) or 0)

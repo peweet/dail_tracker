@@ -31,8 +31,15 @@ HISTORY = ROOT / "data" / "gold" / "parquet" / "noac_scorecard_history.parquet"
 INDICATORS = ROOT / "data" / "gold" / "parquet" / "noac_indicators_long.parquet"
 
 pytestmark = pytest.mark.skipif(
-    not (CSV.exists() and M2.exists() and DERELICT.exists() and APPEALS.exists() and SCORECARD.exists()
-         and HISTORY.exists() and INDICATORS.exists()),
+    not (
+        CSV.exists()
+        and M2.exists()
+        and DERELICT.exists()
+        and APPEALS.exists()
+        and SCORECARD.exists()
+        and HISTORY.exists()
+        and INDICATORS.exists()
+    ),
     reason="council source data absent (CI)",
 )
 
@@ -107,8 +114,13 @@ def test_noac_scorecard_sligo(conn):
     assert res.ok and len(res.data) == 1
     row = res.data.iloc[0]
     assert round(float(row["revenue_balance_pct"]), 1) == -10.6  # cumulative deficit, % of income
-    for col in ("nat_revenue_balance_pct", "nat_sickness_absence_pct", "nat_roads_poor_pct",
-                "nat_fire_within_10min_pct", "nat_litter_problem_pct"):
+    for col in (
+        "nat_revenue_balance_pct",
+        "nat_sickness_absence_pct",
+        "nat_roads_poor_pct",
+        "nat_fire_within_10min_pct",
+        "nat_litter_problem_pct",
+    ):
         assert row[col] is not None
 
 

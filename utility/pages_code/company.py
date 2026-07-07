@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.corporate_data import fetch_corporate_notices_for_company_result
 from data_access.lobbying_data import fetch_all_org_names
 from data_access.procurement_data import (
+    fetch_entity_xref_result,
     fetch_lobbying_overlap_result,
     fetch_payments_for_supplier_result,
     fetch_supplier_summary_result,
@@ -72,8 +73,8 @@ _DOSSIER_FOOT = (
     '(<a href="https://data.gov.ie/dataset/contract-notices-published-on-etenders" '
     'target="_blank" rel="noopener">data.gov.ie ↗</a>), the EU Official Journal (TED — each EU '
     "notice above links to the official record), public bodies' own published payment lists, the "
-    "Companies Registration Office, the Register of Lobbying and the EPA licence &amp; enforcement "
-    "register (LEAP). Awards, payments and EU notices "
+    "Companies Registration Office, the Register of Lobbying, the Register of Charities and the "
+    "EPA licence &amp; enforcement register (LEAP). Awards, payments and EU notices "
     "are separate registers at different lifecycle stages — never added together. Appearing in any "
     "register is a public record of procurement or lobbying activity, not evidence of wrongdoing.</div>"
 )
@@ -155,6 +156,37 @@ def _render_corporate_distress_panel(company_num) -> None:
     )
 
 
+def _render_charity_register_panel(supplier_norm: str) -> None:
+    """Cross-register block: this supplier's name also appears on the Register of Charities.
+
+    Many public-service providers (youth, disability, homelessness, food-poverty) are
+    registered charities that ALSO hold state contracts, so the register is genuinely relevant
+    on a supplier dossier. Matched on the shared canonical name key (v_supplier_entity_xref) —
+    a NAME co-occurrence across two public registers, framed as such, never an assertion that
+    the contracting entity IS that charity. A supplier with no name match is silently absent
+    (a zero is never implied as "not a charity")."""
+    res = fetch_entity_xref_result(supplier_norm)
+    if not res.ok or res.data.empty:
+        return
+    if not _truthy(res.data.iloc[0].get("is_charity")):
+        return  # no matching entry on the Register of Charities — silent absence
+    body = (
+        "This supplier's name also appears on the <strong>Register of Charities</strong>. "
+        "Many public-service providers are registered charities that also hold state "
+        "contracts; this is a public-record name match across two separate registers, not a "
+        "finding about the contracting entity."
+    )
+    reg_link = (
+        '<a href="https://www.charitiesregulator.ie/en/information-for-the-public/'
+        'search-the-register-of-charities" target="_blank" rel="noopener">'
+        "Search the Register of Charities ↗</a>"
+    )
+    st.html(
+        '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Register of Charities</div>'
+        f'<div class="pr-ted-xref-b">{body} {reg_link}</div></div>'
+    )
+
+
 def _resolved_lobby_url(supplier_norm: str) -> str:
     """The lobbying-record URL for a supplier IF its overlap name exactly resolves on the
     Lobbying page, else "". The procurement↔lobbying overlap is a fuzzy name co-occurrence
@@ -185,10 +217,7 @@ def _lobby_pill_for(row, supplier_norm: str) -> str:
     url = _resolved_lobby_url(supplier_norm)
     if not url:
         return _lobby_pill(row)
-    return (
-        f'<a class="pr-pill pr-pill-lob" href="{_esc(url)}" target="_self">'
-        "also on lobbying register ↗</a>"
-    )
+    return f'<a class="pr-pill pr-pill-lob" href="{_esc(url)}" target="_self">also on lobbying register ↗</a>'
 
 
 def _dossier(supplier_norm: str) -> None:
@@ -260,6 +289,7 @@ def _dossier(supplier_norm: str) -> None:
     _render_supplier_relationships_panel(supplier_norm, cross_page=True)
     _render_epa_credentials_panel(row.get("company_num"))
     _render_corporate_distress_panel(row.get("company_num"))
+    _render_charity_register_panel(supplier_norm)
     st.html(_DOSSIER_FOOT)
 
 

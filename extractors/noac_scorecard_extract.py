@@ -19,6 +19,7 @@ Writes: data/gold/parquet/noac_scorecard_wide.parquet  (one row per LA, 2024)
 via the existing la_map crosswalk. Derivation (litter sum, fire service-null, national
 medians) lives in the VIEW, not here — gold keeps the raw published columns.
 """
+
 from __future__ import annotations
 
 import re
@@ -38,16 +39,39 @@ DEST = ROOT / "data/gold/parquet/noac_scorecard_wide.parquet"
 
 # 31 canonical noac_la names (match existing noac_*_wide gold + the la_map crosswalk).
 CANON = {
-    "Carlow County", "Cavan County", "Clare County", "Cork City", "Cork County",
-    "Donegal County", "Dublin City", "Dun Laoghaire-Rathdown", "Fingal County",
-    "Galway City", "Galway County", "Kerry County", "Kildare County", "Kilkenny County",
-    "Laois County", "Leitrim County", "Limerick City and County", "Longford County",
-    "Louth County", "Mayo County", "Meath County", "Monaghan County", "Offaly County",
-    "Roscommon County", "Sligo County", "South Dublin County", "Tipperary County",
-    "Waterford City and County", "Westmeath County", "Wexford County", "Wicklow County",
+    "Carlow County",
+    "Cavan County",
+    "Clare County",
+    "Cork City",
+    "Cork County",
+    "Donegal County",
+    "Dublin City",
+    "Dun Laoghaire-Rathdown",
+    "Fingal County",
+    "Galway City",
+    "Galway County",
+    "Kerry County",
+    "Kildare County",
+    "Kilkenny County",
+    "Laois County",
+    "Leitrim County",
+    "Limerick City and County",
+    "Longford County",
+    "Louth County",
+    "Mayo County",
+    "Meath County",
+    "Monaghan County",
+    "Offaly County",
+    "Roscommon County",
+    "Sligo County",
+    "South Dublin County",
+    "Tipperary County",
+    "Waterford City and County",
+    "Westmeath County",
+    "Wexford County",
+    "Wicklow County",
 }
-_CANON_FOLD = {"".join(c for c in unicodedata.normalize("NFKD", n) if not unicodedata.combining(c)): n
-               for n in CANON}
+_CANON_FOLD = {"".join(c for c in unicodedata.normalize("NFKD", n) if not unicodedata.combining(c)): n for n in CANON}
 
 
 def _canon_la(raw: str) -> str | None:
@@ -80,12 +104,12 @@ def _table(page_idx: int) -> list[list[str]]:
 
 # page_idx, {source_col: out_field}
 SOURCES = [
-    (184, {6: "revenue_balance_pct"}),                       # M1 col F = balance as % of income
-    (188, {1: "m3_claims_per_capita_eur"}),                  # M3 col A = settled-claims cost per capita
+    (184, {6: "revenue_balance_pct"}),  # M1 col F = balance as % of income
+    (188, {1: "m3_claims_per_capita_eur"}),  # M3 col A = settled-claims cost per capita
     (189, {1: "m4_central_mgmt_charge_pct", 2: "m4_payroll_pct"}),  # M4 cols A/B = overhead & payroll %
-    (169, {1: "sickness_certified_pct"}),                    # C2 col A = medically certified
-    (62, {1: "roads_poor_pct"}),                             # R1 col B(b) = % primary PSCI 1-4
-    (133, {1: "fire_within_10min_pct"}),                     # F3 col A = within 10 min
+    (169, {1: "sickness_certified_pct"}),  # C2 col A = medically certified
+    (62, {1: "roads_poor_pct"}),  # R1 col B(b) = % primary PSCI 1-4
+    (133, {1: "fire_within_10min_pct"}),  # F3 col A = within 10 min
     (98, {3: "litter_moderate_pct", 4: "litter_significant_pct", 5: "litter_grossly_pct"}),
 ]
 
@@ -105,9 +129,20 @@ def main() -> None:
     missing = CANON - set(df["la"])
     if missing:
         raise SystemExit(f"NOAC scorecard: missing councils {sorted(missing)} — aborting (no partial gold)")
-    cols = ["la", "year", "revenue_balance_pct", "m3_claims_per_capita_eur",
-            "m4_central_mgmt_charge_pct", "m4_payroll_pct", "sickness_certified_pct", "roads_poor_pct",
-            "fire_within_10min_pct", "litter_moderate_pct", "litter_significant_pct", "litter_grossly_pct"]
+    cols = [
+        "la",
+        "year",
+        "revenue_balance_pct",
+        "m3_claims_per_capita_eur",
+        "m4_central_mgmt_charge_pct",
+        "m4_payroll_pct",
+        "sickness_certified_pct",
+        "roads_poor_pct",
+        "fire_within_10min_pct",
+        "litter_moderate_pct",
+        "litter_significant_pct",
+        "litter_grossly_pct",
+    ]
     df = df.select(cols).sort("la")
     save_parquet(df, DEST, min_rows=31)
     print(f"wrote {DEST}  ({df.height} LAs)")

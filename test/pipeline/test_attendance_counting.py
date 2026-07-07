@@ -68,10 +68,30 @@ def test_repeated_sitting_date_paired_with_different_other_dates_is_not_inflated
     is 2 sitting + 2 other = 4 *total* (but each category count is 2, not 4).
     """
     rows = [
-        {"identifier": "A_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-01", "iso_other_days_attendance": "2025-02-01"},
-        {"identifier": "A_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-01", "iso_other_days_attendance": "2025-02-02"},
-        {"identifier": "A_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-02", "iso_other_days_attendance": "2025-02-01"},
-        {"identifier": "A_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-02", "iso_other_days_attendance": "2025-02-02"},
+        {
+            "identifier": "A_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-01",
+            "iso_other_days_attendance": "2025-02-01",
+        },
+        {
+            "identifier": "A_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-01",
+            "iso_other_days_attendance": "2025-02-02",
+        },
+        {
+            "identifier": "A_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-02",
+            "iso_other_days_attendance": "2025-02-01",
+        },
+        {
+            "identifier": "A_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-02",
+            "iso_other_days_attendance": "2025-02-02",
+        },
     ]
     fact = _build(tmp_path, rows)
     sitting, other, total = _counts(fact, "A_TD", 2025)
@@ -96,7 +116,12 @@ def test_distinct_sitting_dates_are_counted_once_each(tmp_path):
 def test_cumulative_restatement_duplicates_collapse(tmp_path):
     """Three identical (member, sitting, other) rows (a 3x cumulative restatement)
     must collapse to a single counted day, not three."""
-    dup = {"identifier": "C_TD", "year": 2025, "iso_sitting_days_attendance": "2025-03-04", "iso_other_days_attendance": "2025-03-05"}
+    dup = {
+        "identifier": "C_TD",
+        "year": 2025,
+        "iso_sitting_days_attendance": "2025-03-04",
+        "iso_other_days_attendance": "2025-03-05",
+    }
     fact = _build(tmp_path, [dict(dup), dict(dup), dict(dup)])
     sitting, other, total = _counts(fact, "C_TD", 2025)
     assert (sitting, other, total) == (1, 1, 2)
@@ -107,8 +132,18 @@ def test_cumulative_restatement_duplicates_collapse(tmp_path):
 
 def test_null_other_date_does_not_count_toward_other(tmp_path):
     rows = [
-        {"identifier": "D_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-01", "iso_other_days_attendance": ""},
-        {"identifier": "D_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-02", "iso_other_days_attendance": ""},
+        {
+            "identifier": "D_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-01",
+            "iso_other_days_attendance": "",
+        },
+        {
+            "identifier": "D_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-02",
+            "iso_other_days_attendance": "",
+        },
     ]
     fact = _build(tmp_path, rows)
     sitting, other, total = _counts(fact, "D_TD", 2025)
@@ -120,10 +155,30 @@ def test_null_other_date_does_not_count_toward_other(tmp_path):
 
 def test_counts_are_scoped_per_member_and_year(tmp_path):
     rows = [
-        {"identifier": "E_TD", "year": 2024, "iso_sitting_days_attendance": "2024-01-01", "iso_other_days_attendance": ""},
-        {"identifier": "E_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-01", "iso_other_days_attendance": ""},
-        {"identifier": "E_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-02", "iso_other_days_attendance": ""},
-        {"identifier": "F_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-01", "iso_other_days_attendance": ""},
+        {
+            "identifier": "E_TD",
+            "year": 2024,
+            "iso_sitting_days_attendance": "2024-01-01",
+            "iso_other_days_attendance": "",
+        },
+        {
+            "identifier": "E_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-01",
+            "iso_other_days_attendance": "",
+        },
+        {
+            "identifier": "E_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-02",
+            "iso_other_days_attendance": "",
+        },
+        {
+            "identifier": "F_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-01",
+            "iso_other_days_attendance": "",
+        },
     ]
     fact = _build(tmp_path, rows)
     assert _counts(fact, "E_TD", 2024) == (1, 0, 1)
@@ -132,7 +187,14 @@ def test_counts_are_scoped_per_member_and_year(tmp_path):
 
 
 def test_house_tag_is_applied_when_given(tmp_path):
-    rows = [{"identifier": "G_TD", "year": 2025, "iso_sitting_days_attendance": "2025-01-01", "iso_other_days_attendance": ""}]
+    rows = [
+        {
+            "identifier": "G_TD",
+            "year": 2025,
+            "iso_sitting_days_attendance": "2025-01-01",
+            "iso_other_days_attendance": "",
+        }
+    ]
     fact = _build(tmp_path, rows, house="Seanad")
     assert set(fact["house"]) == {"Seanad"}
 
@@ -142,6 +204,7 @@ def test_house_tag_is_applied_when_given(tmp_path):
 # for the continuation-page truncation bug: the x-coordinate extractor must
 # reproduce each PDF's printed per-member "Sub-total:" figures exactly. They skip
 # cleanly when the bronze PDFs aren't in the checkout.
+
 
 def _verification_pdfs():
     if not ATTENDANCE_PDF_DIR.is_dir():

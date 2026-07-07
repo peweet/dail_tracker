@@ -264,7 +264,10 @@ def _render_group(slug: str, tier: str, *, on_back) -> None:
     n_ent = _n(hrow.get("n_entities"))
     span = f"{_n(hrow.get('min_year'))}–{_n(hrow.get('max_year'))}" if _n(hrow.get("min_year")) else ""
     np_ = _n(hrow.get("n_publishers"))
-    sub_parts = [f"{n_ent} legal entit{'ies' if n_ent != 1 else 'y'}", f"{np_:,} public bod{'ies' if np_ != 1 else 'y'}"]
+    sub_parts = [
+        f"{n_ent} legal entit{'ies' if n_ent != 1 else 'y'}",
+        f"{np_:,} public bod{'ies' if np_ != 1 else 'y'}",
+    ]
     if span:
         sub_parts.append(span)
     st.html(
@@ -442,7 +445,13 @@ def _render_isif_lane() -> None:
     rows: list[str] = []
     for r in df.itertuples():
         name = _esc(getattr(r, "investee_name", None)) or "—"
-        amt = _esc(_isif_amount(getattr(r, "amount_stated", None), getattr(r, "amount_currency", None), getattr(r, "amount_is_up_to", None)))
+        amt = _esc(
+            _isif_amount(
+                getattr(r, "amount_stated", None),
+                getattr(r, "amount_currency", None),
+                getattr(r, "amount_is_up_to", None),
+            )
+        )
         yr = _esc(str(getattr(r, "commitment_year_label", "") or ""))
         desc = _esc(getattr(r, "description", None) or "")
         if len(desc) > 150:
@@ -461,9 +470,7 @@ def _render_isif_lane() -> None:
         '<div class="mf-isif-sub">The other direction of the trail: beyond what public bodies '
         "<em>pay</em>, the State also <strong>invests</strong> in companies through the Ireland "
         "Strategic Investment Fund. Recent commitments — a <strong>different instrument</strong> from "
-        "payments, in mixed currencies, <strong>never added together</strong>.</div>"
-        + "".join(rows)
-        + "</section>"
+        "payments, in mixed currencies, <strong>never added together</strong>.</div>" + "".join(rows) + "</section>"
     )
 
 

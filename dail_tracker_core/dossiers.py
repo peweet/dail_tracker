@@ -27,6 +27,7 @@ from dail_tracker_core.queries import committees as cmte
 from dail_tracker_core.queries import constituency as cons
 from dail_tracker_core.queries import corporate as corp
 from dail_tracker_core.queries import cross_ref as xref
+from dail_tracker_core.queries import entity as ent
 from dail_tracker_core.queries import housing as hou
 from dail_tracker_core.queries import interests as intr
 from dail_tracker_core.queries import judiciary as jud
@@ -398,6 +399,41 @@ def build_supplier_dossier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) 
     if summary is None and not awards:
         return None
     return {"summary": summary, "awards": awards, "caveat": caveats.PROCUREMENT_AWARDS}
+
+
+def build_organisation_dossier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> dict[str, Any] | None:
+    """Organisation-360 cross-register summary for one company (by canonical ``supplier_norm``):
+    CRO identity + its presence and counts across procurement, lobbying, corporate notices,
+    charity and EPA — fused on the canonical name key (v_supplier_entity_xref). ``None`` if the
+    supplier_norm is unknown to the spine. Co-occurrence by ENTITY only, never causation; counts
+    are floors (exact-name / CRO matching undercounts); individuals are excluded upstream."""
+    df = ent.xref_summary(conn, supplier_norm).data
+    if df.empty:
+        return None
+    r = df.iloc[0]
+    awarded = r.get("awarded_value_safe_eur")
+    return {
+        "identity": {
+            "supplier_norm": serialize.value(r.get("supplier_norm")),
+            "display_name": serialize.value(r.get("display_name")),
+            "cro_company_num": serialize.value(r.get("company_num")),
+            "has_cro": bool(r.get("has_cro")),
+        },
+        "procurement": {
+            "award_rows": int(r.get("procurement_award_rows") or 0),
+            "awarded_value_safe_eur": float(awarded) if pd.notna(awarded) else 0.0,
+        },
+        "cross_register": {
+            "on_lobbying_register": bool(r.get("on_lobbying_register")),
+            "lobby_returns": int(r.get("lobby_returns") or 0),
+            "has_corporate_notice": bool(r.get("has_corporate_notice")),
+            "corporate_notices": int(r.get("corporate_notices") or 0),
+            "is_charity": bool(r.get("is_charity")),
+            "has_epa_licence": bool(r.get("has_epa_licence")),
+            "register_count": int(r.get("cross_register_count") or 0),
+        },
+        "caveat": caveats.ENTITY_COOCCURRENCE,
+    }
 
 
 # Co-occurrence caveat — mirrors data/_meta/procurement_lobbying_overlap_coverage.json.

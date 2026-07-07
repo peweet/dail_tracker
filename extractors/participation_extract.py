@@ -67,13 +67,9 @@ TAA_BASIS_DAYS = 150
 
 
 def _votes(path: Path, house: str) -> pl.DataFrame:
-    df = pl.read_parquet(path).with_columns(
-        d=pl.col("date").str.to_date(strict=False), house=pl.lit(house)
-    )
+    df = pl.read_parquet(path).with_columns(d=pl.col("date").str.to_date(strict=False), house=pl.lit(house))
     df = df.filter(
-        pl.col("full_name").is_not_null()
-        & pl.col("unique_member_code").is_not_null()
-        & pl.col("d").is_not_null()
+        pl.col("full_name").is_not_null() & pl.col("unique_member_code").is_not_null() & pl.col("d").is_not_null()
     ).with_columns(year=pl.col("d").dt.year())
     return df.filter(pl.col("year") >= CURRENT_TERM_FROM_YEAR)
 
@@ -108,19 +104,22 @@ def _office_flags() -> pl.DataFrame:
                 "unique_member_code",
                 pl.col(nm).alias("office_name"),
                 (pl.col(ed) if ed in df.columns else pl.lit(None)).cast(pl.Utf8).alias("end_date"),
-            ).filter(
-                pl.col("office_name").is_not_null()
-                & (pl.col("end_date").is_null() | (pl.col("end_date") == ""))
-            )
+            ).filter(pl.col("office_name").is_not_null() & (pl.col("end_date").is_null() | (pl.col("end_date") == "")))
             frames.append(slot)
     if not frames:
-        return pl.DataFrame(schema={"unique_member_code": pl.Utf8, "office_name": pl.Utf8,
-                                    "holds_office": pl.Boolean, "is_minister": pl.Boolean, "is_chair": pl.Boolean})
+        return pl.DataFrame(
+            schema={
+                "unique_member_code": pl.Utf8,
+                "office_name": pl.Utf8,
+                "holds_office": pl.Boolean,
+                "is_minister": pl.Boolean,
+                "is_chair": pl.Boolean,
+            }
+        )
     offices = pl.concat(frames).with_columns(
         is_chair=pl.col("office_name").is_in(list(_CHAIR_OFFICES)),
         is_minister=(
-            pl.col("office_name").str.starts_with("Minister")
-            | pl.col("office_name").is_in(["Taoiseach", "Tánaiste"])
+            pl.col("office_name").str.starts_with("Minister") | pl.col("office_name").is_in(["Taoiseach", "Tánaiste"])
         ),
     )
     # one row per member: holds_office, the most senior office name, the flags
@@ -155,21 +154,26 @@ def build_participation(votes: pl.DataFrame, office: pl.DataFrame, leaders: pl.D
         missed=(pl.col("total_divisions") - pl.col("voted_in")),
         turnout_pct=(100.0 * pl.col("voted_in") / pl.col("total_divisions")).round(1),
     )
-    out = out.join(office, on="unique_member_code", how="left").join(
-        leaders, on=["full_name", "house"], how="left"
+    out = out.join(office, on="unique_member_code", how="left").join(leaders, on=["full_name", "house"], how="left")
+    return (
+        out.with_columns(
+            holds_office=pl.col("holds_office").fill_null(False),  # noqa: FBT003
+            is_minister=pl.col("is_minister").fill_null(False),  # noqa: FBT003
+            is_chair=pl.col("is_chair").fill_null(False),  # noqa: FBT003
+            is_leader=pl.col("is_leader").fill_null(False),  # noqa: FBT003
+        )
+        .with_columns(
+            role=pl.when(pl.col("is_chair"))
+            .then(pl.lit("chair"))
+            .when(pl.col("is_minister"))
+            .then(pl.lit("minister"))
+            .when(pl.col("is_leader"))
+            .then(pl.lit("party_leader"))
+            .otherwise(pl.lit("")),
+            role_note=pl.coalesce(pl.col("office_name"), pl.col("leader_note"), pl.lit("")),
+        )
+        .drop(["office_name", "leader_note"])
     )
-    return out.with_columns(
-        holds_office=pl.col("holds_office").fill_null(False),  # noqa: FBT003
-        is_minister=pl.col("is_minister").fill_null(False),  # noqa: FBT003
-        is_chair=pl.col("is_chair").fill_null(False),  # noqa: FBT003
-        is_leader=pl.col("is_leader").fill_null(False),  # noqa: FBT003
-    ).with_columns(
-        role=pl.when(pl.col("is_chair")).then(pl.lit("chair"))
-        .when(pl.col("is_minister")).then(pl.lit("minister"))
-        .when(pl.col("is_leader")).then(pl.lit("party_leader"))
-        .otherwise(pl.lit("")),
-        role_note=pl.coalesce(pl.col("office_name"), pl.col("leader_note"), pl.lit("")),
-    ).drop(["office_name", "leader_note"])
 
 
 # ── 2. absence gaps (PHYSICAL absence, from the TAA attendance PDFs) ──────────
@@ -185,12 +189,14 @@ def _attendance_dates() -> pl.DataFrame:
             continue
         df = pl.read_parquet(path).with_columns(year=pl.col("year").cast(pl.Int64))
         sitting = df.filter(pl.col("iso_sitting_days_attendance").is_not_null()).select(
-            "identifier", "year",
+            "identifier",
+            "year",
             present_date=pl.col("iso_sitting_days_attendance").str.to_date(strict=False),
             is_plenary=pl.lit(True),  # noqa: FBT003
         )
         other = df.filter(pl.col("iso_other_days_attendance").is_not_null()).select(
-            "identifier", "year",
+            "identifier",
+            "year",
             present_date=pl.col("iso_other_days_attendance").str.to_date(strict=False),
             is_plenary=pl.lit(False),  # noqa: FBT003
         )
@@ -214,7 +220,8 @@ def build_absence_gaps(att_dates: pl.DataFrame, code_map: pl.DataFrame) -> pl.Da
     every day yet show a vote-gap. See doc/ATTENDANCE_PARTICIPATION_REDESIGN.md."""
     cal = (
         att_dates.filter(pl.col("is_plenary"))
-        .select("house", "year", "present_date").unique()
+        .select("house", "year", "present_date")
+        .unique()
         .sort(["house", "year", "present_date"])
         .with_columns(idx=pl.int_range(pl.len()).over(["house", "year"]))
         .rename({"present_date": "sit_date"})
@@ -248,8 +255,14 @@ def build_absence_gaps(att_dates: pl.DataFrame, code_map: pl.DataFrame) -> pl.Da
         longest_run_sitting_days=pl.col("longest_run_sitting_days").fill_null(0)
     )
     return out.filter(pl.col("unique_member_code").is_not_null()).select(
-        "unique_member_code", "full_name", "house", "year",
-        "longest_run_sitting_days", "run_calendar_days", "run_start", "run_end",
+        "unique_member_code",
+        "full_name",
+        "house",
+        "year",
+        "longest_run_sitting_days",
+        "run_calendar_days",
+        "run_start",
+        "run_end",
     )
 
 
@@ -264,8 +277,15 @@ def build_presence(att: pl.DataFrame, part: pl.DataFrame, office: pl.DataFrame, 
     from the compliance set) and structurally vote less (so they're excluded from
     the divergence headline — divergence is a backbencher signal)."""
     a = att.select(
-        "unique_member_code", "house", "year", "full_name", "party_name", "constituency",
-        "sitting_days", "other_days", "total_days",
+        "unique_member_code",
+        "house",
+        "year",
+        "full_name",
+        "party_name",
+        "constituency",
+        "sitting_days",
+        "other_days",
+        "total_days",
     ).filter(pl.col("unique_member_code").is_not_null() & (pl.col("unique_member_code") != ""))
     p = part.select("unique_member_code", "house", "year", "voted_in", "total_divisions", "turnout_pct")
     off = office.select("unique_member_code", "holds_office", "is_minister")
@@ -299,8 +319,13 @@ def build_presence(att: pl.DataFrame, part: pl.DataFrame, office: pl.DataFrame, 
 
 
 _NEWS_SCHEMA = {
-    "unique_member_code": pl.Utf8, "year": pl.Int64, "reason_label": pl.Utf8,
-    "source_title": pl.Utf8, "source_url": pl.Utf8, "outlet": pl.Utf8, "is_curated": pl.Boolean,
+    "unique_member_code": pl.Utf8,
+    "year": pl.Int64,
+    "reason_label": pl.Utf8,
+    "source_title": pl.Utf8,
+    "source_url": pl.Utf8,
+    "outlet": pl.Utf8,
+    "is_curated": pl.Boolean,
 }
 
 
@@ -369,10 +394,12 @@ def run() -> dict[str, int]:
     # name→code map for resolving curated explanations (union of both sources so a
     # member who barely votes but is in the TAA record still resolves).
     name_to_code = (
-        pl.concat([
-            participation.select("full_name", "house", "unique_member_code"),
-            presence.select("full_name", "house", "unique_member_code"),
-        ])
+        pl.concat(
+            [
+                participation.select("full_name", "house", "unique_member_code"),
+                presence.select("full_name", "house", "unique_member_code"),
+            ]
+        )
         .filter(pl.col("unique_member_code").is_not_null() & (pl.col("unique_member_code") != ""))
         .unique(["full_name", "house"])
     )

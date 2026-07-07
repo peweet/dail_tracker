@@ -35,6 +35,7 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from manifest import (
@@ -58,7 +59,12 @@ CHAINS: list[tuple[str, str]] = [
     # dedups, so daily cloud execution is the intended use, not a side effect. Network
     # chain, but every per-member fetch is try/excepted (one bad member never kills the
     # run; an empty roster is the only hard stop), so a flaky run degrades, not fails.
-    ("news_mentions", "extractors/news_mentions_extract.py"),
+    # news_mentions: DELISTED 2026-07-07 (per user: low relevance; the ~9 min/run per-member
+    # Google-News RSS is the pipeline's slowest network chain). The silver it built stays on disk
+    # and the member page's v_member_news_mentions keeps reading it (frozen, not broken);
+    # participation reads it "graceful when absent". Re-enable by uncommenting this tuple + its
+    # blurb in _CHAIN_BLURBS + adding it back to the guard in test_pipeline_chains.py.
+    # ("news_mentions", "extractors/news_mentions_extract.py"),
     ("payments", "payments_refresh.py"),
     ("attendance", "attendance_refresh.py"),
     ("seanad", "seanad_refresh.py"),
@@ -140,6 +146,17 @@ CHAINS: list[tuple[str, str]] = [
     # lobbying registrants/clients, committed gold, read by the Lobbying page's
     # "also a state supplier" enrichment and the (future) Procurement page.
     ("procurement_lobbying", "extractors/procurement_lobbying_xref.py"),
+    # entity_xref: the organisation-360 spine. Anchored on the procurement supplier universe
+    # (supplier_norm — the key the /company dossier page is entered on), LEFT-joins each
+    # entity's cross-register presence — CRO identity, lobbying footprint, corporate-notice
+    # count, charity status, EPA licence — fused on the CANONICAL name key (shared/name_norm),
+    # bridging the divergent-normaliser gap at build time WITHOUT re-baselining any source.
+    # Pure deterministic transform over committed gold; MUST run after procurement +
+    # procurement_lobbying + the corporate chain (cbi/cro/corporate_receiver) above. The
+    # charities_enriched + epa_supplier_compliance inputs are produced out-of-band
+    # (charity/charity_enriched.py, extractors/epa_promote_to_gold.py) and read as static gold.
+    # No network, headless-safe; row-floor guarded. Read by v_supplier_entity_xref (company page).
+    ("entity_xref", "extractors/entity_xref_build.py"),
     # ted: TED (EU procurement journal) Irish award notices -> SILVER (cleaned, not yet
     # exposed to the UI). Zero-auth API, caches raw to bronze, depends on the CRO silver
     # register (winner->CRO match), skips gracefully on an API outage. Headless-safe.
@@ -270,7 +287,7 @@ CHAINS: list[tuple[str, str]] = [
 _CHAIN_BLURBS: dict[str, str] = {
     "bootstrap": "shared inputs: poll PDFs + Members API + flatten members & debates",
     "members": "Wikidata socials + ministerial tenure + committees long-format",
-    "news_mentions": "per-member Google-News RSS search -> silver news_mentions (accumulates; member page)",
+    # news_mentions: DELISTED 2026-07-07 — re-enable this blurb alongside the CHAINS tuple.
     "payments": "Parliamentary Standard Allowance: PSA ETL + member enrichment",
     "attendance": "plenary attendance PDF extraction",
     "seanad": "Seanad parity: votes + payments + attendance + gold (reuses Dáil parsers)",
@@ -292,6 +309,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "corporate_receiver": "receiver-appointer ranking + operator-firm concentration (gold; notices superset)",
     "procurement": "eTenders/OGP awards + supplier->CRO match (gold); value-is-not-spend flags",
     "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
+    "entity_xref": "organisation-360 spine: supplier x CRO/lobbying/corporate/charity/EPA (gold)",
     "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
     "ted_tenders": "TED Irish competition/tender notices (cn-standard) -> silver; pre-award estimates, never summed",
     "public_body_payments": "public-body PO/payment disclosures over €20k -> sandbox public_payments_fact (privacy-gated, bronze-cached)",
@@ -333,11 +351,69 @@ def _summarise_log(lines: list[str]) -> str | None:
     return None
 
 
-def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tuple[int, str | None]:
+# ── Per-chain wall-clock timeout ─────────────────────────────────────────────
+# A wedged network fetch otherwise stalls the whole SERIAL run — history has full
+# runs hung to 400-758 min on a single chain. On expiry we kill the chain's process
+# TREE (a chain script such as iris_refresh spawns its own sub-python steps, so
+# proc.kill() alone would orphan the grandchildren — the Windows pileup warned about
+# in feedback_no_blind_background_python) and mark the chain failed, so the run
+# continues. DEFAULT covers every healthy chain with margin; the override map grants
+# the legitimately-slow network harvesters more headroom. Env DAIL_CHAIN_TIMEOUT_S
+# overrides the default; set it to 0 to disable timeouts entirely.
+DEFAULT_CHAIN_TIMEOUT_S = int(os.environ.get("DAIL_CHAIN_TIMEOUT_S", "1200"))
+_CHAIN_TIMEOUT_OVERRIDES: dict[str, int] = {
+    "public_body_payments": 2700,  # harvests dozens of gov.ie / semi-state listings
+    "hse_tusla_payments": 2700,
+    "la_payments": 2700,  # 31 council portals, full back-catalogue
+    "cbi": 1800,  # register PDFs — historically the worst hang (510 min once)
+    "committee_evidence": 1200,  # re-fetches ~1k AKN XML transcripts each run
+    "bootstrap": 1800,  # members API + attendance/payments/interests PDF poll (foundation chain)
+}
+
+
+def _chain_timeout(name: str) -> int | None:
+    """Wall-clock ceiling (seconds) for a chain, or None if timeouts are disabled."""
+    if DEFAULT_CHAIN_TIMEOUT_S <= 0:
+        return None
+    return _CHAIN_TIMEOUT_OVERRIDES.get(name, DEFAULT_CHAIN_TIMEOUT_S)
+
+
+def _kill_process_tree(proc: subprocess.Popen) -> None:
+    """Kill the chain process AND all its descendants.
+
+    A chain script spawns its own sub-python steps (iris_refresh, lobbying_refresh,
+    members_refresh, …), so proc.kill() would reap only the top child and leave the
+    grandchildren running — orphaned, hung on the network (feedback_no_blind_background_
+    python). On Windows ``taskkill /T`` walks the whole tree by PID; elsewhere fall back
+    to killing the child directly.
+    """
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    else:
+        proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tuple[int | None, str | None, bool]:
     """Run a chain script and tee its combined stdout/stderr to ``log_path``.
 
-    Forces UTF-8 on the child's stdio so non-ASCII chars (→, é, etc.) survive
-    on Windows where the console codepage is usually cp1252.
+    Forces UTF-8 on the child's stdio so non-ASCII chars (→, é, etc.) survive on
+    Windows where the console codepage is usually cp1252. A reader thread pumps the
+    child's output to the log while the main thread waits with a per-chain deadline
+    (see _chain_timeout), so a wedged chain is killed (whole tree) instead of stalling
+    the serial run.
+
+    Returns (exit_code, summary, timed_out); exit_code is None on a timeout kill.
     """
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
@@ -345,6 +421,8 @@ def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tupl
     env[ENV_RUN_ID] = run_id
 
     tail: list[str] = []
+    timed_out = False
+    timeout_s = _chain_timeout(name)
     with open(log_path, "w", encoding="utf-8", newline="") as logf:
         logf.write(f"# === {name} ({script}) ===\n")
         logf.flush()
@@ -359,15 +437,36 @@ def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tupl
             env=env,
         )
         assert proc.stdout is not None
-        for line in proc.stdout:
-            sys.stdout.write(line)
-            logf.write(line)
+
+        def _pump() -> None:
+            # Tee the child's combined output to our stdout + the step log. Runs in a
+            # thread so the main thread can enforce the wall-clock deadline below.
+            for line in proc.stdout:  # type: ignore[union-attr]
+                sys.stdout.write(line)
+                logf.write(line)
+                logf.flush()
+                tail.append(line)
+                if len(tail) > 100:
+                    del tail[:-100]
+
+        reader = threading.Thread(target=_pump, name=f"tee-{name}", daemon=True)
+        reader.start()
+        exit_code: int | None
+        try:
+            exit_code = proc.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            _kill_process_tree(proc)
+            exit_code = None
+        reader.join(timeout=5)  # child stdout is EOF once killed, so the pump drains fast
+        if timed_out:
+            banner = f"# !!! chain '{name}' exceeded {timeout_s}s wall-clock — killed process tree\n"
+            sys.stdout.write(banner)
+            logf.write(banner)
             logf.flush()
-            tail.append(line)
-            if len(tail) > 100:
-                tail = tail[-100:]
-        exit_code = proc.wait()
-    return exit_code, _summarise_log(tail)
+    if timed_out:
+        return None, f"timed out after {timeout_s}s", True
+    return exit_code, _summarise_log(tail), False
 
 
 def _run_chain(
@@ -381,7 +480,11 @@ def _run_chain(
     record_step_started(run_id, ordinal, name, script, log_path)
 
     try:
-        exit_code, summary = _run_subprocess(run_id, name, script, log_path)
+        exit_code, summary, timed_out = _run_subprocess(run_id, name, script, log_path)
+        if timed_out:
+            err = f"timed out after {_chain_timeout(name)}s"
+            logging.error("Pipeline chain %s failed: %s", name, err)
+            return "failed", exit_code, summary, err
         if exit_code != 0:
             err = f"exit code {exit_code}"
             logging.error("Pipeline chain %s failed: %s", name, err)

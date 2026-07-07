@@ -20,9 +20,7 @@ APPEALS = PROJECT_ROOT / "data" / "silver" / "parquet" / "planning_appeal_outcom
 OVERTURN_SQL = PROJECT_ROOT / "sql_views" / "constituency" / "constituency_la_planning_overturn.sql"
 CE_SQL = PROJECT_ROOT / "sql_views" / "constituency" / "constituency_la_chief_executives.sql"
 
-pytestmark = pytest.mark.skipif(
-    not APPEALS.exists(), reason=f"silver source absent (CI): {APPEALS.name}"
-)
+pytestmark = pytest.mark.skipif(not APPEALS.exists(), reason=f"silver source absent (CI): {APPEALS.name}")
 
 
 @pytest.fixture(scope="module")
@@ -68,9 +66,7 @@ def test_rates_in_range(con):
 
 def test_national_benchmark_is_constant(con):
     """The window benchmark must be identical on every row."""
-    n = con.execute(
-        "SELECT count(DISTINCT national_overturn_rate_pct) FROM v_la_planning_overturn"
-    ).fetchone()[0]
+    n = con.execute("SELECT count(DISTINCT national_overturn_rate_pct) FROM v_la_planning_overturn").fetchone()[0]
     assert n == 1, "national_overturn_rate_pct should be the same on all rows"
 
 

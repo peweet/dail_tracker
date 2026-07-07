@@ -56,9 +56,7 @@ def test_views_register_and_match_gold():
     assert con.execute("SELECT COUNT(*) FROM v_corporate_receiver_firms").fetchone()[0] >= 1
 
     n_recv = con.execute("SELECT n_recv FROM v_corporate_receiver_summary").fetchone()[0]
-    recv_via_notices = con.execute(
-        "SELECT COUNT(*) FROM v_corporate_notices WHERE is_receivership"
-    ).fetchone()[0]
+    recv_via_notices = con.execute("SELECT COUNT(*) FROM v_corporate_notices WHERE is_receivership").fetchone()[0]
     assert n_recv == recv_via_notices
 
     # bucket mix totals the appointer notice counts
@@ -82,8 +80,7 @@ def test_cbi_badge_b2_drops_single_token_false_positives():
     assert addr_fp == 0, "Donnybrook street-address rows must not carry a CBI badge"
 
     havbell = con.execute(
-        "SELECT COUNT(*) FROM v_corporate_notices "
-        "WHERE entity_name ILIKE '%Havbell No%2%' AND cbi_register <> ''"
+        "SELECT COUNT(*) FROM v_corporate_notices WHERE entity_name ILIKE '%Havbell No%2%' AND cbi_register <> ''"
     ).fetchone()[0]
     assert havbell >= 1, "genuine prefixed entity (Havbell No.2 DAC) should be badged"
 

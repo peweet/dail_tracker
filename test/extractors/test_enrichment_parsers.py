@@ -66,11 +66,11 @@ def test_cbi_euro_to_float(num, scale, expected):
 
 def test_cbi_parse_app_data_extracts_party_and_url():
     html = (
-        '<script>var appData = [\n'
+        "<script>var appData = [\n"
         '{ "type": "Settlement", "date": "01/02/2024", '
         '"documentName": decodeTitle("Settlement Agreement between the Central Bank of Ireland and Acme Bank DAC"), '
         '"url": decodeTitle("/docs/acme.pdf") }\n'
-        '];</script>'
+        "];</script>"
     )
     rows = cbi.parse_app_data(html)
     assert len(rows) == 1
@@ -83,11 +83,11 @@ def test_cbi_parse_app_data_extracts_party_and_url():
 
 def test_cbi_parse_app_data_handles_enforcement_against_phrasing():
     html = (
-        '<script>var appData = [\n'
+        "<script>var appData = [\n"
         '{ "type": "Notice", "date": "15/06/2023", '
         '"documentName": decodeTitle("Enforcement Action against Beta Insurance Limited"), '
         '"url": decodeTitle("/x.pdf") }\n'
-        '];</script>'
+        "];</script>"
     )
     assert cbi.parse_app_data(html)[0]["party_name"] == "Beta Insurance Limited"
 
@@ -105,7 +105,9 @@ def _td(html: str):
 
 
 def test_tam_cell_text_prefers_title_when_display_truncated():
-    td = _td('<td title="Enterprise Ireland Research Development and Innovation Programme">Enterprise Ireland Rese...</td>')
+    td = _td(
+        '<td title="Enterprise Ireland Research Development and Innovation Programme">Enterprise Ireland Rese...</td>'
+    )
     assert tam.cell_text(td) == "Enterprise Ireland Research Development and Innovation Programme"
 
 

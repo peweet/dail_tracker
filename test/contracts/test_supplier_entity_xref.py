@@ -66,7 +66,6 @@ def test_has_cro_matches_company_num(conn, rel):
 
 def test_counts_nonneg(conn, rel):
     bad = conn.execute(
-        f"SELECT count(*) FROM {rel} "
-        f"WHERE lobby_returns < 0 OR corporate_notices < 0 OR procurement_award_rows < 1"
+        f"SELECT count(*) FROM {rel} WHERE lobby_returns < 0 OR corporate_notices < 0 OR procurement_award_rows < 1"
     ).fetchone()[0]
     assert bad == 0

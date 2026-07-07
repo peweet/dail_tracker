@@ -43,22 +43,34 @@ def test_pdf_links_filters_by_must_match():
 # ── classification ───────────────────────────────────────────────────────────
 def _patch_fetch(monkeypatch, mapping):
     """mapping: url -> html (or None to simulate an unreachable fetch)."""
+
     def fake(url):
         html = mapping.get(url)
         return (html, None) if html else (None, "patched: down")
+
     monkeypatch.setattr(poll, "_fetch", fake)
 
 
 def test_fresh_when_upstream_has_newer_quarter(monkeypatch):
     url = "https://example.test/po/"
-    _patch_fetch(monkeypatch, {url: (
-        '<a href="po-q2-2025.pdf">PO Q2 2025</a>'
-        '<a href="po-q3-2025.pdf">PO Q3 2025</a>'
-        '<a href="po-q4-2025.pdf">PO Q4 2025</a>'
-    )})
+    _patch_fetch(
+        monkeypatch,
+        {
+            url: (
+                '<a href="po-q2-2025.pdf">PO Q2 2025</a>'
+                '<a href="po-q3-2025.pdf">PO Q3 2025</a>'
+                '<a href="po-q4-2025.pdf">PO Q4 2025</a>'
+            )
+        },
+    )
     src = {
-        "id": "x", "name": "X", "grain": "quarterly", "check": "auto",
-        "listing_urls": [url], "must_match": r"po|q[1-4]", "held_through": [2025, 2],
+        "id": "x",
+        "name": "X",
+        "grain": "quarterly",
+        "check": "auto",
+        "listing_urls": [url],
+        "must_match": r"po|q[1-4]",
+        "held_through": [2025, 2],
     }
     row = poll._evaluate_source(src)
     assert row["status"] == "FRESH"
@@ -70,8 +82,13 @@ def test_current_when_held_is_newest(monkeypatch):
     url = "https://example.test/po/"
     _patch_fetch(monkeypatch, {url: '<a href="po-q1-2026.pdf">PO Q1 2026</a>'})
     src = {
-        "id": "x", "name": "X", "grain": "quarterly", "check": "auto",
-        "listing_urls": [url], "must_match": r"po|q[1-4]", "held_through": [2026, 1],
+        "id": "x",
+        "name": "X",
+        "grain": "quarterly",
+        "check": "auto",
+        "listing_urls": [url],
+        "must_match": r"po|q[1-4]",
+        "held_through": [2026, 1],
     }
     assert poll._evaluate_source(src)["status"] == "CURRENT"
 
@@ -81,8 +98,13 @@ def test_linkless_stub_is_unreachable_not_no_periods(monkeypatch):
     url = "https://example.test/po/"
     _patch_fetch(monkeypatch, {url: "<html><body>Loading…</body></html>"})
     src = {
-        "id": "x", "name": "X", "grain": "quarterly", "check": "auto",
-        "listing_urls": [url], "must_match": r"po", "held_through": [2025, 2],
+        "id": "x",
+        "name": "X",
+        "grain": "quarterly",
+        "check": "auto",
+        "listing_urls": [url],
+        "must_match": r"po",
+        "held_through": [2025, 2],
     }
     assert poll._evaluate_source(src)["status"] == "UNREACHABLE"
 
@@ -91,8 +113,13 @@ def test_unreachable_when_fetch_fails(monkeypatch):
     url = "https://example.test/po/"
     _patch_fetch(monkeypatch, {})  # nothing maps -> fetch returns None
     src = {
-        "id": "x", "name": "X", "grain": "quarterly", "check": "auto",
-        "listing_urls": [url], "must_match": r"po", "held_through": [2025, 2],
+        "id": "x",
+        "name": "X",
+        "grain": "quarterly",
+        "check": "auto",
+        "listing_urls": [url],
+        "must_match": r"po",
+        "held_through": [2025, 2],
     }
     assert poll._evaluate_source(src)["status"] == "UNREACHABLE"
 
@@ -101,21 +128,30 @@ def test_no_periods_when_links_lack_dates(monkeypatch):
     url = "https://example.test/po/"
     _patch_fetch(monkeypatch, {url: '<a href="purchase-orders.pdf">Purchase Orders</a>'})
     src = {
-        "id": "x", "name": "X", "grain": "quarterly", "check": "auto",
-        "listing_urls": [url], "must_match": r"purchase", "held_through": [2025, 2],
+        "id": "x",
+        "name": "X",
+        "grain": "quarterly",
+        "check": "auto",
+        "listing_urls": [url],
+        "must_match": r"purchase",
+        "held_through": [2025, 2],
     }
     assert poll._evaluate_source(src)["status"] == "NO_PERIODS"
 
 
 def test_annual_fresh(monkeypatch):
     url = "https://example.test/po/"
-    _patch_fetch(monkeypatch, {url: (
-        '<a href="2024_POs_over_20k.pdf">2024 POs</a>'
-        '<a href="2025_POs_over_20k.pdf">2025 POs</a>'
-    )})
+    _patch_fetch(
+        monkeypatch, {url: ('<a href="2024_POs_over_20k.pdf">2024 POs</a><a href="2025_POs_over_20k.pdf">2025 POs</a>')}
+    )
     src = {
-        "id": "x", "name": "X", "grain": "annual", "check": "auto",
-        "listing_urls": [url], "must_match": r"po", "held_through": [2024],
+        "id": "x",
+        "name": "X",
+        "grain": "annual",
+        "check": "auto",
+        "listing_urls": [url],
+        "must_match": r"po",
+        "held_through": [2024],
     }
     row = poll._evaluate_source(src)
     assert row["status"] == "FRESH"
@@ -125,10 +161,15 @@ def test_annual_fresh(monkeypatch):
 def test_manual_source_is_not_fetched(monkeypatch):
     def boom(url):  # would raise if called
         raise AssertionError("manual source must not fetch")
+
     monkeypatch.setattr(poll, "_fetch", boom)
     src = {
-        "id": "x", "name": "X", "grain": "quarterly", "check": "manual",
-        "listing_urls": ["https://example.test"], "held_through": [2025, 2],
+        "id": "x",
+        "name": "X",
+        "grain": "quarterly",
+        "check": "manual",
+        "listing_urls": ["https://example.test"],
+        "held_through": [2025, 2],
         "manual_reason": "needs a browser",
     }
     row = poll._evaluate_source(src)

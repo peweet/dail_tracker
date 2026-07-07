@@ -33,9 +33,7 @@ from enrichment_promote_to_gold import (  # noqa: E402
 
 
 def test_drop_removes_flagged_rows():
-    df = pl.DataFrame(
-        {"party_name": ["Acme DAC", "John Smith"], "flag": [False, True]}
-    )
+    df = pl.DataFrame({"party_name": ["Acme DAC", "John Smith"], "flag": [False, True]})
     out = drop_private_individuals(df, "flag")
     assert out["party_name"].to_list() == ["Acme DAC"]
 

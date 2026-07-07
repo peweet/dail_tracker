@@ -67,8 +67,17 @@ def test_built_frame_schema(tmp_path, monkeypatch):
     monkeypatch.setattr(mb, "OUT_DIR", tmp_path)
     mb.main()
     df = pl.read_parquet(tmp_path / "minister_briefs.parquet")
-    for c in ["department", "source_type", "strategic_goals", "immediate_priorities",
-              "machinery_of_government", "key_issue_areas", "n_strategic_goals", "n_priorities", "n_mog_changes"]:
+    for c in [
+        "department",
+        "source_type",
+        "strategic_goals",
+        "immediate_priorities",
+        "machinery_of_government",
+        "key_issue_areas",
+        "n_strategic_goals",
+        "n_priorities",
+        "n_mog_changes",
+    ]:
         assert c in df.columns, c
     assert df.height == len(mb.BRIEFS)
     # n_* counts agree with the list lengths

@@ -4,6 +4,7 @@ Owns only caching. Retrieval SQL lives in dail_tracker_core.queries.your_council
 joins/aggregation live in sql_views/constituency/*. Reuses the cached constituency connection
 (the v_la_councillors* views register there).
 """
+
 from __future__ import annotations
 
 import streamlit as st

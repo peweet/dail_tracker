@@ -31,9 +31,7 @@ _CROSSWALK_LIT = str(CROSSWALK).replace("\\", "/")
 @pytest.fixture(scope="module")
 def con():
     c = duckdb.connect()
-    c.execute(
-        f"CREATE VIEW roster AS SELECT * FROM read_csv('{_CSV_LIT}', header=true, AUTO_DETECT=true)"
-    )
+    c.execute(f"CREATE VIEW roster AS SELECT * FROM read_csv('{_CSV_LIT}', header=true, AUTO_DETECT=true)")
     return c
 
 
@@ -42,9 +40,7 @@ def test_csv_exists():
 
 
 def test_thirty_one_distinct_councils(con):
-    n, distinct = con.execute(
-        "SELECT count(*), count(DISTINCT local_authority) FROM roster"
-    ).fetchone()
+    n, distinct = con.execute("SELECT count(*), count(DISTINCT local_authority) FROM roster").fetchone()
     assert n == EXPECTED_COUNCILS, f"expected {EXPECTED_COUNCILS} rows, got {n}"
     assert distinct == EXPECTED_COUNCILS, "duplicate local_authority value(s)"
 
@@ -63,9 +59,7 @@ def test_no_blank_identity_or_source(con):
 
 
 def test_council_type_split(con):
-    got = dict(
-        con.execute("SELECT council_type, count(*) FROM roster GROUP BY 1").fetchall()
-    )
+    got = dict(con.execute("SELECT council_type, count(*) FROM roster GROUP BY 1").fetchall())
     assert got == EXPECTED_TYPE_COUNTS, got
 
 

@@ -69,8 +69,18 @@ def test_no_member_votes_more_than_total_divisions(con):
 def test_member_vote_and_division_result_not_conflated(con):
     """vote_type is the MEMBER's own vote; vote_outcome is the DIVISION result.
     Conflating them would mislabel how a member voted."""
-    vt = {r[0] for r in con.execute(f"SELECT DISTINCT vote_type FROM read_parquet('{DV}') WHERE vote_type IS NOT NULL").fetchall()}
-    vo = {r[0].strip() for r in con.execute(f"SELECT DISTINCT vote_outcome FROM read_parquet('{DV}') WHERE vote_outcome IS NOT NULL").fetchall()}
+    vt = {
+        r[0]
+        for r in con.execute(
+            f"SELECT DISTINCT vote_type FROM read_parquet('{DV}') WHERE vote_type IS NOT NULL"
+        ).fetchall()
+    }
+    vo = {
+        r[0].strip()
+        for r in con.execute(
+            f"SELECT DISTINCT vote_outcome FROM read_parquet('{DV}') WHERE vote_outcome IS NOT NULL"
+        ).fetchall()
+    }
     assert vt <= {"Voted Yes", "Voted No", "Abstained"}, f"unexpected vote_type values: {vt}"
     assert vo <= {"Carried", "Lost", "_", ""}, f"unexpected vote_outcome values: {vo}"
 
@@ -79,7 +89,9 @@ def test_turnout_denominator_equals_real_division_count(con):
     """The turnout 'X of Y' denominator must be the real distinct-division count,
     not an inflated row count."""
     real = _scalar(con, f"SELECT count(DISTINCT vote_id) FROM read_parquet('{DV}') WHERE year(date::DATE)=2025")
-    shown = con.execute(f"SELECT DISTINCT total_divisions FROM read_parquet('{PART}') WHERE house='Dáil' AND year=2025").fetchall()
+    shown = con.execute(
+        f"SELECT DISTINCT total_divisions FROM read_parquet('{PART}') WHERE house='Dáil' AND year=2025"
+    ).fetchall()
     assert len(shown) == 1 and int(shown[0][0]) == real, f"denominator {[s[0] for s in shown]} != real {real}"
 
 

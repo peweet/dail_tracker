@@ -1301,9 +1301,7 @@ _RO_HEADER = {
 # Boilerplate / footnote lines that bleed into the text layer between records (the DCEDIY
 # "Please note: … inclusive of VAT …" footer block). Excluded so they never become a row or
 # contaminate a description (user req: never ingest headers/footers).
-_RO_BOILER = re.compile(
-    r"please note|inclusive of vat|purchase orders? (are|for)|may have been|would appear", re.I
-)
+_RO_BOILER = re.compile(r"please note|inclusive of vat|purchase orders? (are|for)|may have been|would appear", re.I)
 
 
 def read_reading_order(b: bytes, max_pages: int | None) -> list[dict]:
@@ -1336,7 +1334,14 @@ def read_reading_order(b: bytes, max_pages: int | None) -> list[dict]:
             m = _RO_REF.match(line)
             if m:  # Layout A: 'ref supplier' inline
                 flush()
-                cur = {"ref": m.group(1), "supplier": m.group(2).strip(), "date": None, "amount": None, "desc": "", "page": pi + 1}
+                cur = {
+                    "ref": m.group(1),
+                    "supplier": m.group(2).strip(),
+                    "date": None,
+                    "amount": None,
+                    "desc": "",
+                    "page": pi + 1,
+                }
                 continue
             if _RO_REF_ALONE.match(line):  # Layout B: reference alone -> supplier on the next line
                 flush()
@@ -1378,8 +1383,16 @@ _CT_PAID = re.compile(r"^(Y|N|Yes|No|Paid|Not Paid)$", re.I)
 _CT_PO_NAME = re.compile(r"^(\d{4,7})\s+(.+)$")  # merged 'PO Supplier Name'
 _CT_PO_ONLY = re.compile(r"^\d{4,7}$")
 _CT_BOILER = {
-    "po no.", "po no", "supplier name", "amount", "description", "paid yes/no", "paid",
-    "the courts services", "the courts service", "yes/no",
+    "po no.",
+    "po no",
+    "supplier name",
+    "amount",
+    "description",
+    "paid yes/no",
+    "paid",
+    "the courts services",
+    "the courts service",
+    "yes/no",
 }
 
 
@@ -1391,7 +1404,9 @@ def read_courts(b: bytes, max_pages: int | None) -> list[dict]:
     lines: list[str] = []
     for pi in range(limit):
         for raw in doc[pi].get_text().splitlines():
-            s = re.sub(r"\s+", " ", raw.replace("\xa0", " ").replace(" ", " ").replace(" ", " ").replace("�", " ")).strip()
+            s = re.sub(
+                r"\s+", " ", raw.replace("\xa0", " ").replace(" ", " ").replace(" ", " ").replace("�", " ")
+            ).strip()
             if not s:
                 continue
             low = s.lower()
@@ -1441,20 +1456,29 @@ def read_courts(b: bytes, max_pages: int | None) -> list[dict]:
         # head has no such run → supplier stays 'Total' and is dropped by the summary filter below.
         last = None
         for mm in re.finditer(r"(\d{4,7})\s+", headtext):
-            if re.search(r"[A-Za-z]", headtext[mm.end():]):
+            if re.search(r"[A-Za-z]", headtext[mm.end() :]):
                 last = mm
         if last is not None:
-            po, supplier = last.group(1), headtext[last.end():].strip()
+            po, supplier = last.group(1), headtext[last.end() :].strip()
         else:
             supplier = headtext
         # keep real suppliers; skip period TOTAL/sub-total summary lines ('Total', 'Total:',
         # 'Total €11,700,436.17'). A real company keeps a letter after 'Total' ('Total ICT Services
         # Ltd'), so the trailing class is punctuation/€/digits only — those rows survive.
-        if supplier and re.search(r"[A-Za-z]", supplier) and not re.fullmatch(
-            r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier
+        if (
+            supplier
+            and re.search(r"[A-Za-z]", supplier)
+            and not re.fullmatch(r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier)
         ):
-            recs.append({"ref": po, "supplier": supplier, "amount": amount,
-                         "desc": " ".join(desc).strip() or None, "paid": paid})
+            recs.append(
+                {
+                    "ref": po,
+                    "supplier": supplier,
+                    "amount": amount,
+                    "desc": " ".join(desc).strip() or None,
+                    "paid": paid,
+                }
+            )
         rec_start = j
         i = j
     return recs
@@ -1478,8 +1502,7 @@ _DD_CUR = re.compile(
 _DD_AMT = re.compile(r"^[€$£]?\s*([\d,]+\.\d{2})$")
 _DD_PO = re.compile(r"^\d{4,7}$")
 _DD_PO_NAME = re.compile(r"^(\d{4,7})\s+(.+)$")  # merged 'PO NAME' (4-field layout)
-_DD_BOILER = {"number", "category", "supplier", "vendor", "currency", "amount", "po number",
-              "po no", "po no.", "po"}
+_DD_BOILER = {"number", "category", "supplier", "vendor", "currency", "amount", "po number", "po no", "po no.", "po"}
 
 
 def _dd_supplier_first(doc) -> bool:
@@ -1666,10 +1689,10 @@ def read_tailte(b: bytes, max_pages: int | None) -> list[dict]:
         headtext = " ".join(head).strip()
         last = None
         for mm in re.finditer(r"(\d{4,13})\s+", headtext):
-            if re.search(r"[A-Za-z]", headtext[mm.end():]):
+            if re.search(r"[A-Za-z]", headtext[mm.end() :]):
                 last = mm
         if last is not None:
-            po, supplier = last.group(1), headtext[last.end():].strip()
+            po, supplier = last.group(1), headtext[last.end() :].strip()
         else:
             po, supplier = None, headtext
         if (
@@ -1678,7 +1701,15 @@ def read_tailte(b: bytes, max_pages: int | None) -> list[dict]:
             and amount >= 20000
             and not re.fullmatch(r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier)
         ):
-            recs.append({"ref": po, "supplier": supplier, "amount": amount, "desc": " ".join(desc).strip() or None, "paid": paid})
+            recs.append(
+                {
+                    "ref": po,
+                    "supplier": supplier,
+                    "amount": amount,
+                    "desc": " ".join(desc).strip() or None,
+                    "paid": paid,
+                }
+            )
         rec_start = j
         i = j
     return recs
@@ -1698,7 +1729,8 @@ _DP_DATE = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
 _DP_PAID = re.compile(r"^(Y|N|Yes|No)$", re.I)
 _DP_HDR = re.compile(
     r"^(po(\s|$)|po no|po number|po total|po amount|po date|total po value|supplier|supplier name|"
-    r"description|paid|total$|purchase orders? for)", re.I
+    r"description|paid|total$|purchase orders? for)",
+    re.I,
 )
 _DP_BOILER = re.compile(r"please note|inclusive of vat|€20,000 or|for dpendr|for ogcio|for the dep", re.I)
 
@@ -1748,10 +1780,10 @@ def read_dper(b: bytes, max_pages: int | None) -> list[dict]:
         po = None
         last = None
         for mm in re.finditer(r"(\d{10,})\s+", headtext):
-            if re.search(r"[A-Za-z]", headtext[mm.end():]):
+            if re.search(r"[A-Za-z]", headtext[mm.end() :]):
                 last = mm
         if last is not None:
-            po, supplier = last.group(1), headtext[last.end():].strip()
+            po, supplier = last.group(1), headtext[last.end() :].strip()
         elif head and _DP_PO_ONLY.match(head[-1]):
             po, supplier = head[-1], None
         else:
@@ -1765,7 +1797,15 @@ def read_dper(b: bytes, max_pages: int | None) -> list[dict]:
             and re.search(r"[A-Za-z]", supplier)
             and not re.fullmatch(r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier)
         ):
-            recs.append({"ref": po, "supplier": supplier, "amount": amount, "desc": " ".join(desc).strip() or None, "paid": paid})
+            recs.append(
+                {
+                    "ref": po,
+                    "supplier": supplier,
+                    "amount": amount,
+                    "desc": " ".join(desc).strip() or None,
+                    "paid": paid,
+                }
+            )
         rec_start = j
         i = j
     return recs
@@ -1797,7 +1837,11 @@ def read_culture(b: bytes, max_pages: int | None) -> list[dict]:
             lines.append(s)
     doc.close()
 
-    amts = [i for i, ln in enumerate(lines) if _CU_AMT.match(ln) and float(_CU_AMT.match(ln).group(1).replace(",", "")) >= 20000]
+    amts = [
+        i
+        for i, ln in enumerate(lines)
+        if _CU_AMT.match(ln) and float(_CU_AMT.match(ln).group(1).replace(",", "")) >= 20000
+    ]
     recs: list[dict] = []
     for k, i in enumerate(amts):
         m = _CU_AMT.match(lines[i])
@@ -1810,8 +1854,10 @@ def read_culture(b: bytes, max_pages: int | None) -> list[dict]:
         for q in range(i + 1, max(i + 1, nxt - 1)):  # stop before the next record's supplier line
             if not _CU_AMT.match(lines[q]):
                 desc.append(lines[q])
-        if supplier and re.search(r"[A-Za-z]", supplier) and not re.fullmatch(
-            r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier
+        if (
+            supplier
+            and re.search(r"[A-Za-z]", supplier)
+            and not re.fullmatch(r"(?i)\s*(grand\s+)?(sub[-\s]*)?totals?\b[\s:.€\d,]*", supplier)
         ):
             recs.append({"ref": None, "supplier": supplier, "amount": amount, "desc": " ".join(desc).strip() or None})
     return recs
@@ -1902,7 +1948,7 @@ def read_housing(b: bytes, max_pages: int | None) -> list[dict]:
             md = _HS_DATE.match(t.strip())
             if md and col_of(centers, x) == date_col:
                 n_date += 1
-                if t.strip()[md.end():].strip():
+                if t.strip()[md.end() :].strip():
                     n_rem += 1
         if n_date and n_rem > 0.5 * n_date:
             sup_col, desc_cols = None, set(rest)
@@ -1917,14 +1963,14 @@ def read_housing(b: bytes, max_pages: int | None) -> list[dict]:
                 if cur and (cur["amt"] is not None or cur["sup"] or cur["desc"]):
                     out.append(cur)
                 cur = {"date": md.group(0), "sup": [], "desc": [], "amt": None}
-                rem = t.strip()[md.end():].strip()
+                rem = t.strip()[md.end() :].strip()
                 if rem:
                     cur["sup"].append(rem)
             elif cur is not None:
                 m = _HS_MONEY.search(t)
                 if ci == amt_col and m:
                     cur["amt"] = m.group(0)
-                    tail = (t[: m.start()] + " " + t[m.end():]).strip()
+                    tail = (t[: m.start()] + " " + t[m.end() :]).strip()
                     if tail:
                         cur["desc"].append(tail)
                 elif ci == sup_col:
@@ -1949,13 +1995,15 @@ def read_housing(b: bytes, max_pages: int | None) -> list[dict]:
             amount = float(r["amt"].replace("€", "").replace(",", "").strip())
         except ValueError:
             continue
-        recs.append({
-            "ref": None,
-            "supplier": " ".join(r["sup"]).strip() or None,
-            "amount": amount,
-            "desc": " ".join(r["desc"]).strip() or None,
-            "date": r["date"],
-        })
+        recs.append(
+            {
+                "ref": None,
+                "supplier": " ".join(r["sup"]).strip() or None,
+                "amount": amount,
+                "desc": " ".join(r["desc"]).strip() or None,
+                "date": r["date"],
+            }
+        )
     return recs
 
 
@@ -2001,16 +2049,15 @@ def read_pdf_reading_order_fallback(b: bytes, max_pages: int | None, min_eur: fl
             amt = float(re.sub(r"[^\d.]", "", ln))
             if amt >= min_eur:
                 txt = []
-                for x in lines[prev_amt + 1:i]:  # text between the previous amount and this one
+                for x in lines[prev_amt + 1 : i]:  # text between the previous amount and this one
                     if _ROF_REF.match(x) or _ROF_BOILER.search(x) or (_ROF_HDR.match(x) and len(x) < 30):
                         continue
                     md = _ROF_DATE.match(x)
-                    x = x[md.end():].strip() if md else x  # strip a leading "DD/MM/YYYY supplier" date
+                    x = x[md.end() :].strip() if md else x  # strip a leading "DD/MM/YYYY supplier" date
                     if x:
                         txt.append(x)
                 if txt:
-                    recs.append({"ref": None, "supplier": txt[0], "amount": amt,
-                                 "desc": " ".join(txt[1:]) or None})
+                    recs.append({"ref": None, "supplier": txt[0], "amount": amt, "desc": " ".join(txt[1:]) or None})
             prev_amt = i
         elif ml:
             amt = float(ml.group(1).replace("€", "").replace(",", "").strip())
@@ -2018,9 +2065,16 @@ def read_pdf_reading_order_fallback(b: bytes, max_pages: int | None, min_eur: fl
                 sup = lines[i - 1] if i > 0 else None
                 if sup and not (_ROF_HDR.match(sup) and len(sup) < 30):
                     pm = _ROF_PO_LEAD.match(sup)
-                    recs.append({"ref": None, "supplier": pm.group(1) if pm else sup,
-                                 "amount": amt, "desc": ml.group(2).strip() or None})
+                    recs.append(
+                        {
+                            "ref": None,
+                            "supplier": pm.group(1) if pm else sup,
+                            "amount": amt,
+                            "desc": ml.group(2).strip() or None,
+                        }
+                    )
             prev_amt = i
+
     # Garble guard: a column-split / OCR-mangled PDF (LMETB's "CGAO36" quarters: codes, suppliers and
     # amounts each clustered in their own block) yields rows whose "suppliers" are numbers — the line
     # picked before each amount is another amount. OCR also swaps digits for letters ("L95,75r.40"),
@@ -2198,7 +2252,11 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             yr = int(r["date"][:4])
             q = (int(r["date"][5:7]) - 1) // 3 + 1
             sup = clean_supplier(r["supplier"])
-            rows_out.append(base(srn, r["page"], sup, r["amount"], r["desc"], r["ref"], None, period=f"{yr}-Q{q}", year=yr, quarter=q))
+            rows_out.append(
+                base(
+                    srn, r["page"], sup, r["amount"], r["desc"], r["ref"], None, period=f"{yr}-Q{q}", year=yr, quarter=q
+                )
+            )
             good += 1
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 
@@ -2262,7 +2320,20 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
                 per = f"{yr}-Q{q}"
             except (ValueError, IndexError):
                 per, yr, q = period, year, quarter
-            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], None, None, period=per, year=yr, quarter=q))
+            rows_out.append(
+                base(
+                    srn,
+                    1,
+                    clean_supplier(r["supplier"]),
+                    r["amount"],
+                    r["desc"],
+                    None,
+                    None,
+                    period=per,
+                    year=yr,
+                    quarter=q,
+                )
+            )
             good += 1
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 

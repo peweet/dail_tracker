@@ -73,9 +73,7 @@ def test_gate_then_report_end_to_end(tmp_path):
             "source_page": list(range(1, 62)),
         }
     )
-    clean = fidelity_gate(
-        df, name="e2e_donations", bounds={"value_eur": (0, 1_000_000_000)}, quarantine_dir=tmp_path
-    )
+    clean = fidelity_gate(df, name="e2e_donations", bounds={"value_eur": (0, 1_000_000_000)}, quarantine_dir=tmp_path)
     assert clean.height == 60  # the absurd row never propagates
 
     led = build_ledger(tmp_path, tmp_path / "ledger.json", now="t")

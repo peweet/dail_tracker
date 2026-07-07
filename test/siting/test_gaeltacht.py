@@ -41,7 +41,9 @@ def test_gaeltacht_routes_to_checks_not_a_constraint(monkeypatch):
     from dail_tracker_core.siting.brief import build_brief
     from dail_tracker_core.siting.engine import evaluate
 
-    b = build_brief(evaluate(-9.0520, 53.3062, dev_type="one_off_house", council_slug="galway_county_council", store=_STORE))
+    b = build_brief(
+        evaluate(-9.0520, 53.3062, dev_type="one_off_house", council_slug="galway_county_council", store=_STORE)
+    )
     assert "gaeltacht" in {i.node_id for i in b.to_verify}
     assert "gaeltacht" not in {i.node_id for i in (b.hard_constraints + b.shaping_constraints)}
 

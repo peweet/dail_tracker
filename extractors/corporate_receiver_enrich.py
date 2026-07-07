@@ -296,10 +296,9 @@ def build_firms(enriched: pd.DataFrame) -> pd.DataFrame:
             counts[name] = counts.get(name, 0) + 1
     if not counts:
         return pd.DataFrame(columns=["firm", "n_notices", "is_big6"])
-    out = (
-        pd.DataFrame(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])), columns=["firm", "n_notices"])
-        .reset_index(drop=True)
-    )
+    out = pd.DataFrame(
+        sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])), columns=["firm", "n_notices"]
+    ).reset_index(drop=True)
     out["is_big6"] = out["firm"].isin(_BIG6)
     return out
 
@@ -320,7 +319,10 @@ def _reference_topn_and_buckets(enriched: pd.DataFrame) -> tuple[list, dict, dic
     pdf = pd.DataFrame(parent_rows)
     parent_to_ftype = pdf.groupby("parent")["ftype"].agg(_dominant_ftype).to_dict()
     top = (
-        pdf.groupby("parent").size().rename("n").reset_index()
+        pdf.groupby("parent")
+        .size()
+        .rename("n")
+        .reset_index()
         .assign(ftype=lambda d: d["parent"].map(parent_to_ftype))
         .sort_values("n", ascending=False)
         .head(FEATURED_TOP_N)

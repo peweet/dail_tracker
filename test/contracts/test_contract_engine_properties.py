@@ -91,5 +91,5 @@ def test_never_sum_invariant_detects_iff_double_count_or_phantom(rows):
     violations = payment_fact_invariant_violations(df)
     # Ground truth: a summable public-body row (double-count) or a summable
     # non-positive amount (phantom) is exactly what must be flagged.
-    expect = any(s and (c == "public_body" or a <= 0) for s, c, a in zip(safe, classes, amounts))
+    expect = any(s and (c == "public_body" or a <= 0) for s, c, a in zip(safe, classes, amounts, strict=False))
     assert bool(violations) == expect, (violations, expect)

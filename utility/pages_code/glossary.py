@@ -57,7 +57,7 @@ GLOSSARY_TERMS: dict[str, str] = {
     "Local Authority": 'A county or city council — the elected local-government body responsible for housing, planning, roads, and local services in its area. Ireland has 31. Often shortened to "council" or "LA".',
     "Minister": "A TD appointed to the Cabinet (Government). Constitutionally required to attend Cabinet meetings and represent Ireland abroad; plenary attendance is therefore lower.",
     "Ministerial diary": "The diary of external meetings a minister publishes themselves, quarterly in arrears. Self-curated and non-exhaustive — an absence is not proof a meeting did not happen.",
-    "NAMA": "National Asset Management Agency — the State \"bad bank\" that bought distressed property loans from Irish banks between 2010 and 2014.",
+    "NAMA": 'National Asset Management Agency — the State "bad bank" that bought distressed property loans from Irish banks between 2010 and 2014.',
     "NOAC": "National Oversight and Audit Commission — the independent body that scrutinises how local authorities (councils) perform and spend. Its annual Performance Indicator Report is the source of the council housing-performance figures.",
     "OGP": "Office of Government Procurement — the central body that runs procurement frameworks and the eTenders portal for the State.",
     "Oireachtas": "The Irish parliament as a whole, comprising the President, Dáil, and Seanad.",

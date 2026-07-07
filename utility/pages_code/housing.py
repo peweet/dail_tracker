@@ -132,17 +132,16 @@ def _render_demo_grid(cdf, dims) -> None:
         cols = st.columns(2)
         for col, (dim, title, segs) in zip(cols, cards[i : i + 2], strict=False):
             with col:
-                st.html(f'<h3 class="hou-dim-title">{_h(title)}</h3>' + proportion_stripe_html(segs, palette="categorical"))
+                st.html(
+                    f'<h3 class="hou-dim-title">{_h(title)}</h3>' + proportion_stripe_html(segs, palette="categorical")
+                )
                 if dim == "citizenship":
                     st.caption(
                         "Citizenship of the main applicant, as a share of qualified "
                         "households — not a measure of who is housed."
                     )
                 elif dim == "main_need":
-                    st.caption(
-                        "“Disability (any)” combines intellectual, physical, mental-health and "
-                        "sensory needs."
-                    )
+                    st.caption("“Disability (any)” combines intellectual, physical, mental-health and sensory needs.")
 
 
 def _lead_sentence(cdf) -> str:
@@ -228,7 +227,7 @@ def _html_table(headers: list[str], rows_html: list[list[str]], numeric_cols: tu
     already-safe HTML (so a cell may carry a link)."""
     head = "".join(
         f'<th style="text-align:{"right" if i in numeric_cols else "left"};padding:0.4rem 0.65rem;'
-        f'border-bottom:2px solid #d6d3d1;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.04em;'
+        f"border-bottom:2px solid #d6d3d1;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.04em;"
         f'color:#5b6b73;font-weight:600;">{_h(h)}</th>'
         for i, h in enumerate(headers)
     )
@@ -283,7 +282,12 @@ def _render_county_table() -> None:
             (f"{float(yoy):+.1f}%" if pd.notna(yoy) else "—"),
         ]
         for area, tot, per1000, over7, yoy in zip(
-            df["area"], df["waiting_total"], df["waiters_per_1000"], df["over_7yr_pct"], df["waiting_yoy_pct"]
+            df["area"],
+            df["waiting_total"],
+            df["waiters_per_1000"],
+            df["over_7yr_pct"],
+            df["waiting_yoy_pct"],
+            strict=False,
         )
     ]
     st.html(
@@ -336,13 +340,13 @@ def _section_picker() -> str:
     def _sync() -> None:
         st.query_params["tab"] = _SECTIONS[st.session_state["hou_section"]]
 
-    if "hou_section" not in st.session_state:
+    if (
+        "hou_section" not in st.session_state
+        or url_tab in _SECTIONS.values()
+        and st.session_state["hou_section"] != want_label
+    ):
         st.session_state["hou_section"] = want_label
-    elif url_tab in _SECTIONS.values() and st.session_state["hou_section"] != want_label:
-        st.session_state["hou_section"] = want_label
-    st.segmented_control(
-        "Section", list(_SECTIONS), key="hou_section", on_change=_sync, label_visibility="collapsed"
-    )
+    st.segmented_control("Section", list(_SECTIONS), key="hou_section", on_change=_sync, label_visibility="collapsed")
     chosen = _SECTIONS[st.session_state["hou_section"]]
     st.query_params["tab"] = chosen
     return chosen

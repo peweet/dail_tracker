@@ -554,8 +554,8 @@ def _render_profile_diary(judge_key: str, current_court: str | None = None) -> N
                 "centrally online; it is held by the local District Court Office and posted at "
                 "the courthouse on the day. This is a gap in the public source, not a matching "
                 "failure on our side."
-                '<br><br>To request the list for a specific District Court area, contact that '
-                'court office directly — find its phone, email and address via the Courts '
+                "<br><br>To request the list for a specific District Court area, contact that "
+                "court office directly — find its phone, email and address via the Courts "
                 'Service <a href="https://www.courts.ie/content/find-us" target="_blank" '
                 'rel="noopener">Find Us directory</a>, and see scheduled sitting days at '
                 '<a href="https://ww2.courts.ie/district-court-sittings-0" target="_blank" '

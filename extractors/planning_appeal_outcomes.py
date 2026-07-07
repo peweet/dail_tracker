@@ -171,7 +171,18 @@ def _spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.
     )
     # spatial index: (auth_key, rounded lat, rounded lon) → list of candidate application rows
     grid: dict[tuple, list[dict]] = {}
-    cols = {c: cand[c].to_list() for c in ("auth_key", "lat", "lon", "ApplicationNumber", "PlanningAuthority", "decision_normalised", "DecisionDate")}
+    cols = {
+        c: cand[c].to_list()
+        for c in (
+            "auth_key",
+            "lat",
+            "lon",
+            "ApplicationNumber",
+            "PlanningAuthority",
+            "decision_normalised",
+            "DecisionDate",
+        )
+    }
     for i in range(cand.height):
         key = (cols["auth_key"][i], round(cols["lat"][i] / _GRID), round(cols["lon"][i] / _GRID))
         grid.setdefault(key, []).append({c: cols[c][i] for c in cols})
@@ -189,7 +200,20 @@ def _spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.
         return min(pool, key=lambda a: (a["lat"] - lat) ** 2 + (a["lon"] - lon) ** 2)
 
     out = []
-    rc = {c: residual[c].to_list() for c in ("auth_key", "lat", "lon", "lodged_date", "abp_case", "abp_decision", "PLANINGATY", "CATEGORY", "DECIDED_ON")}
+    rc = {
+        c: residual[c].to_list()
+        for c in (
+            "auth_key",
+            "lat",
+            "lon",
+            "lodged_date",
+            "abp_case",
+            "abp_decision",
+            "PLANINGATY",
+            "CATEGORY",
+            "DECIDED_ON",
+        )
+    }
     for i in range(residual.height):
         m = nearest(rc["auth_key"][i], rc["lat"][i], rc["lon"][i], rc["lodged_date"][i])
         if not m:
@@ -209,9 +233,19 @@ def _spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.
                 "match_method": "spatial_temporal",
             }
         )
-    schema = {"ApplicationNumber": pl.Utf8, "PlanningAuthority": pl.Utf8, "decision_normalised": pl.Utf8,
-              "AppealRefNumber": pl.Utf8, "abp_case": pl.Utf8, "council_decision": pl.Utf8, "abp_decision": pl.Utf8,
-              "PLANINGATY": pl.Utf8, "CATEGORY": pl.Utf8, "DECIDED_ON": pl.Int64, "match_method": pl.Utf8}
+    schema = {
+        "ApplicationNumber": pl.Utf8,
+        "PlanningAuthority": pl.Utf8,
+        "decision_normalised": pl.Utf8,
+        "AppealRefNumber": pl.Utf8,
+        "abp_case": pl.Utf8,
+        "council_decision": pl.Utf8,
+        "abp_decision": pl.Utf8,
+        "PLANINGATY": pl.Utf8,
+        "CATEGORY": pl.Utf8,
+        "DECIDED_ON": pl.Int64,
+        "match_method": pl.Utf8,
+    }
     return pl.DataFrame(out, schema=schema) if out else pl.DataFrame(schema=schema)
 
 
@@ -230,25 +264,35 @@ def main() -> None:
         "ApplicationNumber", "PlanningAuthority", "decision_normalised", "AppealRefNumber", "DecisionDate", "lon", "lat"
     )
     # PRIMARY — exact appeal_ref → ABPCASEID link (authoritative wherever the council fills it).
-    apps_ref = apps_all.filter(
-        pl.col("AppealRefNumber").is_not_null() & (pl.col("AppealRefNumber").str.strip_chars() != "")
-    ).with_columns(
-        pl.col("AppealRefNumber")
-        .map_elements(
-            lambda s: (_SIX.search(s or "") or [None])[0] if _SIX.search(s or "") else None, return_dtype=pl.Utf8
+    apps_ref = (
+        apps_all.filter(pl.col("AppealRefNumber").is_not_null() & (pl.col("AppealRefNumber").str.strip_chars() != ""))
+        .with_columns(
+            pl.col("AppealRefNumber")
+            .map_elements(
+                lambda s: (_SIX.search(s or "") or [None])[0] if _SIX.search(s or "") else None, return_dtype=pl.Utf8
+            )
+            .alias("abp_case"),
+            pl.col("decision_normalised")
+            .map_elements(_council_decision, return_dtype=pl.Utf8)
+            .alias("council_decision"),
         )
-        .alias("abp_case"),
-        pl.col("decision_normalised").map_elements(_council_decision, return_dtype=pl.Utf8).alias("council_decision"),
-    ).filter(pl.col("abp_case").is_not_null())
+        .filter(pl.col("abp_case").is_not_null())
+    )
 
-    primary = apps_ref.join(
-        acp.select("abp_case", "abp_decision", "PLANINGATY", "CATEGORY", "DECIDED_ON"), on="abp_case", how="inner"
-    ).with_columns(pl.lit("appeal_ref").alias("match_method")).select(_OUT_COLS)
+    primary = (
+        apps_ref.join(
+            acp.select("abp_case", "abp_decision", "PLANINGATY", "CATEGORY", "DECIDED_ON"), on="abp_case", how="inner"
+        )
+        .with_columns(pl.lit("appeal_ref").alias("match_method"))
+        .select(_OUT_COLS)
+    )
     LOG.info("appeal_ref matches: %d (of %d apps with an appeal ref)", primary.height, apps_ref.height)
 
     # FALLBACK — spatial+temporal recovery for ACP cases the ref join didn't reach.
     matched = set(primary["abp_case"].to_list())
-    residual = acp.filter(~pl.col("abp_case").is_in(matched) & pl.col("lat").is_not_null() & pl.col("lon").is_not_null())
+    residual = acp.filter(
+        ~pl.col("abp_case").is_in(matched) & pl.col("lat").is_not_null() & pl.col("lon").is_not_null()
+    )
     fallback = _spatial_temporal_matches(residual, apps_all)
     LOG.info("spatial_temporal matches: %d (of %d unmatched ACP cases with coords)", fallback.height, residual.height)
 

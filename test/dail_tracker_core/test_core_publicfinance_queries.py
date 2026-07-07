@@ -30,9 +30,7 @@ pytestmark = pytest.mark.skipif(not GFA.exists(), reason="CSO GFA01 source absen
 @pytest.fixture(scope="module")
 def conn():
     c = duckdb.connect()
-    sql = SQL.read_text(encoding="utf-8").replace(
-        "data/gold/parquet/cso_gfa01.parquet", str(GFA).replace("\\", "/")
-    )
+    sql = SQL.read_text(encoding="utf-8").replace("data/gold/parquet/cso_gfa01.parquet", str(GFA).replace("\\", "/"))
     c.execute(sql)
     return c
 

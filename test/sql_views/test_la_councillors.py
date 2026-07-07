@@ -5,6 +5,7 @@ in CI (no skip). Guards: roster covers all 31 councils, the coverage tier set is
 the roll_call council with named votes, agendas are non-empty, and Standing Orders carry the
 records_named_votes flag.
 """
+
 from pathlib import Path
 
 import duckdb
@@ -22,8 +23,7 @@ VIEWS = {
     "constituency_la_standing_orders.sql": "la_standing_orders.csv",
 }
 
-pytestmark = pytest.mark.skipif(
-    not (META / "la_councillors.csv").exists(), reason="councillor gold CSVs absent")
+pytestmark = pytest.mark.skipif(not (META / "la_councillors.csv").exists(), reason="councillor gold CSVs absent")
 
 
 @pytest.fixture(scope="module")
@@ -53,8 +53,9 @@ def test_coverage_tiers_valid(con):
 def test_carlow_has_named_votes(con):
     n = con.execute("SELECT COUNT(*) FROM v_la_councillor_votes WHERE local_authority='Carlow'").fetchone()[0]
     assert n > 50
-    bad = con.execute("SELECT COUNT(*) FROM v_la_councillor_votes WHERE vote NOT IN "
-                      "('for','against','abstain','absent')").fetchone()[0]
+    bad = con.execute(
+        "SELECT COUNT(*) FROM v_la_councillor_votes WHERE vote NOT IN ('for','against','abstain','absent')"
+    ).fetchone()[0]
     assert bad == 0
 
 
@@ -66,6 +67,7 @@ def test_agendas_present(con):
 def test_standing_orders_named_vote_flag(con):
     rows = con.execute("SELECT local_authority, records_named_votes FROM v_la_standing_orders").fetchall()
     assert len(rows) >= 5
-    gc = con.execute("SELECT records_named_votes FROM v_la_standing_orders "
-                     "WHERE local_authority='Galway County'").fetchone()
+    gc = con.execute(
+        "SELECT records_named_votes FROM v_la_standing_orders WHERE local_authority='Galway County'"
+    ).fetchone()
     assert gc is not None and bool(gc[0]) is True

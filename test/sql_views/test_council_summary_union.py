@@ -14,6 +14,7 @@ instead of being silently dropped. These guards lock that contract:
 
 Reads the three facts the view reads, so it skips cleanly when those parquets are absent (CI).
 """
+
 from pathlib import Path
 
 import duckdb
@@ -27,8 +28,7 @@ FACTS = [
     ROOT / "data" / "silver" / "parquet" / "la_afs_capital_divisions.parquet",
 ]
 
-pytestmark = pytest.mark.skipif(
-    not all(f.exists() for f in FACTS), reason="council money facts absent")
+pytestmark = pytest.mark.skipif(not all(f.exists() for f in FACTS), reason="council money facts absent")
 
 AFS_ONLY = ["Dublin City", "Dun Laoghaire-Rathdown", "Louth", "Tipperary"]
 
@@ -42,8 +42,7 @@ def con():
 
 def test_afs_only_councils_present_and_flagged(con):
     rows = con.execute(
-        "SELECT council, has_paying, has_running, has_building "
-        "FROM v_procurement_council_summary WHERE council IN ?",
+        "SELECT council, has_paying, has_running, has_building FROM v_procurement_council_summary WHERE council IN ?",
         [AFS_ONLY],
     ).fetchall()
     found = {r[0] for r in rows}
@@ -55,8 +54,7 @@ def test_afs_only_councils_present_and_flagged(con):
 
 def test_every_council_has_a_province(con):
     n_null = con.execute(
-        "SELECT COUNT(*) FROM v_procurement_council_summary "
-        "WHERE province IS NULL OR province_order IS NULL"
+        "SELECT COUNT(*) FROM v_procurement_council_summary WHERE province IS NULL OR province_order IS NULL"
     ).fetchone()[0]
     assert n_null == 0
 
@@ -69,7 +67,5 @@ def test_lifecycle_tiers_are_separate_columns(con):
 
 
 def test_known_payer_still_flagged(con):
-    has_paying = con.execute(
-        "SELECT has_paying FROM v_procurement_council_summary WHERE council = 'Mayo'"
-    ).fetchone()
+    has_paying = con.execute("SELECT has_paying FROM v_procurement_council_summary WHERE council = 'Mayo'").fetchone()
     assert has_paying is not None and has_paying[0]

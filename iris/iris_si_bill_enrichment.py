@@ -297,9 +297,9 @@ def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFram
         # the single biggest coverage lever.
         m = None
         if isinstance(parent_text, str):
-            m = parent_re.search(parent_text)              # capital-anchored
+            m = parent_re.search(parent_text)  # capital-anchored
         if m is None and isinstance(title, str):
-            m = _TITLE_PARENT_RE.search(title)             # case-insensitive
+            m = _TITLE_PARENT_RE.search(title)  # case-insensitive
         if m is None:
             return pd.Series([None, None, None, None, 0.0])
         year = int(m.group(2))

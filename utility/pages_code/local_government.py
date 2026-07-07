@@ -109,8 +109,14 @@ def _bench(value, national, fmt: str, higher_is_better: bool | None = None) -> s
 def _metric(value: str, label: str, bench: str = "", doc_url: str = "", doc_page: int | None = None) -> str:
     """One metric row. Optional ``doc_url`` renders a small source deep-link after the label
     (-> the exact NOAC report page)."""
-    doc = (f' <a class="lg-metric-doc" href="{_h(doc_url)}" target="_blank" rel="noopener" '
-           f'title="NOAC report, page {doc_page}">NOAC p.{doc_page} ↗</a>') if doc_url else ""
+    doc = (
+        (
+            f' <a class="lg-metric-doc" href="{_h(doc_url)}" target="_blank" rel="noopener" '
+            f'title="NOAC report, page {doc_page}">NOAC p.{doc_page} ↗</a>'
+        )
+        if doc_url
+        else ""
+    )
     return (
         '<div class="lg-metric"><div class="lg-metric-main">'
         f'<span class="lg-metric-value">{value}</span>'
@@ -123,8 +129,7 @@ def _stat_card(title: str, rows: list[str], source: str, extra: str = "", src_ur
     body = "".join(r for r in rows if r)
     if not body:
         return ""
-    src = (f'<a href="{_h(src_url)}" target="_blank" rel="noopener">{_h(source)} ↗</a>'
-           if src_url else _h(source))
+    src = f'<a href="{_h(src_url)}" target="_blank" rel="noopener">{_h(source)} ↗</a>' if src_url else _h(source)
     return (
         f'<div class="lg-card"><div class="lg-card-title">{_h(title)}</div>'
         f"{body}{extra}"
@@ -276,8 +281,7 @@ def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland", *,
     body = [p for _, p, _ in sorted(items, key=lambda t: -t[0])]  # big first → enclave on top
     areas = [a for _, _, a in sorted(items, key=lambda t: t[0]) if a]  # small first → enclave wins click
     svg = (
-        f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'viewBox="{cx0:.1f} {cy0:.1f} {cw:.1f} {ch:.1f}">{"".join(body)}</svg>'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{cx0:.1f} {cy0:.1f} {cw:.1f} {ch:.1f}">{"".join(body)}</svg>'
     )
     b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
     return (
@@ -471,12 +475,21 @@ def _card_money_collected(name: str) -> str:
         return ""
     c = col.data.iloc[0]
     rows = [
-        _metric(_pct(c.get("commercial_rates_pct")), "Commercial rates collected",
-                _bench(c.get("commercial_rates_pct"), c.get("nat_commercial_rates_pct"), "{:.0f}%", True)),
-        _metric(_pct(c.get("rent_annuities_pct")), "Rent &amp; annuities collected",
-                _bench(c.get("rent_annuities_pct"), c.get("nat_rent_annuities_pct"), "{:.0f}%", True)),
-        _metric(_pct(c.get("housing_loans_pct")), "Housing loans collected",
-                _bench(c.get("housing_loans_pct"), c.get("nat_housing_loans_pct"), "{:.0f}%", True)),
+        _metric(
+            _pct(c.get("commercial_rates_pct")),
+            "Commercial rates collected",
+            _bench(c.get("commercial_rates_pct"), c.get("nat_commercial_rates_pct"), "{:.0f}%", True),
+        ),
+        _metric(
+            _pct(c.get("rent_annuities_pct")),
+            "Rent &amp; annuities collected",
+            _bench(c.get("rent_annuities_pct"), c.get("nat_rent_annuities_pct"), "{:.0f}%", True),
+        ),
+        _metric(
+            _pct(c.get("housing_loans_pct")),
+            "Housing loans collected",
+            _bench(c.get("housing_loans_pct"), c.get("nat_housing_loans_pct"), "{:.0f}%", True),
+        ),
     ]
     return _stat_card("Money collected", rows, "NOAC Performance Indicator Report 2024")
 
@@ -487,16 +500,31 @@ def _card_housing(name: str) -> str:
         return ""
     r = h.data.iloc[0]
     rows = [
-        _metric(_pct(r.get("vacancy_pct"), 1), "Council homes lying vacant",
-                _bench(r.get("vacancy_pct"), r.get("nat_vacancy_pct"), "{:.1f}%", False)),
-        _metric(f'{_num1(r.get("reletting_weeks"))} wks', "Time to re-let an empty home",
-                _bench(r.get("reletting_weeks"), r.get("nat_reletting_weeks"), "{:.0f} wks", False)),
-        _metric(_eur_full(r.get("maintenance_eur_per_dwelling")), "Upkeep spend per home",
-                _bench(r.get("maintenance_eur_per_dwelling"), r.get("nat_maintenance_eur_per_dwelling"), "€{:,.0f}", None)),
-        _metric(_pct(r.get("retrofit_pct_of_stock"), 1), "Stock retrofitted (2024)",
-                _bench(r.get("retrofit_pct_of_stock"), r.get("nat_retrofit_pct_of_stock"), "{:.1f}%", True)),
-        _metric(_pct(r.get("longterm_homeless_pct")), "Homeless adults long-term",
-                _bench(r.get("longterm_homeless_pct"), r.get("nat_longterm_homeless_pct"), "{:.0f}%", False)),
+        _metric(
+            _pct(r.get("vacancy_pct"), 1),
+            "Council homes lying vacant",
+            _bench(r.get("vacancy_pct"), r.get("nat_vacancy_pct"), "{:.1f}%", False),
+        ),
+        _metric(
+            f"{_num1(r.get('reletting_weeks'))} wks",
+            "Time to re-let an empty home",
+            _bench(r.get("reletting_weeks"), r.get("nat_reletting_weeks"), "{:.0f} wks", False),
+        ),
+        _metric(
+            _eur_full(r.get("maintenance_eur_per_dwelling")),
+            "Upkeep spend per home",
+            _bench(r.get("maintenance_eur_per_dwelling"), r.get("nat_maintenance_eur_per_dwelling"), "€{:,.0f}", None),
+        ),
+        _metric(
+            _pct(r.get("retrofit_pct_of_stock"), 1),
+            "Stock retrofitted (2024)",
+            _bench(r.get("retrofit_pct_of_stock"), r.get("nat_retrofit_pct_of_stock"), "{:.1f}%", True),
+        ),
+        _metric(
+            _pct(r.get("longterm_homeless_pct")),
+            "Homeless adults long-term",
+            _bench(r.get("longterm_homeless_pct"), r.get("nat_longterm_homeless_pct"), "{:.0f}%", False),
+        ),
     ]
     return _stat_card("Social housing management", rows, "NOAC Performance Indicator Report 2024 (H-series)")
 
@@ -522,8 +550,11 @@ def _card_planning(name: str) -> str:
         return ""
     o = ov.data.iloc[0]
     rows = [
-        _metric(_pct(o.get("overturn_rate_pct"), 1), "Decisions overturned by An Bord Pleanála",
-                _bench(o.get("overturn_rate_pct"), o.get("national_overturn_rate_pct"), "{:.1f}%", False)),
+        _metric(
+            _pct(o.get("overturn_rate_pct"), 1),
+            "Decisions overturned by An Bord Pleanála",
+            _bench(o.get("overturn_rate_pct"), o.get("national_overturn_rate_pct"), "{:.1f}%", False),
+        ),
         _metric(_int(o.get("n_appeals")), "Appeals decided (2016 on)"),
     ]
     return _stat_card("Planning decisions", rows, "An Bord Pleanála appeal outcomes")
@@ -555,7 +586,8 @@ def _card_council_money(name: str) -> str:
         "See its suppliers &amp; every line item →</a>"
     )
     return _stat_card(
-        "Council money (executive-signed)", rows,
+        "Council money (executive-signed)",
+        rows,
         f"Council purchase-order / payment disclosures, {yr}. Councillors sign none of this.",
         extra=cta,
     )
@@ -564,15 +596,19 @@ def _card_council_money(name: str) -> str:
 # ── NOAC scorecard cards (v_la_noac_scorecard) ───────────────────────────────
 # Seven 2024 indicators grouped into two single-theme cards. Per-metric source deep-link
 # goes to the exact NOAC report page (#page=); card source links the report landing page.
-_NOAC_PDF = ("https://cdn.noac.ie/wp-content/uploads/2025/09/"
-             "NOAC-Local-Authority-Performance-Indicator-Report-2024.pdf")
+_NOAC_PDF = "https://cdn.noac.ie/wp-content/uploads/2025/09/NOAC-Local-Authority-Performance-Indicator-Report-2024.pdf"
 _NOAC_REPORT = "https://www.noac.ie/noac_publications/report-77-noac-performance-indicator-report-2024/"
 # metric key -> (value col, national-median col, label, value+benchmark fmt, NOAC PDF page)
 _SCORECARD = {
     "revenue_balance": ("revenue_balance_pct", "nat_revenue_balance_pct", "Revenue balance", "{:.1f}%", 185),
     "overhead": ("mgmt_overhead_pct", "nat_mgmt_overhead_pct", "Management overhead", "{:.1f}%", 190),
-    "insurance": ("insurance_claims_per_capita_eur", "nat_insurance_claims_per_capita_eur",
-                  "Insurance claims / person", "€{:.2f}", 189),
+    "insurance": (
+        "insurance_claims_per_capita_eur",
+        "nat_insurance_claims_per_capita_eur",
+        "Insurance claims / person",
+        "€{:.2f}",
+        189,
+    ),
     "sickness": ("sickness_absence_pct", "nat_sickness_absence_pct", "Sick-leave days lost", "{:.1f}%", 170),
     "roads": ("roads_poor_pct", "nat_roads_poor_pct", "Roads in poor condition", "{:.1f}%", 63),
     "fire": ("fire_within_10min_pct", "nat_fire_within_10min_pct", "Fires reached in 10 min", "{:.0f}%", 134),
@@ -609,8 +645,10 @@ def _spark(series) -> str:
         f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="1.8" fill="#9a8f80"/></svg>'
     )
     b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
-    return (f'<img class="lg-spark" src="data:image/svg+xml;base64,{b64}" width="{w}" height="{h}" '
-            f'alt="{y0}–{yn} trend" title="{y0}–{yn} trend"/>')
+    return (
+        f'<img class="lg-spark" src="data:image/svg+xml;base64,{b64}" width="{w}" height="{h}" '
+        f'alt="{y0}–{yn} trend" title="{y0}–{yn} trend"/>'
+    )
 
 
 def _scorecard_metric(r, key: str, series=None) -> str:
@@ -639,13 +677,11 @@ def _scorecard_card(name: str, title: str, keys: list[str]) -> str:
             if col in hd.columns:
                 hist[col] = list(zip(hd["year"].astype(int), hd[col], strict=False))
     rows = [_scorecard_metric(r, k, hist.get(_SCORECARD[k][0])) for k in keys]
-    return _stat_card(title, rows, "NOAC Performance Indicator Report 2024 (2022–24 trend)",
-                      src_url=_NOAC_REPORT)
+    return _stat_card(title, rows, "NOAC Performance Indicator Report 2024 (2022–24 trend)", src_url=_NOAC_REPORT)
 
 
 def _card_how_run(name: str) -> str:
-    return _scorecard_card(name, "How the council is run",
-                           ["revenue_balance", "overhead", "insurance", "sickness"])
+    return _scorecard_card(name, "How the council is run", ["revenue_balance", "overhead", "insurance", "sickness"])
 
 
 def _card_services(name: str) -> str:
@@ -687,9 +723,14 @@ def _render_all_indicators(name: str) -> None:
     res = fetch_noac_indicators_result(name)
     if not res.ok or res.data.empty:
         return
-    df = res.data.rename(columns={
-        "family": "Service", "series_label": "Indicator", "raw_value": "Value", "deep_link": "Source",
-    })
+    df = res.data.rename(
+        columns={
+            "family": "Service",
+            "series_label": "Indicator",
+            "raw_value": "Value",
+            "deep_link": "Source",
+        }
+    )
     with st.expander(f"All {len(df)} published NOAC indicators for {name} (2024)"):
         st.caption(
             "Everything NOAC publishes for this council, exactly as published — the cards above are "

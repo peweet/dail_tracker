@@ -132,7 +132,11 @@ def test_config_has_no_year_below_its_recorded_sitting_dates():
     re-creates the original 82-vs-94 contradiction)."""
     fact = _load_fact()
     chamber = _chamber_sitting_days(fact)
-    offenders = {y: (SITTING_DAYS_BY_YEAR[y], chamber[y]) for y in SITTING_DAYS_BY_YEAR if y in chamber and SITTING_DAYS_BY_YEAR[y] < chamber[y]}
+    offenders = {
+        y: (SITTING_DAYS_BY_YEAR[y], chamber[y])
+        for y in SITTING_DAYS_BY_YEAR
+        if y in chamber and SITTING_DAYS_BY_YEAR[y] < chamber[y]
+    }
     assert not offenders, f"config sitting days below recorded distinct dates: {offenders}"
 
 
@@ -152,9 +156,7 @@ def test_chamber_view_matches_fact_table_for_dail():
         from dail_tracker_core.db import connect_with_views
 
         conn = connect_with_views(["attendance_chamber_sitting_days.sql"], swallow_errors=False)
-        got = conn.execute(
-            "SELECT year, sitting_days FROM v_attendance_chamber_sitting_days WHERE house = 'Dáil'"
-        ).df()
+        got = conn.execute("SELECT year, sitting_days FROM v_attendance_chamber_sitting_days WHERE house = 'Dáil'").df()
     except Exception as exc:  # noqa: BLE001 — view needs both chambers' source files
         pytest.skip(f"chamber view did not register: {exc}")
 

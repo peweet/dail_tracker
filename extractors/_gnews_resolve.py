@@ -70,9 +70,23 @@ def resolve_url(url: str, session: requests.Session, timeout: int = 25) -> str |
             return None
         inner = [
             "garturlreq",
-            [["X", "X", ["X", "X"], None, None, 1, 1, "US:en", None, 1, None, None, None, None, None, 0, 1],
-             "X", "X", 1, [1, 1, 1], 1, 1, None, 0, 0, None, 0],
-            art_id, ts.group(1), sg.group(1),
+            [
+                ["X", "X", ["X", "X"], None, None, 1, 1, "US:en", None, 1, None, None, None, None, None, 0, 1],
+                "X",
+                "X",
+                1,
+                [1, 1, 1],
+                1,
+                1,
+                None,
+                0,
+                0,
+                None,
+                0,
+            ],
+            art_id,
+            ts.group(1),
+            sg.group(1),
         ]
         req = [[["Fbv4je", json.dumps(inner), None, "generic"]]]
         rpc = session.post(
@@ -114,6 +128,9 @@ def resolve_many(
         if delay:
             time.sleep(delay)
     if max_resolve and len(todo) > max_resolve:
-        logger.warning("gnews resolve cap hit: %d of %d redirect URLs left unresolved this pass",
-                       len(todo) - max_resolve, len(todo))
+        logger.warning(
+            "gnews resolve cap hit: %d of %d redirect URLs left unresolved this pass",
+            len(todo) - max_resolve,
+            len(todo),
+        )
     return out

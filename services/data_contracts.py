@@ -83,9 +83,7 @@ SUPPLIER_CLASS: frozenset[str] = frozenset(
 PRIVACY_STATUS: frozenset[str] = frozenset({"ok", "review_personal_data", "public", "quarantined"})
 # paid_flag SHOULD be a flag. Anything outside this (case-insensitive) set is a
 # leaked amount / description / date from a mis-aligned PDF column → quarantine.
-PAID_FLAG_CLEAN: frozenset[str] = frozenset(
-    {"y", "n", "yes", "no", "paid", "unpaid", "true", "false", "1", "0", ""}
-)
+PAID_FLAG_CLEAN: frozenset[str] = frozenset({"y", "n", "yes", "no", "paid", "unpaid", "true", "false", "1", "0", ""})
 
 # The 29 columns every payment-grain SILVER fact must carry (la_payments_fact adds a
 # few; the consolidation adds the regime/CRO/spend_category columns on top). Structural
@@ -249,9 +247,7 @@ def enforce_contract(
     artifacts are always written first, so evidence survives a subsequent halt.
     """
     report = ContractReport(name=name, n_rows=df.height)
-    report.structural_errors = check_structure(
-        df, required_columns=required_columns, nonnull_columns=nonnull_columns
-    )
+    report.structural_errors = check_structure(df, required_columns=required_columns, nonnull_columns=nonnull_columns)
 
     # Accumulate a union mask across all vocab rules plus a per-row reason expression
     # (one boolean "_q_<col>" column per failing rule — vectorised, no Python row loop).
@@ -265,9 +261,7 @@ def enforce_contract(
         if n_off == 0:
             continue
         frac = n_off / df.height if df.height else 0.0
-        bad_vals = (
-            df.filter(mask).select(pl.col(rule.column).cast(pl.Utf8)).to_series().value_counts(sort=True)
-        )
+        bad_vals = df.filter(mask).select(pl.col(rule.column).cast(pl.Utf8)).to_series().value_counts(sort=True)
         samples = [r[0] for r in bad_vals.head(8).iter_rows()]
         escalated = rule.severity == "quarantine" and frac > rule.max_offending_frac
         report.vocab_breaches[rule.column] = {
@@ -285,10 +279,7 @@ def enforce_contract(
     if n_q and write_quarantine:
         # Build "_quarantine_reason" by concatenating the names of the rules each row failed.
         reason_expr = pl.concat_str(
-            [
-                pl.when(_offending_expr(r)).then(pl.lit(f"{r.column};")).otherwise(pl.lit(""))
-                for r in fired_rules
-            ]
+            [pl.when(_offending_expr(r)).then(pl.lit(f"{r.column};")).otherwise(pl.lit("")) for r in fired_rules]
         ).str.strip_chars_end(";")
         q = df.with_columns(reason_expr.alias("_quarantine_reason")).filter(union_mask)
         report.quarantine_parquet, report.quarantine_summary = _write_quarantine(
@@ -445,9 +436,16 @@ def guard_payment_fact(
 # shape — a units change, a parser break — not one bad cell).
 
 _NUMERIC_DTYPES = (
-    pl.Float64, pl.Float32,
-    pl.Int64, pl.Int32, pl.Int16, pl.Int8,
-    pl.UInt64, pl.UInt32, pl.UInt16, pl.UInt8,
+    pl.Float64,
+    pl.Float32,
+    pl.Int64,
+    pl.Int32,
+    pl.Int16,
+    pl.Int8,
+    pl.UInt64,
+    pl.UInt32,
+    pl.UInt16,
+    pl.UInt8,
 )
 
 
@@ -546,10 +544,7 @@ def partition_implausible(
 
     if n_q and write_quarantine:
         reason_expr = pl.concat_str(
-            [
-                pl.when(_bound_offending_expr(r)).then(pl.lit(f"{r.column};")).otherwise(pl.lit(""))
-                for r in fired
-            ]
+            [pl.when(_bound_offending_expr(r)).then(pl.lit(f"{r.column};")).otherwise(pl.lit("")) for r in fired]
         ).str.strip_chars_end(";")
         q = df.with_columns(reason_expr.alias("_quarantine_reason")).filter(union)
         report.quarantine_parquet, report.quarantine_summary = _write_quarantine(

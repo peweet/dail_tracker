@@ -38,9 +38,27 @@ def _supplier_frame() -> pd.DataFrame:
     )
     return pd.DataFrame(
         [
-            {**base, "supplier": "Acme Ltd", "supplier_norm": "acme ltd", "company_num": "111", "has_epa_licence": True},
-            {**base, "supplier": "Beta Ltd", "supplier_norm": "beta ltd", "company_num": "222", "has_epa_licence": False},
-            {**base, "supplier": "Gamma Ltd", "supplier_norm": "gamma ltd", "company_num": "333", "has_epa_licence": True},
+            {
+                **base,
+                "supplier": "Acme Ltd",
+                "supplier_norm": "acme ltd",
+                "company_num": "111",
+                "has_epa_licence": True,
+            },
+            {
+                **base,
+                "supplier": "Beta Ltd",
+                "supplier_norm": "beta ltd",
+                "company_num": "222",
+                "has_epa_licence": False,
+            },
+            {
+                **base,
+                "supplier": "Gamma Ltd",
+                "supplier_norm": "gamma ltd",
+                "company_num": "333",
+                "has_epa_licence": True,
+            },
         ]
     )
 

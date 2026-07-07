@@ -58,16 +58,23 @@ BRIEFS: list[dict] = [
             "OUT: Irish Film Classification Office to D/Media",
         ],
         "key_issue_areas": [
-            "Civil Justice: Immigration Service Delivery", "Civil Justice: Policy & Legislation",
-            "Civil Justice: Governance", "Criminal Justice: Policing", "Criminal Justice: Penal Policy",
-            "Criminal Justice: DSGBV/Victims/Youth Justice", "Criminal Justice: Cyber",
-            "Security & Northern Ireland", "Justice Service Delivery", "Central: Transparency",
+            "Civil Justice: Immigration Service Delivery",
+            "Civil Justice: Policy & Legislation",
+            "Civil Justice: Governance",
+            "Criminal Justice: Policing",
+            "Criminal Justice: Penal Policy",
+            "Criminal Justice: DSGBV/Victims/Youth Justice",
+            "Criminal Justice: Cyber",
+            "Security & Northern Ireland",
+            "Justice Service Delivery",
+            "Central: Transparency",
         ],
     },
     {
         "department": "Climate, Energy & Environment (DECC)",
         "slug": "department-of-climate-energy-and-the-environment",
-        "edition": "2025", "source_type": "scanned",
+        "edition": "2025",
+        "source_type": "scanned",
         "source_url": "https://www.gov.ie/en/department-of-climate-energy-and-the-environment/organisation-information/briefing-for-ministers-2025/",
         "vision_mission": None,
         "strategic_goals": [
@@ -78,14 +85,22 @@ BRIEFS: list[dict] = [
             "Deliver improved cyber security defence and resilience across Government and Society",
             "Develop our people, culture and organisation",
         ],
-        "immediate_priorities": [], "machinery_of_government": [],
-        "key_issue_areas": ["Climate action", "Energy / net zero", "Natural environment",
-                            "Connectivity & communications", "Cyber security (NCSC)", "EU & international"],
+        "immediate_priorities": [],
+        "machinery_of_government": [],
+        "key_issue_areas": [
+            "Climate action",
+            "Energy / net zero",
+            "Natural environment",
+            "Connectivity & communications",
+            "Cyber security (NCSC)",
+            "EU & international",
+        ],
     },
     {
         "department": "Education & Youth",
         "slug": "department-of-education",
-        "edition": "2025 (Statement of Strategy 2025-2028)", "source_type": "scanned",
+        "edition": "2025 (Statement of Strategy 2025-2028)",
+        "source_type": "scanned",
         "source_url": "https://www.gov.ie/en/department-of-education/publications/briefing-for-ministers-2025/",
         "vision_mission": "A world-class education system where every child and young person is supported and nurtured to achieve their full potential and where barriers to their learning are removed.",
         "strategic_goals": [
@@ -95,18 +110,25 @@ BRIEFS: list[dict] = [
             "Support Ireland to be a leader across a broad range of fields",
             "Support students and all those who work in the education sector",
         ],
-        "immediate_priorities": [], "machinery_of_government": [],
-        "key_issue_areas": ["Curriculum, Assessment & Teacher Professional Learning",
-                            "Senior Cycle Redevelopment", "Special Education (NEPS)",
-                            "Residential Institutions Redress", "Schools, Social Inclusion & Youth",
-                            "Teacher Allocations"],
+        "immediate_priorities": [],
+        "machinery_of_government": [],
+        "key_issue_areas": [
+            "Curriculum, Assessment & Teacher Professional Learning",
+            "Senior Cycle Redevelopment",
+            "Special Education (NEPS)",
+            "Residential Institutions Redress",
+            "Schools, Social Inclusion & Youth",
+            "Teacher Allocations",
+        ],
     },
     {
         "department": "Health",
         "slug": "department-of-health",
-        "edition": "2025", "source_type": "born-digital",
+        "edition": "2025",
+        "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/organisation-information/9071c-department-of-health-divisional-briefing-for-new-minister/",
-        "vision_mission": None, "strategic_goals": [],
+        "vision_mission": None,
+        "strategic_goals": [],
         "immediate_priorities": [
             "Access to Hospital Services — reduce wait times and lists (Waiting List Action Plan)",
             "Children's Hospital Programme",
@@ -114,87 +136,124 @@ BRIEFS: list[dict] = [
             "National Strategies & associated strategic developments",
             "Development and oversight of Acute Hospital Services",
         ],
-        "machinery_of_government": [], "key_issue_areas": [],
+        "machinery_of_government": [],
+        "key_issue_areas": [],
     },
     {
         "department": "Further & Higher Education (DFHERIS)",
         "slug": "department-of-further-and-higher-education-research-innovation-and-science",
-        "edition": "February 2025", "source_type": "born-digital",
+        "edition": "February 2025",
+        "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/department-of-further-and-higher-education-research-innovation-and-science/publications/briefing-for-minister-february-2025/",
         "vision_mission": None,
         "strategic_goals": [
-            "Empowerment through Education", "Economic and Social Contribution",
-            "Competitiveness and Innovation", "Regional Development", "Future-Oriented Vision",
+            "Empowerment through Education",
+            "Economic and Social Contribution",
+            "Competitiveness and Innovation",
+            "Regional Development",
+            "Future-Oriented Vision",
         ],
-        "immediate_priorities": [], "machinery_of_government": [], "key_issue_areas": [],
+        "immediate_priorities": [],
+        "machinery_of_government": [],
+        "key_issue_areas": [],
     },
     {
         "department": "Public Expenditure (DPER)",
         "slug": "department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation",
-        "edition": "2025 (Incoming Minister's Brief)", "source_type": "born-digital",
+        "edition": "2025 (Incoming Minister's Brief)",
+        "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation/organisation-information/incoming-ministers-brief/",
-        "vision_mission": None, "strategic_goals": [],
+        "vision_mission": None,
+        "strategic_goals": [],
         "immediate_priorities": ["Priorities for the short to medium term (per division)"],
         "machinery_of_government": [],
         "key_issue_areas": [  # divisions, each with "Key Strategic Issues for Incoming Minister"
-            "Climate Division", "Expenditure Policy Division", "Public Service Reform",
-            "Infrastructure / NDP Delivery", "Digitalisation (OGCIO)", "Public Procurement (OGP)",
+            "Climate Division",
+            "Expenditure Policy Division",
+            "Public Service Reform",
+            "Infrastructure / NDP Delivery",
+            "Digitalisation (OGCIO)",
+            "Public Procurement (OGP)",
         ],
     },
     {
         "department": "Transport",
         "slug": "department-of-transport",
-        "edition": "January 2025 (Incoming Ministerial Brief)", "source_type": "born-digital",
+        "edition": "January 2025 (Incoming Ministerial Brief)",
+        "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/department-of-transport/publications/incoming-ministerial-brief/",
-        "vision_mission": None, "strategic_goals": [],
+        "vision_mission": None,
+        "strategic_goals": [],
         "immediate_priorities": [
-            "Land Transport Funding", "Transport Decarbonisation — climate commitments & sectoral emissions ceilings",
+            "Land Transport Funding",
+            "Transport Decarbonisation — climate commitments & sectoral emissions ceilings",
             "EU, North-South and International engagement",
         ],
         "machinery_of_government": [],
         "key_issue_areas": [  # Strategic Priorities 2025 by pillar
-            "Aviation & Emergency Planning", "Transport Investment & Public Transport Policy",
-            "Climate Action & EU and International Affairs", "Maritime",
-            "Road Transport Services and Digital Hub", "Irish Coast Guard",
+            "Aviation & Emergency Planning",
+            "Transport Investment & Public Transport Policy",
+            "Climate Action & EU and International Affairs",
+            "Maritime",
+            "Road Transport Services and Digital Hub",
+            "Irish Coast Guard",
             "Corporate Affairs and Central Policy",
         ],
     },
     {
         "department": "Finance",
         "slug": "department-of-finance",
-        "edition": "December 2025", "source_type": "born-digital",
+        "edition": "December 2025",
+        "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/department-of-finance/publications/ministers-brief-december-2025/",
-        "vision_mission": None, "strategic_goals": [],
-        "immediate_priorities": [], "machinery_of_government": [],
+        "vision_mission": None,
+        "strategic_goals": [],
+        "immediate_priorities": [],
+        "machinery_of_government": [],
         "key_issue_areas": [  # divisions
-            "Economic / Strategic Economic Development", "Domestic & Indirect Tax Policy",
-            "Business & International Tax Policy", "Capital Taxes, Stamp Duties & Residential Zoned Land Tax",
-            "Tax Administration, Revenue Powers & Local Property Tax", "Financial Services",
+            "Economic / Strategic Economic Development",
+            "Domestic & Indirect Tax Policy",
+            "Business & International Tax Policy",
+            "Capital Taxes, Stamp Duties & Residential Zoned Land Tax",
+            "Tax Administration, Revenue Powers & Local Property Tax",
+            "Financial Services",
         ],
     },
     {
         "department": "Enterprise, Tourism & Employment (DETE)",
         "slug": "department-of-enterprise-tourism-and-employment",
-        "edition": "January 2025", "source_type": "born-digital",
+        "edition": "January 2025",
+        "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/department-of-enterprise-tourism-and-employment/collections/department-brief-for-minister/",
-        "vision_mission": None, "strategic_goals": [],
-        "immediate_priorities": [], "machinery_of_government": [],
+        "vision_mission": None,
+        "strategic_goals": [],
+        "immediate_priorities": [],
+        "machinery_of_government": [],
         "key_issue_areas": [  # divisions (each "key priorities and strategic issues for…")
-            "Commerce, Consumer and Competition", "Corporate Services", "Digital and EU Affairs",
-            "Enterprise Strategy, Competitiveness & Evaluation", "Indigenous Enterprise",
-            "Innovation and Investment", "Trade",
+            "Commerce, Consumer and Competition",
+            "Corporate Services",
+            "Digital and EU Affairs",
+            "Enterprise Strategy, Competitiveness & Evaluation",
+            "Indigenous Enterprise",
+            "Innovation and Investment",
+            "Trade",
         ],
     },
     {
         "department": "Defence",
         "slug": "department-of-defence",
-        "edition": "January 2025 (2025 Ministerial Brief)", "source_type": "born-digital",
+        "edition": "January 2025 (2025 Ministerial Brief)",
+        "source_type": "born-digital",
         "source_url": "https://www.gov.ie/en/publication/818d5-2025-ministerial-brief/",
-        "vision_mission": None, "strategic_goals": [],
-        "immediate_priorities": [], "machinery_of_government": [],
+        "vision_mission": None,
+        "strategic_goals": [],
+        "immediate_priorities": [],
+        "machinery_of_government": [],
         "key_issue_areas": [  # brief is statutory/organisational rather than priority-led
-            "Statutory framework & organisation of Defence", "The Defence Forces (military)",
-            "Civil-military relationship", "Bodies under aegis",
+            "Statutory framework & organisation of Defence",
+            "The Defence Forces (military)",
+            "Civil-military relationship",
+            "Bodies under aegis",
         ],
     },
 ]
@@ -212,11 +271,15 @@ def _auto_key_issues(slug: str) -> list[str]:
     import fitz
 
     # cached files were saved under a short name per dept; try a few stems
-    stems = {"department-of-finance": "Finance", "department-of-transport": "Transport",
-             "department-of-defence": "Defence",
-             "department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation": "DPER",
-             "department-of-further-and-higher-education-research-innovation-and-science": "DFHERIS",
-             "department-of-health": "Health", "department-of-enterprise-tourism-and-employment": "DETE"}
+    stems = {
+        "department-of-finance": "Finance",
+        "department-of-transport": "Transport",
+        "department-of-defence": "Defence",
+        "department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation": "DPER",
+        "department-of-further-and-higher-education-research-innovation-and-science": "DFHERIS",
+        "department-of-health": "Health",
+        "department-of-enterprise-tourism-and-employment": "DETE",
+    }
     name = stems.get(slug)
     if not name:
         return []
@@ -256,17 +319,34 @@ def main() -> None:
         b["extraction_method"] = "vision-read" if b["source_type"] == "scanned" else "fitz-text + curated"
         rows.append(b)
 
-    cols = ["department", "slug", "edition", "source_type", "source_url", "vision_mission",
-            "strategic_goals", "immediate_priorities", "machinery_of_government", "key_issue_areas",
-            "n_strategic_goals", "n_priorities", "n_mog_changes", "extraction_method"]
+    cols = [
+        "department",
+        "slug",
+        "edition",
+        "source_type",
+        "source_url",
+        "vision_mission",
+        "strategic_goals",
+        "immediate_priorities",
+        "machinery_of_government",
+        "key_issue_areas",
+        "n_strategic_goals",
+        "n_priorities",
+        "n_mog_changes",
+        "extraction_method",
+    ]
     df = pl.DataFrame(rows).select(cols)
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_PARQUET)
     OUT_JSON.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"wrote {df.height} department briefs -> {OUT_PARQUET}")
-    print(f"  born-digital={sum(r['source_type']=='born-digital' for r in rows)} scanned={sum(r['source_type']=='scanned' for r in rows)}")
-    print(f"  with strategic_goals={sum(r['n_strategic_goals']>0 for r in rows)} | with priorities={sum(r['n_priorities']>0 for r in rows)} | with MoG={sum(r['n_mog_changes']>0 for r in rows)}")
+    print(
+        f"  born-digital={sum(r['source_type'] == 'born-digital' for r in rows)} scanned={sum(r['source_type'] == 'scanned' for r in rows)}"
+    )
+    print(
+        f"  with strategic_goals={sum(r['n_strategic_goals'] > 0 for r in rows)} | with priorities={sum(r['n_priorities'] > 0 for r in rows)} | with MoG={sum(r['n_mog_changes'] > 0 for r in rows)}"
+    )
     with pl.Config(fmt_str_lengths=44, tbl_rows=12):
         print(df.select(["department", "edition", "source_type", "n_strategic_goals", "n_priorities", "n_mog_changes"]))
 

@@ -134,9 +134,7 @@ def test_missing_required_column_is_structural_failure():
 
 def test_null_in_nonnull_key_column_fails():
     bad = _GOOD.with_columns(pl.lit(None, dtype=pl.Float64).alias("amount_eur"))
-    errors = check_structure(
-        bad, required_columns=("amount_eur",), nonnull_columns=("amount_eur",)
-    )
+    errors = check_structure(bad, required_columns=("amount_eur",), nonnull_columns=("amount_eur",))
     assert any("amount_eur" in e for e in errors)
 
 
