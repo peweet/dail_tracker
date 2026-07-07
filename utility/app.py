@@ -325,17 +325,8 @@ pg = st.navigation(
                 url_path="rankings-appointments",
             ),
         ],
-        "Planning": [
-            # Direct-engine page: a citizen enters x,y (or pastes a Maps link) and the page calls
-            # the local siting engine directly (no LLM / no MCP). The MCP siting_check tool is the
-            # SEPARATE AI-agent surface over the same engine.
-            st.Page(
-                siting_check_page,
-                title="Siting Check (experimental)",
-                icon=":material/travel_explore:",
-                url_path="planning-siting-check",
-            ),
-        ],
+        # "Planning" section (Siting Check) temporarily removed from the nav.
+        # The siting_check_page import above is retained so re-adding is a one-block change.
         "Glossary": [
             st.Page(glossary_page, title="Glossary", icon=":material/menu_book:", url_path="glossary"),
         ],
