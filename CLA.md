@@ -71,7 +71,7 @@ This CLA is governed by the laws of **Ireland**.
 - **On behalf of an organisation (Entity CLA):** if you are contributing as part
   of your employment or on behalf of a company, an authorised signatory should
   confirm agreement to these terms for the entity and list the employees
-  authorised to contribute. Email **{{LICENSING_EMAIL}}** to arrange this.
+  authorised to contribute. Email **p.glynn18@gmail.com** to arrange this.
 
 > Note: a `Signed-off-by` line on its own (the [DCO](https://developercertificate.org/))
 > certifies provenance but does **not** grant the relicensing rights in clause 2.

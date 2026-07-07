@@ -11,7 +11,7 @@
 This Commercial Software Licence Agreement (the **"Agreement"**) is made on
 `{{EFFECTIVE_DATE}}` between:
 
-- **Licensor:** Patrick Glynn, of {{LICENSOR_ADDRESS}} (the **"Licensor"**); and
+- **Licensor:** Patrick Glynn, of Galway, Ireland (the **"Licensor"**); and
 - **Licensee:** `{{LICENSEE_NAME}}`, of `{{LICENSEE_ADDRESS}}` (the **"Licensee"**).
 
 The Licensor and Licensee are each a **"Party"** and together the **"Parties"**.
@@ -191,7 +191,7 @@ agreement on its subject matter and supersedes prior discussions.
 consent (not to be unreasonably withheld); the Licensor may assign to a successor
 of the project (e.g. on incorporation).
 
-10.3 **Notices.** Notices go to the addresses above (or `{{LICENSING_EMAIL}}` for
+10.3 **Notices.** Notices go to the addresses above (or `p.glynn18@gmail.com` for
 the Licensor) and are deemed received on delivery.
 
 10.4 **No partnership.** Nothing creates a partnership, agency, or employment.
