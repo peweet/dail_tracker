@@ -1,70 +1,18 @@
 {
-  "generated_utc": "2026-06-27T05:18:48+00:00",
+  "generated_utc": "2026-06-28T09:53:20+00:00",
   "extractors": {
     "public_body": {
-      "run_utc": "2026-06-27T05:18:48+00:00",
+      "run_utc": "2026-06-28T09:51:13+00:00",
       "n_failures": 0,
       "failures": [],
       "zero_harvest": [],
       "breaker_trips": []
     },
     "la_payments": {
-      "run_utc": "2026-06-21T14:02:38+00:00",
-      "n_failures": 4,
-      "failures": [
-        {
-          "ts_utc": "2026-06-21T14:00:51+00:00",
-          "publisher_id": "kilkenny",
-          "publisher_name": "Kilkenny",
-          "stage": "file",
-          "url": "https://kilkennycoco.ie/eng/Services/Finance/Purchase-Orders-Over-€20-000/Download-Purchase-Orders-over-€20-000-Quarter-2-2020-KCC.xlsx",
-          "listing_url": "https://kilkennycoco.ie/eng/services/finance/purchase-orders-over-%E2%82%AC20-000/",
-          "error_class": "http_404",
-          "http_status": 404,
-          "attempts": 2
-        },
-        {
-          "ts_utc": "2026-06-21T14:01:57+00:00",
-          "publisher_id": "galway_county",
-          "publisher_name": "Galway County",
-          "stage": "file",
-          "url": "https://www.galwaycoco.ie/sites/default/files/2026-01/Quarter%201%202025%20%28ENG%29.pdf",
-          "listing_url": "https://www.gaillimh.ie/en/finance/financial-publications/purchase-orders",
-          "error_class": "timeout",
-          "http_status": null,
-          "attempts": 2
-        },
-        {
-          "ts_utc": "2026-06-21T14:02:06+00:00",
-          "publisher_id": "sligo",
-          "publisher_name": "Sligo",
-          "stage": "file",
-          "url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/SCC PO over 20K Q3 2024.pdf",
-          "listing_url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/",
-          "error_class": "not_expected_filetype",
-          "http_status": null,
-          "attempts": 1
-        },
-        {
-          "ts_utc": "2026-06-21T14:02:08+00:00",
-          "publisher_id": "sligo",
-          "publisher_name": "Sligo",
-          "stage": "file",
-          "url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/SCC PO over 20K Q2 2024.pdf",
-          "listing_url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/",
-          "error_class": "not_expected_filetype",
-          "http_status": null,
-          "attempts": 1
-        }
-      ],
-      "zero_harvest": [
-        {
-          "ts_utc": "2026-06-21T14:00:41+00:00",
-          "publisher_id": "wicklow",
-          "publisher_name": "Wicklow",
-          "listing_url": "https://www.wicklow.ie/Living/Your-Council/Finance/Procurement/Purchase-Orders-Over-20-000"
-        }
-      ],
+      "run_utc": "2026-06-28T09:53:20+00:00",
+      "n_failures": 0,
+      "failures": [],
+      "zero_harvest": [],
       "breaker_trips": []
     }
   }

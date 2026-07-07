@@ -13,29 +13,37 @@ dossier — they all make the client fan a person id across resources.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, cast
 
 import duckdb
 import pandas as pd
 
-from dail_tracker_core import serialize
+from dail_tracker_core import caveats, serialize
 from dail_tracker_core.queries import appointments as appt
+from dail_tracker_core.queries import attendance as att
 from dail_tracker_core.queries import charities as char
 from dail_tracker_core.queries import committees as cmte
+from dail_tracker_core.queries import constituency as cons
 from dail_tracker_core.queries import corporate as corp
 from dail_tracker_core.queries import cross_ref as xref
+from dail_tracker_core.queries import housing as hou
 from dail_tracker_core.queries import interests as intr
 from dail_tracker_core.queries import judiciary as jud
 from dail_tracker_core.queries import legislation as leg
 from dail_tracker_core.queries import lobbying as lb
+from dail_tracker_core.queries import local_government as lg
 from dail_tracker_core.queries import member_overview as moq
 from dail_tracker_core.queries import ministerial as min_
 from dail_tracker_core.queries import ministerial_diary as mdiary
 from dail_tracker_core.queries import payments as pay
 from dail_tracker_core.queries import procurement as proc
 from dail_tracker_core.queries import public_payments as pubpay
+from dail_tracker_core.queries import publicfinance as pubfin
 from dail_tracker_core.queries import sipo
 from dail_tracker_core.queries import votes as vot
+from dail_tracker_core.queries import your_councillors as yc
+from dail_tracker_core.results import QueryResult
 
 
 def _identity(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str, Any] | None:
@@ -243,13 +251,8 @@ def build_division_dossier(conn: duckdb.DuckDBPyConnection, vote_id: str) -> dic
 # ── Cross-reference: votes × Register of Members' Interests ────────────────────
 
 # Coverage caveat every cross-reference response carries, so an AI consumer states
-# it rather than implying full historical coverage.
-_INTERESTS_CAVEAT = (
-    "Register of Members' Interests covers 2020–2025 only; divisions before 2020 "
-    "have no interests counterpart and match nothing. 'landlord'/'property' use the "
-    "derived flags; 'director'/'shareholder' use the declared interest_category. "
-    "held_in_vote_year=true means the interest was declared in the vote's own year."
-)
+# it rather than implying full historical coverage. (Canonical text in core caveats.)
+_INTERESTS_CAVEAT = caveats.INTERESTS
 
 
 def build_division_interest_breakdown(conn: duckdb.DuckDBPyConnection, vote_id: str) -> dict[str, Any] | None:
@@ -394,19 +397,12 @@ def build_supplier_dossier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) 
     awards = serialize.to_records(proc.awards_for_supplier(conn, supplier_norm).data)
     if summary is None and not awards:
         return None
-    return {"summary": summary, "awards": awards}
+    return {"summary": summary, "awards": awards, "caveat": caveats.PROCUREMENT_AWARDS}
 
 
 # Co-occurrence caveat — mirrors data/_meta/procurement_lobbying_overlap_coverage.json.
 # Rides on every overlap response so an AI consumer can't present it as causation.
-_PROC_LOBBY_CAVEAT = (
-    "Co-occurrence by ENTITY only: each company appears on BOTH the public-procurement "
-    "award register and the lobbying register. NOT evidence that lobbying influenced any "
-    "contract — there is no shared key linking a specific lobby to a specific award. "
-    "Exact normalised-name matching undercounts (subsidiary / trading-name variants are "
-    "missed). awarded_value_safe_eur is a per-supplier total carried on each of that "
-    "supplier's lobby entities — never sum it across the nested lobby_entities."
-)
+_PROC_LOBBY_CAVEAT = caveats.PROC_LOBBY
 
 _PROC_LOBBY_ORDER = {
     "award_value": "awarded_value_safe_eur",
@@ -470,17 +466,7 @@ def list_procurement_lobbying_overlap(
     }
 
 
-_COMPETITION_CAVEAT = (
-    "single_bid_lot_pct = single-bid LOTS / lots-with-a-bid-count, from TED 2024+ award "
-    "notices — each contract PART counted once (the honest lot-level rate; an earlier "
-    "notice-level reading over-stated multi-lot buyers). A FACTUAL competition signal, NEVER "
-    "a verdict: a single bidder is often legitimate — a niche/specialist supplier, bespoke "
-    "research equipment, genuine urgency (research universities legitimately single-source a "
-    "lot). It is the EU Single Market Scoreboard's procurement-integrity indicator: a prompt "
-    "to look, not evidence of wrongdoing. Rank only buyers with a healthy n_lots_with_bidcount "
-    "(min_lots default 40); small samples are noisy. Coverage is 2024+ only (the eForms era "
-    "carries bid counts)."
-)
+_COMPETITION_CAVEAT = caveats.COMPETITION
 
 
 def list_procurement_competition(
@@ -772,12 +758,7 @@ def charity_financials(conn: duckdb.DuckDBPyConnection, *, rcn: int | None = Non
 # ── Public-body payments (the realised-SPEND grain) ────────────────────────────
 # ⚠️ NEVER add this spend to eTenders/TED AWARD ceilings — different value_kind.
 
-_PUBPAY_CAVEAT = (
-    "sum-safe spend only; never add to procurement AWARD values (different grain). "
-    "VAT basis varies by publisher and is unconfirmed for most (only HSE/Tusla are "
-    "documented incl-VAT), so cross-publisher totals mix VAT bases — see "
-    "data/_meta/procurement_payments_vat_matrix.json for the per-publisher basis."
-)
+_PUBPAY_CAVEAT = caveats.PUBPAY
 
 
 def public_body_payments(
@@ -853,7 +834,7 @@ def current_cabinet(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
 
 # ── Lobbying — revolving-door individual (DPO) profile ─────────────────────────
 
-_DPO_CAVEAT = "Co-occurrence on the public lobbying register only — NOT evidence of improper influence."
+_DPO_CAVEAT = caveats.DPO
 
 
 def dpo_lobbying_profile(conn: duckdb.DuckDBPyConnection, individual_name: str) -> dict[str, Any] | None:
@@ -909,18 +890,9 @@ def search_votes_by_topic(conn: duckdb.DuckDBPyConnection, topics: str, *, house
 # no person is named. A wind-up / receivership notice is a FACT about a company's
 # legal status on a date — never a verdict on a director or a finding of wrongdoing.
 
-_CORP_NOTICE_CAVEAT = (
-    "corporate notices only (no individuals); a wind-up/receivership is a legal-status fact, "
-    "not a verdict — and Members' Voluntary Liquidation is a SOLVENT wind-up, not distress"
-)
-_CORP_REPEAT_CAVEAT = (
-    "regulatory provenance only — not a verdict; exact normalised name match (may miss aliases); "
-    "solvent MVLs excluded from the distress count"
-)
-_CORP_RECEIVER_CAVEAT = (
-    "whole-corpus rankings (filter-independent, precomputed gold); an appointer/operator named on a "
-    "receivership notice is a public-record fact, not a verdict on any company or director"
-)
+_CORP_NOTICE_CAVEAT = caveats.CORP_NOTICE
+_CORP_REPEAT_CAVEAT = caveats.CORP_REPEAT
+_CORP_RECEIVER_CAVEAT = caveats.CORP_RECEIVER
 
 
 def corporate_distress_notices(
@@ -981,10 +953,7 @@ def corporate_receivers(conn: duckdb.DuckDBPyConnection, *, limit: int = 25) -> 
 # Co-occurrence ACCESS record, never proof of influence: diaries are self-curated,
 # non-exhaustive and quarterly-in-arrears, and a diary meeting is not a lobbying return.
 
-_DIARY_CAVEAT = (
-    "from ministers' own published diaries — access, not influence; self-curated, non-exhaustive and "
-    "quarterly-in-arrears; a diary meeting is not a lobbying return and co-occurrence implies no causation"
-)
+_DIARY_CAVEAT = caveats.DIARY
 
 
 def ministerial_diary_top_organisations(
@@ -1047,6 +1016,232 @@ def data_coverage(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "caveats": {
             "register_of_interests": "Register of Members' Interests covers 2020–2025 only — older divisions match no interests",
             "ted_award_winners": "TED award WINNERS are 2024+ (pre-2024 notices carry buyer + CPV + total value but no winner)",
-            "money_grains": "procurement AWARDS, public-body PAYMENTS, and T&A allowances are three different value grains — NEVER sum across them",
+            "money_grains": caveats.MONEY_GRAINS,
         },
+    }
+
+
+# ── Attendance (participation, absences, TAA compliance) ───────────────────────
+# Turnout / absence model: office-holders are FLAGGED, not hidden — a low rate is
+# context, not a verdict. Every response carries caveats.ATTENDANCE. Year-scoped
+# lists default to the latest reporting year (echoed in head.year).
+
+
+def _latest_attendance_year(conn: duckdb.DuckDBPyConnection, house: str) -> int | None:
+    df = att.participation_years(conn, house).data
+    return int(df.iloc[0]["year"]) if not df.empty else None
+
+
+def _attendance_year_list(
+    conn: duckdb.DuckDBPyConnection,
+    fetch: Callable[[duckdb.DuckDBPyConnection, int, str], QueryResult],
+    *,
+    year: int | None,
+    house: str,
+    skip: int,
+    limit: int,
+) -> dict[str, Any]:
+    y = year if year is not None else _latest_attendance_year(conn, house)
+    df = fetch(conn, y, house).data if y is not None else pd.DataFrame()
+    records, total, truncated = _page(df, skip, limit)
+    return serialize.envelope(
+        records,
+        limit=limit,
+        offset=skip,
+        total=total,
+        truncated=truncated,
+        meta={"year": y, "house": house},
+        caveat=caveats.ATTENDANCE,
+    )
+
+
+def attendance_turnout(
+    conn: duckdb.DuckDBPyConnection, *, year: int | None = None, house: str = "Dáil", skip: int = 0, limit: int = 50
+) -> dict[str, Any]:
+    """Division turnout for a (year, house), worst-first — voted_in / missed / turnout_pct
+    with each member's role flags. ``year`` defaults to the latest reporting year."""
+    return _attendance_year_list(conn, att.participation_turnout, year=year, house=house, skip=skip, limit=limit)
+
+
+def attendance_absences(
+    conn: duckdb.DuckDBPyConnection, *, year: int | None = None, house: str = "Dáil", skip: int = 0, limit: int = 50
+) -> dict[str, Any]:
+    """Longest physical-absence runs for a (year, house), worst-first, with the sourced
+    explanation where one exists. Excludes the chair (not voting is their role)."""
+    return _attendance_year_list(conn, att.participation_absences, year=year, house=house, skip=skip, limit=limit)
+
+
+def attendance_taa_compliance(
+    conn: duckdb.DuckDBPyConnection, *, year: int | None = None, house: str = "Dáil", skip: int = 0, limit: int = 50
+) -> dict[str, Any]:
+    """Members below the statutory 120-day Travel & Accommodation Allowance threshold + the
+    allowance deduction, most-docked first. Excludes office-holders (not paid TAA on this basis)."""
+    return _attendance_year_list(conn, att.taa_compliance, year=year, house=house, skip=skip, limit=limit)
+
+
+def attendance_missing_members(conn: duckdb.DuckDBPyConnection, *, skip: int = 0, limit: int = 100) -> dict[str, Any]:
+    """Roster members with no row in the attendance record, split by ``missing_reason``
+    (office_holder — documented TAA gap — vs no_record_on_file)."""
+    records, total, truncated = _page(att.missing_members(conn).data, skip, limit)
+    return serialize.envelope(
+        records, limit=limit, offset=skip, total=total, truncated=truncated, caveat=caveats.ATTENDANCE
+    )
+
+
+def attendance_years(conn: duckdb.DuckDBPyConnection, *, house: str = "Dáil") -> dict[str, Any]:
+    """The reporting years available for a house (newest first) — to drive the year filter."""
+    df = att.participation_years(conn, house).data
+    return {"house": house, "years": [int(y) for y in df["year"].tolist()] if not df.empty else []}
+
+
+# ── Housing (national social-housing demand + supply) ──────────────────────────
+
+
+def housing_waiting_list(
+    conn: duckdb.DuckDBPyConnection, *, grain: str = "county", skip: int = 0, limit: int = 50
+) -> dict[str, Any]:
+    """Social-housing waiting-list league table at one grain ('county' | 'la' | 'national'):
+    waiting total, YoY, long-wait %, population and waiters-per-1,000, largest first."""
+    records, total, truncated = _page(hou.waiting_list_totals(conn, grain).data, skip, limit)
+    return serialize.envelope(
+        records, limit=limit, offset=skip, total=total, truncated=truncated, meta={"grain": grain}
+    )
+
+
+def housing_supply(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """National supply & affordability headline (vacancy, private rent, HAP) + the HAP profile
+    + the new-dwelling completions trend — the supply-side companion to the waiting list."""
+    return {
+        "supply": serialize.first_record(hou.supply_national(conn).data),
+        "hap": serialize.first_record(hou.hap_national(conn).data),
+        "completions": serialize.to_records(hou.completions_trend(conn).data),
+    }
+
+
+def housing_accommodation_spend(conn: duckdb.DuckDBPyConnection, *, limit: int = 40) -> dict[str, Any]:
+    """State asylum (international-protection) + Ukraine accommodation spend by year and by
+    provider, from the published over-€20k purchase-order registers. Carries the spend-grain caveat."""
+    return {
+        "by_year": serialize.to_records(hou.accommodation_spend_by_year(conn).data),
+        "providers": serialize.to_records(hou.accommodation_spend_providers(conn, limit=limit).data),
+        "caveat": caveats.ACCOMMODATION_SPEND,
+    }
+
+
+# ── Public finance (CSO general-government series) ─────────────────────────────
+
+
+def government_finance(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """National general-government revenue / expenditure / balance per year (CSO GFA01) — the
+    authoritative 'share of total public spend' denominator. Carries the national-accounts caveat."""
+    records = serialize.to_records(pubfin.gov_finance_annual(conn).data)
+    return serialize.envelope(records, total=len(records), caveat=caveats.GOV_FINANCE)
+
+
+# ── Local government (council accountability) ──────────────────────────────────
+# Each council figure is its OWN reported amount beside the national benchmark — never
+# apportioned, never summed across measures (caveats.COUNCIL_MONEY / NOAC_SCORECARD).
+
+
+def list_councils(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """The 31-council index: each Chief Executive + the choropleth map layers + the
+    one-row national accountability headline."""
+    return {
+        "national_summary": serialize.first_record(lg.national_summary(conn).data),
+        "councils": serialize.to_records(lg.chief_executives(conn).data),
+        "map_layers": serialize.to_records(lg.map_layers(conn).data),
+    }
+
+
+def build_council_dossier(conn: duckdb.DuckDBPyConnection, la: str) -> dict[str, Any] | None:
+    """One council's accountability dossier: Chief Executive, the NOAC scorecard (+ 2022–24
+    history), the co-located cash signals, collection rates, planning-overturn rate, derelict-
+    sites levy, social-housing performance and the over-€20k procurement scale. None if unknown."""
+    ce = lg.chief_executive(conn, la).data
+    if ce.empty:
+        return None
+    return {
+        "local_authority": la,
+        "chief_executive": serialize.first_record(ce),
+        "noac_scorecard": serialize.to_records(lg.noac_scorecard(conn, la).data),
+        "noac_scorecard_history": serialize.to_records(lg.noac_scorecard_history(conn, la).data),
+        "cash_signals": serialize.first_record(lg.cash_signals(conn, la).data),
+        "collection_rates": serialize.first_record(lg.collection_rates(conn, la).data),
+        "planning_overturn": serialize.first_record(lg.planning_overturn(conn, la).data),
+        "derelict_sites_levy": serialize.first_record(lg.derelict_sites_levy(conn, la).data),
+        "housing_performance": serialize.first_record(lg.housing_performance(conn, la).data),
+        "council_money": serialize.first_record(lg.council_money(conn, la).data),
+        "caveat": caveats.COUNCIL_MONEY,
+    }
+
+
+def council_noac_indicators(conn: duckdb.DuckDBPyConnection, la: str) -> dict[str, Any] | None:
+    """Every published NOAC 2024 indicator for one council (~125 series, raw values) — the full
+    reference drill-down behind the curated scorecard. None if the council name is unknown."""
+    df = lg.noac_indicators(conn, la).data
+    if df.empty:
+        return None
+    return {"local_authority": la, "indicators": serialize.to_records(df), "caveat": caveats.NOAC_SCORECARD}
+
+
+# ── Constituencies (per-constituency dossier) ──────────────────────────────────
+
+
+def list_constituencies(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """All 43 constituencies with demographics + current TD count (the index grid)."""
+    records = serialize.to_records(cons.constituency_list(conn).data)
+    return serialize.envelope(records, total=len(records))
+
+
+def build_constituency_dossier(conn: duckdb.DuckDBPyConnection, name: str) -> dict[str, Any] | None:
+    """One constituency's record: header (population / per-TD ratio / seats) + current Dáil TDs +
+    party breakdown + the Dáil work done since GE2024 + housing context (supply + waiting list) +
+    the serving councils' money (each figure stands alone). None if the constituency is unknown."""
+    header = cons.constituency_header(conn, name).data
+    if header.empty:
+        return None
+    return {
+        "constituency": name,
+        "header": serialize.first_record(header),
+        "members": serialize.to_records(cons.constituency_members(conn, name).data),
+        "party_breakdown": serialize.to_records(cons.constituency_party_breakdown(conn, name).data),
+        "house_work": serialize.first_record(cons.constituency_house_work(conn, name).data),
+        "housing_context": serialize.to_records(cons.constituency_housing_context_with_ssha(conn, name).data),
+        "council_context": serialize.to_records(cons.constituency_council_context(conn, name).data),
+        "caveat": caveats.COUNCIL_MONEY,
+    }
+
+
+# ── Your councillors (elected local representatives) ───────────────────────────
+
+
+def list_councillor_councils(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """Councils that have a published councillor roster — to drive the council picker."""
+    df = yc.councils(conn).data
+    return {"councils": df["local_authority"].tolist() if not df.empty else []}
+
+
+def councillors_roster(
+    conn: duckdb.DuckDBPyConnection, *, council: str, lea: str | None = None
+) -> dict[str, Any] | None:
+    """The elected-member roster for a council (or one local electoral area), plus the council's
+    meeting-coverage data-state and its (unelected) Chief Executive. None if the council is unknown."""
+    roster_df = (yc.roster(conn, council, lea) if lea else yc.roster_council(conn, council)).data
+    if roster_df.empty and yc.coverage(conn, council).data.empty:
+        return None
+    return {
+        "council": council,
+        "lea": lea,
+        "councillors": serialize.to_records(roster_df),
+        "coverage": serialize.first_record(yc.coverage(conn, council).data),
+        "chief_executive": serialize.first_record(yc.chief_executive(conn, council).data),
+    }
+
+
+def councillor_votes(conn: duckdb.DuckDBPyConnection, *, council: str, member: str) -> dict[str, Any]:
+    """A councillor's recorded roll-call votes (named-vote coverage is sparse — Carlow only so far)."""
+    return {
+        "council": council,
+        "member": member,
+        "votes": serialize.to_records(yc.votes(conn, council, member).data),
     }

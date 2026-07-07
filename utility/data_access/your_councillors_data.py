@@ -29,6 +29,13 @@ def fetch_roster(la: str, lea: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_roster_council(la: str) -> QueryResult:
+    """Every elected member of a whole council (all LEAs) — for the Your Council
+    dossier's inline councillors section, which shows the full council at once."""
+    return _q.roster_council(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
 def fetch_councillor(la: str, name: str) -> QueryResult:
     return _q.councillor(get_constituency_conn(), la, name)
 

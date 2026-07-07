@@ -1,24 +1,24 @@
 {
-  "publishers_attempted": 43,
-  "publishers_with_rows": 41,
-  "rows_extracted": 119003,
-  "rows_deduped_within_file": 55,
-  "rows_public_display": 95284,
-  "rows_review_personal_data": 23719,
-  "rows_quarantined": 23719,
+  "publishers_attempted": 44,
+  "publishers_with_rows": 43,
+  "rows_extracted": 123536,
+  "rows_deduped_within_file": 124,
+  "rows_public_display": 99267,
+  "rows_review_personal_data": 24269,
+  "rows_quarantined": 24269,
   "supplier_class_counts": {
-    "public_body": 4003,
-    "unknown": 4793,
-    "sole_trader_or_individual": 23719,
-    "foreign_company": 754,
-    "company": 85734
+    "public_body": 4123,
+    "unknown": 4801,
+    "company": 89556,
+    "sole_trader_or_individual": 24269,
+    "foreign_company": 787
   },
   "amount_semantics_counts": {
-    "po_committed": 40973,
-    "payment_actual": 78030
+    "payment_actual": 81956,
+    "po_committed": 41580
   },
-  "value_safe_to_sum_rows": 109819,
-  "value_safe_to_sum_total_eur": 21704824686.729313,
+  "value_safe_to_sum_rows": 114190,
+  "value_safe_to_sum_total_eur": 22107094424.909313,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -89,18 +89,6 @@
       "files_skipped": 0,
       "files_with_rows": 41,
       "rows": 5155,
-      "amount_semantics": "po_committed",
-      "privacy_risk": "low"
-    },
-    {
-      "id": "ie_bim",
-      "name": "Bord Iascaigh Mhara (BIM)",
-      "tier": "A",
-      "files_seen": 24,
-      "files_parsed": 24,
-      "files_skipped": 0,
-      "files_with_rows": 21,
-      "rows": 799,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -189,18 +177,6 @@
       "privacy_risk": "low"
     },
     {
-      "id": "ie_atu",
-      "name": "Atlantic Technological University",
-      "tier": "C",
-      "files_seen": 17,
-      "files_parsed": 17,
-      "files_skipped": 0,
-      "files_with_rows": 16,
-      "rows": 1495,
-      "amount_semantics": "payment_actual",
-      "privacy_risk": "medium"
-    },
-    {
       "id": "ie_marine",
       "name": "Marine Institute",
       "tier": "C",
@@ -221,18 +197,6 @@
       "files_skipped": 0,
       "files_with_rows": 3,
       "rows": 10,
-      "amount_semantics": "payment_actual",
-      "privacy_risk": "low"
-    },
-    {
-      "id": "dept_housing",
-      "name": "Department of Housing, Local Government and Heritage",
-      "tier": "C",
-      "files_seen": 0,
-      "files_parsed": 0,
-      "files_skipped": 0,
-      "files_with_rows": 0,
-      "rows": 0,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -535,11 +499,59 @@
       "rows": 925,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
+    },
+    {
+      "id": "ie_bim",
+      "name": "Bord Iascaigh Mhara (BIM)",
+      "tier": "A",
+      "files_seen": 24,
+      "files_parsed": 24,
+      "files_skipped": 0,
+      "files_with_rows": 24,
+      "rows": 905,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_atu",
+      "name": "Atlantic Technological University",
+      "tier": "C",
+      "files_seen": 17,
+      "files_parsed": 17,
+      "files_skipped": 0,
+      "files_with_rows": 17,
+      "rows": 1572,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "medium"
+    },
+    {
+      "id": "dept_housing",
+      "name": "Department of Housing, Local Government and Heritage",
+      "tier": "C",
+      "files_seen": 49,
+      "files_parsed": 49,
+      "files_skipped": 0,
+      "files_with_rows": 48,
+      "rows": 3849,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_lmetb",
+      "name": "Louth & Meath ETB",
+      "tier": "C",
+      "files_seen": 9,
+      "files_parsed": 9,
+      "files_skipped": 0,
+      "files_with_rows": 7,
+      "rows": 501,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "medium"
     }
   ],
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-27T05:18:48+00:00",
+  "generated_at": "2026-06-28T09:51:13+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

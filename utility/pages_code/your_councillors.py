@@ -106,7 +106,10 @@ def _tab_councillors(county: str, lea: str) -> None:
             st.rerun()
 
 
-def _tab_how_it_works(county: str) -> None:
+# The three blocks of "How it works" are split out so the consolidated Your Council page can compose
+# the council-level ones (Cathaoirleach + Standing Orders) inline without repeating the Chief-Executive
+# explainer it already carries in its "Who runs it" section.
+def _render_cathaoirleach() -> None:
     subsection_heading("The Cathaoirleach / Mayor")
     info_card(
         "Each council elects a <b>Cathaoirleach</b> (the <b>Mayor</b> in the cities) from among its own "
@@ -115,6 +118,8 @@ def _tab_how_it_works(county: str) -> None:
         "and ceremonial. <span style='color:var(--text-meta)'>Since 2024, Limerick has a "
         "directly-elected Mayor with executive functions, the first in the State.</span>")
 
+
+def _render_who_holds_power(county: str) -> None:
     subsection_heading("Who really holds power")
     ce = ycd.fetch_chief_executive(county)
     nm = ce.data.iloc[0]["chief_executive"] if ce.ok and not ce.is_empty else ""
@@ -129,6 +134,8 @@ def _tab_how_it_works(county: str) -> None:
         '<a href="/local-government" target="_self">Who runs your county →</a>',
         border_left_color=_ACCENT)
 
+
+def _render_standing_orders(county: str) -> None:
     subsection_heading("How meetings and agendas are set")
     sr = ycd.fetch_standing_orders(county)
     if sr.ok and not sr.is_empty:
@@ -156,6 +163,12 @@ def _tab_how_it_works(county: str) -> None:
             "(Local Government Act 2001, Schedule 10.)"
             "<div style='color:var(--text-meta);margin-top:.5rem'>General statutory rules: this "
             "council's own Standing Orders have not been parsed yet.</div>")
+
+
+def _tab_how_it_works(county: str) -> None:
+    _render_cathaoirleach()
+    _render_who_holds_power(county)
+    _render_standing_orders(county)
 
 
 def _tab_agendas(county: str) -> None:
@@ -203,7 +216,9 @@ def your_councillors_page() -> None:
             return
         r = cr.data.iloc[0]
         if back_button("← Back to your council", key="clr_back"):
-            qp.update({"clr_county": county, "clr_lea": r["lea"]}); qp.pop("clr_name", None); st.rerun()
+            qp.update({"clr_county": county, "clr_lea": r["lea"]})
+            qp.pop("clr_name", None)
+            st.rerun()
         hero_banner("COUNCILLOR", r["name"], f'{r["party"]} · {r["lea"]} · {county}',
                     badges=[str(r["status"]).title()])
 
@@ -276,7 +291,8 @@ def your_councillors_page() -> None:
     leas = sorted(leas_r.data["lea"]) if leas_r.ok and not leas_r.is_empty else []
     lsel = st.selectbox("Local Electoral Area", leas) if leas else None
     if lsel and st.button("Show my council →", type="primary"):
-        qp.update({"clr_county": c, "clr_lea": lsel}); st.rerun()
+        qp.update({"clr_county": c, "clr_lea": lsel})
+        st.rerun()
     with st.expander("About this data and its coverage"):
         st.markdown(
             "- **Roster** (~916 councillors across 31 councils) is sourced from Wikipedia and is about "

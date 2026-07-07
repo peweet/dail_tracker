@@ -457,6 +457,25 @@ def test_v_member_contact_details_executes():
 
 
 @pytest.mark.sql
+def test_v_lobbying_base_member_codes_executes():
+    """The shared normalised member-name → unique_member_code resolver that the four
+    v_lobbying_* views LEFT JOIN (extracted from a CTE that was copy-pasted into each).
+    Locks the two-column contract and the one-row-per-normalised-name grain — a dup here
+    would fan out every consumer's member join."""
+    _skip_missing(*_src("data/silver/parquet/flattened_members.parquet"))
+    con = _con()
+    con.execute(_load("lobbying_base_member_codes.sql"))
+    result = _result(con, "v_lobbying_base_member_codes")
+    _assert_cols(result, "norm_name", "unique_member_code")
+    assert len(result) > 0
+    dup = con.execute(
+        "SELECT COUNT(*) FROM (SELECT norm_name, COUNT(*) c"
+        " FROM v_lobbying_base_member_codes GROUP BY norm_name HAVING c > 1)"
+    ).fetchone()[0]
+    assert dup == 0, "v_lobbying_base_member_codes must be one row per normalised name"
+
+
+@pytest.mark.sql
 def test_v_lobbying_index_executes():
     _skip_missing(
         GOLD_PARQUET_DIR / "most_lobbied_politicians.parquet",
@@ -487,6 +506,7 @@ def test_v_lobbying_persistence_executes():
 def test_v_lobbying_org_intensity_executes():
     _skip_missing(LOBBY_PARQUET_DIR / "bilateral_relationships.parquet")
     con = _con()
+    con.execute(_load("lobbying_base_member_codes.sql"))  # consumer LEFT JOINs it
     con.execute(_load("lobbying_org_intensity.sql"))
     result = _result(con, "v_lobbying_org_intensity")
     assert "lobbyist_name" in result.columns
@@ -544,6 +564,7 @@ def test_v_lobbying_clients_executes():
 def test_v_lobbying_revolving_door_executes():
     _skip_missing(GOLD_PARQUET_DIR / "revolving_door_dpos.parquet")
     con = _con()
+    con.execute(_load("lobbying_base_member_codes.sql"))  # consumer LEFT JOINs it
     con.execute(_load("lobbying_revolving_door.sql"))
     result = _result(con, "v_lobbying_revolving_door")
     assert "return_count" in result.columns
@@ -1593,6 +1614,7 @@ def test_v_lobbying_contact_detail_executes():
     member-overview lobbying card joins on."""
     _skip_missing(*_src(f"{_LOB_SILVER}/politician_returns_detail.parquet"))
     con = _con()
+    con.execute(_load("lobbying_base_member_codes.sql"))  # consumer LEFT JOINs it
     con.execute(_load("lobbying_contact_detail.sql"))
     result = _result(con, "v_lobbying_contact_detail")
     _assert_cols(
@@ -1613,6 +1635,7 @@ def test_v_lobbying_contact_detail_with_dpo_executes():
     """Reads v_lobbying_dpo_returns + v_lobbying_contact_detail — both first."""
     _skip_missing(*_src(f"{_LOB_SILVER}/politician_returns_detail.parquet"))
     con = _con()
+    con.execute(_load("lobbying_base_member_codes.sql"))  # contact_detail LEFT JOINs it
     con.execute(_load("lobbying_dpo_returns.sql"))
     con.execute(_load("lobbying_contact_detail.sql"))
     con.execute(_load("lobbying_zz_contact_detail_with_dpo.sql"))
@@ -1626,6 +1649,7 @@ def test_v_lobbying_dpo_politician_returns_executes():
     """Reads v_lobbying_dpo_returns + v_lobbying_contact_detail — both first."""
     _skip_missing(*_src(f"{_LOB_SILVER}/politician_returns_detail.parquet"))
     con = _con()
+    con.execute(_load("lobbying_base_member_codes.sql"))  # contact_detail LEFT JOINs it
     con.execute(_load("lobbying_dpo_returns.sql"))
     con.execute(_load("lobbying_contact_detail.sql"))
     con.execute(_load("lobbying_zz_dpo_politician_returns.sql"))
@@ -1648,6 +1672,7 @@ def test_v_lobbying_policy_area_summary_executes():
 def test_v_lobbying_policy_exposure_executes():
     _skip_missing(*_src("data/gold/parquet/politician_policy_exposure.parquet"))
     con = _con()
+    con.execute(_load("lobbying_base_member_codes.sql"))  # consumer LEFT JOINs it
     con.execute(_load("lobbying_policy_exposure.sql"))
     result = _result(con, "v_lobbying_policy_exposure")
     _assert_cols(
@@ -1822,6 +1847,36 @@ def test_v_bill_si_operation_mix_executes():
     assert len(result) > 0
 
 
+@pytest.mark.sql
+def test_v_act_commencement_executes():
+    """Commencement-order timeline per Act. Composes v_bill_statutory_instruments
+    + v_statutory_instruments (which itself LEFT-JOINs v_si_current_state) — load
+    the dependency views first, in directory order."""
+    _skip_missing(
+        *_src(
+            "data/gold/parquet/bill_statutory_instruments.parquet",
+            "data/gold/parquet/statutory_instruments.parquet",
+            "data/gold/parquet/si_current_state.parquet",
+        )
+    )
+    con = _con()
+    con.execute(_load("legislation_si_current_state.sql"))
+    con.execute(_load("legislation_si_index.sql"))
+    con.execute(_load("legislation_statutory_instruments.sql"))
+    con.execute(_load("legislation_zz_act_commencement.sql"))
+    result = _result(con, "v_act_commencement")
+    _assert_cols(
+        result,
+        "bill_id",
+        "si_id",
+        "si_signed_date",
+        "si_commenced_sections",
+        "si_minister_name",
+        "order_current_state",
+    )
+    assert len(result) > 0
+
+
 # ---------------------------------------------------------------------------
 # APPOINTMENTS VIEW
 # ---------------------------------------------------------------------------
@@ -1851,6 +1906,10 @@ def test_v_public_appointments_executes():
 _PROC_AWARDS = "data/gold/parquet/procurement_awards.parquet"
 _PROC_CRO = "data/gold/parquet/procurement_supplier_cro_match.parquet"
 _PROC_OVERLAP = "data/gold/parquet/procurement_lobbying_overlap.parquet"
+_PROC_DEFLATOR = "data/gold/parquet/cso_cpi_deflator.parquet"
+_PROC_TPI = "data/gold/parquet/scsi_tpi_deflator.parquet"
+_PROC_GOV_DEFLATOR = "data/gold/parquet/cso_govt_consumption_deflator.parquet"
+_PROC_PAYMENTS = "data/gold/parquet/procurement_payments_fact.parquet"
 
 
 @pytest.mark.sql
@@ -2044,6 +2103,198 @@ def test_v_procurement_cpv_summary_value_semantics():
 
     # Business services: Bigco framework (5m) excluded; only eloitte 75k + Lobbyco 400k.
     assert by["79000000"]["awarded_value_safe_eur"] == 475000.0
+
+
+# ---------------------------------------------------------------------------
+# EXPERIMENTAL real-terms (CPI-adjusted) procurement views. v_cpi_deflator must
+# register before v_procurement_awards_real (it LEFT JOINs the deflator); the
+# alphabetical loader handles that via the procurement_aa_* filename. These run in
+# both fixture and integration mode (the invariants + parity hold for either data).
+# ---------------------------------------------------------------------------
+
+
+def _load_awards_real(con):
+    """Register the deflator views then v_procurement_awards_real (dependency order:
+    v_cpi_deflator + v_scsi_tpi_deflator must precede the awards view that LEFT JOINs them)."""
+    con.execute(_load("procurement_aa_cpi_deflator.sql"))
+    con.execute(_load("procurement_ab_scsi_tpi_deflator.sql"))
+    con.execute(_load("procurement_awards_real.sql"))
+
+
+@pytest.mark.sql
+def test_v_procurement_awards_real_invariants():
+    """Additive real-terms columns + the never-break rules: ceilings/implausible/year-missing/
+    no-value never carry a real figure, base-year is identity, and value_eur_real is non-NULL
+    IFF real_caveat is OK/MULTI_YEAR_APPROX (one rule every consumer can trust)."""
+    _skip_missing(*_src(_PROC_AWARDS, _PROC_DEFLATOR, _PROC_TPI))
+    con = _con()
+    _load_awards_real(con)
+    df = con.execute("SELECT * FROM v_procurement_awards_real").pl()
+    _assert_cols(
+        df, "value_eur", "value_eur_real", "real_base_year",
+        "deflator_index", "deflator_factor", "real_caveat", "award_year",
+    )
+    assert len(df) > 0
+    # the framework/DPS ceiling in the fixture (Bigco, 5m) is never deflated
+    assert con.execute(
+        "SELECT count(*) FROM v_procurement_awards_real WHERE is_framework_or_dps AND value_eur_real IS NOT NULL"
+    ).fetchone()[0] == 0
+    # any non-adjustable caveat ⇒ NULL real value
+    assert con.execute(
+        "SELECT count(*) FROM v_procurement_awards_real "
+        "WHERE real_caveat IN ('NO_VALUE','CEILING_NOT_ADJUSTED','IMPLAUSIBLE','YEAR_MISSING') "
+        "AND value_eur_real IS NOT NULL"
+    ).fetchone()[0] == 0
+    # value_eur_real non-NULL IFF caveat adjustable
+    assert con.execute(
+        "SELECT count(*) FROM v_procurement_awards_real "
+        "WHERE (real_caveat IN ('OK','MULTI_YEAR_APPROX')) != (value_eur_real IS NOT NULL)"
+    ).fetchone()[0] == 0
+    # base-year awards: real == nominal (factor 1.0)
+    base = con.execute("SELECT base_year FROM v_cpi_deflator LIMIT 1").fetchone()[0]
+    assert con.execute(
+        f"SELECT count(*) FROM v_procurement_awards_real WHERE award_year = {base} "
+        "AND value_eur_real IS NOT NULL AND abs(value_eur_real - value_eur) > 0.005"
+    ).fetchone()[0] == 0
+    # deflating to the latest base year never shrinks a past value (factor >= 1.0 ⇒ real >= nominal)
+    assert con.execute(
+        "SELECT count(*) FROM v_procurement_awards_real WHERE value_eur_real IS NOT NULL "
+        "AND deflator_factor >= 1.0 AND value_eur_real < value_eur - 0.005"
+    ).fetchone()[0] == 0
+    # sector lens: construction CPVs (45*/71*) are tagged to the SCSI TPI, everything else to CPI
+    _assert_cols(df, "value_eur_real_sector", "deflator_index_sector")
+    assert con.execute(
+        "SELECT count(*) FROM v_procurement_awards_real WHERE "
+        "(substr(cpv_code,1,2) IN ('45','71')) != (deflator_index_sector = 'SCSI_TPI_CONSTRUCTION')"
+    ).fetchone()[0] == 0
+
+
+@pytest.mark.sql
+def test_v_procurement_awards_real_parity_with_deflator_function():
+    """SQL value_eur_real == services.deflator.Deflator.inflate, row-for-row — the single
+    source-of-truth contract (the view precomputes exactly what the tested function computes).
+    Deflators are loaded from the SAME parquets the views read, so parity holds in either mode —
+    both the CPI baseline column and the construction-sector (SCSI TPI) column."""
+    _skip_missing(*_src(_PROC_AWARDS, _PROC_DEFLATOR, _PROC_TPI))
+    from services.deflator import Deflator
+
+    gold = _src(_PROC_DEFLATOR)[0].parent
+    cpi = Deflator.load_index("CSO_CPA07_CPI", gold_dir=gold)
+    tpi = Deflator.load_index("SCSI_TPI_CONSTRUCTION", gold_dir=gold)
+    con = _con()
+    _load_awards_real(con)
+    # CPI baseline column
+    for value_eur, award_year, sql_real in con.execute(
+        "SELECT value_eur, award_year, value_eur_real FROM v_procurement_awards_real "
+        "WHERE value_eur_real IS NOT NULL"
+    ).fetchall():
+        py = cpi.inflate(value_eur, award_year)
+        assert py is not None and abs(sql_real - py) <= 1e-9 * max(1.0, abs(py))
+    # sector column: construction rows must match the SCSI TPI function exactly
+    crows = con.execute(
+        "SELECT value_eur, award_year, value_eur_real_sector FROM v_procurement_awards_real "
+        "WHERE value_eur_real_sector IS NOT NULL AND substr(cpv_code,1,2) IN ('45','71')"
+    ).fetchall()
+    assert crows, "expected at least one adjustable construction award"
+    for value_eur, award_year, sql_sector in crows:
+        py = tpi.inflate(value_eur, award_year)
+        assert py is not None and abs(sql_sector - py) <= 1e-9 * max(1.0, abs(py))
+
+
+@pytest.mark.sql
+def test_v_procurement_cpv_summary_real_band():
+    """The per-CPV benchmark exposes a nominal band AND an inflation-adjusted band, with an
+    honest n_real_excluded for awards whose year fell outside the index."""
+    _skip_missing(*_src(_PROC_AWARDS, _PROC_DEFLATOR, _PROC_TPI))
+    con = _con()
+    _load_awards_real(con)
+    con.execute(_load("procurement_cpv_summary_real.sql"))
+    df = con.execute("SELECT * FROM v_procurement_cpv_summary_real").pl()
+    _assert_cols(
+        df, "cpv_code", "cpv_description", "median_award_eur", "median_award_real_eur",
+        "p25_award_real_eur", "p75_award_real_eur", "n_real_excluded",
+        "real_base_year", "deflator_index",
+    )
+    assert len(df) > 0
+    # The real band is computed over a SUBSET of the nominal band (non-adjustable awards —
+    # year outside the index / implausible — are dropped), so the two medians are NOT directly
+    # comparable; n_real_excluded reconciles the sample sizes exactly. (This is why the UI must
+    # show n_real_excluded beside a nominal-vs-real band.)
+    for n_nom, n_real, n_excl in con.execute(
+        "SELECT n_awards_valued, n_awards_valued_real, n_real_excluded FROM v_procurement_cpv_summary_real"
+    ).fetchall():
+        assert n_real <= n_nom
+        assert n_excl == n_nom - n_real
+
+
+@pytest.mark.sql
+def test_v_govt_consumption_deflator_executes():
+    """The agency-standard public-spend deflator, exposed as a view (base-year factor == 1.0)."""
+    _skip_missing(*_src(_PROC_GOV_DEFLATOR))
+    con = _con()
+    con.execute(_load("procurement_ac_govt_consumption_deflator.sql"))
+    df = con.execute("SELECT * FROM v_govt_consumption_deflator").pl()
+    _assert_cols(df, "year", "gov_price_index", "deflator_to_base", "base_year", "index_code")
+    assert len(df) > 0
+    base = con.execute("SELECT base_year FROM v_govt_consumption_deflator LIMIT 1").fetchone()[0]
+    assert con.execute(
+        f"SELECT deflator_to_base FROM v_govt_consumption_deflator WHERE year = {base}"
+    ).fetchone()[0] == 1.0
+
+
+def _load_payments_real(con):
+    """Register the gov-consumption deflator + payments view + payments-real (dependency order)."""
+    con.execute(_load("procurement_ac_govt_consumption_deflator.sql"))
+    con.execute(_load("procurement_payments.sql"))
+    con.execute(_load("procurement_payments_real.sql"))
+
+
+@pytest.mark.sql
+def test_v_procurement_payments_real_invariants_and_parity():
+    """Public spend deflated by the GOVERNMENT-CONSUMPTION index (not CPI). Integration-only (no
+    synthetic payments fixture). Parity SQL == Deflator.load_index('CSO_GOV_CONSUMPTION'); non-OK
+    caveat ⇒ NULL real."""
+    if not _USE_REAL_PATHS:
+        pytest.skip("payments fact has no fixture (set DAIL_INTEGRATION_TESTS=1)")
+    _skip_missing(*_src(_PROC_PAYMENTS, _PROC_GOV_DEFLATOR))
+    from services.deflator import Deflator
+
+    g = Deflator.load_index("CSO_GOV_CONSUMPTION", gold_dir=_src(_PROC_GOV_DEFLATOR)[0].parent)
+    con = _con()
+    _load_payments_real(con)
+    df = con.execute("SELECT * FROM v_procurement_payments_real LIMIT 5").pl()
+    _assert_cols(df, "amount_eur", "amount_eur_real", "real_base_year", "deflator_index", "real_caveat")
+    assert con.execute(
+        "SELECT count(*) FROM v_procurement_payments_real WHERE real_caveat <> 'OK' AND amount_eur_real IS NOT NULL"
+    ).fetchone()[0] == 0
+    rows = con.execute(
+        "SELECT amount_eur, year, amount_eur_real FROM v_procurement_payments_real "
+        "WHERE amount_eur_real IS NOT NULL USING SAMPLE 500 ROWS"
+    ).fetchall()
+    assert rows
+    for amount, year, sql_real in rows:
+        py = g.inflate(amount, year)
+        assert py is not None and abs(sql_real - py) <= 1e-9 * max(1.0, abs(py))
+
+
+@pytest.mark.sql
+def test_v_procurement_payments_real_by_year_keeps_tiers_separate():
+    """The real-terms spend totals never collapse SPENT vs COMMITTED (or VAT bases): the grain is
+    one row per (year, realisation_tier, vat_status)."""
+    if not _USE_REAL_PATHS:
+        pytest.skip("payments fact has no fixture (set DAIL_INTEGRATION_TESTS=1)")
+    _skip_missing(*_src(_PROC_PAYMENTS, _PROC_GOV_DEFLATOR))
+    con = _con()
+    _load_payments_real(con)
+    con.execute(_load("procurement_payments_real_by_year.sql"))
+    df = con.execute("SELECT * FROM v_procurement_payments_real_by_year").pl()
+    _assert_cols(df, "year", "realisation_tier", "vat_status", "total_nominal_eur", "total_real_eur", "n_real_excluded")
+    assert len(df) > 0
+    # grain integrity: exactly one row per (year, tier, vat) — tiers are never summed together
+    assert con.execute(
+        "SELECT count(*) - count(DISTINCT (year, realisation_tier, vat_status)) "
+        "FROM v_procurement_payments_real_by_year"
+    ).fetchone()[0] == 0
 
 
 @pytest.mark.sql

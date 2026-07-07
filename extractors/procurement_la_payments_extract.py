@@ -337,12 +337,12 @@ SCHEMA_MAP: list[dict] = [
             "https://www.corkcoco.ie/sites/default/files/2025-08/2025-q2-purchase-orders-in-excess-of-eu20000.pdf",
             "https://www.corkcoco.ie/sites/default/files/2025-05/2025-q1-purchase-orders-in-excess-of-eu20000-pdf.pdf",
         ],
-        # The 2016 quarters publish field-per-line ([supplier][€amount][description][Paid]) which the
-        # word-geometry reader reads as ~0 rows (whole quarters silently dropped); the amount-anchored
-        # reading-order reader recovers them (+584 rows) and tracks the amount-token control total
-        # marginally better on every later quarter too. Paid flag trails the description.
-        pdf_reader="reading_order",
-        caveat="row carries a Paid flag + free-text description; reading-order amount-anchored reader",
+        # pdf_reader=None (NOT reading_order): reading_order recovers the 2016 quarters by ROW COUNT
+        # but MIS-PAIRS them — it ingests the "Please note" boilerplate + "Y" Paid-flags + period
+        # totals as €10-42m phantom payments (cork_county total €680m → €1.3bn). The generic
+        # word-geometry reader stays (clean, €680m); the 2016 field-per-line quarters are DEFERRED
+        # until a reader that drops cork_county's boilerplate/total lines exists.
+        caveat="row carries a Paid flag + free-text description; x-gap keeps supplier+amount",
     ),
     la(
         "kildare",

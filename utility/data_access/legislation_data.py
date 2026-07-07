@@ -178,6 +178,12 @@ def fetch_si_by_bill(
     return _q.si_by_bill(get_legislation_conn(), bill_id, year, operation, eu_only).data
 
 
+@st.cache_data(ttl=300)
+def fetch_act_commencement(bill_id: str) -> pd.DataFrame:
+    """Commencement-order timeline for an Act (empty when none / self-executing)."""
+    return _q.act_commencement(get_legislation_conn(), bill_id).data
+
+
 # ── Statutory Instruments — first-class entity (v_statutory_instruments) ──────
 
 

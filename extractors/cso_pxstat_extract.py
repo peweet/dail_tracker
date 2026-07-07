@@ -78,6 +78,20 @@ TABLES = [
     # which writes the derived cso_cpi_deflator.parquet (chain-linked index + factor
     # to 2025) — the inflation deflator for every cross-year € comparison.
     "CPA07",
+    # Added 2026-06-29 — additional deflator sources (the methodology fix: CPI is a
+    # household basket, NOT the right index for public money or construction).
+    #   NA007/NA008 = Expenditure on Gross National Income at CURRENT / CONSTANT market
+    #     prices (annual NA, 1995–2024). Their "Final consumption expenditure of
+    #     government" component ratio = the GOVERNMENT-CONSUMPTION DEFLATOR — the
+    #     CSO/agency-standard for deflating public spend (HM-Treasury GDP-deflator analog;
+    #     a raw IE GDP deflator is contaminated by multinationals, so the govt-consumption
+    #     component is the clean choice). Feeds build_govt_consumption_deflator().
+    #   WPM39 = Wholesale Price Index (excl VAT) for Building & Construction Materials,
+    #     monthly 2021+. Feeds build_construction_materials_deflator() (materials lens —
+    #     the 2021→22 spike CPI misses). Also useful raw (cost-of-building context).
+    "NA007",
+    "NA008",
+    "WPM39",
 ]
 
 # Derived reference table built from CPA07 (not a raw PxStat dump).
@@ -300,6 +314,128 @@ def build_cpi_deflator(cpa07: pl.DataFrame, base_year: int = DEFLATOR_BASE_YEAR)
     )
 
 
+_GOV_ITEM = "Final consumption expenditure of government"  # ESA P.3 — the clean govt-consumption aggregate
+
+
+def build_govt_consumption_deflator(na007: pl.DataFrame, na008: pl.DataFrame, base_year: int | None = None) -> pl.DataFrame:
+    """Government final consumption expenditure (GFCE) IMPLIED deflator = current / constant.
+
+    The agency-standard way to deflate public spending (cf. HM Treasury's GDP deflator). We use
+    the GFCE component specifically because a raw Irish GDP/GNI deflator is distorted by
+    multinational activity. base_year defaults to the latest year present in BOTH series (annual
+    NA currently ends 2024). Columns: year, gov_price_index (implied price = current/constant),
+    deflator_to_base (= price[base]/price[year]; 1.0 at base), base_year. Pure arithmetic.
+    """
+    def _series(df: pl.DataFrame) -> dict[int, float]:
+        s = (
+            df.filter(pl.col("Item").str.contains(_GOV_ITEM, literal=True))
+            .select(pl.col("Year").cast(pl.Int32), pl.col("VALUE").cast(pl.Float64, strict=False).alias("v"))
+            .drop_nulls()
+            .group_by("Year")
+            .agg(pl.col("v").mean())
+        )
+        return {int(r["Year"]): float(r["v"]) for r in s.iter_rows(named=True)}
+
+    cur, con = _series(na007), _series(na008)
+    yrs = sorted(set(cur) & set(con))
+    if not yrs:
+        raise ValueError("gov-consumption deflator: no overlapping years for the GFCE component")
+    # Round the implied index FIRST, then take deflator_to_base as the ratio of the rounded
+    # values — so the stored index column and deflator_to_base are mutually consistent and SQL
+    # (value × deflator_to_base) == the Python Deflator (value × idx[base]/idx[year]) exactly,
+    # exactly as build_cpi_deflator does.
+    implied = {y: round(cur[y] / con[y], 6) for y in yrs}
+    base = int(base_year) if base_year else max(yrs)
+    if base not in implied:
+        raise ValueError(f"gov-consumption deflator: base year {base} absent")
+    rows = [
+        {"year": y, "gov_price_index": implied[y], "deflator_to_base": implied[base] / implied[y], "base_year": base}
+        for y in yrs
+    ]
+    return pl.DataFrame(rows).with_columns(pl.col("year").cast(pl.Int32), pl.col("base_year").cast(pl.Int32))
+
+
+def build_construction_materials_deflator(wpm39: pl.DataFrame, base_year: int = 2025) -> pl.DataFrame:
+    """Construction-materials deflator from WPM39 ('Materials' aggregate index level), annual mean
+    over COMPLETE calendar years only (the series starts mid-2021 and the current year is partial,
+    so partial years are dropped to avoid a biased annual mean). Columns: year, wpm_index,
+    deflator_to_base, base_year. Materials-ONLY (no labour/margins) and short coverage — a
+    secondary lens; the SCSI TPI is the primary construction index. Pure arithmetic.
+    """
+    label_col = next((c for c in ("Statistic Label", "STATISTIC Label", "Statistic") if c in wpm39.columns), None)
+    lvl = (
+        wpm39.filter(
+            pl.col(label_col).str.contains("Wholesale Price Index")
+            & ~pl.col(label_col).str.contains("Percentage")
+            & (pl.col("Type of Material") == "Materials")
+        )
+        .with_columns(
+            pl.col("Month").str.slice(0, 4).cast(pl.Int32).alias("year"),
+            pl.col("VALUE").cast(pl.Float64, strict=False).alias("v"),
+        )
+        .drop_nulls(["year", "v"])
+        .group_by("year")
+        .agg(pl.col("v").mean().alias("idx"), pl.len().alias("n_months"))
+        .filter(pl.col("n_months") == 12)  # complete years only
+        .sort("year")
+    )
+    idx = {int(r["year"]): round(float(r["idx"]), 6) for r in lvl.iter_rows(named=True)}  # round first (parity contract)
+    if base_year not in idx:
+        raise ValueError(f"construction-materials deflator: base year {base_year} not a complete year in WPM39")
+    rows = [
+        {"year": y, "wpm_index": idx[y], "deflator_to_base": idx[base_year] / idx[y], "base_year": base_year}
+        for y in sorted(idx)
+    ]
+    return pl.DataFrame(rows).with_columns(pl.col("year").cast(pl.Int32), pl.col("base_year").cast(pl.Int32))
+
+
+def build_scsi_tpi_deflator(base_year: int = 2025) -> pl.DataFrame:
+    """SCSI Tender Price Index deflator (construction tender prices — the QS 'cost to procure'
+    lens; the Irish BCIS-TPI analog). Source = the curated data/_meta/scsi_tender_price_index.csv
+    (NOT a CSO pull), annual mean of the published half-years. Columns: year, tpi_index,
+    deflator_to_base, base_year. Pure arithmetic; built here so all reference deflators share one
+    schema for the index registry.
+    """
+    csv = _ROOT / "data" / "_meta" / "scsi_tender_price_index.csv"
+    tpi = pl.read_csv(csv, comment_prefix="#")
+    ann = (
+        tpi.group_by("year").agg(pl.col("index_base_1998h1").mean().alias("idx")).sort("year")
+    )
+    idx = {int(r["year"]): round(float(r["idx"]), 6) for r in ann.iter_rows(named=True)}  # round first (parity contract)
+    if base_year not in idx:
+        raise ValueError(f"SCSI TPI deflator: base year {base_year} absent")
+    rows = [
+        {"year": y, "tpi_index": idx[y], "deflator_to_base": idx[base_year] / idx[y], "base_year": base_year}
+        for y in sorted(idx)
+    ]
+    return pl.DataFrame(rows).with_columns(pl.col("year").cast(pl.Int32), pl.col("base_year").cast(pl.Int32))
+
+
+def _build_derived_deflators(frames: dict[str, pl.DataFrame], dry_run: bool) -> None:
+    """Build the derived reference deflators from the raw frames pulled this run (+ the SCSI CSV).
+    Each is additive and idempotent; a missing/failed source skips just that deflator."""
+    jobs = []
+    if "NA007" in frames and "NA008" in frames:
+        jobs.append(("cso_govt_consumption_deflator", lambda: build_govt_consumption_deflator(frames["NA007"], frames["NA008"])))
+    if "WPM39" in frames:
+        jobs.append(("cso_construction_materials_deflator", lambda: build_construction_materials_deflator(frames["WPM39"])))
+    # TPI is sourced from the committed _meta CSV (no network) — only rebuild it alongside a
+    # deflator-relevant run so a housing-only pull doesn't touch it.
+    if frames.keys() & {"CPA07", "NA007", "NA008", "WPM39"}:
+        jobs.append(("scsi_tpi_deflator", build_scsi_tpi_deflator))
+    for name, fn in jobs:
+        try:
+            out = fn()
+            if dry_run:
+                print(f"  [dry-run] {name}: {out.height} years, base {int(out['base_year'][0])}")
+            else:
+                p = _OUT / f"{name}.parquet"
+                _write_parquet(out, p)
+                print(f"  Wrote {p.relative_to(_ROOT)}  ({out.height} years, base {int(out['base_year'][0])})")
+        except Exception as e:  # noqa: BLE001
+            print(f"  {name} build FAILED: {type(e).__name__}: {e}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -311,6 +447,7 @@ def main() -> None:
     args = ap.parse_args()
 
     summary = []
+    frames: dict[str, pl.DataFrame] = {}  # green raw frames, for the derived-deflator builds
     for code in args.tables:
         try:
             df = fetch_csv(code)
@@ -327,6 +464,8 @@ def main() -> None:
             print(f"  [{tag}] {name}: {chk}")
         print(f"  >>> overall: {'GREEN' if green else 'AMBER/RED'}")
 
+        if green:
+            frames[code] = df
         if not args.dry_run and green:
             path = _OUT / f"cso_{code.lower()}.parquet"
             _write_parquet(df, path)
@@ -347,6 +486,9 @@ def main() -> None:
 
         summary.append((code, "ok" if green else "amber", len(df), green))
         time.sleep(0.5)
+
+    # Derived reference deflators (gov-consumption, construction-materials, SCSI TPI).
+    _build_derived_deflators(frames, dry_run=args.dry_run)
 
     print("\n" + "=" * 60)
     print("SUMMARY")
