@@ -40,11 +40,21 @@ def _mdate(fn: str) -> str:
     return f"{m.group(1)} {m.group(2)} {m.group(3)}" if m else str(fn)[:24]
 
 
+# The local_authority value is the cross-source JOIN KEY and must match the CE roster / payments / AFS
+# spelling EXACTLY (plain ASCII). The sandbox carries the Irish-accented DLR name; canonicalise it on the
+# key column here so a re-promote never reintroduces the mismatch that orphans DLR from every other
+# dataset. Display columns (source / agenda) keep their accents untouched.
+_CANON_LA = {"Dún Laoghaire-Rathdown": "Dun Laoghaire-Rathdown"}
+
+
 def _write(name: str, fieldnames: list[str], rows: list[dict]) -> None:
     with open(META / name, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=fieldnames)
         w.writeheader()
-        w.writerows(rows)
+        for r in rows:
+            if "local_authority" in r:
+                r = {**r, "local_authority": _CANON_LA.get(str(r["local_authority"]), r["local_authority"])}
+            w.writerow(r)
     print(f"  data/_meta/{name}: {len(rows)} rows")
 
 

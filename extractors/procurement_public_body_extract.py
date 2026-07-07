@@ -620,10 +620,12 @@ PUBLISHERS: list[dict] = [
         semantics="payment_actual",
         grain="payment",
         tier="C",
-        caveat="prior sample was a privacy statement; using the gov.ie payments collection (slug renamed to procurement-related-payments-over-20000-euro 2026-06)",
-        # ≥5 sub-layouts across years defeat the generic word-geometry reader (0/scrambled rows);
-        # bespoke data-derived-column reader recovers 99.2% (3,529/3,557 rows), coverage_qa.
-        reader="reading_order_housing",
+        caveat="prior sample was a privacy statement; gov.ie payments collection. OWNED BY THE "
+        "disclosed_bq lane (disclosed_bq_po_newbodies_fact, full 2014-2025 clean) — NOT wired here.",
+        # reader=None (NOT reading_order_housing): read_housing parses 2014-2022 cleanly but its
+        # 2024 split-COLUMN layout (amounts on their own pages) MIS-ALIGNS the orphan-amount zip →
+        # phantom rows (e.g. "MARK O'CONNOR €20,042,845" vs disclosed_bq max €703k). Row-yield was
+        # 99.2% but the amount↔supplier PAIRING is wrong; leave unwired until the zip is fixed.
     ),
     cfg(
         "ie_cdetb",
@@ -638,24 +640,10 @@ PUBLISHERS: list[dict] = [
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
         caveat="prior sample was the procurement policy; excluding policy docs",
     ),
-    cfg(
-        "ie_lmetb",
-        "Louth & Meath ETB",
-        "education_body",
-        "education",
-        listing="https://www.lmetb.ie/category/finance/purchase-orders-over-e20000/",
-        semantics="po_committed",
-        grain="purchase_order",
-        privacy="medium",
-        tier="C",
-        include=r"payment|purchase|po[s]?[-_ ]?over|20[,]?000|over.?20k|quarter|q[1-4]",
-        # Field-per-line layout (Account Code / supplier / Base Amount): the word-geometry reader
-        # finds false columns on the OCR-garbled quarters, so force the reading-order fallback
-        # (~98% on the 7 clean quarters; the 2 garbled "CGAO36" quarters fail its garble guard and
-        # are dropped as unparsed rather than ingested as numeric noise — they need re-OCR).
-        reader="reading_order_fallback",
-        caveat="Account Code/supplier/Base Amount field-per-line; 2 OCR-garbled quarters dropped",
-    ),
+    # ie_lmetb (Louth & Meath ETB) NOT registered here: its payments are OWNED BY the disclosed_bq
+    # lane (disclosed_bq_po_newbodies_fact: 2,251 rows / full 2016-2025 vs the gov.ie PDFs' 2024-2026
+    # only). The reading-order fallback parses lmetb's 7 clean quarters fine (validated), but
+    # registering it would DOUBLE-COUNT against disclosed_bq for less coverage — left to disclosed_bq.
     cfg(
         "ie_enterprise_ireland",
         "Enterprise Ireland",

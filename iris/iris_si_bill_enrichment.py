@@ -46,11 +46,27 @@ _OUT_UNM = SILVER_DIR / "_meta" / "bill_statutory_instruments_unmatched.parquet"
 _PRE2014_ACTS = DATA_DIR / "_meta" / "pre2014_acts.csv"
 
 # Constants lifted verbatim from statutory_instruments.py
-SI_YEAR_FLOOR = 2018
+# SI_YEAR_FLOOR lowered 2018→2012: the Iris taxonomy CSV covers 2012+, and the
+# old floor silently dropped a third of the corpus (2,668 SIs) before matching.
+SI_YEAR_FLOOR = 2012
 MIN_TAXO_CONFIDENCE = 0.5
-MATCH_THRESHOLD = 0.40
-MATCH_YEAR_WINDOW = 3
+# Jaccard floor for the fuzzy fallback. NOTE: the fuzzy tier NO LONGER reaches
+# gold — run() promotes exact-equality + curated matches (score == 1.0) only,
+# because the fuzzy band carried too many principal-vs-amendment and
+# truncated-parse false positives (e.g. "Water Services (No. 2) Act 2013" →
+# "Water Services (Amendment) (No. 2) Bill 2014"). This threshold now only
+# shapes the best_score recorded in the unmatched coverage-gate file.
+MATCH_THRESHOLD = 0.60
+# Enactment (the Act year an SI cites) lags bill introduction by 0..~6 years.
+# Production used a symmetric ±3 which missed slow bills (e.g. Legal Services
+# Regulation Bill 2011 → Act 2015, lag 4). Look back 6, forward 1.
+MATCH_LOOKBACK = 6
+MATCH_FORWARD = 1
 _TITLE_STOP = {"act", "bill", "of", "the", "and", "an", "a", "for", "to", "in", "no", "no.", "amendment"}
+# Stricter stop-set for the high-precision exact-equality path: keeps 'amendment'
+# and numbers so "Health (Amendment) Act 2013" and "Health Act 2013" do NOT
+# collapse to the same stem (a fuzzy-match false-positive observed in probing).
+_STRICT_STOP = {"act", "bill", "of", "the", "and", "an", "a", "for", "to", "in"}
 
 # Three patterns covering the common SI signing formulas. Most SIs do NOT
 # name the minister (they say 'The Minister for X, in exercise...' with no
@@ -89,6 +105,24 @@ def _title_tokens(s: str) -> set[str]:
         if t and t not in _TITLE_STOP:
             out.add(t)
     return out
+
+
+def _strict_tokens(s: str) -> frozenset[str]:
+    """Stricter than ``_title_tokens`` (keeps 'amendment' + 'no.'-numbers) for
+    the exact-equality match path — so principal vs amendment Acts of the same
+    name don't collapse together. The trailing ' Act 2018 …' / ' Bill 2017 …'
+    tail (incl. the year) is stripped first, so the Act year and the bill
+    introduction year — which legitimately differ — don't break equality; the
+    year is disambiguated separately by the candidate-window / nearest-lag step."""
+    if not s:
+        return frozenset()
+    s = re.sub(r"\s*\b(?:act|bill)\b.*$", "", s.lower())
+    out: set[str] = set()
+    for w in s.split():
+        t = w.strip(string.punctuation)
+        if t and t not in _STRICT_STOP:
+            out.add(t)
+    return frozenset(out)
 
 
 def _extract_named_minister(text) -> str | None:
@@ -140,7 +174,21 @@ def load_bills() -> pd.DataFrame:
     return df[keep].drop_duplicates(subset=["bill_id"]).reset_index(drop=True)
 
 
-_PARENT_RE = re.compile(r"([A-Z][^,()\n]{2,80}?\bAct\s+(\d{4}))")
+# The Act-name char class allows ()'-,. so it can span the parentheticals that
+# pervade Irish Act names — "Radiological Protection (Amendment) Act 2018",
+# "Finance (Tax Appeals) Act 2015". An earlier [^,()\n] class stopped at the
+# first '(' and silently missed every such Act (the single biggest recall bug).
+# Non-greedy, so it still halts at the FIRST "Act YYYY".
+_ACT_NAME = r"[A-Za-z0-9'()\-,. ]{2,90}?"
+_PARENT_RE = re.compile(r"([A-Z]" + _ACT_NAME + r"\bAct\s+(\d{4}))")
+# Case-insensitive variant for the SI *title* fallback. Iris titles are stored
+# UPPERCASE ("CHILDCARE SUPPORT ACT 2018 (COMMENCEMENT) ORDER 2018") so the
+# case-sensitive \bAct\b above can't read them. The Act name leads the title, so
+# anchoring on the first letter is safe — no leading filler to over-capture
+# (unlike the proper-case parent-legislation field, which may say "these
+# regulations amend the Health Act 1947"; that's why _PARENT_RE stays
+# capital-anchored and is tried first).
+_TITLE_PARENT_RE = re.compile(r"([A-Za-z]" + _ACT_NAME + r"\bact\s+(\d{4}))", re.IGNORECASE)
 # Leading filler phrases the parser sometimes captures before the real
 # Act name (e.g. "These Regulations amend the Health Act 1947"). We
 # strip these before looking up the curated table; the residue then
@@ -150,6 +198,24 @@ _PARENT_PREFIX_RE = re.compile(
     r"this order may be cited as the |"
     r"under the |the )",
 )
+
+
+# Sections/parts/chapters a commencement (or section-specific) order names in
+# its title. Nesting-aware so subsection refs like "(SECTION 212(4))" capture
+# fully. Returns None when the order names no specific provision in the title
+# (which means "extent not stated here" — NEVER "the whole Act"; the order body,
+# which we don't parse, usually carries the detail).
+_SECTION_RE = re.compile(
+    r"\(((?:[^()]|\([^()]*\))*?\b(?:sections?|parts?|chapter|s\.)\b(?:[^()]|\([^()]*\))*)\)",
+    re.IGNORECASE,
+)
+
+
+def _commenced_sections(title) -> str | None:
+    if not isinstance(title, str):
+        return None
+    hits = [h.strip() for h in _SECTION_RE.findall(title) if h.strip()]
+    return "; ".join(hits) if hits else None
 
 
 def _normalise_parent(name: str) -> str:
@@ -197,6 +263,7 @@ def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFram
 
     bills = bills_df.dropna(subset=["short_title_en"]).copy()
     bills["_tokens"] = bills["short_title_en"].astype(str).map(_title_tokens)
+    bills["_stoks"] = bills["short_title_en"].astype(str).map(_strict_tokens)
 
     bills_by_year: dict[int, list[dict]] = {}
     for rec in bills.to_dict("records"):
@@ -206,7 +273,7 @@ def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFram
 
     def candidates(year_hint: int) -> list[dict]:
         out: list[dict] = []
-        for dy in range(-MATCH_YEAR_WINDOW, MATCH_YEAR_WINDOW + 1):
+        for dy in range(-MATCH_LOOKBACK, MATCH_FORWARD + 1):
             out.extend(bills_by_year.get(year_hint + dy, []))
         # Tie-break: prefer the non-Amendment bill, then the lower bill_no.
         # The `best()` loop below uses strict `>` so whichever candidate is
@@ -222,18 +289,25 @@ def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFram
         )
         return out
 
-    def best(parent_text) -> pd.Series:
-        if not isinstance(parent_text, str):
-            return pd.Series([None, None, None, None, 0.0])
-        m = parent_re.search(parent_text)
-        if not m:
+    def best(parent_text, title) -> pd.Series:
+        # Extract the enabling-Act reference from the explicit parent field
+        # first, then fall back to the SI title. Commencement/amendment SIs name
+        # their Act in the title ("Foo Act 2018 (Commencement) Order"), and the
+        # parent field is NULL for ~half the corpus — reading the title too is
+        # the single biggest coverage lever.
+        m = None
+        if isinstance(parent_text, str):
+            m = parent_re.search(parent_text)              # capital-anchored
+        if m is None and isinstance(title, str):
+            m = _TITLE_PARENT_RE.search(title)             # case-insensitive
+        if m is None:
             return pd.Series([None, None, None, None, 0.0])
         year = int(m.group(2))
+        name = m.group(1)
 
         # Pre-2014 lookup pass — exact (residue, year) match in the
-        # curated table. Always preferred over the Jaccard fallback
-        # because it's hand-verified.
-        residue = _normalise_parent(m.group(1))
+        # curated table. Always preferred because it's hand-verified.
+        residue = _normalise_parent(name)
         hit = pre2014.get((residue, year))
         if hit is not None:
             return pd.Series(
@@ -246,11 +320,43 @@ def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFram
                 ]
             )
 
-        ref = _title_tokens(m.group(1))
-        if not ref:
-            return pd.Series([None, None, None, None, 0.0])
         cands = candidates(year)
         if not cands:
+            return pd.Series([None, None, None, None, 0.0])
+
+        # High-precision pass: exact strict-token-set equality, nearest Act year.
+        # match_score 1.0. This is the tier the commencement feature trusts.
+        ref_strict = _strict_tokens(name)
+        if ref_strict:
+            exact_row, exact_lag = None, None
+            for c in cands:
+                if c["_stoks"] == ref_strict:
+                    # Act year minus bill introduction year. Must be >= 0 — a bill
+                    # cannot postdate the Act it became — and we take the nearest
+                    # (smallest lag) when a recurring title (Finance, Social
+                    # Welfare) has several same-stem bills in the window.
+                    lag = year - int(c["bill_year_num"])
+                    if lag < 0:
+                        continue
+                    if exact_lag is None or lag < exact_lag:
+                        exact_row, exact_lag = c, lag
+            if exact_row is not None:
+                return pd.Series(
+                    [
+                        exact_row["bill_id"],
+                        exact_row["short_title_en"],
+                        exact_row.get("bill_url"),
+                        exact_row.get("unique_member_code"),
+                        1.0,
+                    ]
+                )
+
+        # Fallback: loose token-set Jaccard (unchanged 0.40 threshold) recovers
+        # near-misses the exact pass can't. match_score < 1.0 flags these as
+        # fuzzy — precision-sensitive consumers (the commencement view) filter
+        # them out.
+        ref = _title_tokens(name)
+        if not ref:
             return pd.Series([None, None, None, None, 0.0])
         best_row, best_score = None, 0.0
         for c in cands:
@@ -275,7 +381,7 @@ def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFram
             ]
         )
 
-    matched = si_df["si_parent_legislation"].apply(best)
+    matched = si_df.apply(lambda r: best(r["si_parent_legislation"], r.get("title")), axis=1)
     matched.columns = [
         "matched_bill_id",
         "matched_bill_title",
@@ -298,8 +404,13 @@ def run() -> tuple[int, int]:
     )
 
     joined = match_si_to_bill(si, bills)
-    matched = joined[joined["matched_bill_id"].notna()].copy()
-    unmatched = joined[joined["matched_bill_id"].isna()].copy()
+    # Gold output is EXACT (strict token-set equality) + curated pre-2014 only —
+    # both score 1.0. The fuzzy Jaccard fallback proved unreliable on inspection
+    # (principal-vs-amendment and truncated-parse false positives), so anything
+    # below 1.0 is routed to the unmatched/coverage-gate file, not promoted.
+    confident = joined["matched_bill_id"].notna() & (joined["match_score"] >= 1.0)
+    matched = joined[confident].copy()
+    unmatched = joined[~confident].copy()
     eu_neg = ("none_detected", "")
 
     out = pd.DataFrame(
@@ -311,6 +422,7 @@ def run() -> tuple[int, int]:
             "si_number": matched["si_number"],
             "si_id": matched["si_id"],
             "si_title": matched["title"],
+            "si_commenced_sections": matched["title"].map(_commenced_sections),
             "si_signed_date": matched["issue_date"].dt.date,
             "si_minister": matched["si_responsible_actor"],
             "si_minister_named": matched["si_minister_named"],

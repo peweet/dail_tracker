@@ -302,7 +302,7 @@ def _render_choropleth(*, link_key: str = "la") -> None:
     """Clickable national choropleth. ``link_key`` is the dossier query param each council links to —
     "la" for this page (default), "council" when the Your Council hub reuses the same map."""
     res = fetch_la_map_layers_result()
-    if not res.ok or res.data.empty:
+    if not res.ok or res.data is None or res.data.empty:
         return  # silent — the searchable grid below remains the reliable selector
     df = res.data
     subsection_heading("Every council, compared")

@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import BILL_STATUS_CSS
 from data_access.identity_resolver import resolve_member_code
 from data_access.legislation_data import (
+    fetch_act_commencement,
     fetch_all_statuses,
     fetch_bill_amendment_intensity,
     fetch_bill_debates,
@@ -558,6 +559,116 @@ def _pdf_group_html(group_label: str, grp_df: pd.DataFrame) -> str:
     )
 
 
+def _section_commencement_timeline(bill_id: str) -> None:
+    """Commencement-order history for this Act — when, and by whom, it was
+    brought into force. Sourced from v_act_commencement (commencement SIs with
+    an exact bill match).
+
+    This is a commencement HISTORY, never a consolidated 'currently in force'
+    status: a section-less order means the extent isn't stated in the title (the
+    order text, unparsed, carries the detail), NOT that the whole Act commenced;
+    order_current_state is the legal state of the ORDER, not of the Act."""
+    df = fetch_act_commencement(bill_id)
+
+    if df.empty:
+        # Only speak when the Act has some SI activity — otherwise the SI section
+        # below already shows the single empty state and a second one is clutter.
+        if fetch_si_freshness(bill_id):
+            evidence_heading("Commencement & in-force history")
+            st.caption(
+                "No commencement order is recorded for this Act — it appears to have come "
+                "into operation on enactment (no separate commencement order was made)."
+            )
+        return
+
+    evidence_heading("Commencement & in-force history")
+
+    n = len(df)
+    has_sections = bool(df["si_commenced_sections"].notna().any())
+    dates = pd.to_datetime(df["si_signed_date"], errors="coerce")
+    first, last = dates.min(), dates.max()
+    span = f"{first:%b %Y}" if pd.notna(first) else "—"
+    if pd.notna(first) and pd.notna(last) and last.date() != first.date():
+        span = f"{first:%b %Y} – {last:%b %Y}"
+
+    if has_sections:
+        badge = '<span class="signal signal-neutral">Partially commenced</span>'
+        note = (
+            "Brought into force in stages. Orders that name specific provisions are marked; "
+            "where the extent is not stated in the title, the order text (not shown here) "
+            "carries the detail."
+        )
+    else:
+        badge = '<span class="signal leg-status-active">Commenced by order</span>'
+        note = (
+            "Commenced by ministerial order. The extent is not stated in the order titles — "
+            "the order text, not shown here, carries the detail."
+        )
+
+    st.caption(f"**{n} commencement order{'s' if n != 1 else ''}** · {span}")
+    st.html(f'<div class="leg-si-meta">{badge} &nbsp; {html.escape(note)}</div>')
+
+    for _, row in df.iterrows():
+        date_disp = (
+            pd.to_datetime(row["si_signed_date"]).strftime("%d %b %Y")
+            if pd.notna(row["si_signed_date"])
+            else "—"
+        )
+        sections = row.get("si_commenced_sections")
+        if isinstance(sections, str) and sections.strip():
+            title_disp = html.escape(sections.strip())
+        else:
+            title_disp = '<span style="color:var(--text-meta)">Commenced — extent not specified in title</span>'
+
+        # Named signing minister → member profile link (resolver returns "" on a
+        # miss and member_link_html falls back to the plain name). A bare role
+        # string ("The Minister for Health") is not a person, so it stays text.
+        named = row.get("si_minister_name")
+        role = row.get("si_responsible_actor")
+        if isinstance(named, str) and named.strip():
+            minister_html = member_link_html(resolve_member_code(named.strip()), named.strip())
+        elif isinstance(role, str) and role.strip():
+            minister_html = html.escape(role.strip())
+        else:
+            minister_html = "—"
+
+        # eISB records only negative states; surface revoked/amended as a flag and
+        # leave the common 'in force as made' implicit, to avoid over-claiming.
+        state = str(row.get("order_current_state") or "").replace("_", " ").strip()
+        state_badge = (
+            f'<span class="signal signal-neutral">order {html.escape(state)}</span>'
+            if state and state != "in force as made"
+            else ""
+        )
+
+        sid_raw = row.get("si_id")
+        sid = str(sid_raw).strip() if sid_raw is not None and not pd.isna(sid_raw) else ""
+        si_link = (
+            f'<a class="dt-source-link" href="{html.escape(si_detail_url(sid), quote=True)}" '
+            f'target="_self">SI detail →</a>'
+            if sid
+            else ""
+        )
+        si_num = (
+            f"SI {int(row['si_number'])}/{int(row['si_year'])}"
+            if pd.notna(row.get("si_number")) and pd.notna(row.get("si_year"))
+            else ""
+        )
+
+        st.html(
+            f'<div class="leg-bill-card leg-si-card">'
+            f'<div class="leg-bill-card-header">'
+            f'<span class="leg-bill-card-date">{html.escape(date_disp)}</span>'
+            f"{state_badge}"
+            f"</div>"
+            f'<div class="leg-bill-card-title">{title_disp}</div>'
+            f'<div class="leg-si-meta">{html.escape(si_num)} · {minister_html}'
+            + (f" · {si_link}" if si_link else "")
+            + "</div>"
+            f"</div>"
+        )
+
+
 def _section_statutory_instruments(bill_id: str) -> None:
     """Statutory Instruments issued under this Act. Sourced from
     v_bill_statutory_instruments (Iris SI taxonomy joined to enabling
@@ -570,7 +681,7 @@ def _section_statutory_instruments(bill_id: str) -> None:
         empty_state(
             "No SIs under this Act",
             "Either none have been issued yet, this Bill predates the SI "
-            "data window (2018), or it never became an Act.",
+            "data window (2012), or it never became an Act.",
         )
         return
 
@@ -822,6 +933,12 @@ def _render_bill_detail(bill_id: str) -> None:
     # ── Documents (Oireachtas PDFs: versions, memos, amendments) ──────────────
     st.divider()
     _section_bill_pdfs(bill_id)
+
+    # ── Commencement & in-force history ───────────────────────────────────────
+    # Leads the SI block: "is this Act actually in force, and who brought it in?"
+    # is the headline question an enacted Act raises.
+    st.divider()
+    _section_commencement_timeline(bill_id)
 
     # ── Statutory Instruments under this Act ──────────────────────────────────
     st.divider()

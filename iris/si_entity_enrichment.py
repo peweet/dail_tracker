@@ -6,9 +6,9 @@ sourced from the Iris Oifigiúil SI taxonomy directly — NOT gated on a bill
 match. Writes data/gold/parquet/statutory_instruments.parquet.
 
 Companion to iris_si_bill_enrichment.py. That script answers "which SIs hang
-off this bill" (36% match rate, skewed to pre-2014 framework Acts); this one
-treats the SI itself as the entity, so the browsable SI surface is not gated
-on a thin join. The bill link is carried as one optional attribute.
+off this bill" (EXACT title matches only — ~10% of SIs, ~47% of enacted Acts);
+this one treats the SI itself as the entity, so the browsable SI surface is not
+gated on a thin join. The bill link is carried as one optional attribute.
 
 DERIVES:
   - si_id                 <year>-<number zero-padded to 3>
@@ -19,8 +19,8 @@ DERIVES:
   - si_department_label
   - bill_id / bill_short_title
                           left-joined from bill_statutory_instruments.parquet
-                          where the SI was matched to an enabling bill; null
-                          otherwise (the matcher only ran on si_year >= 2018)
+                          where the SI was matched to an enabling bill (exact
+                          title match, si_year >= 2012); null otherwise
 
   - si_minister_member_code / si_minister_name
                           the actual minister, resolved by joining the SI's

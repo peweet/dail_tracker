@@ -4,7 +4,7 @@
     "dept_justice",
     "dept_transport"
   ],
-  "rows_extracted": 14283,
+  "rows_extracted": 15655,
   "by_publisher": [
     {
       "id": "dept_foreign_affairs",
@@ -21,7 +21,7 @@
     {
       "id": "dept_transport",
       "name": "Department of Transport",
-      "rows": 1177,
+      "rows": 2549,
       "files": 30
     }
   ],
@@ -33,72 +33,7 @@
     },
     {
       "publisher": "dept_transport",
-      "file": "Q2_Purchase_Order_20k_or_over.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "Q3_Purchase_Order_20k_or_over.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "Q4_Purchase_Order_20K_or_over.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q2-purchase-order-20k-or-over-1e0a5f66-f01a-4a7c-a2b8-03589d662ce7.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q3-purchase-order-20k-or-over-b8b8ebcd-0772-4eb3-8964-94c5836c1f6b.pdf",
-      "rows": 1
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q4-purchase-order-20k-or-over-34261701-d810-443b-82f2-d03dcc444519.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q1-purchase-order-20k-or-over-44b5cfba-d96b-4594-a70d-5c69379a71fd.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q2-purchase-order-20k-or-over-c6a6fb60-d1f5-4d22-b0ec-09b30384b5c5.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q4-purchase-order-20k-or-over-bf4c6157-8573-49b4-9fac-9b6f05ecc379.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q1-purchase-orders-over-20k.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
       "file": "q1-2019-payments-over-20000-a275dd8c-646c-421e-b894-73d0d5f5c6f1.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q2-2019-payments-over-20000-3ce5bfc2-6beb-4de5-ac21-8c34e8561e06.pdf",
-      "rows": 0
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q3-2019-payments-over-20000-4a9e01b5-c5fa-405c-b5d5-9b284bb9b083.pdf",
-      "rows": 1
-    },
-    {
-      "publisher": "dept_transport",
-      "file": "q4-payments-over-20000.pdf",
       "rows": 0
     },
     {
@@ -112,12 +47,12 @@
       "rows": 0
     }
   ],
-  "value_safe_to_sum_rows": 14196,
-  "value_safe_to_sum_total_eur": 2349205816.64,
-  "rows_review_personal_data": 3817,
+  "value_safe_to_sum_rows": 15537,
+  "value_safe_to_sum_total_eur": 2754314079.77,
+  "rows_review_personal_data": 3119,
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-13T14:22:46+00:00",
+  "generated_at": "2026-06-28T09:52:03+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox). Bespoke reading-order parse of single-column dept PDFs (DFAT payment / Justice + Transport PO). Unions with public_payments_fact at consolidate."
 }

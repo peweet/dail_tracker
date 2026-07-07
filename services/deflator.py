@@ -26,7 +26,71 @@ from __future__ import annotations
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
-_DEFAULT_PATH = _ROOT / "data" / "gold" / "parquet" / "cso_cpi_deflator.parquet"
+_GOLD = _ROOT / "data" / "gold" / "parquet"
+_DEFAULT_PATH = _GOLD / "cso_cpi_deflator.parquet"
+
+# ---- multi-index registry --------------------------------------------------
+# Different value types need different price indices — CPI is a household basket and is NOT the
+# right deflator for public money (use the government-consumption deflator) or construction
+# (use the tender-price index). Each reference deflator is a gold parquet sharing the schema
+# (year, <index_col>, deflator_to_base, base_year), built by extractors/cso_pxstat_extract.py.
+# The chosen index is always recorded alongside any adjusted figure (deflator_index column /
+# .index_code) so a real-terms number can never be shown without its provenance + caveat.
+DEFAULT_INDEX = "CSO_CPA07_CPI"
+INDEX_REGISTRY: dict[str, dict] = {
+    "CSO_CPA07_CPI": {
+        "file": "cso_cpi_deflator.parquet",
+        "index_col": "cpi_index_chained",
+        "label": "Consumer prices (CSO CPI)",
+        "applies_to": "general",
+        "source": "CSO CPA07 (chain-linked CPI, annual)",
+        "caveat": (
+            "General consumer-price inflation — a household basket. NOT construction, materials, "
+            "labour-rate or tender-price inflation, and NOT the government-consumption deflator "
+            "agencies use for public-spend real terms. Re-expresses purchasing power; not a cost "
+            "today and not a bid price."
+        ),
+    },
+    "CSO_GOV_CONSUMPTION": {
+        "file": "cso_govt_consumption_deflator.parquet",
+        "index_col": "gov_price_index",
+        "label": "Government consumption (CSO National Accounts)",
+        "applies_to": "public_spend",
+        "source": "CSO NA007/NA008 (govt final-consumption current/constant implied deflator)",
+        "caveat": (
+            "The agency-standard deflator for public spending (the HM-Treasury GDP-deflator analog; "
+            "uses the government-consumption component because a raw Irish GDP deflator is distorted "
+            "by multinational activity). Annual; currently covers years ≤2024."
+        ),
+    },
+    "CSO_WPM39_MATERIALS": {
+        "file": "cso_construction_materials_deflator.parquet",
+        "index_col": "wpm_index",
+        "label": "Construction materials (CSO WPI, WPM39)",
+        "applies_to": "construction_materials",
+        "source": "CSO WPM39 (building & construction materials WPI)",
+        "caveat": (
+            "Construction MATERIALS only — excludes labour, plant and contractor margins. Short "
+            "coverage (complete years 2021+); a secondary lens, not a whole-project cost index."
+        ),
+    },
+    "SCSI_TPI_CONSTRUCTION": {
+        "file": "scsi_tpi_deflator.parquet",
+        "index_col": "tpi_index",
+        "label": "Construction tender prices (SCSI TPI)",
+        "applies_to": "construction",
+        "source": "SCSI Tender Price Index (data/_meta)",
+        "caveat": (
+            "Tender prices including contractor margins — the quantity-surveyor 'cost to procure' "
+            "lens, the right index for 'what would this construction work cost to award today'."
+        ),
+    },
+}
+
+
+def list_indices() -> list[dict]:
+    """The registry as a list of {code, label, applies_to, source, caveat} — for a UI/API picker."""
+    return [{"code": c, **{k: v for k, v in spec.items() if k != "index_col" and k != "file"}} for c, spec in INDEX_REGISTRY.items()]
 
 
 class Deflator:
@@ -37,17 +101,42 @@ class Deflator:
             raise ValueError(f"base_year {base_year} absent from index")
         self._index = dict(index_by_year)  # year -> chain-linked index level
         self.base_year = int(base_year)
+        self.index_code = DEFAULT_INDEX  # overridden by load_index/load to the actual series
+        self.meta: dict | None = None
 
     # ---- constructors -------------------------------------------------------
     @classmethod
     def load(cls, path: Path | str = _DEFAULT_PATH) -> "Deflator":
-        """Load from the precomputed gold parquet (the cached index)."""
+        """Load the CPI deflator from a precomputed gold parquet (the cached index). Kept for
+        backward compatibility; for any other index use ``load_index``."""
         import polars as pl
 
         df = pl.read_parquet(path)
         base = int(df["base_year"][0])
         idx = {int(y): float(v) for y, v in zip(df["year"], df["cpi_index_chained"])}
-        return cls(idx, base)
+        d = cls(idx, base)
+        d.index_code = DEFAULT_INDEX
+        d.meta = INDEX_REGISTRY[DEFAULT_INDEX]
+        return d
+
+    @classmethod
+    def load_index(cls, index_code: str = DEFAULT_INDEX, gold_dir: Path | str = _GOLD) -> "Deflator":
+        """Load ANY registered index by code (CPI / government-consumption / construction TPI /
+        materials). Mirrors palewire ``cpi``'s ``series_id`` selector. The returned Deflator
+        carries ``.index_code`` and ``.meta`` (label/source/caveat) so a consumer can always
+        attach provenance to an adjusted figure. Unknown code → KeyError (never a silent CPI)."""
+        import polars as pl
+
+        spec = INDEX_REGISTRY.get(index_code)
+        if spec is None:
+            raise KeyError(f"unknown index_code {index_code!r}; known: {sorted(INDEX_REGISTRY)}")
+        df = pl.read_parquet(Path(gold_dir) / spec["file"])
+        base = int(df["base_year"][0])
+        idx = {int(y): float(v) for y, v in zip(df["year"], df[spec["index_col"]])}
+        d = cls(idx, base)
+        d.index_code = index_code
+        d.meta = spec
+        return d
 
     # ---- core API -----------------------------------------------------------
     def has_year(self, year: int | None) -> bool:

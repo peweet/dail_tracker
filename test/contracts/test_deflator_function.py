@@ -142,3 +142,55 @@ def test_implausible_mask_flags_low_end_artifacts():
     df = pl.DataFrame({"value_eur": [0.99, 50.0, 100.0, 250_000.0, 2.5e9]})
     flagged = df.filter(implausible_mask("value_eur")).height
     assert flagged == 3  # 0.99, 50.0 (< €100), and 2.5e9 (> €500m) ; 100 and 250k are fine
+
+
+# ---------------------------------------------------------------------------
+# Multi-index registry (CPI / government-consumption / construction TPI / materials).
+# CPI is a household basket and is NOT the right index for public money or construction;
+# the registry lets a caller pick the methodology-correct index per value type.
+# ---------------------------------------------------------------------------
+from services.deflator import DEFAULT_INDEX, INDEX_REGISTRY, list_indices  # noqa: E402
+
+
+def test_registry_metadata_complete():
+    # every entry must carry the fields a consumer needs to attach provenance + a caveat
+    for code, spec in INDEX_REGISTRY.items():
+        assert {"file", "index_col", "label", "applies_to", "source", "caveat"} <= set(spec)
+    codes = {it["code"] for it in list_indices()}
+    assert codes == set(INDEX_REGISTRY)
+    assert DEFAULT_INDEX == "CSO_CPA07_CPI"  # CPI stays the transparent default
+
+
+def test_unknown_index_raises_never_silent_cpi():
+    with pytest.raises(KeyError):
+        Deflator.load_index("NOT_AN_INDEX")
+
+
+@pytest.mark.skipif(not _DEFLATOR.exists(), reason="deflator gold not built")
+def test_every_registered_index_loads_and_is_base_identity():
+    """Each built index loads, base-year factor is exactly 1.0, and it tags itself — so a
+    real-terms figure always knows which index produced it (and an absent year stays None)."""
+    for code in INDEX_REGISTRY:
+        gold = _DEFLATOR.parent / INDEX_REGISTRY[code]["file"]
+        if not gold.exists():
+            pytest.skip(f"{code} gold not built")
+        d = Deflator.load_index(code)
+        assert d.index_code == code and d.meta is not None
+        assert d.factor(d.base_year) == 1.0
+        # a year well outside any series stays None, never a silent x1.0
+        assert d.factor(1800) is None
+
+
+@pytest.mark.skipif(not _DEFLATOR.exists(), reason="deflator gold not built")
+def test_indices_diverge_as_expected_construction_hotter_than_cpi():
+    """Methodology sanity: for a pre-2020 year, construction tender prices (SCSI TPI) show MORE
+    cumulative inflation than CPI, and the government-consumption deflator shows LESS — the whole
+    reason a single CPI lens is wrong for these value types."""
+    g = _DEFLATOR.parent
+    if not all((g / INDEX_REGISTRY[c]["file"]).exists() for c in
+               ("SCSI_TPI_CONSTRUCTION", "CSO_GOV_CONSUMPTION", "CSO_CPA07_CPI")):
+        pytest.skip("not all index tables built")
+    cpi = Deflator.load_index("CSO_CPA07_CPI").factor(2016)
+    tpi = Deflator.load_index("SCSI_TPI_CONSTRUCTION").factor(2016)
+    gov = Deflator.load_index("CSO_GOV_CONSUMPTION").factor(2016)
+    assert tpi > cpi > gov  # construction hottest, government-consumption coolest

@@ -1301,11 +1301,20 @@ def _render_si_detail(row: pd.Series) -> None:
     if bill_id:
         is_pre2014 = bill_id.startswith("act_")
         ref_label = "Act" if is_pre2014 else "Bill"
-        kicker = (
-            "↪ Made under (pre-2014 primary Act, curated)"
-            if is_pre2014
-            else "↪ Made under (matched Act in the Oireachtas index)"
-        )
+        # Commencement orders get a reciprocal kicker — they *bring into force*
+        # their parent Act, the other end of the Act's commencement timeline.
+        if op == "commencement":
+            kicker = (
+                "↪ Commencement order — brings this pre-2014 Act into force (curated)"
+                if is_pre2014
+                else "↪ Commencement order — brings this Act into force"
+            )
+        else:
+            kicker = (
+                "↪ Made under (pre-2014 primary Act, curated)"
+                if is_pre2014
+                else "↪ Made under (matched Act in the Oireachtas index)"
+            )
         # Post-2014 bill_ids are the canonical Oireachtas reference that the
         # Legislation page resolves; link those via the canonical helper (the
         # old hand-rolled "/legislation?bill=" used an UNREGISTERED slug — the
