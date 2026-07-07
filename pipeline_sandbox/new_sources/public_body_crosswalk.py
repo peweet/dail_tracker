@@ -88,6 +88,12 @@ def load_reference() -> tuple[pl.DataFrame, dict, list[tuple[str, str]]]:
         for r in csv.DictReader(f):
             rows.append({"ref_name": r["publisher_name"], "ref_type": r.get("publisher_type") or "publisher", "ref_source": "publishers_seed"})
 
+    # E. CSO Register of Public Sector Bodies (the authoritative body universe)
+    rpsb = SILVER / "rpsb_bodies.parquet"
+    if rpsb.exists():
+        for r in pl.read_parquet(rpsb).iter_rows(named=True):
+            rows.append({"ref_name": r["entity_name"], "ref_type": f"rpsb_{r['sector']}", "ref_source": "rpsb"})
+
     ref = pl.DataFrame(rows).with_columns([
         pl.col("ref_name").map_elements(norm_body, return_dtype=pl.Utf8).alias("ref_norm"),
         pl.col("ref_name").map_elements(norm_la, return_dtype=pl.Utf8).alias("ref_la"),
@@ -143,7 +149,8 @@ def main() -> None:
           f"(payments={ref.filter(pl.col('ref_source')=='payments_gold').height}, "
           f"LAs={ref.filter(pl.col('ref_source')=='la_roster').height}, "
           f"depts={ref.filter(pl.col('ref_source')=='dept_aliases').height}, "
-          f"seed={ref.filter(pl.col('ref_source')=='publishers_seed').height})\n")
+          f"seed={ref.filter(pl.col('ref_source')=='publishers_seed').height}, "
+          f"rpsb={ref.filter(pl.col('ref_source')=='rpsb').height})\n")
 
     report: list[str] = ["# Public-body crosswalk — joinability test\n",
                          f"Reference universe: {ref.height} canonical bodies.\n"]
@@ -193,7 +200,7 @@ def main() -> None:
 
     # ── concrete joinability demo: OIC decisions ↔ payments spine ────────────
     oic = pl.read_parquet(SILVER / "oic_foi_decisions.parquet")
-    oic_map = xwalk.filter((pl.col("source_dataset") == "oic_foi_decisions") & (pl.col("canonical_type").is_in(["local_authority", "department", "publisher", "semi_state", "agency"])))
+    oic_map = xwalk.filter((pl.col("source_dataset") == "oic_foi_decisions") & (pl.col("canonical_name").is_not_null()))
     joined = (oic.join(oic_map.select(["raw_body", "canonical_name", "canonical_type"]),
                        left_on="public_body", right_on="raw_body", how="inner"))
     print(f"\nDEMO — OIC decisions that join to a canonical public body: {joined.height:,} of {oic.height:,}")

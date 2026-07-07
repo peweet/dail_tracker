@@ -54,3 +54,21 @@ money rows flagged `value_safe_to_sum=False`).
 3. Harden the flagged DQ items (C&AG dates, name normalisation, DPC paging guard).
 4. Write a page/API contract if it gets a surface; confirm licence in `doc/source_licensing.md`.
 5. Only then add a chain to `pipeline.py` and a `v_*` view. **Not before your review.**
+
+## 🔗 Joinability layer (added after the usability review)
+
+Built a public-body crosswalk + spine-routing so the ingests join to the existing surface.
+
+| Artifact | Script | Output | Note |
+|---|---|---|---|
+| CSO Register of Public Sector Bodies | `rpsb_reference.py` | `silver/rpsb_bodies.parquet` (**879** bodies) | 608 central-gov + 268 LA + 3 SSF; from CSO RPSB 2024-final sector sub-pages |
+| Public-body crosswalk | `public_body_crosswalk.py` | `silver/public_body_crosswalk.parquet` | reference universe = **1,092** bodies (payments 88 + LAs 31 + depts 18 + seed 77 + RPSB 878); reuses NFKD fold + `canonical_la` + dept aliases |
+| DPC → CRO company link | `dpc_cro_link.py` | `silver/dpc_cro_matches.parquet` | reuses `shared.name_norm.name_norm_expr` (the house company rule) |
+| DPC routing analysis | `dpc_route_analysis.py` | (report) | proves the two-spine split |
+
+**Match rates after adding RPSB (row-weighted):**
+- OIC/FOI decisions → public-body spine: **91%** (3,115 / 3,407). HSE variants fold to one entity (498 decisions).
+- data.gov publishers → public-body spine: **89%** (19,980 / 22,335). CSO/Met now resolve.
+- DPC decisions → routed to a spine: **67%** (41 / 61) — Public authorities → RPSB (21/22), private companies → CRO (18/35); the DPC `sector_tags` field is the router. The 20 unrouted are foreign/renamed entities (→ the scaffolded Companies House UK / OpenCorporates).
+
+**Remaining (small):** a canonical-entity dedup pass (e.g. "Department of Justice" vs "…Home Affairs and Migration" appear as two); wiring foreign DPC targets to Companies House UK. Still all sandbox in `c:/tmp`, nothing promoted.

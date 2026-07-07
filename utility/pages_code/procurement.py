@@ -56,6 +56,9 @@ from data_access.procurement_data import (
     fetch_competition_by_cpv_result,
     fetch_coverage_stats_result,
     fetch_cpv_summary_result,
+    fetch_cpv_summary_real_result,
+    fetch_inflation_indices,
+    fetch_payments_real_by_year_result,
     fetch_dependency_for_supplier_result,
     fetch_dependency_top_result,
     fetch_entity_chain_for_company_result,
@@ -535,6 +538,34 @@ def _render_authorities(year: int | None) -> None:
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
 
+def _render_real_terms_rail(index_code: str) -> None:
+    """Shared caveat rail + 'how is this adjusted?' popover for any real-terms lens. Reads the
+    index's label/source/caveat from the deflation registry (services.deflator, via the cached
+    wrapper) so the page states nothing it cannot cite. EXPERIMENTAL — only shown when the lens
+    toggle is on, which is itself gated to the local box."""
+    meta = next((i for i in fetch_inflation_indices() if i["code"] == index_code), None)
+    label = meta["label"] if meta else index_code
+    st.warning(
+        f"**Shown in today's money ({label}).** This re-expresses *past disclosed values* in "
+        "current purchasing power — it is **not** what the work would cost to buy today, and "
+        "**not** a recommended bid price. General consumer-price inflation is **not** the same as "
+        "construction, building-materials, labour-rate or tender-price inflation, which move at "
+        "very different rates.",
+        icon="🧮",
+    )
+    with st.popover("ⓘ How is this adjusted?"):
+        st.markdown(
+            f"**Index:** {label}  \n"
+            f"**Source:** {meta['source'] if meta else '—'}  \n"
+            "**Method:** each award is multiplied by the index ratio from its award year to the "
+            "base year — the standard rebasing statistical agencies use.\n\n"
+            f"{meta['caveat'] if meta else ''}\n\n"
+            "Framework/DPS ceilings, awards whose year falls outside the index, and implausible "
+            "values are left in nominal terms and counted separately — never silently adjusted."
+        )
+    st.caption("⚗ Experimental · local only — not shown in the published app.")
+
+
 def _render_cpv(year: int | None) -> None:
     order = _sort_toggle("pr_cpv_sort")
     res = fetch_cpv_summary_result(limit=_TOP, order_by=order, year=year)
@@ -542,6 +573,26 @@ def _render_cpv(year: int | None) -> None:
     if df.empty:
         empty_state("No categories", f"No category has awards{_year_label(year)}.")
         return
+    # EXPERIMENTAL real-terms lens (local only). Deflates the typical-award band to today's
+    # money via CPI. All-time only — deflating within a single selected year is trivial (every
+    # award that year shares one factor). The deflation lives in v_procurement_cpv_summary_real
+    # + services/deflator.py; the page only looks the real band up by CPV and renders it beside
+    # the nominal one, and never computes a figure.
+    real_lookup: dict[str, object] = {}
+    show_real = False
+    if _EXPERIMENTAL and year is None:
+        show_real = st.toggle(
+            "Show the typical-award band in today's money (2025 prices)",
+            value=False,
+            key="pr_cpv_real",
+            help="Re-expresses past award values using the CSO Consumer Price Index — purchasing "
+            "power only, not a current cost and not a bid price.",
+        )
+        if show_real:
+            rres = fetch_cpv_summary_real_result()
+            if rres.ok and not rres.data.empty:
+                real_lookup = {str(rr.cpv_code): rr for rr in rres.data.itertuples()}
+            _render_real_terms_rail("CSO_CPA07_CPI")
     by = "sum-safe awarded value" if order == "value" else "number of awards"
     st.caption(
         f"Top {len(df):,} procurement categories (CPV){_year_label(year)} by {by}. "
@@ -564,6 +615,16 @@ def _render_cpv(year: int | None) -> None:
                 f" · typical award {_eur_scale(r.p25_award_eur)}–{_eur_scale(r.p75_award_eur)} "
                 f"(median {_eur_scale(r.median_award_eur)}, {valued} valued)"
             )
+            # Real-terms companion band, looked up by CPV (only when its own real sample is deep
+            # enough to be meaningful). Shown beside the nominal band, never replacing it.
+            if show_real:
+                rr = real_lookup.get(str(r.cpv_code))
+                rn = _n(getattr(rr, "n_awards_valued_real", 0)) if rr is not None else 0
+                if rr is not None and rn >= 8 and getattr(rr, "median_award_real_eur", None):
+                    meta += (
+                        f" · in 2025 prices {_eur_scale(rr.p25_award_real_eur)}–"
+                        f"{_eur_scale(rr.p75_award_real_eur)} (median {_eur_scale(rr.median_award_real_eur)})"
+                    )
         inner = _card(f"<span>{title}</span>", meta, [_value_pill(r.awarded_value_safe_eur)], rank=i)
         cards.append(
             clickable_card_link(
