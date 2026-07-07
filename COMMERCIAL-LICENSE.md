@@ -90,14 +90,14 @@ of you for free, and we're flexible on the rest.
 
 ## How to get a commercial licence
 
-Email **{{LICENSING_EMAIL}}** with:
+Email **p.glynn18@gmail.com** with:
 
 1. your organisation and a short description of what you want to build/host;
 2. whether you'll modify the code and whether it'll be offered to outside users;
 3. expected scale (rough users / deployments / revenue).
 
 We'll come back with the right licence structure and a quote. More info:
-<https://{{DOMAIN}}/licensing>.
+<https://dailtracker.ie/licensing>.
 
 ---
 

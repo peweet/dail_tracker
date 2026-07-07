@@ -1,5 +1,5 @@
 <!--
-  Drop-in content for https://{{DOMAIN}}/licensing
+  Drop-in content for https://dailtracker.ie/licensing
   Plain Markdown so it works with any static-site generator. Adapt headings/links
   to your site's template. Keep it in sync with /COMMERCIAL-LICENSE.md.
 -->
@@ -32,7 +32,7 @@ researchers — talk to us; you're likely covered free already.
 
 ### Get a quote
 
-Email **{{LICENSING_EMAIL}}** with your organisation, what you want to
+Email **p.glynn18@gmail.com** with your organisation, what you want to
 build/host, whether you'll modify the code and expose it to outside users, and
 rough scale. We'll reply with a licence structure and price.
 
@@ -46,4 +46,4 @@ Commercial licensees comply with those source terms independently. Details in ou
 
 ---
 
-*Not sure which licence you need? Email **{{LICENSING_EMAIL}}** — asking is free.*
+*Not sure which licence you need? Email **p.glynn18@gmail.com** — asking is free.*

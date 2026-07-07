@@ -38,8 +38,8 @@ that your fork is *"a fork of Dáil Tracker"*.
 
 Commercial use of the "Dáil Tracker" name or logo (for example, to offer a
 branded hosted service) requires a **trademark licence**, which can be included
-in a commercial agreement. Enquiries: **{{LICENSING_EMAIL}}** /
-<https://{{DOMAIN}}/licensing>.
+in a commercial agreement. Enquiries: **p.glynn18@gmail.com** /
+<https://dailtracker.ie/licensing>.
 
 ## Why this exists
 
