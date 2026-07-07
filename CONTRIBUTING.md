@@ -46,4 +46,4 @@ with:
 
 ## Questions
 
-Open an issue, or for licensing/commercial questions email **{{LICENSING_EMAIL}}**.
+Open an issue, or for licensing/commercial questions email **p.glynn18@gmail.com**.
