@@ -237,7 +237,7 @@ pg = st.navigation(
             # tested further — unregistered here so it doesn't ship to main.
         ],
         "The Money": [
-            st.Page(payments_page, title="Payments", icon=":material/payments:", url_path="rankings-payments"),
+            st.Page(payments_page, title="TD Payments", icon=":material/payments:", url_path="rankings-payments"),
             # url_path kept as "rankings-election-spending" so existing deep links and
             # entity_links.PAGES["election_spending"] keep resolving; the page is now the
             # unified GE2024 hub (donations + party spending + candidate spending).

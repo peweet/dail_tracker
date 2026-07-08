@@ -317,6 +317,47 @@ def _inject_jd_css() -> None:
         .jd-ch-detail { padding: 0.2rem 0.8rem 0.7rem; font-size: 0.78rem; color: #5b6b73; line-height: 1.55; }
         .jd-ch-detail b { color: #14232b; font-weight: 600; }
         .jd-ch-detail a { color: #2c5f6b; }
+        /* ── day calendar: a matter's KIND (category) leads the line as a colour tag, so a
+           day reads by what's happening — challenges to the State, commercial fights,
+           prosecutions — not as a flat wall of "DPP v initials". */
+        .jd-cat-tag { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+            border-radius: 4px; padding: 0.08rem 0.42rem; white-space: nowrap; flex: none; align-self: center; }
+        .jd-cat-tag.publiclaw  { background: #e8eef9; color: #2f4b86; }
+        .jd-cat-tag.commercial { background: #fbf3e8; color: #8a5a2a; }
+        .jd-cat-tag.criminal   { background: #f6ece9; color: #8a463c; }
+        .jd-cat-tag.civil      { background: #eef2f3; color: #4a5a61; }
+        /* the "at a glance" digest strip that heads each day / sitting */
+        .jd-digest { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.7rem;
+            margin: 0.15rem 0 0.6rem; font-size: 0.78rem; color: #5b6b73; }
+        .jd-digest-total { font-size: 0.82rem; color: #14232b; }
+        .jd-digest-total b { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .jd-dcat { display: inline-flex; align-items: center; gap: 0.3rem; }
+        .jd-dcat b { color: #14232b; font-variant-numeric: tabular-nums; }
+        .jd-dcat::before { content: ""; width: 0.55rem; height: 0.55rem; border-radius: 3px; flex: none; }
+        .jd-dcat.publiclaw::before  { background: #3a6ea5; }
+        .jd-dcat.commercial::before { background: #c98a3a; }
+        .jd-dcat.criminal::before   { background: #b06a5e; }
+        .jd-dcat.civil::before      { background: #9aa7ad; }
+        .jd-digest-named { margin-left: auto; font-size: 0.74rem; color: #2c5f6b; font-weight: 600; }
+        /* a single matter as a calendar row — category tag · parties · stage · link */
+        .jd-matter { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.4rem;
+            padding: 0.34rem 0; border-bottom: 1px solid #f0f3f4; font-size: 0.87rem; color: #1f2d33; }
+        .jd-matter:last-child { border-bottom: none; }
+        .jd-matter.named { background: linear-gradient(90deg, #fbfcfd, transparent 60%);
+            border-left: 3px solid #cfe0e4; padding-left: 0.5rem; margin-left: -0.5rem; }
+        .jd-matter .jd-case-link { margin-left: auto; }
+        /* a grouped block that summarises the repetitive routine tail (prosecutions /
+           individual civil matters) rather than repeating a near-identical line N times */
+        .jd-roll { background: #ffffff; border: 1px solid #e4e9ec; border-radius: 8px; overflow: hidden; margin-top: 0.4rem; }
+        .jd-roll > summary { list-style: none; cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.82rem;
+            color: #2c3e46; display: flex; align-items: center; gap: 0.5rem; }
+        .jd-roll > summary::-webkit-details-marker { display: none; }
+        .jd-roll > summary:hover { background: #f7fafb; }
+        .jd-roll > summary b { color: #14232b; font-variant-numeric: tabular-nums; }
+        .jd-roll-body { padding: 0.1rem 0.75rem 0.4rem; }
+        .jd-timeline { font-size: 0.72rem; font-weight: 700; color: #2c5f6b; background: #eaf3f5;
+            border-radius: 4px; padding: 0.05rem 0.4rem; align-self: center; flex: none;
+            font-variant-numeric: tabular-nums; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -585,40 +626,37 @@ def _render_profile_diary(judge_key: str, current_court: str | None = None) -> N
         day_sit = sittings[sittings["diary_date"] == day] if sittings is not None and not sittings.empty else None
         day_cases = diary[diary["diary_date"] == day] if diary is not None and not diary.empty else None
         n_matters = 0 if day_cases is None else len(day_cases)
-        head_meta = f"{n_matters} listed matter{'s' if n_matters != 1 else ''}" if n_matters else "schedule only"
+        head_meta = "" if n_matters else '<span class="jd-day-meta">schedule only</span>'
         st.html(
-            f'<div class="jd-day-head"><span class="jd-day-date">{_esc(_fmt_day(day))}</span>'
-            f'<span class="jd-day-meta">{head_meta}</span></div>'
+            f'<div class="jd-day-head"><span class="jd-day-date">{_esc(_fmt_day(day))}</span>{head_meta}</div>'
         )
+        if day_cases is not None and not day_cases.empty:
+            st.html(_day_digest_html(day_cases))
         if day_sit is not None and not day_sit.empty:
             lines = []
             for s in day_sit.sort_values(["time", "list_type"], na_position="last").itertuples():
                 # Circuit Court sittings carry a venue (Galway, Ennis …); the Dublin courts
                 # don't. A panel sitting (Supreme / Court of Appeal, 3–5 judges) is chipped so
-                # it's clear this judge heard the matter on a bench, not alone.
+                # it's clear this judge heard the matter on a bench, not alone. Time leads the
+                # line as a chip so the day reads as a calendar.
                 venue = _esc(getattr(s, "venue", "") or "")
-                bits = " · ".join(
-                    p for p in (_esc(s.court), venue, _esc(s.courtroom), _esc(s.time), _esc(s.list_type)) if p
-                )
+                tstr = _esc(s.time)
+                time_chip = f'<span class="jd-timeline">{tstr}</span> ' if tstr else ""
+                bits = " · ".join(p for p in (f"<b>{_esc(s.court)}</b>", venue, _esc(s.courtroom), _esc(s.list_type)) if p)
                 n = int(getattr(s, "n_items", 0) or 0)
                 tail = f" — {n} listed" if n else ""
                 psize = int(getattr(s, "panel_size", 1) or 1)
                 panel = f' <span class="jd-status">panel of {psize}</span>' if psize > 1 else ""
-                lines.append(f'<div class="jd-sitting-line"><b>Sitting</b> {bits}{tail}{panel}</div>')
+                lines.append(f'<div class="jd-sitting-line">{time_chip}{bits}{tail}{panel}</div>')
             st.html("".join(lines))
         if day_cases is not None and not day_cases.empty:
-            rows = []
-            for r in day_cases.head(_PROFILE_DIARY_ROWS).itertuples():
-                link = (
-                    f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" '
-                    f'rel="noopener">official diary ↗</a>'
-                    if isinstance(r.source_url, str) and r.source_url
-                    else ""
-                )
-                rows.append(f'<div class="jd-case-row">{_case_party_html(r)}{link}</div>')
-            st.html("".join(rows))
-            if n_matters > _PROFILE_DIARY_ROWS:
-                st.caption(f"… and {n_matters - _PROFILE_DIARY_ROWS} more matters this day — see the Legal Diary tab.")
+            # Matters that name a company or the State surface first (the accountability
+            # signal now that public-body titles render in full); the repetitive routine
+            # tail — prosecutions and individual civil matters — is rolled into one block.
+            ordered = _matters_by_priority(day_cases)
+            shown = ordered.head(_PROFILE_DIARY_ROWS)
+            st.html("".join(_matter_row_html(r) for r in shown.itertuples()))
+            st.html(_roll_html(ordered.iloc[_PROFILE_DIARY_ROWS:], TIER_C_PAGE))
     if hidden_days:
         st.caption(
             f"… and {hidden_days} earlier captured day{'s' if hidden_days != 1 else ''} — "
@@ -1097,7 +1135,11 @@ def _session_matters(court_cases: pd.DataFrame | None, sitting) -> list[str]:
     sub = by_judge[by_judge["list_type"] == list_type] if isinstance(list_type, str) and list_type else by_judge
     if sub.empty:  # list label drifted between schedule + cases — keep the judge match
         sub = by_judge
-    return [_case_row_html(r) for r in sub.head(TIER_C_PAGE).itertuples()]
+    # named-institution matters first, then category order; a per-sitting digest heads them
+    ordered = _matters_by_priority(sub)
+    rows = [_case_row_html(r) for r in ordered.head(TIER_C_PAGE).itertuples()]
+    digest = _day_digest_html(sub)
+    return ([digest] if digest else []) + rows
 
 
 def _render_ld_schedule(day_sched: pd.DataFrame, day_cases: pd.DataFrame | None) -> None:
@@ -1165,12 +1207,43 @@ def _render_ld_busiest(day_counts: pd.DataFrame) -> None:
         )
 
 
+# category -> (short tag label, css class). The tag LEADS each matter so a day reads by
+# what kind of business it is (a challenge to the State, a commercial fight, a prosecution).
+_CAT_TAG = {
+    "public-law": ("Public law", "publiclaw"),
+    "commercial": ("Commercial", "commercial"),
+    "criminal": ("Criminal", "criminal"),
+    "civil": ("Civil", "civil"),
+}
+# a matter "names" an institution when a specific company or public body is a party — the
+# accountability signal now that public-body titles render in full ("v The Minister for
+# Justice and Equality"). The DPP prosecutes EVERY criminal case, so state-prosecutor is
+# deliberately excluded: it would foreground the whole prosecution list and defeat the point.
+_NAMED_KINDS = frozenset({"organisation", "state-body"})
+
+
+def _matter_names_institution(row) -> bool:
+    """Does this matter name a company or the State (vs. two anonymised individuals)?
+    logic_firewall: display_only — reads the pipeline-classified plaintiff_kind / category."""
+    return (getattr(row, "plaintiff_kind", "") or "") in _NAMED_KINDS or (getattr(row, "category", "") or "") in (
+        "public-law",
+        "commercial",
+    )
+
+
+def _cat_tag_html(category) -> str:
+    label_cls = _CAT_TAG.get(category or "")
+    if not label_cls:
+        return ""
+    label, cls = label_cls
+    return f'<span class="jd-cat-tag {cls}">{label}</span>'
+
+
 def _case_party_html(row) -> str:
-    """A case row as plaintiff -> defendant with a plaintiff-kind chip and the listing
-    status ("For Mention" / "For Hearing" …) when the diary recorded one. Falls back to
-    the joined title for single-party matters (e.g. 'In the matter of … a bankrupt')."""
-    cls, chip_label, _ = _PKIND.get(getattr(row, "plaintiff_kind", "") or "", ("individual", "—", ""))
-    chip = f'<span class="jd-pchip {cls}">{_esc(chip_label)}</span>'
+    """A case row as a calendar line: a category tag, the parties (initials for people,
+    named for companies / the State), and the listing stage ("For Mention" / "Trial" …)
+    when the diary recorded one. Falls back to the joined title for single-party matters."""
+    tag = _cat_tag_html(getattr(row, "category", None))
     plaintiff = getattr(row, "plaintiff", "") or ""
     defendant = getattr(row, "defendant", "") or ""
     if plaintiff and defendant:
@@ -1183,10 +1256,81 @@ def _case_party_html(row) -> str:
         party = f'<span class="jd-party-p">{_esc(row.case_anonymised)}</span>'
     status = getattr(row, "status", None)
     status_chip = f'<span class="jd-status">{_esc(status)}</span>' if isinstance(status, str) and status else ""
-    return chip + party + status_chip
+    return tag + party + status_chip
 
 
 _CAT_LABEL = {key: label for key, label, _desc in _CATEGORIES}
+_CAT_ORDER = {"public-law": 0, "commercial": 1, "criminal": 2, "civil": 3}
+
+
+def _matter_link_html(r) -> str:
+    return (
+        f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" rel="noopener">official diary ↗</a>'
+        if isinstance(getattr(r, "source_url", None), str) and r.source_url
+        else ""
+    )
+
+
+def _matter_row_html(r) -> str:
+    """One matter as a calendar row; matters that name a company or the State get a subtle
+    accent so the accountability-carrying listings stand out. logic_firewall: display_only."""
+    named = " named" if _matter_names_institution(r) else ""
+    return f'<div class="jd-matter{named}">{_case_party_html(r)}{_matter_link_html(r)}</div>'
+
+
+def _day_digest_html(cases: pd.DataFrame) -> str:
+    """At-a-glance strip for a day (or one sitting): total matters, the category mix, and
+    how many name a company or the State. Render-time counts over the already-filtered,
+    pipeline-classified set. logic_firewall: display_only."""
+    n = len(cases)
+    if not n:
+        return ""
+    counts = cases["category"].value_counts().to_dict()  # logic_firewall: display_only
+    cats = [
+        f'<span class="jd-dcat {cls}"><b>{int(counts[key])}</b> {label.lower()}</span>'
+        for key, (label, cls) in _CAT_TAG.items()
+        if counts.get(key)
+    ]
+    named = int((cases["plaintiff_kind"].isin(_NAMED_KINDS) | cases["category"].isin(("public-law", "commercial"))).sum())
+    named_html = f'<span class="jd-digest-named">{named} name a company or public body</span>' if named else ""
+    return (
+        '<div class="jd-digest">'
+        f'<span class="jd-digest-total"><b>{n}</b> matter{"s" if n != 1 else ""}</span>'
+        + "".join(cats)
+        + named_html
+        + "</div>"
+    )
+
+
+def _roll_html(tail: pd.DataFrame, cap: int) -> str:
+    """Collapse the repetitive routine tail (prosecutions / individual civil matters) into
+    one summarised, expandable block instead of repeating a near-identical line N times."""
+    n = len(tail)
+    if not n:
+        return ""
+    counts = tail["category"].value_counts().to_dict()  # logic_firewall: display_only
+    mix = " · ".join(
+        f"{int(counts[key])} {label.lower()}" for key, (label, _cls) in _CAT_TAG.items() if counts.get(key)
+    )
+    body = "".join(_matter_row_html(r) for r in tail.head(cap).itertuples())
+    overflow = (
+        f'<div class="jd-matter" style="color:#8a9aa1">… and {n - cap} further — open the official diary for the full list</div>'
+        if n > cap
+        else ""
+    )
+    return (
+        f'<details class="jd-roll"><summary><b>+{n}</b> more matter{"s" if n != 1 else ""}'
+        f' — {mix}</summary><div class="jd-roll-body">{body}{overflow}</div></details>'
+    )
+
+
+def _matters_by_priority(cases: pd.DataFrame) -> pd.DataFrame:
+    """Order a day's matters so the ones that name an institution surface first, then by
+    category (public law, commercial, criminal, civil). logic_firewall: display_only."""
+    named = cases["plaintiff_kind"].isin(_NAMED_KINDS) | cases["category"].isin(("public-law", "commercial"))
+    return cases.assign(_named=named, _rank=cases["category"].map(_CAT_ORDER).fillna(4)).sort_values(
+        ["_named", "_rank"], ascending=[False, True]
+    )
 
 
 def _case_row_html(r) -> str:
