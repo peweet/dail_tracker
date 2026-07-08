@@ -98,6 +98,59 @@ def test_org_sides_survive_in_clear(raw, expect_substr):
     assert residual_name_tokens(out) == []
 
 
+# ------------------------------------------ institution names with an internal "and"
+# Regression (2026-07-08): the and-split used to reduce the fragment after an internal
+# "and" to initials — "The Minister for Justice and Equality" -> "…and E." — mangling
+# every Government department and a few fixed bodies. They must now render WHOLE.
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "The Minister for Justice and Equality",
+        "The Minister for Enterprise, Trade and Employment",
+        "The Minister for Housing, Local Government and Heritage",
+        "The Minister for Agriculture, Food and the Marine",
+        "The Minister for Children, Equality, Disability, Integration and Youth",
+        "The Minister for Communications, Climate Action and the Environment",
+        "The Minister for Public Expenditure and Reform",
+        "MINISTER FOR JUSTICE AND EQUALITY",  # source casing varies
+        "Minister for Justice & Equality",  # source uses "&" as the internal connector
+        "The Minister for Agriculture, Food & the Marine",
+        "Governor and Company of the Bank of Ireland",
+        "Health and Safety Authority",
+    ],
+)
+def test_institution_names_kept_whole(raw):
+    out = anonymise(raw)
+    # the whole institution title survives verbatim (no fragment collapsed to "and E.")
+    assert " ".join(out.split()).lower() == " ".join(raw.split()).lower(), f"{raw!r} -> {out!r}"
+    assert not re.search(r"\band [A-Z]\.(\s|$)", out), f"institution fragment initialised: {out!r}"
+    assert residual_name_tokens(out) == []
+
+
+@pytest.mark.parametrize(
+    "raw,person_initials",
+    [
+        # a person listed ALONGSIDE a minister on the same side must still be reduced
+        ("The Minister for Justice and Equality and John Murphy", "J.M."),
+        ("John Murphy and The Minister for Justice and Equality", "J.M."),
+        # the classic co-party case is unchanged: persons initialised, org in clear
+        ("John Murphy and Mary Murphy and Cork County Council", "J.M."),
+    ],
+)
+def test_person_beside_institution_still_initialised(raw, person_initials):
+    out = anonymise(raw)
+    assert person_initials in out, f"person not initialised: {raw!r} -> {out!r}"
+    assert "John" not in out and "Murphy" not in out, f"person name leaked: {out!r}"
+    assert residual_name_tokens(out) == []
+
+
+def test_listing_annotations_stripped():
+    # [LINKED] / [1 DAY 3 MOTIONS] / [formerly …] are listing metadata, not party names
+    out = anonymise("D.B. v THE MINISTER FOR DEFENCE [LINKED] & Ors")
+    assert "LINKED" not in out and "[" not in out, out
+    assert residual_name_tokens(out) == []
+
+
 # ----------------------------------------------------------------- detector itself
 def test_residual_detector_flags_a_real_leak():
     # the pre-fix bug-B output shape: a named individual kept beside an org
