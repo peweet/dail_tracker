@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-07-07T21:06:54.630433+00:00",
+  "generated_at": "2026-07-08T06:37:03.020929+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -123,16 +123,16 @@
     "family law": 86,
     "custody": 16,
     "ward of court": 12,
-    "guardian": 9,
     "adoption": 9,
+    "guardian": 9,
     "childcare": 3,
     "tusla": 1,
     "special education": 1
   },
   "plaintiff_kinds": {
-    "individual": 5493,
+    "individual": 5495,
     "state-prosecutor": 1693,
-    "organisation": 1369,
+    "organisation": 1367,
     "state-body": 129
   },
   "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."
