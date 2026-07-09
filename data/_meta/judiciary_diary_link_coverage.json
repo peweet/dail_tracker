@@ -1,17 +1,16 @@
 {
   "link_version": "1.1.0",
-  "generated_at": "2026-07-08T06:37:03.696508+00:00",
-  "judge_court_pairs": 7953,
-  "matched_pairs": 4821,
+  "generated_at": "2026-07-08T19:45:23.149204+00:00",
+  "judge_court_pairs": 7949,
+  "matched_pairs": 4833,
   "match_methods": {
-    "ambiguous": 14,
-    "exact": 150,
-    "surname-court": 4671,
-    "no-candidate": 2255,
-    "office-title": 649,
-    "honorific-conflict": 139,
+    "surname-court": 4683,
     "roster-notice": 4,
-    "honorific-other-person": 71
+    "no-candidate": 2255,
+    "ambiguous": 14,
+    "office-title": 649,
+    "exact": 150,
+    "honorific-other-person": 194
   },
   "unmatched": [
     {
@@ -642,11 +641,6 @@
     {
       "judge": "Mr Justice Allen & Mr Justice Burns & Ms Justice Egan",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
-    },
-    {
-      "judge": "Mr Justice Allen & Mr Justice Burns & Ms Justice Egan",
-      "court": "Court of Appeal",
       "match_method": "no-candidate"
     },
     {
@@ -682,7 +676,7 @@
     {
       "judge": "Mr Justice Allen & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Allen & Mr Justice Meenan & Ms Justice Hyland",
@@ -707,7 +701,7 @@
     {
       "judge": "Mr Justice Allen & Ms Justice Burns & Ms Justice Hyland",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Allen & Ms Justice Burns & Ms Justice Hyland",
@@ -767,7 +761,7 @@
     {
       "judge": "Mr Justice Binchy & Mr Justice Allen & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Binchy & Mr Justice Allen & Ms Justice Hyland",
@@ -797,12 +791,12 @@
     {
       "judge": "Mr Justice Binchy & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Binchy & Mr Justice Meenan & Ms Justice Burns & Ms Justice Pilkington & Mr Justice Allen & Ms Justice Butler",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Binchy & Mr Justice Meenan & Ms Justice Hyland",
@@ -842,7 +836,7 @@
     {
       "judge": "Mr Justice Binchy & Ms Justice Pilkington & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Binchy & Ms Justice Pilkington & Ms Justice Butler & The President & Mr Justice Binchy & Ms Justice Butler",
@@ -865,11 +859,6 @@
       "match_method": "no-candidate"
     },
     {
-      "judge": "Mr Justice Burns",
-      "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
-    },
-    {
       "judge": "Mr Justice Charleton & Mr Justice Edwards & Mr Justice McCarthy",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
@@ -887,7 +876,7 @@
     {
       "judge": "Mr Justice Charleton & Mr Justice Edwards & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Charleton & Mr Justice McCarthy & Mr Justice O'Moore",
@@ -902,7 +891,7 @@
     {
       "judge": "Mr Justice Charleton & Ms Justice Kennedy & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Charleton & Ms Justice Kennedy & Ms Justice Butler",
@@ -1022,7 +1011,7 @@
     {
       "judge": "Mr Justice Edwards & Mr Justice McCarthy & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Mr Justice McCarthy & Ms Justice Costello",
@@ -1082,7 +1071,7 @@
     {
       "judge": "Mr Justice Edwards & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Mr Justice Murray & Mr Justice Binchy",
@@ -1137,12 +1126,12 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Mr Justice MacGrath",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Mr Justice O'Moore",
@@ -1152,17 +1141,12 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Ms Justice Hyland",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Ms Justice Hyland",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
-    },
-    {
-      "judge": "Mr Justice Edwards & Ms Justice Butler & Mr Justice Burns",
-      "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Butler & Ms Justice Hyland",
@@ -1252,7 +1236,7 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Donnelly",
@@ -1467,7 +1451,7 @@
     {
       "judge": "Mr Justice Haughton & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Haughton & Ms Justice Butler & Mr Justice O'Moore",
@@ -1732,7 +1716,7 @@
     {
       "judge": "Mr Justice McCarthy & Mr Justice Allen & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Mr Justice Butler & Ms Justice Hyland",
@@ -1757,7 +1741,7 @@
     {
       "judge": "Mr Justice McCarthy & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Mr Justice Murray & Mr Justice Binchy",
@@ -1767,7 +1751,7 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Mr Justice O'Moore",
@@ -1777,7 +1761,7 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Mr Justice Owens",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Butler & Mr Justice O'Moore",
@@ -1787,7 +1771,7 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Butler & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Costello & Mr Justice Haughton",
@@ -1817,7 +1801,7 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Kennedy & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Kennedy & Ms Justice Donnelly",
@@ -2012,17 +1996,17 @@
     {
       "judge": "Mr Justice Meenan & Ms Justice Burns & Mr Justice Collins",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Meenan & Ms Justice Burns & Mr Justice Owens",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Meenan & Ms Justice Burns & Ms Justice Egan",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Meenan & Ms Justice Burns & Ms Justice Egan",
@@ -2622,7 +2606,7 @@
     {
       "judge": "Mr Justice Noonan & Ms Justice Faherty & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Noonan & Ms Justice Faherty & Ms Justice Butler",
@@ -2857,7 +2841,7 @@
     {
       "judge": "Mr Justice O'Moore & Mr Justice Edwards & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice O'Moore & Mr Justice McDonald & Mr Justice Owens",
@@ -3307,7 +3291,7 @@
     {
       "judge": "Mr Justice Woulfe & Mr Justice McCarthy & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Woulfe & Mr Justice McCarthy & Ms Justice Kennedy",
@@ -3357,7 +3341,7 @@
     {
       "judge": "Mr Justice Woulfe & Mr Justice Noonan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Woulfe & Mr Justice Noonan & Ms Justice Faherty",
@@ -3957,17 +3941,17 @@
     {
       "judge": "Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice Collins & Mr Justice Owens",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Mr Justice Owens",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Mr Justice Owens",
@@ -3977,7 +3961,7 @@
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Ms Justice Hyland",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Ms Justice Hyland",
@@ -3987,17 +3971,12 @@
     {
       "judge": "Ms Justice Burns & Ms Justice Hyland & Mr Justice Collins",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Ms Justice Hyland & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
-    },
-    {
-      "judge": "Ms Justice Butler & Mr Justice Meenan & Mr Justice Burns",
-      "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Butler & Mr Justice Meenan & Mr Justice O'Moore",
@@ -4007,7 +3986,7 @@
     {
       "judge": "Ms Justice Butler & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Butler & Mr Justice Meenan & Ms Justice Hyland",
@@ -4032,12 +4011,12 @@
     {
       "judge": "Ms Justice Butler & Ms Justice Burns & Mr Justice Collins",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Butler & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Butler & Ms Justice Burns & Mr Justice O'Moore",
@@ -4397,7 +4376,7 @@
     {
       "judge": "Ms Justice Costello & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Costello & Ms Justice Butler & Mr Justice Meenan",
@@ -4417,7 +4396,7 @@
     {
       "judge": "Ms Justice Costello & Ms Justice Butler & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Costello & Ms Justice Donnelly & Mr Justice Binchy",
@@ -4490,11 +4469,6 @@
       "match_method": "no-candidate"
     },
     {
-      "judge": "Ms Justice Costello & Ms Justice Faherty & Mr Justice Burns",
-      "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
-    },
-    {
       "judge": "Ms Justice Costello & Ms Justice Faherty & Mr Justice Butler",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
@@ -4547,7 +4521,7 @@
     {
       "judge": "Ms Justice Costello & Ms Justice Faherty & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Costello & Ms Justice Faherty & Ms Justice Butler",
@@ -5072,7 +5046,7 @@
     {
       "judge": "Ms Justice Faherty & Mr Justice Allen & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Faherty & Mr Justice Allen & Ms Justice Hyland",
@@ -5197,7 +5171,7 @@
     {
       "judge": "Ms Justice Faherty & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Faherty & Mr Justice Meenan & Ms Justice Hyland",
@@ -5377,7 +5351,7 @@
     {
       "judge": "Ms Justice Faherty & Ms Justice Pilkington & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Faherty & Ms Justice Pilkington & Ms Justice Hyland",
@@ -5622,7 +5596,7 @@
     {
       "judge": "Ms Justice Kennedy & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Mr Justice O'Moore & Mr Justice Collins & Mr Justice Edwards",
@@ -5647,17 +5621,17 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice Collins",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGrath",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice O'Moore",
@@ -5667,12 +5641,12 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice Owens",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Ms Justice Hyland",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Ms Justice Hyland",
@@ -5687,7 +5661,7 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Butler & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Faherty & Ms Justice Ní Raifeartaigh",
@@ -5707,7 +5681,7 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Ní Raifeartaigh & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Mcdonald",
@@ -5752,7 +5726,7 @@
     {
       "judge": "Ms Justice Ni Raifeartaigh & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Ni Raifeartaigh & Mr Justice Murray & Mr Justice Collins",
@@ -5902,7 +5876,7 @@
     {
       "judge": "Ms Justice Ní Raifeartaigh & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Ní Raifeartaigh & Mr Justice Murray & Mr Justice Collins",
@@ -5950,11 +5924,6 @@
       "match_method": "no-candidate"
     },
     {
-      "judge": "Ms Justice Pilkington & Mr Justice Allen & Mr Justice Burns",
-      "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
-    },
-    {
       "judge": "Ms Justice Pilkington & Mr Justice Allen & Mr Justice O'Moore",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
@@ -5962,7 +5931,7 @@
     {
       "judge": "Ms Justice Pilkington & Mr Justice Allen & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Pilkington & Mr Justice Barniville & Mr Justice Allen",
@@ -5987,7 +5956,7 @@
     {
       "judge": "Ms Justice Pilkington & Ms Justice Burns & Mr Justice McDonald",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Pilkington & Ms Justice Butler & Mr Justice O'Moore",
@@ -5997,7 +5966,7 @@
     {
       "judge": "Ms Justice Pilkington & Ms Justice Butler & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Pilkington & Ms Justice Hyland & Mr Justice Collins",
@@ -6057,7 +6026,7 @@
     {
       "judge": "Ms Justice Whelan & Mr Justice Binchy & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Whelan & Mr Justice Binchy & Ms Justice Hyland",
@@ -6182,7 +6151,7 @@
     {
       "judge": "Ms Justice Whelan & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Whelan & Mr Justice Meenan & Ms Justice McDonald",
@@ -6332,7 +6301,7 @@
     {
       "judge": "Ms Justice Whelan & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Whelan & Ms Justice Burns & Mr Justice O'Moore",
@@ -6602,7 +6571,7 @@
     {
       "judge": "Ms Justice Whelan & Ms Justice Pilkington & Mr Justice O'Moore & Ms Justice Whelan & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Whelan & Ms Justice Pilkington & Ms Justice Butler & Ms Justice Costello",
@@ -6632,7 +6601,7 @@
     {
       "judge": "Ms Justice Whelan & Ms Justice Power & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Whelan, & Ms Justice Ní Raifeartaigh, & Mr Justice Binchy",
@@ -6782,7 +6751,7 @@
     {
       "judge": "Ms. Justice Caroline Costello & Mr Justice Meenan & Ms Justice Burns & Mr Justice Collins",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms. Justice Caroline Costello & Mr Justice Meenan & Ms Justice Burns & Ms Justice Egan",
@@ -6792,7 +6761,7 @@
     {
       "judge": "Ms. Justice Caroline Costello & Mr Justice Meenan & Ms Justice Burns & Ms Justice Egan",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms. Justice Caroline Costello & Mr Justice Meenan & Ms Justice Hyland & Mr Justice Collins",
@@ -6812,7 +6781,7 @@
     {
       "judge": "Ms. Justice Caroline Costello & Ms Justice Faherty & Mr Justice Allen & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms. Justice Caroline Costello & Ms Justice Faherty & Mr Justice Binchy & Mr Justice Allen",
@@ -7827,7 +7796,7 @@
     {
       "judge": "The President & Mr Justice McCarthy & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "The President & Mr Justice McCarthy & Ms Justice Costello",
@@ -8592,7 +8561,7 @@
     {
       "judge": "The President & Ms Justice Faherty & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "The President & Ms Justice Faherty & Ms Justice Butler",
@@ -8692,7 +8661,7 @@
     {
       "judge": "The President & Ms Justice Kennedy & Ms Justice Burns",
       "court": "Court of Appeal",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "The President & Ms Justice Kennedy & Ms Justice Donnelly",
@@ -9052,12 +9021,7 @@
     {
       "judge": "MS Justice Kennedy & Ms Justice Butler & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
-    },
-    {
-      "judge": "Mr Justice Burns",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Charleton & Mr Justice Edwards & Mr Justice McCarthy",
@@ -9077,7 +9041,7 @@
     {
       "judge": "Mr Justice Charleton & Mr Justice Edwards & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Charleton & Mr Justice McCarthy & Mr Justice Allen",
@@ -9097,7 +9061,7 @@
     {
       "judge": "Mr Justice Charleton & Ms Justice Burns & Mr Justice MacGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Charleton & Ms Justice Kennedy & Mr Justice Owens",
@@ -9112,7 +9076,7 @@
     {
       "judge": "Mr Justice Charleton & Ms Justice Kennedy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Charleton & Ms Justice Kennedy & Ms Justice Butler",
@@ -9137,7 +9101,7 @@
     {
       "judge": "Mr Justice Edwards & Mr Justice Edwards & Mr Justice McCarthy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Ní Raifeartaigh",
@@ -9163,11 +9127,6 @@
       "judge": "Mr Justice Edwards & Mr Justice Kennedy & Mr Justice O'Moore & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
       "match_method": "no-candidate"
-    },
-    {
-      "judge": "Mr Justice Edwards & Mr Justice Kennedy & Mr Justice O'Moore & Ms Justice Burns",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Edwards & Mr Justice Kennedy & Ms Justice Ní Raifeartaigh",
@@ -9197,12 +9156,12 @@
     {
       "judge": "Mr Justice Edwards & Mr Justice McCarthy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Mr Justice McCarthy & Ms Justice Burns & Mr Justice Edwards",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Mr Justice McCarthy & Ms Justice Donnelly",
@@ -9262,7 +9221,7 @@
     {
       "judge": "Mr Justice Edwards & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Mr Justice Noonan & Mr Justice MacGrath",
@@ -9287,7 +9246,7 @@
     {
       "judge": "Mr Justice Edwards & Mr Justice O'Moore & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Mr. Justice McCarthy & Ms Justice Ní Raifeartaigh",
@@ -9302,17 +9261,17 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Mr Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Mr Justice MacGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Mr Justice O'Moore",
@@ -9322,22 +9281,17 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Mr Justice Owens",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Ms Justice Hyland",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Burns & Ms Justice Hyland",
       "court": "Court of Appeal (Criminal)",
       "match_method": "no-candidate"
-    },
-    {
-      "judge": "Mr Justice Edwards & Ms Justice Butler & Mr Justice Burns",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Butler & Mr Justice O'Moore",
@@ -9347,7 +9301,7 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Butler & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Butler & Ms Justice Hyland",
@@ -9392,12 +9346,12 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGath",
@@ -9407,12 +9361,12 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Burns & Ms Justice Kennedy",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Donnelly",
@@ -9443,11 +9397,6 @@
       "judge": "Mr Justice Edwards & Ms Justice McCarthy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
       "match_method": "honorific-other-person"
-    },
-    {
-      "judge": "Mr Justice Edwards & Ms Justice McCarthy & Ms Justice Burns",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice McCarthy & Ms Justice Butler",
@@ -9482,7 +9431,7 @@
     {
       "judge": "Mr Justice Edwards & Ms Justice Ní Raifeartaigh & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Ms Justice Whelan & Ms Justice Donnelly",
@@ -9560,19 +9509,9 @@
       "match_method": "no-candidate"
     },
     {
-      "judge": "Mr Justice Kennedy & Mr Justice O'Moore & Ms Justice Burns",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
-    },
-    {
       "judge": "Mr Justice Kennedy & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal (Criminal)",
       "match_method": "honorific-other-person"
-    },
-    {
-      "judge": "Mr Justice Kennedy & Ms Justice Burns & Mr Justice O'Moore",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Kennedy & Ms Justice Burns & Mr Justice O'Moore",
@@ -9590,19 +9529,9 @@
       "match_method": "honorific-other-person"
     },
     {
-      "judge": "Mr Justice Kennedy & Ms Justice Butler & Ms Justice Burns",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
-    },
-    {
       "judge": "Mr Justice McCarthy & Mr Justice Allen & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
-    },
-    {
-      "judge": "Mr Justice McCarthy & Mr Justice Burns & Mr Justice O'Moore",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Mr Justice Burns & Mr Justice O'Moore",
@@ -9622,7 +9551,7 @@
     {
       "judge": "Mr Justice McCarthy & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Mr Justice Noonan & Mr Justice MacGrath",
@@ -9642,17 +9571,17 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Mr Justice Collins",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Mr Justice MacGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Mr Justice O'Moore",
@@ -9662,12 +9591,12 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Mr Justice Owens",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Ms Justice Hyland",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Burns & Ms Justice Hyland",
@@ -9687,17 +9616,12 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Butler & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Donnelly",
       "court": "Court of Appeal (Criminal)",
       "match_method": "no-candidate"
-    },
-    {
-      "judge": "Mr Justice McCarthy & Ms Justice Kennedy & Mr Justice Burns",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Kennedy & Mr Justice Noonan",
@@ -9712,7 +9636,7 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Kennedy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice Kennedy & Ms Justice Donnelly",
@@ -9742,7 +9666,7 @@
     {
       "judge": "Mr Justice McCarthy & Ms Justice Ní Raifeartaigh & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice McCarthy & Ms Justice O'Moore & Ms Justice MacGrath",
@@ -9882,7 +9806,7 @@
     {
       "judge": "Mr Justice O'Moore & Mr Justice Edwards & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Peart & Mr Justice Edwards",
@@ -9987,7 +9911,7 @@
     {
       "judge": "Mr Justice Woulfe & Mr Justice McCarthy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Woulfe & Mr Justice McCarthy & Ms Justice Kennedy",
@@ -10102,17 +10026,17 @@
     {
       "judge": "Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice Collins & Mr Justice Owens",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Mr Justice MacGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Mr Justice MacGrath",
@@ -10122,7 +10046,7 @@
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Mr Justice Owens",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Mr Justice Owens",
@@ -10132,7 +10056,7 @@
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Ms Justice Hyland",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Burns & Mr Justice O'Moore & Ms Justice Hyland",
@@ -10142,7 +10066,7 @@
     {
       "judge": "Ms Justice Butler & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Butler & Mr Justice O'Moore & Mr Justice Owens",
@@ -10152,7 +10076,7 @@
     {
       "judge": "Ms Justice Butler & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Butler & Ms Justice Burns & Mr Justice O'Moore",
@@ -10162,7 +10086,7 @@
     {
       "judge": "Ms Justice Butler & Ms Justice Burns & Mr Justice Owens",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Costello",
@@ -10317,7 +10241,7 @@
     {
       "judge": "Ms Justice Kennedy & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Mr Justice O'Moore & Mr Justice Collins",
@@ -10357,17 +10281,17 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr  Justice MacGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice Collins",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGath",
@@ -10377,12 +10301,12 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice McGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice McGrath",
@@ -10392,7 +10316,7 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice O'Moore",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice O'Moore",
@@ -10402,12 +10326,12 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Mr Justice Owens",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Ms Justice Hyland",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Ms Justice Hyland",
@@ -10417,7 +10341,7 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Ms Justice Ní Raifeartaigh",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Burns & Ms Justice Ní Raifeartaigh",
@@ -10432,7 +10356,7 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Butler & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Donnelly",
@@ -10447,7 +10371,7 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Ní Raifeartaigh & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice Ní Raifeartaigh, & Ms Justice Burns",
@@ -10457,7 +10381,7 @@
     {
       "judge": "Ms Justice Kennedy & Ms Justice Ní Raifeartaigh, & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "Ms Justice Kennedy & Ms Justice O'Moore & Mr Justice MacGrath",
@@ -10558,11 +10482,6 @@
       "judge": "The Hon. Mr. Justice David Keane",
       "court": "Court of Appeal (Criminal)",
       "match_method": "no-candidate"
-    },
-    {
-      "judge": "The Hon. Mr. Justice Paul Burns",
-      "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
     },
     {
       "judge": "The Hon. Mr. Justice Paul McDermott",
@@ -10752,7 +10671,7 @@
     {
       "judge": "The President & Mr Justice Edwards & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "The President & Mr Justice Edwards & Ms Justice Donnelly",
@@ -10907,7 +10826,7 @@
     {
       "judge": "The President & Mr Justice McCarthy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "The President & Mr Justice McCarthy & Ms Justice Donnelly",
@@ -11392,7 +11311,7 @@
     {
       "judge": "The President & Ms Justice Kennedy & Ms Justice Burns",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "The President & Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGrath",
@@ -11402,7 +11321,7 @@
     {
       "judge": "The President & Ms Justice Kennedy & Ms Justice Burns & Mr Justice MacGrath",
       "court": "Court of Appeal (Criminal)",
-      "match_method": "honorific-conflict"
+      "match_method": "honorific-other-person"
     },
     {
       "judge": "The President & Ms Justice Kennedy & Ms Justice Donnelly",
@@ -15677,12 +15596,12 @@
   ],
   "row_level": {
     "cases": {
-      "rows_with_judge": 6835,
-      "rows_matched": 6304
+      "rows_with_judge": 7006,
+      "rows_matched": 6594
     },
     "schedule": {
-      "rows_with_judge": 1499,
-      "rows_matched": 1390
+      "rows_with_judge": 1557,
+      "rows_matched": 1463
     }
   },
   "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."

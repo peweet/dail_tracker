@@ -1,0 +1,157 @@
+"""Tests for the 2026-07 MCP domain tool additions.
+
+Covers: cross_register_watchlist / council_scorecard / housing_money /
+attendance_ranking / gov_finance_annual.
+
+Registry tests run with no data (the server connection is lazy). The live tests
+exercise each tool against the real gold parquet through the server's own union
+connection and skip cleanly when the gold/view isn't present on the machine
+(same convention as test/dail_tracker_core/test_core_entity.py).
+
+The gated organisation_dossier tool is intentionally ABSENT — see
+doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md ("PR3 — MCP tool (gated on owner
+sign-off)"); a test below pins that it stays unregistered until signed off.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+pytest.importorskip("mcp")
+
+from mcp_server import server  # noqa: E402
+
+NEW_TOOLS = {
+    "cross_register_watchlist",
+    "council_scorecard",
+    "housing_money",
+    "attendance_ranking",
+    "gov_finance_annual",
+}
+
+# A sane per-response ceiling (~25k tokens) — these are summary tools, not dumps.
+_MAX_CHARS = 100_000
+
+
+def _tools() -> dict:
+    return {t.name: t for t in asyncio.run(server.mcp.list_tools())}
+
+
+def test_new_tools_registered_read_only():
+    tools = _tools()
+    assert set(tools) >= NEW_TOOLS
+    for name in NEW_TOOLS:
+        assert tools[name].annotations is not None, name
+        assert tools[name].annotations.readOnlyHint is True, name
+        assert tools[name].description, name  # the docstring is the LLM contract
+
+
+def test_organisation_dossier_stays_gated():
+    # doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md gates the MCP dossier tool on owner
+    # sign-off (PR3). If this fails, the gate was consciously lifted — update the doc.
+    assert "organisation_dossier" not in _tools()
+
+
+def test_new_tools_advertise_bounding_params():
+    tools = _tools()
+    assert "limit" in tools["cross_register_watchlist"].inputSchema["properties"]
+    assert "min_registers" in tools["cross_register_watchlist"].inputSchema["properties"]
+    assert "limit" in tools["attendance_ranking"].inputSchema["properties"]
+    assert "grain" in tools["housing_money"].inputSchema["properties"]
+
+
+# ── Live-data tests (skip cleanly when gold isn't on this machine) ────────────────
+
+
+@pytest.fixture(scope="module")
+def live():
+    try:
+        server._cur().execute("SELECT 1").fetchone()
+    except Exception:
+        pytest.skip("could not build the MCP union connection on this machine")
+    return server
+
+
+def _assert_sized(result) -> None:
+    s = json.dumps(result, default=str)
+    assert len(s) < _MAX_CHARS, f"tool response too large: {len(s)} chars"
+
+
+def _skip_if_unavailable(result) -> None:
+    if isinstance(result, dict) and set(result) == {"error"}:
+        pytest.skip(f"source unavailable: {result['error']}")
+
+
+def test_cross_register_watchlist_live(live):
+    out = live.cross_register_watchlist(min_registers=1, limit=5)
+    _skip_if_unavailable(out)
+    assert out["count"] >= 1
+    assert 1 <= len(out["entities"]) <= 5
+    row = out["entities"][0]
+    assert "supplier_norm" in row and "cross_register_count" in row
+    assert "co-occurrence" in out["caveat"].lower()
+    assert "no individuals" in out["caveat"].lower()
+    _assert_sized(out)
+
+
+def test_council_scorecard_live(live):
+    idx = live.council_scorecard()
+    _skip_if_unavailable(idx)
+    assert idx["councils"], "expected the 31-council CE index"
+    label = str(idx["councils"][0]["local_authority"])
+    one = live.council_scorecard(label)
+    assert one["local_authority"] == label
+    assert "chief_executive" in one and "noac_scorecard" in one
+    assert "never summed across measures" in one["caveat"]
+    _assert_sized(one)
+    # a nonsense name returns the label list, not a silent empty
+    miss = live.council_scorecard("__no_such_council__")
+    assert "error" in miss and miss["councils"]
+
+
+def test_housing_money_live(live):
+    out = live.housing_money()
+    _skip_if_unavailable(out)
+    assert {"waiting_list", "supply", "hap", "completions_by_year", "accommodation_spend_by_year"} <= set(out)
+    spend = out["accommodation_spend_by_year"]
+    if isinstance(spend, list) and spend:
+        # aggregate rows only — the person-privacy rule: no provider/supplier names here
+        assert not ({"provider", "supplier", "supplier_normalised"} & set(spend[0]))
+    cavs = out["caveats"]
+    assert "never added to procurement award ceilings" in cavs["accommodation_spend"]
+    assert "NEVER sum across them" in cavs["money_grains"]
+    _assert_sized(out)
+
+
+def test_attendance_ranking_live(live):
+    out = live.attendance_ranking(limit=10)  # year=0 resolves to the latest year
+    _skip_if_unavailable(out)
+    assert out["year"] >= 2020 and out["house"] == "Dáil"
+    turnout = out["turnout_worst_first"]
+    _skip_if_unavailable(turnout)
+    assert isinstance(turnout, list) and 1 <= len(turnout) <= 10
+    row = turnout[0]
+    # the corrected participation model's fields pass through VERBATIM — the wrapper
+    # must never recompute the denominator (the recurring attendance-denominator bug)
+    assert {"turnout_pct", "voted_in", "total_divisions", "is_minister", "is_chair"} <= set(row)
+    assert "divisions voted in" in out["caveat"]
+    _assert_sized(out)
+
+
+def test_gov_finance_annual_live(live):
+    out = live.gov_finance_annual()
+    _skip_if_unavailable(out)
+    years = out["by_year"]
+    assert isinstance(years, list) and years
+    assert {"year", "revenue_eur", "expenditure_eur", "surplus_deficit_eur"} <= set(years[0])
+    # newest first, per the view's ORDER BY
+    assert int(years[0]["year"]) >= int(years[-1]["year"])
+    assert "never summed" in out["caveat"]
+    _assert_sized(out)

@@ -127,7 +127,7 @@ risk/influence/corruption scoring exists in the codebase today** — keep it tha
 - Personal dossiers on individuals; named-individual scoring of any kind.
 - Speculative corruption claims; any "verdict" framing on a structure fact (single-bid, incumbency, renewal are facts, never accusations).
 
-### The dangerous straddlers — keep on the FREE civic side, OUT of the paid product
+### The dangerous straddlers — diary OUT of paid, lobbying tightly gated
 
 These exist as **co-occurrence** assets and are *correctly* framed today, but they are exactly what a
 naïve "competitor intelligence" product would be tempted to sell — and selling them crosses the line
@@ -137,25 +137,30 @@ from market intelligence into **monetising political-access inference**:
 - `diary_company_influence` / ministerial-diary × contracts ("which companies have minister access").
 - votes × interests cross-reference.
 
-**My recommendation was:** keep these free-civic-only. **Owner decision (2026-06-28): allow them as a
-PAID feature, co-occurrence only.** That is legally permissible — lobbying.ie is PSI (free commercial
-reuse with acknowledgement) and ministerial diaries are published records — so the risk here is **not
-legal, it is reputational**: it monetises political-access proximity, and a misstep damages the trust
-of the *free* civic product too. If sold, it must stay inside these non-negotiable guardrails:
+**Decision history.** My original recommendation was free-civic-only. The owner initially (2026-06-28)
+allowed both as paid, co-occurrence only. After the Fable second-model assessment (2026-07-08,
+[doc/BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) §7), the owner **reversed the
+diary half**. The split now is:
 
-- **Raw co-occurrence counts only — never a score, ranking, index, or verdict.** Show "met N times /
-  filed N lobbying returns / won €X awarded / €Y paid" as **separate labelled facts**, never combined
-  into an "influence" or "access" number. The §10 no-list (no influence/risk scores) still holds in full.
-- **Subject is the company, not the politician.** The product reports a *supplier's* registered
-  footprint; it must not rank, score, or profile the named office-holder. No politician is ever the
-  scored entity.
-- **Carry the existing caveats verbatim** (`_PROC_LOBBY_CAVEAT` "co-occurrence, never causation",
-  `_DPO_CAVEAT` "access, never proof of influence") and the `matched_supplier` human-verification
-  field; **link out to the free public registers** as the source of truth.
-- **Company-class / PII double-gate** applies as everywhere else.
-- **This is the highest reputational-risk feature in the product** — keep it behind the same
-  no-inference discipline as the free side, and treat any "rigged/captured/influence-bought" framing
-  in marketing copy as a hard CI-forbidden term.
+- **Ministerial-diary access (`diary_company_influence` / diary × contracts) — OUT of the paid product
+  entirely.** Rationale (Fable, accepted): "co-occurrence only" governs the *arithmetic* but not the
+  *meaning of the sale* — a bidder buys the diary panel precisely because minister-proximity matters to
+  winning, so the commercial context performs the inference the caveat disclaims. The premise the risk
+  was first accepted on ("not legal, just reputational") is **wrong for diaries**: office-holder diaries
+  are personal data, and commercial resale is a different GDPR Art. 6(1)(f) balancing than civic
+  republication. The revenue is ≈0 (optional panel, no tier priced on it); the downside is the free
+  product's trust — the only durable asset and the entire top-of-funnel. Reversal costs nothing built
+  (the diary-access path was Phase-2-TODO). Diary data stays a **free civic feature** inside Dáil
+  Tracker only.
+- **Lobbying-register overlap (`procurement_lobbying_overlap`) — MAY stay in the paid product, tightly
+  gated.** SIPO's PSI policy invites republication, and supplier-keyed due-diligence facts are standard
+  commercial practice. Guardrails (non-negotiable): **per-report, owner-gated; NEVER in bulk exports or
+  the API; raw co-occurrence counts only — never a score/ranking/index/verdict**; the **award-€ totals
+  must not sit in the same table as lobbying counts** (co-locating them composes the causation narrative
+  the caveats deny); carry `caveats.PROC_LOBBY` verbatim; the subject is the **company, not any
+  office-holder**; company-class/PII double-gate applies; "rigged/captured/influence-bought" framing is
+  a hard CI-forbidden term. The §10 no-list holds in full.
+- **votes × interests cross-reference — free civic only** (unchanged).
 
 ### Privacy / PII rails (already enforced — must carry into the paid product)
 
@@ -301,7 +306,8 @@ sales pressure:
 - ❌ Politician / individual **risk scores, influence scores, conflict rankings**.
 - ❌ **Personal dossiers** on any named natural person; named-individual scoring.
 - ❌ **Speculative corruption claims**; any "verdict" on a structure fact.
-- ❌ Selling **lobbying-overlap / ministerial-access** analysis as competitor intelligence (free civic only).
+- ❌ Selling **ministerial-diary access** analysis in any form (free civic only — reversed 2026-07-08, §4).
+- ❌ Putting **lobbying-overlap** in bulk exports or the API, co-locating it with award-€ totals, or framing it as anything but raw per-report co-occurrence facts (§4).
 - ❌ Re-identifying sole-trader/individual payment rows, CRO directors, charity trustees in any paid output.
 - ❌ Implying the **data is yours** to licence, or that figures across grains can be summed.
 
@@ -402,11 +408,16 @@ it autonomously; it carries the PII/consent/scheduler decisions.
 **Resolved (owner, 2026-06-28):**
 - ✅ **Entry point = reports-first.** Hand-built supplier/buyer/category reports for 3–5 paying design
   partners before building accounts. (Matches recommendation.)
-- ✅ **Lobbying-overlap & ministerial-access MAY be paid features — co-occurrence only**, inside the
-  §4 guardrails (raw facts, never a score/verdict, company-subject, caveats verbatim). *Overrides the
-  free-only recommendation; reputational risk owned.*
 - ✅ **Iris-derived corporate-distress is IN the paid product — fact-only + attributed**, accepting
-  risk pending §14.2 solicitor confirmation. *Overrides the exclude recommendation.*
+  risk pending solicitor confirmation. *Overrides the exclude recommendation.* **(Timing revised
+  2026-07-08 per Fable §4/§7: confirm-before-first-SALE, not before scaling; Iris in hand-built
+  reports only — never exports/API; solicitor brief expanded to sui generis DB right + site terms.)*
+
+**Revised after Fable assessment (owner, 2026-07-08):**
+- ✅ **Ministerial-diary access — OUT of the paid product entirely** (free civic only). Reverses the
+  2026-06-28 "may be paid" position; see §4 and [Fable §7](BI_SPINOUT_FABLE_ASSESSMENT.md).
+- ✅ **Lobbying-overlap — MAY stay paid, tightly gated**: per-report/owner-gated, never in bulk
+  export/API, raw counts only, award-€ separated from lobbying counts (§4).
 
 **Still open (⚠️ owner-only):**
 1. **BI product name & brand** (recommend a fresh mark, not "Dáil Tracker"; "Bid Signal" reuses an existing asset name).
