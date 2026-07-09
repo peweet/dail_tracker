@@ -1,118 +1,274 @@
 unique_member_code,first_name,last_name,constituency_name,full_name,party,ministerial_office,year_elected,dail_number,dails_served,is_current
-Martin-McAleese.S.2011-05-25,Martin,McAleese,Nominated by the Taoiseach,Martin McAleese,Independent,false,2011,24,24,False
-Marie-Moloney.S.2011-05-25,Marie,Moloney,Labour Panel,Marie Moloney,Labour Party,false,2011,24,24,False
-Paschal-Mooney.S.1987-04-25,Paschal,Mooney,Agricultural Panel,Paschal Mooney,Fianna Fáil,false,1987,24,24,False
-Mary-Moran.S.2011-05-25,Mary,Moran,Nominated by the Taoiseach,Mary Moran,Labour Party,false,2011,24,24,False
-Tony-Mulcahy.S.2011-05-25,Tony,Mulcahy,Labour Panel,Tony Mulcahy,Fine Gael,false,2011,24,24,False
-Michael-Mullins.S.2011-05-25,Michael,Mullins,Cultural and Educational Panel,Michael Mullins,Fine Gael,false,2011,24,24,False
-Darragh-O'Brien.D.2007-06-14,Darragh,O'Brien,Labour Panel,Darragh O'Brien,Fianna Fáil,false,2007,24,"24,32,33,34",False
+Louis-J-Belton.D.1989-06-29,Louis J.,Belton,Administrative Panel,Louis J. Belton,Fine Gael,false,1989,20,"20,28",False
+Billy-Kelleher.S.1993-02-17,Billy,Kelleher,Nominated by the Taoiseach,Billy Kelleher,Fianna Fáil,false,1993,20,"20,28,29,30,31,32",False
+Mary-Kelly.S.1997-01-28,Mary,Kelly,Cultural and Educational Panel,Mary Kelly,Labour Party,false,1997,20,20,False
+Joe-Lee.S.1996-02-23,Joe,Lee,National University of Ireland,Joe Lee,Independent,false,1996,20,20,False
+Patrick-Magner.S.1981-08-10,Patrick,Magner,Nominated by the Taoiseach,Patrick Magner,Labour Party,false,1981,20,20,False
+Sean-Maloney.S.1993-02-17,Sean,Maloney,Labour Panel,Sean Maloney,Labour Party,false,1993,20,20,False
+Marian-McGennis.S.1993-02-17,Marian,McGennis,Nominated by the Taoiseach,Marian McGennis,Fianna Fáil,false,1993,20,"20,28",False
+Liam-Naughten.S.1981-10-08,Liam,Naughten,Agricultural Panel,Liam Naughten,Fine Gael,false,1981,20,20,False
+Dan-Neville.S.1989-10-01,Dan,Neville,Labour Panel,Dan Neville,Fine Gael,false,1989,20,"20,28,29,30,31",False
+Joe-Sherlock.D.1981-06-30,Joe,Sherlock,Labour Panel,Joe Sherlock,Democratic Left,false,1981,20,"20,29",False
+Michael-O'Kennedy.S.1965-06-23,Michael,O'Kennedy,Administrative Panel,Michael O'Kennedy,Fianna Fáil,false,1965,20,"20,28",False
+Jan-O'Sullivan.S.1993-02-17,Jan,O'Sullivan,Administrative Panel,Jan O'Sullivan,Labour Party,false,1993,20,"20,28,29,30,31,32",False
+Gerry-Reynolds.S.1987-04-25,Gerry,Reynolds,Industrial and Commercial Panel,Gerry Reynolds,Fine Gael,false,1987,20,"20,28",False
+Michael-Howard.S.1980-04-16,Michael,Howard,Industrial and Commercial Panel,Michael Howard,Fine Gael,false,1980,20,20,False
+Dick-Roche.D.1987-03-10,Dick,Roche,Administrative Panel,Dick Roche,Fianna Fáil,false,1987,20,"20,28,29,30",False
+Cathy-Honan.S.1997-01-28,Cathy,Honan,Industrial and Commercial Panel,Cathy Honan,Progressive Democrats,false,1997,20,20,False
+G-V-Wright.S.1982-05-13,G. V.,Wright,Nominated by the Taoiseach,G. V. Wright,Fianna Fáil,false,1982,20,"20,28,29",False
+Gordon-Wilson.S.1996-02-23,Gordon,Wilson,Nominated by the Taoiseach,Gordon Wilson,Independent,false,1996,20,20,False
+Seán-Byrne.D.1982-03-09,Seán,Byrne,Nominated by the Taoiseach,Seán Byrne,Fianna Fáil,false,1982,20,20,False
+Michael-Calnan.S.1993-02-17,Michael,Calnan,Agricultural Panel,Michael Calnan,Labour Party,false,1993,20,20,False
+Bill-Cashin.S.1993-02-17,Bill,Cashin,Nominated by the Taoiseach,Bill Cashin,Labour Party,false,1993,20,20,False
+Jack-Wall.S.1993-02-17,Jack,Wall,Nominated by the Taoiseach,Jack Wall,Labour Party,false,1993,20,"20,28,29,30,31",False
+William-Cotter.D.1989-06-29,William,Cotter,Labour Panel,William Cotter,Fine Gael,false,1989,20,20,False
+Brian-Crowley.S.1996-02-23,Brian,Crowley,Nominated by the Taoiseach,Brian Crowley,Fianna Fáil,false,1996,20,20,False
+Brian-J-Hillery.S.1977-10-27,Brian J.,Hillery,Nominated by the Taoiseach,Brian J. Hillery,Fianna Fáil,false,1977,20,20,False
+Michael-D'Arcy.D.1977-07-05,Michael,D'Arcy,Agricultural Panel,Michael D'Arcy,Fine Gael,false,1977,20,"20,28",False
+Ann-Gallagher.S.1997-01-28,Ann,Gallagher,Industrial and Commercial Panel,Ann Gallagher,Labour Party,false,1997,20,20,False
+John-V-Farrelly.D.1981-06-30,John V.,Farrelly,Agricultural Panel,John V. Farrelly,Fine Gael,false,1981,20,"20,28",False
+Sean-Fallon.S.1981-10-08,Sean,Fallon,Industrial and Commercial Panel,Sean Fallon,Fianna Fáil,false,1981,20,20,False
+Tom-Enright.D.1969-07-02,Tom,Enright,Administrative Panel,Tom Enright,Fine Gael,false,1969,20,"20,28",False
+Jim-Townsend.S.1996-02-23,Jim,Townsend,Nominated by the Taoiseach,Jim Townsend,Labour Party,false,1996,20,20,False
+Frank-Fahey.D.1982-03-09,Frank,Fahey,Labour Panel,Frank Fahey,Fianna Fáil,false,1982,20,"20,28,29,30",False
+Michael-Mulcahy.S.1994-12-13,Michael,Mulcahy,Nominated by the Taoiseach,Michael Mulcahy,Fianna Fáil,false,1994,20,"20,29,30",False
+Sam-McAughtry.S.1996-02-23,Sam,McAughtry,Industrial and Commercial Panel,Sam McAughtry,Independent,false,1996,20,20,False
+Denis-Naughten.S.1997-01-28,Denis,Naughten,Agricultural Panel,Denis Naughten,Fine Gael,false,1997,20,"20,28,29,30,31,32,33",False
+Michael-Enright.S.1997-06-13,Michael,Enright,Nominated by the Taoiseach,Michael Enright,Democratic Left,false,1997,20,20,False
+Niamh-Cosgrave.S.1997-06-13,Niamh,Cosgrave,Nominated by the Taoiseach,Niamh Cosgrave,Fine Gael,false,1997,20,20,False
+Niamh-Bhreathnach.D.1992-12-14,Niamh,Bhreathnach,Nominated by the Taoiseach,Niamh Bhreathnach,Labour Party,false,1992,20,"20,27",False
+Tom-Berkery.S.1997-06-13,Tom,Berkery,Nominated by the Taoiseach,Tom Berkery,Fine Gael,false,1997,20,20,False
+Aidan-O'Connor.S.1997-06-13,Aidan,O'Connor,Nominated by the Taoiseach,Aidan O'Connor,Fine Gael,false,1997,20,20,False
+Mary-Jackman.S.1989-10-01,Mary,Jackman,Labour Panel,Mary Jackman,Fine Gael,false,1989,21,21,False
+Paddy-McGowan.S.1965-06-23,Paddy,McGowan,Agricultural Panel,Paddy McGowan,Fianna Fáil,false,1965,21,"20,21",False
+Jarlath-McDonagh.S.1993-02-17,Jarlath,McDonagh,Labour Panel,Jarlath McDonagh,Fine Gael,false,1993,21,"20,21",False
+Maurice-Manning.S.1981-10-08,Maurice,Manning,Cultural and Educational Panel,Maurice Manning,Fine Gael,false,1981,21,"20,21",False
+Mick-Lanigan.S.1977-10-27,Mick,Lanigan,Industrial and Commercial Panel,Mick Lanigan,Fianna Fáil,false,1977,21,"20,21",False
+Ann-Leonard.S.1997-09-17,Ann,Leonard,Nominated by the Taoiseach,Ann Leonard,Fianna Fáil,false,1997,21,21,False
+Daniel-Kiely.S.1981-10-08,Daniel,Kiely,Labour Panel,Daniel Kiely,Fianna Fáil,false,1981,21,"20,21",False
+Helen-Keogh.S.1989-10-01,Helen,Keogh,Nominated by the Taoiseach,Helen Keogh,Progressive Democrats,false,1989,21,"21,27",False
+Fergus-O'Dowd.S.1997-09-17,Fergus,O'Dowd,Administrative Panel,Fergus O'Dowd,Fine Gael,false,1997,21,"21,29,30,31,32,33",False
+Máirín-Quill.D.1987-03-10,Máirín,Quill,Nominated by the Taoiseach,Máirín Quill,Progressive Democrats,false,1987,21,"21,27",False
+Therese-Ridge.S.1997-09-17,Therese,Ridge,Labour Panel,Therese Ridge,Fine Gael,false,1997,21,21,False
+Seán-Ryan.D.1989-06-29,Seán,Ryan,Labour Panel,Seán Ryan,Labour Party,false,1989,21,"21,27,28,29",False
+Madeleine-Taylor-Quinn.D.1981-06-30,Madeleine,Taylor-Quinn,Cultural and Educational Panel,Madeleine Taylor-Quinn,Fine Gael,false,1981,21,"20,21",False
+Brian-Mullooly.S.1981-10-08,Brian,Mullooly,Labour Panel,Brian Mullooly,Fianna Fáil,false,1981,21,"20,21",False
+Ernie-Caffrey.S.1997-09-17,Ernie,Caffrey,Industrial and Commercial Panel,Ernie Caffrey,Fine Gael,false,1997,21,21,False
+Frank-Chambers.S.1997-09-17,Frank,Chambers,Nominated by the Taoiseach,Frank Chambers,Fianna Fáil,false,1997,21,21,False
+John-Connor.D.1981-06-30,John,Connor,Agricultural Panel,John Connor,Fine Gael,false,1981,21,"21,27",False
+Fintan-A-Coogan.D.1982-12-14,Fintan A.,Coogan,Administrative Panel,Fintan A. Coogan,Fine Gael,false,1982,21,21,False
+Liam-T-Cosgrave.D.1981-06-30,Liam T.,Cosgrave,Industrial and Commercial Panel,Liam T. Cosgrave,Fine Gael,false,1981,21,"20,21",False
+Joe-Costello.S.1989-10-01,Joe,Costello,Administrative Panel,Joe Costello,Labour Party,false,1989,21,"21,27,29,30,31",False
+Denis-Cregan.S.1982-05-13,Denis,Cregan,Labour Panel,Denis Cregan,Fine Gael,false,1982,21,"20,21",False
+Avril-Doyle.D.1982-12-14,Avril,Doyle,Agricultural Panel,Avril Doyle,Fine Gael,false,1982,21,"21,27",False
+Enda-Bonner.S.1997-09-17,Enda,Bonner,Nominated by the Taoiseach,Enda Bonner,Fianna Fáil,false,1997,21,21,False
+Tom-Hayes.S.1997-09-17,Tom,Hayes,Agricultural Panel,Tom Hayes,Fine Gael,false,1997,21,"21,28,29,30,31",False
+Edward-Haughey.S.1994-12-13,Edward,Haughey,Nominated by the Taoiseach,Edward Haughey,Fianna Fáil,false,1994,21,"20,21",False
+Des-Hanafin.S.1969-11-05,Des,Hanafin,Labour Panel,Des Hanafin,Fianna Fáil,false,1969,21,21,False
+Pat-Gallagher.D.1992-12-14,Pat,Gallagher,Industrial and Commercial Panel,Pat Gallagher,Labour Party,false,1992,21,"21,27",False
+Dermot-Fitzpatrick.D.1987-03-10,Dermot,Fitzpatrick,Nominated by the Taoiseach,Dermot Fitzpatrick,Fianna Fáil,false,1987,21,"21,29",False
+Tom-Fitzgerald.S.1981-10-08,Tom,Fitzgerald,Nominated by the Taoiseach,Tom Fitzgerald,Fianna Fáil,false,1981,21,"20,21",False
+Jim-Gibbons.S.1997-09-17,Jim,Gibbons,Nominated by the Taoiseach,Jim Gibbons,Progressive Democrats,false,1997,21,21,False
+Michael-Finneran.S.1989-10-01,Michael,Finneran,Administrative Panel,Michael Finneran,Fianna Fáil,false,1989,21,"20,21,29,30",False
+Willie-Farrell.S.1982-05-13,Willie,Farrell,Industrial and Commercial Panel,Willie Farrell,Fianna Fáil,false,1982,21,"20,21",False
+Joseph-Doyle.D.1982-12-14,Joseph,Doyle,Administrative Panel,Joseph Doyle,Fine Gael,false,1982,21,"20,21",False
+John-Cregan.S.1998-06-23,John,Cregan,Labour Panel,John Cregan,Fianna Fáil,false,1998,21,"21,29,30",False
+Jim-Glennon.S.2000-06-09,Jim,Glennon,Industrial and Commercial Panel,Jim Glennon,Fianna Fáil,false,2000,21,"21,29",False
+Seán-Ó-Fearghaíl.S.2000-06-09,Seán,Ó Fearghaíl,Agricultural Panel,Seán Ó Fearghaíl,Fianna Fáil,false,2000,21,"21,29,30,31,32,33,34",False
+M-J-Nolan.S.1982-05-13,M. J.,Nolan,Agricultural Panel,M. J. Nolan,Fianna Fáil,false,1982,21,"21,27,29,30",False
+Martin-Mackin.S.2002-05-22,Martin,Mackin,Nominated by the Taoiseach,Martin Mackin,Fianna Fáil,false,2002,21,21,False
+Tom-Morrissey.S.2002-09-12,Tom,Morrissey,Nominated by the Taoiseach,Tom Morrissey,Progressive Democrats,false,2002,22,22,False
+Don-Lydon.S.1987-04-25,Don,Lydon,Labour Panel,Don Lydon,Fianna Fáil,false,1987,22,"20,21,22",False
+Joe-McHugh.S.2002-09-12,Joe,McHugh,Administrative Panel,Joe McHugh,Fine Gael,false,2002,22,"22,30,31,32,33",False
+Derek-McDowell.D.1992-12-14,Derek,McDowell,Industrial and Commercial Panel,Derek McDowell,Labour Party,false,1992,22,"22,27,28",False
+Dr-Martin-Mansergh.S.2002-09-12,Dr Martin,Mansergh,Agricultural Panel,Dr Martin Mansergh,Fianna Fáil,false,2002,22,"22,30",False
+Kathleen-O'Meara.S.1997-09-17,Kathleen,O'Meara,Agricultural Panel,Kathleen O'Meara,Labour Party,false,1997,22,"21,22",False
+John-Minihan.S.2002-09-12,John,Minihan,Nominated by the Taoiseach,John Minihan,Progressive Democrats,false,2002,22,22,False
+Mary-O'Rourke.S.1981-10-08,Mary,O'Rourke,Nominated by the Taoiseach,Mary O'Rourke,Fianna Fáil,false,1981,22,"21,22,27,28,30",False
+Brendan-Ryan.S.1982-05-13,Brendan,Ryan,National University of Ireland,Brendan Ryan,Labour Party,false,1982,22,"21,22",False
+Brendan-Ryan.S.1981-08-10,Brendan,Ryan,National University of Ireland,Brendan Ryan,Labour Party,false,1981,22,"21,22",False
+Sheila-Terry.S.2002-09-12,Sheila,Terry,Industrial and Commercial Panel,Sheila Terry,Fine Gael,false,2002,22,22,False
+Joanna-Tuffy.S.2002-09-12,Joanna,Tuffy,Administrative Panel,Joanna Tuffy,Labour Party,false,2002,22,"22,30,31",False
+Kate-Walsh.S.2002-09-12,Kate,Walsh,Nominated by the Taoiseach,Kate Walsh,Progressive Democrats,false,2002,22,22,False
+Eamon-Scanlon.S.2002-09-12,Eamon,Scanlon,Agricultural Panel,Eamon Scanlon,Fianna Fáil,false,2002,22,"22,30,32,34",False
+Rory-Kiely.S.1977-10-27,Rory,Kiely,Agricultural Panel,Rory Kiely,Fianna Fáil,false,1977,22,"20,21,22",False
+James-Bannon.S.2002-09-12,James,Bannon,Industrial and Commercial Panel,James Bannon,Fine Gael,false,2002,22,"22,30,31",False
+Michael-P-Kitt.D.1975-03-04,Michael P.,Kitt,Nominated by the Taoiseach,Michael P. Kitt,Fianna Fáil,false,1975,22,"22,27,28,30,31",False
+Cyprian-Brady.S.2002-09-12,Cyprian,Brady,Nominated by the Taoiseach,Cyprian Brady,Fianna Fáil,false,2002,22,"22,30",False
+Michael-Brennan.S.2002-12-09,Michael,Brennan,Nominated by the Taoiseach,Michael Brennan,Fianna Fáil,false,2002,22,22,False
+Fergal-Browne.S.2002-09-12,Fergal,Browne,Labour Panel,Fergal Browne,Fine Gael,false,2002,22,22,False
+Ulick-Burke.S.1981-10-08,Ulick,Burke,Agricultural Panel,Ulick Burke,Fine Gael,false,1981,22,"22,28,30",False
+Noel-Coonan.S.2002-09-12,Noel,Coonan,Cultural and Educational Panel,Noel Coonan,Fine Gael,false,2002,22,"22,30,31",False
+Margaret-Cox.S.1997-09-17,Margaret,Cox,Industrial and Commercial Panel,Margaret Cox,Fianna Fáil,false,1997,22,"21,22",False
+Brendan-Daly.D.1973-03-14,Brendan,Daly,Labour Panel,Brendan Daly,Fianna Fáil,false,1973,22,"20,22,28",False
+Eddie-Bohan.S.1987-04-25,Eddie,Bohan,Industrial and Commercial Panel,Eddie Bohan,Fianna Fáil,false,1987,22,"20,21,22",False
+John-Dardis.S.1989-10-01,John,Dardis,Nominated by the Taoiseach,John Dardis,Progressive Democrats,false,1989,22,"20,21,22",False
+Brendan-Kenneally.D.1989-06-29,Brendan,Kenneally,Nominated by the Taoiseach,Brendan Kenneally,Fianna Fáil,false,1989,22,"22,27,28,30",False
+Mary-EF-Henry.S.1993-02-17,Mary E.F.,Henry,University of Dublin,Mary E.F. Henry,Independent,false,1993,22,"20,21,22",False
+Dr-Maurice-Hayes.S.1997-09-17,Dr Maurice,Hayes,Nominated by the Taoiseach,Dr Maurice Hayes,Independent,false,1997,22,"21,22",False
+Brian-Hayes.S.1995-12-20,Brian,Hayes,Cultural and Educational Panel,Brian Hayes,Fine Gael,false,1995,22,"20,22,28,30,31",False
+Jim-Higgins.S.1981-10-08,Jim,Higgins,Labour Panel,Jim Higgins,Fine Gael,false,1981,22,"22,27,28",False
+Liam-Fitzgerald.D.1981-06-30,Liam,Fitzgerald,Labour Panel,Liam Fitzgerald,Fianna Fáil,false,1981,22,"21,22,27",False
+Michael-Finucane.D.1989-06-29,Michael,Finucane,Labour Panel,Michael Finucane,Fine Gael,false,1989,22,"22,27,28",False
+Colm-O'Gorman.S.2007-05-03,Colm,O'Gorman,Nominated by the Taoiseach,Colm O'Gorman,Progressive Democrats,false,2007,22,22,False
+Chris-Wall.S.2007-06-23,Chris,Wall,Nominated by the Taoiseach,Chris Wall,Fianna Fáil,false,2007,22,22,False
+Seán-Dorgan.S.2007-06-23,Seán,Dorgan,Nominated by the Taoiseach,Seán Dorgan,Fianna Fáil,false,2007,22,22,False
+Peter-Sands.S.2007-06-23,Peter,Sands,Nominated by the Taoiseach,Peter Sands,Fianna Fáil,false,2007,22,22,False
+Fiona-O'Malley.D.2002-06-06,Fiona,O'Malley,Nominated by the Taoiseach,Fiona O'Malley,Progressive Democrats,false,2002,23,"23,29",False
+Francis-O'Brien.S.1989-10-01,Francis,O'Brien,Agricultural Panel,Francis O'Brien,Fianna Fáil,false,1989,23,"20,21,22,23",False
+Nicky-McFadden.S.2007-07-23,Nicky,McFadden,Administrative Panel,Nicky McFadden,Fine Gael,false,2007,23,"23,31",False
+Pat-Moylan.S.1997-09-17,Pat,Moylan,Agricultural Panel,Pat Moylan,Fianna Fáil,false,1997,23,"21,22,23",False
+Lisa-McDonald.S.2007-07-23,Lisa,McDonald,Nominated by the Taoiseach,Lisa McDonald,Fianna Fáil,false,2007,23,23,False
+Michael-McCarthy.S.2002-09-12,Michael,McCarthy,Labour Panel,Michael McCarthy,Labour Party,false,2002,23,"22,23,31",False
+Joe-O'Toole.S.1987-04-25,Joe,O'Toole,National University of Ireland,Joe O'Toole,Independent,false,1987,23,"20,21,22,23",False
+Ann-Ormonde.S.1993-02-17,Ann,Ormonde,Cultural and Educational Panel,Ann Ormonde,Fianna Fáil,false,1993,23,"20,21,22,23",False
+Kieran-Phelan.S.2002-09-12,Kieran,Phelan,Industrial and Commercial Panel,Kieran Phelan,Fianna Fáil,false,2002,23,"22,23",False
+Phil-Prendergast.S.2007-07-23,Phil,Prendergast,Labour Panel,Phil Prendergast,Labour Party,false,2007,23,23,False
+Eugene-Regan.S.2007-07-23,Eugene,Regan,Agricultural Panel,Eugene Regan,Fine Gael,false,2007,23,23,False
+Shane-PN-Ross.S.1981-10-08,Shane,Ross,University of Dublin,Shane Ross,Independent,false,1981,23,"20,21,22,23,31,32",False
+Brendan-Ryan.S.2007-07-23,Brendan,Ryan,Administrative Panel,Brendan Ryan,Labour Party,false,2007,23,"23,31,32",False
+Liam-Twomey.D.2002-06-06,Liam,Twomey,Cultural and Educational Panel,Liam Twomey,Fine Gael,false,2002,23,"23,29,31",False
+Déirdre-de-Búrca.S.2007-07-23,Déirdre,de Búrca,Nominated by the Taoiseach,Déirdre de Búrca,Green Party,false,2007,23,23,False
+John-Paul-Phelan.S.2002-09-12,John Paul,Phelan,Agricultural Panel,John Paul Phelan,Fine Gael,false,2002,23,"22,23,31,32,33",False
+Tony-Kett.S.1997-09-17,Tony,Kett,Administrative Panel,Tony Kett,Fianna Fáil,false,1997,23,"21,22,23",False
+Alex-White.S.2007-07-23,Alex,White,Cultural and Educational Panel,Alex White,Labour Party,false,2007,23,"23,31",False
+Cecilia-Keaveney.D.1996-04-02,Cecilia,Keaveney,Cultural and Educational Panel,Cecilia Keaveney,Fianna Fáil,false,1996,23,"23,27,28,29",False
+Martin-Brady.D.1997-06-26,Martin,Brady,Nominated by the Taoiseach,Martin Brady,Fianna Fáil,false,1997,23,"23,28,29",False
+Alan-Kelly.S.2007-07-23,Alan,Kelly,Agricultural Panel,Alan Kelly,Labour Party,false,2007,23,"23,31,32,33,34",False
+Larry-Butler.S.2007-07-23,Larry,Butler,Industrial and Commercial Panel,Larry Butler,Fianna Fáil,false,2007,23,23,False
+Peter-Callanan.S.1997-09-17,Peter,Callanan,Agricultural Panel,Peter Callanan,Fianna Fáil,false,1997,23,"21,22,23",False
+Ivor-Callely.D.1989-06-29,Ivor,Callely,Nominated by the Taoiseach,Ivor Callely,Fianna Fáil,false,1989,23,"23,27,28,29",False
+Ciaran-Cannon.S.2007-07-23,Ciarán,Cannon,Nominated by the Taoiseach,Ciarán Cannon,Progressive Democrats,false,2007,23,"23,31,32,33",False
+John-Carty.D.2002-06-06,John,Carty,Agricultural Panel,John Carty,Fianna Fáil,false,2002,23,"23,29",False
+Donie-Cassidy.S.1982-05-13,Donie,Cassidy,Labour Panel,Donie Cassidy,Fianna Fáil,false,1982,23,"20,21,22,23,29",False
+Maria-Corrigan.S.2007-07-23,Maria,Corrigan,Nominated by the Taoiseach,Maria Corrigan,Fianna Fáil,false,2007,23,23,False
+Dan-Boyle.D.2002-06-06,Dan,Boyle,Nominated by the Taoiseach,Dan Boyle,Green Party,false,2002,23,"23,29",False
+Eoghan-Harris.S.2007-07-23,Eoghan,Harris,Nominated by the Taoiseach,Eoghan Harris,Independent,false,2007,23,23,False
+Dominic-Hannigan.S.2007-07-23,Dominic,Hannigan,Industrial and Commercial Panel,Dominic Hannigan,Labour Party,false,2007,23,"23,31",False
+John-Gerard-Hanafin.S.2002-09-12,John Gerard,Hanafin,Labour Panel,John Gerard Hanafin,Fianna Fáil,false,2002,23,"22,23",False
+Frances-Fitzgerald.D.1992-12-14,Frances,Fitzgerald,Labour Panel,Frances Fitzgerald,Fine Gael,false,1992,23,"23,27,28,31,32",False
+Geraldine-Feeney.S.2002-09-12,Geraldine,Feeney,Labour Panel,Geraldine Feeney,Fianna Fáil,false,2002,23,"22,23",False
+Camillus-Glynn.S.1997-09-17,Camillus,Glynn,Administrative Panel,Camillus Glynn,Fianna Fáil,false,1997,23,"21,22,23",False
+Paschal-Donohoe.S.2007-07-23,Paschal,Donohoe,Administrative Panel,Paschal Donohoe,Fine Gael,false,2007,23,"23,31,32,33,34",False
+Pearse-Doherty.S.2007-07-23,Pearse,Doherty,Agricultural Panel,Pearse Doherty,Sinn Féin,false,2007,23,"23,30,31,32,33,34",False
+John-Ellis.S.1977-10-27,John,Ellis,Nominated by the Taoiseach,John Ellis,Fianna Fáil,false,1977,23,"23,27,28,29",False
+James-Carroll.S.2009-11-26,James,Carroll,Administrative Panel,James Carroll,Fianna Fáil,false,2009,23,23,False
+Niall-Ó-Brolcháin.S.2009-12-14,Niall,Ó Brolcháin,Agricultural Panel,Niall Ó Brolcháin,Green Party,false,2009,23,23,False
+Mark-Dearey.S.2010-02-23,Mark,Dearey,Nominated by the Taoiseach,Mark Dearey,Green Party,false,2010,23,23,False
 Mary-Ann-O'Brien.S.2011-05-25,Mary Ann,O'Brien,Nominated by the Taoiseach,Mary Ann O'Brien,Independent,false,2011,24,24,False
+Darragh-O'Brien.D.2007-06-14,Darragh,O'Brien,Labour Panel,Darragh O'Brien,Fianna Fáil,false,2007,24,"23,24,30,32,33,34",False
+Martin-McAleese.S.2011-05-25,Martin,McAleese,Nominated by the Taoiseach,Martin McAleese,Independent,false,2011,24,24,False
+Tony-Mulcahy.S.2011-05-25,Tony,Mulcahy,Labour Panel,Tony Mulcahy,Fine Gael,false,2011,24,24,False
+Mary-Moran.S.2011-05-25,Mary,Moran,Nominated by the Taoiseach,Mary Moran,Labour Party,false,2011,24,24,False
+Paschal-Mooney.S.1987-04-25,Paschal,Mooney,Agricultural Panel,Paschal Mooney,Fianna Fáil,false,1987,24,"20,21,22,23,24",False
+Marie-Moloney.S.2011-05-25,Marie,Moloney,Labour Panel,Marie Moloney,Labour Party,false,2011,24,24,False
+Michael-Mullins.S.2011-05-25,Michael,Mullins,Cultural and Educational Panel,Michael Mullins,Fine Gael,false,2011,24,24,False
 Susan-O'Keeffe.S.2011-05-25,Susan,O'Keeffe,Agricultural Panel,Susan O'Keeffe,Labour Party,false,2011,24,24,False
-Marc-MacSharry.S.2002-09-12,Marc,MacSharry,Industrial and Commercial Panel,Marc MacSharry,Fianna Fáil,false,2002,24,"24,32,33",False
-Pat-O'Neill.S.2011-05-25,Pat,O'Neill,Agricultural Panel,Pat O'Neill,Fine Gael,false,2011,24,24,False
+Mary-M-White.S.2002-09-12,Mary M.,White,Industrial and Commercial Panel,Mary M. White,Fianna Fáil,false,2002,24,"22,23,24",False
 Averil-Power.S.2011-05-25,Averil,Power,Industrial and Commercial Panel,Averil Power,Fianna Fáil,false,2011,24,24,False
-Feargal-Quinn.S.1993-02-17,Feargal,Quinn,National University of Ireland,Feargal Quinn,Independent,false,1993,24,24,False
+Feargal-Quinn.S.1993-02-17,Feargal,Quinn,National University of Ireland,Feargal Quinn,Independent,false,1993,24,"20,21,22,23,24",False
 Kathryn-Reilly.S.2011-05-25,Kathryn,Reilly,Industrial and Commercial Panel,Kathryn Reilly,Sinn Féin,false,2011,24,24,False
-Tom-Sheahan.D.2007-06-14,Tom,Sheahan,Administrative Panel,Tom Sheahan,Fine Gael,false,2007,24,24,False
-Jim-Walsh.S.1997-09-17,Jim,Walsh,Agricultural Panel,Jim Walsh,Fianna Fáil,false,1997,24,24,False
+Tom-Sheahan.D.2007-06-14,Tom,Sheahan,Administrative Panel,Tom Sheahan,Fine Gael,false,2007,24,"24,30",False
+Jim-Walsh.S.1997-09-17,Jim,Walsh,Agricultural Panel,Jim Walsh,Fianna Fáil,false,1997,24,"21,22,23,24",False
 John-Whelan.S.2011-05-25,John,Whelan,Labour Panel,John Whelan,Labour Party,false,2011,24,24,False
-Mary-M-White.S.2002-09-12,Mary M.,White,Industrial and Commercial Panel,Mary M. White,Fianna Fáil,false,2002,24,24,False
 Katherine-Zappone.S.2011-05-25,Katherine,Zappone,Nominated by the Taoiseach,Katherine Zappone,Independent,false,2011,24,"24,32",False
 Jillian-van-Turnhout.S.2011-05-25,Jillian,van Turnhout,Nominated by the Taoiseach,Jillian van Turnhout,Independent,false,2011,24,24,False
-Labhrás-Ó-Murchú.S.1997-09-17,Labhrás,Ó Murchú,Cultural and Educational Panel,Labhrás Ó Murchú,Fianna Fáil,false,1997,24,24,False
+Labhrás-Ó-Murchú.S.1997-09-17,Labhrás,Ó Murchú,Cultural and Educational Panel,Labhrás Ó Murchú,Fianna Fáil,false,1997,24,"21,22,23,24",False
+Marc-MacSharry.S.2002-09-12,Marc,MacSharry,Industrial and Commercial Panel,Marc MacSharry,Fianna Fáil,false,2002,24,"22,23,24,32,33",False
+Pat-O'Neill.S.2011-05-25,Pat,O'Neill,Agricultural Panel,Pat O'Neill,Fine Gael,false,2011,24,24,False
 Fiach-Mac-Conghail.S.2011-05-25,Fiach,Mac Conghail,Nominated by the Taoiseach,Fiach Mac Conghail,Independent,false,2011,24,24,False
-Paul-Bradford.S.1987-04-25,Paul,Bradford,Agricultural Panel,Paul Bradford,Fine Gael,false,1987,24,24,False
+Sean-D-Barrett.S.2011-05-25,Sean D.,Barrett,University of Dublin,Sean D. Barrett,Independent,false,2011,24,24,False
+Paul-Bradford.S.1987-04-25,Paul,Bradford,Agricultural Panel,Paul Bradford,Fine Gael,false,1987,24,"22,23,24,27,28",False
 Terry-Brennan.S.2011-05-25,Terry,Brennan,Labour Panel,Terry Brennan,Fine Gael,false,2011,24,24,False
-Thomas-Byrne.D.2007-06-14,Thomas,Byrne,Cultural and Educational Panel,Thomas Byrne,Fianna Fáil,false,2007,24,"24,32,33,34",False
-Deirdre-Clune.D.1997-06-26,Deirdre,Clune,Cultural and Educational Panel,Deirdre Clune,Fine Gael,false,1997,24,24,False
+Thomas-Byrne.D.2007-06-14,Thomas,Byrne,Cultural and Educational Panel,Thomas Byrne,Fianna Fáil,false,2007,24,"24,30,32,33,34",False
 Eamonn-Coghlan.S.2011-05-25,Eamonn,Coghlan,Nominated by the Taoiseach,Eamonn Coghlan,Independent,false,2011,24,24,False
 Michael-Comiskey.S.2011-05-25,Michael,Comiskey,Agricultural Panel,Michael Comiskey,Fine Gael,false,2011,24,24,False
 John-Crown.S.2011-05-25,John,Crown,National University of Ireland,John Crown,Independent,false,2011,24,24,False
 David-Cullinane.S.2011-05-25,David,Cullinane,Labour Panel,David Cullinane,Sinn Féin,false,2011,24,"24,32,33,34",False
-Maurice-Cummins.S.2002-09-12,Maurice,Cummins,Labour Panel,Maurice Cummins,Fine Gael,false,2002,24,24,False
-Sean-D-Barrett.S.2011-05-25,Sean D.,Barrett,University of Dublin,Sean D. Barrett,Independent,false,2011,24,24,False
+Deirdre-Clune.D.1997-06-26,Deirdre,Clune,Cultural and Educational Panel,Deirdre Clune,Fine Gael,false,1997,24,"24,28,30",False
 Jim-D'Arcy.S.2011-05-25,Jim,D'Arcy,Nominated by the Taoiseach,Jim D'Arcy,Fine Gael,false,2011,24,24,False
-Cáit-Keane.S.2011-05-25,Cáit,Keane,Labour Panel,Cáit Keane,Fine Gael,false,2011,24,24,False
+John-Kelly.S.2011-05-25,John,Kelly,Administrative Panel,John Kelly,Labour Party,false,2011,24,24,False
+Maurice-Cummins.S.2002-09-12,Maurice,Cummins,Labour Panel,Maurice Cummins,Fine Gael,false,2002,24,"22,23,24",False
 Lorraine-Higgins.S.2011-05-25,Lorraine,Higgins,Nominated by the Taoiseach,Lorraine Higgins,Labour Party,false,2011,24,24,False
 Imelda-Henry.S.2011-05-25,Imelda,Henry,Industrial and Commercial Panel,Imelda Henry,Fine Gael,false,2011,24,24,False
 James-Heffernan.S.2011-05-25,James,Heffernan,Agricultural Panel,James Heffernan,Labour Party,false,2011,24,24,False
-Fidelma-Healy-Eames.S.2007-07-23,Fidelma,Healy Eames,Labour Panel,Fidelma Healy Eames,Fine Gael,false,2007,24,24,False
+Fidelma-Healy-Eames.S.2007-07-23,Fidelma,Healy Eames,Labour Panel,Fidelma Healy Eames,Fine Gael,false,2007,24,"23,24",False
 Aideen-Hayden.S.2011-05-25,Aideen,Hayden,Nominated by the Taoiseach,Aideen Hayden,Labour Party,false,2011,24,24,False
-John-Kelly.S.2011-05-25,John,Kelly,Administrative Panel,John Kelly,Labour Party,false,2011,24,24,False
+Cáit-Keane.S.2011-05-25,Cáit,Keane,Labour Panel,Cáit Keane,Fine Gael,false,2011,24,24,False
 Jimmy-Harte.S.2011-05-25,Jimmy,Harte,Industrial and Commercial Panel,Jimmy Harte,Labour Party,false,2011,24,24,False
 John-Gilroy.S.2011-05-25,John,Gilroy,Cultural and Educational Panel,John Gilroy,Labour Party,false,2011,24,24,False
 Hildegarde-Naughton.S.2013-07-19,Hildegarde,Naughton,Nominated by the Taoiseach,Hildegarde Naughton,Fine Gael,false,2013,24,"24,32,33,34",False
 Máiría-Cahill.S.2015-11-13,Máiría,Cahill,Industrial and Commercial Panel,Máiría Cahill,Labour Party,false,2015,24,24,False
-Kieran-O'Donnell.D.2007-06-14,Kieran,O'Donnell,Cultural and Educational Panel,Kieran O'Donnell,Fine Gael,false,2007,25,"25,31,33,34",False
+Aodhán-Ó-Ríordáin.D.2011-03-09,Aodhán,Ó Ríordáin,Industrial and Commercial Panel,Aodhán Ó Ríordáin,Labour Party,false,2011,25,"25,31,33",False
+Kieran-O'Donnell.D.2007-06-14,Kieran,O'Donnell,Cultural and Educational Panel,Kieran O'Donnell,Fine Gael,false,2007,25,"25,30,31,33,34",False
 Catherine-Noone.S.2011-05-25,Catherine,Noone,Industrial and Commercial Panel,Catherine Noone,Fine Gael,false,2011,25,"24,25",False
 Gerald-Nash.D.2011-03-09,Ged,Nash,Labour Panel,Ged Nash,Labour Party,false,2011,25,"25,31,33,34",False
 Jennifer-Murnane-O'Connor.S.2016-04-25,Jennifer,Murnane O'Connor,Labour Panel,Jennifer Murnane O'Connor,Fianna Fáil,false,2016,25,"25,33,34",False
+Michelle-Mulherin.D.2011-03-09,Michelle,Mulherin,Nominated by the Taoiseach,Michelle Mulherin,Fine Gael,false,2011,25,"25,31",False
 Gabrielle-McFadden.D.2014-05-23,Gabrielle,McFadden,Cultural and Educational Panel,Gabrielle McFadden,Fine Gael,false,2014,25,"25,31",False
 Pádraig-MacLochlainn.D.2011-03-09,Pádraig,Mac Lochlainn,Industrial and Commercial Panel,Pádraig Mac Lochlainn,Sinn Féin,false,2011,25,"25,31,33,34",False
-Terry-Leyden.D.1977-07-05,Terry,Leyden,Labour Panel,Terry Leyden,Fianna Fáil,false,1977,25,"24,25",False
-Marie-Louise-O'Donnell.S.2011-05-25,Marie-Louise,O'Donnell,Nominated by the Taoiseach,Marie-Louise O'Donnell,Independent,false,2011,25,"24,25",False
-Michelle-Mulherin.D.2011-03-09,Michelle,Mulherin,Nominated by the Taoiseach,Michelle Mulherin,Fine Gael,false,2011,25,"25,31",False
-Keith-Swanick.S.2016-04-25,Keith,Swanick,Cultural and Educational Panel,Keith Swanick,Fianna Fáil,false,2016,25,25,False
-Grace-O'Sullivan.S.2016-04-25,Grace,O'Sullivan,Agricultural Panel,Grace O'Sullivan,Green Party,false,2016,25,25,False
-James-Reilly.D.2007-06-14,James,Reilly,Nominated by the Taoiseach,James Reilly,Fine Gael,false,2007,25,"25,31",False
-Neale-Richmond.S.2016-04-25,Neale,Richmond,Labour Panel,Neale Richmond,Fine Gael,false,2016,25,"25,33,34",False
+Terry-Leyden.D.1977-07-05,Terry,Leyden,Labour Panel,Terry Leyden,Fianna Fáil,false,1977,25,"22,23,24,25",False
 Billy-Lawless.S.2016-04-25,Billy,Lawless,Nominated by the Taoiseach,Billy Lawless,Independent,false,2016,25,25,False
+Grace-O'Sullivan.S.2016-04-25,Grace,O'Sullivan,Agricultural Panel,Grace O'Sullivan,Green Party,false,2016,25,25,False
+James-Reilly.D.2007-06-14,James,Reilly,Nominated by the Taoiseach,James Reilly,Fine Gael,false,2007,25,"25,30,31",False
+Neale-Richmond.S.2016-04-25,Neale,Richmond,Labour Panel,Neale Richmond,Fine Gael,false,2016,25,"25,33,34",False
+Keith-Swanick.S.2016-04-25,Keith,Swanick,Cultural and Educational Panel,Keith Swanick,Fianna Fáil,false,2016,25,25,False
 Trevor-Ó-Clochartaigh.S.2011-05-25,Trevor,Ó Clochartaigh,Agricultural Panel,Trevor Ó Clochartaigh,Sinn Féin,false,2011,25,"24,25",False
 Pádraig-Ó-Céidigh.S.2016-04-25,Pádraig,Ó Céidigh,Nominated by the Taoiseach,Pádraig Ó Céidigh,Independent,false,2016,25,25,False
-Brian-Ó-Domhnaill.S.2007-07-23,Brian,Ó Domhnaill,Agricultural Panel,Brian Ó Domhnaill,Fianna Fáil,false,2007,25,"24,25",False
-Aodhán-Ó-Ríordáin.D.2011-03-09,Aodhán,Ó Ríordáin,Industrial and Commercial Panel,Aodhán Ó Ríordáin,Labour Party,false,2011,25,"25,31,33",False
-John-O'Mahony.D.2007-06-14,John,O'Mahony,Nominated by the Taoiseach,John O'Mahony,Fine Gael,false,2007,25,"25,31",False
+Brian-Ó-Domhnaill.S.2007-07-23,Brian,Ó Domhnaill,Agricultural Panel,Brian Ó Domhnaill,Fianna Fáil,false,2007,25,"23,24,25",False
+John-O'Mahony.D.2007-06-14,John,O'Mahony,Nominated by the Taoiseach,John O'Mahony,Fine Gael,false,2007,25,"25,30,31",False
 Denis-Landy.S.2011-05-25,Denis,Landy,Agricultural Panel,Denis Landy,Labour Party,false,2011,25,"24,25",False
-Rose-Conway-Walsh.S.2016-04-25,Rose,Conway-Walsh,Agricultural Panel,Rose Conway-Walsh,Sinn Féin,false,2016,25,"25,33,34",False
+Marie-Louise-O'Donnell.S.2011-05-25,Marie-Louise,O'Donnell,Nominated by the Taoiseach,Marie-Louise O'Donnell,Independent,false,2011,25,"24,25",False
 Colette-Kelleher.S.2016-04-25,Colette,Kelleher,Nominated by the Taoiseach,Colette Kelleher,Independent,false,2016,25,25,False
 Colm-Burke.S.2011-05-25,Colm,Burke,Industrial and Commercial Panel,Colm Burke,Fine Gael,false,2011,25,"24,25,33,34",False
 Ray-Butler.D.2011-03-09,Ray,Butler,Nominated by the Taoiseach,Ray Butler,Fine Gael,false,2011,25,"25,31",False
-Paudie-Coffey.S.2007-07-23,Paudie,Coffey,Nominated by the Taoiseach,Paudie Coffey,Fine Gael,false,2007,25,"25,31",False
-Paul-Coghlan.S.1997-09-17,Paul,Coghlan,Industrial and Commercial Panel,Paul Coghlan,Fine Gael,false,1997,25,"24,25",False
+Paudie-Coffey.S.2007-07-23,Paudie,Coffey,Nominated by the Taoiseach,Paudie Coffey,Fine Gael,false,2007,25,"23,25,31",False
+Paul-Coghlan.S.1997-09-17,Paul,Coghlan,Industrial and Commercial Panel,Paul Coghlan,Fine Gael,false,1997,25,"21,22,23,24,25",False
+Rose-Conway-Walsh.S.2016-04-25,Rose,Conway-Walsh,Agricultural Panel,Rose Conway-Walsh,Sinn Féin,false,2016,25,"25,33,34",False
 Máire-Devine.S.2016-04-25,Máire,Devine,Labour Panel,Máire Devine,Sinn Féin,false,2016,25,"25,34",False
 John-Dolan.S.2016-04-25,John,Dolan,Administrative Panel,John Dolan,Independent,false,2016,25,25,False
-Frank-Feighan.S.2002-09-12,Frankie,Feighan,Nominated by the Taoiseach,Frankie Feighan,Fine Gael,false,2002,25,"25,31,33,34",False
+Frank-Feighan.S.2002-09-12,Frankie,Feighan,Nominated by the Taoiseach,Frankie Feighan,Fine Gael,false,2002,25,"22,25,30,31,33,34",False
 Joan-Freeman.S.2016-04-25,Joan,Freeman,Nominated by the Taoiseach,Joan Freeman,Independent,false,2016,25,25,False
-Maura-Hopkins.S.2016-04-25,Maura,Hopkins,Administrative Panel,Maura Hopkins,Fine Gael,false,2016,25,25,False
 Kevin-Humphreys.D.2011-03-09,Kevin,Humphreys,Administrative Panel,Kevin Humphreys,Labour Party,false,2011,25,"25,31",False
-Ian-Marshall.S.2018-04-18,Ian,Marshall,Agricultural Panel,Ian Marshall,Independent,false,2018,25,25,False
+Maura-Hopkins.S.2016-04-25,Maura,Hopkins,Administrative Panel,Maura Hopkins,Fine Gael,false,2016,25,25,False
 Anthony-Lawlor.D.2011-03-09,Anthony,Lawlor,Agricultural Panel,Anthony Lawlor,Fine Gael,false,2011,25,"25,31",False
+Ian-Marshall.S.2018-04-18,Ian,Marshall,Agricultural Panel,Ian Marshall,Independent,false,2018,25,25,False
 Annie-Hoey.S.2020-03-30,Annie,Hoey,Agricultural Panel,Annie Hoey,Labour Party,false,2020,26,26,False
 Tim-Lombard.S.2016-04-25,Tim,Lombard,Agricultural Panel,Tim Lombard,Fine Gael,false,2016,26,"25,26",False
-Pippa-Hackett.S.2019-11-01,Pippa,Hackett,Agricultural Panel,Pippa Hackett,Green Party,true,2019,26,"25,26",False
 Elisha-McCallion.S.2020-03-30,Elisha,McCallion,Industrial and Commercial Panel,Elisha McCallion,Sinn Féin,false,2020,26,26,False
-John-McGahon.S.2020-03-30,John,McGahon,Cultural and Educational Panel,John McGahon,Fine Gael,false,2020,26,26,False
 Rebecca-Moynihan.S.2020-03-30,Rebecca,Moynihan,Administrative Panel,Rebecca Moynihan,Labour Party,false,2020,26,26,False
+Pippa-Hackett.S.2019-11-01,Pippa,Hackett,Agricultural Panel,Pippa Hackett,Green Party,true,2019,26,"25,26",False
 Eugene-Murphy.D.2016-10-03,Eugene,Murphy,Agricultural Panel,Eugene Murphy,Fianna Fáil,false,2016,26,"26,32",False
 Marie-Sherlock.S.2020-03-30,Marie,Sherlock,Labour Panel,Marie Sherlock,Labour Party,false,2020,26,"26,34",False
-Denis-O'Donovan.S.1989-10-01,Denis,O'Donovan,Agricultural Panel,Denis O'Donovan,Fianna Fáil,false,1989,26,"24,25,26",False
+Denis-O'Donovan.S.1989-10-01,Denis,O'Donovan,Agricultural Panel,Denis O'Donovan,Fianna Fáil,false,1989,26,"21,23,24,25,26,29",False
 Pauline-O'Reilly.S.2020-03-30,Pauline,O'Reilly,Labour Panel,Pauline O'Reilly,Green Party,false,2020,26,26,False
-Ned-O'Sullivan.S.2007-07-23,Ned,O'Sullivan,Labour Panel,Ned O'Sullivan,Fianna Fáil,false,2007,26,"24,25,26",False
+Ned-O'Sullivan.S.2007-07-23,Ned,O'Sullivan,Labour Panel,Ned O'Sullivan,Fianna Fáil,false,2007,26,"23,24,25,26",False
 Mark-Wall.S.2020-03-30,Mark,Wall,Industrial and Commercial Panel,Mark Wall,Labour Party,false,2020,26,"26,34",False
 Barry-Ward.S.2020-03-30,Barry,Ward,Industrial and Commercial Panel,Barry Ward,Fine Gael,false,2020,26,"26,34",False
 Fintan-Warfield.S.2016-04-25,Fintan,Warfield,Cultural and Educational Panel,Fintan Warfield,Sinn Féin,false,2016,26,"25,26",False
 Niall-Ó-Donnghaile.S.2016-04-25,Niall,Ó Donnghaile,Administrative Panel,Niall Ó Donnghaile,Sinn Féin,false,2016,26,"25,26",False
 Paul-Gavan.S.2016-04-25,Paul,Gavan,Labour Panel,Paul Gavan,Sinn Féin,false,2016,26,"25,26",False
-David-PB-Norris.S.1987-04-25,David P.B.,Norris,University of Dublin,David P.B. Norris,Independent,false,1987,26,"24,25,26",False
+David-PB-Norris.S.1987-04-25,David P.B.,Norris,University of Dublin,David P.B. Norris,Independent,false,1987,26,"20,21,22,23,24,25,26",False
+John-McGahon.S.2020-03-30,John,McGahon,Cultural and Educational Panel,John McGahon,Fine Gael,false,2020,26,26,False
+Lynn-Boylan.S.2020-03-30,Lynn,Boylan,Agricultural Panel,Lynn Boylan,Sinn Féin,false,2020,26,26,False
+Lisa-Chambers.D.2016-10-03,Lisa,Chambers,Cultural and Educational Panel,Lisa Chambers,Fianna Fáil,false,2016,26,"26,32",False
 Micheál-Carrigy.S.2020-03-30,Micheál,Carrigy,Industrial and Commercial Panel,Micheál Carrigy,Fine Gael,false,2020,26,"26,34",False
 Malcolm-Byrne.D.2019-11-29,Malcolm,Byrne,Cultural and Educational Panel,Malcolm Byrne,Fianna Fáil,false,2019,26,"26,32,34",False
-Jerry-Buttimer.S.2007-07-23,Jerry,Buttimer,Labour Panel,Jerry Buttimer,Fine Gael,false,2007,26,"25,26,31,34",False
+Jerry-Buttimer.S.2007-07-23,Jerry,Buttimer,Labour Panel,Jerry Buttimer,Fine Gael,false,2007,26,"23,25,26,31,34",False
+Paddy-Burke.S.1993-02-17,Paddy,Burke,Agricultural Panel,Paddy Burke,Fine Gael,false,1993,26,"20,21,22,23,24,25,26",False
 John-Cummins.S.2020-03-30,John,Cummins,Labour Panel,John Cummins,Fine Gael,false,2020,26,"26,34",False
-Paddy-Burke.S.1993-02-17,Paddy,Burke,Agricultural Panel,Paddy Burke,Fine Gael,false,1993,26,"24,25,26",False
-Lisa-Chambers.D.2016-10-03,Lisa,Chambers,Cultural and Educational Panel,Lisa Chambers,Fianna Fáil,false,2016,26,"26,32",False
-Lynn-Boylan.S.2020-03-30,Lynn,Boylan,Agricultural Panel,Lynn Boylan,Sinn Féin,false,2020,26,26,False
-Ivana-Bacik.S.2007-07-23,Ivana,Bacik,University of Dublin,Ivana Bacik,Labour Party,false,2007,26,"24,25,26,33,34",False
-Catherine-Ardagh.S.2016-04-25,Catherine,Ardagh,Industrial and Commercial Panel,Catherine Ardagh,Fianna Fáil,false,2016,26,"25,26,34",False
-Michael-D'Arcy.D.2007-06-14,Michael,D'Arcy,Agricultural Panel,Michael D'Arcy,Fine Gael,false,2007,26,"24,26,32",False
 Shane-Cassells.D.2016-10-03,Shane,Cassells,Labour Panel,Shane Cassells,Fianna Fáil,false,2016,26,"26,32",False
-Mary-Seery-Kearney.S.2020-06-29,Mary,Seery Kearney,Nominated by the Taoiseach,Mary Seery Kearney,Fine Gael,false,2020,26,26,False
+Ivana-Bacik.S.2007-07-23,Ivana,Bacik,University of Dublin,Ivana Bacik,Labour Party,false,2007,26,"23,24,25,26,33,34",False
+Catherine-Ardagh.S.2016-04-25,Catherine,Ardagh,Industrial and Commercial Panel,Catherine Ardagh,Fianna Fáil,false,2016,26,"25,26,34",False
+Michael-D'Arcy.D.2007-06-14,Michael,D'Arcy,Agricultural Panel,Michael D'Arcy,Fine Gael,false,2007,26,"24,26,30,32",False
 Regina-Doherty.D.2011-03-09,Regina,Doherty,Nominated by the Taoiseach,Regina Doherty,Fine Gael,false,2011,26,"26,31,32",False
-Aisling-Dolan.S.2020-06-29,Aisling,Dolan,Nominated by the Taoiseach,Aisling Dolan,Fine Gael,false,2020,26,26,False
+Mary-Seery-Kearney.S.2020-06-29,Mary,Seery Kearney,Nominated by the Taoiseach,Mary Seery Kearney,Fine Gael,false,2020,26,26,False
 Vincent-P-Martin.S.2020-06-29,Vincent P.,Martin,Nominated by the Taoiseach,Vincent P. Martin,Green Party,false,2020,26,26,False
-Timmy-Dooley.S.2002-09-12,Timmy,Dooley,Nominated by the Taoiseach,Timmy Dooley,Fianna Fáil,false,2002,26,"26,31,32,34",False
 Emer-Currie.S.2020-06-29,Emer,Currie,Nominated by the Taoiseach,Emer Currie,Fine Gael,false,2020,26,"26,34",False
+Aisling-Dolan.S.2020-06-29,Aisling,Dolan,Nominated by the Taoiseach,Aisling Dolan,Fine Gael,false,2020,26,26,False
 Róisín-Garvey.S.2020-06-29,Róisín,Garvey,Nominated by the Taoiseach,Róisín Garvey,Green Party,false,2020,26,26,False
 Erin-McGreehan.S.2020-06-29,Erin,McGreehan,Nominated by the Taoiseach,Erin McGreehan,Fianna Fáil,false,2020,26,"26,34",False
+Timmy-Dooley.S.2002-09-12,Timmy,Dooley,Nominated by the Taoiseach,Timmy Dooley,Fianna Fáil,false,2002,26,"22,26,30,31,32,34",False
 Gerry-Horkan.S.2016-04-25,Gerry,Horkan,Industrial and Commercial Panel,Gerry Horkan,Fianna Fáil,false,2016,26,"25,26",False
 Malachai-O'Hara.S.2024-04-08,Malachai,O'Hara,Administrative Panel,Malachai O'Hara,Green Party,false,2024,26,26,False
 Alan-Farrell.D.2011-03-09,Alan,Farrell,Nominated by the Taoiseach,Alan Farrell,Fine Gael,false,2011,26,"26,31,32,33",False
