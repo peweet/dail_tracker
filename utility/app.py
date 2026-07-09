@@ -256,17 +256,27 @@ pg = st.navigation(
             # A guided trail through the published payment graph (body → companies it pays →
             # the individual records), with a bounded breadcrumb. Reuses Procurement's payment
             # renderers; the value here is the navigation. See pages_code/follow_the_money.py.
+            # RETIRED FROM THE NAV but kept routable (visibility="hidden", the same pattern as
+            # the hidden Your Area pages): now reached from the Public Payments hub's
+            # "Trace a payment" entry card, so the route stays alive for existing deep links.
+            # Money nav declutter Phase 1 — doc/MONEY_NAV_DECLUTTER_PLAN.md.
             st.Page(
                 follow_the_money_page,
                 title="Follow the Money",
                 icon=":material/conversion_path:",
                 url_path="follow-the-money",
+                visibility="hidden",
             ),
+            # RETIRED FROM THE NAV but kept routable (visibility="hidden"): now reached from
+            # the Public Payments hub's "Accommodation spend" entry card; the route stays
+            # alive for existing deep links and as the page companion to the
+            # /v1/housing/accommodation-spend API. Money nav declutter Phase 1.
             st.Page(
                 accommodation_spend_page,
                 title="Accommodation Spend",
                 icon=":material/hotel:",
                 url_path="accommodation-spend",
+                visibility="hidden",
             ),
             st.Page(
                 public_payments_page,

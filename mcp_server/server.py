@@ -40,18 +40,23 @@ if str(REPO) not in sys.path:
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
 
-from dail_tracker_core import dossiers, serialize  # noqa: E402
+from dail_tracker_core import caveats, dossiers, serialize  # noqa: E402
 from dail_tracker_core.connections import api_conn  # noqa: E402
 from dail_tracker_core.db import register_views  # noqa: E402
 from dail_tracker_core.queries import appointments as appt  # noqa: E402
+from dail_tracker_core.queries import attendance as att  # noqa: E402
 from dail_tracker_core.queries import charities as char  # noqa: E402
 from dail_tracker_core.queries import corporate as corp  # noqa: E402
+from dail_tracker_core.queries import entity as ent  # noqa: E402
+from dail_tracker_core.queries import housing as hsg  # noqa: E402
 from dail_tracker_core.queries import judiciary as jud  # noqa: E402
 from dail_tracker_core.queries import lobbying as lb  # noqa: E402
+from dail_tracker_core.queries import local_government as lg  # noqa: E402
 from dail_tracker_core.queries import ministerial as min_  # noqa: E402
 from dail_tracker_core.queries import ministerial_diary as mdiary  # noqa: E402
 from dail_tracker_core.queries import procurement as proc  # noqa: E402
 from dail_tracker_core.queries import public_payments as pubpay  # noqa: E402
+from dail_tracker_core.queries import publicfinance as pf  # noqa: E402
 from dail_tracker_core.queries import sipo  # noqa: E402
 from dail_tracker_core.queries import votes as vot  # noqa: E402
 from mcp_server import qs_valuation, ted_conduit  # noqa: E402
@@ -1068,6 +1073,185 @@ def siting_check(
         "caveat": "planning-risk TRIAGE, never a grant/refuse verdict; an empty list is not proof the "
         "site is developable, and a point outside ingested layer coverage has NO data (not 'no issue')",
     }
+
+
+# ── Cross-register watchlist (organisation entity-crosswalk spine) ───────────────
+# NOTE: the composed organisation_dossier MCP tool is deliberately NOT registered —
+# doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md gates it ("PR3 — MCP tool (gated on owner
+# sign-off)") and plans a name/CRO-resolving shape on the future v_entity_xref spine.
+# This ranking lens over v_supplier_entity_xref (already LIVE on the free company page)
+# is a separate, ungated surface.
+
+
+@mcp.tool(annotations=_RO)
+def cross_register_watchlist(min_registers: int = 2, limit: int = 25) -> dict:
+    """Organisations that appear on the MOST public registers at once — procurement
+    suppliers that are ALSO on the lobbying register, in corporate (Iris Oifigiúil)
+    notices, on the charity register and/or holding an EPA licence. `min_registers`
+    counts registers BEYOND procurement (default 2 = a supplier on at least two other
+    registers). Each row carries the per-register flags and counts, the CRO company
+    match, and the supplier's sum-safe awarded €. Use for "which companies show up
+    everywhere?" — then get_supplier / company_influence for the detail behind one row.
+
+    ⚠️ CO-OCCURRENCE ONLY — the same organisation on several registers is a research
+    lead, NEVER evidence that one register explains another (no key links a lobby or
+    meeting to a contract). Counts are FLOORS: exact normalised-name / CRO matching
+    misses subsidiary and trading-name variants, and fusion below the exact match tier
+    is suppressed, not guessed — so a low count can be an undercount, and absence is
+    never proof of absence. awarded_value_safe_eur is the AWARD-ceiling grain: never
+    sum it with payments or any other money grain. No individuals — sole traders /
+    natural persons are excluded upstream. Surface the `caveat` with any finding."""
+    qr = ent.top_cross_register(_cur(), min_registers=min_registers, limit=limit)
+    if not qr.ok:
+        return {"error": qr.unavailable_reason}
+    rows = serialize.to_records(qr.data)
+    return {"count": len(rows), "entities": rows, "caveat": caveats.ENTITY_COOCCURRENCE}
+
+
+# ── Local government (council accountability scorecard) ─────────────────────────
+
+
+@mcp.tool(annotations=_RO)
+def council_scorecard(local_authority: str = "") -> dict:
+    """A council's accountability scorecard. With no argument: the national headline plus
+    the 31-council Chief Executive index (use it to find the exact council label). With a
+    `local_authority` (fuzzy — 'Mayo' resolves to 'Mayo County Council'): that council's
+    Chief Executive record, its NOAC 2024 performance indicators (finance / workforce /
+    roads / fire / litter, each beside the national median), its rates-collection
+    performance, and the three co-located cash signals (revenue balance, rates collection,
+    derelict-sites levy).
+
+    ⚠️ Each indicator is the council's OWN reported figure shown beside the national
+    median benchmark — indicators are never apportioned or summed across measures, and a
+    weak metric is context for scrutiny, not a verdict on the council or its executive.
+    No relationship between the cash signals is asserted. Surface the `caveat`."""
+    cur = _cur()
+    ce_qr = lg.chief_executives(cur)
+    if not ce_qr.ok:
+        return {"error": ce_qr.unavailable_reason}
+    ces = serialize.to_records(ce_qr.data)
+    if not local_authority:
+        return {
+            "national": _one(lg.national_summary(cur)),
+            "councils": ces,
+            "note": "call again with one local_authority label for its full scorecard",
+        }
+    q = local_authority.strip().lower()
+    hits = [r for r in ces if q in str(r.get("local_authority", "")).lower()]
+    if not hits:
+        return {
+            "error": f"no council matches '{local_authority}'",
+            "councils": [r.get("local_authority") for r in ces],
+        }
+    if len(hits) > 1:
+        return {
+            "disambiguation": [r.get("local_authority") for r in hits],
+            "note": "multiple councils match — call again with one exact label",
+        }
+    la = str(hits[0]["local_authority"])
+    return {
+        "local_authority": la,
+        "chief_executive": hits[0],
+        "noac_scorecard": _rows(lg.noac_scorecard(cur, la)),
+        "collection_rates": _rows(lg.collection_rates(cur, la)),
+        "cash_signals": _rows(lg.cash_signals(cur, la)),
+        "caveat": caveats.NOAC_SCORECARD,
+    }
+
+
+# ── Housing money (national demand / supply / accommodation spend) ───────────────
+
+
+@mcp.tool(annotations=_RO)
+def housing_money(grain: str = "national") -> dict:
+    """The national housing-money picture in one call: social-housing waiting-list totals
+    (`grain` = 'national' for the one-row headline, or 'county' / 'la' for the league
+    table), the supply & affordability headline (vacancy, average private rent, HAP), the
+    HAP household profile, new-dwelling completions per year (CSO), and State asylum
+    (international-protection) + Ukraine accommodation spend per year from the published
+    over-€20,000 purchase-order registers.
+
+    ⚠️ MONEY GRAIN — the accommodation figures are COMMITTED SPEND (purchase orders, by
+    year and stream); never add them to procurement AWARD ceilings or any other money
+    grain. Named accommodation PROVIDERS are deliberately not served by this tool (the
+    provider-level cut lacks the person-privacy gate applied to public payment surfaces);
+    use public_body_payments for the privacy-gated supplier ranking. Surface the
+    `caveats` with any € figure."""
+    cur = _cur()
+    return {
+        "waiting_list": _rows(hsg.waiting_list_totals(cur, grain)),
+        "supply": _one(hsg.supply_national(cur)),
+        "hap": _one(hsg.hap_national(cur)),
+        "completions_by_year": _rows(hsg.completions_trend(cur)),
+        "accommodation_spend_by_year": _rows(hsg.accommodation_spend_by_year(cur)),
+        "caveats": {
+            "accommodation_spend": caveats.ACCOMMODATION_SPEND,
+            "money_grains": caveats.MONEY_GRAINS,
+        },
+    }
+
+
+# ── Attendance (division turnout + TAA compliance) ───────────────────────────────
+
+
+@mcp.tool(annotations=_RO)
+def attendance_ranking(year: int = 0, house: str = "Dáil", limit: int = 25) -> dict:
+    """Attendance PARTICIPATION for one (year, house): per-member division turnout
+    (voted_in / missed / total_divisions / turnout_pct, WORST-first) plus the statutory
+    Travel & Accommodation Allowance compliance cut — the members below the 120-day
+    threshold and the cleared/below summary. `year`=0 resolves to the latest reporting
+    year; `house` is 'Dáil' or 'Seanad'. For one member's own record use
+    get_member_record instead.
+
+    ⚠️ turnout_pct is computed IN the registered view (divisions voted in ÷ divisions
+    held for that year+house) — report it as returned and NEVER recompute it against
+    sitting days or any other denominator (different bases). Office-holders (ministers /
+    chairs / leaders) are FLAGGED, not hidden: not voting can be their role, so a low
+    rate is context, never a verdict — carry the role flags with any ranking you present.
+    TAA rows exclude office-holders (not paid TAA on the attendance basis), and TAA € are
+    a distinct allowance grain — never summed with any other money."""
+    cur = _cur()
+    if not year:
+        yqr = att.participation_years(cur, house)
+        if not yqr.ok:
+            return {"error": yqr.unavailable_reason}
+        if yqr.data.empty:
+            return {"error": f"no attendance reporting years on file for {house}"}
+        year = int(yqr.data.iloc[0]["year"])
+    turnout = _rows(att.participation_turnout(cur, year, house))
+    if isinstance(turnout, list):
+        turnout = turnout[:limit]
+    below = _rows(att.taa_compliance(cur, year, house))
+    if isinstance(below, list):
+        below = below[:limit]
+    return {
+        "year": year,
+        "house": house,
+        "turnout_worst_first": turnout,
+        "taa_summary": _one(att.taa_compliance_summary(cur, year, house)),
+        "taa_below_threshold": below,
+        "caveat": caveats.ATTENDANCE,
+    }
+
+
+# ── National public finance (CSO general-government) ─────────────────────────────
+
+
+@mcp.tool(annotations=_RO)
+def gov_finance_annual() -> dict:
+    """National general-government REVENUE / EXPENDITURE / BALANCE per year (CSO GFA01,
+    national-accounts basis), newest first — the authoritative denominator for 'share of
+    total public spend' context (e.g. 'that programme = 0.4% of general-government
+    expenditure').
+
+    ⚠️ NATIONAL-ACCOUNTS GRAIN — a macro aggregate, NEVER mixed or summed with the
+    transaction-level registers (procurement awards, public-body payments, TD allowances).
+    Use it to contextualise a figure against the national total, never to reconcile a
+    register's sum against it. Surface the `caveat`."""
+    rows = _rows(pf.gov_finance_annual(_cur()))
+    if isinstance(rows, dict):
+        return rows
+    return {"by_year": rows, "caveat": caveats.GOV_FINANCE}
 
 
 # ── Prompts (audit templates surfaced as client slash-commands) ─────────────────

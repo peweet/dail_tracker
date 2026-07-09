@@ -144,7 +144,7 @@ Computed over the **comparable universe** (focal's trades ∪ buyers), entity = 
 - **top_buyers / repeat_buyer_share** — incumbency signal (≥2 wins same buyer)
 - **single_bid_exposure** — % `n_bids=1` (with its `n`) — *factual signal, never a verdict*
 - **framework_exposure** — % `is_framework_or_dps OR is_call_off`
-- **payment_evidence** — appears in payments? `n_publishers` + sum-safe paid/ordered (separate grain, never added to awards)
+- **payment_evidence** — appears in payments? `n_publishers` + sum-safe paid/ordered (separate grain, never added to awards; **firm-level only** — buyer-level awarded-vs-paid is non-comparable, see §8.7)
 - **source_confidence** — CRO `match_method` + value-coverage + sample size + match basis (CPV>buyer>title)
 
 **Safe wording:** "appears in comparable awards", "repeat winner", "likely competitor",
@@ -181,6 +181,9 @@ M&E specialists and general construction (Jones bids both); a pure-electrical vi
 4. CRO 64% on award suppliers, far lower on payments; same firm can carry 2 CROs; groups span multiple CROs.
 5. Payments names carry ledger-category bleed; big unlinked sums exist (Designer €83.5M no CRO).
 6. Three money grains never sum.
+7. **Buyer-level awarded-vs-paid is non-comparable** (HSE €447M awarded-safe vs €11.5bn paid = two different
+   populations, not a gap) — award→payment corroboration is **firm-level only, never a ratio**; and name-key
+   misses fake €0-paid (Total Highway Maintenance) → paid column must be CRO-keyed.
 
 ## 9. Artifacts (in `c:/tmp/competitor_probe/`)
 
@@ -201,60 +204,131 @@ Both sit on a small shared prerequisite layer and split along the existing free-
 paid-BI-spinout line. Nothing here is built; all of it is greenlight-gated on the wording /
 confidence-taxonomy / crosswalk-curation / pricing decisions (see §8 and the roadmap's user-domain list).
 
+### Grounded panel numbers (verified 2026-07-09 — real queries; treat as fact)
+
+**A2 · Trade market map — M&E** (electrical + mechanical_hvac + me_combined): **2,124 awards · 1,010 firms ·
+309 buyers**; top-10 firms hold only **11%** of awards — a broad, **non-degenerate** market, so a map is
+genuinely informative; sum-safe award band **€50k p25 / €156k median / €380k p75** (n=484 valued);
+**SME win-rate 91%** (n=2,020 awards with SME data); steady ~200–270 awards/yr 2020–2025. Top firms by count:
+EWL Electric, Matt O'Mahony Associates, Jones Engineering, City Electrical Factors, Global Rail Services,
+Delap Waller.
+
+**A1 · Buyer dossier — HSE:** 2,197 company awards · 1,184 suppliers · **incumbency 63%** (share of awards to
+repeat suppliers) · **framework share 60%** · **single-bid 13%** lot-level (40/311 lots, TED 2024+).
+*Design-shaping caveat:* unsliced, HSE's top suppliers are all medical (Uniphar, Irish Hospital Supplies,
+Fannin) — the dossier **must be trade-sliceable** or it is useless to a contractor persona. The trade tag is
+load-bearing for the buyer dossier too, not just the market map.
+
+**A3 / B·3 · Award→payment, firm level** (Jones shortlist rows, paid column added):
+
+| firm | awarded-safe | paid-safe | reading |
+|---|---:|---:|---|
+| John Sisk & Son | €49M | €638M | firm-level corroboration at scale |
+| Cumnor Construction | €0 | €122M | award-invisible but payment-visible — the paid grain adds real information |
+| Triur Construction | 20 wins · 5 shared buyers | €33M | wins corroborated by realised spend |
+| J Vaughan Electrical | €500k | €375k | like-for-like specialist, both grains small |
+| Carey Building Contractors | €33M | €0 | name-only (no CRO) — €0 is likely a name-mismatch **artifact**, not a fact |
+
+Two lessons: the paid column is the differentiating firm-level evidence (Sisk, Cumnor); and name-key coverage
+limits are visible in-sample (Carey €0) — the paid column must be **CRO-keyed**, with name-only rows rendering
+a flag, not a number. The **buyer-level** version of this comparison is banned — see A3.
+
 ### Scope 0 — Shared prerequisites (build once)
 
 | Prereq | What | Effort | Status |
 |---|---|---|---|
-| Trade tag | promote the CPV→title→spend-cat tagger as a gold column (`trade_family` + `trade_source`) | M | validated (161→2,124, ~95% precision) |
-| Buyer norm + crosswalk | NFKD-safe buyer normaliser + ~30–50-row curated rebrand/alias map | M | seed produced; needs human curation |
-| CRO-anchored entity key | `COALESCE('CRO:'||cro,'name:'||norm)` + surface `match_confidence`/`n_cro` | S | data already persisted; additive |
+| Trade tag | promote the CPV→title→spend-cat tagger as a gold column (`trade_family` + `trade_source`) | M | validated (161→2,124, ~95% precision); **owned by this doc** |
+| Buyer norm + crosswalk | NFKD-safe buyer normaliser + ~30–50-row curated rebrand/alias map | M | seed produced; needs human curation; **build spec owned by `doc/BUYER_DOSSIER_DESIGN.md`** (`buyer_xref.csv`, fail-closed) |
+| CRO-anchored entity key | `COALESCE('CRO:'||cro,'name:'||norm)` + surface `match_confidence`/`n_cro` | S | data already persisted; additive; **build spec owned by `doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md`** (`entity_xref` + normaliser unification PR0) |
 
 Free slice needs the first two; paid slice needs all three.
 
 ### Scope A — FREE: Buyer Dossier + Trade Market Map  *(the civic / reputation engine)*
 
 ~80% surfacing of views that already exist, plus the trade tag. User job: *understand a buyer or a trade*
-(journalists, procurement officers, trade bodies, new entrants).
+(journalists, procurement officers, trade bodies, new entrants, **SME contractors** — this is where the
+SME lives; they are the free audience, not the paid buyer, see Scope B).
 
 - **A1 · Buyer dossier** — top suppliers by trade, category/trade mix, incumbency (repeat-supplier share),
   **single-bid rate** (wires the built-but-unused `v_procurement_competition`), framework use, value trend,
-  live/expiring tenders for this buyer. Built on `v_procurement_authority_summary` (exists) + trade tag +
-  **buyer crosswalk** (the crosswalk is the prerequisite that unblocks the ~31% of TED competition buyers
-  that don't join raw). New: `v_procurement_authority_category_mix`, incumbency wrapper, competition fetch
-  wrapper. **Effort M.**
+  live/expiring tenders for this buyer. **Must be trade-sliceable** — unsliced, a buyer like HSE surfaces only
+  medical suppliers (see grounded numbers above); the trade tag is load-bearing here too. Built on
+  `v_procurement_authority_summary` (exists) + trade tag + **buyer crosswalk** (the crosswalk is the
+  prerequisite that unblocks the ~31% of TED competition buyers that don't join raw). The authoritative build
+  spec for this panel is `doc/BUYER_DOSSIER_DESIGN.md` (see §11) — this doc adds the trade slice, not a rival
+  spec. **Effort M.**
 - **A2 · Trade market map** (per CPV-4) — who wins, concentration (top-N share), SME win rate, single-bid %,
   typical award band (p25/median/p75), expiring contracts, year trend. Built on `v_procurement_bid_signal`
   + `v_procurement_cpv_summary` (**both already exist** with median/IQR); the trade tag lifts coverage from
   the 161 CPV-only slice to the 2,124-award enriched universe. New: `n_buyers` + `v_procurement_cpv_top_parties`.
   **Effort L (light).**
-- **Rails:** award grain only; single-bid = signal not verdict; SME rate carries the CPV-coverage caveat; never sum grains.
-- **Out of scope:** per-firm anything, payments blending, person-row export.
+- **A3 · Award→payment reality — FIRM-level card only.** ⚠️ **Corrected 2026-07-09: the buyer-level version
+  of this panel is a trap.** Verified: HSE shows €447M awarded (sum-safe) vs €11.5bn paid (78,869 lines) — a
+  26× "gap" that is actually **two non-comparable populations** (*paid* = ALL disclosed spend >€20k, incl.
+  pharma/devices; *awarded* = only the tendered subset with sum-safe values). Rendered side-by-side on a buyer
+  it reads as a false story. The card therefore renders at the **firm** level only: the same entity's
+  awarded-safe and paid-safe, separately labelled, **corroboration not comparison** — the PFH sample's §4
+  (`doc/samples/BI_SUPPLIER_DOSSIER_SAMPLE_PFH.md`) is the template. If a buyer page ever shows both figures,
+  they are two separately-labelled figures with a hard "different populations — not comparable" line —
+  **never a ratio, never a gap**. Paid column CRO-keyed only; a name-key miss renders as a flag, not €0
+  (Total Highway Maintenance shows €0 paid purely from a name mismatch). Built on
+  `procurement_payments_fact` (CRO-keyed) beside the firm's award rows. **Effort M.**
+- **Rails:** award grain drives competition metrics; the A3 payment card is **firm-level**, a *separate grain
+  shown beside*, never summed into awards, never a ratio/gap (buyer-level comparison banned — see A3);
+  single-bid = signal not verdict; SME rate carries the CPV-coverage caveat; never sum grains.
+- **Out of scope:** per-firm *competitor* analysis (that's Scope B — the A3 card is a single-firm fact
+  display, not a comparison), buyer-level awarded-vs-paid comparison (banned — see A3), payment value summed
+  into award value, person-row export.
 - **Smallest free ship:** A2 alone — leans almost entirely on two existing views + the trade tag.
 
 ### Scope B — PAID: Contractor Research Pack  *(the BI-spinout supplier side)*
 
-The one genuinely new asset (the competitor graph) + export, per firm. User job: *who do I compete against,
-which buyers are they strongest with, where should I aim?* (SME contractors + bid consultants).
+Two genuinely new assets, packaged per firm: the competitor graph **and the firm-level award→payment
+corroboration layer**. The moat is the second one — rivals see the *notice*; almost none see whether it turned
+into *money* — and it holds **only at the firm level** (buyer-level awarded-vs-paid is non-comparable; see the
+A3 correction). User job: *who wins comparable work, which buyers are they strongest with, and did those awards
+become payments?*
 
-One generated report per firm (the Jones 760-competitor demo, productised):
-1. **Your field** — N firms in your comparable awards (trades ∪ buyers), CRO-anchored, confidence-flagged.
+**Buyer = bid consultants / bid writers** (a professional, recurring, billable input they can pass through), plus
+mid-tier contractor BD functions and teaming / M&A advisors. **The SME contractor is the FREE audience, not the
+paid buyer** — cash-thin, no BD budget, buys work-winning alerts, not landscape analysis; monetise the consultant
+who serves many SMEs, not the SME. **Gate:** validate willingness-to-pay with bid consultants (a paid one-off pack)
+*before* any subscription / self-serve / watchlist build — pricing is unvalidated (see §8).
+
+One **manually-QA'd** report per firm (the Jones probe productised — human-checked and confidence-tiered, not
+an auto-published dragnet):
+1. **Shortlist, not a roster** — a ranked, confidence-tiered **top ~30 per shared buyer / trade**, long tail
+   collapsed to a count. The **760** from §7 is reported only as a *coverage denominator* ("760 firms appear in
+   your comparable-award universe"), **never as the headline boast** — trade-tag precision (~95%) is not competitor
+   *relevance* (a general-construction firm that won one M&E-tagged job is not a rival). Each row CRO-anchored + confidence-flagged.
 2. **Competitor table** — comparable wins, shared buyers, shared trades, adjusted awarded value (sum-safe only),
-   recent wins, framework exposure, single-bid exposure, payment evidence, source confidence.
-3. **Buyer view** — who is strong with the buyers you serve + buyers in your trade you haven't won yet.
-4. **Opportunity layer** — open TED tenders + expiring contracts in your trades (CPV-overlap; navigational suggestion).
-5. **Export** — CSV/PDF, value-safe columns + caveat column + source links, through a `public_display`-gated view.
+   recent wins, framework exposure, single-bid exposure, source confidence.
+3. **Award→payment reality (the moat — firm-level only)** — for each shortlisted rival, the same entity's
+   awarded-safe and paid-safe figures, separately labelled, as corroboration (never summed, never a ratio;
+   the PFH sample's §4 is the template, and buyer-level comparison is banned — see A3). Real rows: Sisk €49M
+   awarded-safe / €638M paid-safe; Cumnor €0 awarded / €122M paid (award-invisible, payment-visible). This is
+   what rival tender tools cannot show — they stop at the notice. Paid column CRO-keyed only; name-only rows
+   (Carey €33M awarded / €0 paid — likely a mismatch artifact) render the flag, not the €0.
+4. **Buyer view** — who is strong with the buyers you serve + buyers in your trade you haven't won yet.
+5. **Opportunity layer** — open TED tenders + expiring contracts in your trades (CPV-overlap; navigational suggestion).
+6. **Export** — CSV/PDF, value-safe columns + caveat column + source links, through a `public_display`-gated view.
 
 - **Built on:** new `v_procurement_comparable_awards` (eTenders⊎TED, deduped, trade tag + entity key) **M**;
   new `v_procurement_competitor_summary` (parameterised by focal entity) + data_access **M**; reuses trade tag,
   crosswalk, CRO key, `expiring_contracts`/`live_tenders` (exist), export helper (exists); UI report panel **M**.
 - **Rails (what makes it sellable):** co-occurrence not co-bidding ("appears in comparable awards" / "likely
-  competitor" / "repeat winner"); confidence flags mandatory; payments shown beside, never added to awards;
+  competitor" / "repeat winner"); confidence flags mandatory + manual QA before any pack ships; payments shown
+  beside, never added to awards; **corporate-class entities only — no person-level profiles built from the
+  supplier field** (sole traders appear as suppliers; same GDPR discipline as the rest of the product);
+  **coverage caveat stated on every pack** — eTenders/TED skew to *above-threshold* work, so the data is thinnest
+  at the small-value SME tier; the pack describes the *published-award* market, not the whole market;
   **no lobbying/diary overlays in the paid pack** (ethics firewall — those stay free-side); pricing model
   unvalidated → ship as a research artifact, not a subscription oracle.
-- **Out of scope (v1):** watchlists/alerts (needs accounts/PII/GDPR — separate gated build), CRO→parent
-  group rollup (curated, later), any "beat/favoured/influence" framing.
-- **Smallest paid ship:** `v_procurement_comparable_awards` + the competitor table on one supplier profile
-  (no export, no opportunity layer) — proves the 28→760 value end-to-end.
+- **Out of scope (v1):** watchlists/alerts (needs accounts/PII/GDPR — separate gated build, and gated on the WTP
+  proof above), CRO→parent group rollup (curated, later), any "beat/favoured/influence" framing, person-row profiles.
+- **Smallest paid ship:** `v_procurement_comparable_awards` + a **manually-QA'd top-~30 shortlist** and the
+  **firm-level** award→payment card on one supplier profile (no export, no opportunity layer) — proves the
+  shortlist + moat end-to-end on a single firm.
 
 ### Sequencing
 
@@ -264,6 +338,56 @@ Scope 0 (prereqs) ─► Scope A (free)  ─► reputation + data validation (mo
         └────────── ─► Scope B (paid) ─► revenue (one net-new view + export)
 ```
 
-Scope A is mostly **wiring** (Phase 2/3 ingredients exist); Scope B's only genuinely new asset is the
-comparable-awards graph plus export. Accuracy ceiling throughout = entity resolution (CRO 64% on awards,
-lower on payments) — confidence flags are load-bearing, not polish.
+Scope A is mostly **wiring** (Phase 2/3 ingredients exist); Scope B's genuinely new assets are the
+comparable-awards graph **and the firm-level award→payment corroboration layer (the moat)**, plus export.
+Accuracy ceiling throughout = entity resolution (CRO 64% on awards, lower on payments) — confidence flags are
+load-bearing, not polish; the paid pack is graded by domain experts who spot every merged/split entity, so it
+ships **manually QA'd and thresholded to a shortlist**, never as a raw 760-name dragnet.
+
+---
+
+## 11. Relationship to ongoing work (reconciliation, 2026-07-09)
+
+This doc is one layer of a single program, not a competing plan. Cross-checked against the six sibling design
+docs, the produced sample, and the sandbox prototype: **no hard conflicts**. The only tensions are sequencing
+(manual research packs now vs alert-SaaS later) and the ethics gate on influence data — both resolved below.
+
+| Asset | Relation | What it means for this doc |
+|---|---|---|
+| `doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md` | **COMPLEMENT — parent** | The umbrella plan. Scope A = its Phase 2 (buyer dossier + CPV market maps); Scope B = its "bespoke reports", **not** its Phase 5 SaaS. Same blockers (CPV-null, buyer reconciliation, match-confidence surfacing, `public_display` gate on name-keyed paid export). This doc files under Phase 2/3 as the supplier/competitor-side detail. |
+| `doc/BI_SPINOUT_ARCHITECTURE.md` | **COMPLEMENT — commercial wrapper** | Same free/paid rule ("seeing a public fact = free, recurring work = paid"); reports-first sequencing = this doc's pack-before-subscription WTP gate; already prices a **bid-consultant tier (€2,400–6,000/yr, white-labelled client reports)** — independently confirms Scope B's ICP. Its ethics bright line binds the pack: diary OUT of paid entirely; lobbying per-report + owner-gated, never bulk/API; competitor co-occurrence stays **award-side only**. |
+| `doc/BUYER_DOSSIER_DESIGN.md` | **OVERLAP — supersedes A1's spec** | This IS the free buyer dossier, fully specified: `buyer_xref.csv` fail-closed crosswalk (draft at `c:/tmp/buyer_xref_draft/`), `v_procurement_authority_cpv_summary`, dual single-bid lenses (eTenders award-level + TED lot-level, never merged), incumbency, `dossiers.buyer_dossier()`. A1 here = that build + the trade slice + the firm-level A3 card; do not re-specify. |
+| `doc/TENDER_ALERT_SYSTEM_DESIGN.md` | **COMPLEMENT — later graduation** | The opportunity layer's eventual SaaS form (accounts/email/scheduler = roadmap Phase 5, owner-gated PII build). **Not needed for the pack**: the opportunity layer ships now as `rebid_radar` + CSV. Reuses the same `buyer_xref`. Don't build the alert shell to satisfy this doc — it sits behind the WTP gate. |
+| `doc/SOURCE_CONFIDENCE_SYSTEM.md` | **COMPLEMENT — substrate** | Supplies the confidence flags this doc calls load-bearing: A–D trust grade, match badges, the `exact_ambiguous`→"possible match" wording fix, export envelope columns. Adopt it under BOTH slices; do not re-invent flags in the pack. |
+| `doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md` | **OVERLAP — supersedes Scope 0's entity-key spec** | This IS the CRO-anchored supplier spine (`entity_xref` + `v_entity_xref`, `match_tier` fail-closed, and **PR0 = unifying the 4 divergent name normalisers on `shared/name_norm`** — the foundational fix everything here needs, incl. the Carey/Total-Highway €0-paid artifacts). Its org-360 dossier is a *different artifact* (single-org deep-dive) from the comparative competitor pack — complementary outputs on the same spine. |
+| `doc/samples/BI_SUPPLIER_DOSSIER_SAMPLE_PFH.md` | **OVERLAP — the pack's ancestor & template** | Already demonstrates the shape and wording: its §4 awarded-vs-paid side-by-side (separate labelled cells, **no ratio, no netting**) is the firm-level A3/B·3 card verbatim; caveats reproduced verbatim from `caveats.py`; provisional labels ⚠️-flagged for owner sign-off. The research pack = this sample + the competitor shortlist + the opportunity layer. |
+| `pipeline_sandbox/bid_intelligence/` (`build_bid_pack`) | **OVERLAP — working prototype of Scope B** | Read-only composition of existing views (comparable awards, `bid_signal`, buyer payments, `active_firms`, `incumbent_payment_evidence`, `rebid_radar`, Markdown render) with the rails already enforced (no price, no win-probability, grains never blended, sole-traders excluded). **One gap: it keys competitors on `supplier_norm`, not CRO** — graduation requires the entity-xref spine. Graduate this prototype; don't rewrite it. |
+| `c:/tmp/bid_enrich_scoping` (sandbox, not in repo) | **COMPLEMENT — opportunity-layer feed** | Demand-side capital pipelines (PI2040 tracker, social-housing construction status, school/HSE capital) map onto the pack's opportunity layer as future inputs. The risk overlays are settled: tax defaulters **KILLED** (defamation/GDPR/zero base rate); EU sanctions = internal data-hygiene only, never a user-facing flag. |
+
+### Consolidation verdict
+
+- **This doc stays authoritative for:** the trade tagger, the trade-market-map numbers, the competitor
+  shortlist definition (top ~30, tail collapsed, 760 = denominator only), the firm-level A3 correction, the
+  PAID ICP (bid consultants) + WTP gate.
+- **It defers to:** BUYER_DOSSIER_DESIGN (buyer dossier build), ENTITY_CROSSWALK (entity spine + PR0),
+  SOURCE_CONFIDENCE (flags/badges/export envelope), BI_SPINOUT (monetisation + ethics), ROADMAP (overall
+  phasing), TENDER_ALERT (post-WTP-gate SaaS shell). No doc is redundant enough to delete; the near-dup risk
+  was A1-vs-BUYER_DOSSIER and Scope-0-vs-ENTITY_CROSSWALK, both resolved by the ownership pointers above.
+- **Two crosswalks, two name-spaces, never conflate:** `buyer_xref.csv` (buyer names) vs
+  `entity_xref` (supplier CRO). Every doc that touches both warns about this; it is the one integration
+  mistake available.
+
+### Unified build sequence (across all docs)
+
+1. **Foundations (each ships value alone):** ENTITY_CROSSWALK **PR0** (normaliser unification — fixes
+   distress-join-zero and the fake-€0-paid artifacts) + SOURCE_CONFIDENCE Phase 0 (vocab lock) + ROADMAP
+   Phase 0 (grain badge, confidence pill, export primitive).
+2. **FREE slice:** curate `buyer_xref.csv` + `v_procurement_authority_cpv_summary` → BUYER_DOSSIER build
+   (trade-sliceable A1) + promote the trade tagger to gold → A2 trade market map → firm-level A3 card.
+   Surface `match_confidence` (the roadmap's headline fix) en route.
+3. **PAID spine:** `entity_xref` → CRO-anchor `build_bid_pack.active_firms` → graduate the sandbox into
+   `dossiers.py` → manually-QA'd shortlist packs in the PFH sample's shape → sell to bid consultants →
+   **WTP gate**.
+4. **Confidence badges + export envelope** across both slices (SOURCE_CONFIDENCE Phases 1–2).
+5. **Only after the WTP gate clears:** TENDER_ALERT operational shell (accounts/email/scheduler) +
+   watchlists (ROADMAP Phase 5).

@@ -780,6 +780,35 @@ def public_payments_page() -> None:
         "them</strong>. A line is a procurement record, not evidence of influence or wrongdoing.</div>"
     )
     _stats_strip(stats, cov)
+    # Go-deeper entry cards (Money nav declutter Phase 1, doc/MONEY_NAV_DECLUTTER_PLAN.md).
+    # Follow the Money and Accommodation Spend were retired from the top nav
+    # (app.py: visibility="hidden") and this hub is now their front door, so these two
+    # cards are load-bearing navigation, not decoration. Pure <a href> cross-page links
+    # with static copy — no data access (the spa_links component only intercepts
+    # same-page "?param" hrefs, so a leading-slash href is a real navigation, intended).
+    # Placed directly under the headline stats — live-verified 2026-07-09: below the
+    # glossary they sat just under the 900px desktop fold (y≈975) and ~670px deep on
+    # mobile, where the <768px drawer omits hidden pages and these cards are the ONLY
+    # path. Hero → caveat → stats still lead, so the honesty rails stay first; and the
+    # block stays ABOVE the zero-publishers early return so the doors stay open even in
+    # the degraded/empty-data state. Reuses the .mf-featured whole-card link from the
+    # Follow-the-Money landing; .pp-deeper (shared_css.py) only supplies the 2-up row.
+    st.html(
+        '<div class="pp-deeper">'
+        '<a class="mf-featured" href="/follow-the-money" target="_self" '
+        'aria-label="Trace a payment — open Follow the Money">'
+        '<div class="mf-featured-kick">GO DEEPER</div>'
+        '<div class="mf-featured-name">Trace a payment</div>'
+        '<div class="mf-featured-blurb">Follow one body\'s money to the companies it pays, '
+        "line by line — and step back through the trail.</div></a>"
+        '<a class="mf-featured" href="/accommodation-spend" target="_self" '
+        'aria-label="Accommodation spend — open the accommodation spending page">'
+        '<div class="mf-featured-kick">FEATURED</div>'
+        '<div class="mf-featured-name">Accommodation spend</div>'
+        '<div class="mf-featured-blurb">What the State pays to accommodate people seeking '
+        "international protection, and Ukrainian beneficiaries of temporary protection.</div></a>"
+        "</div>"
+    )
     # National-scale anchor from the (previously orphaned) gov-finance series — a denominator
     # to eyeball these figures against, explicitly NOT a share they sum into (different bases).
     render_national_finance_context(note="The published payments below are one slice of this, not the whole.")

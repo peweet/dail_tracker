@@ -5808,6 +5808,14 @@ def inject_css() -> None:
             text-transform: uppercase; color: var(--accent); }
         .mf-featured-name { font-size: 1.15rem; font-weight: 700; color: var(--ink-strong); margin: 0.1rem 0; }
         .mf-featured-blurb { font-size: 0.86rem; color: var(--ink-700); line-height: 1.45; }
+        /* Public Payments hub "go deeper" entry cards (Money nav declutter Phase 1):
+           the two .mf-featured whole-card links to the hidden-but-routable
+           /follow-the-money and /accommodation-spend routes. Reuses the featured-card
+           look above; this wrapper only supplies the compact 2-up row (same
+           two-column + mobile-collapse pattern as .don-grid). */
+        .pp-deeper { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin: 0.7rem 0 0.5rem; }
+        .pp-deeper > .mf-featured { margin: 0; }
+        @media (max-width: 760px) { .pp-deeper { grid-template-columns: 1fr; } }
         /* the data-wall note — where the trail stops (direct contractor only) */
         .mf-wall { font-size: 0.84rem; color: var(--ink-700); line-height: 1.5;
             background: var(--surface); border: 1px dashed var(--border); border-radius: 8px;

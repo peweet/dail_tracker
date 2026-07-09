@@ -62,21 +62,29 @@ class Term:
     date_end: str
 
 
-# "Go back to 2016" → 32nd Dáil onward; the 31st is included so declarers in the
-# 2016 register from the outgoing Dáil still match (cheap, maximises recovery).
-# Current terms (34th Dáil / 27th Seanad) are pulled too so member_terms is
-# complete and is_current is derivable, but they are dropped from the historic
-# roster (they already live in flattened_members).
+# Terms cover every year the Register of Members' Interests exists (first
+# register = 1995 declarations, published April 1996, during the 27th Dáil /
+# 20th Seanad). Current terms (34th Dáil / 27th Seanad) are pulled too so
+# member_terms is complete and is_current is derivable, but they are dropped
+# from the historic roster (they already live in flattened_members).
 #
 # date_start MUST precede the term's first membership: the API filters members by
 # membership_start >= date_start, so a late start silently drops early-sworn
 # members (Seanad 26 returned 19/68 with a 2020-06-29 start — fixed to 2020-01-01).
 # Use a generous window per term (well before the election → well after dissolution).
 TERMS: list[Term] = [
+    Term("dail", 27, "1992-01-01", "1997-12-31"),
+    Term("dail", 28, "1997-01-01", "2002-12-31"),
+    Term("dail", 29, "2002-01-01", "2007-12-31"),
+    Term("dail", 30, "2007-01-01", "2011-06-01"),
     Term("dail", 31, "2011-01-01", "2016-06-01"),
     Term("dail", 32, "2016-01-01", "2020-06-01"),
     Term("dail", 33, "2020-01-01", "2024-12-31"),
     Term("dail", 34, "2024-09-01", "2099-01-01"),
+    Term("seanad", 20, "1993-01-01", "1997-12-31"),
+    Term("seanad", 21, "1997-01-01", "2002-12-31"),
+    Term("seanad", 22, "2002-01-01", "2007-12-31"),
+    Term("seanad", 23, "2007-01-01", "2011-12-31"),
     Term("seanad", 24, "2011-01-01", "2016-12-31"),
     Term("seanad", 25, "2016-01-01", "2020-12-31"),
     Term("seanad", 26, "2020-01-01", "2025-12-31"),

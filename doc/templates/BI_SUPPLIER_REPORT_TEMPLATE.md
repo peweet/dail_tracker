@@ -254,18 +254,21 @@ Plus: "Co-presence across registers is reported **without** asserting or implyin
 
 ---
 
-## OPTIONAL PANEL · Lobbying & ministerial-diary co-occurrence
+## OPTIONAL PANEL · Lobbying-register co-occurrence
 
-> **OPTIONAL — HIGHEST REPUTATIONAL-RISK FEATURE.** Include only with owner sign-off. Held to the same no-inference discipline as the free side. **Co-occurrence ONLY.** Raw counts as **separate labelled facts**; **never** a score, ranking, index, or "influence"/"access" number. The **company is the subject — never any politician**; no office-holder is ranked, scored, or profiled.
+> **OPTIONAL — HIGHEST REPUTATIONAL-RISK FEATURE. Per-report, owner-gated only.** Include only with explicit owner sign-off on this specific report. Held to the same no-inference discipline as the free side. **Co-occurrence ONLY.** Raw counts as **separate labelled facts**; **never** a score, ranking, index, or "influence"/"access" number. The **company is the subject — never any politician**.
+>
+> **Scope reversal (2026-07-08):** **ministerial-diary access is OUT of the paid product entirely** (free civic only — see [architecture §4](../BI_SPINOUT_ARCHITECTURE.md) and [Fable §7](../BI_SPINOUT_FABLE_ASSESSMENT.md)). This panel is **lobbying-register co-occurrence only**. Do **not** add diary/minister-meeting data to a paid report; if a client asks, point them to the free Dáil Tracker civic pages.
+>
+> **Hard gates:** (a) **never** in bulk exports or the API — reports only; (b) the **award-€ figures must NOT sit in the same table/line as the lobbying count** — they already appear in Sections A1–A2; here, reference them, do not restate them beside the lobbying figure (co-locating composes the causation narrative the caveat denies).
 
 **Fill-in prose.**
-> `{{SUPPLIER_LEGAL_NAME}}` appears on the public **lobbying register**: `{{N_LOBBY_RETURNS}}` returns, side `{{LOBBY_SIDE}}` (registrant/client). Its award footprint carried alongside (a per-supplier total, **never summed across lobby entities**): `{{N_AWARD_ROWS}}` award rows / `{{N_AUTHORITIES}}` authorities / `{{AWARDED_VALUE_SAFE_EUR}}` awarded.
-> **Ministerial diary** co-occurrence: **[requires Phase 2 view]** — there is no `data_access` diary function; the only interface is the MCP tool `ministerial_diary_organisation`, which is outside the report generator's firewalled path. Leave the diary count stubbed until a registered view exists.
-> Verify every match against the free public register: **lobbying.ie** → `{{LOBBYING_REGISTER_URL | https://www.lobbying.ie}}` · ministerial diaries → `{{DIARY_REGISTER_URL}}`.
+> `{{SUPPLIER_LEGAL_NAME}}` appears on the public **lobbying register**: `{{N_LOBBY_RETURNS}}` returns, side `{{LOBBY_SIDE}}` (registrant/client). *(The company's award footprint is reported separately in Sections A1–A2 and is not restated here.)*
+> Verify every match against the free public register: **lobbying.ie** → `{{LOBBYING_REGISTER_URL | https://www.lobbying.ie}}`.
 
-Table only — register · present? · raw count · link out. No fused number.
+Table only — register · present? · raw lobbying count · link out. **No award-€ column in this table. No fused number.**
 
-**Data source:** `fetch_lobbying_overlap_result(conn)` → grain **enrichment (co-occurrence; never sum)**; fields `lobby_name`, `lobby_side`, `n_lobby_returns`, `n_award_rows`, `n_authorities`, `awarded_value_safe_eur`. Diary co-occurrence via `data_access`: **[requires Phase 2 view]**.
+**Data source:** `fetch_lobbying_overlap_result(conn)` → grain **enrichment (co-occurrence; never sum)**; use only `lobby_name`, `lobby_side`, `n_lobby_returns` here. The `n_award_rows` / `n_authorities` / `awarded_value_safe_eur` fields it also returns are **deliberately NOT rendered in this panel** (they belong in A1–A2).
 
 **Caveats to include (all verbatim):**
 
@@ -275,11 +278,7 @@ Lobbying co-occurrence —
 Register access —
 > Co-occurrence on the public lobbying register only — NOT evidence of improper influence.
 
-Ministerial diary (when the Phase 2 diary view ships) —
-> from ministers' own published diaries — access, not influence; self-curated, non-exhaustive and quarterly-in-arrears; a diary meeting is not a lobbying return and co-occurrence implies no causation
-
-Export-parity string (if this panel is exported) —
-> CO-OCCURRENCE ONLY — never evidence that lobbying influenced any award. Rows duplicate per lobby-name match: NEVER sum awarded_value_safe_eur across rows.
+Export-parity note — **this panel is never exported** (reports-only, per the hard gate above), so no export string applies.
 
 ---
 
@@ -295,10 +294,9 @@ Carry the matching row on every report that uses the source (licence · attribut
 | CRO (Companies Registration Office) | CC BY 4.0 | Contains Irish Public Sector Data licensed under a Creative Commons Attribution 4.0 International (CC BY 4.0) licence. |
 | Iris Oifigiúil *(corporate-distress rows — `{{CORP_NOTICE_FLAG}}` / `{{N_CORP_NOTICES}}`; mandatory wherever they render)* | **Government copyright — NOT open** (solicitor-checklist item; fact-only + attributed) | Contains public sector information from Iris Oifigiúil © Government of Ireland. Source: https://www.irisoifigiuil.ie/ |
 | Charities Regulator *(if A7 charity row used)* | CC BY 4.0 | Contains Irish Public Sector Data licensed under a Creative Commons Attribution 4.0 International (CC BY 4.0) licence. |
-| lobbying.ie / SIPO *(optional panel)* | PSI re-use | Contains lobbying register data © Standards in Public Office Commission, reused under its PSI re-use policy. |
-| Procurement × lobbying overlap *(optional panel export)* | CC-BY-4.0 | Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0. Lobbying data via lobbying.ie. |
+| lobbying.ie / SIPO *(optional panel — reports only, never exported)* | PSI re-use | Contains lobbying register data © Standards in Public Office Commission, reused under its PSI re-use policy. |
 | EPA register *(if A7 EPA row used)* | **[owner to confirm — not in NOTICE.md]** | **[owner to confirm attribution string]** |
-| Ministerial diaries *(optional panel, Phase 2)* | **[owner to confirm]** | **[owner to confirm attribution string]** |
+| ~~Ministerial diaries~~ | — | **Removed 2026-07-08 — diary access is free-civic-only, never in a paid report ([architecture §4](../BI_SPINOUT_ARCHITECTURE.md)).** |
 
 ---
 
@@ -310,5 +308,5 @@ Carry the matching row on every report that uses the source (licence · attribut
 4. **The company is always the subject.** Never a named individual, director, or beneficial owner. **Company-class / PII double-gate** inherited: exclude any row where `supplier_class = 'sole_trader_or_individual'`, `public_display = FALSE`, or `privacy_status = 'review_personal_data'`; no re-identification of person rows.
 5. **Logic firewall.** Every count/sum/join/reshape comes from a registered view via `dail_tracker_core.queries` / `utility/data_access/`. If a figure needs a new aggregate, extend a **pipeline-owned view** — never compute it in this report. Sections marked **[requires Phase 2 view]** stay stubbed.
 6. **Attribution, licence, caveat, and data_currency travel with every figure** — including exports. You sell curation/software, never the underlying facts. Iris-derived corporate-distress is **fact-only + attributed**: carry the Iris Oifigiúil acknowledgement string + URL on every use.
-7. **Optional co-occurrence panel** is opt-in, owner-gated, highest reputational-risk: raw counts only, company-as-subject, `_PROC_LOBBY_CAVEAT` + `_DPO_CAVEAT` verbatim, link out to the free public register.
+7. **Optional lobbying-co-occurrence panel** is opt-in, per-report owner-gated, highest reputational-risk, and **reports-only (never exported/API)**: raw lobbying counts only, company-as-subject, award-€ kept out of the lobbying table, `caveats.PROC_LOBBY` verbatim, link out to the free public register. **Ministerial-diary data is excluded from paid reports entirely** (free civic only).
 8. **Caveat text is the user's domain** — reproduced verbatim from [dail_tracker_core/caveats.py](../../dail_tracker_core/caveats.py) / [api/routers/exports.py](../../api/routers/exports.py) / [NOTICE.md](../../NOTICE.md), **never re-worded or softened** below current strength.

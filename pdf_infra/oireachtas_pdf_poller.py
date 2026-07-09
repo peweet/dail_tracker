@@ -81,10 +81,18 @@ class PollSource:
     filename_hint: str
     allowed_file_types: frozenset = field(default_factory=lambda: frozenset({"pdf"}))
     min_file_bytes: int = 10_000
+    # How deep to walk the paginated index. 1 = newest 50 cards only (the
+    # steady-state default — new publications appear at the top). Raise it for
+    # sources whose full history matters (interests: the topic index paginates
+    # back to 1996; page-1-only can never self-heal a historic gap).
+    max_pages: int = 1
 
     @property
     def index_url(self) -> str:
         return INDEX_BASE.format(slug=self.topic_slug)
+
+    def index_url_for(self, page: int) -> str:
+        return self.index_url if page <= 1 else f"{self.index_url}&page={page}"
 
 
 SOURCES: dict[str, PollSource] = {
@@ -119,11 +127,16 @@ SOURCES: dict[str, PollSource] = {
     # Hint deliberately stops at 'register-of-member' so it catches both
     # pre-2022 ('register-of-members-interests-...') and 2022+
     # ('register-of-member-s-interests-...') filename forms, plus supplements.
+    # max_pages=5: the topic index holds ~104 docs back to 1996 across 3 pages
+    # (50/page); 5 leaves headroom. Safe here because the interests ETL reads an
+    # explicit PDF_PATHS allowlist, not a directory glob — extra bronze files are
+    # inert until wired in.
     "interests": PollSource(
         name="interests",
         topic_slug="register-of-members-interests",
         target_dir=INTERESTS_PDF_DIR,
         filename_hint="register-of-member",
+        max_pages=5,
     ),
 }
 
@@ -140,9 +153,9 @@ class IndexEntry:
 # ── Phase 1: fetch ──────────────────────────────────────────────────────────
 
 
-def fetch_index_html(source: PollSource) -> str:
+def fetch_index_html(source: PollSource, page: int = 1) -> str:
     resp = requests.get(
-        source.index_url,
+        source.index_url_for(page),
         headers={"User-Agent": USER_AGENT},
         timeout=30,
     )
@@ -151,6 +164,13 @@ def fetch_index_html(source: PollSource) -> str:
     # mis-fires, which would turn 'Dáil Éireann' into 'D�il �ireann'.
     resp.encoding = "utf-8"
     return resp.text
+
+
+def count_cards(html: str) -> int:
+    """Publication cards on an index page, before any hint/type filtering.
+    0 on a past-the-end page — the pagination stop signal (a page can hold
+    cards yet yield 0 *matching* entries, which must not stop the walk)."""
+    return len(BeautifulSoup(html, "html.parser").select(_CARD_SEL))
 
 
 # ── Phase 2: parse ──────────────────────────────────────────────────────────
@@ -364,6 +384,25 @@ def run_one(source: PollSource) -> dict:
             "new": [],
             "superseded": [],
         }
+
+    # Walk deeper index pages when configured. Page-2+ problems degrade to a
+    # partial walk (page 1 already succeeded — the steady-state signal is intact),
+    # so they log rather than fail the poll. Dedup by filename: the index can
+    # shift between page fetches.
+    if source.max_pages > 1 and count_cards(html) > 0:
+        seen = {e.filename for e in entries}
+        for page in range(2, source.max_pages + 1):
+            try:
+                page_html = fetch_index_html(source, page=page)
+            except Exception as exc:  # noqa: BLE001 — partial walk by design
+                logger.warning("[%s] page %d fetch failed, stopping walk: %s", source.name, page, exc)
+                break
+            if count_cards(page_html) == 0:
+                break
+            for e in parse_index(source, page_html):
+                if e.filename not in seen:
+                    seen.add(e.filename)
+                    entries.append(e)
 
     if not entries:
         logger.warning(
