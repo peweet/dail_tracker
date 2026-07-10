@@ -1050,7 +1050,7 @@ def data_coverage(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "sipo_election_expenses": serialize.first_record(sipo.expenses_totals(conn).data),
         "charities_latest_year": serialize.first_record(char.latest_year(conn).data),
         "caveats": {
-            "register_of_interests": "Register of Members' Interests covers 2020–2025 only — older divisions match no interests",
+            "register_of_interests": "Register of Members' Interests covers 1995–2025 (Dáil every year; Seanad missing 1996/1999/2004) — only pre-1995 divisions match no interests",
             "ted_award_winners": "TED award WINNERS are 2024+ (pre-2024 notices carry buyer + CPV + total value but no winner)",
             "money_grains": caveats.MONEY_GRAINS,
         },

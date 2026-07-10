@@ -1,14 +1,14 @@
 {
   "parser_version": "1.0.0",
-  "generated_at": "2026-07-08T06:37:01.237614+00:00",
+  "generated_at": "2026-07-10T05:12:34.687691+00:00",
   "source_name": "Courts Service Legal Diary (OpenView)",
   "docs_parsed": 6755,
   "case_lines_parsed": 806248,
   "cases_dropped_protected": 12348,
-  "cases_kept_anonymised": 785883,
-  "sittings": 95102,
+  "cases_kept_anonymised": 785897,
+  "sittings": 95109,
   "by_court": {
-    "Court of Appeal": 501284,
+    "Court of Appeal": 501298,
     "Court of Appeal (Criminal)": 191512,
     "Supreme Court": 45573,
     "Central Criminal Court": 37235,

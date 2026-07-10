@@ -268,22 +268,16 @@ def what_they_own_page() -> None:
     )
     selected_year: int | None = None if year_choice == _LATEST else int(year_choice)
 
-    # The Seanad register is only published from 2020 — there is no earlier Seanad
-    # history on record (the Dáil reaches back to 2011). Flag it so a short year
-    # list doesn't read as missing data.
-    if house == "Seanad" and years:
-        st.caption(
-            f"ℹ️ Seanad declarations are only on record from **{min(years)}** onward — "
-            "there is no earlier Seanad register published. (The Dáil register reaches back to 2011.)"
-        )
-    elif house == "Dáil" and years:
-        # Make the coverage explicit and self-correcting: derive the span from the
-        # data and name any year inside it that has no register (so a gap doesn't
-        # read as silently missing). 2012 is recovered via OCR; once ingested the
-        # span is contiguous 2011–latest and no gap note appears.
+    # Make the coverage explicit and self-correcting for BOTH houses: derive the
+    # span from the data and name any year inside it that has no register, so a
+    # gap doesn't read as silently missing. Both registers now reach back to
+    # 1995 (the first Ethics Act registration period); the Seanad's 1996, 1999
+    # and 2004 registers were never published on the Oireachtas index, so those
+    # three appear as named gaps rather than a shortened span.
+    if years:
         missing = sorted(set(range(min(years), max(years) + 1)) - set(years))
         gap = f" (no register on file for {', '.join(map(str, missing))})" if missing else ""
-        st.caption(f"ℹ️ Dáil declarations are on record from **{min(years)}** to **{max(years)}**{gap}.")
+        st.caption(f"ℹ️ {house} declarations are on record from **{min(years)}** to **{max(years)}**{gap}.")
 
     members_df = (
         fetch_member_index_alltime(house) if selected_year is None else fetch_member_index(house, selected_year)

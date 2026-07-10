@@ -21,8 +21,9 @@ from __future__ import annotations
 
 # ── Cross-reference: votes × Register of Members' Interests ───────────────────
 INTERESTS = (
-    "Register of Members' Interests covers 2020–2025 only; divisions before 2020 "
-    "have no interests counterpart and match nothing. 'landlord'/'property' use the "
+    "Register of Members' Interests covers 1995–2025 (Dáil: every year; Seanad: no "
+    "register was published for 1996, 1999 or 2004); divisions before 1995 have no "
+    "interests counterpart and match nothing. 'landlord'/'property' use the "
     "derived flags; 'director'/'shareholder' use the declared interest_category. "
     "held_in_vote_year=true means the interest was declared in the vote's own year."
 )

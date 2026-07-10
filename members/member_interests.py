@@ -284,6 +284,26 @@ def repair_ocr_category_markers(lines: list[str]) -> list[str]:
     return [_OCR_CATEGORY1_ROT_RE.sub(r"1.\1", line) for line in lines]
 
 
+# The 2003 register (published 2004-05-21) drops the space after the category
+# marker's dot ('1.Occupational Income'), so CATEGORIES_PATTERN ('^\d+\.\s')
+# misses every boundary and whole blocks glue onto the member's name line
+# (the year collapsed to 4/164 roster match). Vocabulary-gated on the known
+# category lead-words so it can never fire on body text like '3.5 acres' or a
+# numbered address; a no-op on years that already read 'N. '.
+_MISSING_CATEGORY_SPACE_RE = regex.compile(
+    r"^([1-9])\.(?=Occupation|Share|Director|Land\b|Gift|Propert|Travel|Remunerat|Contract)"
+)
+
+
+def repair_missing_category_space(lines: list[str]) -> list[str]:
+    """Insert the missing space in a category marker ('1.Occupations' → '1. Occupations').
+
+    Requires: flat list[str] (post split_embedded_names).
+    Produces: same list with space-less category markers normalised to 'N. '.
+    """
+    return [_MISSING_CATEGORY_SPACE_RE.sub(r"\1. ", line) for line in lines]
+
+
 # In a scanned register (e.g. 2012) the '.' after a category number can OCR-rot to
 # ',' or ';' (e.g. '9. Contracts' -> '9, Contracts'), so CATEGORIES_PATTERN (which
 # needs 'N.') misses the boundary and the category glues onto the previous block.
@@ -729,6 +749,11 @@ def main() -> None:
         # 1c. Repair OCR rot of the category-1 'Occupations' marker ('l./I./i.' → '1.')
         # so older registers (e.g. 2016) group correctly instead of failing the gate.
         lines = repair_ocr_category_markers(lines)
+
+        # 1c-bis. Insert the missing space in space-less category markers
+        # ('1.Occupational Income' → '1. Occupational Income') — the 2003
+        # register's layout; vocabulary-gated, no-op elsewhere.
+        lines = repair_missing_category_space(lines)
 
         # 1d. OCR-only: repair a category-number marker whose '.' rotted to ',/;/:'
         # ('9, Contracts' → '9. Contracts'). Gated to OCR years so clean years can't
