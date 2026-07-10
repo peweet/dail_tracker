@@ -21,19 +21,29 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.db import connect_with_views, register_views
 from dail_tracker_core.queries import interests as _q
 
 
 @st.cache_resource
 def get_interests_conn() -> duckdb.DuckDBPyConnection:
-    # Detail-view glob sorts before the index glob so dependency order holds
-    # (the index view reads the detail view). Loud registration — a missing
-    # interests view is a real break, matching prior behaviour.
-    return connect_with_views(
-        ["member_interests_*.sql", "member_zz_interests_*.sql"],
+    # Detail view registers before the index glob so dependency order holds
+    # (the index view reads the detail view). Loud registration for the CORE
+    # views — a missing detail/index view is a real break, matching prior
+    # behaviour. The detail file is named explicitly (not the member_interests_*
+    # glob) so the supplements enrichment below can be tolerant on its own.
+    conn = connect_with_views(
+        ["member_interests_detail.sql", "member_zz_interests_*.sql"],
         swallow_errors=False,
     )
+    # Section 29 supplements (back-fill signal) are an ENRICHMENT: if their
+    # parquet is absent — e.g. a deploy that shipped the view SQL before the
+    # data file — the interests pages must still render, with the supplements
+    # panel degrading to unavailable rather than the whole conn dying
+    # (2026-07-10: a loud registration here took down every interests page on
+    # Streamlit Cloud with IOException when the parquet wasn't in the repo).
+    register_views(conn, ["member_interests_supplements.sql"], swallow_errors=True)
+    return conn
 
 
 # ── Availability guard ────────────────────────────────────────────────────────

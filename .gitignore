@@ -416,6 +416,10 @@ data/silver/sipo_candidate/
 !data/silver/lobbying/parquet/revolving_door_returns_detail.parquet
 !data/silver/parquet/bill_amendments.parquet
 !data/silver/parquet/dail_member_interests_combined.parquet
+# Section 29 supplements (late filings / corrections — the back-fill signal).
+# Committed because v_member_interests_supplements reads it on Streamlit Cloud:
+# shipping the view SQL without this file broke every interests page (2026-07-10).
+!data/silver/parquet/member_interests_supplements.parquet
 !data/silver/parquet/debate_listings.parquet
 !data/silver/parquet/debates.parquet
 !data/silver/parquet/flattened_members.parquet
