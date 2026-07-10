@@ -37,7 +37,33 @@ from shared import normalise_join_key
 # ---------------------------------------------------------------------------
 
 PDF_PATHS: dict[str, pathlib.Path] = {
-    # Seanad
+    # SEANAD — historic. Registration periods verified from each PDF's title page
+    # (pub year - 1 = declaration year; early periods ran Feb→Jan, labelled by
+    # start year). No register was published for Seanad 1996, 1999 or 2004 —
+    # genuine gaps in the source, not download misses.
+    "1995_seanad": INTERESTS_PDF_DIR / "1996-04-24_register-of-members-interests-seanad-eireann_en.pdf",
+    "1997_seanad": INTERESTS_PDF_DIR / "1998-04-24_register-of-members-interests-seanad-eireann_en.pdf",
+    "1998_seanad": INTERESTS_PDF_DIR / "1999-05-19_register-of-members-interests-seanad-eireann_en.pdf",
+    "2000_seanad": INTERESTS_PDF_DIR / "2001-05-11_register-of-members-interests-seanad-eireann_en.pdf",
+    "2001_seanad": INTERESTS_PDF_DIR / "2002-07-11_register-of-members-interests-seanad-eireann_en.pdf",
+    "2002_seanad": INTERESTS_PDF_DIR / "2003-06-24_register-of-members-interests-seanad-eireann_en.pdf",
+    "2003_seanad": INTERESTS_PDF_DIR / "2004-05-21_register-of-members-interests-seanad-eireann_en.pdf",
+    "2005_seanad": INTERESTS_PDF_DIR / "2006-03-31_register-of-members-interests-seanad-eireann_en.pdf",
+    "2006_seanad": INTERESTS_PDF_DIR / "2007-04-02_register-of-members-interests-seanad-eireann_en.pdf",
+    "2007_seanad": INTERESTS_PDF_DIR / "2008-04-18_register-of-members-interests-seanad-eireann_en.pdf",
+    "2008_seanad": INTERESTS_PDF_DIR / "2009-03-26_register-of-members-interests-seanad-eireann_en.pdf",
+    "2009_seanad": INTERESTS_PDF_DIR / "2010-03-26_register-of-members-interests-seanad-eireann_en.pdf",
+    "2010_seanad": INTERESTS_PDF_DIR / "2011-04-06_register-of-members-interests-seanad-eireann_en.pdf",
+    "2011_seanad": INTERESTS_PDF_DIR / "2012-04-03_register-of-members-interests-seanad-eireann_en.pdf",
+    "2012_seanad": INTERESTS_PDF_DIR / "2013-02-20_register-of-members-interests-seanad-eireann_en.pdf",
+    "2013_seanad": INTERESTS_PDF_DIR / "2014-03-21_register-of-members-interests-seanad-eireann_en.pdf",
+    "2014_seanad": INTERESTS_PDF_DIR / "2015-03-20_register-of-members-interests-seanad-eireann_en.pdf",
+    "2015_seanad": INTERESTS_PDF_DIR / "2016-03-16_register-of-members-interests-seanad-eireann_en.pdf",
+    "2016_seanad": INTERESTS_PDF_DIR / "2017-03-14_register-of-members-interests-seanad-eireann_en.pdf",
+    "2017_seanad": INTERESTS_PDF_DIR / "2018-03-09_register-of-members-interests-seanad-eireann_en.pdf",
+    "2018_seanad": INTERESTS_PDF_DIR / "2019-03-01_register-of-members-interests-seanad-eireann_en.pdf",
+    "2019_seanad": INTERESTS_PDF_DIR / "2020-02-28_register-of-members-interests-seanad-eireann_en.pdf",
+    # Seanad — current convention
     "2020_seanad": INTERESTS_PDF_DIR / "2021-03-16_register-of-members-interests-seanad-eireann_en.pdf",
     "2021_seanad": INTERESTS_PDF_DIR / "2022-02-25_register-of-members-interests-seanad-eireann_en.pdf",
     "2022_seanad": INTERESTS_PDF_DIR / "2023-02-24_register-of-members-interests-seanad-eireann_en.pdf",
@@ -52,6 +78,25 @@ PDF_PATHS: dict[str, pathlib.Path] = {
     # artifact and sourced via OCR_LINE_SOURCES below instead of extract_raw_lines;
     # the rest of the pipeline is identical. See
     # pipeline_sandbox/historic_members/ocr_2012_register.py.
+    # DAIL — deep tail (1995–2010 declaration years; registers published 1996–2011,
+    # pulled 2026-07 via the paginated publications index). All born-digital or
+    # embedded-OCR text; per-year quality gate decides what ingests.
+    "1995_dail": INTERESTS_PDF_DIR / "1996-04-04_register-of-members-interests-dail-eireann_en.pdf",
+    "1996_dail": INTERESTS_PDF_DIR / "1997-04-18_register-of-members-interests-dail-eireann_en.pdf",
+    "1997_dail": INTERESTS_PDF_DIR / "1998-04-22_register-of-members-interests-dail-eireann_en.pdf",
+    "1998_dail": INTERESTS_PDF_DIR / "1999-05-12_register-of-members-interests-dail-eireann_en.pdf",
+    "1999_dail": INTERESTS_PDF_DIR / "2000-06-26_register-of-members-interests-dail-eireann_en.pdf",
+    "2000_dail": INTERESTS_PDF_DIR / "2001-05-11_register-of-members-interests-dail-eireann_en.pdf",
+    "2001_dail": INTERESTS_PDF_DIR / "2002-07-10_register-of-members-interests-dail-eireann_en.pdf",
+    "2002_dail": INTERESTS_PDF_DIR / "2003-05-09_register-of-members-interests-dail-eireann_en.pdf",
+    "2003_dail": INTERESTS_PDF_DIR / "2004-05-21_register-of-members-interests-dail-eireann_en.pdf",
+    "2004_dail": INTERESTS_PDF_DIR / "2005-05-04_register-of-members-interests-dail-eireann_en.pdf",
+    "2005_dail": INTERESTS_PDF_DIR / "2006-03-31_register-of-members-interests-dail-eireann_en.pdf",
+    "2006_dail": INTERESTS_PDF_DIR / "2007-03-30_register-of-members-interests-dail-eireann_en.pdf",
+    "2007_dail": INTERESTS_PDF_DIR / "2008-03-11_register-of-members-interests-dail-eireann_en.pdf",
+    "2008_dail": INTERESTS_PDF_DIR / "2009-03-12_register-of-members-interests-dail-eireann_en.pdf",
+    "2009_dail": INTERESTS_PDF_DIR / "2010-03-12_register-of-members-interests-dail-eireann_en.pdf",
+    "2010_dail": INTERESTS_PDF_DIR / "2011-03-31_register-of-members-interests-dail-eireann_en.pdf",
     "2011_dail": INTERESTS_PDF_DIR / "2012-03-30_register-of-members-interests-dail-eireann_en.pdf",
     "2012_dail": INTERESTS_PDF_DIR / "2013-02-28_register-of-members-interests-dail-eireann_en.pdf",
     "2013_dail": INTERESTS_PDF_DIR / "2014-03-25_register-of-members-interests-dail-eireann_en.pdf",
@@ -329,6 +374,12 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     declared' rows are never dropped.
     """
     df = df.explode("interests")
+    # The 1998–2003 registers put TWO spaces after the surname comma
+    # ('AHERN,  Bertie  (Dublin Central)'), so the \s{2,} name/constituency split
+    # below shears the line into THREE parts (surname / first name / constituency)
+    # and the whole year joins at 0%. Collapse the post-comma gap to one space
+    # first; clean years already read 'SURNAME, First' so this is a no-op there.
+    df = df.with_columns(pl.col("name").str.replace_all(r",\s{2,}", ", "))
     # Some registers (e.g. 2016) put only ONE space before the trailing
     # '(Constituency)', so the \s{2,} split below would leave it stuck to the
     # first name (e.g. 'Gerry (Louth)') and break the roster join. Normalise a
@@ -354,7 +405,10 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
         .str.replace_all(r"\xa0", " ")
         .str.replace_all(r"(Etc|including property|Property supplied |or lent  or a Service supplied  )", "")
         .str.replace_all(
-            r"(Occupations|Shares|Directorships|Land|Gifts|Property supplied or lent or a Service supplied|Travel Facilities|Remunerated Position|Contracts)",
+            # 'Occupational Income' and 'Property and Service' are the pre-2012
+            # category headings (Ethics Act 1995 wording) — longer alternatives
+            # listed before their modern near-prefixes.
+            r"(Occupational Income|Occupations|Shares|Directorships|Land|Gifts|Property supplied or lent or a Service supplied|Property and Service|Travel Facilities|Remunerated Position|Contracts)",
             "",
         )
         .str.replace_all(
@@ -585,14 +639,27 @@ def combine_years(silver_dir: pathlib.Path, years: list[str], case: str) -> pl.D
     for year_key in years:
         numeric_year = int(year_key.split("_")[0])
         path = silver_dir / f"{case}_member_interests_grouped_{year_key}.csv"
-        frames.append(pl.read_csv(path).with_columns(year_declared=pl.lit(numeric_year)))
+        # interest_code must be read as String in every year: a year whose codes
+        # are all clean digits infers Int64 while one with an OCR-rotted code
+        # infers String, and the vstack across years then fails on the mismatch.
+        # infer_schema_length=None scans the whole file: in years where the first
+        # ~100 rows are unregistered members (all-null flags), the default window
+        # infers the boolean flag columns as String and the vstack fails the same
+        # way ('is_landlord': String vs Boolean).
+        frames.append(
+            pl.read_csv(
+                path,
+                schema_overrides={"interest_code": pl.String},
+                infer_schema_length=None,
+            ).with_columns(year_declared=pl.lit(numeric_year))
+        )
     combined = (
         pl.concat(frames)
-        .filter(
-            ~pl.col("interest_code")
-            .cast(pl.String)
-            .is_in(["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"])
-        )
+        # Rogue rows whose "category code" is actually a calendar year (a date
+        # line matched CATEGORIES_PATTERN). Any 19xx/20xx code is impossible —
+        # real codes are 1–9 — so match the shape, not a hardcoded year list
+        # (the old list started at 2019 and would miss 1990s-register artifacts).
+        .filter(~pl.col("interest_code").cast(pl.String).str.contains(r"^(19|20)\d{2}$"))
         # Drop exact-duplicate rows. A member can't declare the identical thing
         # twice, so any full-row duplicate is a parse/OCR artifact (e.g. the 2012
         # scanned register reconstructed a 'No interests declared' line twice).
