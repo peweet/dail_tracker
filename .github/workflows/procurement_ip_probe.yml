@@ -1,0 +1,115 @@
+name: Procurement IP/WAF probe (manual, read-only)
+
+# STEP-ZERO probe for the hybrid-refresh plan (doc/HYBRID_REFRESH_PLAN.md §9).
+#
+# Question it answers: from a GitHub US-datacenter IP, can we fetch the OGP procurement
+# CSV, or does gov.ie's CDN 403 us? This decides whether the `procurement` chain can run
+# on GitHub-hosted runners (cloud-safe) or must move to the residential edge worker.
+#
+# It tests the resolved download host BARE vs SPOOFED (browser UA + gov.ie Referer, the
+# same GOVIE_HEADERS the extractor sends) so the result distinguishes the two WAF layers:
+#   - bare 403 / spoofed 200  => UA-fingerprint WAF only  => MITIGABLE, cloud-safe
+#   - spoofed 403             => IP/ASN WAF               => must run on the edge worker
+#
+# SAFETY: permissions: contents: read — physically cannot write to the repo. Downloads at
+# most ~64 KB per URL (streamed, first chunk only), writes no files, publishes nothing.
+# The logic mirrors extractors/procurement_etenders_extract.py:50-206, kept dependency-light
+# (requests only) on purpose so the probe can never fail for reasons unrelated to the WAF.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read   # read-only — cannot push anything
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra pipeline   # provides requests
+
+      - name: Probe procurement CSV reachability (bare vs spoofed)
+        run: |
+          uv run python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+          import requests
+
+          # Mirrors extractors/procurement_etenders_extract.py:50-206 (URL, CKAN_PACKAGE_URL,
+          # GOVIE_HEADERS, resolve_download_url). Update here if those drift.
+          PINNED = "https://assets.gov.ie/static/documents/7ba65f1b/Public_Procurement_Opendata_Dataset.csv"
+          CKAN   = "https://data.gov.ie/api/3/action/package_show?id=contract-notices-published-on-etenders"
+          SPOOF  = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://www.gov.ie/"}
+
+          def probe(url, headers, stream_bytes=0):
+              try:
+                  r = requests.get(url, headers=headers or {}, timeout=60, stream=bool(stream_bytes))
+                  first = next(r.iter_content(stream_bytes), b"") if stream_bytes else b""
+                  code = r.status_code
+                  r.close()
+                  return code, first
+              except Exception as e:  # noqa: BLE001
+                  return f"ERR:{type(e).__name__}", b""
+
+          # 1) CKAN reachability + resolve the CURRENT csv url (the extractor's real logic)
+          ckan_code, _ = probe(CKAN, SPOOF)
+          resolved = PINNED
+          try:
+              j = requests.get(CKAN, headers=SPOOF, timeout=30).json()
+              for res in j.get("result", {}).get("resources", []):
+                  u = (res.get("url") or "").strip()
+                  if u.lower().endswith(".csv"):
+                      resolved = u
+                      break
+          except Exception:  # noqa: BLE001
+              resolved = PINNED
+          host = urlparse(resolved).netloc
+
+          # 2) the matrix: resolved-url spoofed / resolved-url bare / pinned assets.gov.ie spoofed
+          spoof_code, first     = probe(resolved, SPOOF, stream_bytes=65536)
+          bare_code, _          = probe(resolved, None,  stream_bytes=65536)
+          pinned_spoof_code, _  = probe(PINNED,   SPOOF, stream_bytes=65536)
+          looks_csv = (b"," in first) and (b"\n" in first[:65536])
+
+          def is200(x):
+              return x == 200
+
+          if is200(spoof_code) and "assets.gov.ie" not in host:
+              verdict = "CLOUD_CLEAN — resolved host is not assets.gov.ie; `procurement` can stay on GitHub runners."
+          elif is200(spoof_code) and not is200(bare_code):
+              verdict = "UA-WAF ONLY (mitigable) — spoof headers clear it; `procurement` is cloud-safe with GOVIE_HEADERS."
+          elif is200(spoof_code):
+              verdict = "CLOUD_CLEAN — no gating observed from a datacenter IP; `procurement` can stay on GitHub runners."
+          else:
+              verdict = "HARD IP/ASN WAF — spoofed request blocked; route `procurement` to the residential edge worker."
+
+          lines = [
+              "## Procurement IP/WAF probe",
+              "",
+              f"- runner egress (informational): GitHub US-datacenter IP",
+              f"- CKAN `package_show` (data.gov.ie): **{ckan_code}**",
+              f"- resolved CSV host: **{host}**",
+              f"- resolved URL: `{resolved}`",
+              "",
+              "| test | headers | status | csv-shaped |",
+              "|---|---|---|---|",
+              f"| resolved URL | spoofed (GOVIE_HEADERS) | **{spoof_code}** | {looks_csv} |",
+              f"| resolved URL | bare (default UA) | **{bare_code}** | — |",
+              f"| pinned assets.gov.ie | spoofed | **{pinned_spoof_code}** | — |",
+              "",
+              f"### Verdict: {verdict}",
+              "",
+              "_Read-only probe: downloaded ≤64 KB per URL, wrote nothing, published nothing._",
+          ]
+          out = "\n".join(lines)
+          print(out)
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as fh:
+                  fh.write(out + "\n")
+          PY

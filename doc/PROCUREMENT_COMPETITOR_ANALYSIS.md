@@ -185,11 +185,28 @@ M&E specialists and general construction (Jones bids both); a pure-electrical vi
    populations, not a gap) — award→payment corroboration is **firm-level only, never a ratio**; and name-key
    misses fake €0-paid (Total Highway Maintenance) → paid column must be CRO-keyed.
 
-## 9. Artifacts (in `c:/tmp/competitor_probe/`)
+## 9. Artifacts & generation logic (in `c:/tmp/competitor_probe/` — gitignored sandbox)
 
-- `award_trade_tags.parquet` — 62,763 awards tagged with trade_family + source.
-- `buyer_crosswalk_seed.csv` — 40 high-volume TED↔eTenders buyer pairs for curation.
-- Probes: `invest1/2.py`, `build_trade_tags.py`, `buyer_norm2.py`, `entity_res.py`, `final_competitors.py`.
+**`README.md` there is the index** — it holds the regeneration order and the full figure→script map.
+All scripts run read-only against the gold/silver parquet, **from the repo root**, on `.venv` python.
+
+- `award_trade_tags.parquet` — 62,763 awards tagged with trade_family + trade_source. Regenerate:
+  `scripts/build_trade_tags.py` (this script IS the definition of "Electrical & M&E": trade_family ∈
+  {electrical, mechanical_hvac, me_combined}; CPV→title→spend-cat, priority order).
+- `buyer_crosswalk_seed.csv` — 40 high-volume TED↔eTenders buyer pairs for curation. Regenerate:
+  `scripts/gen_artifacts.py`.
+- `procurement_intel_mockup.html` — the app design-target mockup (static; real figures hard-coded
+  from the §10 grounding queries); published at
+  https://claude.ai/code/artifact/f0b0eb99-6c51-4831-9cee-c88cc83bf259
+- `scripts/` — the generation logic: `build_trade_tags.py` (§3), `verify_buyer.py` (§4),
+  `gen_artifacts.py` (§4), `entity_res.py` (§5), `final_competitors.py` (§7, the 28→760 run),
+  `ground_panels.py` (§10 grounded panel numbers + the A3-trap evidence), and
+  `reverify_all.py` — a PASS/FAIL harness re-deriving every headline claim (claims are
+  point-in-time 2026-07-09; exact counts drift slightly after source refreshes — 2026-07-10 run:
+  17/20, all conclusion-bearing checks exact; drift was +45 company rows / +210 TED notices / +0.2pp CRO).
+- Early one-off probes (`schema_dump/invest1/invest2/eyeball/buyer_norm(2)/defaulter_*`) were not
+  kept — their findings are recorded in §1–§5 and re-derived by `reverify_all.py`; the defaulters
+  evidence CSVs remain in `c:/tmp/bid_enrich_scoping/`.
 
 **Recommended build order (when greenlit):** (1) promote the trade tagger as a gold column on awards;
 (2) curate the buyer crosswalk + add NFKD fold; (3) CRO-anchored entity key + name-only low-confidence
