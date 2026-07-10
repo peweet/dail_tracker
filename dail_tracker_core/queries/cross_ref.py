@@ -10,8 +10,9 @@ The join key is ``member_id`` (``unique_member_code``), exposed by both
 the ``member_interests_detail.sql`` view was extended to carry it). No name
 matching — the codes are exact.
 
-Coverage caveat the callers must surface: the interests register only covers
-2020–2025, so divisions before 2020 have no interests counterpart and will match
+Coverage caveat the callers must surface: the interests register covers
+1995–2025 (Dáil: every year; Seanad: no register published for 1996/1999/2004),
+so only divisions before 1995 have no interests counterpart and will match
 nothing. ``held_in_vote_year`` distinguishes "declared this interest in the same
 calendar year as the vote" from the looser "ever declared it in the register era".
 

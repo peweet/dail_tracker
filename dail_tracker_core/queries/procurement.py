@@ -1240,7 +1240,7 @@ def afs_national_by_division(conn: duckdb.DuckDBPyConnection, year: int | None =
 
 
 def afs_national_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
-    """National amalgamated AFS totals per year (Σ across divisions) — the 2016–2023 spine."""
+    """National amalgamated AFS totals per year (Σ across divisions) — the 2016–2024 spine."""
     return _run(
         conn,
         "SELECT year, gross_expenditure_eur, income_eur, net_expenditure_eur, n_divisions"

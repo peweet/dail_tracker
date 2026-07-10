@@ -49,6 +49,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 
 from services.parquet_io import save_parquet  # noqa: E402
+from shared.name_norm import name_norm_str  # noqa: E402
 
 URL = "https://registers.centralbank.ie/downloadspage.aspx"
 H = {"User-Agent": "Mozilla/5.0 dail_extractor sandbox"}
@@ -333,20 +334,16 @@ def _slug(s: str, n: int = 80) -> str:
 
 
 def _norm_firm(name: str) -> str:
-    """Lowercase, strip accents, drop legal suffixes, collapse whitespace."""
+    """Canonical company key via shared.name_norm (UPPERCASE) so CBI firm names join
+    the supplier / CRO universe. Drops any 't/a XYZ' trading-as tail first, then
+    applies the house rule. Was a local LOWERCASE variant whose case + suffix-set
+    divergence was the 'distress join = 0 across 38,335 suppliers' bug
+    (doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md §2)."""
     if not name:
         return ""
-    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
-    s = s.lower()
-    # Drop "t/a XYZ" trading-as portions (everything after t/a)
-    s = re.sub(r"\bt/?a\b.*$", "", s)
-    # Strip legal suffixes
-    s = _SUFFIX_RE.sub(" ", s)
-    # Strip punctuation
-    s = re.sub(r"[^a-z0-9 ]+", " ", s)
-    # Collapse whitespace
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
+    # Drop "t/a XYZ" trading-as portions (everything after t/a) before the house rule.
+    s = re.sub(r"\bt/?a\b.*$", "", str(name), flags=re.IGNORECASE)
+    return name_norm_str(s)
 
 
 def _is_meaningful_firm_token(norm: str) -> bool:

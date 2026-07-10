@@ -104,6 +104,7 @@ The org dossier deliberately co-locates money, influence, and distress for one e
 - **PR1 — `v_entity_xref` spine.** Extractor + view + tests (uniqueness on `entity_id`; `match_tier` vocab; sole-trader exclusion; an invariant in `test/contracts/`).
 - **PR2 — Composition.** `queries/entity.py` + `dossiers.build_organisation_dossier` + caveats + tests (resolve-by-name and by-CRO; unresolved→None; a fused panel below exact is suppressed).
 - **PR3 — MCP tool** (gated on owner sign-off).
+  - *Status 2026-07-10:* the PR3 MCP tool **interface** (`organisation_dossier(name, company_num)`) shipped EARLY on the interim `v_supplier_entity_xref` spine with owner sign-off; the internal spine swap to `v_entity_xref` remains PR3 work.
 - **PR4 — HTTP route** (only on real demand).
 
 ---

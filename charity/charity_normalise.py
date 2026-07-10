@@ -93,6 +93,7 @@ from openpyxl import load_workbook
 
 from config import BRONZE_DIR, SILVER_DIR
 from services.parquet_io import save_parquet
+from shared.name_norm import name_norm_expr
 
 BRONZE_CHARITY_DIR = BRONZE_DIR / "charities"
 DEFAULT_SILVER_DIR = SILVER_DIR / "charities"
@@ -110,12 +111,6 @@ def latest_bronze_xlsx() -> Path:
     return candidates[-1]
 
 
-LEGAL_SUFFIX_PATTERN = (
-    r"\b(?:THE|LIMITED|LTD|DAC|PLC|CLG|UC|COMPANY|"
-    r"DESIGNATED ACTIVITY COMPANY|"
-    r"COMPANY LIMITED BY GUARANTEE|"
-    r"UNLIMITED COMPANY|GROUP|HOLDINGS|IRELAND|IRL|OF)\b"
-)
 
 REGISTER_RENAME = {
     "Registered Charity Number": "rcn",
@@ -251,16 +246,11 @@ def read_sheet(path: Path, sheet: str) -> dict[str, list[Any]]:
 # ---------------------------------------------------------------------------
 
 
-def name_norm_expr(col: str) -> pl.Expr:
-    return (
-        pl.col(col)
-        .str.to_uppercase()
-        .str.replace_all(r"[\.,&'\"]", " ")
-        .str.replace_all(LEGAL_SUFFIX_PATTERN, " ")
-        .str.replace_all(r"[^A-Z0-9 ]", " ")
-        .str.replace_all(r"\s+", " ")
-        .str.strip_chars()
-    )
+# name_norm_expr is imported from shared.name_norm (the canonical company-name key).
+# The local copy here OMITTED the NFD accent-fold, so "Tirlán" → "TIRL N" instead of
+# "TIRLAN" and charities never joined their CRO / supplier record on an accented name
+# (doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md §2). Using the shared rule fixes that and
+# also adds the missing 'AND' connector strip.
 
 
 def classification_split(col: str) -> list[pl.Expr]:

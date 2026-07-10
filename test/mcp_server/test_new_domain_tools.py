@@ -8,9 +8,10 @@ exercise each tool against the real gold parquet through the server's own union
 connection and skip cleanly when the gold/view isn't present on the machine
 (same convention as test/dail_tracker_core/test_core_entity.py).
 
-The gated organisation_dossier tool is intentionally ABSENT — see
-doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md ("PR3 — MCP tool (gated on owner
-sign-off)"); a test below pins that it stays unregistered until signed off.
+organisation_dossier: the PR3 gate in doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md
+was lifted by owner sign-off 2026-07-10 — the tool ships the stable name/company_num
+PR3 interface on the INTERIM v_supplier_entity_xref spine (the old pinning test that
+asserted it stays unregistered is replaced by the tests below).
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ NEW_TOOLS = {
     "housing_money",
     "attendance_ranking",
     "gov_finance_annual",
+    "organisation_dossier",
 }
 
 # A sane per-response ceiling (~25k tokens) — these are summary tools, not dumps.
@@ -53,10 +55,20 @@ def test_new_tools_registered_read_only():
         assert tools[name].description, name  # the docstring is the LLM contract
 
 
-def test_organisation_dossier_stays_gated():
-    # doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md gates the MCP dossier tool on owner
-    # sign-off (PR3). If this fails, the gate was consciously lifted — update the doc.
-    assert "organisation_dossier" not in _tools()
+def test_organisation_dossier_interface_is_pr3_shape():
+    # Gate lifted (owner sign-off 2026-07-10): the tool is registered with the STABLE
+    # PR3 interface — plain name + optional CRO company_num. Callers must NEVER need
+    # the internal spine key, so supplier_norm is not an input.
+    tool = _tools()["organisation_dossier"]
+    assert tool.annotations is not None and tool.annotations.readOnlyHint is True
+    props = tool.inputSchema["properties"]
+    assert "name" in props and "company_num" in props
+    assert "name" in tool.inputSchema.get("required", [])
+    assert "supplier_norm" not in props
+    # the docstring is the LLM contract: interim-spine undercount + co-occurrence framing
+    desc = tool.description.lower()
+    assert "co-occurrence" in desc
+    assert "undercount" in desc
 
 
 def test_new_tools_advertise_bounding_params():
@@ -154,4 +166,75 @@ def test_gov_finance_annual_live(live):
     # newest first, per the view's ORDER BY
     assert int(years[0]["year"]) >= int(years[-1]["year"])
     assert "never summed" in out["caveat"]
+    _assert_sized(out)
+
+
+# ── organisation_dossier (PR3 interface on the interim spine) ─────────────────────
+
+
+def _dossier_probe(live) -> dict:
+    """A spine row whose display_name folds EXACTLY back to its supplier_norm (true for
+    virtually every anchor row — the display name is a raw supplier spelling of the key),
+    so exact-name resolution is deterministic in the tests below."""
+    top = live.cross_register_watchlist(min_registers=1, limit=5)
+    _skip_if_unavailable(top)
+    for row in top["entities"]:
+        if row.get("display_name") and live._org_name_key(str(row["display_name"])) == row["supplier_norm"]:
+            return row
+    pytest.skip("no watchlist row round-trips display_name -> supplier_norm on this gold")
+
+
+def test_organisation_dossier_exact_name_live(live):
+    probe = _dossier_probe(live)
+    out = live.organisation_dossier(str(probe["display_name"]))
+    _skip_if_unavailable(out)
+    assert {"identity", "procurement", "cross_register", "caveat", "matched"} <= set(out)
+    assert out["identity"]["supplier_norm"] == probe["supplier_norm"]
+    assert out["matched"]["via"] == "exact_name"
+    # the ENTITY_COOCCURRENCE caveat rides on the dossier verbatim
+    assert "co-occurrence" in out["caveat"].lower()
+    assert "no individuals" in out["caveat"].lower()
+    # the composer's sum-safe award figure passes through untouched — no invented totals
+    assert isinstance(out["procurement"]["awarded_value_safe_eur"], float)
+    _assert_sized(out)
+
+
+def test_organisation_dossier_accented_variant_resolves_same_entity_live(live):
+    probe = _dossier_probe(live)
+    name = str(probe["display_name"])
+    # lower-case, add a fada, and append a legal suffix — the shared NFKD accent-fold +
+    # suffix-strip normaliser must land the variant on the SAME canonical key
+    variant = name.lower().replace("e", "é", 1) + " limited"
+    out = live.organisation_dossier(variant)
+    _skip_if_unavailable(out)
+    assert "identity" in out, f"variant did not resolve: {out}"
+    assert out["identity"]["supplier_norm"] == probe["supplier_norm"]
+
+
+def test_organisation_dossier_ambiguous_returns_disambiguation_live(live):
+    cur = live._cur()
+    # a token that substring-matches many suppliers but is no entity's exact canonical key
+    tok = "CONSULT"
+    n = cur.execute("SELECT count(*) FROM v_supplier_entity_xref WHERE supplier_norm LIKE ?", [f"%{tok}%"]).fetchone()[
+        0
+    ]
+    exact = cur.execute("SELECT count(*) FROM v_supplier_entity_xref WHERE supplier_norm = ?", [tok]).fetchone()[0]
+    if n < 2 or exact:
+        pytest.skip("gold on this machine lacks an ambiguous probe token")
+    out = live.organisation_dossier("consult")
+    assert out.get("match") == "ambiguous"
+    assert "identity" not in out  # a guess is never returned
+    cands = out["disambiguation"]
+    assert 2 <= len(cands) <= 8
+    assert {"name", "company_num", "registers"} <= set(cands[0])
+    assert "procurement" in cands[0]["registers"]  # the spine is procurement-anchored
+    _assert_sized(out)
+
+
+def test_organisation_dossier_no_match_hint_live(live):
+    out = live.organisation_dossier("__zz_no_such_organisation_zz__")
+    _skip_if_unavailable(out)
+    assert out.get("match") == "none"
+    assert "identity" not in out
+    assert "search_suppliers" in out["hint"]
     _assert_sized(out)

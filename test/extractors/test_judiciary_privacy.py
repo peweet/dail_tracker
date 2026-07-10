@@ -151,6 +151,32 @@ def test_listing_annotations_stripped():
     assert residual_name_tokens(out) == []
 
 
+@pytest.mark.parametrize(
+    "raw,leaked_name",
+    [
+        # a natural person COMMA-attached to a masked institution must NOT ride into the
+        # clear inside the sentinel chunk — the classic Hanrahan-v-State shape
+        ("O.R.P. v Minister for Agriculture and Food, John Hanrahan", "Hanrahan"),
+        ("A.B. v The Minister for Justice and Equality, Declan Sweeney", "Sweeney"),
+        # SPACE-glued (no separator at all) before a masked institution
+        ("Padraig Whelan The Minister for Justice and Equality v C.D.", "Whelan"),
+        # accented Irish name glued after an institution
+        ("K.L. v The Minister for Defence Síofra Ní Bhraonáin", "Bhraon"),
+    ],
+)
+def test_person_glued_to_masked_institution_is_not_leaked(raw, leaked_name):
+    out = anonymise(raw)
+    assert leaked_name.lower() not in out.lower(), f"person leaked in clear: {raw!r} -> {out!r}"
+    assert residual_name_tokens(out) == [], f"gate missed a leak: {raw!r} -> {out!r}"
+
+
+def test_entity_brackets_kept_annotation_brackets_stripped():
+    # brackets that are part of a company name survive; listing annotations do not
+    assert "[Ireland]" in anonymise("CA Pepper Finance Corporation [Ireland] DAC v M.")
+    assert "[Portuma]" in anonymise("Treacy Tyres [Portuma] Ltd v B.")
+    assert "MOTIONS" not in anonymise("J.F. v MINISTER FOR JUSTICE [1 DAY 3 MOTIONS]")
+
+
 # ----------------------------------------------------------------- detector itself
 def test_residual_detector_flags_a_real_leak():
     # the pre-fix bug-B output shape: a named individual kept beside an org

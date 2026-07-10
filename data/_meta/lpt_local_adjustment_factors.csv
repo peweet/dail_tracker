@@ -1,0 +1,125 @@
+local_authority,year,adjustment_pct,source_url,retrieved_date
+Carlow,2023,5.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cavan,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Clare,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cork City,2023,9.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cork County,2023,7.5,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Donegal,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Dublin City,2023,-15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Dun Laoghaire-Rathdown,2023,-15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Fingal,2023,-7.5,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Galway City,2023,0.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Galway County,2023,0.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kerry,2023,10.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kildare,2023,10.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kilkenny,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Laois,2023,10.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Leitrim,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Limerick,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Longford,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Louth,2023,0.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Mayo,2023,10.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Meath,2023,0.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Monaghan,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Offaly,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Roscommon,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Sligo,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+South Dublin,2023,-15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Tipperary,2023,10.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Waterford,2023,10.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Westmeath,2023,0.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Wexford,2023,15.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Wicklow,2023,6.0,https://web.archive.org/web/20230115231340/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Carlow,2024,5.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cavan,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Clare,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cork City,2024,9.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cork County,2024,7.5,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Donegal,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Dublin City,2024,-15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Dun Laoghaire-Rathdown,2024,-15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Fingal,2024,-7.5,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Galway City,2024,0.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Galway County,2024,0.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kerry,2024,10.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kildare,2024,10.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kilkenny,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Laois,2024,10.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Leitrim,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Limerick,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Longford,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Louth,2024,0.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Mayo,2024,10.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Meath,2024,0.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Monaghan,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Offaly,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Roscommon,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Sligo,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+South Dublin,2024,-15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Tipperary,2024,10.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Waterford,2024,10.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Westmeath,2024,0.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Wexford,2024,15.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Wicklow,2024,6.0,https://web.archive.org/web/20240404131538/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Carlow,2025,5.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cavan,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Clare,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cork City,2025,12.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Cork County,2025,10.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Donegal,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Dublin City,2025,-15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Dun Laoghaire-Rathdown,2025,-15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Fingal,2025,-7.5,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Galway City,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Galway County,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kerry,2025,10.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kildare,2025,10.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Kilkenny,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Laois,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Leitrim,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Limerick,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Longford,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Louth,2025,0.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Mayo,2025,10.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Meath,2025,0.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Monaghan,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Offaly,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Roscommon,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Sligo,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+South Dublin,2025,-15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Tipperary,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Waterford,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Westmeath,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Wexford,2025,15.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Wicklow,2025,6.0,https://web.archive.org/web/20250121014850/https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/determining-lpt-charge.aspx,2026-07-10
+Carlow,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Cavan,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Clare,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Cork City,2026,12.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Cork County,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Donegal,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Dublin City,2026,0.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Dun Laoghaire-Rathdown,2026,-15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Fingal,2026,-5.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Galway City,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Galway County,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Kerry,2026,10.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Kildare,2026,10.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Kilkenny,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Laois,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Leitrim,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Limerick,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Longford,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Louth,2026,0.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Mayo,2026,10.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Meath,2026,0.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Monaghan,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Offaly,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Roscommon,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Sligo,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+South Dublin,2026,-7.5,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Tipperary,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Waterford,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Westmeath,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Wexford,2026,15.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10
+Wicklow,2026,6.0,https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx,2026-07-10

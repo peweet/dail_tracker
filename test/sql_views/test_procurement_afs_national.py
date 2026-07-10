@@ -30,7 +30,7 @@ def con():
 
 
 def test_by_division_grain(con):
-    """One row per (year x service division), every published year 2016-2023, division
+    """One row per (year x service division), every published year 2016-2024, division
     never NULL (the WHERE filters it)."""
     n, n_div, n_year, mn, mx = con.execute(
         """
@@ -40,7 +40,7 @@ def test_by_division_grain(con):
         """
     ).fetchone()
     assert n == n_div * n_year, "grain is not a clean year x division grid"
-    assert (mn, mx) == (2016, 2023)
+    assert (mn, mx) == (2016, 2024)
     nulls = con.execute(
         "SELECT count(*) FROM v_procurement_afs_national_by_division WHERE division IS NULL"
     ).fetchone()[0]
@@ -83,11 +83,11 @@ def test_by_year_reconciles_to_division_sum(con):
     assert mismatches == 0
 
 
-def test_by_year_is_eight_years_ascending(con):
+def test_by_year_is_nine_years_ascending(con):
     rows = con.execute("SELECT year FROM v_procurement_afs_national_by_year ORDER BY year").fetchall()
     years = [r[0] for r in rows]
     assert years == sorted(years)
-    assert years == list(range(2016, 2024))
+    assert years == list(range(2016, 2025))
 
 
 def test_budget_grain_firewall_fields_present(con):

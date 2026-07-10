@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import re
 import sys
-import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -57,6 +56,7 @@ except Exception:
     pass
 
 from services.parquet_io import save_parquet  # noqa: E402
+from shared.name_norm import name_norm_str  # noqa: E402
 
 NOTICES_PARQUET = ROOT / "data" / "gold" / "parquet" / "corporate_notices.parquet"
 CBI_XREF_PARQUET = ROOT / "data" / "gold" / "parquet" / "cbi_xref_corporate_notices.parquet"
@@ -152,14 +152,14 @@ _CBI_MIN_NORM_CHARS = 6  # corporate.py gate — shorter norms over-match
 
 
 def _norm_entity(name) -> str:
+    """Canonical company key via shared.name_norm (UPPERCASE), matching the xref's
+    ``entity_norm`` (also shared.name_norm) so ``build_cbi_badge_resolver`` actually
+    lands. Was a LOWERCASE variant — a case/suffix mismatch against the UPPERCASE
+    reg_map keys that silently suppressed matches. Drops any 't/a XYZ' tail first."""
     if name is None or (isinstance(name, float) and pd.isna(name)):
         return ""
-    s = str(name)
-    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii").lower()
-    s = re.sub(r"\bt/?a\b.*$", "", s)
-    s = _NORM_SUFFIX_RE.sub(" ", s)
-    s = re.sub(r"[^a-z0-9 ]+", " ", s)
-    return re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r"\bt/?a\b.*$", "", str(name), flags=re.IGNORECASE)
+    return name_norm_str(s)
 
 
 def build_cbi_badge_resolver(xref: pd.DataFrame):

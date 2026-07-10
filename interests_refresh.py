@@ -1,10 +1,10 @@
 """interests_refresh.py — Register of Members' Interests extraction.
 
-Single-step chain today; lives as a chain for consistency and so a future
-member-enrichment step can be added the same way it was for payments.
-
-    1. member_interests   parses bronze Register-of-Interests PDFs
-                          → silver/gold member_interests tables
+    1. member_interests    parses bronze annual Register-of-Interests PDFs
+                           → silver dail/seanad_member_interests_combined
+    2. member_interests_supplements
+                           parses the Section 29 supplements (late filings /
+                           corrections) → silver member_interests_supplements
 
 Bronze PDFs are picked up by bootstrap_refresh.step_poll_oireachtas. Run
 bootstrap first if there have been new publications.
@@ -47,8 +47,13 @@ def _module(mod: str) -> bool:
 
 
 def step_extract() -> bool:
-    _hr("[1/1] member_interests — Register of Members' Interests PDF parser")
+    _hr("[1/2] member_interests — Register of Members' Interests PDF parser")
     return _module("members.member_interests")
+
+
+def step_supplements() -> bool:
+    _hr("[2/2] member_interests_supplements — Section 29 supplements parser")
+    return _module("members.member_interests_supplements")
 
 
 def main() -> int:
@@ -60,6 +65,8 @@ def main() -> int:
     failures: list[str] = []
     if not step_extract():
         failures.append("extract")
+    if not step_supplements():
+        failures.append("supplements")
     _hr(f"[done] interests_refresh complete in {time.monotonic() - started:.1f}s")
     if failures:
         print(f"  FAILED steps: {', '.join(failures)}")
