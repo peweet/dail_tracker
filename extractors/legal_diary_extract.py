@@ -323,13 +323,27 @@ def category_of(list_type: str, case: str) -> str:
 
 
 # ============================================================ anonymisation
+# A bracket is a LISTING annotation (strip it) if its content has a digit or an
+# annotation word; otherwise it is part of an entity name (keep it verbatim).
+_BRACKET_RE = re.compile(r"\[([^\]]*)\]")
+_BRACKET_ANNOT_RE = re.compile(
+    r"\d|\b(?:linked|formerly|adjourned|part\s*heard|book|prov|reserved|mention|"
+    r"motions?|hours?|days?|withdrawn|struck|settled|vacated|adjd|ruling|judg[e]?ment|"
+    r"no\s*book|for\s*mention|call\s*over|to\s*proceed)\b",
+    re.I,
+)
+
+
 def strip_refs(t: str) -> str:
     # High Court record refs: generalise H.JR / H.P to the whole H.<list>.<year>.<seq>
     # family (H.COS commercial, H.CA, …); the trailing seq can glue to the next word
     # (H.COS.2025.0000177SOLFRENO), so eat optional trailing digits too.
     t = re.sub(r"\bH\.?[A-Z]{1,4}\.?\s*\d{4}\.?\d*", " ", t, flags=re.I)
     t = re.sub(r"\([^)]*\)", " ", t)  # solicitor / duration parens
-    t = re.sub(r"\[[^\]]*\]", " ", t)  # listing annotations: [LINKED] [1 DAY 3 MOTIONS] [formerly …]
+    # Bracketed LISTING annotations ([LINKED] [1 DAY 3 MOTIONS] [formerly …]) are noise;
+    # strip ONLY those. Keep brackets that are part of an entity name ([IRELAND] in
+    # "Pepper Finance [Ireland] DAC", [Portuma] in "Treacy Tyres [Portuma] Ltd").
+    t = _BRACKET_RE.sub(lambda m: " " if _BRACKET_ANNOT_RE.search(m.group(1)) else m.group(0), t)
     t = re.sub(r":[A-Z]{2,}:[A-Z0-9:]+", " ", t)  # :LCA:OLCA:2026:000144
     t = re.sub(r"\b\d*\s*CCDP\d+/\d+", " ", t, flags=re.I)
     t = re.sub(r"\b\d*\s*CJA/\d+", " ", t, flags=re.I)
@@ -406,7 +420,7 @@ _PORTFOLIO_WORDS = [
     "media", "environment", "climate", "action", "communications", "communication",
     "energy", "natural", "resources", "agriculture", "food", "marine", "fisheries",
     "rural", "community", "social", "protection", "foreign", "affairs", "older",
-    "people", "gaeilge", "home", "child", "business",
+    "people", "gaeilge", "home", "child", "business", "welfare", "family",
 ]
 _PW = r"\b(?:" + "|".join(sorted(set(_PORTFOLIO_WORDS), key=len, reverse=True)) + r")\b"
 _MIN_CONNECT = r"(?:\s*,\s*|\s*&\s*|\s+and\s+|\s+)(?:the\s+)?"
@@ -424,16 +438,23 @@ _CURATED_INSTITUTIONS = [
     "Child and Family Agency",
 ]
 _CURATED_RE = re.compile(
-    "|".join(re.escape(n) for n in sorted(_CURATED_INSTITUTIONS, key=len, reverse=True)),
+    r"(?:the\s+)?(?:" + "|".join(re.escape(n) for n in sorted(_CURATED_INSTITUTIONS, key=len, reverse=True)) + r")",
     re.I,
 )
+# Sentinel = the placeholder a masked institution span becomes. The capturing group lets
+# _anonymise_party / the gate split AROUND institutions so text glued to one (by a comma
+# or a bare space, not just "and") is separated out and reduced by default.
+_SENTINEL_RE = re.compile(r"(\x00I\d+\x00)")
 
 
 def _mask_institutions(text: str) -> tuple[str, dict[str, str]]:
     """Replace recognised institution spans (curated bodies + ministerial titles)
     with sentinels so the and-split cannot break them apart. Returns the masked text
-    and a {sentinel: verbatim-span} map for restoration."""
+    and a {sentinel: verbatim-span} map for restoration. A length guard bounds the
+    ministerial regex against pathologically long input (real case titles are short)."""
     mapping: dict[str, str] = {}
+    if len(text) > 500:
+        return text, mapping
 
     def _sub(m: "re.Match[str]") -> str:
         key = f"\x00I{len(mapping)}\x00"
@@ -455,35 +476,58 @@ def _initials(side: str) -> str:
     return (ini + "." if ini else "X") + tail
 
 
+# WORD-BOUNDARY org test. Naive substring matching leaked natural persons: "bank" is an
+# org key, but it also occurs inside "bankruptcy" — so a chunk like "… In The Estate Of
+# Trevor Whelan" (a bankruptcy/insolvency matter) was wrongly kept in clear. \b anchors fix
+# that ("bank" no longer matches "bankruptcy", "company" no longer matches "accompany", etc.).
+_ORG_KEY_RE = re.compile("|".join(r"\b" + re.escape(k.strip()) + r"\b" for k in ORG_KEYS), re.I)
+
+
 def _is_org(side: str) -> bool:
-    return any(k in side.lower() for k in ORG_KEYS)
+    return bool(_ORG_KEY_RE.search(side))
+
+
+def _anon_text(txt: str) -> str:
+    """Reduce a run of plain (non-institution) text by default: split on 'and'/'&',
+    keep keyword-org chunks verbatim, reduce every other chunk to initials. A chunk that
+    is pure articles/connectors/punctuation (e.g. a stray leading 'The') carries no name
+    and is dropped rather than becoming a spurious 'X'."""
+    out: list[str] = []
+    for c in (s.strip() for s in _ANDSPLIT.split(txt)):
+        if not c:
+            continue
+        if _is_org(c):
+            out.append(c)
+        elif any(w.strip("'").lower() not in _SKIP for w in re.findall(r"[A-Za-z']+", c)):
+            out.append(_initials(c))
+    return " and ".join(out)
 
 
 def _anonymise_party(side: str) -> str:
-    """Anonymise ONE party side. Split into and-chunks so a public body riding
-    alongside named individuals (e.g. '<Name> and <Name> and X County Council')
-    cannot keep the individuals in clear: each non-org chunk is reduced to initials,
-    org / State chunks are kept verbatim. A trailing '& Ors' / 'and others' is
-    preserved. Over-anonymising an org name (no keyword) is harmless; the only
-    unsafe direction is a natural person kept in clear, which this prevents."""
+    """Anonymise ONE party side. Recognised institution spans (Ministers, curated
+    bodies) are masked to sentinels and kept in clear; EVERYTHING ELSE is reduced by
+    default. Crucially we split AROUND the sentinels — not only on 'and'/'&' — so a
+    natural person glued to an institution by a comma ("Minister for Agriculture and
+    Food, John Hanrahan") or a bare space ("John Hanrahan The Minister for Justice")
+    still lands in its own text run and is initialised. Keyword-less run-on orgs are
+    reduced too (they are equally reduced when they appear standalone), which is
+    harmless; the only unsafe direction is a natural person kept in clear."""
     side = side.strip()
     if not side:
         return ""
     tail = " & Ors" if _TAIL.search(side) else ""
     core = _TAIL.sub("", side)
-    # Protect recognised institution spans (Ministers, curated bodies) from the
-    # and-split, then restore them verbatim on the joined output. A chunk carrying a
-    # sentinel is kept as-is (never initialised); any non-institution text glued to it
-    # survives to the residual-name gate, which strips sentinels and still scans it.
     core, inst = _mask_institutions(core)
-    rendered = [
-        c if ("\x00" in c or _is_org(c)) else _initials(c) for c in (s.strip() for s in _ANDSPLIT.split(core)) if c
-    ]
-    joined = " and ".join(r for r in rendered if r)
-    out = (joined + tail) if joined else ("X" + tail)
-    for key, span in inst.items():
-        out = out.replace(key, span)
-    return out
+    pieces: list[str] = []
+    for i, part in enumerate(_SENTINEL_RE.split(core)):
+        if i % 2 == 1:  # a sentinel -> the institution span, kept verbatim
+            pieces.append(inst[part])
+            continue
+        txt = part.strip(" ,;")
+        if txt and (piece := _anon_text(txt)):
+            pieces.append(piece)
+    out = " and ".join(pieces) if pieces else "X"
+    return out + tail
 
 
 def parties(raw: str) -> dict[str, str]:
@@ -524,17 +568,17 @@ def residual_name_tokens(case_anonymised: str) -> list[str]:
     is a leaked name. Org / State chunks (legitimately kept in clear) are exempt.
     This is the CONTENT privacy invariant the old column-name assert never checked."""
     leaks: list[str] = []
-    # Mask recognised institution spans (Ministers, curated bodies) to sentinels, then
-    # exempt any chunk that still carries one — mirroring how _is_org used to shelter a
-    # whole run-on chunk before the span was extracted (e.g. "St James Hospital … The
-    # Minister for Health"). A natural person is always separated by "and"/","/"v", so it
-    # lands in its OWN sentinel-free chunk and is still scanned — never exempted.
+    # Mask recognised institution spans, then REMOVE their text (not exempt the chunk):
+    # only the institution characters are blanked, so a natural person glued to one by a
+    # comma or a bare space is still scanned. Any 2+-letter token left in a non-org chunk
+    # is a leaked name. (Keyword-orgs are legitimately kept in clear and stay exempt.)
     masked, _ = _mask_institutions(case_anonymised)
+    masked = _SENTINEL_RE.sub(" ", masked)
     for seg in re.split(r"\s+v\s+", masked):
         core = _TAIL.sub("", seg)
         for chunk in _ANDSPLIT.split(core):
             chunk = chunk.strip()
-            if not chunk or "\x00" in chunk or _is_org(chunk):
+            if not chunk or _is_org(chunk):
                 continue
             leaks.extend(_NAME_TOKEN.findall(chunk))
     return leaks

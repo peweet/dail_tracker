@@ -1,5 +1,5 @@
 """INGEST (full, sandbox): amalgamated Local Authority Annual Financial Statements —
-Income & Expenditure by SERVICE DIVISION, every published year (2009–2023).
+Income & Expenditure by SERVICE DIVISION, every published year (2009–2024).
 
 Source: Dept of Housing 'Local Authority Annual Financial Statements' collection (gov.ie),
 audited amalgamation of all 31 LAs. The unique BUDGET/SPENT-by-function macro layer (the
@@ -50,6 +50,7 @@ URLS = {
     2021: "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2021.pdf",
     2022: "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2022-45632ad8-16cd-47ae-95de-942e4e8d5265.pdf",
     2023: "https://assets.gov.ie/static/documents/AFS_2023.pdf",
+    2024: "https://assets.gov.ie/static/documents/ed003ab1/FINAL_Amalgamated_AFS_2024_web.pdf",
 }
 
 # canonical division -> keyword regex (matches statutory wording across years)

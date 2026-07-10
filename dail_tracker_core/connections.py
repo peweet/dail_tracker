@@ -199,6 +199,7 @@ def member_overview_conn() -> duckdb.DuckDBPyConnection:
 CONSTITUENCY_FILES = [
     "constituency_la_crosswalk.sql",
     "constituency_la_chief_executives.sql",  # council-grain CE roster (reads _meta CSV; no deps)
+    "constituency_la_lpt_adjustment.sql",  # council-grain LPT local-adjustment-factor votes (reads _meta CSV; no deps)
     # Your-Councillors gold views — each reads a data/_meta CSV directly (no inter-view deps).
     "constituency_la_councillors.sql",  # elected-member roster by LEA
     "constituency_la_council_meeting_coverage.sql",  # per-council data-state tier (honest degradation)

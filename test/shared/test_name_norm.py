@@ -18,7 +18,7 @@ from pathlib import Path
 import polars as pl
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr, name_norm_str  # noqa: E402
 
 
 def _norm(name: str) -> str:
@@ -64,3 +64,37 @@ def test_accents_folded_to_ascii():
 
 def test_empty_string():
     assert _norm("") == ""
+
+
+# ── name_norm_str is byte-identical to name_norm_expr ─────────────────────────
+# The row-loop extractors (CBI, receiver, diary) use the str twin; it MUST agree
+# with the Polars expr or those keys stop joining the supplier/CRO universe (the
+# very bug this unification fixes). Sweep a corpus of the shapes that actually
+# appear: accents/fadas, connectors, legal suffixes, trading-as tails, digits,
+# punctuation, non-Latin, whitespace, empty.
+_CORPUS = [
+    "Acme Holdings Limited", "The Foo Company", "O'Brien & Sons, Ltd.",
+    "ACME LIMITED", "Acme Ltd", "Turner & Townsend", "Turner And Townsend",
+    "Black and Decker", "Café & Bar #1", "Tirlán Ltd", "TIRLAN", "Telefónica",
+    "Gaelchultúr Teoranta", "Óglaigh na hÉireann", "Bank of Ireland Group plc",
+    "PFH Technology Group", "Ernst & Young", "Deloitte Ireland LLP",
+    "Uisce Éireann", "An Post", "Bord Gáis Energy", "SSE Airtricity Ltd",
+    "Designated Activity Company", "X Unlimited Company", "Y CLG",
+    "  spaced   out   name  ", "123 Numbers Ltd", "ABC / DEF Ltd",
+    "Naomh Séamas Teoranta t/a St James", "MÜLLER & CO", "", "A",
+]
+
+
+def test_name_norm_str_matches_expr_across_corpus():
+    for name in _CORPUS:
+        assert name_norm_str(name) == _norm(name), f"drift on {name!r}: str={name_norm_str(name)!r} expr={_norm(name)!r}"
+
+
+def test_name_norm_str_none_is_empty():
+    assert name_norm_str(None) == ""
+
+
+def test_name_norm_str_accent_fold_joins():
+    # the headline fix: the str twin folds fadas the same way, so a CBI/charity
+    # firm name lands on the same key as its CRO/supplier record.
+    assert name_norm_str("Tirlán Ltd") == name_norm_str("TIRLAN") == "TIRLAN"

@@ -170,7 +170,7 @@ def division_interest_breakdown(vote_id: str) -> dict:
     private interests of the voters: how many landlords, property-owners, company
     directors and shareholders (per the Register of Members' Interests) voted each
     way, and how many appear on the register at all. Use get_division for the named
-    member list. The register covers 2020–2025, so older divisions match nothing."""
+    member list. The register covers 1995–2025, so only pre-1995 divisions match nothing."""
     d = dossiers.build_division_interest_breakdown(_cur(), vote_id)
     return d or {"error": f"no division '{vote_id}'"}
 
@@ -201,7 +201,7 @@ def voting_vs_interests(
     Otherwise the full `matches` are returned but capped at `limit` (default 50), with
     `returned`/`truncated` flags; raise `limit` or pass a specific `vote_id` to widen.
     `match_count`/`distinct_members` always reflect the FULL result, not the page.
-    The register covers 2020–2025 only — pre-2020 divisions match nothing."""
+    The register covers 1995–2025 — only pre-1995 divisions match nothing."""
     if not vote_id and not keyword:
         return {"error": "pass a vote_id or a keyword to identify the division(s)"}
     res = dossiers.cross_reference_votes_interests(
@@ -854,7 +854,7 @@ def data_coverage() -> dict:
         "sipo_election_expenses": _one(sipo.expenses_totals(cur)),
         "charities_latest_year": _one(char.latest_year(cur)),
         "caveats": {
-            "register_of_interests": "Register of Members' Interests covers 2020–2025 only — older divisions match no interests",
+            "register_of_interests": "Register of Members' Interests covers 1995–2025 (Dáil every year; Seanad missing 1996/1999/2004) — only pre-1995 divisions match no interests",
             "ted_award_winners": "TED award WINNERS are 2024+ (pre-2024 notices carry buyer + CPV + total value but no winner)",
             "money_grains": "procurement AWARDS, public-body PAYMENTS, and T&A allowances are three different value grains — NEVER sum across them",
         },
@@ -1075,12 +1075,7 @@ def siting_check(
     }
 
 
-# ── Cross-register watchlist (organisation entity-crosswalk spine) ───────────────
-# NOTE: the composed organisation_dossier MCP tool is deliberately NOT registered —
-# doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md gates it ("PR3 — MCP tool (gated on owner
-# sign-off)") and plans a name/CRO-resolving shape on the future v_entity_xref spine.
-# This ranking lens over v_supplier_entity_xref (already LIVE on the free company page)
-# is a separate, ungated surface.
+# ── Cross-register watchlist + organisation dossier (entity-crosswalk spine) ─────
 
 
 @mcp.tool(annotations=_RO)
@@ -1106,6 +1101,147 @@ def cross_register_watchlist(min_registers: int = 2, limit: int = 25) -> dict:
         return {"error": qr.unavailable_reason}
     rows = serialize.to_records(qr.data)
     return {"count": len(rows), "entities": rows, "caveat": caveats.ENTITY_COOCCURRENCE}
+
+
+def _org_name_key(name: str) -> str:
+    """The CANONICAL company-name key for one string — shared/name_norm.name_norm_expr
+    applied through a one-row frame, so this tool's key can never drift from the rule
+    the spine was built with (the divergent-normaliser bug the crosswalk exists to fix)."""
+    import polars as pl  # lazy — keeps server startup instant; only paid on first dossier call
+
+    from shared.name_norm import name_norm_expr
+
+    return str(pl.DataFrame({"n": [name]}).select(name_norm_expr("n")).item() or "")
+
+
+_XREF_CANDIDATE_SQL = (
+    "SELECT supplier_norm, display_name, company_num, has_cro, on_lobbying_register,"
+    " has_corporate_notice, is_charity, has_epa_licence, cross_register_count"
+    " FROM v_supplier_entity_xref"
+)
+
+
+def _org_registers(row: dict) -> list[str]:
+    """The registers one spine row appears on (every row is procurement-anchored)."""
+    flags = [
+        ("has_cro", "cro"),
+        ("on_lobbying_register", "lobbying"),
+        ("has_corporate_notice", "corporate-notices"),
+        ("is_charity", "charity"),
+        ("has_epa_licence", "epa"),
+    ]
+    return ["procurement"] + [label for col, label in flags if row.get(col)]
+
+
+def _resolve_org_candidates(cur, name: str, company_num: str) -> tuple[list[dict], str]:
+    """name / CRO number → spine candidates, strongest signal first: CRO company_num,
+    then the exact canonical name key, then the company_influence-style fuzzy substring
+    fallback. Returns (candidates, via); >1 candidate disambiguates at the call site —
+    never a guess (the council_scorecard pattern)."""
+    if company_num.strip():
+        num = company_num.strip()
+        rows = serialize.to_records(
+            cur.execute(
+                _XREF_CANDIDATE_SQL
+                + " WHERE CAST(company_num AS VARCHAR) = ? OR TRY_CAST(company_num AS BIGINT) = TRY_CAST(? AS BIGINT)",
+                [num, num],
+            ).df()
+        )
+        if rows:
+            return rows, "company_num"
+    key = _org_name_key(name)
+    if key:
+        rows = serialize.to_records(cur.execute(_XREF_CANDIDATE_SQL + " WHERE supplier_norm = ?", [key]).df())
+        if rows:
+            return rows, "exact_name"
+    clauses, params = [], []
+    if key:
+        clauses.append("supplier_norm LIKE ?")
+        params.append(f"%{key}%")
+    if name.strip():
+        clauses.append("lower(display_name) LIKE ?")
+        params.append(f"%{name.strip().lower()}%")
+    if not clauses:
+        return [], "none"
+    rows = serialize.to_records(
+        cur.execute(
+            _XREF_CANDIDATE_SQL
+            + " WHERE "
+            + " OR ".join(clauses)
+            + " ORDER BY cross_register_count DESC, awarded_value_safe_eur DESC NULLS LAST LIMIT 8",
+            params,
+        ).df()
+    )
+    return rows, "fuzzy_name"
+
+
+# PR3 SHIPPED EARLY on the INTERIM spine — owner sign-off 2026-07-10. The name /
+# company_num interface below is the STABLE PR3 contract from
+# doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md; resolution currently runs against the
+# supplier-anchored v_supplier_entity_xref. When the unified v_entity_xref spine lands
+# (PR0 normaliser unification + PR1), only the internals here and
+# dossiers.build_organisation_dossier swap — callers never pass supplier_norm.
+@mcp.tool(annotations=_RO)
+def organisation_dossier(name: str, company_num: str = "") -> dict:
+    """ONE-CALL organisation-360: resolve a company by plain-English `name` (optionally
+    pinned by its CRO `company_num`) and return its cross-register dossier — CRO identity,
+    procurement footprint (award rows + sum-safe awarded €) and its co-occurrence across
+    the lobbying register, corporate (Iris Oifigiúil) notices, the charity register and
+    EPA licensing. Use it when a question spans registers ("who is X, what state contracts
+    did they win, do they also lobby / run a charity?") instead of stitching
+    search_suppliers + get_supplier + lobbying tools yourself; for meeting-level ministerial
+    access use company_influence.
+
+    Resolution folds `name` to the same canonical key the spine is built on (NFKD
+    accent-fold + legal-suffix strip — 'Tirlán' / 'TIRLAN LIMITED' land on one key). An
+    ambiguous name returns a `disambiguation` candidate list (each with the registers it
+    appears on), never a guess — call again with one exact name or its company_num. No
+    match returns a structured hint (try search_suppliers).
+
+    ⚠️ Matching is CONSERVATIVE: the spine is anchored on public-procurement suppliers and
+    fused at the EXACT match tier only, so yields undercount (match_tier floor) —
+    subsidiary/trading-name variants are missed, an organisation that never won public
+    procurement is absent, and a low register count is a floor, never proof of absence.
+    The `caveat` means: co-occurrence by ENTITY only — the same organisation on several
+    registers is a research lead, NEVER evidence one register explains another (no key
+    links a lobby or meeting to a contract). awarded_value_safe_eur is the AWARD-ceiling
+    money grain — never sum it with payments or any other grain. No individuals — sole
+    traders / natural persons are excluded upstream. Surface the `caveat` with findings."""
+    if not name.strip() and not company_num.strip():
+        return {"error": "pass an organisation name (and optionally a CRO company_num)"}
+    cur = _cur()
+    try:
+        candidates, via = _resolve_org_candidates(cur, name, company_num)
+    except Exception as exc:  # noqa: BLE001 — missing spine parquet/view degrades to 'unavailable'
+        return {"error": f"organisation spine unavailable: {exc}"}
+    if not candidates:
+        return {
+            "match": "none",
+            "query": {"name": name, "company_num": company_num or None},
+            "hint": "no organisation resolved on the cross-register spine (procurement-supplier "
+            "anchored — an org that never appears as a public-procurement supplier is not on it). "
+            "Try search_suppliers to browse supplier names, or company_influence for diary access.",
+        }
+    if len(candidates) > 1:
+        return {
+            "match": "ambiguous",
+            "disambiguation": [
+                {
+                    "name": c.get("display_name"),
+                    "company_num": c.get("company_num"),
+                    "supplier_norm": c.get("supplier_norm"),
+                    "registers": _org_registers(c),
+                }
+                for c in candidates
+            ],
+            "note": "multiple organisations match — call again with one exact name or its CRO company_num",
+        }
+    norm = str(candidates[0]["supplier_norm"])
+    d = dossiers.build_organisation_dossier(cur, norm)
+    if d is None:  # candidate came from the spine, so this is a source fault, not a miss
+        return {"error": f"spine row for '{norm}' vanished mid-query — source unavailable"}
+    d["matched"] = {"via": via, "supplier_norm": norm}
+    return d
 
 
 # ── Local government (council accountability scorecard) ─────────────────────────

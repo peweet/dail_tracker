@@ -345,7 +345,7 @@ def fetch_afs_national_by_division_result(year: int | None = None) -> QueryResul
 
 @st.cache_data(ttl=600)
 def fetch_afs_national_by_year_result() -> QueryResult:
-    """National amalgamated AFS totals per year (2016–2023 spine)."""
+    """National amalgamated AFS totals per year (2016–2024 spine)."""
     return _q.afs_national_by_year(get_procurement_conn())
 
 
