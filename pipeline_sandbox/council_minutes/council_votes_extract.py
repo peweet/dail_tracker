@@ -280,6 +280,25 @@ class Coverage:
 
 
 # ── Cork City prose ───────────────────────────────────────────────────────────────────────────
+def _dedupe_motions(rows: list[dict]) -> list[dict]:
+    """Distinct divisions in one meeting can share a motion string (e.g. four budget
+    amendments each introduced only as 'A vote was taken where there appeared as
+    follows:'). Suffix ' (vote N)' so the divisions stay distinguishable in gold — a
+    reader/joiner must never collapse two real votes into one. Uses the transient
+    '_div' ordinal each parser attaches; strips it on the way out."""
+    by_motion: dict[tuple[str, str], set[int]] = {}
+    for r in rows:
+        by_motion.setdefault((r["meeting"], r["motion"]), set()).add(r["_div"])
+    out = []
+    for r in rows:
+        divs = sorted(by_motion[(r["meeting"], r["motion"])])
+        motion = r["motion"]
+        if len(divs) > 1:
+            motion = f"{motion} (vote {divs.index(r['_div']) + 1} of {len(divs)})".strip()
+        out.append({k: v for k, v in {**r, "motion": motion}.items() if k != "_div"})
+    return out
+
+
 _CORK_MARKER = re.compile(r"\b(FOR|AGAINST|ABSTAIN)\s*:")
 _CORK_MOTION = re.compile(
     r"(A vote was (?:taken|called)[^.]{0,220}|The following amendment[^.]{0,220}"

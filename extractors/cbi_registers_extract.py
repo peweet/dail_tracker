@@ -613,9 +613,14 @@ def xref_member_interests(firms: pl.DataFrame) -> pl.DataFrame:
     if interests is None or interests.is_empty():
         return pl.DataFrame()
 
-    # Pre-normalise interest text
+    # Pre-normalise interest text. UPPER-case to stay case-compatible with
+    # firm_name_norm, which is now the canonical shared.name_norm key (UPPERCASE);
+    # _norm_text lower-cases, so without this the substring match below never lands.
     interests = interests.with_columns(
-        pl.col("interest_description_cleaned").map_elements(_norm_text, return_dtype=pl.Utf8).alias("interest_norm")
+        pl.col("interest_description_cleaned")
+        .map_elements(_norm_text, return_dtype=pl.Utf8)
+        .str.to_uppercase()
+        .alias("interest_norm")
     ).filter(pl.col("interest_norm").str.len_chars() >= 6)
 
     # Build deduplicated firm-name index — STRICT filter for substring matching

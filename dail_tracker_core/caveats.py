@@ -143,6 +143,19 @@ ENTITY_COOCCURRENCE = (
     "not guessed. No individuals — sole traders / natural persons are excluded."
 )
 
+# ── Local-authority AFS (audited BUDGET grain) ─────────────────────────────────
+# Lifted verbatim from the view headers (sql_views/procurement/procurement_afs_total_by_year.sql,
+# procurement_afs_vs_po_coverage.sql): a budget/accounts fact, sibling to the PO/payment/award
+# facts, never unioned with them.
+AFS = (
+    "AFS gross/net_expenditure is Σ audited OPERATING expenditure BY SERVICE DIVISION from the "
+    "council's own Income & Expenditure account — it EXCLUDES inter-account/reserve transfers "
+    "and the capital programme, and is NOT the council's headline printed total. A BUDGET grain, "
+    "never summed or unioned with procurement AWARD ceilings, public-body PAYMENTS, or T&A "
+    "allowances. Where a PO/payment bridge is shown, pct_* is an INDICATIVE traceability ratio "
+    "only (different threshold/stage/grain) — NOT a reconciliation."
+)
+
 # ── Attendance participation & TAA ────────────────────────────────────────────
 ATTENDANCE = (
     "Turnout is divisions voted in ÷ divisions held; office-holders (ministers, chairs, party "

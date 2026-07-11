@@ -1241,6 +1241,12 @@ def organisation_dossier(name: str, company_num: str = "") -> dict:
     if d is None:  # candidate came from the spine, so this is a source fault, not a miss
         return {"error": f"spine row for '{norm}' vanished mid-query — source unavailable"}
     d["matched"] = {"via": via, "supplier_norm": norm}
+    xr = d.get("cross_register")
+    if isinstance(xr, dict) and "register_count" in xr:
+        # Presentation rename for LLM callers: the composer's count EXCLUDES procurement
+        # and CRO identity (a 0 here means procurement-only, not off-register) — the bare
+        # name `register_count` reads as the inclusive count the disambiguation list shows.
+        xr["registers_beyond_procurement"] = xr.pop("register_count")
     return d
 
 
@@ -1292,6 +1298,56 @@ def council_scorecard(local_authority: str = "") -> dict:
         "collection_rates": _rows(lg.collection_rates(cur, la)),
         "cash_signals": _rows(lg.cash_signals(cur, la)),
         "caveat": caveats.NOAC_SCORECARD,
+    }
+
+
+# ── AFS (local-authority audited accounts — the BUDGET grain) ────────────────────
+
+
+@mcp.tool(annotations=_RO)
+def afs_coverage(local_authority: str = "") -> dict:
+    """Local-authority Annual Financial Statement (AFS) coverage — the audited BUDGET grain
+    (councils' own Income & Expenditure account), a SIBLING fact to procurement awards/payments,
+    never summed with them. With no argument: which of the 31 councils have audited accounts
+    loaded and for which years (`coverage_by_council`), plus the national amalgamated AFS total
+    per year (`national_by_year`). With a `local_authority` (fuzzy — 'Mayo' resolves to 'Mayo
+    County Council'): that council's revenue-account spend per year (`by_year`) and the
+    AFS-vs-PO traceability bridge (`afs_vs_po_bridge` — how much of its audited spend is
+    traceable to a named >€20k supplier line; INDICATIVE only, not a reconciliation).
+
+    ⚠️ gross/net_expenditure is Σ OPERATING expenditure BY SERVICE DIVISION — it EXCLUDES
+    inter-account/reserve transfers and is NOT the council's headline printed total. NEVER sum
+    AFS euros with procurement AWARD ceilings, public-body PAYMENTS, or T&A allowances — three
+    different money grains. Surface the `caveat`."""
+    cur = _cur()
+    coverage = _rows(proc.afs_coverage_by_council(cur))
+    if isinstance(coverage, dict):  # unavailable (missing source parquet)
+        return {"local_authority": local_authority, **coverage}
+    if not local_authority:
+        return {
+            "coverage_by_council": coverage,
+            "national_by_year": _rows(proc.afs_national_by_year(cur)),
+            "note": "call again with one local_authority label for its per-year AFS + AFS-vs-PO bridge",
+            "caveat": caveats.AFS,
+        }
+    q = local_authority.strip().lower()
+    hits = [r for r in coverage if q in str(r.get("council", "")).lower()]
+    if not hits:
+        return {
+            "error": f"no council matches '{local_authority}'",
+            "councils": [r.get("council") for r in coverage],
+        }
+    if len(hits) > 1:
+        return {
+            "disambiguation": [r.get("council") for r in hits],
+            "note": "multiple councils match — call again with one exact label",
+        }
+    la = str(hits[0]["council"])
+    return {
+        "local_authority": la,
+        "by_year": _rows(proc.afs_total_by_year(cur, la)),
+        "afs_vs_po_bridge": _rows(proc.afs_vs_po_coverage(cur, la)),
+        "caveat": caveats.AFS,
     }
 
 
