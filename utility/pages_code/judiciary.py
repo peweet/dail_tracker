@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import datetime
 import html
+import re
 import sys
 import urllib.parse
 from pathlib import Path
@@ -124,6 +125,14 @@ def _esc(val) -> str:
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return ""
     return html.escape(str(val))
+
+
+def _html(markup: str) -> None:
+    """st.html but a no-op on empty markup — st.html raises on an empty body, and the
+    diary builders legitimately return '' (a day with no matters to roll, an all-noise
+    schedule)."""
+    if markup:
+        st.html(markup)
 
 
 def _fmt_day(s: str) -> str:
@@ -358,6 +367,23 @@ def _inject_jd_css() -> None:
         .jd-timeline { font-size: 0.72rem; font-weight: 700; color: #2c5f6b; background: #eaf3f5;
             border-radius: 4px; padding: 0.05rem 0.4rem; align-self: center; flex: none;
             font-variant-numeric: tabular-nums; }
+        /* ── the day's SCHEDULE (where the judge sat, and the lists they ran) rendered as a
+           legible timetable: one card per courtroom / venue, the distinct lists inside. */
+        .jd-sched { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+            gap: 0.6rem; margin: 0.5rem 0 0.9rem; }
+        .jd-sched-room { background: #ffffff; border: 1px solid #e4e9ec; border-radius: 10px;
+            padding: 0.6rem 0.8rem; }
+        .jd-sched-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+            padding-bottom: 0.35rem; margin-bottom: 0.35rem; border-bottom: 1px solid #eef2f3; }
+        .jd-sched-room-name { font-weight: 700; color: #14232b; font-size: 0.9rem; }
+        .jd-sched-court { font-size: 0.72rem; color: #7b8b92; }
+        .jd-sched-meta { margin-left: auto; font-size: 0.72rem; color: #6b7b83; white-space: nowrap; }
+        .jd-sched-item { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.82rem;
+            color: #2c3e46; padding: 0.16rem 0; }
+        .jd-sched-list { flex: 1; min-width: 0; }
+        .jd-sched-n { font-size: 0.72rem; font-weight: 700; color: #2c5f6b; background: #eaf3f5;
+            border-radius: 999px; padding: 0.02rem 0.5rem; flex: none; font-variant-numeric: tabular-nums; }
+        .jd-sched-more { font-size: 0.74rem; color: #8a9aa1; padding-top: 0.2rem; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -565,6 +591,7 @@ def _render_profile(judge_key: str) -> None:
 # ── judge profile: Before the court (Legal Diary bridge) ─────────────────────
 _PROFILE_DIARY_DAYS = 5  # most recent captured court days shown
 _PROFILE_DIARY_ROWS = 20  # matters rendered per day before an honest remainder count
+_SCHED_LISTS_PER_ROOM = 8  # distinct lists shown per courtroom in the day timetable
 
 
 def _render_profile_diary(judge_key: str, current_court: str | None = None) -> None:
@@ -631,32 +658,18 @@ def _render_profile_diary(judge_key: str, current_court: str | None = None) -> N
             f'<div class="jd-day-head"><span class="jd-day-date">{_esc(_fmt_day(day))}</span>{head_meta}</div>'
         )
         if day_cases is not None and not day_cases.empty:
-            st.html(_day_digest_html(day_cases))
+            _html(_day_digest_html(day_cases))
         if day_sit is not None and not day_sit.empty:
-            lines = []
-            for s in day_sit.sort_values(["time", "list_type"], na_position="last").itertuples():
-                # Circuit Court sittings carry a venue (Galway, Ennis …); the Dublin courts
-                # don't. A panel sitting (Supreme / Court of Appeal, 3–5 judges) is chipped so
-                # it's clear this judge heard the matter on a bench, not alone. Time leads the
-                # line as a chip so the day reads as a calendar.
-                venue = _esc(getattr(s, "venue", "") or "")
-                tstr = _esc(s.time)
-                time_chip = f'<span class="jd-timeline">{tstr}</span> ' if tstr else ""
-                bits = " · ".join(p for p in (f"<b>{_esc(s.court)}</b>", venue, _esc(s.courtroom), _esc(s.list_type)) if p)
-                n = int(getattr(s, "n_items", 0) or 0)
-                tail = f" — {n} listed" if n else ""
-                psize = int(getattr(s, "panel_size", 1) or 1)
-                panel = f' <span class="jd-status">panel of {psize}</span>' if psize > 1 else ""
-                lines.append(f'<div class="jd-sitting-line">{time_chip}{bits}{tail}{panel}</div>')
-            st.html("".join(lines))
+            # The judge's timetable for the day: which courtroom(s) they sat in and the
+            # lists they ran, distilled from the noisy raw sitting rows.
+            _html(_day_schedule_html(day_sit))
         if day_cases is not None and not day_cases.empty:
             # Matters that name a company or the State surface first (the accountability
             # signal now that public-body titles render in full); the repetitive routine
             # tail — prosecutions and individual civil matters — is rolled into one block.
             ordered = _matters_by_priority(day_cases)
-            shown = ordered.head(_PROFILE_DIARY_ROWS)
-            st.html("".join(_matter_row_html(r) for r in shown.itertuples()))
-            st.html(_roll_html(ordered.iloc[_PROFILE_DIARY_ROWS:], TIER_C_PAGE))
+            _html("".join(_matter_row_html(r) for r in ordered.head(_PROFILE_DIARY_ROWS).itertuples()))
+            _html(_roll_html(ordered.iloc[_PROFILE_DIARY_ROWS:], TIER_C_PAGE))
     if hidden_days:
         st.caption(
             f"… and {hidden_days} earlier captured day{'s' if hidden_days != 1 else ''} — "
@@ -1331,6 +1344,124 @@ def _matters_by_priority(cases: pd.DataFrame) -> pd.DataFrame:
     return cases.assign(_named=named, _rank=cases["category"].map(_CAT_ORDER).fillna(4)).sort_values(
         ["_named", "_rank"], ascending=[False, True]
     )
+
+
+# ── day schedule (the timetable a judge actually sat) ───────────────────────────
+# The raw sitting rows are noisy: mostly empty admin/note rows, a case-ref occasionally
+# leaking into list_type, times in free text ("At 10.30 O'Clock"), one courtroom running
+# many lists. These helpers distil that into a legible per-courtroom timetable.
+_TIME_RE = re.compile(r"(\d{1,2})[:.](\d{2})|(\d{1,2})\s*o'?clock", re.I)
+_LIST_NOISE_RE = re.compile(
+    r"(?i)please\s*note|papers?\s+are|to be lodged|notes?\s+on|operation of the list|"
+    r"daily\s*call\s*over|call\s*over|for the attention|^\*+|adjourned to|no\s+list|"
+    r"should be|must be|be notified|be filed|^all affidavits|additional documents|"
+    r"parties are|are reminded|are required|are directed"
+)
+_LIST_REF_RE = re.compile(r"(?i)-v-|\bv\b|^\d{2,}|\d{4}\s*\d")
+
+
+def _clean_sched_time(t) -> str:
+    """Free-text sitting time -> 'H:MM' (24h as printed), or '' if none/garbled."""
+    if not isinstance(t, str):
+        return ""
+    m = _TIME_RE.search(t)
+    if not m:
+        return ""
+    return f"{int(m.group(1))}:{m.group(2)}" if m.group(1) else f"{int(m.group(3))}:00"
+
+
+def _clean_sched_list(lt) -> str | None:
+    """A sitting's list label, cleaned; None if it is an admin note or a case-ref (noise)."""
+    if not isinstance(lt, str) or not lt.strip():
+        return None
+    s = re.sub(r"\s+", " ", lt).strip(" *:.-")
+    s = re.sub(r"\s*\(\d+\)\s*$", "", s)  # trailing "(1)"/"(2)"
+    if not s or _LIST_NOISE_RE.search(s) or _LIST_REF_RE.search(s):
+        return None
+    return s[:52]
+
+
+def _clean_room(room) -> str:
+    if not isinstance(room, str) or not room.strip():
+        return ""
+    return re.sub(r"^\s*in\s+", "", room, flags=re.I).strip()
+
+
+def _day_schedule_html(day_sit: pd.DataFrame) -> str:
+    """A judge's day as a legible timetable — grouped by courtroom (or venue / panel),
+    the distinct lists they ran with matter counts and earliest time, admin-note and
+    case-ref rows dropped. logic_firewall: display_only."""
+    if day_sit is None or day_sit.empty:
+        return ""
+    groups: dict[str, dict] = {}
+    order: list[str] = []
+    for s in day_sit.itertuples():
+        lst = _clean_sched_list(getattr(s, "list_type", None))
+        tm = _clean_sched_time(getattr(s, "time", None))
+        n = int(getattr(s, "n_items", 0) or 0)
+        if not lst and not n and not tm:  # a pure admin/note row — skip
+            continue
+        room = _clean_room(getattr(s, "courtroom", None))
+        venue = _esc(getattr(s, "venue", "") or "")
+        psize = int(getattr(s, "panel_size", 1) or 1)
+        court = getattr(s, "court", "") or ""
+        key = room or venue or (f"Panel of {psize}" if psize > 1 else court)
+        g = groups.get(key)
+        if g is None:
+            g = groups[key] = {"court": court, "lists": {}, "times": set(), "psize": psize, "n_sit": 0, "items": 0}
+            order.append(key)
+        g["n_sit"] += 1
+        g["items"] += n
+        g["psize"] = max(g["psize"], psize)
+        if tm:
+            g["times"].add(tm)
+        if lst:
+            e = g["lists"].setdefault(lst, {"tm": tm, "n": 0})
+            e["n"] += n
+            if tm and (not e["tm"] or tm < e["tm"]):
+                e["tm"] = tm
+    if not groups:
+        return ""
+
+    def _tmin(times: set) -> str:
+        return min(times) if times else "~"
+
+    cards = []
+    for key in sorted(order, key=lambda k: _tmin(groups[k]["times"])):
+        g = groups[key]
+        # panel chip only when the room name doesn't already say "Panel of N"
+        panel = (
+            f' <span class="jd-status">panel of {g["psize"]}</span>'
+            if g["psize"] > 1 and not key.lower().startswith("panel of")
+            else ""
+        )
+        # distinct lists is the honest measure of a room's day; summing per-row n_items
+        # double-counts (a matter appears in the call-over AND its hearing list).
+        nlists = len(g["lists"])
+        meta = (
+            f'{nlists} list{"s" if nlists != 1 else ""}'
+            if nlists
+            else f'{g["n_sit"]} sitting{"s" if g["n_sit"] != 1 else ""}'
+        )
+        head = (
+            f'<div class="jd-sched-head"><span class="jd-sched-room-name">{_esc(key)}</span>'
+            f'<span class="jd-sched-court">{_esc(g["court"])}</span>{panel}'
+            f'<span class="jd-sched-meta">{meta}</span></div>'
+        )
+        lists = sorted(g["lists"].items(), key=lambda kv: (kv[1]["tm"] or "~", kv[0]))
+        items = []
+        for label, e in lists[:_SCHED_LISTS_PER_ROOM]:
+            tchip = f'<span class="jd-timeline">{_esc(e["tm"])}</span>' if e["tm"] else ""
+            ncount = f'<span class="jd-sched-n">{e["n"]}</span>' if e["n"] else ""
+            items.append(f'<div class="jd-sched-item">{tchip}<span class="jd-sched-list">{_esc(label)}</span>{ncount}</div>')
+        if not items:  # a room with only unlabelled sittings (e.g. bare panel times)
+            tchips = ", ".join(sorted(g["times"])) or "listed"
+            items.append(f'<div class="jd-sched-item"><span class="jd-sched-list">Sat at {_esc(tchips)}</span></div>')
+        more = len(g["lists"]) - _SCHED_LISTS_PER_ROOM
+        if more > 0:
+            items.append(f'<div class="jd-sched-more">+{more} more list{"s" if more != 1 else ""}</div>')
+        cards.append(f'<div class="jd-sched-room">{head}{"".join(items)}</div>')
+    return f'<div class="jd-sched">{"".join(cards)}</div>'
 
 
 def _case_row_html(r) -> str:

@@ -165,6 +165,20 @@ CHAINS: list[tuple[str, str]] = [
     # pipeline (what's out to tender), a THIRD grain never summed with awards or payments.
     # Zero-auth API, caches raw to bronze, no deps, skips gracefully on an API outage.
     ("ted_tenders", "extractors/ted_ireland_tenders_extract.py"),
+    # etenders_live_tenders: the domestic eTenders.gov.ie LIVE national tender pipeline (open
+    # opportunities now accepting bids, incl. sub-EU-threshold contracts TED/OGP can't see) ->
+    # SILVER etenders_live_tenders.parquet. Sits alongside ted_tenders above: its own PLANNED
+    # (pre-award) grain, value_kind=estimate_advertised — a buyer ESTIMATE, NEVER summed with
+    # awards or payments. Standalone, no deps. STATELESS (rebuilds the full snapshot each run)
+    # with its own --min-age-hours=20 guard, so a same-day re-run from another trigger is a safe
+    # no-op, not a double-scrape. Requires Playwright (the grid is JS-rendered) — the OPTIONAL
+    # `scrape` extra + `playwright install chromium`, NOT part of the base `pipeline` extra, so a
+    # plain local `--extra pipeline` sync will show this one chain fail (ImportError) until
+    # `--extra scrape` is also installed; chain isolation keeps that from affecting the rest of
+    # the run. Was previously refreshed only by .github/workflows/live_tenders_refresh.yml (daily
+    # cron) + the local tools/poll_live_tenders.ps1 task — both still run; the extractor's own
+    # freshness guard makes any overlap with this pipeline chain a no-op.
+    ("etenders_live_tenders", "extractors/etenders_live_tenders_extract.py"),
     # public_body_payments: depts / semi-states / health / edu PO+payment disclosures over €20k
     # -> SANDBOX gold-candidate public_payments_fact (one row per source line; the consolidate
     # chain below folds it to gold). Self-fetches + caches per-publisher files to bronze (steady-
@@ -312,6 +326,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "entity_xref": "organisation-360 spine: supplier x CRO/lobbying/corporate/charity/EPA (gold)",
     "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
     "ted_tenders": "TED Irish competition/tender notices (cn-standard) -> silver; pre-award estimates, never summed",
+    "etenders_live_tenders": "eTenders.gov.ie LIVE national tender pipeline (open opportunities, sub-EU-threshold incl.) -> silver; PLANNED-tier estimates, never summed (Playwright/scrape-extra required)",
     "public_body_payments": "public-body PO/payment disclosures over €20k -> sandbox public_payments_fact (privacy-gated, bronze-cached)",
     "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> sandbox hse_tusla_payments_fact (privacy-gated, high-risk)",
     "disclosed_bq_po": "disclosed national PO BigQuery extract -> silver disclosed_bq_po_payments_fact (Phase 1: HSE 2017-2020 + 2025Q4/2026Q1 history recovery; no-op-safe; folded into hse_tusla)",

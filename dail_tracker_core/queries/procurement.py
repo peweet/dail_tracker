@@ -1207,6 +1207,22 @@ def afs_capital_by_division(conn: duckdb.DuckDBPyConnection, council: str, year:
     )
 
 
+def afs_coverage_by_council(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Per-council AFS corpus coverage — which of the 31 councils have audited accounts loaded,
+    which years, and the reconciliation state. The scope-guard row set for 'is council X's AFS
+    data here' before quoting a euro figure; also doubles as the council-label lookup for
+    afs_total_by_year/afs_vs_po_coverage. latest_*_expenditure_eur is that council's most recent
+    filed year only — never summed across councils or years."""
+    return _run(
+        conn,
+        "SELECT council, region, COUNT(DISTINCT year) AS n_years, MIN(year) AS first_year,"
+        " MAX(year) AS last_year, bool_and(reconciled) AS all_reconciled,"
+        " arg_max(gross_expenditure_eur, year) AS latest_gross_expenditure_eur,"
+        " arg_max(net_expenditure_eur, year) AS latest_net_expenditure_eur"
+        " FROM v_procurement_afs_total_by_year GROUP BY council, region ORDER BY council",
+    )
+
+
 def afs_vs_po_coverage(conn: duckdb.DuckDBPyConnection, council: str, *, year: int | None = None) -> QueryResult:
     """Audited revenue spend (AFS) vs the slice traceable to named >€20k suppliers (POs), per
     year. Carries both tiers' PO totals and both pct_* ratios (the page reads the tier the

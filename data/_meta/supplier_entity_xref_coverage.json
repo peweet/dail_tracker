@@ -1,9 +1,9 @@
 {
-  "supplier_entities": 10004,
-  "with_cro": 6447,
+  "supplier_entities": 10017,
+  "with_cro": 6469,
   "on_lobbying_register": 236,
   "with_corporate_notice": 245,
-  "is_charity": 69,
+  "is_charity": 72,
   "has_epa_licence": 38,
   "on_2plus_extra_registers": 50,
   "anchor": "procurement supplier universe (supplier_norm), company-class + non-truncated",
