@@ -393,27 +393,16 @@ DEFERRED_COUNCILS: list[dict] = []
 
 # Plain-English reason a council's AFS is NOT yet in the fact, for surfacing to end users
 # (factual availability only — no inference). Anything not listed gets a generic message.
+# 2026-07-11 hygiene: the old entries (waterford/laois scanned, kerry not-located,
+# carlow/cavan/mayo/roscommon interactive-viewer, wicklow/louth layout) were all stale —
+# those councils now parse (30/31 in the fact). Only Wexford's archive is still
+# scanned-image-only (2017-2022 cached; re-check newer publications before OCR-ing).
 _SCANNED = (
     "scanned_image",
     "This council publishes its statement only as a scanned image, which is not yet machine-readable.",
 )
-_VIEWER = (
-    "interactive_viewer",
-    "This council publishes its statement through an interactive online viewer we cannot yet read automatically.",
-)
-_LAYOUT = ("unusual_layout", "This council's statement uses a layout we cannot yet read reliably.")
-_NOTFOUND = ("not_located", "We could not locate this council's published audited statement online.")
 UNAVAILABLE_REASON: dict[str, tuple[str, str]] = {
     "wexford": _SCANNED,
-    "waterford": _SCANNED,
-    "laois": _SCANNED,
-    "wicklow": _LAYOUT,
-    "louth": _LAYOUT,
-    "kerry": _NOTFOUND,
-    "carlow": _VIEWER,
-    "cavan": _VIEWER,
-    "mayo": _VIEWER,
-    "roscommon": _VIEWER,
 }
 
 

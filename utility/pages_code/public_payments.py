@@ -48,6 +48,15 @@ from data_access.public_payments_data import (
     fetch_supplier_quarter_totals_result,
     fetch_supplier_summary_result,
 )
+
+# Awards-register gate for /company links (Money nav declutter Phase 2,
+# doc/MONEY_NAV_DECLUTTER_PLAN.md §7): the company dossier resolves ONLY for
+# suppliers on the awards register, so this page membership-checks against the
+# same cached awards-side summary the dossier itself matches on — aliased to
+# avoid colliding with this page's payments-side fetch of the same name.
+from data_access.procurement_data import (
+    fetch_supplier_summary_result as fetch_awards_supplier_summary_result,
+)
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
     back_button,
@@ -154,6 +163,19 @@ def _publisher_href(publisher_id) -> str:
 
 def _supplier_href(supplier_norm) -> str:
     return f"?supplier={urllib.parse.quote(str(supplier_norm))}"
+
+
+def _awards_register_norms() -> set[str]:
+    """The awards-side ``supplier_norm`` key set — the exact frame the /company dossier
+    resolves against (payments-side ``supplier_normalised`` shares the same name-norm
+    form, so plain membership decides whether a /company link lands on a dossier or on
+    "Company not found"; most paid suppliers are payments-only and would dead-end).
+    Set-build over the cached fetch is display-only (the ``ranks = {...}`` idiom); an
+    unavailable fetch fails CLOSED — an empty set means no links, never a broken page."""
+    res = fetch_awards_supplier_summary_result(limit=None)
+    if not res.ok or res.data.empty or "supplier_norm" not in res.data.columns:
+        return set()
+    return {str(v) for v in res.data["supplier_norm"].dropna()}
 
 
 def _sort_toggle(key: str) -> str:
@@ -435,17 +457,21 @@ def _render_supplier_profile(supplier_norm: str) -> None:
     )
     # Contextual edge into the canonical company dossier — the same firm's
     # eTenders/TED awards, lobbying co-occurrence and CRO status, which this
-    # payments-only view doesn't carry. Closes the Public-Payments → Company
-    # cul-de-sac (the supplier_norm param resolves directly on /company). The
-    # dossier degrades gracefully for a body with no award/CRO footprint.
-    st.html(
-        '<div style="margin:-0.25rem 0 1rem">'
-        + entity_cta_html(
-            company_profile_url(supplier_norm),
-            "View full company dossier — awards, lobbying & CRO →",
+    # payments-only view doesn't carry. GATED match-or-no-link (Money nav
+    # declutter Phase 2): /company resolves only for suppliers on the awards
+    # register and shows "Company not found" otherwise — most paid suppliers
+    # are payments-only — so the CTA renders only when this supplier's key is
+    # in the awards-register set. No match, or an unavailable awards fetch
+    # (fails closed), means no link: never a false hand-off.
+    if supplier_norm in _awards_register_norms():
+        st.html(
+            '<div style="margin:-0.25rem 0 1rem">'
+            + entity_cta_html(
+                company_profile_url(supplier_norm),
+                "View full company dossier — awards, lobbying & CRO →",
+            )
+            + "</div>"
         )
-        + "</div>"
-    )
     st.caption(
         "Grouped by quarter, newest first; each quarter shows its sum-safe subtotal, with the "
         "larger figures leading. A line is a purchase order or payment record, not evidence of "
@@ -694,9 +720,13 @@ def _render_category_profile(category: str) -> None:
         st.caption("Published by")
         st.html(f'<div class="pp-cat-chips">{"".join(chips)}</div>')
 
-    # Named vendors paid/ordered within the category (the drill) — cards link to Company dossier.
+    # Named vendors paid/ordered within the category (the drill). A vendor card links
+    # to the /company dossier ONLY when the vendor is also on the awards register
+    # (match-or-no-link — the dossier dead-ends for payments-only vendors); the rest
+    # stay plain cards, the same clickable/static split the paid rankings use.
     sup = fetch_category_suppliers_result(category, limit=_TOP)
     if sup.ok and not sup.data.empty:
+        awards_norms = _awards_register_norms()  # fetched once; empty (incl. fetch failure) = no links
         sv = sup.data.sort_values("total_safe_eur", ascending=False)
         st.caption("Vendors paid or ordered under this purpose — shown as published, not merged")
         cards = []
@@ -715,13 +745,16 @@ def _render_category_profile(category: str) -> None:
             inner = _card(
                 f"<span>{_esc(r.supplier)}</span>", " · ".join(meta_bits), [tier_pill] if tier_pill else [], rank=i
             )
-            cards.append(
-                clickable_card_link(
-                    href=company_profile_url(r.supplier_normalised),
-                    inner_html=inner,
-                    aria_label=f"View the cross-register dossier for {r.supplier}",
+            if str(r.supplier_normalised) in awards_norms:
+                cards.append(
+                    clickable_card_link(
+                        href=company_profile_url(r.supplier_normalised),
+                        inner_html=inner,
+                        aria_label=f"View the cross-register dossier for {r.supplier}",
+                    )
                 )
-            )
+            else:
+                cards.append(inner)
         st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
         st.html(
             '<div class="pr-foot">Vendors are shown <strong>as published — not operator-merged</strong>: '

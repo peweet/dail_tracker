@@ -443,6 +443,12 @@ def _concentration_and_trend() -> None:
 
 
 def _render_suppliers(year: int | None) -> None:
+    # Role-clarity (Money nav declutter Phase 2): this tab is the AWARDS league
+    # table; the whole-firm cross-register view is the company dossier each card opens.
+    st.caption(
+        "The awards league table — every firm on the national contract-award register, ranked. "
+        "A company card opens its full cross-register dossier."
+    )
     if not (st.session_state.get("pr_sup_q") or "").strip():
         _concentration_and_trend()
     order = _sort_toggle("pr_sup_sort")
@@ -827,6 +833,88 @@ def _render_payments() -> None:
         "thresholds differ by body. Suppliers are named as published. "
         "Paid (actual spend) and ordered (purchase orders) are different stages and are never summed "
         "together; totals are never summed across bodies with different VAT bases; never added to award values.</div>"
+    )
+
+
+def _render_payments_bridge() -> None:
+    """Compact lifecycle bridge for the "Who actually gets paid?" section (Money nav
+    declutter Phase 2.5, doc/MONEY_NAV_DECLUTTER_PLAN.md §15). The awards→paid pivot
+    stays on this page, but the FULL payments browse now lives in one place — the
+    Public Payments hub — so this section renders the honest corpus framing, a
+    top-few teaser, and the two doors onward instead of duplicating that browse.
+    Follow the Money keeps the full ``_render_payments()`` landing (it IS the payment
+    graph), and the in-page ``?paid_*`` drills stay routable via the page router, so
+    search results and existing deep links still land on their ledgers."""
+    stats_res = fetch_payments_corpus_stats_result()
+    if not stats_res.ok or stats_res.data.empty:
+        empty_state(
+            "Payment data isn't available right now",
+            "The public-body payment views couldn't be loaded — a source/pipeline issue, not an empty result.",
+        )
+        return
+    s = stats_res.data.iloc[0]
+    span = f"{_n(s.get('min_year'))}–{_n(s.get('max_year'))}"
+    st.html(
+        '<div class="pr-caveat"><strong>Money actually paid — a different thing from awards.</strong> '
+        f"These are payments and purchase orders {_n(s.get('n_publishers')):,} public bodies "
+        f"<em>published themselves</em> (mostly their over-€20,000 lists — some bodies use a different "
+        f"threshold, e.g. €25,000; {span}), to "
+        f"{_n(s.get('n_suppliers')):,} suppliers. At least <strong>{_eur_scale(s.get('spent_safe_eur'))} "
+        f"paid</strong> and {_eur_scale(s.get('committed_safe_eur'))} ordered — an indicative floor, "
+        "not an audited total (bodies use different VAT bases, so totals are never summed across them, "
+        "and these are <em>never</em> added to the award figures above — a paid invoice and a contract "
+        "ceiling are different stages of public money).</div>"
+    )
+    # Teaser: the top few paid firms (actual payments), a display-only head-slice of
+    # the same cached ranking the full browse uses. Cards keep the in-page drill and
+    # the company-class-only clickability quarantine (same as _render_paid_suppliers).
+    res = fetch_payments_supplier_summary_result(tier="SPENT", limit=None)
+    df = res.data if res.ok else pd.DataFrame()
+    if not df.empty:
+        st.caption("The biggest recipients of actual payments (sum-safe), as published:")
+        cards = []
+        for i, r in enumerate(df.head(5).itertuples(), start=1):
+            np_ = _n(r.n_publishers)
+            meta = (
+                f"{_n(r.n_payments):,} payment{'s' if _n(r.n_payments) != 1 else ''} · "
+                f"{np_:,} public bod{'ies' if np_ != 1 else 'y'}"
+            )
+            pills = [p for p in (_paid_pill(r.total_safe_eur, "SPENT"),) if p]
+            inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i)
+            if _coalesce(getattr(r, "supplier_class", None)) == "company":
+                cards.append(
+                    clickable_card_link(
+                        href=_paid_supplier_href(r.supplier_normalised, "SPENT"),
+                        inner_html=inner,
+                        aria_label=f"View the public bodies that paid {r.supplier}",
+                    )
+                )
+            else:
+                cards.append(inner)
+        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    # The two doors onward — the same whole-card family as the Public Payments hub
+    # cards, so the "go deeper" pattern reads identically on both sides of the bridge.
+    st.html(
+        '<div class="pp-deeper">'
+        '<a class="mf-featured" href="/rankings-public-payments" target="_self" '
+        'aria-label="Browse the full payments register">'
+        '<div class="mf-featured-kick">FULL REGISTER</div>'
+        '<div class="mf-featured-name">Browse the full payments register</div>'
+        '<div class="mf-featured-blurb">Every publishing body and supplier — rankings, '
+        "categories and coverage. The payments home.</div></a>"
+        '<a class="mf-featured" href="/follow-the-money" target="_self" '
+        'aria-label="Trace a payment chain">'
+        '<div class="mf-featured-kick">GO DEEPER</div>'
+        '<div class="mf-featured-name">Trace a payment chain</div>'
+        '<div class="mf-featured-blurb">Follow one body\'s money to the companies it pays, '
+        "line by line — and step back through the trail.</div></a>"
+        "</div>"
+    )
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> each public body\'s own published '
+        "purchase-order / payments disclosures — most under the FOI Act 2014 s.8 model publication "
+        "scheme (origin: Circular FIN 07/12), some published voluntarily. Paid and ordered are "
+        "different stages, never summed together; never added to award values.</div>"
     )
 
 
@@ -4275,7 +4363,9 @@ def procurement_page() -> None:
                 _render_suppliers(year)
 
     elif section == "paid":
-        _render_payments()
+        # Bridge, not browse (Money nav declutter Phase 2.5): the full payments browse
+        # lives on the Public Payments hub; this section keeps the awards→paid pivot.
+        _render_payments_bridge()
 
     elif section == "open":
         # Two forward-looking lenses, same grain discipline: open competition notices

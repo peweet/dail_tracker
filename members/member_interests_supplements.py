@@ -32,6 +32,9 @@ from __future__ import annotations
 
 import pathlib
 import re
+import shutil
+import subprocess
+import tempfile
 
 import fitz  # PyMuPDF
 import polars as pl
@@ -79,11 +82,12 @@ ACT_CITATION_RE = re.compile(r"(?i)(?:acts?|poibl[ií])[,\s]*1995(?:\s*(?:and|ag
 # neighbouring statement's body can never leak in.
 PERIOD_SPAN_RE = re.compile(r"(?i)registration periods?\b(.{0,400}?)(?=in accordance|$)")
 # Category headings inside a statement are CAPS ('3.  DIRECTORSHIPS:',
-# '2.\t SHARES etc.'). Matched against line.upper() and vocabulary-gated on the
-# Ethics Act category lead-words so an address ('4 LAND…' cannot occur — body
-# text is mixed-case) never fires.
+# '2.\t SHARES etc.'; OCR rots the dot to '-', '~' or ':' — '2 - SHARES etc.',
+# '4~ LAND', '7: TRAVEL FACILITIES'). Matched against line.upper() and
+# vocabulary-gated on the Ethics Act category lead-words so an address
+# ('4 LAND…' cannot occur — body text is mixed-case) never fires.
 CATEGORY_HEAD_RE = re.compile(
-    r"^\s*([1-9])\s*[.,]?\s*(?:OCCUPATION|SHARE|DIRECTORSHIP|LAND\b|GIFT|PROPERT|TRAVEL|REMUNERAT|CONTRACT)"
+    r"^\s*([1-9])\s*[.,:\-~]?\s*(?:OCCUPATION|SHARE|DIRECTORSHIP|LAND\b|GIFT|PROPERT|TRAVEL|REMUNERAT|CONTRACT)"
 )
 HONORIFIC_RE = re.compile(
     r"^(?:an\s+)?(?:taoiseach|t[áa]naiste|minister of state|minister|senator|deputy|"
@@ -140,13 +144,62 @@ def _file_meta(path: pathlib.Path) -> tuple[str, str]:
 
 def extract_lines(path: pathlib.Path) -> list[str]:
     """All non-blank lines across pages, bare page numbers stripped.
-    Empty list ⇢ a scanned supplement with no text layer (caller skips loudly)."""
+    Empty list ⇢ a scanned supplement with no text layer (caller falls back to
+    OCR, then skips loudly if that too yields nothing)."""
     doc = fitz.open(path)
     lines: list[str] = []
     for page in doc:
         for line in page.get_text(option="text").splitlines():
             if line.strip() and not PAGE_NUMBER_RE.match(line):
                 lines.append(line)
+    return lines
+
+
+def _find_tesseract() -> str | None:
+    """Tesseract exe if installed (PATH first, then the default Windows dir)."""
+    exe = shutil.which("tesseract")
+    if exe:
+        return exe
+    default = pathlib.Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+    return str(default) if default.exists() else None
+
+
+def ocr_lines(path: pathlib.Path) -> list[str]:
+    """OCR fallback for the ~4 supplements that are pure scans (no text layer).
+
+    Rasterises each page at 300 dpi and runs Tesseract (--psm 4, single-column).
+    Probe-validated on the 2018-07-27 supplement: header, 'Notice is given…'
+    period line, 'Name of Member concerned:' and category heads all come
+    through cleanly enough for parse_statements; OCR-rotted NAMES may miss the
+    roster join and are kept as 'unmatched' rows rather than dropped.
+    Returns [] when Tesseract is not installed or produces nothing — the
+    caller's loud-skip path then applies as before.
+    """
+    exe = _find_tesseract()
+    if exe is None:
+        return []
+    doc = fitz.open(path)
+    lines: list[str] = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        for i, page in enumerate(doc):
+            png = tmp / f"p{i}.png"
+            page.get_pixmap(dpi=300).save(png)
+            out_base = tmp / f"p{i}"
+            try:
+                r = subprocess.run(
+                    [exe, str(png), str(out_base), "--psm", "4", "-l", "eng"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                return []
+            if r.returncode != 0:
+                return []
+            for line in (tmp / f"p{i}.txt").read_text(encoding="utf-8").splitlines():
+                if line.strip() and not PAGE_NUMBER_RE.match(line):
+                    lines.append(line)
     return lines
 
 
@@ -299,10 +352,16 @@ def build() -> pl.DataFrame:
     print(f"=== Supplements parser: {len(files)} Section 29 files discovered ===")
     for path in files:
         house, pub_date = _file_meta(path)
+        text_source = "embedded"
         lines = extract_lines(path)
         if not lines:
+            lines = ocr_lines(path)
+            text_source = "ocr"
+            if lines:
+                print(f"  OCR fallback ({len(lines)} lines): {path.name}")
+        if not lines:
             skipped_no_text.append(path.name)
-            print(f"  SKIP (no text layer, scanned): {path.name}")
+            print(f"  SKIP (no text layer, OCR unavailable/failed): {path.name}")
             continue
         statements = parse_statements(lines)
         if not statements:
@@ -310,7 +369,15 @@ def build() -> pl.DataFrame:
             print(f"  WARN (0 'Name of Member concerned' anchors — format drift?): {path.name}")
             continue
         for s in statements:
-            rows.append({"source_file": path.name, "house": house, "supplement_date": pub_date, **s})
+            rows.append(
+                {
+                    "source_file": path.name,
+                    "house": house,
+                    "supplement_date": pub_date,
+                    "text_source": text_source,
+                    **s,
+                }
+            )
         print(f"  {path.name}: {len(statements)} statement(s)")
 
     df = pl.DataFrame(rows)

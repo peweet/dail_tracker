@@ -64,7 +64,7 @@ from ui.components import (
     pagination_controls,
     text_search_mask,
 )
-from ui.entity_links import corporate_notices_url, lobbying_org_url
+from ui.entity_links import corporate_notices_url, entity_cta_html, lobbying_org_url
 
 _LAND_PAGE = 24  # landing cards per page (multiple of 3 for the pr-grid)
 
@@ -242,9 +242,13 @@ def _dossier(supplier_norm: str) -> None:
     row = match.iloc[0]
 
     n_awards, n_auth = _n(row.get("n_awards")), _n(row.get("n_authorities"))
+    # Role-clarity subtitle (Money nav declutter Phase 2): what THIS supplier surface
+    # is for — the whole-firm dossier. The awards league table is Procurement's
+    # Suppliers lens; the navigable payment ledger is Follow the Money.
     st.html(
         f'<div class="pr-prof-head"><h1 class="pr-prof-name">{_esc(row.get("supplier"))}</h1>'
-        f'<div class="pr-prof-sub">Public-money dossier — three registers, never summed</div></div>'
+        '<div class="pr-prof-sub">Everything one firm touches — awards, payments, lobbying, '
+        "corporate — on one page. Three registers, never summed.</div></div>"
     )
     pills = [_value_pill(row.get("awarded_value_safe_eur"))]
     pills += [p for p in (_cro_pill(row), _lobby_pill_for(row, supplier_norm)) if p]
@@ -278,6 +282,25 @@ def _dossier(supplier_norm: str) -> None:
             "public records, not evidence of influence."
         )
     finding_lede(sentences)
+    # Outbound edge into the payment graph (Money nav declutter Phase 2, §7): the lede
+    # summarises what bodies reported paying; Follow the Money holds the navigable
+    # ledger behind that figure. GATED on the same non-empty payments fetch — the FtM
+    # node joins by string equality on this exact supplier_norm, so a non-empty result
+    # guarantees the hand-off resolves; a firm with no payment lines gets no link
+    # (never a false hand-off). The tier follows the rows present, preferring actual
+    # payments over purchase-order commitments (a display-only membership check).
+    if paid.ok and not paid.data.empty:
+        ledger_tiers = {str(t) for t in paid.data["realisation_tier"].dropna()}
+        ledger_tier = "SPENT" if "SPENT" in ledger_tiers or not ledger_tiers else "COMMITTED"
+        st.html(
+            '<div style="margin:-0.25rem 0 0.9rem">'
+            + entity_cta_html(
+                f"/follow-the-money?flow_supplier_lines={urllib.parse.quote(supplier_norm)}"
+                f"&paid_tier={ledger_tier}",
+                "See the payment ledger behind this figure →",
+            )
+            + "</div>"
+        )
 
     _supplier_awards_section(row, supplier_norm)
     # cross_page=True: buyer names link to /rankings-procurement?authority=… (a full

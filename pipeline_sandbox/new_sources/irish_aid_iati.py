@@ -105,13 +105,14 @@ def parse_activities(xml_bytes: bytes, pkg: dict, sha: str, fetched_at: str,
                 implementing = _narrative(org)
             elif funding is None and role in ROLE_FUNDING:
                 funding = _narrative(org)
+        act_sector_code = sector_el.get("code") if sector_el is not None else None
         base = {
             "iati_identifier": ident,
             "activity_title": title,
             "recipient_country_code": rc.get("code") if rc is not None else None,
             "recipient_country": _narrative(rc),
+            "recipient_region_code": rr.get("code") if rr is not None else None,
             "recipient_region": _narrative(rr),
-            "sector_code": sector_el.get("code") if sector_el is not None else None,
             "sector_name": _narrative(sector_el),
             "n_sectors": len(sectors),
             "implementing_org": implementing,
@@ -134,8 +135,14 @@ def parse_activities(xml_bytes: bytes, pkg: dict, sha: str, fetched_at: str,
             year = None
             if tx_date and len(tx_date) >= 4 and tx_date[:4].isdigit():
                 year = int(tx_date[:4])
+            # IATI 2.x may carry sector on the transaction itself; fall back to activity level
+            tx_sector = tx.find("sector")
+            sector_code = (tx_sector.get("code") if tx_sector is not None else None) or act_sector_code
             rows.append({
                 **base,
+                "sector_code": sector_code,
+                # source data contains a handful of obvious date typos (e.g. 1913-08-23)
+                "dq_suspect_date": bool(year is not None and not (2000 <= year <= 2027)),
                 "transaction_type_code": code,
                 "transaction_type": TTYPE.get((code or "").upper() if code and code.isalpha() else (code or ""),
                                               None) or (f"other({code})" if code else None),

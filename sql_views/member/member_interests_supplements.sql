@@ -26,6 +26,7 @@ SELECT
     n_years,
     categories,
     n_categories,
+    text_source,   -- 'embedded' | 'ocr' (scanned supplements recovered via Tesseract)
     source_file
 FROM read_parquet('data/silver/parquet/member_interests_supplements.parquet');
 

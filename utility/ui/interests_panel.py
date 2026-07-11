@@ -15,6 +15,7 @@ from data_access.interests_data import (
     fetch_td_interest_declarations,
     fetch_td_interest_year_summary,
     fetch_td_interests,
+    fetch_td_supplements,
 )
 from ui.avatars import avatar_credit_html, avatar_data_url
 from ui.avatars import initials as _initials

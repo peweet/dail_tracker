@@ -182,3 +182,25 @@ def member_year_summary(conn: duckdb.DuckDBPyConnection, house: str, td_name: st
         " ORDER BY declaration_year DESC",
         [house, td_name],
     )
+
+
+# ── Per-TD Section 29 supplements (late filings / corrections) ────────────────
+# The annual register is a full restatement, so a correction is invisible there;
+# the supplement documents the correction event itself. Registered TOLERANTLY
+# (a missing supplements parquet degrades to unavailable, not a dead conn), so
+# callers must treat r.ok=False as "panel absent", not an error.
+
+
+def td_supplements(conn: duckdb.DuckDBPyConnection, house: str, td_name: str) -> QueryResult:
+    """Every Section 29 statement for one member: filing date, the registration
+    years it covers, and the declared categories. A LEAD, NOT A VERDICT — a
+    late filing can be a routine first/consolidated statement."""
+    return _run(
+        conn,
+        "SELECT supplement_date, years_declared, n_years, categories,"
+        " text_source, source_file"
+        " FROM v_member_interests_supplements"
+        " WHERE house = ? AND member_name = ?"
+        " ORDER BY supplement_date DESC",
+        [house, td_name],
+    )

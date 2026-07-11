@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-07-07T21:19:04.933475+00:00",
+  "generated_utc": "2026-07-11T07:21:03.804754+00:00",
   "layer": "silver",
   "source": "PC02 ACP Cases_2016_Onwards x PC01 applications. Primary: AppealRefNumber 6-digit -> ABPCASEID. Fallback (match_method=spatial_temporal): nearest same-authority application (ACP centroid <=55m) whose decision pre-dates the appeal; validated 98.4% vs Kerry ground truth.",
   "acp_cases": 26254,

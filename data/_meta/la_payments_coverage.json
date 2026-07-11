@@ -1,22 +1,22 @@
 {
   "councils_attempted": 24,
   "councils_with_rows": 23,
-  "rows_extracted": 98888,
-  "rows_public_display": 79248,
-  "rows_quarantined": 19640,
+  "rows_extracted": 99412,
+  "rows_public_display": 79694,
+  "rows_quarantined": 19718,
   "supplier_class_counts": {
-    "company": 77267,
-    "sole_trader_or_individual": 19128,
-    "public_body": 1953,
+    "public_body": 1957,
+    "foreign_company": 29,
+    "sole_trader_or_individual": 19206,
     "id_code": 512,
-    "foreign_company": 28
+    "company": 77708
   },
   "value_kind_counts": {
     "payment_actual": 7852,
-    "po_committed": 91036
+    "po_committed": 91560
   },
-  "public_safe_to_sum_rows": 79248,
-  "public_safe_to_sum_total_eur": 9204487544.800001,
+  "public_safe_to_sum_rows": 79694,
+  "public_safe_to_sum_total_eur": 9243291777.580002,
   "by_council": [
     {
       "slug": "south_dublin",
@@ -321,7 +321,7 @@
       "files_parsed": 38,
       "rows": 9790,
       "total_eur": 683906557.36,
-      "cro_rate": 0.309,
+      "cro_rate": 0.308,
       "periods": [
         "2017-Q1",
         "2017-Q2",
@@ -367,10 +367,10 @@
       "council": "Kildare",
       "region": "Leinster",
       "value_kind": "po_committed",
-      "files_parsed": 39,
-      "rows": 6987,
-      "total_eur": 708526739.92,
-      "cro_rate": 0.573,
+      "files_parsed": 41,
+      "rows": 7535,
+      "total_eur": 756910276.58,
+      "cro_rate": 0.571,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -410,7 +410,9 @@
         "2024-Q4",
         "2025-Q1",
         "2025-Q2",
-        "2025-Q3"
+        "2025-Q3",
+        "2025-Q4",
+        "2026-Q1"
       ]
     },
     {
@@ -878,6 +880,6 @@
   "parser_version": "0.1.0",
   "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
   "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
-  "generated_at": "2026-07-07T21:14:02+00:00",
+  "generated_at": "2026-07-11T07:15:22+00:00",
   "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
 }

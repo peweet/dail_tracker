@@ -1,16 +1,17 @@
 {
   "link_version": "1.1.0",
-  "generated_at": "2026-07-10T05:12:37.551876+00:00",
-  "judge_court_pairs": 7949,
-  "matched_pairs": 4833,
+  "generated_at": "2026-07-11T07:02:30.931275+00:00",
+  "judge_court_pairs": 7955,
+  "matched_pairs": 4834,
   "match_methods": {
-    "office-title": 649,
-    "exact": 150,
+    "honorific-conflict": 3,
+    "ambiguous": 14,
+    "surname-court": 4682,
+    "no-candidate": 2257,
     "honorific-other-person": 194,
-    "surname-court": 4683,
-    "no-candidate": 2255,
     "roster-notice": 4,
-    "ambiguous": 14
+    "office-title": 649,
+    "exact": 152
   },
   "unmatched": [
     {
@@ -102,6 +103,11 @@
       "judge": "MS JUSTICE FAHERTY",
       "court": "Central Criminal Court",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "MS JUSTICE GEARTY",
+      "court": "Central Criminal Court",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "MS JUSTICE HYLAND",
@@ -337,6 +343,11 @@
       "judge": "The Hon. Ms. Justice Mary Ellen Ring",
       "court": "Central Criminal Court",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "The Hon. Ms. Justice Mary Rose Gearty",
+      "court": "Central Criminal Court",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The Hon. Ms. Justice Michael White",
@@ -11574,6 +11585,16 @@
       "match_method": "office-title"
     },
     {
+      "judge": "Judge Barretts Adv",
+      "court": "High Court",
+      "match_method": "no-candidate"
+    },
+    {
+      "judge": "Judge Jackson On Circuit In Dundalk",
+      "court": "High Court",
+      "match_method": "no-candidate"
+    },
+    {
       "judge": "Judge Tbc",
       "court": "High Court",
       "match_method": "no-candidate"
@@ -11587,6 +11608,11 @@
       "judge": "Ms Justice Eileen Creedon / Court 14",
       "court": "High Court",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Ms Justice Mary Gearty",
+      "court": "High Court",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President",
@@ -15596,12 +15622,12 @@
   ],
   "row_level": {
     "cases": {
-      "rows_with_judge": 7008,
-      "rows_matched": 6596
+      "rows_with_judge": 7492,
+      "rows_matched": 7077
     },
     "schedule": {
-      "rows_with_judge": 1557,
-      "rows_matched": 1463
+      "rows_with_judge": 1637,
+      "rows_matched": 1536
     }
   },
   "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."

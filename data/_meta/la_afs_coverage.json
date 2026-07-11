@@ -1,12 +1,28 @@
 {
   "councils_total": 31,
-  "councils_available": 22,
-  "councils_unavailable": 9,
-  "councils_fitz": 21,
-  "councils_camelot": 1,
-  "rows": 776,
+  "councils_available": 30,
+  "councils_unavailable": 1,
+  "councils_fitz": 26,
+  "councils_camelot": 10,
+  "rows": 1196,
   "phase": 1,
   "coverage_by_council": [
+    {
+      "council": "Carlow",
+      "slug": "carlow",
+      "region": "Leinster",
+      "available": true,
+      "year": 2020,
+      "parser": "fitz"
+    },
+    {
+      "council": "Cavan",
+      "slug": "cavan",
+      "region": "Ulster",
+      "available": true,
+      "year": 2020,
+      "parser": "fitz"
+    },
     {
       "council": "Clare",
       "slug": "clare",
@@ -28,8 +44,8 @@
       "slug": "cork_county",
       "region": "Munster",
       "available": true,
-      "year": 2021,
-      "parser": "fitz"
+      "year": 2020,
+      "parser": "camelot"
     },
     {
       "council": "Donegal",
@@ -44,8 +60,8 @@
       "slug": "dublin_city",
       "region": "Dublin",
       "available": true,
-      "year": 2017,
-      "parser": "fitz"
+      "year": 2016,
+      "parser": "camelot"
     },
     {
       "council": "Dun Laoghaire-Rathdown",
@@ -60,8 +76,8 @@
       "slug": "fingal",
       "region": "Dublin",
       "available": true,
-      "year": 2022,
-      "parser": "fitz"
+      "year": 2016,
+      "parser": "camelot"
     },
     {
       "council": "Galway City",
@@ -78,6 +94,22 @@
       "available": true,
       "year": 2017,
       "parser": "fitz"
+    },
+    {
+      "council": "Kerry",
+      "slug": "kerry",
+      "region": "Munster",
+      "available": true,
+      "year": 2020,
+      "parser": "fitz"
+    },
+    {
+      "council": "Kildare",
+      "slug": "kildare",
+      "region": "Leinster",
+      "available": true,
+      "year": 2024,
+      "parser": "camelot"
     },
     {
       "council": "Kilkenny",
@@ -128,6 +160,14 @@
       "parser": "fitz"
     },
     {
+      "council": "Mayo",
+      "slug": "mayo",
+      "region": "Connacht",
+      "available": true,
+      "year": 2018,
+      "parser": "fitz"
+    },
+    {
       "council": "Meath",
       "slug": "meath",
       "region": "Leinster",
@@ -150,6 +190,22 @@
       "available": true,
       "year": 2022,
       "parser": "fitz"
+    },
+    {
+      "council": "Roscommon",
+      "slug": "roscommon",
+      "region": "Connacht",
+      "available": true,
+      "year": 2017,
+      "parser": "fitz"
+    },
+    {
+      "council": "Sligo",
+      "slug": "sligo",
+      "region": "Connacht",
+      "available": true,
+      "year": 2021,
+      "parser": "camelot"
     },
     {
       "council": "South Dublin",
@@ -184,60 +240,12 @@
       "parser": "fitz"
     },
     {
-      "council": "Carlow",
-      "slug": "carlow",
+      "council": "Wicklow",
+      "slug": "wicklow",
       "region": "Leinster",
-      "available": false,
-      "reason_category": "interactive_viewer",
-      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
-    },
-    {
-      "council": "Cavan",
-      "slug": "cavan",
-      "region": "Ulster",
-      "available": false,
-      "reason_category": "interactive_viewer",
-      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
-    },
-    {
-      "council": "Kerry",
-      "slug": "kerry",
-      "region": "Munster",
-      "available": false,
-      "reason_category": "not_located",
-      "reason": "We could not locate this council's published audited statement online."
-    },
-    {
-      "council": "Kildare",
-      "slug": "kildare",
-      "region": "Leinster",
-      "available": false,
-      "reason_category": "unavailable",
-      "reason": "Not yet available."
-    },
-    {
-      "council": "Mayo",
-      "slug": "mayo",
-      "region": "Connacht",
-      "available": false,
-      "reason_category": "interactive_viewer",
-      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
-    },
-    {
-      "council": "Roscommon",
-      "slug": "roscommon",
-      "region": "Connacht",
-      "available": false,
-      "reason_category": "interactive_viewer",
-      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
-    },
-    {
-      "council": "Sligo",
-      "slug": "sligo",
-      "region": "Connacht",
-      "available": false,
-      "reason_category": "unavailable",
-      "reason": "Not yet available."
+      "available": true,
+      "year": 2019,
+      "parser": "camelot"
     },
     {
       "council": "Wexford",
@@ -246,35 +254,11 @@
       "available": false,
       "reason_category": "scanned_image",
       "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
-    },
-    {
-      "council": "Wicklow",
-      "slug": "wicklow",
-      "region": "Leinster",
-      "available": false,
-      "reason_category": "unusual_layout",
-      "reason": "This council's statement uses a layout we cannot yet read reliably."
     }
   ],
   "unavailable_by_reason": {
-    "not_located": [
-      "Kerry"
-    ],
-    "unusual_layout": [
-      "Wicklow"
-    ],
-    "interactive_viewer": [
-      "Carlow",
-      "Cavan",
-      "Mayo",
-      "Roscommon"
-    ],
     "scanned_image": [
       "Wexford"
-    ],
-    "unavailable": [
-      "Kildare",
-      "Sligo"
     ]
   },
   "by_council": [
@@ -369,7 +353,25 @@
         2023,
         2024
       ],
-      "n_years": 4
+      "n_years": 4,
+      "failed_files": [
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        }
+      ]
     },
     {
       "council": "Westmeath",
@@ -406,7 +408,13 @@
         2024,
         2025
       ],
-      "n_years": 8
+      "n_years": 8,
+      "failed_files": [
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
     },
     {
       "council": "Galway City",
@@ -462,7 +470,17 @@
         2023,
         2024
       ],
-      "n_years": 7
+      "n_years": 7,
+      "failed_files": [
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
     },
     {
       "council": "Meath",
@@ -498,7 +516,17 @@
         2022,
         2024
       ],
-      "n_years": 7
+      "n_years": 7,
+      "failed_files": [
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        }
+      ]
     },
     {
       "council": "Donegal",
@@ -557,16 +585,78 @@
         2023,
         2024
       ],
-      "n_years": 8
+      "n_years": 8,
+      "failed_files": [
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        }
+      ]
     },
     {
       "council": "Wicklow",
       "slug": "wicklow",
-      "n_afs": 0,
-      "picked": null,
-      "years_available": [],
-      "year": null,
-      "status": "no-afs"
+      "n_afs": 15,
+      "picked": "https://www.wicklow.ie/Portals/0/adam/Documents/TUv248WmRUmhrDH5gIYFQA/Link/Unaudited AFS 2025.pdf",
+      "years_available": [
+        2025,
+        2024,
+        2023,
+        2022,
+        2021,
+        2020,
+        2019,
+        2018,
+        2017,
+        2014,
+        2013,
+        2012,
+        2011,
+        2010
+      ],
+      "year": 2025,
+      "status": "no-IE-page",
+      "bronze_added": 0,
+      "years": [],
+      "n_years": 0,
+      "failed_files": [
+        {
+          "file": "2025.pdf",
+          "year_guess": 2025
+        },
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        }
+      ]
     },
     {
       "council": "Monaghan",
@@ -600,7 +690,17 @@
         2021,
         2022
       ],
-      "n_years": 6
+      "n_years": 6,
+      "failed_files": [
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        }
+      ]
     },
     {
       "council": "Kildare",
@@ -620,7 +720,37 @@
       "status": "no-IE-page",
       "bronze_added": 0,
       "years": [],
-      "n_years": 0
+      "n_years": 0,
+      "failed_files": [
+        {
+          "file": "2025.pdf",
+          "year_guess": 2025
+        },
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        }
+      ]
     },
     {
       "council": "Sligo",
@@ -646,7 +776,45 @@
       "status": "too-short(15pp)",
       "bronze_added": 0,
       "years": [],
-      "n_years": 0
+      "n_years": 0,
+      "failed_files": [
+        {
+          "file": "2025.pdf",
+          "year_guess": 2025
+        },
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        }
+      ]
     },
     {
       "council": "Clare",
@@ -670,7 +838,41 @@
       "years": [
         2019
       ],
-      "n_years": 1
+      "n_years": 1,
+      "failed_files": [
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
     },
     {
       "council": "Fingal",
@@ -695,7 +897,37 @@
       "years": [
         2022
       ],
-      "n_years": 1
+      "n_years": 1,
+      "failed_files": [
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
     },
     {
       "council": "Dun Laoghaire-Rathdown",
@@ -719,7 +951,33 @@
       "status": "no-reconcile",
       "bronze_added": 0,
       "years": [],
-      "n_years": 0
+      "n_years": 0,
+      "failed_files": [
+        {
+          "file": "2025.pdf",
+          "year_guess": 2025
+        },
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        }
+      ]
     },
     {
       "council": "Kilkenny",
@@ -740,8 +998,8 @@
     {
       "council": "Louth",
       "slug": "louth",
-      "n_afs": 12,
-      "picked": "https://www.louthcoco.ie/en/publications/finance_reports/afs/2024-lcc-annual-financial-statement-audited.pdf",
+      "n_afs": 11,
+      "picked": "https://www.louthcoco.ie/media/f22f0tfk/2024-lcc-annual-financial-statement-audited.pdf",
       "years_available": [
         2024,
         2023,
@@ -750,10 +1008,8 @@
         2020,
         2017,
         2016,
-        2015,
         2014,
         2013,
-        2012,
         2011
       ],
       "year": 2024,
@@ -763,7 +1019,29 @@
         2016,
         2017
       ],
-      "n_years": 2
+      "n_years": 2,
+      "failed_files": [
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        }
+      ]
     },
     {
       "council": "Wexford",
@@ -787,7 +1065,33 @@
       "status": "no-IE-page",
       "bronze_added": 0,
       "years": [],
-      "n_years": 0
+      "n_years": 0,
+      "failed_files": [
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        }
+      ]
     },
     {
       "council": "Waterford",
@@ -810,14 +1114,45 @@
       "years": [
         2025
       ],
-      "n_years": 1
+      "n_years": 1,
+      "failed_files": [
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        }
+      ]
     },
     {
       "council": "Limerick",
       "slug": "limerick",
-      "n_afs": 28,
-      "picked": "https://www.limerick.ie/sites/default/files/media/documents/2026-02/limerick-city-and-county-council-audited-annual-financial-statement-2024.pdf",
+      "n_afs": 29,
+      "picked": "https://www.limerick.ie/sites/default/files/media/documents/2026-06/limerick-city-and-county-council-unaudited-annual-financial-statement-2025.pdf",
       "years_available": [
+        2025,
         2024,
         2023,
         2022,
@@ -834,7 +1169,7 @@
         2011,
         2010
       ],
-      "year": 2024,
+      "year": 2025,
       "status": "ok",
       "bronze_added": 0,
       "years": [
@@ -845,9 +1180,16 @@
         2021,
         2022,
         2023,
-        2024
+        2024,
+        2025
       ],
-      "n_years": 8
+      "n_years": 9,
+      "failed_files": [
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
     },
     {
       "council": "Offaly",
@@ -876,9 +1218,10 @@
     {
       "council": "Longford",
       "slug": "longford",
-      "n_afs": 10,
-      "picked": "https://www.longfordcoco.ie/services/finance/annual-financial-statements/annual-financial-statement-2024.pdf",
+      "n_afs": 11,
+      "picked": "https://www.longfordcoco.ie/services/finance/annual-financial-statements/annual-financial-statement-2025.pdf",
       "years_available": [
+        2025,
         2024,
         2023,
         2022,
@@ -890,23 +1233,81 @@
         2016,
         2015
       ],
-      "year": 2024,
+      "year": 2025,
       "status": "ok",
       "bronze_added": 0,
       "years": [
         2023,
-        2024
+        2024,
+        2025
       ],
-      "n_years": 2
+      "n_years": 3,
+      "failed_files": [
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
     },
     {
       "council": "Kerry",
       "slug": "kerry",
-      "n_afs": 0,
-      "picked": null,
-      "years_available": [],
-      "year": null,
-      "status": "no-afs"
+      "n_afs": 7,
+      "picked": "http://docstore.kerrycoco.ie/KCCWebsite/finance/docs/afs2024.pdf",
+      "years_available": [
+        2024,
+        2023,
+        2022,
+        2021,
+        2020,
+        2017,
+        2016
+      ],
+      "year": 2024,
+      "status": "ok",
+      "bronze_added": 0,
+      "years": [
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_years": 5,
+      "failed_files": [
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
     },
     {
       "council": "Leitrim",
@@ -930,7 +1331,33 @@
         2023,
         2024
       ],
-      "n_years": 2
+      "n_years": 2,
+      "failed_files": [
+        {
+          "file": "2028.pdf",
+          "year_guess": 2028
+        },
+        {
+          "file": "2027.pdf",
+          "year_guess": 2027
+        },
+        {
+          "file": "2026.pdf",
+          "year_guess": 2026
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        }
+      ]
     },
     {
       "council": "Laois",
@@ -952,7 +1379,33 @@
       "years": [
         2025
       ],
-      "n_years": 1
+      "n_years": 1,
+      "failed_files": [
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        }
+      ]
     },
     {
       "council": "Dublin City",
@@ -980,12 +1433,234 @@
         2024,
         2025
       ],
-      "n_years": 6
+      "n_years": 6,
+      "failed_files": [
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
+    },
+    {
+      "council": "Cavan",
+      "slug": "cavan",
+      "n_afs": 9,
+      "picked": "https://www.cavancoco.ie/media/5wgkhdg3/cavan-county-council-annual-financial-statement-2024.pdf",
+      "years_available": [
+        2024,
+        2023,
+        2022,
+        2021,
+        2020,
+        2019,
+        2018,
+        2017,
+        2016
+      ],
+      "year": 2024,
+      "status": "ok",
+      "bronze_added": 0,
+      "years": [
+        2020,
+        2022
+      ],
+      "n_years": 2,
+      "failed_files": [
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
+    },
+    {
+      "council": "Roscommon",
+      "slug": "roscommon",
+      "n_afs": 20,
+      "picked": "https://www.roscommoncoco.ie/en/download-it/finance-publications/annual_financial_statement/annual-financial-statement-for-year-ended-31st-december-2024.pdf",
+      "years_available": [
+        2024,
+        2023,
+        2022,
+        2021,
+        2020,
+        2019,
+        2018,
+        2017,
+        2016,
+        2015,
+        2014,
+        2013,
+        2012,
+        2011,
+        2010
+      ],
+      "year": 2024,
+      "status": "ok",
+      "bronze_added": 0,
+      "years": [
+        2017,
+        2018
+      ],
+      "n_years": 2,
+      "failed_files": [
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2022.pdf",
+          "year_guess": 2022
+        },
+        {
+          "file": "2021.pdf",
+          "year_guess": 2021
+        },
+        {
+          "file": "2020.pdf",
+          "year_guess": 2020
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
+    },
+    {
+      "council": "Carlow",
+      "slug": "carlow",
+      "n_afs": 9,
+      "picked": "https://carlow.ie/media/1519/download?inline&afsyear=2024",
+      "years_available": [
+        2024,
+        2023,
+        2022,
+        2021,
+        2020,
+        2019,
+        2018,
+        2017,
+        2016
+      ],
+      "year": 2024,
+      "status": "ok",
+      "bronze_added": 0,
+      "years": [
+        2020,
+        2021,
+        2022
+      ],
+      "n_years": 3,
+      "failed_files": [
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2023.pdf",
+          "year_guess": 2023
+        },
+        {
+          "file": "2019.pdf",
+          "year_guess": 2019
+        },
+        {
+          "file": "2018.pdf",
+          "year_guess": 2018
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
+    },
+    {
+      "council": "Mayo",
+      "slug": "mayo",
+      "n_afs": 12,
+      "picked": "https://www.mayo.ie/getmedia/4d1d1ddd-5b4c-4b82-974b-5dd7a103a42c/Published-Irish-Version-AFS-2025-Unaudited.pdf",
+      "years_available": [
+        2025,
+        2024,
+        2023,
+        2022,
+        2021,
+        2020,
+        2019,
+        2018,
+        2017,
+        2016
+      ],
+      "year": 2025,
+      "status": "ok",
+      "bronze_added": 0,
+      "years": [
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023
+      ],
+      "n_years": 6,
+      "failed_files": [
+        {
+          "file": "2025.pdf",
+          "year_guess": 2025
+        },
+        {
+          "file": "2024.pdf",
+          "year_guess": 2024
+        },
+        {
+          "file": "2017.pdf",
+          "year_guess": 2017
+        },
+        {
+          "file": "2016.pdf",
+          "year_guess": 2016
+        }
+      ]
     }
   ],
   "realisation_tier": "SPENT",
   "value_kind": "net_expenditure_actual",
   "scope": "per-council audited AFS (not amalgamated, not cash-PO)",
-  "generated_at": "2026-06-08T19:23:48+00:00",
+  "generated_at": "2026-07-11T06:38:36+00:00",
   "caveat": "Per-LA accrual net-expenditure by service division. Sum only within a (council, year). NEVER reconcile against afs_amalgamated_divisions (national) or la_payments_fact (cash-PO/payment grain) \u2014 different grains."
 }
