@@ -481,6 +481,12 @@ def _render_landing() -> None:
         dek="Pick a public body or a company, then walk the trail — who it pays, and the "
         "individual published records behind each figure.",
     )
+    # Role-clarity (Money nav declutter Phase 2): this page is the payment TRAIL;
+    # the whole-firm cross-register view is the company dossier.
+    st.caption(
+        "The navigable payment graph — trace exactly who paid a firm, line by line. "
+        "A firm's full cross-register footprint lives on its company dossier."
+    )
     # Search-first: jump straight onto a node rather than scrolling the top-N lists below.
     _render_search()
     # The ready-made trail that prompted the page.

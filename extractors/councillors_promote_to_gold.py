@@ -30,20 +30,54 @@ def _jsonl(p: Path) -> list[dict]:
     return [json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()] if p.exists() else []
 
 
+_MONTHS = (
+    "January February March April May June July August September October November December".split()
+)
+
+
 def _mdate(fn: str) -> str:
+    """Best-effort meeting date from a minutes filename. Councils name files every way
+    imaginable — ISO (2025_01_20), D-M-YYYY, compact DDMMYYYY (04122024), 'April 2026',
+    'apr2026'. A filename that yields NO date returns '' (the page renders blank honestly)
+    rather than a filename fragment, which is what put 'signed-minutes-council-m' into the
+    gold CSV as a date."""
     from urllib.parse import unquote
 
     fn = unquote(str(fn)).rsplit("/", 1)[-1]
-    m = re.search(r"(\d{1,2})[.\-\s](\d{1,2})[.\-\s](20\d{2})", fn)
-    if m:
+    m = re.search(r"(20\d{2})[.\-\s_](\d{1,2})[.\-\s_](\d{1,2})", fn)  # ISO-ish YYYY_MM_DD
+    if m and 1 <= int(m.group(3)) <= 31 and 1 <= int(m.group(2)) <= 12:
+        return f"{int(m.group(3)):02d}/{int(m.group(2)):02d}/{m.group(1)}"
+    m = re.search(r"(\d{1,2})[.\-\s_](\d{1,2})[.\-\s_](20\d{2})", fn)  # D_M_YYYY
+    if m and 1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12:
         return f"{int(m.group(1)):02d}/{int(m.group(2)):02d}/{m.group(3)}"
+    m = re.search(r"(?<!\d)(\d{2})(\d{2})(20\d{2})(?!\d)", fn)  # compact DDMMYYYY
+    if m and 1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12:
+        return f"{m.group(1)}/{m.group(2)}/{m.group(3)}"
+    m = re.search(r"(?<!\d)(\d{1,2})[.\-\s_](\d{1,2})[.\-\s_](2\d)(?!\d)", fn)  # DD_MM_YY (Cork City)
+    if m and 1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12:
+        return f"{int(m.group(1)):02d}/{int(m.group(2)):02d}/20{m.group(3)}"
     m = re.search(
-        r"(\d{1,2})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|"
-        r"September|October|November|December)\s+(20\d{2})",
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+(" + "|".join(_MONTHS) + r")\s+(20\d{2})",
         fn,
         re.I,
     )
-    return f"{m.group(1)} {m.group(2)} {m.group(3)}" if m else str(fn)[:24]
+    if m:
+        return f"{m.group(1)} {m.group(2).title()} {m.group(3)}"
+    m = re.search(r"(" + "|".join(mo[:3] for mo in _MONTHS) + r")[a-z]*[.\-\s_]?(20\d{2})", fn, re.I)  # April 2026 / apr2026
+    if m:
+        full = next(mo for mo in _MONTHS if mo.lower().startswith(m.group(1).lower()))
+        return f"{full} {m.group(2)}"
+    return ""
+
+
+def _agenda_date(raw: str, source_url: str) -> str:
+    """A meeting_history date is kept only if it actually contains a date; otherwise fall
+    back to parsing the source filename, else blank. Kills the 8 filename-fragment rows
+    (Louth 'signed-minutes-council-m', Waterford '1_draft_plenary_minute')."""
+    raw = str(raw or "").strip()
+    if raw and re.search(r"20\d{2}", raw) and len(raw) <= 24:
+        return raw
+    return _mdate(raw) or _mdate(source_url)
 
 
 # The local_authority value is the cross-source JOIN KEY and must match the CE roster / payments / AFS
@@ -114,7 +148,7 @@ def main() -> int:
         [
             {
                 "local_authority": r["council"],
-                "meeting_date": r.get("date", ""),
+                "meeting_date": _agenda_date(r.get("date", ""), r.get("source_url", "")),
                 "agenda": SEP.join(r.get("agenda_items", [])),
                 "source_url": r.get("source_url", ""),
             }

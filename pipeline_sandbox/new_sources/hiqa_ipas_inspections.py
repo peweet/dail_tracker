@@ -57,12 +57,16 @@ PDF_CAP = 300       # corpus should be small — stop and report if it balloons 
 # hiqa.ie throttles hard: ~25 quick requests earn a 429 storm. Extra delay on
 # top of _common's 0.4s, plus Retry-After-aware backoff; both stages resume
 # from bronze so repeated runs converge without re-fetching.
-EXTRA_DELAY_S = 1.6
-BACKOFFS_S = (20, 45, 90)
+EXTRA_DELAY_S = 2.6
+BACKOFFS_S = (30, 75, 180)
 
 
 def polite_fetch(url: str, params: dict | None = None, binary: bool = False):
-    """fetch() with slower pacing and retry on HTTP 429 (honours Retry-After)."""
+    """fetch() with slower pacing and retry on HTTP 429.
+
+    hiqa.ie sends ``Retry-After: 0`` while still throttling, so the header is
+    only trusted when it EXCEEDS our own backoff ladder.
+    """
     for attempt, backoff in enumerate((*BACKOFFS_S, None)):
         time.sleep(EXTRA_DELAY_S)
         try:
@@ -72,8 +76,9 @@ def polite_fetch(url: str, params: dict | None = None, binary: bool = False):
             if status != 429 or backoff is None:
                 raise
             retry_after = (e.response.headers or {}).get("retry-after")
-            wait = int(retry_after) if retry_after and retry_after.isdigit() else backoff
-            print(f"    429 on {url[-60:]} — waiting {wait}s (retry {attempt + 1})")
+            hinted = int(retry_after) if retry_after and retry_after.isdigit() else 0
+            wait = max(backoff, hinted)
+            print(f"    429 on …{url[-55:]} — waiting {wait}s (retry {attempt + 1})")
             time.sleep(wait)
     raise RuntimeError("unreachable")
 
@@ -145,9 +150,19 @@ def enumerate_reports(max_pages: int = MAX_PAGES) -> list[dict]:
     rows: list[dict] = []
     seen: set[str] = set()
     for page in range(max_pages):
-        html, meta = polite_fetch(BASE, params={"term_node_tid_depth": IPAS_FACET, "page": page})
-        cache_raw(SOURCE, f"listing_p{page:02d}.html", html.encode("utf-8"))
-        batch = parse_listing_page(html, page, meta["source_document_hash"])
+        cached = BRONZE / SOURCE / f"listing_p{page:02d}.html"
+        try:
+            html, meta = polite_fetch(BASE, params={"term_node_tid_depth": IPAS_FACET, "page": page})
+            cache_raw(SOURCE, f"listing_p{page:02d}.html", html.encode("utf-8"))
+            page_hash = meta["source_document_hash"]
+        except requests.HTTPError as e:
+            if not (cached.exists() and cached.stat().st_size):
+                raise
+            blob = cached.read_bytes()
+            html, page_hash = blob.decode("utf-8"), sha256_bytes(blob)
+            print(f"  page {page}: {e.response.status_code if e.response is not None else '?'} "
+                  "— using bronze-cached listing from a prior run")
+        batch = parse_listing_page(html, page, page_hash)
         if not batch:
             print(f"  page {page}: 0 tiles — stopping (end of list)")
             break

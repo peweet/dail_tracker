@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -43,11 +44,12 @@ def _subprocess(script: str) -> bool:
     return r.returncode == 0
 
 
-def _module(mod: str) -> bool:
+def _module(mod: str, extra_env: dict[str, str] | None = None) -> bool:
     """Run a packaged step via ``python -m <mod>`` (cwd=root → ``import config``
     resolves). Used for steps that live in a package dir, not at repo root."""
     t = time.monotonic()
-    r = subprocess.run([sys.executable, "-m", mod], cwd=_ROOT)
+    env = {**os.environ, **extra_env} if extra_env else None
+    r = subprocess.run([sys.executable, "-m", mod], cwd=_ROOT, env=env)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
 
@@ -59,7 +61,13 @@ def step_poll() -> bool:
 
 def step_process() -> bool:
     _hr("[2/7] lobby_processing — CSV → silver")
-    return _module("lobbying.lobby_processing")
+    # POLARS_MAX_THREADS=1: the DPO-name explode uses a Python map_elements() UDF
+    # (clean_dpo_name); Polars 1.41.2's multi-threaded engine calling back into
+    # the Python interpreter from worker threads intermittently segfaults on
+    # Windows (0xC0000005, reproduced 2026-07-11 — crash point moved between
+    # runs, confirming a race, not a bad row). Single-threaded avoids it at
+    # negligible cost (~124k rows, step runs in ~20s).
+    return _module("lobbying.lobby_processing", extra_env={"POLARS_MAX_THREADS": "1"})
 
 
 def step_pdf_extract() -> bool:

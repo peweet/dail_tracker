@@ -2,7 +2,7 @@ local_authority,tier,clean_minutes,roster_councillors,has_votes
 Carlow,roll_call,3,14,True
 Cavan,proposer_seconder,1,9,False
 Clare,proposer_seconder,3,30,False
-Cork City,proposer_seconder,34,10,False
+Cork City,roll_call,34,10,True
 Cork County,proposer_seconder,1,53,False
 Donegal,proposer_seconder,20,33,False
 Dublin City,proposer_seconder,0,60,False
@@ -12,8 +12,8 @@ Galway City,proposer_seconder,0,5,False
 Galway County,proposer_seconder,0,33,False
 Kerry,proposer_seconder,16,33,False
 Kildare,proposer_seconder,13,47,False
-Kilkenny,proposer_seconder,14,20,False
-Laois,proposer_seconder,10,13,False
+Kilkenny,roll_call,14,20,True
+Laois,roll_call,10,13,True
 Leitrim,proposer_seconder,2,19,False
 Limerick,proposer_seconder,0,9,False
 Longford,proposer_seconder,0,18,False

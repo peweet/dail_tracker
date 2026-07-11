@@ -87,9 +87,10 @@ def norm_reg_no(s: str | None) -> str | None:
 def iso_date(s: str | None) -> str | None:
     if not s:
         return None
+    s = re.sub(r"(\d{1,2})(st|nd|rd|th)\b", r"\1", s.strip())  # '26th March 2026'
     for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d %B %Y"):
         try:
-            return datetime.strptime(s.strip(), fmt).strftime("%Y-%m-%d")
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
         except ValueError:
             continue
     return None
@@ -109,13 +110,15 @@ def parse_assessments() -> list[dict]:
     html, meta = fetch_b(OUTCOMES_URL)
     cache_raw("ahbra", "assessment_outcomes.html", html.encode("utf-8"))
     s = BeautifulSoup(html, "html.parser")
-    rows, skipped = [], 0
+    rows, skipped, continuation, collapsed = [], 0, 0, 0
     for table in s.find_all("table"):
         trs = table.find_all("tr")
         if not trs:
             continue
         header = [c.get_text(" ", strip=True) for c in trs[0].find_all(["th", "td"])]
         if not header or "Name" not in header[0] or len(header) < 6:
+            # single-cell continuation blobs (Next Steps spillover) render as
+            # their own tables — metadata-free, so skipped rather than guessed at
             skipped += 1
             continue
         idx = {h: i for i, h in enumerate(header)}
@@ -128,6 +131,17 @@ def parse_assessments() -> list[dict]:
             cells = [c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])]
             if not cells or not cells[0] or cells[0] == "Name":
                 continue
+            if len(cells) < 6:
+                continuation += 1  # trailing spillover row inside the table — no fields
+                continue
+            if len(cells) == len(header) + 1:
+                # source markup quirk: one cell duplicated (name or reg no) shifts
+                # everything right — collapse the first adjacent duplicate pair
+                for i in range(len(cells) - 1):
+                    if cells[i] == cells[i + 1]:
+                        del cells[i + 1]
+                        collapsed += 1
+                        break
             raw_date = col(cells, "Date of Assessment Report")
             rows.append({**BLANK,
                 "record_type": "statutory_assessment",
@@ -154,7 +168,8 @@ def parse_assessments() -> list[dict]:
                 "confidence": "high",
                 "privacy_tier": "public",
             })
-    print(f"assessments: {len(rows)} rows ({skipped} non-assessment tables skipped)")
+    print(f"assessments: {len(rows)} rows ({skipped} non-assessment tables skipped, "
+          f"{continuation} continuation rows skipped, {collapsed} split-cell rows repaired)")
     return rows
 
 

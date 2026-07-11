@@ -102,6 +102,15 @@ def fetch_td_interest_year_summary(house: str, td_name: str) -> pd.DataFrame:
     return _q.member_year_summary(get_interests_conn(), house, td_name).data
 
 
+@st.cache_data(ttl=300)
+def fetch_td_supplements(house: str, td_name: str) -> pd.DataFrame:
+    """Section 29 supplements (late filings / corrections) for one TD.
+    Empty frame when the member has none OR when the supplements view is
+    unavailable (it registers tolerantly) — the panel simply omits the strip."""
+    r = _q.td_supplements(get_interests_conn(), house, td_name)
+    return r.data if (r.ok and r.data is not None) else pd.DataFrame()
+
+
 # ── Member index (ranked leaderboard) ─────────────────────────────────────────
 
 
