@@ -340,7 +340,7 @@ def run(skip_pdfs: bool = False, refresh: bool = False) -> None:
             mout = write_silver("cag_report_pdfs", mdf)
             print(f"PDF MANIFEST: {mout}  rows={mdf.height}")
 
-    df = pl.DataFrame(rows)
+    df = pl.DataFrame(rows, infer_schema_length=None)
     out = write_silver(SOURCE, df)
 
     # ---- compact profile ----------------------------------------------

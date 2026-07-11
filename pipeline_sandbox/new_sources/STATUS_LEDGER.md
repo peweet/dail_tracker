@@ -1,6 +1,6 @@
 # New-source ingestion — sandbox run ledger
 
-Run date: 2026-06-28. Driven by `doc/NEW_SOURCE_INGESTION_PLAN.md`.
+Run dates: 2026-06-28 (initial) · 2026-07-11 (second wave, see below). Driven by `doc/NEW_SOURCE_INGESTION_PLAN.md`.
 
 > **Isolation contract.** Everything here is **sandbox only**. No `data/gold`
 > writes, no `pipeline.py` edits, no API exposure, no promotion. Extractor code
@@ -54,6 +54,33 @@ money rows flagged `value_safe_to_sum=False`).
 3. Harden the flagged DQ items (C&AG dates, name normalisation, DPC paging guard).
 4. Write a page/API contract if it gets a surface; confirm licence in `doc/source_licensing.md`.
 5. Only then add a chain to `pipeline.py` and a `v_*` view. **Not before your review.**
+
+## ✅ Second wave — 2026-07-11 run (same isolation contract)
+
+| Source | Script | Output (`c:/tmp/dail_new_sources/silver/`) | Rows | Coverage | Licence |
+|---|---|---|---|---|---|
+| C&AG reports index (HARDENED) | `cag_reports.py` | `cag_reports.parquet` | **267** | 135 special + 103 appropriation + 29 report-on-accounts; PDF URL now 100% (was 200/267); bronze HTML+hash persisted; 2020+ PDFs cached (392 files, 93.8 MB) | to confirm |
+| HIQA IPAS inspections | `hiqa_ipas_inspections.py` | `hiqa_ipas_inspections.parquet` | **101** | inspections 2024-01→2026-03, 21 counties, all 101 report PDFs cached (89.2 MB) | to confirm |
+| Research Ireland / SFI grant commitments | `research_ireland_grants.py` | `research_ireland_grants.parquet` | **8,475** | current RI dataset + SFI legacy (2024-07), dedup flags `id_in_both_sources`/`is_current_source`; starts 2001→2026 | **CC-BY-4.0** |
+| Irish Aid ODA (IATI) | `irish_aid_iati.py` | `irish_aid_iati.parquet` | **21,470** | transaction grain: disbursement 19,517 + expenditure 1,953; `transaction_type` kept (never mix) | **CC0** |
+| AHBRA register | `ahbra_register.py` | `ahbra_register.parquet` | **451** | 425 registered + 26 removed AHBs, 27 counties; **carries `cro_number` (61 null) + `charity_rcn` (44 null)** → CRO/charities joins nearly free | to confirm |
+| AHBRA notices/assessments | `ahbra_notices.py` | `ahbra_notices.parquet` | **79** | 65 statutory assessments + 7 annual reports + 7 other; outcomes incl. "Non-Compliant statutory action required" | to confirm |
+
+All rows carry the house provenance schema (`source_url`, `source_document_hash`,
+`fetched_at`, `source_published_date`, `extraction_method`, `confidence`,
+`privacy_tier`); money columns are `value_safe_to_sum=False`. Grant grains are
+labelled (`grant_basis='commitment'` for RI; IATI `transaction_type`) — grants
+are a third money channel, never summed with awards or payments.
+
+### DQ flags from the 07-11 run (preserved, NOT silently fixed)
+- **C&AG:** 148/267 detail pages carry no parseable publication date (`date_confidence` null); of the 119 dated, 106 high / 13 low confidence. `report_year` null for 135 (not derivable from title). Next date source: PDF metadata or the year facet of the listing.
+- **HIQA:** `provider_name` is 100% null — the HIQA listing does NOT publish operator names. The spend-per-provider join needs provider identity from the report PDFs (cached, unparsed) or the IPAS contracts side. `centre_name` (0 nulls) is the working key. Provider names, once resolved, must inherit the accommodation-providers `public_display` gating (see `join_caveat` column).
+- **IATI:** `dq_suspect_date` flags impossible dates (min 1913 — upstream artifact); `recipient_region` entirely null in source.
+- **AHBRA notices:** `overall_outcome` has spelling drift ("Non- Compliant" / "Non-Compliant Statutory…") — normalise before any grouping; 14 non-assessment rows are null on assessment fields by design (`record_type` distinguishes).
+- **Licences:** RI (CC-BY-4.0) and IATI (CC0) captured in-row; audit.gov.ie, hiqa.ie, ahbregulator.ie re-use statements still to be confirmed in `doc/source_licensing.md` before promotion (agents' licence notes were lost to a session kill).
+
+### In flight
+- **Criminal legal aid payments** (Dept of Justice, gov.ie WAF-exposed) — extractor being built; scaffold-with-blocker if the WAF holds.
 
 ## 🔗 Joinability layer (added after the usability review)
 

@@ -366,6 +366,9 @@ def parse_cork_prose(la: str, fname: str, text: str, cov: Coverage, resolver: Ro
         motion = (quotes[-1] if quotes else (sentences[-1] if sentences else "")).strip()
         if cand:
             motion = (motion + " — " if motion else "") + re.sub(r"\s+", " ", cand.group(1))
+        # whole-file _fix_mojibake is a no-op when the file holds any non-cp1252 char
+        # (U+FFFD from errors='replace') — repair the short motion string itself
+        motion = _fix_mojibake(motion)
         for vote, (names, _tally) in sides.items():
             for printed in names:
                 resolved, status = resolver.initials(printed)
@@ -380,9 +383,10 @@ def parse_cork_prose(la: str, fname: str, text: str, cov: Coverage, resolver: Ro
                     resolved = _fix_mojibake(printed)
                 cov.rows += 1
                 out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                            "motion": motion[:240], "member": resolved, "vote": vote})
+                            "motion": motion[:240], "member": resolved, "vote": vote,
+                            "_div": cov.divisions_kept})
         i = j
-    return out
+    return _dedupe_motions(out)
 
 
 # ── Kilkenny prose ────────────────────────────────────────────────────────────────────────────
@@ -435,7 +439,7 @@ def parse_kilkenny_prose(la: str, fname: str, text: str, cov: Coverage, resolver
         win = re.sub(r"\s+", " ", text[max(0, group[0].start() - 900): group[0].start()])
         quotes = re.findall(r"“[^”]{15,300}”", win)
         sent = re.findall(r"A roll call vote was taken[^:]{0,220}", win)
-        motion = (quotes[-1] if quotes else (sent[-1] if sent else "")).strip()
+        motion = _fix_mojibake((quotes[-1] if quotes else (sent[-1] if sent else "")).strip())
         for vote, names in sides:
             for printed in names:
                 member = resolver.full(printed) or _titlecase_name(_fix_mojibake(printed))
@@ -443,9 +447,10 @@ def parse_kilkenny_prose(la: str, fname: str, text: str, cov: Coverage, resolver
                     cov.unmatched_kept += 1
                 cov.rows += 1
                 out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                            "motion": motion[:240], "member": member, "vote": vote})
+                            "motion": motion[:240], "member": member, "vote": vote,
+                            "_div": cov.divisions_kept})
         i = j
-    return out
+    return _dedupe_motions(out)
 
 
 # ── Laois ✓-grid (split FIRST NAME / SURNAME header) ─────────────────────────────────────────
@@ -535,8 +540,9 @@ def parse_laois_grid(la: str, path: Path, cov: Coverage, resolver: RosterResolve
                 cov.unmatched_kept += 1
             cov.rows += 1
             out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                        "motion": div["motion"][:240], "member": member, "vote": vote})
-    return out
+                        "motion": _fix_mojibake(div["motion"])[:240], "member": member, "vote": vote,
+                        "_div": cov.divisions_kept})
+    return _dedupe_motions(out)
 
 
 _LAOIS_MOT = re.compile(
