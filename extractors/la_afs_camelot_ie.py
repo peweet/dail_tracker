@@ -47,9 +47,19 @@ DIVISIONS = [
     ("Agriculture, Education, Health & Welfare", "agricult"),
     ("Miscellaneous Services", "miscellaneous"),
 ]
-# slugs passed as argv (the fitz fail-set, determined by la_afs_extract); else a default
-# set + a control council for standalone runs.
-COUNCILS = sys.argv[1:] or ["monaghan", "kildare", "clare", "fingal", "dlr", "cork_county"]
+# argv tokens are 'slug' (all bronze PDFs for that council) or 'slug:filename.pdf' (that
+# file only — the per-YEAR fail-set la_afs_extract now passes); else a default set + a
+# control council for standalone runs.
+_TOKENS = sys.argv[1:] or ["monaghan", "kildare", "clare", "fingal", "dlr", "cork_county"]
+TARGETS: dict[str, list[str] | None] = {}  # slug -> filenames (None = every bronze pdf)
+for _t in _TOKENS:
+    if ":" in _t:
+        _slug, _name = _t.split(":", 1)
+        if TARGETS.get(_slug) is None and _slug in TARGETS:
+            continue  # bare slug already requested all files
+        TARGETS.setdefault(_slug, []).append(_name)
+    else:
+        TARGETS[_t] = None
 
 
 def num(s: str) -> float | None:
@@ -99,48 +109,57 @@ def extract_page(pdf: Path, page1: int) -> tuple[dict, tuple | None]:
 
 def main() -> None:
     all_rows = []
-    print(f"{'council':<14}{'page':>6}{'div':>5}{'Sgross':>12}{'printed':>12}  reconcile")
-    print("-" * 62)
-    for slug in COUNCILS:
-        files = list((BRONZE / slug).glob("*.pdf"))
+    print(f"{'council/file':<34}{'page':>6}{'div':>5}{'Sgross':>12}{'printed':>12}  reconcile")
+    print("-" * 82)
+    for slug, names in TARGETS.items():
+        if names is None:
+            files = sorted((BRONZE / slug).glob("*.pdf"))
+        else:
+            files = [BRONZE / slug / n for n in names]
+            files = [f for f in files if f.exists()]
         if not files:
-            print(f"{slug:<14}  (no bronze pdf)")
+            print(f"{slug:<34}  (no bronze pdf)")
             continue
-        pdf = files[0]
-        best = None
-        for pg in candidate_pages(pdf):
-            divs, total = extract_page(pdf, pg)
-            if len(divs) < 6:
+        for pdf in files:  # one AFS file = one statement year → best page PER FILE
+            label = f"{slug}/{pdf.name}"
+            best = None
+            for pg in candidate_pages(pdf):
+                divs, total = extract_page(pdf, pg)
+                if len(divs) < 6:
+                    continue
+                gross = sum(v[0] for v in divs.values())
+                recon = bool(total and abs(gross - total[0]) < 100_000)
+                cand = (int(recon), len(divs), pg, divs, total, gross)
+                if best is None or cand[:2] > best[:2]:
+                    best = cand
+            if not best:
+                print(f"{label:<34}  no candidate pages parsed")
                 continue
-            gross = sum(v[0] for v in divs.values())
-            recon = bool(total and abs(gross - total[0]) < 100_000)
-            cand = (int(recon), len(divs), pg, divs, total, gross)
-            if best is None or cand[:2] > best[:2]:
-                best = cand
-        if not best:
-            print(f"{slug:<14}  no candidate pages parsed")
-            continue
-        recon, ndiv, pg, divs, total, gross = best
-        printed = total[0] if total else None
-        flag = "EXACT" if recon else "FAIL"
-        print(f"{slug:<14}{pg:>6}{ndiv:>5}{gross / 1e6:>11.1f}m{(printed / 1e6 if printed else 0):>11.1f}m  {flag}")
-        if recon:
-            for canon, v in divs.items():
-                all_rows.append(
-                    {
-                        "slug": slug,
-                        "division": canon,
-                        "gross_expenditure": v[0],
-                        "income": v[1],
-                        "net_expenditure": v[2],
-                        "net_expenditure_prior_yr": v[3],
-                        "source_page_number": pg - 1,
-                        "printed_total_eur": printed,
-                    }
-                )
+            recon, ndiv, pg, divs, total, gross = best
+            printed = total[0] if total else None
+            flag = "EXACT" if recon else "FAIL"
+            print(
+                f"{label:<34}{pg:>6}{ndiv:>5}{gross / 1e6:>11.1f}m{(printed / 1e6 if printed else 0):>11.1f}m  {flag}"
+            )
+            if recon:
+                for canon, v in divs.items():
+                    all_rows.append(
+                        {
+                            "slug": slug,
+                            "source_file": pdf.name,  # lets the merger derive THIS file's year
+                            "division": canon,
+                            "gross_expenditure": v[0],
+                            "income": v[1],
+                            "net_expenditure": v[2],
+                            "net_expenditure_prior_yr": v[3],
+                            "source_page_number": pg - 1,
+                            "printed_total_eur": printed,
+                        }
+                    )
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(all_rows, indent=2), encoding="utf-8")
-    print(f"\nwrote {OUT}  ({len({r['slug'] for r in all_rows})} reconciling councils, {len(all_rows)} rows)")
+    n_files = len({(r["slug"], r.get("source_file")) for r in all_rows})
+    print(f"\nwrote {OUT}  ({len({r['slug'] for r in all_rows})} councils, {n_files} files, {len(all_rows)} rows)")
 
 
 if __name__ == "__main__":

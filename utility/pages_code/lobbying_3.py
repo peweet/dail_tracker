@@ -250,10 +250,19 @@ def _ranked_card_html(
     rank: int,
     avatar_url: str | None = None,
     avatar_initials: str | None = None,
+    profile_href: str = "",
 ) -> str:
     """Reuses ``ranked_member_card`` so the calm look stays consistent with
     the rest of the app's ranked-list pages (Attendance, Payments). Pills
-    rendered via the canonical ``pill()`` helper — escaping is safe."""
+    rendered via the canonical ``pill()`` helper — escaping is safe.
+
+    ``profile_href`` appends the standard "Profile ↗" pill — a second door on
+    politician cards whose whole-card click stays inside the lobbying page
+    (Stage 3 drill-downs), so the reader can jump straight to the canonical
+    /member-overview profile without re-searching the name. Nested anchors sit
+    above the stretched card link via the shared CSS, so both targets work.
+    Pass "" (default) to omit — never build a href for a name that has no
+    registered profile."""
     return ranked_member_card(
         name=name,
         meta=meta,
@@ -261,6 +270,7 @@ def _ranked_card_html(
         pills_html="".join(pill(p) for p in pills_list),
         avatar_url=avatar_url,
         avatar_initials=avatar_initials,
+        profile_href=profile_href,
     )
 
 
@@ -453,6 +463,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
             cards: list[str] = []
             for rank, (_, row) in enumerate(idx.head(10).iterrows(), start=1):
                 name = str(row.get("member_name", "—"))
+                code = str(row.get("unique_member_code", "") or "")
                 meta = clean_meta(str(row.get("chamber", "") or ""), str(row.get("position", "") or ""))
                 pills_list = [
                     _p(int(row.get("return_count", 0) or 0), "return"),
@@ -465,6 +476,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     rank,
                     avatar_url=avatar_data_url(name),
                     avatar_initials=_initials(name),
+                    profile_href=member_profile_url(code) if code else "",
                 )
                 cards.append(
                     clickable_card_link(
@@ -1048,7 +1060,11 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
 
     # Politicians targeted — ranked cards (preserves "instant searchability"
     # for cross-reference).
-    _section_head("Politicians targeted", "Click any card to open the politician's full profile.")
+    _section_head(
+        "Politicians targeted",
+        "Click a card for every return this organisation filed against that politician; "
+        "the Profile pill jumps to their full accountability record.",
+    )
     pol_intensity = fetch_politicians_for_org(org_name)
     if pol_intensity.empty:
         empty_state("No data", "No politicians found targeted by this organisation.")
@@ -1056,6 +1072,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         cards: list[str] = []
         for rank, (_, row) in enumerate(pol_intensity.head(20).iterrows(), start=1):
             pol_name = str(row.get("member_name", "—"))
+            pol_code = str(row.get("unique_member_code", "") or "")
             chamber = str(row.get("chamber", "") or "")
             first_c = str(row.get("first_contact", "") or "")[:7]
             last_c = str(row.get("last_contact", "") or "")[:7]
@@ -1074,6 +1091,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
                         rank,
                         avatar_url=avatar_data_url(pol_name),
                         avatar_initials=_initials(pol_name),
+                        profile_href=member_profile_url(pol_code) if pol_code else "",
                     ),
                     aria_label=f"View every return from {org_name} targeting {pol_name}",
                 )
@@ -1285,6 +1303,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
         cards: list[str] = []
         for rank, (_, row) in enumerate(area_pols.head(20).iterrows(), start=1):
             pol_name = str(row.get("member_name", "—"))
+            pol_code = str(row.get("unique_member_code", "") or "")
             chamber = str(row.get("chamber", "") or "")
             pills_list = [
                 _p(int(row.get("returns_targeting", 0) or 0), "return"),
@@ -1300,6 +1319,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
                         rank,
                         avatar_url=avatar_data_url(pol_name),
                         avatar_initials=_initials(pol_name),
+                        profile_href=member_profile_url(pol_code) if pol_code else "",
                     ),
                     aria_label=f"View every return targeting {pol_name} under {area}",
                 )
@@ -1628,6 +1648,9 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
             pchm = str(prow.get("chamber", "") or "")
             pcnt = int(prow.get("return_count", 0) or 0)
             pills_list = [_p(pcnt, "return")]
+            # v_lobbying_dpo_politicians doesn't ship unique_member_code
+            # (TODO_PIPELINE_VIEW_REQUIRED) — resolve per name; None → no pill.
+            pcode = resolve_member_code(pname)
             inner = _ranked_card_html(
                 pname,
                 pchm,
@@ -1635,6 +1658,7 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
                 rank,
                 avatar_url=avatar_data_url(pname),
                 avatar_initials=_initials(pname),
+                profile_href=member_profile_url(pcode) if pcode else "",
             )
             cards.append(
                 clickable_card_link(
@@ -1733,6 +1757,15 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
         "Export every return as CSV",
         f"{politician.replace(' ', '_')}_{area[:30].replace(' ', '_')}_returns.csv",
         "lp3_export_results",
+    )
+
+    # Secondary CTA — full accountability profile is still one click away
+    # (matches the org× and DPO× Stage-3 siblings).
+    st.html(
+        entity_cta_html(
+            member_profile_url(_resolve_or_join(politician)),
+            f"View {politician}'s full accountability profile →",
+        )
     )
 
     _provenance_footer(summary)

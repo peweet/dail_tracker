@@ -280,6 +280,19 @@ REGISTRY: list[dict] = [
             "https://www.kerrycoco.ie/publications/",
             "http://reports.kerrycoco.ie",
         ],
+        # harvest can't see these: docstore filenames like 'afs2024.pdf' defeat AFS_LINK's
+        # \bafs\b (no word boundary between 'afs' and the digits). '?afsyear=' pins
+        # title_year where the filename lacks a 4-digit year (server ignores the extra
+        # query param). 2018/2019 are not published on either finance page (checked 2026-07).
+        "direct": [
+            "http://docstore.kerrycoco.ie/KCCWebsite/finance/docs/afs2024.pdf",
+            "http://docstore.kerrycoco.ie/KCCWebsite/finance/docs/AFS2023InclAuditOpinion.pdf",
+            "http://docstore.kerrycoco.ie/KCCWebsite/finance/docs/afs22new.pdf?afsyear=2022",
+            "http://docstore.kerrycoco.ie/KCCWebsite/finance/docs/afs21.pdf?afsyear=2021",
+            "http://docstore.kerrycoco.ie/KCCWebsite/finance/docs/afs2020.pdf",
+            "http://docstore.kerrycoco.ie/KCCWebsite/finance/docs/afs2017.pdf",
+            "http://docstore.kerrycoco.ie/KCCWebsite/finance/docs/afs2016.pdf",
+        ],
     },
     {
         "council": "Leitrim",
@@ -308,31 +321,75 @@ REGISTRY: list[dict] = [
         "landing": ["https://www.dublincity.ie/council/budgets-and-finance/financial-accounting-services-council"],
         "direct": ["https://www.dublincity.ie/sites/default/files/2025-04/dcc-afs-accounts-for-publication-2024.pdf"],
     },
-    # ---- Deferred: JS-rendered file lists need Playwright to ENUMERATE (Carlow/Cavan/
-    #      Mayo/Roscommon) — batch with the PO Playwright work. ----
-]
-
-
-# Councils NOT in the harvest loop above — their AFS file list is JS-rendered and needs
-# Playwright to enumerate (deferred). Listed so coverage accounts for all 31 LAs.
-DEFERRED_COUNCILS: list[dict] = [
-    {"council": "Carlow", "slug": "carlow", "entity": "county", "region": "Leinster", "landing": ["https://carlow.ie"]},
+    # ---- Formerly deferred as "JS-rendered / interactive viewer": all four sites were
+    #      redesigned and now expose plain anchors (re-checked 2026-07-11) — no Playwright. ----
     {
         "council": "Cavan",
         "slug": "cavan",
         "entity": "county",
         "region": "Ulster",
-        "landing": ["https://www.cavancoco.ie"],
+        # plain .pdf hrefs with 'annual-financial-statement-<year>' filenames, 2016-2024
+        "landing": ["https://www.cavancoco.ie/file-library/finance/annual-financial-statements/"],
     },
-    {"council": "Mayo", "slug": "mayo", "entity": "county", "region": "Connacht", "landing": ["https://www.mayo.ie"]},
     {
         "council": "Roscommon",
         "slug": "roscommon",
         "entity": "county",
         "region": "Connacht",
-        "landing": ["https://www.roscommoncoco.ie"],
+        # plain .pdf hrefs; each year also has an Irish-language duplicate ('as-gaelige-'),
+        # filtered by select_afs_years so the English statement is parsed
+        "landing": ["https://www.roscommoncoco.ie/en/download-it/finance-publications/annual_financial_statement/"],
+    },
+    {
+        "council": "Carlow",
+        "slug": "carlow",
+        "entity": "county",
+        "region": "Leinster",
+        "landing": ["https://carlow.ie/information-technology/local-authority-publications/annual-financial-statement-publication"],
+        # Drupal media hrefs carry no .pdf extension or year — harvest can't see them; the
+        # year labels live in the anchor text (verified 2026-07-11, all 'Audited').
+        # '&afsyear=' pins title_year; Drupal ignores the extra query param.
+        "direct": [
+            "https://carlow.ie/media/1519/download?inline&afsyear=2024",
+            "https://carlow.ie/media/965/download?inline&afsyear=2023",
+            "https://carlow.ie/media/459/download?inline&afsyear=2022",
+            "https://carlow.ie/media/102/download?inline&afsyear=2021",
+            "https://carlow.ie/media/101/download?inline&afsyear=2020",
+            "https://carlow.ie/media/100/download?inline&afsyear=2019",
+            "https://carlow.ie/media/99/download?inline&afsyear=2018",
+            "https://carlow.ie/media/98/download?inline&afsyear=2017",
+            "https://carlow.ie/media/97/download?inline&afsyear=2016",
+        ],
+    },
+    {
+        "council": "Mayo",
+        "slug": "mayo",
+        "entity": "county",
+        "region": "Connacht",
+        "landing": ["https://www.mayo.ie/financial-documents/afs"],
+        # Kentico getattachment GUIDs carry no extension or year — statement years mapped
+        # from the page labels (verified 2026-07-11; 2024/2025 published as Unaudited,
+        # 2016-2023 Audited). '?afsyear=' pins title_year; server ignores the param.
+        "direct": [
+            "https://www.mayo.ie/getattachment/bcde6817-e145-4183-a386-0944662ceac3/attachment.aspx?afsyear=2025",
+            "https://www.mayo.ie/getattachment/d5b92989-474f-4477-9ea0-9055cb6bb3e0/attachment.aspx?afsyear=2024",
+            "https://www.mayo.ie/getattachment/2593f8b3-8830-4893-a0f2-1ef0249d723d/attachment.aspx?afsyear=2023",
+            "https://www.mayo.ie/getattachment/b1465712-96b1-4d4f-9e4f-22ed05103c36/attachment.aspx?afsyear=2022",
+            "https://www.mayo.ie/getattachment/245e5808-f92a-4b7c-b9c5-f208295fed83/attachment.aspx?afsyear=2021",
+            "https://www.mayo.ie/getattachment/d9d38b8e-a3f2-4b74-b399-41dff05725f9/attachment.aspx?afsyear=2020",
+            "https://www.mayo.ie/getattachment/d3d19e8b-f780-4a78-b5a3-1303028c6c03/attachment.aspx?afsyear=2019",
+            "https://www.mayo.ie/getattachment/f5be5008-93a3-4132-89dc-898acdac7b91/attachment.aspx?afsyear=2018",
+            "https://www.mayo.ie/getattachment/76ce1a1a-ee89-4f60-8bf5-52a45988835f/attachment.aspx?afsyear=2017",
+            "https://www.mayo.ie/getattachment/67b8c93f-e11e-4418-9479-e0051fbf56e9/attachment.aspx?afsyear=2016",
+        ],
     },
 ]
+
+
+# Formerly the Playwright-deferred list (Carlow/Cavan/Mayo/Roscommon) — all four moved into
+# REGISTRY 2026-07-11 after their sites were redesigned with plain anchors. Kept (empty) so
+# coverage_by_council keeps its all-31 contract without touching its callers.
+DEFERRED_COUNCILS: list[dict] = []
 
 # Plain-English reason a council's AFS is NOT yet in the fact, for surfacing to end users
 # (factual availability only — no inference). Anything not listed gets a generic message.
@@ -552,6 +609,10 @@ def select_afs_years(urls: list[str]) -> list[str]:
 
     by_year: dict[int, str] = {}
     for u in urls:
+        # skip Irish-language duplicates (Roscommon publishes 'as-gaelige-'/'as-gaeilge-'
+        # twins first on the page — their division labels defeat the English-keyword parser)
+        if re.search(r"ga[ei]{1,2}li?ge", unquote(u), re.I):
+            continue
         y = title_year(u)
         if not y or y < MIN_AFS_YEAR:
             continue
@@ -584,7 +645,7 @@ def _parse_pdf(cf: dict, p: Path, source_url: str | None, year_guess: int) -> tu
     (source_url = None, p = a cached file). Emits rows only if Σ gross matches the
     statement's own printed total."""
     year = year_guess
-    stat = {"council": cf["council"], "slug": cf["slug"], "picked": source_url, "year": year}
+    stat = {"council": cf["council"], "slug": cf["slug"], "picked": source_url, "year": year, "file": p.name}
     doc = fitz.open(p)
     npages = doc.page_count
     if npages < 30:  # AFS file-selector guard — a short doc is a summary, not the AFS
@@ -682,13 +743,23 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
     # clean recent years still land).
     all_rows: list[dict] = []
     years_done: list[int] = []
+    failed_files: list[dict] = []  # per-FILE fitz failures → the camelot per-year fail-set
     last_status = "no-reconcile"
+
+    def note_failure(sub: dict) -> None:
+        # a downloaded, born-digital file fitz couldn't turn into reconciling rows is a
+        # camelot candidate — layout mismatch (no-reconcile) or unkeyable table (no-IE-page)
+        if sub.get("status") in ("no-reconcile", "no-IE-page") and sub.get("file"):
+            failed_files.append({"file": sub["file"], "year_guess": sub.get("year")})
+
     for picked in picks:
         rows, sub = _parse_one_afs(cf, picked)
         last_status = sub.get("status", last_status)
         if rows:
             all_rows.extend(rows)
             years_done.append(sub["year"])
+        else:
+            note_failure(sub)
     # BRONZE GAP-FILL: many council landings only surface the latest one/few AFS, but prior runs
     # already cached the whole archive (data/bronze/pdfs/la_afs/<slug>/<year>.pdf) — the proven
     # recovery path. Parse every cached year NOT already covered by a live pick (keyed by the
@@ -705,6 +776,8 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
             all_rows.extend(rows)
             years_done.append(sub["year"])
             bronze_added += 1
+        else:
+            note_failure(sub)
     # Drop any (year, division) a bronze file duplicated from a live pick (filename year can lag
     # the statement year — 'signed Dec 2020' = the 2019 AFS), preferring the live-URL row.
     if all_rows:
@@ -721,31 +794,46 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
     if not all_rows and not picks:
         stat["status"] = "no-afs"
         return [], stat
-    stat["status"] = "ok" if all_rows else last_status  # 'ok' if ANY year landed → no camelot retry
+    # council-level status stays 'ok' if ANY year landed (coverage semantics), but the
+    # per-FILE failures are carried separately so merge_camelot can retry every failing
+    # YEAR — previously a single fitz-landed year suppressed the camelot fallback for the
+    # council's whole archive (Clare 2019 landed → its five failing digital years never ran).
+    stat["status"] = "ok" if all_rows else last_status
     stat["bronze_added"] = bronze_added
     stat["years"] = sorted(set(years_done))
     stat["n_years"] = len(set(years_done))
+    if failed_files:
+        stat["failed_files"] = failed_files
     return all_rows, stat
 
 
-def merge_camelot(stats: list[dict]) -> list[dict]:
-    """Merge camelot-extracted rows for the layout-mismatch councils (the dynamic fitz fail-set).
-    Best-effort refresh via the isolated venv, then read its JSON; attach council/entity/
-    region (registry), year (fitz statement_year on the bronze page), source_file_url (the
-    fitz pass's picked url); re-validate net=gross−income before admitting. Skips silently if
-    the isolated venv/JSON is absent (CI/Cloud) — the fitz fact still ships."""
-    # DYNAMIC fail-set: every council fitz downloaded a real AFS for but could NOT turn into
+def merge_camelot(stats: list[dict], fitz_rows: list[dict]) -> list[dict]:
+    """Merge camelot-extracted rows for the fitz fail-set — per (council, YEAR), not per
+    council. Best-effort refresh via the isolated venv, then read its JSON; attach council/
+    entity/region (registry), year (fitz statement_year on the SAME bronze file camelot
+    parsed), source_file_url (the fitz pass's picked url); re-validate net=gross−income
+    before admitting; skip any (council, year) fitz already landed. Skips silently if the
+    isolated venv/JSON is absent (CI/Cloud) — the fitz fact still ships.
+
+    2026-07-11 fix: the fail-set used to be per COUNCIL keyed on the council-level status,
+    which is 'ok' when ANY year lands — so a single fitz-landed year suppressed the camelot
+    retry for every other failing year in the archive, and the year was derived from
+    files[0] regardless of which file the rows came from. Now every failing FILE is a
+    candidate ('slug:filename' argv) and each file carries its own statement year."""
+    # DYNAMIC fail-set: every FILE fitz downloaded a real AFS for but could NOT turn into
     # reconciling rows — either it mis-read the layout (no-reconcile) or couldn't even locate
     # the I&E page (no-IE-page, e.g. the table has no 'gross expenditure' text fitz keys on).
-    # Camelot's cell grid handles both. Hand those slugs to camelot — not a hardcoded list.
-    fail_slugs = sorted({s["slug"] for s in stats if s.get("status") in ("no-reconcile", "no-IE-page")})
-    if not fail_slugs:
+    candidates: list[tuple[str, str]] = []  # (slug, filename)
+    for s in stats:
+        for f in s.get("failed_files", []):
+            candidates.append((s["slug"], f["file"]))
+    if not candidates:
         return []
     if CAMELOT_VENV.exists() and CAMELOT_SCRIPT.exists():
         with contextlib.suppress(Exception):
             subprocess.run(
-                [str(CAMELOT_VENV), str(CAMELOT_SCRIPT), *fail_slugs],
-                timeout=900,
+                [str(CAMELOT_VENV), str(CAMELOT_SCRIPT), *[f"{slug}:{name}" for slug, name in candidates]],
+                timeout=5400,  # many per-year candidates × camelot's per-page cost
                 capture_output=True,
                 cwd=str(CAMELOT_SCRIPT.parent),
                 check=False,
@@ -753,24 +841,41 @@ def merge_camelot(stats: list[dict]) -> list[dict]:
     if not CAMELOT_ROWS.exists():
         return []
     cam = json.loads(CAMELOT_ROWS.read_text(encoding="utf-8"))
-    by_slug = {c["slug"]: c for c in REGISTRY}
+    by_slug = {c["slug"]: c for c in REGISTRY + DEFERRED_COUNCILS}
     picked_of = {s["council"]: s.get("picked") for s in stats}
-    grouped: dict[str, list] = {}
+    cand_set = set(candidates)
+    fitz_years = {(r["slug"], r["year"]) for r in fitz_rows}
+    # group rows per (slug, source_file) so each file gets ITS OWN statement year; legacy
+    # rows without source_file (stale JSON from before this fix / venv absent) fall back to
+    # the old files[0] behaviour, but only for councils fitz produced nothing for.
+    grouped: dict[tuple[str, str | None], list] = {}
+    fitz_ok_slugs = {r["slug"] for r in fitz_rows}
     for r in cam:
-        if r["slug"] in fail_slugs:  # only councils fitz actually failed this run
-            grouped.setdefault(r["slug"], []).append(r)
+        sf = r.get("source_file")
+        if sf is not None:
+            if (r["slug"], sf) in cand_set:  # only files fitz actually failed this run
+                grouped.setdefault((r["slug"], sf), []).append(r)
+        elif r["slug"] in {s for s, _ in cand_set} and r["slug"] not in fitz_ok_slugs:
+            grouped.setdefault((r["slug"], None), []).append(r)
     out: list[dict] = []
-    for slug, rows in grouped.items():
+    done_years: set[tuple[str, int]] = set()
+    for (slug, source_file), rows in grouped.items():
         cf = by_slug.get(slug)
         if not cf:
             continue
         year = None
-        files = list((CACHE / slug).glob("*.pdf"))
-        if files:
+        p = (CACHE / slug / source_file) if source_file else None
+        if p is None:
+            files = list((CACHE / slug).glob("*.pdf"))
+            p = files[0] if files else None
+        if p and p.exists():
             with contextlib.suppress(Exception):
-                doc = fitz.open(files[0])
+                doc = fitz.open(p)
                 year = statement_year(doc[rows[0]["source_page_number"]].get_text("text"))
                 doc.close()
+        if year is None or (slug, year) in fitz_years or (slug, year) in done_years:
+            continue  # unattributable year, or fitz/an earlier file already covers it
+        done_years.add((slug, year))
         for r in rows:
             g, inc, net = r["gross_expenditure"], r["income"], r["net_expenditure"]
             if abs((g - inc) - net) > 1000:  # accounting identity must hold or drop the row
@@ -818,8 +923,8 @@ def main() -> None:
             f"yr={stat.get('year', '-')}  pg={stat.get('ie_page', '-')}"
         )
 
-    # camelot fallback for the layout-mismatch councils (runs unless --list / --only-restricted)
-    cam_rows = [] if args.list else merge_camelot(stats)
+    # camelot fallback for the layout-mismatch files (runs unless --list / --only-restricted)
+    cam_rows = [] if args.list else merge_camelot(stats, all_rows)
     if cam_rows:
         cam_councils = sorted({r["council"] for r in cam_rows})
         all_rows.extend(cam_rows)
