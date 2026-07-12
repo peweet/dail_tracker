@@ -26,6 +26,7 @@ Each row: local_authority, meeting (file), motion (nearest preceding context), m
 """
 from __future__ import annotations
 
+import contextlib
 import csv
 import json
 import re
@@ -156,10 +157,8 @@ _MOJIBAKE_MARKERS = ("â€", "Ã", "Â", "\x92", "\x93", "\x94")
 def _fix_mojibake(s: str) -> str:
     """Repair UTF-8-read-as-cp1252 artefacts (the O’Donoghue trap) without harming clean text."""
     if any(m in s for m in _MOJIBAKE_MARKERS):
-        try:
+        with contextlib.suppress(UnicodeEncodeError, UnicodeDecodeError):
             s = s.encode("cp1252").decode("utf-8")
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            pass
     return s.replace("\x92", "'").replace("\x91", "'").replace("\x93", '"').replace("\x94", '"')
 
 
@@ -195,7 +194,7 @@ def _corpus_meeting_date(fname: str) -> str:
     ):
         m = re.search(rx, fname)
         if m:
-            parts = dict(zip(order, m.groups()))
+            parts = dict(zip(order, m.groups(), strict=True))
             y = parts.get("y") or f"20{parts['yy']}"
             try:
                 d, mo = int(parts["d"]), int(parts["m"])

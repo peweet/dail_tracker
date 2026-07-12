@@ -30,9 +30,10 @@ def _jsonl(p: Path) -> list[dict]:
     return [json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()] if p.exists() else []
 
 
-_MONTHS = (
-    "January February March April May June July August September October November December".split()
-)
+_MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
 
 
 def _mdate(fn: str) -> str:

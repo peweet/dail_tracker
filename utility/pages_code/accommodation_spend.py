@@ -191,17 +191,29 @@ def _render_providers(df) -> None:
     )
 
 
-@page_error_boundary
-def accommodation_spend_page() -> None:
-    hide_sidebar()
-    hero_banner(
-        kicker="THE MONEY",
-        title="Asylum & Ukraine accommodation spending",
-        dek="What the State pays private providers — hotels, former hostels, emergency "
-        "centres and others — to accommodate people seeking international protection and "
-        "Ukrainian beneficiaries of temporary protection, from the published over-€20,000 "
-        "purchase-order registers.",
-    )
+def render_accommodation_body(*, embedded: bool = False) -> None:
+    """Everything on the page below the sidebar chrome — composable so the Public
+    Payments hub can render the same content inline in its Accommodation section
+    (Money nav declutter Phase 3) while this page stays the routable home for deep
+    links. ``embedded`` swaps the full hero for a compact heading so the block sits
+    inside a host page without restarting its visual hierarchy."""
+    if embedded:
+        evidence_heading("Asylum & Ukraine accommodation spending")
+        st.caption(
+            "What the State pays private providers — hotels, former hostels, emergency "
+            "centres and others — to accommodate people seeking international protection and "
+            "Ukrainian beneficiaries of temporary protection, from the published over-€20,000 "
+            "purchase-order registers."
+        )
+    else:
+        hero_banner(
+            kicker="THE MONEY",
+            title="Asylum & Ukraine accommodation spending",
+            dek="What the State pays private providers — hotels, former hostels, emergency "
+            "centres and others — to accommodate people seeking international protection and "
+            "Ukrainian beneficiaries of temporary protection, from the published over-€20,000 "
+            "purchase-order registers.",
+        )
 
     yr = fetch_accommodation_spend_by_year_result()
     if not yr.ok or yr.data.empty:
@@ -224,3 +236,9 @@ def accommodation_spend_page() -> None:
         "Most accommodation is procured by direct/emergency award, so it does NOT appear on "
         "eTenders/TED. Figures are committed purchase orders (PO-committed), not audited final cash."
     )
+
+
+@page_error_boundary
+def accommodation_spend_page() -> None:
+    hide_sidebar()
+    render_accommodation_body()

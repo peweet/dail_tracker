@@ -365,12 +365,18 @@ def _render_group(slug: str, tier: str, *, on_back) -> None:
 
 
 # ── search (jump straight onto a node) ─────────────────────────────────────────
-def _render_search() -> None:
+def _render_search(href_base: str = "") -> None:
     """Search-first entry to the trail: type a company or public body and drop straight onto its
     node instead of scrolling the top-N lists. DISPLAY-ONLY name filter over the pre-built search
     corpus (v_procurement_entity_search), narrowed to the PAID registers this page walks; renders
     nothing until the reader types. Each hit links via the same ?paid_* scheme the rail tracks, so a
-    match begins (or extends) the trail exactly like the featured tiles do — it computes nothing."""
+    match begins (or extends) the trail exactly like the featured tiles do — it computes nothing.
+
+    ``href_base`` (Money nav declutter Phase 3): when another page embeds this search
+    (the Public Payments hub's Trace section), pass "/follow-the-money" so hits do a
+    real cross-page navigation onto the trail's routable home instead of writing
+    ?paid_* params onto the host page's own router. Default "" keeps this page's
+    same-page soft-nav behaviour unchanged."""
     res = fetch_entity_search_result()
     if not res.ok or res.data.empty:
         return
@@ -406,10 +412,10 @@ def _render_search() -> None:
         if paid:
             pills.append(paid)
         if kind == "paid_supplier":
-            href = _rail_href({"paid_supplier": r.url_key, "paid_tier": tier})
+            href = href_base + _rail_href({"paid_supplier": r.url_key, "paid_tier": tier})
             aria = f"Follow the money paid to {r.display_name}"
         else:
-            href = _rail_href({"paid_publisher": r.url_key, "paid_tier": tier})
+            href = href_base + _rail_href({"paid_publisher": r.url_key, "paid_tier": tier})
             aria = f"Follow the money paid by {r.display_name}"
         inner = _card(f"<span>{_esc(r.display_name)}</span>", meta, pills)
         cards.append(clickable_card_link(href=href, inner_html=inner, aria_label=aria))
