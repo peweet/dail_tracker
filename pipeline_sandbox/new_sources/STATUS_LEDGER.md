@@ -59,12 +59,12 @@ money rows flagged `value_safe_to_sum=False`).
 
 | Source | Script | Output (`c:/tmp/dail_new_sources/silver/`) | Rows | Coverage | Licence |
 |---|---|---|---|---|---|
-| C&AG reports index (HARDENED) | `cag_reports.py` | `cag_reports.parquet` | **267** | 135 special + 103 appropriation + 29 report-on-accounts; PDF URL now 100% (was 200/267); bronze HTML+hash persisted; 2020+ PDFs cached (392 files, 93.8 MB) | to confirm |
-| HIQA IPAS inspections | `hiqa_ipas_inspections.py` | `hiqa_ipas_inspections.parquet` | **101** | inspections 2024-01→2026-03, 21 counties, all 101 report PDFs cached (89.2 MB) | to confirm |
+| C&AG reports index (HARDENED) | `cag_reports.py` | `cag_reports.parquet` | **267** | 135 special + 103 appropriation + 29 report-on-accounts; PDF URL now 100% (was 200/267); bronze HTML+hash persisted; 2020+ PDFs cached (392 files, 93.8 MB) | **CC-BY-4.0** (site open-data policy, confirmed 07-12) |
+| HIQA IPAS inspections | `hiqa_ipas_inspections.py` | `hiqa_ipas_inspections.parquet` | **101** | inspections 2024-01→2026-03, 21 counties, all 101 report PDFs cached (89.2 MB) | **PSI re-use** — "free of charge in any format", per PSI general licence (confirmed 07-12) |
 | Research Ireland / SFI grant commitments | `research_ireland_grants.py` | `research_ireland_grants.parquet` | **8,475** | current RI dataset + SFI legacy (2024-07), dedup flags `id_in_both_sources`/`is_current_source`; starts 2001→2026 | **CC-BY-4.0** |
 | Irish Aid ODA (IATI) | `irish_aid_iati.py` | `irish_aid_iati.parquet` | **21,470** | transaction grain: disbursement 19,517 + expenditure 1,953; `transaction_type` kept (never mix) | **CC0** |
-| AHBRA register | `ahbra_register.py` | `ahbra_register.parquet` | **451** | 425 registered + 26 removed AHBs, 27 counties; **carries `cro_number` (61 null) + `charity_rcn` (44 null)** → CRO/charities joins nearly free | to confirm |
-| AHBRA notices/assessments | `ahbra_notices.py` | `ahbra_notices.parquet` | **79** | 65 statutory assessments + 7 annual reports + 7 other; outcomes incl. "Non-Compliant statutory action required" | to confirm |
+| AHBRA register | `ahbra_register.py` | `ahbra_register.parquet` | **451** | 425 registered + 26 removed AHBs, 27 counties; **carries `cro_number` (61 null) + `charity_rcn` (44 null)** → CRO/charities joins nearly free | **PSI re-use** — "free of charge in any format… for any lawful purpose" (confirmed 07-12) |
+| AHBRA notices/assessments | `ahbra_notices.py` | `ahbra_notices.parquet` | **79** | 65 statutory assessments + 7 annual reports + 7 other; outcomes incl. "Non-Compliant statutory action required" | **PSI re-use** (as register, confirmed 07-12) |
 
 All rows carry the house provenance schema (`source_url`, `source_document_hash`,
 `fetched_at`, `source_published_date`, `extraction_method`, `confidence`,
@@ -77,7 +77,7 @@ are a third money channel, never summed with awards or payments.
 - **HIQA:** `provider_name` is 100% null — the HIQA listing does NOT publish operator names. The spend-per-provider join needs provider identity from the report PDFs (cached, unparsed) or the IPAS contracts side. `centre_name` (0 nulls) is the working key. Provider names, once resolved, must inherit the accommodation-providers `public_display` gating (see `join_caveat` column).
 - **IATI:** `dq_suspect_date` flags impossible dates (min 1913 — upstream artifact); `recipient_region` entirely null in source.
 - **AHBRA notices:** `overall_outcome` has spelling drift ("Non- Compliant" / "Non-Compliant Statutory…") — normalise before any grouping; 14 non-assessment rows are null on assessment fields by design (`record_type` distinguishes).
-- **Licences:** RI (CC-BY-4.0) and IATI (CC0) captured in-row; audit.gov.ie, hiqa.ie, ahbregulator.ie re-use statements still to be confirmed in `doc/source_licensing.md` before promotion (agents' licence notes were lost to a session kill).
+- **Licences (all six confirmed):** RI CC-BY-4.0 + IATI CC0 captured in-row; audit.gov.ie = CC-BY-4.0 (its open-data policy page); hiqa.ie + ahbregulator.ie = PSI re-use ("free of charge in any format", PSI general licence / SI 279/2005) — checked 2026-07-12. Still to be recorded in `doc/source_licensing.md` at promotion time.
 
 ### In flight
 - **Criminal legal aid payments** (Dept of Justice, gov.ie WAF-exposed) — extractor being built; scaffold-with-blocker if the WAF holds.
