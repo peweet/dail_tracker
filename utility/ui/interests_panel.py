@@ -153,6 +153,44 @@ def render_member_interests(
         f"</div>"
     )
 
+    # ── Section 29 supplements — member-level, not year-scoped ────────────────
+    # Late filings / corrections to the register (the annual register is a full
+    # restatement, so the correction event only exists in the supplement).
+    # Display-only: the rows arrive pre-aggregated from
+    # v_member_interests_supplements; an empty frame (none on file, or view
+    # unavailable) simply omits the strip. Factual copy with the lead-not-verdict
+    # rail — a late filing is a matter of record, not a finding.
+    suppl_df = fetch_td_supplements(house, td_name)
+    if not suppl_df.empty:
+        n_filings = len(suppl_df)
+        lines_html: list[str] = []
+        for _, s in suppl_df.iterrows():
+            yrs = str(s.get("years_declared", "") or "").replace(";", ", ")
+            cats = str(s.get("categories", "") or "").replace(";", " · ")
+            filed = str(s.get("supplement_date", "") or "")[:10]  # date only, not the 00:00:00 tail
+            bits = [f"<strong>Filed {_h(filed)}</strong>"]
+            if yrs:
+                n_yrs = int(s.get("n_years", 0) or 0)
+                bits.append(f"covering {_h(yrs)}" + (f" ({n_yrs} years)" if n_yrs > 1 else ""))
+            if cats:
+                bits.append(_h(cats))
+            lines_html.append(
+                f'<p style="margin:0.15rem 0 0;font-size:0.88rem;line-height:1.55;">{" — ".join(bits)}</p>'
+            )
+        st.html(
+            f'<div class="dt-callout" style="margin:0 0 0.9rem;">'
+            f'<span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;'
+            f'text-transform:uppercase;color:var(--text-meta)">'
+            f"Section 29 supplement{'s' if n_filings != 1 else ''} · {n_filings} on file</span>"
+            f"{''.join(lines_html)}"
+            f"</div>"
+        )
+        st.caption(
+            "A supplement is a late filing or correction to the Register, made under "
+            "Section 29 of the Ethics Acts. It is a matter of public record, not a "
+            "finding — first or consolidated filings can also cover several years."
+        )
+
     # ── Diff toggle — prominent, above category sections ──────────────────────
     show_diff = False
     if has_prior:
