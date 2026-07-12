@@ -79,6 +79,20 @@ from ui.entity_links import company_profile_url, entity_cta_html, source_link_ht
 # self-contained and silently no-op when a council has no AFS rows.
 from pages_code.procurement import _render_council_accounts_context as render_council_accounts_context
 
+# Phase 3 (Money nav declutter, doc/MONEY_NAV_DECLUTTER_PLAN.md): the hub embeds its
+# two satellites as in-page sections. The trail SEARCH and featured tiles come from
+# the Follow-the-Money page but every hit/tile links onto /follow-the-money itself —
+# the trail's routable home, so there is exactly ONE stateful trail surface (no
+# mf_trail state ever lives on this page). The accommodation body renders fully
+# inline. Both satellite routes stay alive for deep links.
+from pages_code.accommodation_spend import render_accommodation_body
+from pages_code.follow_the_money import (
+    _FEATURED as _TRAIL_FEATURED,
+    _FEATURED_GROUPS as _TRAIL_GROUPS,
+    _rail_href as _trail_href,
+    _render_search as render_trail_search,
+)
+
 _TOP = 60  # ranked cards per browse tab (views are pre-ordered DESC)
 _PUB_PAGE = 24  # publisher cards per page (multiple of 3 for the grid)
 _LINE_PAGE = 25  # payment-line rows per page on a drill-down
@@ -176,6 +190,74 @@ def _awards_register_norms() -> set[str]:
     if not res.ok or res.data.empty or "supplier_norm" not in res.data.columns:
         return set()
     return {str(v) for v in res.data["supplier_norm"].dropna()}
+
+
+# ── in-page sections (Money nav declutter Phase 3, council-hub pattern) ───────
+_PP_SECTIONS = {"Browse the register": "browse", "Trace a payment": "trace", "Accommodation spend": "accom"}
+
+
+def _section_from_param(v) -> str | None:
+    """Validated section key from the consumable ``?pp=`` deep-link param, or None."""
+    s = str(v or "").strip().lower()
+    return s if s in set(_PP_SECTIONS.values()) else None
+
+
+def _section_switcher() -> str:
+    """Consume ``?pp=`` (the same consumable-param pattern as Your Council's ``?yc=``:
+    the entry cards above and external deep links set it, we translate it into the
+    switcher's session state and delete it so the widget keeps control afterwards),
+    then render the section control and return the active section key."""
+    want = _section_from_param(st.query_params.get("pp"))
+    if want:
+        rev = {v: k for k, v in _PP_SECTIONS.items()}
+        st.session_state["pp_section"] = rev[want]
+        del st.query_params["pp"]
+    if "pp_section" not in st.session_state:
+        st.session_state["pp_section"] = "Browse the register"
+    choice = st.segmented_control(
+        "Section", list(_PP_SECTIONS), key="pp_section", label_visibility="collapsed"
+    )
+    return _PP_SECTIONS.get(choice or "Browse the register", "browse")
+
+
+def _render_trace_section() -> None:
+    """The Trace section: search + featured doors into the payment trail. Entry-only —
+    every hit and tile links to /follow-the-money (the trail's routable home, where
+    the breadcrumb rail lives), so the stateful trail never runs on this page."""
+    st.caption(
+        "Pick a company or public body and walk the published payment graph — who pays whom, "
+        "line by line. Opens on the trail page; the breadcrumb there keeps your place."
+    )
+    render_trail_search(href_base="/follow-the-money")
+    tiles = [
+        '<a class="mf-featured" href="'
+        + _esc(
+            "/follow-the-money"
+            + _trail_href({"paid_publisher": _TRAIL_FEATURED["publisher"], "paid_tier": _TRAIL_FEATURED["tier"]})
+        )
+        + '" target="_self"><div class="mf-featured-kick">START HERE</div>'
+        f'<div class="mf-featured-name">{_esc(_TRAIL_FEATURED["publisher"])}</div>'
+        f'<div class="mf-featured-blurb">{_esc(_TRAIL_FEATURED["blurb"])}</div></a>'
+    ]
+    for g in _TRAIL_GROUPS:
+        tiles.append(
+            '<a class="mf-featured" href="'
+            + _esc("/follow-the-money" + _trail_href({"flow_group": g["slug"], "paid_tier": g["tier"]}))
+            + '" target="_self"><div class="mf-featured-kick">CORPORATE GROUP</div>'
+            f'<div class="mf-featured-name">{_esc(g["label"])}</div>'
+            f'<div class="mf-featured-blurb">{_esc(g["blurb"])}</div></a>'
+        )
+    st.html("".join(tiles))
+    st.html(
+        '<div class="mf-wall">Public records stop at the <strong>direct contractor</strong>. '
+        "What a company then pays its own subcontractors is not published anywhere — so the trail "
+        "ends at each body's own line items, never below them.</div>"
+    )
+    st.html(
+        '<div class="pr-foot">The full trail page — including the State-as-investor lane and the '
+        'top-N pickers — lives at <a class="dt-source-link" href="/follow-the-money" target="_self">'
+        "Follow the Money →</a>.</div>"
+    )
 
 
 def _sort_toggle(key: str) -> str:
@@ -813,35 +895,43 @@ def public_payments_page() -> None:
         "them</strong>. A line is a procurement record, not evidence of influence or wrongdoing.</div>"
     )
     _stats_strip(stats, cov)
-    # Go-deeper entry cards (Money nav declutter Phase 1, doc/MONEY_NAV_DECLUTTER_PLAN.md).
-    # Follow the Money and Accommodation Spend were retired from the top nav
-    # (app.py: visibility="hidden") and this hub is now their front door, so these two
-    # cards are load-bearing navigation, not decoration. Pure <a href> cross-page links
-    # with static copy — no data access (the spa_links component only intercepts
-    # same-page "?param" hrefs, so a leading-slash href is a real navigation, intended).
-    # Placed directly under the headline stats — live-verified 2026-07-09: below the
-    # glossary they sat just under the 900px desktop fold (y≈975) and ~670px deep on
-    # mobile, where the <768px drawer omits hidden pages and these cards are the ONLY
-    # path. Hero → caveat → stats still lead, so the honesty rails stay first; and the
-    # block stays ABOVE the zero-publishers early return so the doors stay open even in
-    # the degraded/empty-data state. Reuses the .mf-featured whole-card link from the
-    # Follow-the-Money landing; .pp-deeper (shared_css.py) only supplies the 2-up row.
+    # Go-deeper entry cards (Money nav declutter Phase 1; upgraded in Phase 3 to
+    # in-page SECTION OPENERS, doc/MONEY_NAV_DECLUTTER_PLAN.md). Follow the Money and
+    # Accommodation Spend were retired from the top nav (app.py: visibility="hidden")
+    # and this hub is their front door, so these two cards are load-bearing navigation,
+    # not decoration. Since Phase 3 they open the sections below via the consumable
+    # ?pp= param — a same-page "?param" href, so spa_links soft-navigates it with no
+    # reload (zero extra clicks); the /follow-the-money and /accommodation-spend routes
+    # stay alive for deep links. Placed directly under the headline stats (live-verified
+    # 2026-07-09: above the 900px desktop fold, ~255px scroll on mobile where the <768px
+    # drawer omits hidden pages and these cards are the ONLY path) and ABOVE the
+    # zero-publishers early return so the doors stay open even in the degraded state.
     st.html(
         '<div class="pp-deeper">'
-        '<a class="mf-featured" href="/follow-the-money" target="_self" '
-        'aria-label="Trace a payment — open Follow the Money">'
+        '<a class="mf-featured" href="?pp=trace" target="_self" '
+        'aria-label="Trace a payment — open the trace section">'
         '<div class="mf-featured-kick">GO DEEPER</div>'
         '<div class="mf-featured-name">Trace a payment</div>'
         '<div class="mf-featured-blurb">Follow one body\'s money to the companies it pays, '
         "line by line — and step back through the trail.</div></a>"
-        '<a class="mf-featured" href="/accommodation-spend" target="_self" '
-        'aria-label="Accommodation spend — open the accommodation spending page">'
+        '<a class="mf-featured" href="?pp=accom" target="_self" '
+        'aria-label="Accommodation spend — open the accommodation section">'
         '<div class="mf-featured-kick">FEATURED</div>'
         '<div class="mf-featured-name">Accommodation spend</div>'
         '<div class="mf-featured-blurb">What the State pays to accommodate people seeking '
         "international protection, and Ukrainian beneficiaries of temporary protection.</div></a>"
         "</div>"
     )
+    # In-page sections (Phase 3, council-hub pattern): the cards above and external
+    # ?pp= deep links pick a section; the switcher keeps control afterwards. Trace and
+    # Accommodation return early — the register browse below is the default section.
+    section = _section_switcher()
+    if section == "trace":
+        _render_trace_section()
+        return
+    if section == "accom":
+        render_accommodation_body(embedded=True)
+        return
     # National-scale anchor from the (previously orphaned) gov-finance series — a denominator
     # to eyeball these figures against, explicitly NOT a share they sum into (different bases).
     render_national_finance_context(note="The published payments below are one slice of this, not the whole.")

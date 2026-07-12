@@ -36,7 +36,8 @@ break routing and the new hub cards pass it automatically.
 | Phase 1 — nav collapse (hide FtM + Accommodation, add Public Payments entry cards) | ✅ **SHIPPED 2026-07-09** (built by a Fable agent, independently re-verified: firewall clean · slug/link contracts pass · 17 new smoke tests + 29 existing PP tests green · url_paths untouched). **Live-verified on a fresh server (desktop + mobile):** dropdown = exactly 5 items; card click → `/follow-the-money` works; hidden routes + old deep links resolve. **Placement hoisted after live measurement:** below the glossary the cards sat under the 900px fold (y≈975; ~670px scroll on mobile, where they are the ONLY path) → moved directly under the headline stats strip → **y≈751 desktop (above fold), ~255px scroll mobile**; hero → caveat → stats still lead. |
 | Phase 2 — Companies de-duplication (role-clarity ×3 + gated cross-links both ways) | ✅ **SHIPPED 2026-07-12** (started by a Fable agent, finished inline after it hit a session limit; live-verified both gate directions on real entities: JOHN SISK SON = awarded → CTA + dossier + ledger loop; NBI INFRASTRUCTURE = payments-only → no link, dead-end gone). A4 note: the review's `<\strong>` bug at procurement.py L1896 **did not verify** — markup is correct, no fix needed. |
 | Phase 2.5 — Procurement §Paid bridge (Decision 6 Option B) | ✅ **SHIPPED 2026-07-12** (`_render_payments_bridge()`: caveat kept verbatim + top-5 teaser w/ company-class quarantine + two `.mf-featured` doors → PP hub + FtM; only the `section == "paid"` call site swapped; `_render_payments` untouched for FtM; `?paid_*` drills live-verified still routing). Gates: firewall clean · ruff clean · **87 tests pass** incl. 8 new in test_money_declutter_phase2.py. |
-| Phase 3 (optional) — deep-embed segmented_control in Public Payments | ⏳ optional / later |
+| Option C — view-family consolidation | ❌ **CLOSED AS NO-GO 2026-07-12** after reading both families: deliberately divergent (privacy gate + column semantics), documented in the view headers; only 3 shared guard lines — below the base-extraction bar. See §15.4. |
+| Phase 3 — deep-embed: in-page sections on the PP hub | ✅ **SHIPPED 2026-07-12.** Council-pattern switcher [Browse the register · Trace a payment · Accommodation spend] with consumable `?pp=` param; the Phase-1 entry cards became **soft-nav section openers** (`?pp=trace`/`?pp=accom` — live-verified zero reload via window sentinel). Trace = FtM search (`href_base="/follow-the-money"`) + featured tiles, all links **absolute onto `/follow-the-money`** so exactly ONE stateful trail surface exists (no `mf_trail` on PP — the §8.5 state-collision risk designed out, not managed). Accommodation renders **fully inline** (`render_accommodation_body(embedded=True)` — compact heading, no double hero); both satellite routes stay alive (live-verified). Bogus `?pp=` falls back to browse. Gates: firewall clean · ruff clean · **91 tests pass** (4 new). |
 
 ### Independent review (Fable, 2026-07-08) — verdict: YES-WITH-FIXES
 An adversarial read-only review verified the plan's code claims (6 Companies inbound edges,
@@ -500,8 +501,21 @@ place**. So Procurement keeps the *story* (a compact bridge) and defers the *bro
 - **Blast radius:** only the `_render_payments()` call site at procurement.py L4278 changes; view
   families, drills, and every other consumer are untouched; FtM unchanged.
 - **Firewall:** the bridge is caveat + teaser + links — no new page logic.
-- **Data-layer (optional, Option C):** the two view families remain a deeper redundancy; converging
-  them is a separate, deferrable pipeline task — note it, don't gate on it.
+- **Data-layer (Option C) — INVESTIGATED 2026-07-12, CLOSED AS NO-GO.** Reading both families
+  killed the "duplication" premise: they are **deliberately divergent and documented as such**.
+  `v_public_payments` is the hard-gated public surface (`WHERE public_display = TRUE`,
+  procurement_public_payments.sql L8–12: *"this is what distinguishes it from
+  v_procurement_payments, the analyst feed that omits the gate"*); `v_procurement_payments`
+  deliberately omits the gate and exposes a different column set (`realisation_tier`,
+  `vat_status`, canonicalised `paid_status`, `po_number`, `cro_*` vs `amount_semantics`,
+  `quarter`, `extraction_confidence`). Only 3 trivial guard lines are shared — far below the
+  house bar for base extraction (project_sql_view_consolidation: correctness-critical shared
+  logic, genuinely identical, never tidiness; same verdict as the rejected awards mega-base).
+  The family already reuses internally (both summaries read `FROM v_procurement_payments`).
+  A merged base would either break the privacy gate or silently equalize two surfaces designed
+  to differ. **§15.1's "build check" answered:** Procurement §Paid is *deliberately* less
+  view-gated, compensated at the UI layer (company-class-only clickability, preserved by the
+  bridge teaser) — a documented posture divergence for the owner to be aware of, not a defect.
 
 ### 15.5 Sequencing & verification
 

@@ -150,3 +150,73 @@ def test_full_payments_browse_still_exists_for_follow_the_money():
     # browse); the bridge must be additive, never a rename.
     assert callable(pr._render_payments)
     assert callable(pr._render_payments_bridge)
+
+
+# ── Phase 3: in-page sections on the Public Payments hub ─────────────────────
+def test_section_from_param():
+    assert pp._section_from_param("trace") == "trace"
+    assert pp._section_from_param(" ACCOM ") == "accom"
+    assert pp._section_from_param("browse") == "browse"
+    assert pp._section_from_param("bogus") is None
+    assert pp._section_from_param(None) is None
+
+
+def test_trace_section_links_target_the_trail_route(monkeypatch):
+    # Every hit/tile must be an ABSOLUTE /follow-the-money link — the trail's routable
+    # home — never a same-page ?paid_* param this page's router doesn't understand.
+    _silence_streamlit()
+    sink: list[str] = []
+    monkeypatch.setattr(pp, "render_trail_search", lambda **k: None)
+    monkeypatch.setattr(pp.st, "caption", lambda *a, **k: sink.append(str(a[0]) if a else ""))
+    monkeypatch.setattr(pp.st, "html", lambda *a, **k: sink.append(str(a[0]) if a else ""))
+    pp._render_trace_section()
+    html = "".join(sink)
+    assert "/follow-the-money?paid_publisher=" in html  # featured body tile
+    assert "/follow-the-money?flow_group=" in html  # corporate-group tiles
+    assert 'href="?paid_' not in html  # no same-page trail params leak onto this page
+
+
+def test_trail_search_href_base(monkeypatch):
+    import follow_the_money as ftm
+
+    _silence_streamlit()
+    frame = pd.DataFrame(
+        {
+            "entity_kind": ["paid_supplier"],
+            "display_name": ["Acme Ltd"],
+            "url_key": ["ACME"],
+            "n_counterparties": [3],
+            "n_records": [12],
+            "paid_tier": ["SPENT"],
+            "paid_safe_eur": [1_000_000.0],
+        }
+    )
+    sink: list[str] = []
+    monkeypatch.setattr(ftm, "fetch_entity_search_result", lambda *a, **k: QueryResult.success(frame))
+    monkeypatch.setattr(ftm.st, "text_input", lambda *a, **k: "acme")
+    monkeypatch.setattr(ftm.st, "html", lambda *a, **k: sink.append(str(a[0]) if a else ""))
+    ftm._render_search(href_base="/follow-the-money")
+    html = "".join(sink)
+    assert 'href="/follow-the-money?paid_supplier=' in html
+    # default stays same-page (the FtM page's own soft-nav behaviour, unchanged)
+    sink.clear()
+    ftm._render_search()
+    assert 'href="?paid_supplier=' in "".join(sink)
+
+
+def test_accommodation_body_embedded_smoke(monkeypatch):
+    import accommodation_spend as acc
+
+    _silence_streamlit()
+    monkeypatch.setattr(acc, "fetch_accommodation_spend_by_year_result",
+                        lambda *a, **k: QueryResult.success(pd.DataFrame({"year": [2024]})))
+    monkeypatch.setattr(acc, "fetch_accommodation_spend_providers_result",
+                        lambda *a, **k: QueryResult.success(pd.DataFrame({"provider": ["X"]})))
+    monkeypatch.setattr(acc, "_render_by_year", lambda *a, **k: None)
+    monkeypatch.setattr(acc, "_render_providers", lambda *a, **k: None)
+    captions: list[str] = []
+    monkeypatch.setattr(acc, "evidence_heading", lambda *a, **k: captions.append(str(a[0]) if a else ""))
+    monkeypatch.setattr(acc.st, "caption", lambda *a, **k: captions.append(str(a[0]) if a else ""))
+    acc.render_accommodation_body(embedded=True)  # must not raise; compact heading, no hero
+    assert any("accommodation" in c.lower() for c in captions)
+    assert callable(acc.accommodation_spend_page)  # routable page entry intact
