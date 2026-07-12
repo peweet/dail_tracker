@@ -63,17 +63,47 @@ def member_list_all(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 
 
 def join_key_by_name(conn: duckdb.DuckDBPyConnection, name: str, house: str | None = None) -> QueryResult:
+    """Resolve a member name to its ``unique_member_code``.
+
+    Current roster first; on a miss, falls back to ``v_member_registry_all`` so
+    FORMER members resolve too (their /member-overview profile renders via the
+    ``identity_registry_all`` fallback). The historic fallback only answers when
+    the name maps to exactly ONE code — the registry has a handful of namesake
+    collisions (three Brendan Ryans, two Michael Collinses, …) and linking the
+    wrong person is worse than no link; the HAVING guard returns zero rows on
+    ambiguity. A missing historic view degrades to the old current-only result.
+    """
     if house:
-        return _run(
+        current = _run(
             conn,
             "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? AND house = ? LIMIT 1",
             [name, house],
         )
-    return _run(
-        conn,
-        "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? LIMIT 1",
-        [name],
-    )
+    else:
+        current = _run(
+            conn,
+            "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? LIMIT 1",
+            [name],
+        )
+    if current.ok and not current.data.empty:
+        return current
+    if house:
+        historic = _run(
+            conn,
+            "SELECT MIN(unique_member_code) AS unique_member_code"
+            " FROM v_member_registry_all WHERE member_name = ? AND house = ?"
+            " HAVING COUNT(DISTINCT unique_member_code) = 1",
+            [name, house],
+        )
+    else:
+        historic = _run(
+            conn,
+            "SELECT MIN(unique_member_code) AS unique_member_code"
+            " FROM v_member_registry_all WHERE member_name = ?"
+            " HAVING COUNT(DISTINCT unique_member_code) = 1",
+            [name],
+        )
+    return historic if historic.ok and not historic.data.empty else current
 
 
 def member_house(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:

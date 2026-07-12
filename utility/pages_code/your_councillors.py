@@ -373,11 +373,13 @@ def your_councillors_page() -> None:
     if lsel and st.button("Show my council →", type="primary"):
         qp.update({"clr_county": c, "clr_lea": lsel})
         st.rerun()
+    rc = ycd.fetch_roll_call_councils()
+    rc_names = ", ".join(rc.data["local_authority"]) if rc.ok and not rc.is_empty else "Carlow"
     with st.expander("About this data and its coverage"):
         st.markdown(
             "- **Roster** (~916 councillors across 31 councils) is sourced from Wikipedia and is about "
             "96% complete; a few councils are undercounted.\n"
-            "- **Named votes** exist only where a council records roll-calls (currently Carlow). Most "
+            f"- **Named votes** exist only where a council records roll-calls (currently {rc_names}). Most "
             "councils decide by agreement, so individual votes are not recorded.\n"
             "- **Standing Orders** are parsed for about 8 of 31 councils; the others show the general "
             "statutory rules.\n"

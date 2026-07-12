@@ -35,10 +35,12 @@ def resolve_member_code(name: str) -> str | None:
     DB at most once.
 
     Exact-match only. Trailing/leading whitespace is stripped; case is
-    preserved (the registry stores canonical casing). The retrieval is the
-    same WHERE member_name=? LIMIT 1 lookup, now via the shared core query
-    ``moq.join_key_by_name`` (which also maps a None conn / DuckDB error to an
-    empty result → None here).
+    preserved (the registry stores canonical casing). Resolution is via the
+    shared core query ``moq.join_key_by_name``: current roster first, then
+    ``v_member_registry_all`` so FORMER members resolve too (their profile
+    renders with a "Former" flag) — but only when the historic name is
+    unambiguous, so a namesake collision yields None rather than a link to
+    the wrong person. A None conn / DuckDB error maps to None here.
     """
     if not name:
         return None
