@@ -1,0 +1,122 @@
+{
+  "generated_at": "2026-07-12T21:31:08+00:00",
+  "grain": "s.142 payments to elected members, LONG (council, councillor, period, category)",
+  "scope_cap": "structured open-data publishers ONLY (assessment rule \u2014 never 31 bespoke parsers)",
+  "councils": [
+    "Dublin City",
+    "South Dublin"
+  ],
+  "years": [
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "rows": 6041,
+  "sum_total_payment_eur": 6258424,
+  "by_source": [
+    {
+      "source": "s142-register-q1-2022-sdcc1",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q2-2022-sdcc1",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q3-2022-sdcc1",
+      "status": "ok",
+      "rows": 262,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q4-2022-sdcc1",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q1-2023-sdcc1",
+      "status": "ok",
+      "rows": 263,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q2-2023-sdcc1",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q3-2023-sdcc1",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q4-2023-sdcc1",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q1-2024-sdcc",
+      "status": "ok",
+      "rows": 263,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q2-2024-sdcc",
+      "status": "ok",
+      "rows": 263,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q3-2024-sdcc",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "s142-register-q4-2024-sdcc",
+      "status": "ok",
+      "rows": 272,
+      "unknown_categories": []
+    },
+    {
+      "source": "councillor-allowance-and-expenses-q1-2025-sdcc",
+      "status": "ok",
+      "rows": 274,
+      "unknown_categories": []
+    },
+    {
+      "source": "councillor-allowance-and-expenses-q2-2025-sdcc",
+      "status": "ok",
+      "rows": 272,
+      "unknown_categories": []
+    },
+    {
+      "source": "councillor-allowance-and-expenses-q3-2025-sdcc",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "councillor-allowance-and-expenses-q4-2025-sdcc",
+      "status": "ok",
+      "rows": 0,
+      "unknown_categories": []
+    },
+    {
+      "source": "councillor-allowance-and-expenses-dcc:Councillor Allowance and Expenses 2024",
+      "status": "ok",
+      "rows": 4172,
+      "unknown_categories": []
+    }
+  ],
+  "caveat": "Actual register amounts as published by each council; categories vary by publisher. NOT comparable to the national rate schedule line-by-line; never mix with procurement/AFS/budget money grains."
+}
