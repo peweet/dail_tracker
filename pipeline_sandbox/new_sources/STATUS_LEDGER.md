@@ -79,8 +79,22 @@ are a third money channel, never summed with awards or payments.
 - **AHBRA notices:** `overall_outcome` has spelling drift ("Non- Compliant" / "Non-Compliant Statutory…") — normalise before any grouping; 14 non-assessment rows are null on assessment fields by design (`record_type` distinguishes).
 - **Licences (all six confirmed):** RI CC-BY-4.0 + IATI CC0 captured in-row; audit.gov.ie = CC-BY-4.0 (its open-data policy page); hiqa.ie + ahbregulator.ie = PSI re-use ("free of charge in any format", PSI general licence / SI 279/2005) — checked 2026-07-12. Still to be recorded in `doc/source_licensing.md` at promotion time.
 
-### In flight
-- **Criminal legal aid payments** (Dept of Justice, gov.ie WAF-exposed) — extractor being built; scaffold-with-blocker if the WAF holds.
+### ⛔ Criminal legal aid payments — TERMINAL FINDING (2026-07-12): not published
+`criminal_legal_aid.py` is a **scaffold with a documented blocker** (+ a WAF-safe `probe()`
+that re-checks the anchor page): the Department of Justice does **not** publish the
+per-practitioner payment lists anywhere fetchable. Channels exhausted (URLs in the module
+docstring): data.gov.ie CKAN (aggregate LAB stats only) · full gov.ie sitemap sweep (~97k
+URLs, 236 keyword hits — only fee-claim forms + IGEES *CLA Expenditure Trends 2014–2024*
+aggregates) · legacy justice.ie via Wayback CDX · assets.gov.ie filename probes · PQ answers
+(aggregates only) · DoJ FOI disclosure logs (requests received, not released records).
+The annual press "top-earner" lists (Irish Legal News / Irish Times, latest 2025-02) come
+from an **FOI release with no public artefact**. Unblock routes: (a) FOI to foi@justice.ie
+— records demonstrably held + released annually; FOI reference would be the provenance,
+no explicit licence; (b) `probe()` flags if DoJ starts publishing; (c) an aggregates-only
+dataset from PQs/IGEES as a separate, lesser build. Proposed schema preserved in the
+docstring (`value_safe_to_sum=False`, `payment_basis='fees_paid'`,
+`privacy_tier='professional_individual'`). WAF note: browser-UA clears the 403 but ~15
+rapid requests trigger 405 throttling — pace ≥5s on gov.ie.
 
 ## 🔗 Joinability layer (added after the usability review)
 

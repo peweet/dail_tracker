@@ -393,6 +393,35 @@ def _chain_timeout(name: str) -> int | None:
     return _CHAIN_TIMEOUT_OVERRIDES.get(name, DEFAULT_CHAIN_TIMEOUT_S)
 
 
+# ── Per-chain env overrides ──────────────────────────────────────────────────
+# POLARS_MAX_THREADS=1 for chains whose script (or a script it further shells out
+# to — env is inherited by subprocess.run() when a chain runner like
+# ministerial_diaries_refresh.py doesn't pass its own env=) runs a Python
+# map_elements() UDF over a large post-explode/post-concat frame. Polars 1.41.2's
+# multi-threaded engine calling back into the Python interpreter (GIL) from worker
+# threads intermittently segfaults on Windows (0xC0000005; reproduced 2026-07-11 in
+# lobbying/lobby_processing.py, which crashed the `lobbying` chain — see
+# lobbying_refresh.py's step_process() for the same fix applied at that finer grain).
+# Single-threading these whole chains costs little: map_elements is a small fraction
+# of each chain's runtime, well inside its timeout above.
+_CHAIN_EXTRA_ENV: dict[str, dict[str, str]] = {
+    "planning_appeal_outcomes": {"POLARS_MAX_THREADS": "1"},  # ~126k-row national applications frame
+    "procurement_consolidate": {"POLARS_MAX_THREADS": "1"},  # 401,624-row consolidated payments fact
+    "procurement": {"POLARS_MAX_THREADS": "1"},  # map_elements immediately after .explode() — same shape as the lobbying bug
+    "la_payments": {"POLARS_MAX_THREADS": "1"},  # 99,412-row merged council payments
+    "public_body_payments": {"POLARS_MAX_THREADS": "1"},  # 89,285-row disclosures; classify_and_flag() also imported by hse_tusla_payments
+    "hse_tusla_payments": {"POLARS_MAX_THREADS": "1"},  # imports classify_and_flag() from procurement_public_body_extract.py, runs in its own process
+    "cro": {"POLARS_MAX_THREADS": "1"},  # up to 51,149-row corporate notices
+    "cbi": {"POLARS_MAX_THREADS": "1"},  # historic Dáil+Seanad interests backfill + notices/lobbying joins
+    "ted": {"POLARS_MAX_THREADS": "1"},  # ted_enrich.enrich_winner_rows(), ~13,954-row awards
+    "ministerial_diaries": {"POLARS_MAX_THREADS": "1"},  # diary_org_match/diary_lobbying_overlap/diary_promote_gold — inherited by their sub-subprocesses
+}
+
+
+def _chain_extra_env(name: str) -> dict[str, str]:
+    return _CHAIN_EXTRA_ENV.get(name, {})
+
+
 def _kill_process_tree(proc: subprocess.Popen) -> None:
     """Kill the chain process AND all its descendants.
 
@@ -434,6 +463,7 @@ def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tupl
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUNBUFFERED"] = "1"
     env[ENV_RUN_ID] = run_id
+    env.update(_chain_extra_env(name))
 
     tail: list[str] = []
     timed_out = False
