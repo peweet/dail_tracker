@@ -13,7 +13,6 @@ import warnings
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 # Repo-root first so utility/ ends up ahead of it (config resolution) — see the
 # dual-config note in test_page_imports.py.

@@ -8,7 +8,9 @@ parsed from the local corpus/ text dumps:
 
   • Cork City PROSE divisions:  `FOR: Comhairleoirí J. Maher, … (21)` / `AGAINST: … (9)` /
     `ABSTAIN: (0)`. Initial+surname names are resolved against the gold roster
-    (data/_meta/la_councillors.csv); ambiguous initials are excluded from attribution.
+    (data/_meta/la_councillors.csv); forms the roster cannot resolve (titles like
+    'An tArdmhéara', ambiguous initials, not-on-roster) are kept VERBATIM as printed so the
+    emitted division always equals the printed tally — resolution enriches, never subtracts.
   • Kilkenny PROSE roll-calls:  `Four (4) voted in favour: Cllrs. Maria Dollard, …`.
   • Laois ✓-GRID tables with split FIRST NAME / SURNAME header columns, reconciled against the
     printed result sentence ("The result of the Roll Call was 4 Members for, 9 against …").
@@ -372,14 +374,19 @@ def parse_cork_prose(la: str, fname: str, text: str, cov: Coverage, resolver: Ro
         for vote, (names, _tally) in sides.items():
             for printed in names:
                 resolved, status = resolver.initials(printed)
+                # Never drop a voter the minutes record — the emitted division must equal the
+                # printed tally (the Cork budget vote prints (23) incl. 'An tArdmhéara'). When
+                # the roster can't resolve a form (title / two candidates share initial+surname /
+                # not on roster), keep the PRINTED form verbatim: no misattribution, no shrinkage.
                 if status == "ambiguous":
-                    cov.ambiguous_excluded += 1
-                    continue
+                    cov.ambiguous_excluded += 1  # counted (kept as printed, not resolved)
+                    resolved = None
                 if status == "title":
-                    cov.title_excluded += 1
-                    continue
+                    cov.title_excluded += 1  # counted (kept as printed title)
+                    resolved = None
                 if resolved is None:
-                    cov.unmatched_kept += 1
+                    if status not in ("ambiguous", "title"):
+                        cov.unmatched_kept += 1
                     resolved = _fix_mojibake(printed)
                 cov.rows += 1
                 out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
