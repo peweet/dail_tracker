@@ -317,6 +317,33 @@ def your_councillors_page() -> None:
             "attendance; the Local Representation Allowance is vouched. Officeholders "
             "(Cathaoirleach/Mayor, committee chairs) receive additional allowances."
         )
+        # ACTUAL s.142 register payments — only where the council publishes the register as
+        # open data (South Dublin, Dublin City); the view pre-aggregates, this renders rows.
+        pr = ycd.fetch_councillor_payments(county, councillor)
+        if pr.ok and not pr.is_empty:
+            latest_yr = int(pr.data["year"].max())
+            latest = pr.data[pr.data["year"] == latest_yr]
+            total_row = latest[latest["category"] == "total_payment"]
+            parts = latest[latest["category"] != "total_payment"]
+            lines = "".join(
+                f'<div style="display:flex;justify-content:space-between;margin:.1rem 0">'
+                f'<span>{_h(str(r["category"]).replace("_", " ").capitalize())}</span>'
+                f'<span style="font-variant-numeric:tabular-nums">€{r["amount_eur"]:,.2f}</span></div>'
+                for _, r in parts.iterrows()
+            )
+            head = (
+                f'<div style="font-weight:700;margin-bottom:.25rem">What this councillor was actually '
+                f"paid — {latest_yr}"
+                + (f' · €{float(total_row.iloc[0]["amount_eur"]):,.2f} total' if not total_row.empty else "")
+                + "</div>"
+            )
+            info_card(head + lines)
+            st.caption(
+                f"From the council's own statutory s.142 register of payments to members, "
+                f"published as open data ({latest_yr}; categories as the council reports them). "
+                "Only a handful of councils publish this register machine-readably — most "
+                "publish PDFs or nothing, so this section appears only where the data exists."
+            )
         return
 
     # ── COUNCIL view ──

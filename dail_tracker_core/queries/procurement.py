@@ -1181,6 +1181,21 @@ def afs_by_division(conn: duckdb.DuckDBPyConnection, council: str, year: int) ->
     )
 
 
+def la_budget_vs_actual(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's ADOPTED budget set beside its audited AFS outturn per (year, division) —
+    the plan-vs-actual layer of the RUNNING lane. Two different money grains (BUDGETED plan vs
+    accounts actual) joined SIDE-BY-SIDE in v_procurement_la_budget_vs_actual; the delta is
+    computed in the view, never here or in the page, and is context — not an overspend verdict."""
+    return _run(
+        conn,
+        "SELECT year, division, budget_expenditure_eur, afs_gross_expenditure_eur,"
+        " outturn_minus_budget_eur, outturn_vs_budget_pct"
+        " FROM v_procurement_la_budget_vs_actual WHERE council = ?"
+        " ORDER BY year DESC, budget_expenditure_eur DESC",
+        [council],
+    )
+
+
 def afs_capital_by_year(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
     """One council's audited CAPITAL-account investment per year — the "what your council is
     building / acquiring" spine of the dossier's BUILDING lane. capital_expenditure_eur is Σ

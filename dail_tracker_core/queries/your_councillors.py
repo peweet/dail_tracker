@@ -77,6 +77,18 @@ def votes(conn: duckdb.DuckDBPyConnection, la: str, member: str) -> QueryResult:
     )
 
 
+def councillor_payments(conn: duckdb.DuckDBPyConnection, la: str, member: str) -> QueryResult:
+    """ACTUAL s.142 register payments for one councillor (year × category, pre-aggregated in
+    the view). Only the open-data councils (South Dublin, Dublin City) return rows — the page
+    renders the statutory rate schedule for everyone and actuals only where published."""
+    return _run(
+        conn,
+        "SELECT year, category, amount_eur FROM v_la_councillor_payments "
+        "WHERE local_authority = ? AND councillor = ? ORDER BY year DESC, amount_eur DESC",
+        [la, member],
+    )
+
+
 def agendas(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     return _run(
         conn, "SELECT meeting_date, agenda, source_url FROM v_la_meeting_agendas WHERE local_authority = ?", [la]

@@ -14,6 +14,12 @@
 --   (unmeasured precision — includes legit brands like Vodafone, but lead with the high-conf ones).
 -- COLLISION: n_suppliers_folded / n_payees_folded > 1 ⇒ awards_eur / paid_eur SUM more than one
 --   distinct supplier string that the name-fold collapsed (matched_supplier lists them, pipe-joined).
+-- STATE-BODY QUARANTINE (2026-07-13, MCP sweep DQ #3): the upstream state-body exclusion derives
+--   from the sector keyword tag + stateboards roster, which misses some statutory/State-owned
+--   bodies (e.g. Waterways Ireland was served here as an outside company paid public money).
+--   The hand-curated data/_meta/diary_state_bodies_supplement.csv (exact as-printed names, each
+--   with a statutory basis) is filtered out HERE — view-level WHERE quarantine, gold untouched —
+--   keeping this view true to its "state/semi-state bodies are excluded" contract.
 CREATE OR REPLACE VIEW v_ministerial_diary_company_influence AS
 SELECT
     organisation,
@@ -35,4 +41,8 @@ SELECT
     first_meeting,
     last_meeting
 FROM read_parquet('data/gold/parquet/diary_company_influence.parquet')
+WHERE lower(trim(organisation)) NOT IN (
+    SELECT lower(trim(organisation))
+    FROM read_csv('data/_meta/diary_state_bodies_supplement.csv', header = true, AUTO_DETECT = true)
+)
 ORDER BY awards_eur DESC, paid_eur DESC, meetings DESC;

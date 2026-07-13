@@ -211,6 +211,7 @@ CONSTITUENCY_FILES = [
     "constituency_la_derelict_sites_levy.sql",  # council Derelict Sites Levy enforcement (reads gold parquet; no deps)
     "constituency_la_collection_rates.sql",  # council NOAC M2 collection rates (reads gold parquet; no deps)
     "constituency_la_noac_scorecard.sql",  # council NOAC scorecard (finance/workforce/roads/fire/litter; reads gold parquet; no deps)
+    "constituency_la_lgas_audit.sql",  # LGAS statutory audit reports, verbatim opinion/headings (reads silver parquet; no deps)
     "constituency_la_noac_scorecard_history.sql",  # scorecard metrics 2022-2024 for the trend sparklines (reads gold parquet; no deps)
     "constituency_la_noac_indicators.sql",  # full NOAC indicator set (~125 series) for the All-indicators drill-down (reads gold parquet; no deps)
     "constituency_la_accountability_summary.sql",  # 1-row national headline; MUST follow the 3 LA views above

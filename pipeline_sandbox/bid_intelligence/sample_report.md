@@ -68,12 +68,10 @@
 
 *PAYMENT grain: paid (SPENT) and ordered (COMMITTED) are different lifecycle stages, never added; an indicative floor across mixed VAT bases; never summed with award ceilings.*
 
-## Re-bid radar — contracts ending soon (38 in scope)
+## Re-bid radar — contracts ending soon (37 in scope)
 
 | Est. end | Buyer | Contract | Incumbent | Value |
 |---|---|---|---|---:|
-| 2026-06-30T00:00:00 | South East Technological University (SETU) | Request for Tender for the creation of an interactive immers | Emagine Media Ltd | €100,000 |
-| 2026-07-03T00:00:00 | Met Eireann | Request for Tenders for the provision of the hosting, mainte | JBA Consulting Engineers and Scientists | €598,574 |
 | 2026-08-04T00:00:00 | National Treasury Management Agency (NTMA) | 2023PR054 Request for Tenders (RFT) for the provision of Sof | CubeMatch (Ireland) Ltd | €2,000,000 |
 | 2026-08-23T00:00:00 | National Standards Authority of Ireland (NSAI) | NSAI - CUSTOMER RELATIONSHIP MANAGEMENT SYSTEMS CONFIGURATIO | TEKenable | €700,000 |
 | 2026-09-18T00:00:00 | Health Service Executive (HSE) | HSE 22208 Provision of National Estates Information System ( | — | €7,052,150 |
@@ -87,6 +85,8 @@
 | 2027-02-05T00:00:00 | Department of Social Protection | Request for Quotation for AutoAddress | — | €23,925 |
 | 2027-02-23T00:00:00 | Skillnet Ireland | RFT to support Skillnet Ireland in delivering short courses  | Atlantic Technological University (EO) | €174,000 |
 | 2027-03-04T00:00:00 | National Library of Ireland | Provision of Chief Information Security Officer Function and | VISO Cyber Security | €169,050 |
+| 2027-03-21T00:00:00 | Dundalk Institute of Technology | Services related to the Design, Development, Maintenance and | Annertech | €215,000 |
+| 2027-04-16T00:00:00 | Office of the Attorney General | Security Incident & Event Management (SIEM) managed service | Arkphire Security Limited (Presidio Europe) | €359,982 |
 
 - *Advertised term end (award date + duration) — a term, not a verified end event; renewals may extend it. Frameworks excluded by the view.*
 

@@ -29,9 +29,15 @@ from _common import SILVER, now_iso
 SRC = SILVER / "cag_reports.parquet"
 OUT_NAME = "cag_chapters"
 
-CHAPTER_RX = re.compile(r"^(\d{1,2})-(.+?)(-copy)?\.pdf$")
-VOTE_RX = re.compile(r"^(\d{1,2})-vote-(\d{1,2})-(.+?)(-copy)?\.pdf$")
-FRONT_MATTER = ("preface", "statement-of-accounting")
+# Slug conventions drift across years (profiled 2026-07-13):
+#   appropriation: "N-vote-N-title" (2024) | "vote-N-title" (2007-2023)
+#   RoAPS chapters: "N-title" (2014-2024) | "chapter-N-title" (2020) |
+#                   bare "title" with no number (1996-2021)
+CHAPTER_NUM_RX = re.compile(r"^(?:chapter-)?(\d{1,2})-(.+?)(-copy)?\.pdf$")
+VOTE_SEQ_RX = re.compile(r"^(\d{1,2})-vote-(\d{1,2})-(.+?)(-copy)?\.pdf$")
+VOTE_RX = re.compile(r"^vote-(\d{1,2})-(.+?)(-copy)?\.pdf$")
+BARE_RX = re.compile(r"^(.+?)(-copy)?\.pdf$")
+FRONT_MATTER = ("preface", "statement-of-accounting", "ar-2017-preface")
 
 
 def deslug(s: str) -> str:
@@ -42,20 +48,38 @@ def classify(basename: str, report_type: str) -> dict | None:
     """Return kind/seq/vote/title for one constituent PDF, or None for the
     combined-volume PDF (already represented by the parent index row)."""
     b = basename.lower()
+    if "report-on-the-accounts" in b or "appropriation-account" in b \
+            or "combined-version" in b:
+        return None  # combined volume — already represented by the parent row
     if any(b.startswith(fm) for fm in FRONT_MATTER):
         return {"kind": "front_matter", "seq": None, "vote_number": None,
                 "title_slug": b[:-4], "copy_artifact": False}
     if report_type == "appropriation_accounts":
-        m = VOTE_RX.match(b)
+        m = VOTE_SEQ_RX.match(b)
         if m:
             return {"kind": "vote_account", "seq": int(m.group(1)),
                     "vote_number": int(m.group(2)), "title_slug": m.group(3),
                     "copy_artifact": bool(m.group(4))}
-    m = CHAPTER_RX.match(b)
+        m = VOTE_RX.match(b)
+        if m:
+            return {"kind": "vote_account", "seq": None,
+                    "vote_number": int(m.group(1)), "title_slug": m.group(2),
+                    "copy_artifact": bool(m.group(3))}
+        m = BARE_RX.match(b)
+        if m:  # misc constituent docs (odd prefaces, contents pages)
+            return {"kind": "other_doc", "seq": None, "vote_number": None,
+                    "title_slug": m.group(1), "copy_artifact": bool(m.group(2))}
+        return None
+    # report_on_accounts
+    m = CHAPTER_NUM_RX.match(b)
     if m:
         return {"kind": "chapter", "seq": int(m.group(1)), "vote_number": None,
                 "title_slug": m.group(2), "copy_artifact": bool(m.group(3))}
-    return None  # combined volume / unrecognised => not a constituent row
+    m = BARE_RX.match(b)
+    if m:  # unnumbered chapter slug (1996-2021 convention)
+        return {"kind": "chapter", "seq": None, "vote_number": None,
+                "title_slug": m.group(1), "copy_artifact": bool(m.group(2))}
+    return None  # unrecognised => not a constituent row
 
 
 def main() -> None:

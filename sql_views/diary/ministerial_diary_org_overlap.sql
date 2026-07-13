@@ -22,18 +22,29 @@
 -- map to converge both sides), so CIF/IFA/Ibec now corroborate correctly. Other name forms
 -- (e.g. "Dublin Chamber" vs "Dublin Chamber of Commerce") remain unbridged → keep negative hidden
 -- until a fuller org-identity alias map lands.
+--
+-- STATE-BODY SUPPLEMENT (2026-07-13, MCP sweep DQ #3): gold derives is_state_body from the
+-- sector keyword tag (sector == 'state-semi-state'), which deliberately leaves commercial
+-- semi-states / cultural institutions / statutory agencies in their industry sector — so LDA,
+-- NCSE, National Concert Hall, Heritage Council, Dublin Port Company, Arts Council etc. read
+-- is_state_body=false and contaminate the "outside interest" ranking. Corrected HERE (view-level
+-- override, gold untouched — the quarantine-in-view convention) from the hand-curated
+-- data/_meta/diary_state_bodies_supplement.csv: exact as-printed org names, each with a statutory
+-- basis. Curated list only — no fuzzy matching, no inference.
 CREATE OR REPLACE VIEW v_ministerial_diary_org_overlap AS
 SELECT
-    matched_org_name AS organisation,
-    sector,
-    is_state_body,
-    meetings,
-    high_conf_meetings,
-    ministers_met,
-    ministers_lobbied_and_met,
-    total_lobbying_returns,
-    (ministers_lobbied_and_met > 0) AS corroborated,
-    first_meeting,
-    last_meeting
-FROM read_parquet('data/gold/parquet/ministerial_diary_org_overlap.parquet')
-ORDER BY meetings DESC, ministers_met DESC;
+    o.matched_org_name AS organisation,
+    o.sector,
+    (o.is_state_body OR sb.organisation IS NOT NULL) AS is_state_body,
+    o.meetings,
+    o.high_conf_meetings,
+    o.ministers_met,
+    o.ministers_lobbied_and_met,
+    o.total_lobbying_returns,
+    (o.ministers_lobbied_and_met > 0) AS corroborated,
+    o.first_meeting,
+    o.last_meeting
+FROM read_parquet('data/gold/parquet/ministerial_diary_org_overlap.parquet') o
+LEFT JOIN read_csv('data/_meta/diary_state_bodies_supplement.csv', header = true, AUTO_DETECT = true) sb
+    ON lower(trim(o.matched_org_name)) = lower(trim(sb.organisation))
+ORDER BY o.meetings DESC, o.ministers_met DESC;

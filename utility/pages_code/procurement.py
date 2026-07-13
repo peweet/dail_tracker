@@ -66,6 +66,7 @@ from data_access.procurement_data import (
     fetch_eu_tam_state_aid_result,
     fetch_incumbency_for_supplier_result,
     fetch_incumbency_top_result,
+    fetch_la_budget_vs_actual_result,
     fetch_lobbying_overlap_result,
     fetch_awards_by_year_result,
     fetch_epa_compliance_result,
@@ -1319,6 +1320,39 @@ def _render_council_running_lane(council: str, active_tier: str, *, po_max_year:
             y_label="Audited € spent",
             height=180,
             color="#3a6b7e",
+        )
+
+    # PLAN vs OUTTURN — the ADOPTED budget (a fourth grain: a plan, from DHLGH's consolidated
+    # publication) beside the audited outturn for the same divisions. Side-by-side ONLY — the
+    # delta is view-computed context; a few % either way is normal, never an overspend verdict.
+    bva = fetch_la_budget_vs_actual_result(council)
+    if bva.ok and not bva.data.empty:
+        bva_latest = int(bva.data["year"].max())
+        bva_rows = bva.data[bva.data["year"] == bva_latest]
+        st.caption(f"Adopted budget vs audited outturn by service, {bva_latest} — compared, never added")
+        line_html = []
+        for r in bva_rows.itertuples():
+            pct = getattr(r, "outturn_vs_budget_pct", None)
+            chip = (
+                f'<span style="background:#eceae4;color:#41403a;border-radius:3px;padding:0 .45rem;'
+                f'font-size:.72rem;font-variant-numeric:tabular-nums">{float(pct):+g}%</span>'
+                if _truthy(pct)
+                else ""
+            )
+            line_html.append(
+                '<div style="display:flex;justify-content:space-between;gap:.6rem;margin:.14rem 0">'
+                f"<span>{_esc(r.division)}</span>"
+                f'<span style="white-space:nowrap;font-variant-numeric:tabular-nums">'
+                f"{_eur(r.budget_expenditure_eur)} planned → <strong>{_eur(r.afs_gross_expenditure_eur)}</strong>"
+                f" spent {chip}</span></div>"
+            )
+        st.html(
+            '<div class="pr-afs-trace">'
+            + "".join(line_html)
+            + '<div class="pr-afs-trace-cap">“Planned” is the budget the elected councillors adopted '
+            "before the year began (a reserved function); “spent” is the audited outturn. Different "
+            "bases — a plan and an actual — shown side by side and never summed; small gaps either "
+            "way are normal, not verdicts.</div></div>"
         )
 
     # Traceability bridge to the PAYING lane — the latest year present in both accounts + active PO tier.
