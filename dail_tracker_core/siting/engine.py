@@ -14,6 +14,7 @@ Honesty rules baked in:
 
 from __future__ import annotations
 
+import re
 import string
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -119,7 +120,38 @@ class SitingResult:
                 if c.document not in seen:
                     seen.add(c.document)
                     out.append(c.document)
-        return out
+        return _dedupe_reports(out)
+
+
+def _report_components(doc: str) -> list[frozenset[str]]:
+    """Split a checklist document string into its component reports' token sets.
+
+    Council checklists phrase the same report several ways across nodes ("Appropriate
+    Assessment (AA) screening / Natura Impact Statement" vs "Appropriate Assessment / Natura
+    Impact Statement + Ecological Impact Assessment"), and exact-string dedup let all of them
+    through. '/', '+' and ';' separate the component reports inside one string.
+    """
+    parts = [p for p in re.split(r"\s*[/+;]\s*", doc) if p.strip()]
+    return [frozenset(re.findall(r"[a-z]{2,}", p.lower())) for p in parts]
+
+
+def _dedupe_reports(docs: list[str]) -> list[str]:
+    """Drop a report string when EVERY component it names is already covered by a kept one.
+
+    Coverage is token-subset in either direction ("Appropriate Assessment" vs "Appropriate
+    Assessment Screening Report" collapse), so re-phrasings of the same report don't stack in
+    the RFI list. Kept strings stay VERBATIM (first occurrence wins, catalogue order) — this
+    only removes whole redundant entries, it never rewrites one.
+    """
+    kept: list[str] = []
+    seen: list[frozenset[str]] = []
+    for d in docs:
+        comps = _report_components(d)
+        if comps and all(any(c <= s or s <= c for s in seen) for c in comps):
+            continue
+        kept.append(d)
+        seen.extend(comps)
+    return kept
 
 
 RFI_NOTE = (
@@ -258,17 +290,24 @@ def _floodplain(store, lon, lat, dev, slug):
 
 
 def _septic(store, lon, lat, dev, slug):
-    # antecedent (no public sewer) is approximated by "rural one-off" until the EPA
-    # agglomeration layer (WMS-only, not yet ingested) lands; severity = GSI vulnerability
-    # category at the point (+ nearby karst). VUL_CAT: X/E=Extreme, H=High, M/L lower.
-    # A one-off house needs on-site wastewater UNLESS a public sewer is available. We have no
-    # reliable sewer-extent layer — EPA UWWT agglomeration is WMS-only, and zoning proved an
-    # unsound proxy (the GZT codes are inconsistent: N1.1="transport bypass", M5="greenbelt";
-    # and free-text matched "town" inside "greenbelts around the main towns"). So we do NOT guess
-    # sewered vs not (no-inference): we flag the on-site-wastewater consideration on poor ground
-    # and STATE the assumption. severity = GSI vulnerability (X/E/H) + nearby karst.
+    # A one-off house needs on-site wastewater UNLESS a public sewer serves the site. The
+    # ANTECEDENT is now readable: the EPA UWWT agglomeration BOUNDARY polygons (WFS-pulled
+    # 2026-07-13, 1,076 national) mark the areas served by a public collection network —
+    # inside one, connection replaces on-site treatment and this node does not apply (the
+    # earlier zoning proxy was unsound and stayed dropped: GZT codes are inconsistent and
+    # free-text matched "town" inside "greenbelts around the main towns").
+    # Outside (or with the layer absent), severity = GSI vulnerability (X/E/H) + nearby karst,
+    # and the sewer assumption is STATED, not guessed (no-inference).
     if "gsi_vulnerability" not in store.available() or not store.in_extent("gsi_vulnerability", lon, lat):
         return False, {}, "layer_missing"
+    sewer_note = ""
+    if "epa_uww_agglomeration" in store.available():
+        agg = store.covering("epa_uww_agglomeration", lon, lat)
+        if agg:
+            name = str(agg[0].get("Name") or "").strip()
+            label = f"the {name} agglomeration" if name else "a mapped agglomeration"
+            return False, {"sewer_note": f"inside {label} (EPA UWWT sewered area)"}, "ok"
+        sewer_note = "No EPA-mapped public-sewer agglomeration covers this point, so on-site treatment is assumed."
     cov = store.covering("gsi_vulnerability", lon, lat)
     if not cov:
         return False, {}, "ok"  # mapped here, just not a high-vulnerability polygon
@@ -276,7 +315,7 @@ def _septic(store, lon, lat, dev, slug):
     vdesc = cov[0].get("VUL_DESC") or vul
     karst = store.near("gsi_karst", lon, lat, 1000) if store.in_extent("gsi_karst", lon, lat) else []
     fired = vul in {"X", "E", "H"} or bool(karst)
-    detail = {"vuln_class": vdesc + (" (karst nearby)" if karst else "")}
+    detail = {"vuln_class": vdesc + (" (karst nearby)" if karst else ""), "sewer_note": sewer_note}
     # Septic is a UNIVERSAL consideration for any rural one-off, so it normally sits in the standard
     # tier. PROMOTE it to a site-specific constraint only where the ground is genuinely a viability
     # risk: EXTREME vulnerability (X/E) or karst at surface — the EPA percolation test can fail here.
@@ -284,6 +323,20 @@ def _septic(store, lon, lat, dev, slug):
     if vul in {"X", "E"} or karst:
         detail["_elevate"] = True
     return fired, detail, "ok"
+
+
+def _open_water(store, lon, lat, dev, slug):
+    # WFD active-lake waterbody containment (EPA, national, 812 polygons): the point is IN a
+    # mapped lake — a physical fact about the land, before any planning consideration.
+    if "epa_wfd_lakes" not in store.available():
+        return False, {}, "layer_missing"
+    cov = store.covering("epa_wfd_lakes", lon, lat)
+    if not cov:
+        return False, {}, "ok"
+    name = next((str(c.get("NAME") or "").strip() for c in cov if c.get("NAME")), "")
+    code = next((str(c.get("EU_CD") or "").strip() for c in cov if c.get("EU_CD")), "")
+    label = name or (f"WFD code {code}" if code else "a mapped lake")
+    return True, {"waterbody": label + (f", {code}" if name and code else "")}, "ok"
 
 
 def _road(store, lon, lat, dev, slug):
@@ -499,6 +552,7 @@ TRIGGERS: dict[str, Callable] = {
     "national_park": _national_park,
     "gaeltacht": _gaeltacht,
     "floodplain": _floodplain,
+    "open_water": _open_water,
     "septic_groundwater": _septic,
     "road_sightlines": _road,
     "landscape_siting": _landscape,

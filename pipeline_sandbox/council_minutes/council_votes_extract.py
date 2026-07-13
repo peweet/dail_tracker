@@ -601,7 +601,9 @@ def _fg_names(seg: str) -> list[str]:
 
 def parse_fingal_prose(la: str, fname: str, text: str, cov: Coverage, resolver: RosterResolver) -> list[dict]:
     text = _fix_mojibake(text)
-    mdate = _corpus_meeting_date(fname)
+    # filename first; else the date printed on the minutes' own first page (a MId-named file
+    # from the harvester's fallback must still carry a real meeting date)
+    mdate = _corpus_meeting_date(fname) or _doc_meeting_date(text)
     out: list[dict] = []
     for tm in _FG_TALLY.finditer(text):
         cov.divisions_found += 1

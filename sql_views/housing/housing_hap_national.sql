@@ -9,6 +9,10 @@
 --   cso_hap20 — median HAP rent paid by the tenant as a % of disposable income
 --   cso_hap32 — median years on the waiting list + HAP before reaching social housing
 -- HAP detail ends 2022 (the CSO series stops there) — label as latest-available.
+-- STALENESS SIGNALS (2026-07-13): hap_period_age_years (query-time year minus
+-- hap_period) + hap_stale (age >= 2 years) accompany the row so a caller can't
+-- misread the 2022 series-end figures as current. All four metrics share the
+-- same CSO HAP vintage (the series stops together), so one signal covers the row.
 CREATE OR REPLACE VIEW v_housing_hap_national AS
 WITH households AS (
     SELECT SUM(CAST(VALUE AS DOUBLE)) AS hap_households, MAX(Year) AS hap_period
@@ -39,6 +43,8 @@ wait AS (
 SELECT
     h.hap_households,
     h.hap_period,
+    (YEAR(CURRENT_DATE) - TRY_CAST(h.hap_period AS INTEGER))      AS hap_period_age_years,
+    (YEAR(CURRENT_DATE) - TRY_CAST(h.hap_period AS INTEGER)) >= 2 AS hap_stale,
     w.pct_working,
     b.rent_pct_of_disposable_income,
     wt.median_years_to_social_housing

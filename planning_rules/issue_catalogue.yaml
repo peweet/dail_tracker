@@ -36,7 +36,8 @@ source_layers:
   smr_points:            { kind: point,   status: live, ref: "NMS SMROpenData/FeatureServer/0" }
   opw_flood:             { kind: polygon, status: located, ref: "OPW NIFM extents / CFRAM AFA; statutory Zone A/B floodinfo.ie (TBD)" }
   gsi_vulnerability:     { kind: polygon, status: located, ref: "GSI Groundwater Vulnerability + Karst + Subsoil Permeability 1:40,000" }
-  epa_agglomeration:     { kind: polygon, status: located, ref: "EPA Urban Waste Water Agglomeration Boundaries (sewered extent)" }
+  epa_uww_agglomeration: { kind: polygon, status: live, ref: "EPA UWW_AgglomerationBoundaries via gis.epa.ie WFS (sewered extent, 1,076 national)" }
+  epa_wfd_lakes:         { kind: polygon, status: live, ref: "EPA WFD_LakeWaterBodiesActive via gis.epa.ie WFS (812 lakes, national)" }
   epa_subsoils:          { kind: polygon, status: located, ref: "EPA National Subsoils/Soils (peat detection)" }
   gsi_quaternary:        { kind: polygon, status: live, ref: "GSI Quaternary Sediments 1:50,000 (subsoil type incl. peat)" }
   national_parks:        { kind: polygon, status: live, ref: "NPWS NationalParkBoundaries/FeatureServer/0 (6 parks)" }
@@ -47,7 +48,7 @@ source_layers:
   tii_roads:             { kind: line,    status: located, ref: "TII National + RMO Regional road network" }
   osm_roads:             { kind: line,    status: live,    ref: "OSM via pre-ingested Geofabrik extract (NOT live Overpass in prod)" }
   zoning_gzt:            { kind: polygon, status: live,    ref: "MyPlan GZT_Current_Plan/FeatureServer/0" }
-  dem:                   { kind: raster,  status: gap,     ref: "national DEM — Copernicus 10-30m / Tailte DTM (TO ADD)" }
+  dem:                   { kind: raster,  status: live,    ref: "Copernicus GLO-30 DSM S3 range-read + disk cache (dem_cache.parquet)" }
 
 # ---- issue nodes ----------------------------------------------------------------------------------
 nodes:
@@ -75,8 +76,9 @@ nodes:
       predicate: "near(npws_designated_areas) OR old_structure OR near_trees_or_water"
       source_layers: [npws_designated_areas]
     flag_template: >
-      Likely a bat issue (Lesser Horseshoe bat = Annex II). A bat survey will be required; if a roost is
-      present you'll also need an NPWS derogation licence and a sensitive lighting design.
+      Bats are strictly protected (Habitats Directive Annex IV; the Lesser Horseshoe bat of the
+      western counties is also Annex II). A bat survey will be required; if a roost is present
+      you'll also need an NPWS derogation licence and a sensitive lighting design.
     engage: [ecologist, "lighting specialist (if roost present)"]
     rule_ref: { checklist: [13], dm_std: [51, 52], regs: "Birds & Natural Habitats Regs 2011 (regs 51/54)" }
     mitigation_class: D
@@ -107,7 +109,7 @@ nodes:
     risk_note: "Usually mitigable; bats are survey-season-bound (≈May–Sep), so plan timing."
 
   - id: european_site
-    title: European site (SAC / SPA) — incl. Lough Corrib, the Burren
+    title: European site (SAC / SPA)
     layer: B
     applies_to: [all]
     trigger:
@@ -130,7 +132,7 @@ nodes:
         outcome: refused
         type: acp
         note: "Refused in part: effluent cannot be safely disposed of — fissured limestone, proximity to Lough Corrib SAC, public-health/Habitats risk."
-    risk_note: "Evidence: SAC sites refused ~2.4x baseline (scoping §13). Karst + septic = the crux near the Burren/Corrib."
+    risk_note: "Evidence: applications inside a SAC are refused ~1.5x the national baseline (19.6% vs 13.0%, decision-profiles corpus; Galway ~2.4x). A karst/effluent pathway to the site is the recurring crux."
 
   - id: national_park
     title: National Park / high-amenity designation
@@ -149,7 +151,7 @@ nodes:
     mitigation_class: F
     mitigates: "Inside a National Park, development beyond park-related uses is generally not permitted; adjacent to one, expect a Visual Impact Assessment + Appropriate Assessment. Often not mitigable."
     precedents: [ { curate: true, keywords: ["national park", "amenity", "visual"] } ]
-    risk_note: "6 National Parks nationally (Connemara + the Burren near Galway). NPWS-owned/managed — the highest landscape/nature protection; an Irish equivalent of an Area of Outstanding Natural Beauty."
+    risk_note: "National Parks are NPWS-owned/managed — the State's highest landscape/nature protection, the Irish counterpart of an Area of Outstanding Natural Beauty (6 park boundaries in the ingested NPWS layer)."
 
   - id: gaeltacht
     title: Gaeltacht (Irish-speaking area) — linguistic planning rules
@@ -254,12 +256,12 @@ nodes:
     applies_to: [one_off_house]
     trigger:
       description: "no public sewer AND high groundwater vulnerability or karst"
-      predicate: "outside(epa_agglomeration) AND vulnerability_high(gsi_vulnerability)"
-      source_layers: [epa_agglomeration, gsi_vulnerability]
+      predicate: "outside(epa_uww_agglomeration) AND vulnerability_high(gsi_vulnerability)"
+      source_layers: [epa_uww_agglomeration, gsi_vulnerability]
     flag_template: >
       Unless a public sewer connection is available here (confirm with Uisce Éireann), on-site
       wastewater will be needed. High groundwater vulnerability/karst ({vuln_class}) means the
-      percolation test may fail.
+      percolation test may fail. {sewer_note}
     engage: ["site-suitability assessor (EPA Code of Practice)"]
     rule_ref: { checklist: [25], dm_std: [9], guidance: "EPA CoP for on-site wastewater (single houses)" }
     mitigation_class: "D->F"
@@ -276,13 +278,35 @@ nodes:
           - if: "percolation fails on karst / rock-at-surface"
             outcome: fatal
             then:
-              - do: "No on-site disposal possible — not mitigable; the common refusal ground near the Corrib/Burren"
+              - do: "No on-site disposal possible — not mitigable; the classic refusal ground on karst / fissured-limestone ground"
     precedents:
       - ref: "PL61.249409 (Galway City, Menlo)"
         outcome: refused
         type: acp
         note: "Effluent could not be safely disposed of on fissured limestone near a public water supply."
-    risk_note: "The sewered-vs-unsewered flag (EPA agglomeration) is the antecedent; vulnerability/karst is the severity."
+    risk_note: "The sewered-vs-unsewered antecedent is read from the EPA UWWT agglomeration boundaries (inside = node does not apply); vulnerability/karst is the severity."
+
+  - id: open_water
+    title: Open water — mapped lake waterbody
+    layer: B
+    applies_to: [all]
+    trigger:
+      description: "point falls inside an EPA WFD active-lake waterbody polygon"
+      predicate: "within(epa_wfd_lakes)"
+      source_layers: [epa_wfd_lakes]
+    flag_template: >
+      This point falls within a mapped lake waterbody ({waterbody}, EPA WFD). Land-based development
+      is not feasible on open water — first check the point is where you intended it (a mapped
+      shoreline can differ from what is on the ground).
+    engage: []
+    rule_ref: { checklist: [] }
+    mitigation_class: F
+    mitigates: >
+      Re-check the coordinates against the shoreline. If the real site adjoins the lake rather than
+      sitting in it, expect the water-adjacency questions to come from the European-site and
+      surface-water nodes instead.
+    precedents: []
+    risk_note: "Physical, not just regulatory: EPA WFD 'active lakes' — 812 mapped waterbodies, national."
 
   - id: road_sightlines
     title: Road access / sightlines

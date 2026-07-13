@@ -264,7 +264,11 @@ def brief_text(result: SitingResult, terrain=None) -> str:
     if b.hard_constraints:
         out.append("SITE-SPECIFIC HARD CONSTRAINTS (pass/fail, notable at THIS location):")
         for it in b.hard_constraints:
-            out.append(f"  - {it.title}: {it.action}")
+            # lead with WHY it fired here (it.why carries the site-specific finding, e.g. the
+            # named SAC/park/waterbody) — the generic action alone read the same on every site
+            out.append(f"  - {it.title}: {it.why}")
+            if it.action:
+                out.append(f"      → {it.action}")
             if it.path:
                 _render_path(list(it.path), out, indent="      ")
     if b.access.get("applies"):
@@ -279,7 +283,9 @@ def brief_text(result: SitingResult, terrain=None) -> str:
     if b.shaping_constraints:
         out += ["", "SITE-SPECIFIC SHAPING CONSTRAINTS:"]
         for it in b.shaping_constraints:
-            out.append(f"  - {it.title}: {it.action}")
+            out.append(f"  - {it.title}: {it.why}")
+            if it.action:
+                out.append(f"      → {it.action}")
             if it.path:
                 _render_path(list(it.path), out, indent="      ")
     if b.obligations:

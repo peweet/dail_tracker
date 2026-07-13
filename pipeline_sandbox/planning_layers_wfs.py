@@ -37,17 +37,17 @@ LOG = logging.getLogger("planning_layers_wfs")
 H = {"User-Agent": "dail-tracker-planning-ingest/1.0"}
 
 WFS_LAYERS: dict[str, dict] = {
-    # typeNames CONFIRMED against live GetCapabilities 2026-07-13 (the pre-maintenance guesses
-    # were UWW_AgglomerationBound / WFD_Lakes; the server's actual names differ).
+    # typeNames + field names CONFIRMED against the live server 2026-07-13 (GetCapabilities +
+    # a one-feature GetFeature; GeoJSON property names are case-sensitive — lakes use "NAME").
     "epa_uww_agglomeration": {
         "url": "https://gis.epa.ie/geoserver/EPA/wfs",
         "typename": "EPA:UWW_AgglomerationBoundaries",
-        "keep": ("AgglomName", "Agg_Name", "Name", "Agglomeration", "LicStatus", "Licence", "AggType", "PE"),
+        "keep": ("Name", "RegCd", "Category", "AgglomerationPE", "LicenceStatusType"),
     },
     "epa_wfd_lakes": {
         "url": "https://gis.epa.ie/geoserver/EPA/wfs",
         "typename": "EPA:WFD_LakeWaterBodiesActive",
-        "keep": ("Name", "WB_NAME", "Lake_Name", "EU_CD", "WFD_Code"),
+        "keep": ("NAME", "EU_CD", "LocalAuthority", "AreaHectare"),
     },
 }
 

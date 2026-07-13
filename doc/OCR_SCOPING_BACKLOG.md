@@ -12,6 +12,32 @@ Already-scoped OCR queues live elsewhere — don't duplicate them here:
 
 ---
 
+## STAGED & READY: council GPU-OCR batch (AFS + minutes)
+Added 2026-07-13 (council-targeting execution). **Everything is downloaded and queued in
+bronze/the sandbox quarantine — the only missing piece is the GPU run itself**, held for an
+attended session because (a) the c:/tmp/gpu_ocr paddle venv no longer exists (multi-GB
+rebuild), and (b) the AFS slice needs the SERVER detector (the mobile detector garbles
+€-tables per the 2026-06 finding) which is precisely the RAM-heavy configuration that
+crashed the box before. Rails when running: rebuild venv at c:/tmp (outside the project so
+pip-sync can't strip paddle-gpu), ONE process, DPI 150, instance-reset-every-8, resume
+support; server det for the AFS tables, mobile det acceptable for minutes prose.
+
+**Queue (all cached on disk already):**
+1. **Wexford AFS 2017–2024** — `data/bronze/pdfs/la_afs/wexford/*.pdf` (8 files, ~46pp each;
+   2024 verified still scanned — Wexford did NOT go born-digital like Waterford/Laois did).
+   The last AFS-dark county: OCR → text → the existing `parse_ie`/camelot chain + reconcile
+   gate. Highest value of the batch.
+2. **Louth AFS 2020–2024** — `data/bronze/pdfs/la_afs/louth/` (5 scanned files, 38–72pp) —
+   un-stales Louth from 2017.
+3. **Kildare (2018/20/22), Sligo (2018/20), Leitrim ("2026–28"-misnamed)** AFS backfill years.
+4. **Scanned minutes, non-book: 957pp** — `pipeline_sandbox/council_minutes/quarantine/
+   quarantine.jsonl` (Galway City 510pp, Galway County 242pp, Leitrim 171pp, Kilkenny/Laois/
+   Westmeath small) → full minutes text (aggregate tallies, s.183 notices, resolutions — NOT
+   named votes; Galway City records tallies only).
+5. **Louth current signed minutes** — rolling ~120pp/yr (louthcoco.ie signed-minutes PDFs).
+**Explicitly excluded:** the Louth minute-books archive (986pp/150MB, handwriting-era = HTR,
+near-zero current-accountability value) and pre-2016 AFS years.
+
 ## Briefing Document for the Minister for Justice (incoming-minister briefs)
 Added 2026-06-26.
 

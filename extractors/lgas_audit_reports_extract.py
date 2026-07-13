@@ -70,14 +70,16 @@ _COMPACT = sorted(
 )
 
 
-def fetch(url: str, retries: int = 2) -> bytes:
+def fetch(url: str, retries: int = 3) -> bytes:
+    time.sleep(0.8)  # EVERY request — gov.ie locks out bursts with 405s mid-run (162 of 393
+    # failed on the first sweep when only PDF downloads were throttled)
     for attempt in range(retries + 1):
         try:
             return urlopen(Request(url, headers={"User-Agent": UA}), timeout=90).read()
-        except Exception:  # noqa: BLE001 — assets.gov.ie rate-limits bursts; back off and retry
+        except Exception:  # noqa: BLE001 — rate-limited; back off harder each time
             if attempt == retries:
                 raise
-            time.sleep(5 * (attempt + 1))
+            time.sleep(10 * (attempt + 1))
     return b""
 
 
@@ -137,10 +139,16 @@ def parse_report(p: Path) -> dict:
     headings = [f"{n}. {h.strip()}" for n, h in _SECTION_HEAD.findall(text)]
     op = ""
     m = _OPINION_HEAD.search(text)
-    if m:
+    if m:  # older editions carry an 'Audit Opinion' SECTION — take it verbatim
         rest = text[m.end():]
         nxt = _SECTION_HEAD.search(rest)
         op = rest[: nxt.start() if nxt else 1800].strip()[:1800]
+    if not op:
+        # recent editions state the opinion in a sentence instead ('My audit opinion, which is
+        # unmodified, is stated on page 7 of the AFS') — capture that sentence verbatim
+        flat = re.sub(r"\s+", " ", text)
+        sm = re.search(r"[^.]{0,160}\baudit opinion\b[^.]{0,240}\.", flat, re.I)
+        op = sm.group(0).strip() if sm else ""
     return {
         "pages": npages,
         "audit_opinion_text": op,

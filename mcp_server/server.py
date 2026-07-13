@@ -418,7 +418,7 @@ def access_to_contracts(limit: int = 25, order_by: str = "awards_eur") -> dict:
         row_keys.append(keys)
         all_keys |= keys
     spine = _spine_lobbying_lookup(cur, all_keys)
-    for r, keys in zip(rows, row_keys):
+    for r, keys in zip(rows, row_keys, strict=True):
         hits = [spine[k] for k in keys if k in spine]
         r["on_lobbying_register"] = any(h[0] for h in hits)
         # max, not sum: distinct canonical keys are distinct spine entities and the same
@@ -728,7 +728,12 @@ def _charity_sector_dq_flags(rows: list[dict]) -> list[dict]:
                     }
                 )
             p = prev.get(col)
-            if p is not None and p > 0 and v > 0 and (v / p > _CHARITY_YOY_RATIO_CEILING or p / v > _CHARITY_YOY_RATIO_CEILING):
+            if (
+                p is not None
+                and p > 0
+                and v > 0
+                and (v / p > _CHARITY_YOY_RATIO_CEILING or p / v > _CHARITY_YOY_RATIO_CEILING)
+            ):
                 flags.append(
                     {
                         "period_year": year,
@@ -830,14 +835,20 @@ def corporate_repeat_distress(limit: int = 50) -> dict:
 
     ⚠️ This surfaces the REGULATORY PROVENANCE of the entity on a notice (it is/was CBI-authorised under
     register X) — it does NOT claim the receiver/liquidator action is itself a regulatory matter, nor imply
-    wrongdoing. Solvent Members' Voluntary Liquidations are suppressed from the distress count by design."""
+    wrongdoing. Solvent Members' Voluntary Liquidations are suppressed from the distress count by design.
+    Fragment entity names (mortgagee "made between X and [bank]" clauses) and misfiled non-distress notices
+    (e.g. foreshore licences) are excluded at view level. Receiverships where the named firm acts in a
+    TRUSTEE capacity (receiver over trust assets, per the notice's own wording) are counted separately in
+    `n_trustee_capacity` and excluded from `n_distress` — a trustee-named notice is not the firm's own
+    distress."""
     firms = _rows(corp.cbi_repeat_distress(_cur()))
     if isinstance(firms, list):
         firms = firms[:limit]
     return {
         "firms": firms,
         "caveat": "regulatory provenance only — not a verdict; "
-        "exact normalised name match (may miss aliases); solvent MVLs excluded from distress count",
+        "exact normalised name match (may miss aliases); solvent MVLs excluded from distress count; "
+        "trustee-capacity receiverships flagged in n_trustee_capacity, not counted as the firm's own distress",
     }
 
 
@@ -1504,9 +1515,11 @@ def housing_money(grain: str = "national") -> dict:
 
     ⚠️ MONEY GRAIN — the accommodation figures are COMMITTED SPEND (purchase orders, by
     year and stream); never add them to procurement AWARD ceilings or any other money
-    grain. Named accommodation PROVIDERS are deliberately not served by this tool (the
-    provider-level cut lacks the person-privacy gate applied to public payment surfaces);
-    use public_body_payments for the privacy-gated supplier ranking. Surface the
+    grain. Named accommodation PROVIDERS are deliberately not served by this tool;
+    use public_body_payments for the privacy-gated supplier ranking. Supply/rent/HAP
+    fields carry their source period plus `*_period_age_years` / `*_stale` flags — some
+    CSO/RTB series lag by years (rent and HAP are 2022-period), so ALWAYS report the
+    period alongside the figure and never present a stale field as current. Surface the
     `caveats` with any € figure."""
     cur = _cur()
     return {
@@ -1535,12 +1548,15 @@ def attendance_ranking(year: int = 0, house: str = "Dáil", limit: int = 25) -> 
     get_member_record instead.
 
     ⚠️ turnout_pct is computed IN the registered view (divisions voted in ÷ divisions
-    held for that year+house) — report it as returned and NEVER recompute it against
-    sitting days or any other denominator (different bases). Office-holders (ministers /
-    chairs / leaders) are FLAGGED, not hidden: not voting can be their role, so a low
-    rate is context, never a verdict — carry the role flags with any ranking you present.
-    TAA rows exclude office-holders (not paid TAA on the attendance basis), and TAA € are
-    a distinct allowance grain — never summed with any other money."""
+    held DURING THE MEMBER'S SERVICE WINDOW in that house — mid-term arrivals/departures
+    are not penalised for divisions held while they were not a member) — report it as
+    returned and NEVER recompute it against sitting days or any other denominator
+    (different bases). is_minister/is_chair are date-bounded to the ranking year, not
+    today's officeholders. Office-holders (ministers / chairs / leaders) are FLAGGED,
+    not hidden: not voting can be their role, so a low rate is context, never a verdict —
+    carry the role flags with any ranking you present. TAA rows exclude office-holders
+    (not paid TAA on the attendance basis), and TAA € are a distinct allowance grain —
+    never summed with any other money."""
     cur = _cur()
     if not year:
         yqr = att.participation_years(cur, house)

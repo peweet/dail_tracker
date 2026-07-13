@@ -314,6 +314,72 @@ def test_rule_resolution_wired_to_council():
     assert any(d.number == 51 for d in es.rule.dm_standards)
 
 
+def test_rfi_reports_deduplicated_across_rephrasings():
+    """Re-phrasings of the same report (per-node checklist strings) must not stack in the RFI
+    list: a string whose every component is already covered by a kept one is dropped whole.
+    Kept strings stay verbatim (first occurrence wins)."""
+    docs = [
+        "Appropriate Assessment (AA) screening / Natura Impact Statement",
+        "Ecological Impact Assessment (EcIA)",
+        "Appropriate Assessment / Natura Impact Statement + Ecological Impact Assessment",
+        "Flood Risk Assessment (FRA) + Justification Test",
+    ]
+    out = engine._dedupe_reports(docs)
+    assert out == [
+        "Appropriate Assessment (AA) screening / Natura Impact Statement",
+        "Ecological Impact Assessment (EcIA)",
+        "Flood Risk Assessment (FRA) + Justification Test",
+    ]
+    # a genuinely new report is never dropped
+    assert engine._dedupe_reports(["Natura Impact Statement", "Traffic and Transport Assessment (TTA)"]) == [
+        "Natura Impact Statement",
+        "Traffic and Transport Assessment (TTA)",
+    ]
+
+
+@pytest.mark.skipif(
+    not (LAYERS_DIR / "epa_uww_agglomeration.parquet").exists(), reason="EPA agglomeration layer not built"
+)
+def test_septic_not_fired_inside_sewered_agglomeration():
+    """Inside an EPA UWWT agglomeration boundary a public collection network serves the area, so
+    the on-site-wastewater node does not apply — the antecedent is now READ, not assumed."""
+    import polars as pl
+    import shapely
+
+    df = pl.read_parquet(LAYERS_DIR / "epa_uww_agglomeration.parquet")
+    pt = shapely.from_wkb(df["wkb"][0]).representative_point()
+    fired, detail, status = engine._septic(LayerStore(), pt.x, pt.y, "one_off_house", GALWAY_CO)
+    assert fired is False and status == "ok"
+    assert "sewered" in detail.get("sewer_note", "").lower()
+
+
+@pytest.mark.skipif(
+    not (LAYERS_DIR / "epa_uww_agglomeration.parquet").exists(), reason="EPA agglomeration layer not built"
+)
+def test_septic_states_no_sewer_outside_agglomeration():
+    # Killoughter (rural karst, outside any agglomeration): fires AND states the checked absence
+    r = evaluate(-9.0376579, 53.3150837, dev_type="one_off_house", council_slug=GALWAY_CO)
+    sep = next(i for i in r.issues if i.node_id == "septic_groundwater")
+    assert sep.fired is True
+    assert "no epa-mapped public-sewer agglomeration" in sep.flag.lower()
+
+
+@pytest.mark.skipif(not (LAYERS_DIR / "epa_wfd_lakes.parquet").exists(), reason="EPA lakes layer not built")
+def test_open_water_fires_inside_lake_and_not_on_land():
+    import polars as pl
+    import shapely
+
+    df = pl.read_parquet(LAYERS_DIR / "epa_wfd_lakes.parquet")
+    pt = shapely.from_wkb(df["wkb"][0]).representative_point()
+    r = evaluate(pt.x, pt.y, dev_type="one_off_house", council_slug=GALWAY_CO)
+    ow = next(i for i in r.issues if i.node_id == "open_water")
+    assert ow.fired and "F" in ow.mitigation_classes
+    assert "lake waterbody" in ow.flag
+    # dry land (Menlo) must not fire it
+    dry = evaluate(-9.0520, 53.3062, dev_type="one_off_house", council_slug=GALWAY_CO)
+    assert next(i for i in dry.issues if i.node_id == "open_water").fired is False
+
+
 @pytest.mark.skipif(not (LAYERS_DIR / "gsi_vulnerability.parquet").exists(), reason="GSI layer not built")
 def test_cork_generalisation_concept_rulebook_and_rfi():
     """Cork (2nd council) resolves its concept-keyed rulebook verbatim + populates the RFI list."""

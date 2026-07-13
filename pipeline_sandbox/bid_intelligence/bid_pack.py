@@ -30,7 +30,7 @@ from typing import Any
 
 import duckdb
 
-from dail_tracker_core import serialize
+from dail_tracker_core import buyer_xref, serialize
 from dail_tracker_core.queries import procurement as proc
 
 # ── Standing caveat: restates the documented never-claim rules verbatim-in-spirit
@@ -153,9 +153,23 @@ def build_bid_pack(
         if auth_res.ok and not auth_res.is_empty:
             row = auth_res.data.loc[auth_res.data["contracting_authority"] == buyer]
             pack["buyer_awards"] = serialize.first_record(row)
-        prof = proc.payments_publisher_profile(conn, buyer)
+        # Resolve through the curated buyer crosswalk first: the payments register keys
+        # bodies differently ("Limerick" vs "Limerick City and County Council"). Fail-closed —
+        # an unresolved buyer degrades to the honest gap note, never a fuzzy guess.
+        xref = buyer_xref.resolve_buyer(buyer)
+        payments_key = buyer
+        if xref and xref["match_tier"] == "curated_exact" and xref["registers"]["payments"]:
+            payments_key = xref["registers"]["payments"]
+        prof = proc.payments_publisher_profile(conn, payments_key)
         if prof.ok and not prof.is_empty and serialize.value(prof.data.iloc[0]["publisher_name"]) is not None:
             pack["buyer_payments"] = serialize.first_record(prof.data)
+            if payments_key != buyer:
+                pack["buyer_payments"]["buyer_xref"] = {
+                    "buyer_id": xref["buyer_id"],
+                    "match_tier": xref["match_tier"],
+                    "note": f"payments register publishes this buyer as {payments_key!r}; "
+                    "reconciled via the curated buyer crosswalk",
+                }
         else:
             pack["buyer_payments"] = {
                 "note": "No public-body payment register row matches this buyer name. Buyer names differ "

@@ -226,8 +226,16 @@ REGISTRY: list[dict] = [
         "slug": "wexford",
         "entity": "county",
         "region": "Leinster",
+        # 2026-07-13: landing corrected (old slug 404s) + post-audit directs pinned. NOTE:
+        # Wexford's AFS are STILL scanned images through 2024 (2024 verified: 46pp, 0 text
+        # chars) — these directs pre-cache bronze for the pending GPU-OCR batch; the reconcile
+        # gate keeps them out of the fact until OCR'd text parses.
         "landing": [
-            "https://www.wexfordcoco.ie/council-and-democracy/council-minutes-plans-publications-and-reports/annual-financial-statements"
+            "https://www.wexfordcoco.ie/council-and-democracy/council-plans-publications-reports-and-minutes/annual-financial-statements"
+        ],
+        "direct": [
+            "https://www.wexfordcoco.ie/sites/default/files/content/AFS_2024_Post_Audit.pdf",
+            "https://www.wexfordcoco.ie/sites/default/files/content/AFS_2023_Post_Audit.pdf",
         ],
     },
     {

@@ -16,7 +16,29 @@
 Status legend: ✅ captured · 🟡 partial (draft plan / standards dispersed / two-column extraction) ·
 ❌ not found.
 
-_Last updated: 2026-06-13._
+_Last updated: 2026-07-13._
+
+## ⚠️ Adopted-text verification queue (provenance audit 2026-07-13)
+
+An audit of every `_source.json` found **10 councils whose captured text traces to a URL/file
+carrying "draft"** (mostly `consult.<council>.ie` consultation-portal chapters). A consult-portal URL
+is not itself disqualifying — councils host adopted material there too, and the page slug often keeps
+its "draft-" name after adoption — but until each capture is diffed against the ADOPTED plan text, its
+citations are **triage-grade, not consultant-grade**. Verify (in priority order):
+
+| Council | Flag | Verify against | Notes |
+|---|---|---|---|
+| dublin_city | raw file is `chapter15_written_statement_DRAFT.pdf` | dublincity.ie adopted Ch.15 (site is WAF-403 to bots — manual pull) | v2 pass cross-checked the adopted page 2026-06-16, but the concept-file text still stems from the draft PDF |
+| kerry | consult-portal draft URL | **cdp.kerrycoco.ie** (adopted portal, 6 volumes) | check **Variation No. 1** + Ministerial Direction (2022-12-05) for DM-standards impact |
+| limerick | draft URL (mypoint.limerick.ie) | limerick.ie adopted plan | |
+| cork_city | draft consult URL | Cork City own portal (adopted) | |
+| galway_city | draft consult URL | galwaycity.ie adopted 2023-2029 | |
+| galway_county | draft consult URL | galway.ie adopted 2022-2028 | numbered exemplar (70 DM stds) — high value to re-verify |
+| fingal / kildare / mayo / waterford | draft-worded source | council adopted pages | |
+| donegal | "Draft" wording in notes | ALREADY re-pulled from the ADOPTED 2024-2030 plan (2026-06-16) — clear the stale note; watch Proposed Variation No.1 (Jan 2026) | |
+
+Plans also move: variations + the 2024 Act's National Planning Statements can supersede captured
+standards. The ArcGIS-layer freshness canary does NOT cover this text — re-verification is manual.
 
 ## Key cross-council finding
 

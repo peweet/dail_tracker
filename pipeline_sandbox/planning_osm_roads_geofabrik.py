@@ -47,6 +47,7 @@ VEHICULAR = {
 # far more vehicular ways exist on the island (Dublin bbox alone had 47,669); refuse to
 # overwrite the good regional layer if extraction somehow yields a fraction of that.
 ROW_FLOOR = 200_000
+SIMPLIFY_DEG = 0.00005  # ≈5 m at Irish latitudes
 
 
 class RoadHandler(osmium.SimpleHandler):
@@ -75,6 +76,10 @@ class RoadHandler(osmium.SimpleHandler):
                 and IRELAND_BBOX[1] <= miny and maxy <= IRELAND_BBOX[3]):
             self.dropped_bounds += 1
             return
+        # 5 m Douglas-Peucker: engine thresholds are 100-150 m so a ≤5 m centreline shift is
+        # immaterial, and dropping redundant OSM nodes cuts the layer's RAM/tree-build cost
+        # (1.28M ways is the store's biggest layer by far). Lines only — no topology concerns.
+        geom = geom.simplify(SIMPLIFY_DEG, preserve_topology=False)
         self.rows.append({
             "highway": hw,
             "maxspeed": w.tags.get("maxspeed"),  # keep-as-printed (NI "x mph" stays verbatim)

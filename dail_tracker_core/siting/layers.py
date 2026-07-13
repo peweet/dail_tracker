@@ -52,6 +52,15 @@ class Layer:
     tree: STRtree
 
 
+# ONE loaded copy per layer FILE, shared by every LayerStore instance. The previous
+# @lru_cache on the bound method keyed by (self, name), so each LayerStore() instance built
+# and pinned its OWN copy of every layer it touched — with the national osm_roads at 1.28M
+# geometries that multiplied to memory exhaustion under pytest (dozens of instances).
+# Keyed by (path, mtime_ns, size) so a re-ingested file is reloaded — and the stale copy of
+# the same path is evicted so re-ingest frees, not doubles, memory.
+_LAYER_CACHE: dict[tuple[str, int, int], Layer] = {}
+
+
 class LayerStore:
     def __init__(self, layers_dir: Path | str = LAYERS_DIR):
         self.dir = Path(layers_dir)
@@ -105,18 +114,26 @@ class LayerStore:
             (b[0] - margin) <= lon <= (b[2] + margin) and (b[1] - margin) <= lat <= (b[3] + margin) for b in boxes
         )
 
-    @lru_cache(maxsize=32)  # noqa: B019
     def load(self, name: str) -> Layer | None:
         import polars as pl
 
         path = self.dir / f"{name}.parquet"
         if not path.exists():
             return None
+        st = path.stat()
+        key = (str(path.resolve()), st.st_mtime_ns, st.st_size)
+        cached = _LAYER_CACHE.get(key)
+        if cached is not None:
+            return cached
         df = pl.read_parquet(path)
-        geoms = shapely.from_wkb(df["wkb"].to_list())
+        geoms = shapely.from_wkb(df["wkb"].to_numpy())
         attr_cols = [c for c in df.columns if c != "wkb"]
         attrs = df.select(attr_cols).to_dicts() if attr_cols else [{} for _ in geoms]
-        return Layer(name=name, attrs=attrs, geoms=np.asarray(geoms, dtype=object), tree=STRtree(geoms))
+        layer = Layer(name=name, attrs=attrs, geoms=np.asarray(geoms, dtype=object), tree=STRtree(geoms))
+        for stale in [k for k in _LAYER_CACHE if k[0] == key[0] and k != key]:
+            del _LAYER_CACHE[stale]
+        _LAYER_CACHE[key] = layer
+        return layer
 
     def covering(self, name: str, lon: float, lat: float) -> list[dict]:
         """Attributes of every polygon that COVERS the point (exact containment).

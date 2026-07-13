@@ -184,11 +184,34 @@ def _rows(page) -> list[dict]:
     )
 
 
+# Text is all we ever read (grid cells + detail-page inner_text) — keep Chromium's footprint
+# minimal so a long pass survives on a memory-pressured host (see ERR_INSUFFICIENT_RESOURCES note).
+_BROWSER_ARGS = [
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-extensions",
+    "--blink-settings=imagesEnabled=false",
+]
+
+
+def _launch(pw):
+    browser = pw.chromium.launch(headless=True, args=_BROWSER_ARGS)
+    page = browser.new_page(user_agent=UA)
+    page.set_default_timeout(45_000)
+    return browser, page
+
+
 def _grid_goto(page, url: str, settle_ms: int) -> None:
     """Navigate to a grid page robustly. The portal holds long-lived connections open, so
     ``networkidle`` can hang indefinitely; wait for DOM + the rendered table instead, with a
-    short settle for the JS grid to populate."""
-    page.goto(url, wait_until="domcontentloaded")
+    short settle for the JS grid to populate. One retry after a backoff — transient
+    resource pressure (observed: net::ERR_INSUFFICIENT_RESOURCES on a low-RAM host) must
+    not sink a long scrape."""
+    try:
+        page.goto(url, wait_until="domcontentloaded")
+    except Exception:
+        page.wait_for_timeout(8_000)
+        page.goto(url, wait_until="domcontentloaded")
     with contextlib.suppress(Exception):
         page.wait_for_selector("table tr", state="attached", timeout=20_000)
     page.wait_for_timeout(settle_ms)
@@ -315,9 +338,7 @@ def main() -> None:
 
     rows: list[dict] = []
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
-        page = browser.new_page(user_agent=UA)
-        page.set_default_timeout(45_000)
+        browser, page = _launch(pw)
         for feed in feeds:
             log.info("feed: %s", feed)
             rows.extend(_scrape_feed(page, feed, args.max_pages, args.delay_ms))
@@ -328,11 +349,22 @@ def main() -> None:
             todo = [r for r in rows if r["feed"] == "cft" and r.get("detail_url")][: args.max_details]
             log.info("CPV detail pass: %d cft notices", len(todo))
             for i, r in enumerate(todo, start=1):
+                # A long CPV pass can outlive the browser (observed: TargetClosedError ~35min in).
+                # _detail_cpv swallows the death, so every later fetch would silently miss — and
+                # losing the session must not lose the already-scraped rows. Relaunch and go on.
+                if not browser.is_connected():
+                    log.warning("browser session lost at cpv %d/%d — relaunching", i, len(todo))
+                    browser, page = _launch(pw)
+                elif page.is_closed():
+                    page = browser.new_page(user_agent=UA)
+                    page.set_default_timeout(45_000)
                 r["cpv_code"], r["cpv_division"] = _detail_cpv(page, r["detail_url"], args.delay_ms)
                 if i % 25 == 0 or i == len(todo):
                     log.info("  cpv %d/%d (last=%s)", i, len(todo), r["cpv_division"])
-                page.wait_for_timeout(args.delay_ms)
-        browser.close()
+                with contextlib.suppress(Exception):
+                    page.wait_for_timeout(args.delay_ms)
+        with contextlib.suppress(Exception):
+            browser.close()
 
     if not rows:
         log.warning("no rows scraped — leaving existing silver untouched")
