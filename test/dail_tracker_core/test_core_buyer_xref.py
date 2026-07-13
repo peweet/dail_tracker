@@ -11,7 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from dail_tracker_core.buyer_xref import XREF_CSV, _NAME_COLS, buyer_core, resolve_buyer  # noqa: E402
+from dail_tracker_core.buyer_xref import _NAME_COLS, XREF_CSV, buyer_core, resolve_buyer  # noqa: E402
 
 
 @pytest.fixture(scope="module")

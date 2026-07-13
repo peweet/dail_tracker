@@ -87,17 +87,19 @@ def minutes_pdf_url(host: str, cid: int, mid: int, minutes_re: re.Pattern) -> st
 
 
 def mdate_slug(date_text: str, mid: int) -> str:
-    """'Monday, 9th February, 2026 ...' -> minutes_council_meeting_09_02_2026; falls back to MId."""
+    """'12 Oct 2026&nbsp;5.00 pm' / '9th February, 2026' -> minutes_council_meeting_12_10_2026.
+    ModernGov listings use ABBREVIATED month names — match on the 3-letter stem. Falls back to
+    the MId only when no date parses (which downstream date-parsers then can't recover — so
+    keep this regex loose)."""
     m = re.search(
-        r"(\d{1,2})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|"
-        r"September|October|November|December)[ ,]+(20\d{2})",
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[ ,]+(20\d{2})",
         date_text,
         re.I,
     )
     if not m:
         return f"minutes_mid_{mid}"
-    months = "january february march april may june july august september october november december".split()
-    mo = months.index(m.group(2).lower()) + 1
+    months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+    mo = months.index(m.group(2).lower()[:3]) + 1
     return f"minutes_council_meeting_{int(m.group(1)):02d}_{mo:02d}_{m.group(3)}"
 
 

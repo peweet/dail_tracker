@@ -192,9 +192,11 @@ def test_charity_financials_sector_caveat_and_dq_flags_live(live):
     # ... and the govt/LA coverage-artifact jump (€4.8m 2014 → €26.6bn 2019) trips the >10× YoY rail
     assert any(f["measure"] == "total_income_govt_or_la" for f in flags), flags
     # numbers pass through UNTOUCHED — we caveat filings, we never correct them
-    direct = live._cur().execute(
-        "SELECT period_year, total_gross_income FROM v_charity_sector_totals_by_year ORDER BY period_year"
-    ).fetchall()
+    direct = (
+        live._cur()
+        .execute("SELECT period_year, total_gross_income FROM v_charity_sector_totals_by_year ORDER BY period_year")
+        .fetchall()
+    )
     served = [(r["period_year"], float(r["total_gross_income"])) for r in totals]
     assert [(y, float(v)) for y, v in direct] == served
     _assert_sized(out)

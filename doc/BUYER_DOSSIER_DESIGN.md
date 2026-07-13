@@ -6,6 +6,15 @@
 buyer, who wants to understand the buyer *before* committing tender effort.
 **Date:** 2026-06-28.
 
+> **Update 2026-07-13 — the §3 buyer crosswalk is BUILT and promoted.** The curated CSV lives at
+> `data/_meta/procurement_publishers/buyer_xref.csv` (90 bodies; the 30 needs_review rows repaired
+> against the live registers — councils had latched onto defunct pre-2014 entities — see
+> `data/_meta/procurement_publishers/README_buyer_xref.md`). Resolver:
+> `dail_tracker_core/buyer_xref.py::resolve_buyer()` (fail-closed), tests in
+> `test/dail_tracker_core/test_core_buyer_xref.py`. First consumer: the sandbox bid-pack's
+> buyer-payments panel (fixes the "Limerick" vs "Limerick City and County Council" miss found in
+> the 2026-07-13 live-tender scenario).
+
 > **Verified 2026-06-28 against live SQL views + query module** (not just memory/agent report).
 > All column names below are confirmed from `sql_views/procurement/*.sql` and
 > `dail_tracker_core/queries/procurement.py`. The check **reduced the build estimate**: three
