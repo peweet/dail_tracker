@@ -354,14 +354,77 @@ def company_influence(name: str) -> dict:
     return rows if isinstance(rows, dict) else {"company_matches": rows}
 
 
+# Two lobbying measures ride on each access_to_contracts row and they are NOT the same thing
+# (MCP sweep 2026-07-11 DQ #2 — the ROADSTONE contradiction: this tool said 0 returns while
+# cross_register_watchlist said 2). `total_lobbying_returns` is the diary chain's grain: returns
+# the organisation itself FILED (as registrant) that NAMED a politician, joined on the diary-side
+# org_key — 0 can mean "not matched", NOT "never lobbied" (lobbying filed by a hired PR firm names
+# the company only as CLIENT, which that join never sees). The spine fields added below are the
+# register-wide footprint (registrant OR client) on the canonical shared/name_norm key — the SAME
+# spine cross_register_watchlist reads, so the two tools can no longer contradict each other.
+_ACCESS_TO_CONTRACTS_CAVEAT = (
+    "total_lobbying_returns counts only returns the organisation itself filed (as registrant) "
+    "that named a politician — 0 can mean 'not matched', not 'never lobbied' (lobbying done for "
+    "it by a PR/consultancy names it only as client). on_lobbying_register / "
+    "register_lobby_returns are the register-wide footprint (registrant OR client, exact "
+    "canonical-name match — a floor that misses name variants) from the same entity-crosswalk "
+    "spine as cross_register_watchlist. Access + money map, never causation; € figures carry the "
+    "procurement caveats and are never summed across grains."
+)
+
+
+def _spine_lobbying_lookup(cur, keys: set[str]) -> dict[str, tuple[bool, int]]:
+    """supplier_norm → (on_lobbying_register, lobby_returns) from the entity-crosswalk spine
+    for a set of canonical keys. Empty on any failure (the spine view may be unregistered on a
+    machine without that gold) — enrichment then degrades to absent flags, never a wrong zero."""
+    if not keys:
+        return {}
+    try:
+        placeholders = ",".join("?" * len(keys))
+        rows = cur.execute(
+            "SELECT supplier_norm, on_lobbying_register, lobby_returns FROM v_supplier_entity_xref"
+            f" WHERE supplier_norm IN ({placeholders})",
+            list(keys),
+        ).fetchall()
+    except Exception:
+        return {}
+    return {str(sn): (bool(onreg), int(lr or 0)) for sn, onreg, lr in rows}
+
+
 @mcp.tool(annotations=_RO)
-def access_to_contracts(limit: int = 25, order_by: str = "awards_eur") -> list[dict]:
+def access_to_contracts(limit: int = 25, order_by: str = "awards_eur") -> dict:
     """Companies that BOTH met ministers (in their published diaries) AND won/were paid public
     money, ranked. order_by ∈ {awards_eur, paid_eur, meetings, total_lobbying_returns}. Each row
-    has meetings, ministers_met, lobbying returns, awards_eur, paid_eur and the matched supplier.
-    Access + money map, never causation; diaries are self-curated/quarterly-in-arrears and the €
-    carry the procurement caveats."""
-    return _rows(mdiary.access_to_contracts(_cur(), limit=limit, order_by=order_by))
+    has meetings, ministers_met, awards_eur, paid_eur, the matched supplier, and TWO distinct
+    lobbying measures: `total_lobbying_returns` (returns the org itself filed naming a
+    politician — 0 can mean 'not matched', not 'never lobbied') and the register-wide
+    `on_lobbying_register` / `register_lobby_returns` (registrant OR client, from the same
+    entity-crosswalk spine as cross_register_watchlist). Access + money map, never causation;
+    diaries are self-curated/quarterly-in-arrears and the € carry the procurement caveats.
+    Surface the `caveat`."""
+    rows = _rows(mdiary.access_to_contracts(_cur(), limit=limit, order_by=order_by))
+    if isinstance(rows, dict):  # {error}: source unavailable
+        return rows
+    cur = _cur()
+    # Canonical keys per row: the organisation name + every supplier spelling the diary chain
+    # matched (pipe-joined) — all folded through the ONE canonical normaliser the spine was
+    # built with, so this join can never drift from cross_register_watchlist's.
+    row_keys: list[set[str]] = []
+    all_keys: set[str] = set()
+    for r in rows:
+        names = [str(r.get("organisation") or "")]
+        names += [s.strip() for s in str(r.get("matched_supplier") or "").split("|") if s.strip()]
+        keys = {k for k in (_org_name_key(n) for n in names) if k}
+        row_keys.append(keys)
+        all_keys |= keys
+    spine = _spine_lobbying_lookup(cur, all_keys)
+    for r, keys in zip(rows, row_keys):
+        hits = [spine[k] for k in keys if k in spine]
+        r["on_lobbying_register"] = any(h[0] for h in hits)
+        # max, not sum: distinct canonical keys are distinct spine entities and the same
+        # return could sit behind more than one matched spelling — report a floor, never inflate
+        r["register_lobby_returns"] = max((h[1] for h in hits), default=0)
+    return {"companies": rows, "caveat": _ACCESS_TO_CONTRACTS_CAVEAT}
 
 
 @mcp.tool(annotations=_RO)
@@ -617,22 +680,98 @@ def public_appointments() -> list[dict] | dict:
 
 # ── Charity finances ────────────────────────────────────────────────────────────
 
+# Hard caveat on EVERY charity_financials response (MCP sweep 2026-07-11 DQ #8: the 2023
+# sector gross income serves €302.9bn — 2.4× total general-government revenue — and the
+# govt/LA income line jumps €4.8m (2014) → €26.6bn (2019), previously uncaveated).
+# We caveat and flag; we never alter or drop the filed numbers (provenance is the user's
+# domain — filings are corrected by the regulator, not by this tool).
+_CHARITY_FINANCIALS_CAVEAT = (
+    "Figures are AS FILED and UNVALIDATED — charity regulatory filings are known to contain "
+    "data-entry/unit errors (implausible billions), so magnitudes can be wrong by orders of "
+    "magnitude. Register coverage GREW over the decade, so year-over-year sector totals are "
+    "coverage artifacts: NEVER compare sector totals across years, and NEVER compare them to "
+    "national accounts (a filed sector total can exceed total general-government revenue). "
+    "A single charity's row is never a sector fact."
+)
+
+# Sanity rails for the SECTOR aggregates (flag-only — the numbers pass through untouched):
+# any yearly total above €100bn is beyond the plausible scale of the whole Irish charity
+# sector (total general-government REVENUE is ~€120-130bn), and a >10× year-over-year swing
+# in a register-wide total is a coverage artifact and/or filing unit error, not sector growth.
+_CHARITY_TOTAL_CEILING_EUR = 100e9
+_CHARITY_YOY_RATIO_CEILING = 10.0
+_CHARITY_MONEY_COLS = ("total_gross_income", "total_gross_expenditure", "total_income_govt_or_la")
+
+
+def _charity_sector_dq_flags(rows: list[dict]) -> list[dict]:
+    """Implausibility flags for the register-wide yearly aggregates. Flags only — no row is
+    altered or dropped. One flag per (year, measure) breach."""
+    flags: list[dict] = []
+    ordered = sorted(rows, key=lambda r: r.get("period_year") or 0)
+    prev: dict[str, float] = {}
+    for r in ordered:
+        year = r.get("period_year")
+        for col in _CHARITY_MONEY_COLS:
+            raw = r.get(col)
+            if raw is None:
+                continue
+            v = float(raw)
+            if v > _CHARITY_TOTAL_CEILING_EUR:
+                flags.append(
+                    {
+                        "period_year": year,
+                        "measure": col,
+                        "value": v,
+                        "implausible": True,
+                        "reason": "yearly sector total exceeds the €100bn sanity ceiling — beyond the "
+                        "plausible scale of the whole sector; filing unit errors inflate the aggregate",
+                    }
+                )
+            p = prev.get(col)
+            if p is not None and p > 0 and v > 0 and (v / p > _CHARITY_YOY_RATIO_CEILING or p / v > _CHARITY_YOY_RATIO_CEILING):
+                flags.append(
+                    {
+                        "period_year": year,
+                        "measure": col,
+                        "value": v,
+                        "implausible": True,
+                        "reason": f"swung more than 10× vs prior year ({p:,.0f} → {v:,.0f}) — a register-"
+                        "coverage artifact and/or filing unit error, not sector change",
+                    }
+                )
+            prev[col] = v
+    return flags
+
 
 @mcp.tool(annotations=_RO)
 def charity_financials(rcn: int = 0) -> dict:
     """Charity financial trajectory. With an `rcn` (Registered Charity Number), returns that
     charity's full multi-year income/expenditure/funding series. With rcn=0, returns the
-    register-wide totals per year (money through the sector over the decade). Figures are AS
-    FILED — some filers submit data-entry errors (implausible billions); treat single-charity
-    outliers with care and never read one charity's row as a sector fact."""
+    register-wide totals per year plus a `data_quality` block flagging implausible aggregates.
+    ⚠️ Figures are AS FILED and UNVALIDATED — filings contain unit errors (implausible
+    billions), and register coverage grew year over year, so sector totals must NEVER be
+    compared across years or to national accounts. Surface the `caveat` with any figure."""
     cur = _cur()
     if rcn:
-        return {"rcn": rcn, "by_year": _rows(char.financials_by_year(cur, rcn))}
-    return {
+        return {
+            "rcn": rcn,
+            "by_year": _rows(char.financials_by_year(cur, rcn)),
+            "caveat": _CHARITY_FINANCIALS_CAVEAT,
+        }
+    totals = _rows(char.sector_totals_by_year(cur))
+    out: dict = {
         "latest_year": _one(char.latest_year(cur)),
-        "sector_totals_by_year": _rows(char.sector_totals_by_year(cur)),
+        "sector_totals_by_year": totals,
+        "caveat": _CHARITY_FINANCIALS_CAVEAT,
         "note": "call again with an rcn for one charity's full filed series",
     }
+    if isinstance(totals, list):
+        out["data_quality"] = {
+            "checks": "per-year sector totals: > €100bn ceiling, or >10× year-over-year swing "
+            "(income / expenditure / govt-or-LA income)",
+            "flags": _charity_sector_dq_flags(totals),
+        }
+    return out
 
 
 # ── Corporate distress notices (Iris Oifigiúil — companies only, NO individuals) ─

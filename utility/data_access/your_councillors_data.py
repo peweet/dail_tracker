@@ -56,6 +56,11 @@ def fetch_roll_call_councils() -> QueryResult:
     return _q.roll_call_councils(get_constituency_conn())
 
 
+@st.cache_data(ttl=600)
+def fetch_councillor_payments(la: str, member: str) -> QueryResult:
+    return _q.councillor_payments(get_constituency_conn(), la, member)
+
+
 @st.cache_data(ttl=300)
 def fetch_agendas(la: str) -> QueryResult:
     return _q.agendas(get_constituency_conn(), la)

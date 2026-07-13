@@ -7,7 +7,7 @@ Cork County,proposer_seconder,1,53,False
 Donegal,proposer_seconder,20,33,False
 Dublin City,proposer_seconder,0,60,False
 Dun Laoghaire-Rathdown,proposer_seconder,0,24,False
-Fingal,proposer_seconder,0,33,False
+Fingal,roll_call,0,33,True
 Galway City,proposer_seconder,0,5,False
 Galway County,proposer_seconder,0,33,False
 Kerry,proposer_seconder,16,33,False

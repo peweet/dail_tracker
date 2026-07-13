@@ -415,6 +415,7 @@ _CHAIN_EXTRA_ENV: dict[str, dict[str, str]] = {
     "cbi": {"POLARS_MAX_THREADS": "1"},  # historic Dáil+Seanad interests backfill + notices/lobbying joins
     "ted": {"POLARS_MAX_THREADS": "1"},  # ted_enrich.enrich_winner_rows(), ~13,954-row awards
     "ministerial_diaries": {"POLARS_MAX_THREADS": "1"},  # diary_org_match/diary_lobbying_overlap/diary_promote_gold — inherited by their sub-subprocesses
+    "legal_diary_extract": {"POLARS_MAX_THREADS": "1"},  # raw_case -> parties() struct map_elements; bursty, up to low-tens-of-thousands rows on catch-up runs
 }
 
 

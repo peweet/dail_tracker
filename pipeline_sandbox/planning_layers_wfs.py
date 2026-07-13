@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 
 import polars as pl
 import requests
@@ -36,37 +37,47 @@ LOG = logging.getLogger("planning_layers_wfs")
 H = {"User-Agent": "dail-tracker-planning-ingest/1.0"}
 
 WFS_LAYERS: dict[str, dict] = {
+    # typeNames CONFIRMED against live GetCapabilities 2026-07-13 (the pre-maintenance guesses
+    # were UWW_AgglomerationBound / WFD_Lakes; the server's actual names differ).
     "epa_uww_agglomeration": {
         "url": "https://gis.epa.ie/geoserver/EPA/wfs",
-        "typename": "EPA:UWW_AgglomerationBound",
+        "typename": "EPA:UWW_AgglomerationBoundaries",
         "keep": ("AgglomName", "Agg_Name", "Name", "Agglomeration", "LicStatus", "Licence", "AggType", "PE"),
     },
-    "epa_wfd_lakes": {  # confirm typeName via GetCapabilities when the server is back
+    "epa_wfd_lakes": {
         "url": "https://gis.epa.ie/geoserver/EPA/wfs",
-        "typename": "EPA:WFD_Lakes",
+        "typename": "EPA:WFD_LakeWaterBodiesActive",
         "keep": ("Name", "WB_NAME", "Lake_Name", "EU_CD", "WFD_Code"),
     },
 }
 
 
 def fetch_wfs(url: str, typename: str, page: int = 2000) -> list[dict]:
-    """Page through a WFS 2.0 GetFeature as GeoJSON (EPSG:4326). Raises on HTTP error."""
-    feats: list[dict] = []
-    start = 0
-    while True:
-        r = requests.get(url, params={
-            "service": "WFS", "version": "2.0.0", "request": "GetFeature", "typeNames": typename,
-            "outputFormat": "application/json", "count": page, "startIndex": start, "srsName": "EPSG:4326",
-        }, timeout=240, headers=H)
-        r.raise_for_status()
-        if "json" not in r.headers.get("content-type", "").lower():
-            raise RuntimeError(f"WFS did not return JSON (server down/maintenance?): {r.text[:120]}")
-        batch = r.json().get("features", [])
-        feats.extend(batch)
-        LOG.info("[%s] fetched %d (total %d)", typename, len(batch), len(feats))
-        if len(batch) < page:
-            return feats
-        start += len(batch)
+    """WFS 2.0 GetFeature as GeoJSON (EPSG:4326). Raises on HTTP error.
+
+    The EPA GeoServer 400s on `startIndex` without a `sortBy` (verified live 2026-07-13), so we do
+    NOT page: resultType=hits gives the total, then ONE GetFeature with count>=total pulls all.
+    Both target layers are small (agglomerations 1,076 / lakes 812). A layer too big for one
+    response must grow a sortBy-paged path — fail loudly rather than truncate silently.
+    """
+    base = {"service": "WFS", "version": "2.0.0", "request": "GetFeature", "typeNames": typename}
+    r = requests.get(url, params={**base, "resultType": "hits"}, timeout=240, headers=H)
+    r.raise_for_status()
+    m = re.search(r'numberMatched="(\d+)"', r.text)
+    total = int(m.group(1)) if m else 0
+    if total > 50_000:
+        raise RuntimeError(f"[{typename}] {total} features — too big for single-shot; add a sortBy-paged path")
+    r = requests.get(url, params={
+        **base, "outputFormat": "application/json", "count": max(total, page), "srsName": "EPSG:4326",
+    }, timeout=600, headers=H)
+    r.raise_for_status()
+    if "json" not in r.headers.get("content-type", "").lower():
+        raise RuntimeError(f"WFS did not return JSON (server down/maintenance?): {r.text[:120]}")
+    feats = r.json().get("features", [])
+    LOG.info("[%s] fetched %d of %d advertised", typename, len(feats), total)
+    if total and len(feats) != total:
+        raise RuntimeError(f"[{typename}] pulled {len(feats)} != advertised {total} — truncated response")
+    return feats
 
 
 def rows_from_features(feats: list[dict], keep: tuple[str, ...]) -> tuple[list[dict], dict]:

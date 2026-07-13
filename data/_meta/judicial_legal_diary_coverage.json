@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-07-11T07:02:24.322002+00:00",
+  "generated_at": "2026-07-13T05:30:59.685702+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -140,8 +140,8 @@
     "adoption": 11,
     "guardian": 9,
     "childcare": 3,
-    "tusla": 1,
-    "special education": 1
+    "special education": 1,
+    "tusla": 1
   },
   "plaintiff_kinds": {
     "individual": 6123,

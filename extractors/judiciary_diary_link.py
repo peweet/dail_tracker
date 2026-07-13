@@ -14,6 +14,11 @@ MATCHING (honest-or-nothing — a wrong judge attribution is worse than a gap):
                    diary row's court (Central Criminal Court scopes to High Court
                    judges; Court of Appeal (Criminal) to the Court of Appeal).
   3. surname-unique surname unique across the whole bench (court missing only).
+  4. surname-bench-wide the diary's court scope finds NOBODY (the roster only holds
+                   a judge's CURRENT court, so historical diary entries from before a
+                   promotion/transfer scope to their old court) but the surname is
+                   unique across the WHOLE bench regardless of court — still an
+                   unambiguous match, just not confirmable against the diary's court.
   REFUSED, never guessed:
     * ambiguous surnames within scope ("Mr Justice Collins" with two Justices
       Collins in reach) -> unmatched;
@@ -59,7 +64,7 @@ from services.parquet_io import save_parquet  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-LINK_VERSION = "1.1.0"  # 1.1.0: OpenView sources + panel-member explosion (capped)
+LINK_VERSION = "1.2.0"  # 1.2.0: bench-wide promotion-drift fallback + mac/mc surname merge
 # A judge string with more members than a full court is a term-roster / callover notice,
 # not a sitting panel — the Supreme Court sits at most 7, so 9 is a safe panel ceiling.
 _PANEL_CAP = 9
@@ -172,10 +177,25 @@ def build_map() -> pl.DataFrame:
             return None, "no-candidate"
         if key in by_key:
             return by_key[key], "exact"
-        cands = _candidates(key.split()[-1], court)
+        surname = key.split()[-1]
+        cands = _candidates(surname, court)
         if len(cands) == 1:
             return cands[0], ("surname-court" if court else "surname-unique")
-        return None, ("ambiguous" if len(cands) > 1 else "no-candidate")
+        if len(cands) > 1:
+            return None, "ambiguous"
+        # Scoped search found nobody. The roster only holds a judge's CURRENT court, but
+        # the diary's court reflects the sitting AT THAT TIME — a judge promoted/moved
+        # since won't be found there anymore. Retry bench-wide: if the surname is still
+        # unique across the WHOLE bench, it's an unambiguous (just court-unconfirmed)
+        # match — honest-or-nothing still holds, this only widens the search once
+        # scoping has already failed to find anyone.
+        if court:
+            bench_wide = _candidates(surname, None)
+            if len(bench_wide) == 1:
+                return bench_wide[0], "surname-bench-wide"
+            if len(bench_wide) > 1:
+                return None, "ambiguous"
+        return None, "no-candidate"
 
     rows: list[dict] = []
     for judge, court in sorted(pairs, key=lambda p: (str(p[1]), p[0])):

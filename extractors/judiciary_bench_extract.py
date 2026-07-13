@@ -155,9 +155,25 @@ def normalise_key(name: str, aliases: dict[str, str]) -> str:
     for h in _HONORIFICS:
         s = s.replace(h, " ")
     s = "".join(c if c.isalnum() or c.isspace() else " " for c in s)  # punctuation -> space
-    tokens = [
+    raw_tokens = [
         aliases.get(t, t) for t in s.split() if len(t) > 1 and t not in _STOP_TOKENS
     ]  # drop initials + notice suffixes
+    # Merge a standalone "mac"/"mc" token into the one that follows it: some sources
+    # (the Legal Diary's OpenView text in particular) render Mac/Mc surnames with a
+    # space ("MAC GRATH", "MC DONALD") where the canonical spelling has none
+    # ("macgrath", "mcdonald") -- without this, the two never key-match. Additive only:
+    # no roster judge_key currently contains a split mac/mc token (verified 2026-07-13),
+    # so this cannot change an existing key, only let previously-unmatched sources join.
+    tokens: list[str] = []
+    i = 0
+    while i < len(raw_tokens):
+        t = raw_tokens[i]
+        if t in ("mac", "mc") and i + 1 < len(raw_tokens):
+            tokens.append(t + raw_tokens[i + 1])
+            i += 2
+        else:
+            tokens.append(t)
+            i += 1
     return " ".join(tokens).strip()
 
 

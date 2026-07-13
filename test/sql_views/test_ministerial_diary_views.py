@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import pytest
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.db import PROJECT_ROOT, connect_with_views
+
+# CWD-independent path for raw read_csv() in tests (views get theirs absolutized at registration)
+_SUPPLEMENT_CSV = (PROJECT_ROOT / "data/_meta/diary_state_bodies_supplement.csv").as_posix()
 
 # Runs in CI's `sql-contracts` job (executes registered views against the COMMITTED
 # gold parquet under data/gold/). Same marker convention as test_sql_views.py — the
@@ -76,6 +79,38 @@ def test_state_body_split_partitions(conn) -> None:
         0
     ]
     assert n_state > 0 and n_outside > 0  # both buckets populated (page leads with outside)
+
+
+def test_state_body_supplement_overrides_gold(conn) -> None:
+    # The curated data/_meta/diary_state_bodies_supplement.csv corrects gold's sector-derived
+    # is_state_body for verifiable statutory / State-owned bodies (2026-07-13 MCP-sweep DQ #3:
+    # LDA, NCSE, National Concert Hall, Heritage Council, Dublin Port Company, Arts Council read
+    # as outside interests). Every supplement org that reaches the view must be flagged state.
+    n_bad = conn.execute(
+        "SELECT count(*) FROM v_ministerial_diary_org_overlap o "
+        f"JOIN read_csv('{_SUPPLEMENT_CSV}', header = true, AUTO_DETECT = true) s "
+        "ON lower(trim(o.organisation)) = lower(trim(s.organisation)) WHERE NOT o.is_state_body"
+    ).fetchone()[0]
+    assert n_bad == 0
+    # the override actually bit on the six the sweep reproduced (present in current gold)
+    for org in ("Land Development Agency", "Arts Council", "Dublin Port Company"):
+        row = conn.execute(
+            "SELECT is_state_body FROM v_ministerial_diary_org_overlap WHERE organisation = ?", [org]
+        ).fetchone()
+        if row is not None:  # a future gold re-cut may rename; the invariant above still holds
+            assert row[0] is True, org
+
+
+def test_company_influence_quarantines_supplement_state_bodies(conn) -> None:
+    # v_ministerial_diary_company_influence documents "state/semi-state bodies are excluded" —
+    # the curated supplement is WHERE-quarantined at the view so a body the upstream sector tag
+    # missed (e.g. Waterways Ireland) can't be served as an outside company paid public money.
+    n = conn.execute(
+        "SELECT count(*) FROM v_ministerial_diary_company_influence c "
+        f"JOIN read_csv('{_SUPPLEMENT_CSV}', header = true, AUTO_DETECT = true) s "
+        "ON lower(trim(c.organisation)) = lower(trim(s.organisation))"
+    ).fetchone()[0]
+    assert n == 0
 
 
 def test_engagements_excludes_travel_and_media(conn) -> None:

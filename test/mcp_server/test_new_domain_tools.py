@@ -169,6 +169,85 @@ def test_gov_finance_annual_live(live):
     _assert_sized(out)
 
 
+# ── 2026-07-13 DQ fixes (MCP association sweep 2026-07-11) ────────────────────────
+
+
+def test_charity_financials_sector_caveat_and_dq_flags_live(live):
+    # DQ #8: the sector aggregates served implausible magnitudes uncaveated
+    out = live.charity_financials(0)
+    _skip_if_unavailable(out)
+    totals = out["sector_totals_by_year"]
+    _skip_if_unavailable(totals)
+    # hard caveat on the response: as-filed/unvalidated + never-compare rails
+    cav = out["caveat"]
+    assert "AS FILED" in cav and "UNVALIDATED" in cav
+    assert "coverage" in cav.lower() and "national accounts" in cav.lower()
+    dq = out["data_quality"]
+    flags = dq["flags"]
+    assert all(f["implausible"] is True and f["reason"] for f in flags)
+    # the known-implausible aggregates fire: 2023 gross income €302.9bn (> €100bn ceiling)
+    assert any(
+        f["period_year"] == 2023 and f["measure"] == "total_gross_income" and f["value"] > 100e9 for f in flags
+    ), flags
+    # ... and the govt/LA coverage-artifact jump (€4.8m 2014 → €26.6bn 2019) trips the >10× YoY rail
+    assert any(f["measure"] == "total_income_govt_or_la" for f in flags), flags
+    # numbers pass through UNTOUCHED — we caveat filings, we never correct them
+    direct = live._cur().execute(
+        "SELECT period_year, total_gross_income FROM v_charity_sector_totals_by_year ORDER BY period_year"
+    ).fetchall()
+    served = [(r["period_year"], float(r["total_gross_income"])) for r in totals]
+    assert [(y, float(v)) for y, v in direct] == served
+    _assert_sized(out)
+
+
+def test_charity_financials_single_charity_carries_caveat_live(live):
+    out = live.charity_financials(1)  # unknown RCN is fine — the caveat rides regardless
+    assert "AS FILED" in out["caveat"]
+
+
+def test_access_to_contracts_two_lobbying_measures_live(live):
+    # DQ #2 (the ROADSTONE contradiction): the diary-grain total_lobbying_returns could read 0
+    # while cross_register_watchlist showed returns for the same entity. The tool now ALSO
+    # carries the register-wide spine fields, joined through the same canonical key as the
+    # watchlist, so the two tools cannot contradict each other.
+    out = live.access_to_contracts(limit=12)
+    _skip_if_unavailable(out)
+    rows = out["companies"]
+    assert rows
+    assert {"on_lobbying_register", "register_lobby_returns", "total_lobbying_returns"} <= set(rows[0])
+    # a positive register flag always carries a positive floor count
+    for r in rows:
+        if r["on_lobbying_register"]:
+            assert r["register_lobby_returns"] >= 1, r["organisation"]
+    # the caveat explains the two measures (0 ≠ 'never lobbied')
+    assert "never lobbied" in out["caveat"]
+    # the sweep's reproduction, pinned while Roadstone is in the top rows on this gold
+    road = [r for r in rows if "roadstone" in str(r.get("organisation", "")).lower()]
+    if road:
+        r = road[0]
+        assert r["total_lobbying_returns"] == 0  # diary grain untouched (registrant-naming-politician)
+        assert r["on_lobbying_register"] is True and r["register_lobby_returns"] >= 2
+    _assert_sized(out)
+
+
+def test_diary_top_organisations_outside_excludes_supplement_state_bodies_live(live):
+    # DQ #3: LDA / NCSE / National Concert Hall / Heritage Council / Dublin Port / Arts Council
+    # were flagged is_state_body=False and contaminated the outside-interest ranking. The
+    # curated data/_meta/diary_state_bodies_supplement.csv now overrides them at the view.
+    rows = live.ministerial_diary_top_organisations(limit=50, outside_only=True)
+    _skip_if_unavailable(rows)
+    names = {str(r["organisation"]).lower().strip() for r in rows}
+    for org in (
+        "land development agency",
+        "national council for special education",
+        "national concert hall",
+        "heritage council",
+        "dublin port company",
+        "arts council",
+    ):
+        assert org not in names, f"{org} still ranked as an outside interest"
+
+
 # ── organisation_dossier (PR3 interface on the interim spine) ─────────────────────
 
 

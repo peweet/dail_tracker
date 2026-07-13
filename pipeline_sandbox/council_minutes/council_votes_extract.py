@@ -581,6 +581,67 @@ def _doc_meeting_date(text: str) -> str:
     return f"{m.group(3)}-{months.index(m.group(2).lower()) + 1:02d}-{int(m.group(1)):02d}"
 
 
+# ── Fingal prose (ModernGov printed minutes) ─────────────────────────────────────────────────
+# Format (verified, Feb-2026 Fortlawn Part 8): a numeric tally block
+#   FOR:      18   EIGHTEEN / AGAINST: 19  NINETEEN / ABSTAIN: 0  ZERO
+# followed by full-name lists:  FOR: Councillors A, B, C. / AGAINST: Councillors D, E.
+# The numeric block is the RECONCILE GATE: each side's parsed names must count to it.
+_FG_TALLY = re.compile(
+    r"FOR:\s*(\d+)\s+[A-Z]+\s*\n\s*AGAINST:\s*(\d+)\s+[A-Z]+\s*\n\s*ABSTAIN:\s*(\d+)", re.I
+)
+_FG_SIDE = re.compile(r"(FOR|AGAINST|ABSTAIN(?:ED)?):\s*(Councillors?|Cllrs?\.?)\s+", re.I)
+
+
+def _fg_names(seg: str) -> list[str]:
+    seg = re.sub(r"\s+", " ", seg)
+    seg = seg.split(".")[0]  # the list ends at the full stop
+    seg = re.sub(r"\s*\band\b\s*", ", ", seg)
+    return [p.strip(" .;") for p in seg.split(",") if re.search(r"[A-Za-zÀ-ÿ]{2,}", p)]
+
+
+def parse_fingal_prose(la: str, fname: str, text: str, cov: Coverage, resolver: RosterResolver) -> list[dict]:
+    text = _fix_mojibake(text)
+    mdate = _corpus_meeting_date(fname)
+    out: list[dict] = []
+    for tm in _FG_TALLY.finditer(text):
+        cov.divisions_found += 1
+        tallies = {"for": int(tm.group(1)), "against": int(tm.group(2)), "abstain": int(tm.group(3))}
+        window = text[tm.end(): tm.end() + 4000]
+        sides: dict[str, list[str]] = {}
+        marks = list(_FG_SIDE.finditer(window))
+        for gi, gm in enumerate(marks):
+            seg_end = marks[gi + 1].start() if gi + 1 < len(marks) else len(window)
+            key = gm.group(1).lower().replace("abstained", "abstain")
+            sides.setdefault(key, _fg_names(window[gm.end(): seg_end]))
+        # RECONCILE GATE: every non-zero side must list names that count to its printed tally
+        ok = all(
+            len(sides.get(side, [])) == n
+            for side, n in tallies.items()
+            if n > 0
+        ) and any(n > 0 for n in tallies.values())
+        if not ok:
+            cov.reconcile_drops += 1
+            continue
+        cov.divisions_kept += 1
+        # motion = nearest preceding quoted resolution / motion sentence
+        win = re.sub(r"\s+", " ", text[max(0, tm.start() - 1400): tm.start()])
+        quotes = re.findall(r"[“\"][^”\"]{15,300}[”\"]", win)
+        sent = re.findall(r"(It was (?:proposed|resolved)[^.]{0,220}|The following motion[^.]{0,220})", win, re.I)
+        motion = _fix_mojibake((quotes[-1] if quotes else (sent[-1] if sent else "")).strip())
+        for side, n in tallies.items():
+            if n == 0:
+                continue
+            for printed in sides.get(side, []):
+                member = resolver.full(printed) or _titlecase_name(_fix_mojibake(printed))
+                if not resolver.full(printed):
+                    cov.unmatched_kept += 1
+                cov.rows += 1
+                out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
+                            "motion": motion[:240], "member": member, "vote": side,
+                            "_div": cov.divisions_kept})
+    return _dedupe_motions(out)
+
+
 # ── corpus run + merge ───────────────────────────────────────────────────────────────────────
 def run_corpus() -> list[dict]:
     """Parse the local corpus for the three new councils; return rows (Carlow untouched)."""
@@ -588,6 +649,7 @@ def run_corpus() -> list[dict]:
         ("Cork City", "cork_city", "cork"),
         ("Kilkenny", "kilkenny", "kilkenny"),
         ("Laois", "laois", "laois_grid"),
+        ("Fingal", "fingal", "fingal"),  # ModernGov printed minutes (moderngov_harvest.py)
     ]
     all_rows: list[dict] = []
     for la, sub, kind in jobs:
@@ -604,6 +666,8 @@ def run_corpus() -> list[dict]:
                 text = p.read_text(encoding="utf-8", errors="replace")
                 if kind == "cork":
                     all_rows += parse_cork_prose(la, p.name, text, cov, resolver)
+                elif kind == "fingal":
+                    all_rows += parse_fingal_prose(la, p.name, text, cov, resolver)
                 else:
                     all_rows += parse_kilkenny_prose(la, p.name, text, cov, resolver)
         print(f"{la:10} {cov.line()}")
