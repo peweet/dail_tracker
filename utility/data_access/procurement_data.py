@@ -318,6 +318,13 @@ def fetch_afs_by_division_result(council: str, year: int) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_la_budget_vs_actual_result(council: str) -> QueryResult:
+    """One council's ADOPTED budget beside its audited outturn per (year, division) — the
+    plan-vs-actual layer; two grains side-by-side, delta computed in the view, never summed."""
+    return _q.la_budget_vs_actual(get_procurement_conn(), council)
+
+
+@st.cache_data(ttl=300)
 def fetch_afs_vs_po_coverage_result(council: str, year: int | None = None) -> QueryResult:
     """Audited spend vs the named-supplier (PO) traceable slice, per year (the traceability line)."""
     return _q.afs_vs_po_coverage(get_procurement_conn(), council, year=year)

@@ -65,6 +65,7 @@ CATEGORY_RULES: list[tuple[str, str, str]] = [
     ("subistence", "travel_subsistence", "EUR"),  # DCC's own spelling
     ("subsistence", "travel_subsistence", "EUR"),
     ("petty cash", "petty_cash", "EUR"),
+    ("adjustment", "prior_year_adjustment", "EUR"),  # 'Vouched Expenses 2023 Adjustments' must not collide with vouched_expenses
     ("vouched expenses", "vouched_expenses", "EUR"),
     ("training", "training", "EUR"),
     ("conference", "conferences", "EUR"),
