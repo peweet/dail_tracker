@@ -1,0 +1,93 @@
+{
+  "generated_at": "2026-07-13T19:15:18+00:00",
+  "grain": "one row per (council, year) statutory audit report; verbatim opinion + headings",
+  "caveat": "Verbatim extracts from the LGAS auditor's published report \u2014 no classification or scoring is derived; presence flags are anchored to literal headings.",
+  "rows": 385,
+  "councils": [
+    "Carlow",
+    "Cavan",
+    "Clare",
+    "Cork City",
+    "Cork County",
+    "Donegal",
+    "Dublin City",
+    "Dun Laoghaire-Rathdown",
+    "Fingal",
+    "Galway City",
+    "Galway County",
+    "Kerry",
+    "Kildare",
+    "Kilkenny",
+    "Laois",
+    "Leitrim",
+    "Limerick",
+    "Longford",
+    "Louth",
+    "Mayo",
+    "Meath",
+    "Monaghan",
+    "Offaly",
+    "Roscommon",
+    "Sligo",
+    "South Dublin",
+    "Tipperary",
+    "Waterford",
+    "Westmeath",
+    "Wexford",
+    "Wicklow"
+  ],
+  "years": [
+    2012,
+    2024
+  ],
+  "failures": [
+    {
+      "council": "Fingal",
+      "year": 2012,
+      "page": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/fingal-county-council-audit-report-2012/",
+      "status": "error: HTTP Error 405: Not Allowed"
+    },
+    {
+      "council": "Galway County",
+      "year": 2020,
+      "page": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/galway-county-council-audit-report-2020/",
+      "status": "error: HTTP Error 405: Not Allowed"
+    },
+    {
+      "council": "Kildare",
+      "year": 2016,
+      "page": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/kildare-county-council-audit-report-2016-2/",
+      "status": "error: HTTP Error 405: Not Allowed"
+    },
+    {
+      "council": "Laois",
+      "year": 2024,
+      "page": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/laois-county-council-audit-report-2024/",
+      "status": "error: HTTP Error 405: Not Allowed"
+    },
+    {
+      "council": "Longford",
+      "year": 2014,
+      "page": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/longford-county-council-statutory-audit-report-2014/",
+      "status": "low-text(7ch)"
+    },
+    {
+      "council": "Meath",
+      "year": 2017,
+      "page": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/meath-county-council-audit-report-2017/",
+      "status": "error: HTTP Error 405: Not Allowed"
+    },
+    {
+      "council": "South Dublin",
+      "year": 2021,
+      "page": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/south-dublin-county-council-audit-report-2021/",
+      "status": "error: HTTP Error 405: Not Allowed"
+    },
+    {
+      "council": "Wexford",
+      "year": 2012,
+      "page": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/wexford-county-council-audit-report-2012/",
+      "status": "error: HTTP Error 405: Not Allowed"
+    }
+  ]
+}

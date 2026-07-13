@@ -21,6 +21,25 @@
 -- entity that appears on the notice. Members' Voluntary Liquidation
 -- (n_members_vl) is a SOLVENT wind-up — fund-lifecycle, not distress — and
 -- the repeat-distress view's HAVING clause is weighted to suppress that case.
+--
+-- PARTY-ROLE / PARSE-QUALITY GATES (2026-07-13, MCP sweep defect 1). Three
+-- data-anchored filters, each keyed on what the notice ITSELF says — no
+-- hand-blacklisting of names:
+--   • FRAGMENT ENTITY NAMES — entity_name that is a mid-clause fragment of the
+--     indenture parties ("Limited and Allied Irish Banks … and") is an
+--     extraction artifact: the named string is the MORTGAGEE position of a
+--     "made between X and [bank]" clause, not the distressed company. Excluded.
+--   • MISFILED NON-CORPORATE NOTICES — rows whose text opens as a foreshore-
+--     licence determination list are not corporate notices at all (a fund name
+--     matched inside the licence table). Excluded.
+--   • TRUSTEE-CAPACITY RECEIVERSHIPS — where the notice states the entity is
+--     named "(in its capacity as (a) trustee of …)", the receivership attaches
+--     to TRUST assets, not the trustee company's own solvency. These rows are
+--     kept but flagged (is_trustee_capacity) and EXCLUDED from n_distress.
+--   RESIDUAL (gated): many receivership notices naming professional-trustee
+--   entities store only the headline text, so the charged party's role cannot
+--   be recovered at view level — resolving those needs party-role
+--   re-extraction upstream (iris/corporate enrichment, pipeline-owned).
 
 -- 1. Per-notice match — used for the on-card / on-detail badge.
 --    Keyed on entity_norm (not notice_ref) because some corporate_notices
@@ -38,16 +57,36 @@ SELECT
     -- Pull the first register/ref for compact badge rendering; the full list
     -- remains available for the detail view.
     COALESCE(registers[1], '')                            AS primary_register,
-    COALESCE(ref_nos[1],   '')                            AS primary_ref_no
+    COALESCE(ref_nos[1],   '')                            AS primary_ref_no,
+    regexp_matches(raw_text, '(?i)capacity as (a )?trustee') AS is_trustee_capacity
 FROM read_parquet('data/gold/parquet/cbi_xref_corporate_notices.parquet')
-WHERE entity_norm IS NOT NULL;
+WHERE entity_norm IS NOT NULL
+  -- fragment-of-clause entity names (extraction artifact — wrong party)
+  AND NOT regexp_matches(entity_name, '^(and|Limited and|limited and) ')
+  AND NOT regexp_matches(entity_name, ' and[,.]?$')
+  -- misfiled non-corporate notices (foreshore-licence determination lists)
+  AND NOT regexp_matches(substr(raw_text, 1, 300), '(?i)foreshore licen');
 
 -- 2. Per-firm aggregate — used for the "regulated firms in repeat distress"
 --    panel. HAVING gate suppresses ETF / fund-lifecycle noise: require either
 --    two genuine-distress notices OR three+ total notices including at least
 --    one distress event.
 CREATE OR REPLACE VIEW v_corporate_cbi_repeat_distress AS
-WITH base AS (
+WITH gated AS (
+    -- Same parse-quality gates as v_corporate_cbi_notice_match (see header):
+    -- fragment entity names + misfiled non-corporate notices are excluded;
+    -- trustee-capacity receiverships are flagged so they count as notices but
+    -- NOT as distress events of the named trustee company.
+    SELECT
+        *,
+        regexp_matches(raw_text, '(?i)capacity as (a )?trustee') AS is_trustee_capacity
+    FROM read_parquet('data/gold/parquet/cbi_xref_corporate_notices.parquet')
+    WHERE entity_norm IS NOT NULL
+      AND NOT regexp_matches(entity_name, '^(and|Limited and|limited and) ')
+      AND NOT regexp_matches(entity_name, ' and[,.]?$')
+      AND NOT regexp_matches(substr(raw_text, 1, 300), '(?i)foreshore licen')
+),
+base AS (
     SELECT
         entity_norm,
         ANY_VALUE(entity_name)                            AS entity_name,
@@ -64,22 +103,27 @@ WITH base AS (
         COUNT(*) FILTER (WHERE notice_subtype = 'members_voluntary_liquidation')          AS n_members_vl,
         COUNT(*) FILTER (WHERE notice_subtype = 'voluntary_liquidation_unspecified')      AS n_vl_unspec,
         COUNT(*) FILTER (WHERE notice_subtype = 'companies_act_notice')                   AS n_companies_act,
+        -- Notices where the entity is named only as trustee of a trust — the
+        -- receivership attaches to trust assets, per the notice's own wording.
+        COUNT(*) FILTER (WHERE is_trustee_capacity)                                       AS n_trustee_capacity,
+        -- Distress = secured-creditor / court / insolvent / rescue actions,
+        -- excluding trustee-capacity rows (not the named entity's solvency).
+        COUNT(*) FILTER (
+            WHERE notice_subtype IN ('receivership', 'court_winding_up', 'examinership',
+                                     'scarp_process_adviser', 'creditors_voluntary_liquidation')
+              AND NOT is_trustee_capacity
+        )                                                                                 AS n_distress,
         MIN(issue_date)                                   AS first_notice_date,
         MAX(issue_date)                                   AS last_notice_date
-    FROM read_parquet('data/gold/parquet/cbi_xref_corporate_notices.parquet')
-    WHERE entity_norm IS NOT NULL
+    FROM gated
     GROUP BY entity_norm
 )
 SELECT
     *,
-    -- Distress = secured-creditor / court / insolvent / rescue actions.
-    n_receivership + n_court_winding_up + n_examinership + n_scarp + n_creditors_vl
-                                                                AS n_distress,
     -- Routine = solvent fund lifecycle.
     n_members_vl                                                AS n_routine
 FROM base
 WHERE
-    (n_receivership + n_court_winding_up + n_examinership + n_scarp + n_creditors_vl) >= 2
- OR (n_notices_total >= 3
-     AND (n_receivership + n_court_winding_up + n_examinership + n_scarp + n_creditors_vl) >= 1)
+    n_distress >= 2
+ OR (n_notices_total >= 3 AND n_distress >= 1)
 ORDER BY n_distress DESC, n_notices_total DESC;

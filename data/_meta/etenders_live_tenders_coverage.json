@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-06-18T18:04:08.794958+00:00",
+  "generated_utc": "2026-07-13T19:32:00.270258+00:00",
   "layer": "silver",
   "source": {
     "dataset": "eTenders current opportunities (Calls for Tender + Notices)",
@@ -9,13 +9,13 @@
     "access": "Playwright (public tender list is JS-rendered)",
     "license": "Public procurement record; OGP open data is CC-BY 4.0. Live-portal ToU unconfirmed \u2014 research use."
   },
-  "n_rows": 2363,
+  "n_rows": 2349,
   "by_feed": {
-    "notice": 1163,
+    "notice": 1149,
     "cft": 1200
   },
-  "rows_with_estimated_value": 772,
-  "rows_with_cpv": 0,
+  "rows_with_estimated_value": 776,
+  "rows_with_cpv": 1200,
   "value_note": "estimated_value_eur is a BUYER ESTIMATE at PLANNED stage (value_kind=estimate_advertised, realisation_tier=PLANNED, value_safe_to_sum=FALSE) \u2014 a NEW lifecycle tier before AWARDED; NEVER summed.",
   "caveat": "Live national pipeline (incl. sub-EU-threshold). The cft feed also lists already-closed + DPS/Qualification-System records back to 2023; the consuming view filters to genuinely-open. Snapshot at retrieved_utc \u2014 refresh via tools/poll_live_tenders.ps1. ToU unconfirmed \u2014 research use.",
   "parser_version": "0.1.0"

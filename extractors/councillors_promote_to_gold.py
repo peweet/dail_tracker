@@ -71,6 +71,12 @@ def _mdate(fn: str) -> str:
     return ""
 
 
+def _iso_to_display(iso: str) -> str:
+    """'2026-02-09' → '09/02/2026'; anything non-ISO passes through _mdate or blanks."""
+    m = re.fullmatch(r"(20\d{2})-(\d{2})-(\d{2})", str(iso or "").strip())
+    return f"{m.group(3)}/{m.group(2)}/{m.group(1)}" if m else _mdate(iso)
+
+
 def _agenda_date(raw: str, source_url: str) -> str:
     """A meeting_history date is kept only if it actually contains a date; otherwise fall
     back to parsing the source filename, else blank. Kills the 8 filename-fragment rows
@@ -133,7 +139,9 @@ def main() -> int:
             {
                 "local_authority": v["local_authority"],
                 "member": v["member"],
-                "meeting_date": _mdate(v.get("meeting", "")),
+                # filename-derived date first; else the extractor's own meeting_date (ISO,
+                # read from the minutes' first page — e.g. ModernGov MId-named files)
+                "meeting_date": _mdate(v.get("meeting", "")) or _iso_to_display(v.get("meeting_date", "")),
                 "motion": (v.get("motion") or "")[:300],
                 "vote": v["vote"],
             }
