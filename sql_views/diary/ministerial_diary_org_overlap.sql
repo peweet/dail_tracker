@@ -5,23 +5,30 @@
 --    ministerial_diaries_extract -> diary_entry_classify -> diary_org_match -> diary_lobbying_overlap).
 --
 -- READING THIS HONESTLY (surfaced in the page provenance, never as a claim of influence):
---   * a diary meeting is CO-OCCURRENCE, not a lobbying return — `corroborated` means the
---     org BOTH met AND filed a lobbying return naming the same minister (the strong signal);
+--   * a diary meeting is CO-OCCURRENCE, not a lobbying return — `corroborated` means the org BOTH
+--     met AND appears on a lobbying return naming the same minister (the strong signal);
 --   * `is_state_body` splits government-agency access (IDA/HSE — expected, ~0 returns) from
 --     outside-interest access — the page leads with outside interests;
 --   * diaries are self-curated, non-exhaustive, published quarterly-in-arrears;
 --   * meeting COUNTS are coverage-driven (more departments ingested over time), never a trend.
 -- `corroborated` is the ONLY register-cross-ref flag exposed, and deliberately so: it is a
--- POSITIVE join (true = the org both met AND filed a return naming that minister — reliable).
+-- POSITIVE join (true = the org both met AND is named on a return naming that minister — reliable).
 -- The NEGATIVE ("met but never lobbied") is still NOT exposed — `total_lobbying_returns = 0`
 -- can mean "unknown" (a residual name-join miss), not "did not lobby", and surfacing it would
 -- defame heavy lobbyists. NOTE (2026-06-21): the worst miss class — orgs whose register name
 -- tags the acronym ("Construction Industry Federation (CIF)", "The Irish Farmers' Association -
 -- IFA") or files under the bare acronym ("Ibec") while the diary carries the expanded name — is
 -- now RESOLVED by org_key() in extractors/diary_lobbying_overlap.py (reuses the curated ACRONYMS
--- map to converge both sides), so CIF/IFA/Ibec now corroborate correctly. Other name forms
--- (e.g. "Dublin Chamber" vs "Dublin Chamber of Commerce") remain unbridged → keep negative hidden
--- until a fuller org-identity alias map lands.
+-- map to converge both sides), so CIF/IFA/Ibec now corroborate correctly.
+-- REGISTRANT **OR** CLIENT (2026-07-14): the second big miss class is now closed too. The register
+-- join matched the return's REGISTRANT only, so any organisation that lobbies through a PR firm /
+-- public-affairs consultancy read `total_lobbying_returns = 0` and never corroborated — Roadstone
+-- lobbies via Drury and served 0 returns across this whole surface. A return now counts for an org
+-- if the org is its registrant OR one of its named clients (+137 orgs gain a register link, +42
+-- newly corroborated). These are PER-ORGANISATION association counts — NEVER sum them across
+-- organisations, since one return legitimately attaches to its registrant AND to each client.
+-- Residual (why the negative stays hidden): the join is an exact key match, so name forms the
+-- normaliser cannot bridge (e.g. "Roadstone" vs the register's "Roadstone Wood Ltd") still miss.
 --
 -- STATE-BODY SUPPLEMENT (2026-07-13, MCP sweep DQ #3): gold derives is_state_body from the
 -- sector keyword tag (sector == 'state-semi-state'), which deliberately leaves commercial

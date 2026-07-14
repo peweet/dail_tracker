@@ -89,6 +89,25 @@ def councillor_payments(conn: duckdb.DuckDBPyConnection, la: str, member: str) -
     )
 
 
+def plan_directions(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Every time the Planning Regulator took this council's ADOPTED plan to the Minister, and
+    what the Minister did — newest first. A RESERVED-function override: the members zoned, and
+    an unelected regulator + a Minister reviewed the vote. plan_outcome distinguishes an override
+    (direction_issued) from the Minister DECLINING to override them (minister_declined) — never
+    present this as a pure 'times overruled' count.
+
+    ⚠️ Not to be confused with v_la_planning_overturn (the appeals board overturning the CHIEF
+    EXECUTIVE's planners) — different actors, different decision, never combine."""
+    return _run(
+        conn,
+        "SELECT plan_name, plan_type, plan_outcome, first_doc_date, last_doc_date, "
+        "n_documents, outcome_doc_url "
+        "FROM v_la_plan_directions WHERE local_authority = ? "
+        "ORDER BY last_doc_date DESC",
+        [la],
+    )
+
+
 def agendas(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     return _run(
         conn, "SELECT meeting_date, agenda, source_url FROM v_la_meeting_agendas WHERE local_authority = ?", [la]

@@ -6172,6 +6172,13 @@ def inject_css() -> None:
             border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.3rem;
         }
         .lg-card-src { font-size: 0.74rem; color: var(--text-meta); margin-top: 0.55rem; }
+        /* verbatim auditor opinion — set as a quiet pull-quote so it reads as the auditor's
+           own words, not the site's editorial voice */
+        .lg-audit-quote {
+            font-size: 0.82rem; line-height: 1.45; color: var(--text-body);
+            font-style: italic; margin-top: 0.55rem; padding-left: 0.7rem;
+            border-left: 2px solid rgba(122,79,47,0.3);
+        }
         /* council-money card -> Council Spending dossier drill-down (internal nav, not external) */
         .lg-card-cta {
             display: inline-block; margin-top: 0.6rem; font-size: 0.84rem; font-weight: 700;

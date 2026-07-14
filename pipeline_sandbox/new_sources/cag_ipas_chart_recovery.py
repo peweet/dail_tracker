@@ -26,7 +26,7 @@ from _common import BRONZE, SILVER, now_iso
 
 PDF = BRONZE / "cag_reports" / "pdf" / \
     "10-management-of-international-protection-accommodation-contracts-copy.pdf"
-SRC_URL = ("https://www.audit.gov.ie/media/kudhih1z/"
+SRC_URL = ("https://www.audit.gov.ie/media/huahyz0u/"
            "10-management-of-international-protection-accommodation-contracts-copy.pdf")
 ZOOM = 4
 COLOURS = {0x7D9149: "complete", 0xFFC000: "partially_complete", 0xFF0000: "not_complete"}

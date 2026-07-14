@@ -99,21 +99,36 @@ SITTING_DAYS_BY_YEAR: dict[int, int] = {
 
 # ── Payments / TAA ──────────────────────────────────────────────────────────────
 # TAA = Travel and Accommodation Allowance, a component of the Parliamentary
-# Standard Allowance. Band distances and deduction rules are defined by
-# Oireachtas Standing Orders.
+# Standard Allowance. The band distances are set in statute — Table to Reg. 4 of
+# the Oireachtas (Allowances and Facilities) Regulations 2010 (S.I. 84/2010), as
+# substituted by Reg. 4 of S.I. 149/2013 — not by Standing Orders. The 2013
+# instrument changed the rates only; the distance boundaries are unchanged.
+#   https://www.irishstatutebook.ie/eli/2010/si/84/made/en/print
+#   https://www.irishstatutebook.ie/eli/2013/si/149/made/en/print
+#   https://www.oireachtas.ie/en/members/salaries-and-allowances/parliamentary-standard-allowances/
+#
+# CORRECTION (2026-07-14): this table previously showed ranges for bands 2–8 that
+# appear in no statute, stopped at an open-ended "Band 8 — over 210 km", and
+# omitted bands 9–12 entirely. Statutory bands run in 30 km steps from 60 km up to
+# a Band 12 of "360 km or more". Kept as Band|Distance: per-band annual rates differ
+# for TDs, Senators and office holders, so a single rate column would mislead.
 
 TAA_BAND_TABLE = """\
 | Band | Distance from Leinster House |
 |---|---|
-| Dublin | Under 25 km — no Travel & Accommodation Allowance |
+| Dublin | Under 25 km — travel element only, no overnight/accommodation element |
 | Band 1 | 25–60 km |
-| Band 2 | 60–80 km |
-| Band 3 | 80–100 km |
-| Band 4 | 100–130 km |
-| Band 5 | 130–160 km |
-| Band 6 | 160–190 km |
-| Band 7 | 190–210 km |
-| Band 8 | Over 210 km — highest TAA rate |
+| Band 2 | 60–90 km |
+| Band 3 | 90–120 km |
+| Band 4 | 120–150 km |
+| Band 5 | 150–180 km |
+| Band 6 | 180–210 km |
+| Band 7 | 210–240 km |
+| Band 8 | 240–270 km |
+| Band 9 | 270–300 km |
+| Band 10 | 300–330 km |
+| Band 11 | 330–360 km |
+| Band 12 | 360 km or more — highest TAA rate |
 """
 
 TAA_DEDUCTIONS_NOTE = (

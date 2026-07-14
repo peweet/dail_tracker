@@ -208,10 +208,12 @@ def test_charity_financials_single_charity_carries_caveat_live(live):
 
 
 def test_access_to_contracts_two_lobbying_measures_live(live):
-    # DQ #2 (the ROADSTONE contradiction): the diary-grain total_lobbying_returns could read 0
-    # while cross_register_watchlist showed returns for the same entity. The tool now ALSO
-    # carries the register-wide spine fields, joined through the same canonical key as the
-    # watchlist, so the two tools cannot contradict each other.
+    # DQ #2 (the ROADSTONE contradiction): the diary-grain total_lobbying_returns read 0 while
+    # cross_register_watchlist showed returns for the same entity. ROOT CAUSE, fixed 2026-07-14 in
+    # extractors/diary_lobbying_overlap.py: the diary joined the register on the REGISTRANT name
+    # only, so an org that lobbies through a PR firm (Roadstone via Drury) was invisible. The join
+    # now matches registrant OR named client. The tool also carries the register-wide spine fields
+    # (canonical key, same spine as the watchlist), so the two tools cannot contradict each other.
     out = live.access_to_contracts(limit=12)
     _skip_if_unavailable(out)
     rows = out["companies"]
@@ -221,13 +223,15 @@ def test_access_to_contracts_two_lobbying_measures_live(live):
     for r in rows:
         if r["on_lobbying_register"]:
             assert r["register_lobby_returns"] >= 1, r["organisation"]
-    # the caveat explains the two measures (0 ≠ 'never lobbied')
+    # the caveat still warns 0 ≠ 'never lobbied' (the widened join is exact-key, so it undercounts)
     assert "never lobbied" in out["caveat"]
-    # the sweep's reproduction, pinned while Roadstone is in the top rows on this gold
+    # the sweep's reproduction, pinned while Roadstone is in the top rows on this gold. Roadstone
+    # files NO returns of its own — all 4 are Drury's, naming it as client — so this is exactly the
+    # value the registrant-only join could never see, and it must now agree with the spine.
     road = [r for r in rows if "roadstone" in str(r.get("organisation", "")).lower()]
     if road:
         r = road[0]
-        assert r["total_lobbying_returns"] == 0  # diary grain untouched (registrant-naming-politician)
+        assert r["total_lobbying_returns"] >= 1  # client-side returns now count (was 0)
         assert r["on_lobbying_register"] is True and r["register_lobby_returns"] >= 2
     _assert_sized(out)
 

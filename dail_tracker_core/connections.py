@@ -205,6 +205,7 @@ CONSTITUENCY_FILES = [
     "constituency_la_council_meeting_coverage.sql",  # per-council data-state tier (honest degradation)
     "constituency_la_councillor_votes.sql",  # named roll-call votes (Carlow/Cork City/Kilkenny/Laois)
     "constituency_la_councillor_payments.sql",  # ACTUAL s.142 payments (open-data councils; reads _meta CSV; no deps)
+    "constituency_la_plan_directions.sql",  # OPR/Minister overrides of the MEMBERS' plan+zoning votes (reserved function; reads _meta CSV; no deps)
     "constituency_la_meeting_agendas.sql",  # what each council tabled (agenda)
     "constituency_la_standing_orders.sql",  # how agendas are formulated + voting rule (~8 councils)
     "constituency_la_planning_overturn.sql",  # council ABP-overturn rate (reads silver parquet; no deps)

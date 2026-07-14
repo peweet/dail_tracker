@@ -54,20 +54,40 @@ OUTPUT_PARQUET = GOLD_PARQUET_DIR / "payments_full_psa.parquet"
 OUTPUT_CSV = GOLD_CSV_DIR / "payments_full_psa.csv"
 QUARANTINE_PARQUET = GOLD_PARQUET_DIR / "payments_full_psa_quarantine.parquet"
 
+# TAA distance bands are set in statute, not by convention. The authoritative
+# table is the Table to Regulation 4 of the Oireachtas (Allowances and
+# Facilities) Regulations 2010 (S.I. No. 84/2010), as substituted by Regulation 4
+# of the Oireachtas (Allowances and Facilities) (Amendment) Regulations 2013
+# (S.I. No. 149/2013). The 2013 amendment changed the *rates* only — the twelve
+# distance boundaries are identical in both instruments, so one band table is
+# correct for the entire 2020+ publication window this ETL parses.
+#   S.I. 84/2010  : https://www.irishstatutebook.ie/eli/2010/si/84/made/en/print
+#   S.I. 149/2013 : https://www.irishstatutebook.ie/eli/2013/si/149/made/en/print
+# Restated in Houses of the Oireachtas, "Guide to Salary and Allowances 34th Dáil
+# and 27th Seanad", §3.2 (band table with annual rates):
+#   https://www.oireachtas.ie/en/members/salaries-and-allowances/parliamentary-standard-allowances/
+#
+# CORRECTION (2026-07-14): bands 2–8 previously carried ranges that do not appear
+# in either S.I. (60–80, 80–100, 100–130, 130–160, 160–190, 190–210 and an
+# open-ended "over 210 km"). The statutory bands step in 30 km increments from
+# 60 km and run to a Band 12 of "360 km or more"; the old Band 8 label wrongly
+# terminated the scale at 210 km, which is in fact the *start* of Band 7. Bands
+# 9–12 were emitted as "Band N (unmapped)". Both defects are fixed here.
+# Trailing comments give the annual TD rate for the band (S.I. 149/2013).
 TAA_LABELS = {
-    "Dublin": "Dublin / under 25 km",
-    "1": "Band 1 — 25–60 km",
-    "2": "Band 2 — 60–80 km",
-    "3": "Band 3 — 80–100 km",
-    "4": "Band 4 — 100–130 km",
-    "5": "Band 5 — 130–160 km",
-    "6": "Band 6 — 160–190 km",
-    "7": "Band 7 — 190–210 km",
-    "8": "Band 8 — over 210 km",
-    "9": "Band 9 (unmapped)",
-    "10": "Band 10 (unmapped)",
-    "11": "Band 11 (unmapped)",
-    "12": "Band 12 (unmapped)",
+    "Dublin": "Dublin / under 25 km",  # €9,000
+    "1": "Band 1 — 25–60 km",  # €25,295
+    "2": "Band 2 — 60–90 km",  # €27,315
+    "3": "Band 3 — 90–120 km",  # €28,665
+    "4": "Band 4 — 120–150 km",  # €29,669
+    "5": "Band 5 — 150–180 km",  # €30,015
+    "6": "Band 6 — 180–210 km",  # €30,350
+    "7": "Band 7 — 210–240 km",  # €30,685
+    "8": "Band 8 — 240–270 km",  # €31,365
+    "9": "Band 9 — 270–300 km",  # €32,035
+    "10": "Band 10 — 300–330 km",  # €32,715
+    "11": "Band 11 — 330–360 km",  # €33,395
+    "12": "Band 12 — 360 km or more",  # €34,065
 }
 
 # Filename → period helper, used to synthesize narrative for Jan-Apr 2020 PDFs
