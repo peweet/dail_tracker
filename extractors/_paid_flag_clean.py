@@ -1,6 +1,6 @@
 """Single-source cleaner for the ``paid_flag`` column-misalignment leak.
 
-THE BUG (found in the 2026-06-22 DQ audit, see doc/DATA_QUALITY_AUDIT.md): in
+THE BUG (found in the 2026-06-22 DQ audit, see doc/archive/DATA_QUALITY_AUDIT.md): in
 ``public_payments_fact`` (silver) / ``procurement_payments_fact`` (gold), the
 ``paid_flag`` column is meant to hold a paid-status flag (``Paid``/``Not Paid``/
 ``Y``/``N``/``P`` …) or null. But the column-role heuristic in

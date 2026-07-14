@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-07-11T07:21:04Z",
+  "generated_at": "2026-07-14T16:37:44Z",
   "links_checked": false,
   "summary": {
-    "sources_checked": 123,
+    "sources_checked": 129,
     "sources_ok": 4,
     "sources_warning": 0,
     "sources_failed": 0,
-    "sources_skipped": 119,
+    "sources_skipped": 125,
     "stale_sources": 0
   },
   "sources": [
@@ -78,10 +78,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "71d old (<= 180d)",
+      "detail": "74d old (<= 180d)",
       "input_pattern": "data/bronze/charities/public_register_*.xlsx",
       "latest_file": "data/bronze/charities/public_register_20260426.xlsx",
-      "days_old": 71,
+      "days_old": 74,
       "stale_after_days": 180
     },
     {
@@ -89,10 +89,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "0d old (<= 7d)",
+      "detail": "3d old (<= 7d)",
       "input_pattern": "data/bronze/cro/companies_*.csv",
       "latest_file": "data/bronze/cro/companies_20260711.csv",
-      "days_old": 0,
+      "days_old": 3,
       "stale_after_days": 7
     },
     {
@@ -100,10 +100,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "36d old (<= 200d)",
+      "detail": "40d old (<= 200d)",
       "input_pattern": "data/silver/cro/financial_statements.parquet",
       "latest_file": "data/silver/cro/financial_statements.parquet",
-      "days_old": 36,
+      "days_old": 40,
       "stale_after_days": 200
     },
     {
@@ -116,6 +116,48 @@
     {
       "source_id": "hse_tusla_payments:ie_tusla",
       "group": "hse_tusla_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "ipas_accommodation:cag_reports_index",
+      "group": "ipas_accommodation",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "ipas_accommodation:hiqa_inspection_reports",
+      "group": "ipas_accommodation",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "ipas_accommodation:igees_ipas_paper",
+      "group": "ipas_accommodation",
+      "check_type": "fixed_file",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "ipas_accommodation:ipas_accommodation_strategy",
+      "group": "ipas_accommodation",
+      "check_type": "fixed_file",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "ipas_accommodation:ipas_national_standards",
+      "group": "ipas_accommodation",
+      "check_type": "fixed_file",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "ipas_accommodation:ipas_weekly_stats",
+      "group": "ipas_accommodation",
       "check_type": "index_poll",
       "status": "skipped",
       "detail": "link check disabled"
@@ -881,10 +923,10 @@
       "group": "stateboards",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "0d old (<= 60d)",
+      "detail": "3d old (<= 60d)",
       "input_pattern": "data/silver/parquet/stateboards_roster.parquet",
       "latest_file": "data/silver/parquet/stateboards_roster.parquet",
-      "days_old": 0,
+      "days_old": 3,
       "stale_after_days": 60
     }
   ]

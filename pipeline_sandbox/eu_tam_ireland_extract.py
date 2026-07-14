@@ -3,7 +3,7 @@
 Scoped 2026-06-12 (new-enrichment-sources round 2). Every individual state-aid
 award >€100k (lower thresholds for agri/fisheries) granted by Irish authorities
 must be published here — this is the structured source behind the
-"department grant registers" idea in doc/IDEAS.md §3 (IDA/EI/DAFM-style grant
+"department grant registers" idea in doc/archive/IDEAS.md §3 (IDA/EI/DAFM-style grant
 aid with named beneficiaries). ~15,600 IE awards at build time.
 
 SOURCE SHAPE (all discovered by probe, no documented API):

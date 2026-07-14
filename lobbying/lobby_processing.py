@@ -443,7 +443,7 @@ def get_clients(df: pl.DataFrame) -> pl.DataFrame:
     # calls those functions unconditionally in main().
     # REFACTOR TARGET: either delete this function and keep the explicit calls in main(),
     # or fix it as a proper coordinator using _require_col() guards.
-    # See: doc/lobby_processing_refactor.md
+    # See: doc/SOURCES.md
     if df.col("dpos_or_former_dpos_who_carried_out_lobbying_name").is_not_null().any():
         df = parse_current_or_former_dpos(df)
     if df.col("was_this_lobbying_done_on_behalf_of_a_client") == "Yes":

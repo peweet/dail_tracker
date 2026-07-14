@@ -1,6 +1,6 @@
 """Phase 0 (sandbox): ingest national Irish planning applications -> silver parquet.
 
-Implements the LOCKED plan in doc/PLANNING_PERMISSION_SCOPING.md §8:
+Implements the LOCKED plan in doc/archive/PLANNING_PERMISSION_SCOPING.md §8:
   ArcGIS REST FeatureServer Layer 0 (paginated geometry pull, EPSG:4326)
   -> decision_normalised + application_type_normalised (raw preserved, no-inference)
   -> DQ guards (future dates, FloorArea/AreaofSite sentinels, one-off reconcile,

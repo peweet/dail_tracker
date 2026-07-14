@@ -66,22 +66,27 @@ DOCS = {
         "https://www.hiqa.ie/sites/default/files/2025-03/Monitoring-of-International-Protection-Accommodation-Service-centres-in-2024.pdf"),
     "hiqa_inspection_reports": (
         "HIQA — 101 individual IPAS centre inspection reports (2024-01 → 2026-03)",
-        "regulator_inspection", "P0", "PENDING_FULL_EXTRACTION",
-        "hiqa_ipas_inspections.parquet = METADATA ONLY (101 rows). PDFs cached (89 MB) but the "
-        "per-centre, per-standard COMPLIANCE JUDGMENTS inside are NOT parsed. Biggest untapped asset: "
-        "gives centre x standard x judgment x county — the real drill-down for the county map, and the "
-        "only way to name providers HIQA inspected.",
+        "regulator_inspection", "P0", "EXTRACTED",
+        "hiqa_centre_compliance.parquet (2,668 centre x standard judgments, dual-path, 99.5% agreement) "
+        "+ hiqa_centre_facts.parquet (3,275). 101/101 parsed, 0 failed. **PROVIDERS NAMED ON 100% OF "
+        "REPORTS** (~32 operators) — the only source that names them; unlocked "
+        "ipas_operator_money_compliance.parquet. FINDING: HIQA's own OVERVIEW understates severity vs "
+        "these underlying reports (Std 3.1: 12% -> 26% not compliant), triple-path verified, not adjusted.",
         "bronze/hiqa_ipas/pdf/"),
     "cag_roaps_2015_ch06": (
         "C&AG 2015 Annual Report Ch.6 — Procurement and management of contracts for direct provision",
-        "audit_report", "P1", "PENDING_FULL_EXTRACTION",
-        "text cached (18pp) at bronze/cag_reports/text/ — the 2015 BASELINE for a then-vs-now comparison",
+        "audit_report", "P1", "EXTRACTED",
+        "cag_2015_direct_provision_facts.parquet (229 rows). THE BASELINE: EUR 251m paid over 5 yrs with "
+        "NO RFT ever issued; rates EUR 20.70-35.50/night. Fig 6.7 chart-recovered names the 9 firms paid "
+        ">EUR 10m — 7 of them STILL appear in 2025 payments/HIQA data. 8 defects recur to 2024, 3 worse.",
         "https://www.audit.gov.ie/media/n0tm40xg/2015-annual-report-chapter-6-procurement-and-management-of-contracts-for-direct-provision.pdf"),
     "igees_ipas_paper_2025": (
         "IGEES — Managing IPAS Expenditure Pressures: Demand-Side Drivers and Policy Responses (Jun 2025)",
-        "analytical_paper", "P0", "PENDING_FULL_EXTRACTION",
-        "THE source of the EUR 92/night private vs EUR 34/night State-owned figures (cited by C&AG 10.18) "
-        "and of the 17-month median processing time. Almost certainly holds more cost/demand detail.",
+        "analytical_paper", "P0", "EXTRACTED",
+        "igees_ipas_facts.parquet (178 rows). All 4 C&AG-cited figures validated to origin. NEW beyond "
+        "C&AG: cost/night series EUR 50 (2019) -> EUR 91 (2024); of the EUR 929m rise 2018-24, demand=76% "
+        "unit-cost=24%; median stay costs EUR 43,237 (17 mths) — cutting to 9 mths saves ~EUR 18k/stay; "
+        "people-with-status cost EUR 200m in 2024 (~20% of the bill).",
         "https://assets.gov.ie/static/documents/IPAS_Analytical_Paper_03062025.pdf"),
     "accommodation_strategy": (
         "Comprehensive Accommodation Strategy for International Protection Applicants",

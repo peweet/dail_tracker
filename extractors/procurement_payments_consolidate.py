@@ -45,9 +45,11 @@ are gitignore-negated already (!data/gold/parquet/*.parquet), so the output is t
 from __future__ import annotations
 
 import contextlib
+import csv
 import json
 import re
 import sys
+import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -336,6 +338,54 @@ def _load_facts() -> pl.DataFrame:
     if not frames:
         raise SystemExit("no payment facts found under data/silver/parquet/")
     return pl.concat(frames, how="vertical")
+
+
+def _canon_la_publisher_names(df: pl.DataFrame) -> pl.DataFrame:
+    """Force every local_authority publisher_name onto the CANONICAL council spelling.
+
+    THE BUG THIS FIXES (2026-07-14). Two lanes feed councils into gold with DIFFERENT spellings:
+      * la_payments_fact          → 23 councils, SHORT ("Dublin City", "Carlow")
+      * disclosed_bq_po_newbodies →  8 councils, FORMAL ("Dublin City Council", "Carlow County
+        Council") — and these are precisely the 8 the LA lane could never harvest
+        (Carlow/Cavan/Roscommon = Playwright, Kerry = scanned; Dublin City/DLR/Louth/Tipperary
+        publish no PO list). So they are complementary coverage, not duplicates — but the
+        spelling split silently ORPHANED them: 69,715 rows (41% of all LA payments, incl. Dublin
+        City's 40,431) failed to join `constituency_la_crosswalk` AND the AFS accounts fact,
+        whose join key is `payments.publisher_name == afs.council`. Dublin City — the largest
+        council — was therefore missing its audited-accounts lane on the council dossier entirely.
+
+    The canonical spelling is the crosswalk's `local_authority` (also used by la_afs_divisions,
+    la_budget_divisions, v_la_chief_executives, the LPT fact and the councillor facts). Applied
+    ONCE here, at the last choke point before the gold write, so no lane can reintroduce a
+    variant. Fails loudly on an unmappable council rather than silently orphaning it again.
+    """
+    if "publisher_type" not in df.columns:
+        return df
+    xwalk = ROOT / "data" / "_meta" / "constituency_la_crosswalk.csv"
+    canon = sorted({r["local_authority"] for r in csv.DictReader(xwalk.open(encoding="utf-8"))})
+
+    def _fold(s: str) -> str:
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+        s = re.sub(r"\b(county|city|and|&|council|co)\b", " ", s)
+        return re.sub(r"[^a-z]+", "", s)
+
+    by_fold = {_fold(c): c for c in canon}
+    present = (
+        df.filter(pl.col("publisher_type") == "local_authority")["publisher_name"].unique().to_list()
+    )
+    mapping = {p: by_fold[_fold(p)] for p in present if p and _fold(p) in by_fold and by_fold[_fold(p)] != p}
+    unmapped = [p for p in present if p and _fold(p) not in by_fold]
+    if unmapped:
+        raise SystemExit(f"local_authority publishers not in the canonical 31: {sorted(unmapped)}")
+    if mapping:
+        print(f"  canonicalised {len(mapping)} council name(s) → crosswalk spelling: {sorted(mapping)}")
+        df = df.with_columns(
+            pl.when(pl.col("publisher_type") == "local_authority")
+            .then(pl.col("publisher_name").replace(mapping))
+            .otherwise(pl.col("publisher_name"))
+            .alias("publisher_name")
+        )
+    return df
 
 
 def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
@@ -903,6 +953,8 @@ def main() -> None:
     for _r in parse_qa.scan_frame(df):
         print(f"  parse-qa residual: {_r}")
     parse_qa.assert_clean(df, tolerate=110)
+
+    df = _canon_la_publisher_names(df)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT, min_rows=MIN_FACT_ROWS)

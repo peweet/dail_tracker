@@ -13,6 +13,143 @@ What these tests catch that silver Pandera tests cannot:
 
 Run with:
     pytest test/test_sql_views.py -v -m sql
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~37,203 tokens (3,459 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     234-238    _con
+#     239-251    _view_path
+#     252-282    _load
+#     283-289    _skip_missing
+#     290-293    _result
+#     294-304    _src
+#     305-309    _assert_cols
+#     310-322    _fixture_only
+#     323-337    test_v_attendance_member_summary_executes
+#     338-348    test_v_attendance_summary_executes
+#     349-360    test_v_attendance_member_year_summary_executes
+#     361-378    test_v_attendance_year_rank_executes
+#     379-392    test_v_member_registry_executes
+#     393-426    test_v_member_registry_all_executes
+#     427-458    test_v_member_ministerial_tenure_executes
+#     459-500    test_v_member_salary_executes
+#     501-522    test_v_charity_financials_by_year_executes
+#     523-539    test_v_bill_amendment_intensity_executes
+#     540-566    test_v_member_external_links_executes
+#     567-596    test_v_member_contact_details_executes
+#     597-615    test_v_lobbying_base_member_codes_executes
+#     616-631    test_v_lobbying_index_executes
+#     632-642    test_v_lobbying_persistence_executes
+#     643-653    test_v_lobbying_org_intensity_executes
+#     654-672    test_v_lobbying_org_index_exposes_register_fields
+#     673-689    test_v_experimental_org_index_enriched_exposes_website
+#     690-700    test_v_lobbying_clients_executes
+#     701-717    test_v_lobbying_revolving_door_executes
+#     718-729    test_v_legislation_index_executes
+#     730-742    test_v_legislation_debates_executes
+#     743-776    test_v_debate_listings_executes
+#     777-811    test_v_statutory_instruments_executes
+#     812-831    test_v_statutory_instruments_left_join_no_inflation
+#     832-868    test_v_si_current_state_executes
+#     869-887    test_v_si_current_state_coverage_gate
+#     888-898    test_v_bill_statutory_instruments_executes
+#     899-903    v_si_amendments — the SI→SI amendment/revocation graph (edge
+#     904-969    _write_si_amendments_fixture
+#     970-1006   test_v_si_amendments_inversion_contract
+#    1007-1013   v_si_lrc_enrichment + v_statutory_instruments_classified (LR
+#    1014-1054   test_v_si_lrc_enrichment_executes
+#    1055-1079   test_v_statutory_instruments_classified_no_inflation
+#    1080-1125   test_v_si_amendments_executes
+#    1126-1145   test_v_payments_base_executes
+#    1146-1153   _payments_chain
+#    1154-1173   test_v_payments_member_detail_executes
+#    1174-1185   test_v_payments_summary_executes
+#    1186-1206   test_v_payments_yearly_evolution_executes
+#    1207-1224   test_v_payments_alltime_ranking_executes
+#    1225-1242   test_v_payments_alltime_summary_executes
+#    1243-1264   test_v_payments_sources_executes
+#    1265-1283   test_v_corporate_notices_executes
+#    1284-1304   test_v_corporate_cbi_notice_match_executes
+#    1305-1346   test_v_corporate_cbi_repeat_distress_executes
+#    1347-1431   test_vote_view_executes
+#    1432-1455   test_view_group_registers
+#    1456-1465   test_v_committee_assignments_executes
+#    1466-1475   test_v_committee_office_holders_executes
+#    1476-1488   test_v_committee_member_detail_executes
+#    1489-1506   test_v_committee_party_seats_executes
+#    1507-1516   test_v_member_interests_detail_executes
+#    1517-1537   test_v_member_interests_index_executes
+#    1538-1586   test_v_member_interests_index_alltime_executes
+#    1587-1598   test_v_member_questions_executes
+#    1599-1608   test_v_member_question_profile_executes
+#    1609-1618   test_v_member_question_focus_shift_executes
+#    1619-1630   test_v_member_question_ministries_executes
+#    1631-1642   test_v_member_question_top_topics_executes
+#    1643-1661   test_v_member_debate_sections_executes
+#    1662-1680   test_v_member_constituency_demographics_executes
+#    1681-1690   test_v_lobbying_summary_executes
+#    1691-1700   test_v_lobbying_org_index_executes
+#    1701-1710   test_v_lobbying_dpo_clients_executes
+#    1711-1720   test_v_lobbying_dpo_firms_executes
+#    1721-1730   test_v_lobbying_dpo_politicians_executes
+#    1731-1748   test_v_lobbying_dpo_returns_executes
+#    1749-1770   test_v_lobbying_contact_detail_executes
+#    1771-1784   test_v_lobbying_contact_detail_with_dpo_executes
+#    1785-1798   test_v_lobbying_dpo_politician_returns_executes
+#    1799-1808   test_v_lobbying_policy_area_summary_executes
+#    1809-1821   test_v_lobbying_policy_exposure_executes
+#    1822-1831   test_v_lobbying_recent_returns_executes
+#    1832-1841   test_v_lobbying_return_documents_executes
+#    1842-1851   test_v_lobbying_sources_executes
+#    1852-1862   test_v_lobbying_topic_search_executes
+#    1863-1885   test_v_experimental_lobbying_org_index_enriched_executes
+#    1886-1895   test_v_attendance_timeline_executes
+#    1896-1906   test_v_attendance_missing_members_executes
+#    1907-1921   test_v_attendance_chamber_sitting_days_executes
+#    1922-1933   test_v_legislation_detail_executes
+#    1934-1943   test_v_legislation_pdfs_executes
+#    1944-1953   test_v_legislation_sources_executes
+#    1954-1963   test_v_legislation_timeline_executes
+#    1964-1975   test_v_legislation_pre2014_acts_executes
+#    1976-1987   test_v_bill_si_operation_mix_executes
+#    1988-2022   test_v_act_commencement_executes
+#    2023-2052   test_v_public_appointments_executes
+#    2053-2134   test_v_procurement_awards_executes
+#    2135-2200   test_v_procurement_supplier_summary_value_semantics
+#    2201-2222   test_v_procurement_authority_summary_value_semantics
+#    2223-2252   test_v_procurement_cpv_summary_value_semantics
+#    2253-2261   _load_awards_real
+#    2262-2333   test_v_procurement_awards_real_invariants
+#    2334-2364   test_v_procurement_awards_real_parity_with_deflator_function
+#    2365-2404   test_v_procurement_cpv_summary_real_band
+#    2405-2419   test_v_govt_consumption_deflator_executes
+#    2420-2427   _load_payments_real
+#    2428-2458   test_v_procurement_payments_real_invariants_and_parity
+#    2459-2481   test_v_procurement_payments_real_by_year_keeps_tiers_separate
+#    2482-2508   test_v_procurement_lobbying_overlap_executes
+#    2509-2525   test_v_lobbying_org_procurement_dedups_to_registrant
+#    2526-2585   test_v_procurement_charity_overlap_grain_and_value_firewall
+#    2586-2619   test_v_procurement_ted_awards_competition_columns
+#    2620-2652   test_v_procurement_ted_winner_history_union
+#    2653-2703   test_v_procurement_ted_tenders_pre_award_grain
+#    2704-2738   test_view_names_follow_v_prefix_convention
+#    2739-2779   test_member_overview_connection_builds
+#    2780-2818   _write_sponsors_fixture
+#    2819-2851   test_legislation_index_sponsor_falls_back_like_detail
+#    2852-2885   _write_dirty_awards_fixture
+#    2886-2913   test_procurement_authority_views_agree_on_dirty_value_filters
+#    2914-2916   v_procurement_expiring_contracts (TED advertised-term projec
+#    2917-2976   _write_ted_awards_term_fixture
+#    2977-3014   test_v_procurement_expiring_contracts_contract
+#    3015-3062   test_constituency_housing_enrichment_views_build
+#    3063-3165   test_ssha_waiting_list_national_views_build
+#    3166-3213   test_accommodation_spend_views_build
+#    3214-3254   test_constituency_map_layers_view_builds
+#    3255-3328   test_v_committee_meetings_executes
+#    3329-3394   test_committee_meetings_crosswalk_folds_typographic_apostrophe
+#    3395-3459   test_committee_meetings_crosswalk_merges_joint_and_select_formations
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 import os

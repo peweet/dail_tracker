@@ -168,7 +168,7 @@ pg = st.navigation(
             ),
             # PREVIEW (sandbox data, not yet promoted to gold/views) — councillor roster + per-LEA
             # representation + honest per-council voting card. Reached via the Your Council
-            # "See your councillors" card. See doc/YOUR_COUNCILLORS_UI_BRIEF.md.
+            # "See your councillors" card. See doc/archive/YOUR_COUNCILLORS_UI_BRIEF.md.
             st.Page(
                 your_councillors_page,
                 title="Your Councillors",

@@ -1,8 +1,60 @@
+"""Shared design system for all Dáil Tracker pages.
+
+# ── SECTION MAP ───────────────────────────────────────────────────────────────
+# ⚠️  DO NOT READ THIS FILE WHOLE — it is ~72,000 tokens (6,266 lines).
+#     It is ONE function, ONE <style> string (lines 20-6248), and the CSS body
+#     carries no internal comments. Read THIS header, then jump:
+#         Read(file, offset=<start>, limit=<n>)   or   Grep for the selector.
+#
+# ⚠️  CSS IS ORDER-DEPENDENT (equal specificity → last rule wins) and the
+#     families are FRAGMENTED — .dt-* spans 622-5704, .lob-* 1089-4359,
+#     .att-* 2774-4353. NEVER reorder blocks, and when editing a family CHECK
+#     ALL ITS RUNS, not just the first. This is why the file is not split by
+#     prefix: any such split would silently reshuffle the cascade across 20 pages.
+#
+# (line numbers verified 2026-07-14 against a 6,315-line file; regenerate with
+#  tools/section_map.py --write if they drift)
+#
+#     50-  67  imports · def inject_css() · once-per-run guard
+#     68-  70  st.markdown( <style> · Google Fonts @import
+#     71- 215  app-chrome + iframe resets · .site-* masthead / brand band
+#    172- 359  st.navigation top-nav theming · mobile <768px · active-page amber
+#    395- 489  :root DESIGN TOKENS (oklch --signal-* / --ink-*) · EU badge · .sr-only
+#    494- 863  Streamlit widget theming (stMarkdown/MultiSelect/Button/
+#              DownloadButton/Expander/Checkbox)
+#    864-1018  .section-* .stat-*   section headings + stat strips
+#    671-5753  .dt-*   CORE DESIGN SYSTEM (204 selectors, MANY RUNS) — name cards,
+#              avatars, pills, badges, nav buttons; Glide-Data-Grid ~1488-1544
+#   1138-4408  .lob-*  lobbying (58)
+#   1734-4441  .int-*  member interests (26)
+#   2031-2544  .mo-*   member overview (76)
+#   2823-4402  .att-*  attendance (47)   ·  2829-2873  .part-* participation (20)
+#   2962-3352  .pay-*  payments (39)
+#   3706-4289  .leg-*  legislation (65)
+#   3911-4182  .q-*    questions (44)
+#   4400-4746  .vt-*   votes (44)        ·  1025-4860  .td-*  TD cards (15)
+#   4967-6295  .cmt-*  committees (38)
+#   5160-5444  .lp3-*  lobbying v3 (49)
+#   5452-5495  .don-*  donations (25)    ·  5502-5555  .e24-* Election 2024 (32)
+#   5563-5639  .jud-*  judiciary (43)
+#   5646-6013  .pr-*   PROCUREMENT (118) (+ .mf-, .pp- interleaved ~5830-5975)
+#   6024-6060  .stTabs
+#   6063-6259  .con-*  corporate (46)  ⚠️ ALSO in pages_code/corporate.py:118-844
+#   6160-6163  .hou-*  housing (3)
+#   6170-6237  .lg-*   local government (21)
+#   6297-6315  </style> · st.html site-banner
+#
+# ⚠️  PAGE-LOCAL CSS also exists — a rule may live there instead:
+#     corporate.py:118 (_inject_corp_css, 727 lines) · judiciary.py:176 ·
+#     statutory_instruments.py:66 · public_appointments.py:72 · siting_check.py:123
+# ── END SECTION MAP ───────────────────────────────────────────────────────────
+"""
+
 import streamlit as st
 
 
 def inject_css() -> None:
-    """Shared design system for all Dáil Tracker pages.
+    """Inject the design system once per script run.
 
     Rendered once per script run at app level (utility/app.py, before
     pg.run()) so the stylesheet + banner stay mounted across page

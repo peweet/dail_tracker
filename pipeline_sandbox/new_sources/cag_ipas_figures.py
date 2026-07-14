@@ -123,7 +123,10 @@ R += [
     (3, "10.12", "contracts", "RFT contracts since expired", 7, "contracts", "exact", "at publication", "IPAS long-term", None),
     (9, "10.33", "contracts", "Centres with active ('in date') contracts", 164, "centres", "exact", "end 2024", "of 325 expected contracts (326 centres, 2 share one contract)", None),
     (9, "10.33", "contracts", "Centres operating without in-date contracts", 161, "centres", "exact", "end 2024", "housing 13,785 IP applicants", "60 recorded as in renewal process"),
-    (9, "10.33", "contracts", "Centres with contract status NOT RECORDED by the IPAS", 101, "centres", "unknown", "end 2024", "of the 161 without in-date contracts", "UNKNOWN AT SOURCE: status unrecorded by IPAS"),
+    # The COUNT (101) is exactly stated by the C&AG. What is unknown at source is the
+    # CONTRACT STATUS of those centres — not this figure. Flagging the fact itself as
+    # unknown was wrong: it made a known number look unestablished.
+    (9, "10.33", "contracts", "Centres whose contract status the IPAS did NOT record", 101, "centres", "exact", "end 2024", "of the 161 centres without in-date contracts", "The count is exact; it is the underlying CONTRACT STATUS of these 101 centres that the IPAS did not record."),
     (9, "10.34", "contracts", "Centres with active contracts", 168, "centres", "exact", "end Jul 2025", "marginal increase from 164", "expired contracts continue on original terms until renewal/termination"),
     (14, "10.63", "contracts", "Accommodation centres under hybrid IP/BOTP arrangements", 25, "centres", "exact", "during 2024", "hybrid arrangements", "separate invoices for IP and BOTP"),
     (10, "10.36", "contracts", "Sampled properties without signed contracts covering 2024 payments", 10, "properties", "exact", "2024", "sample of 20", "50%; payments made on non-contractual terms"),

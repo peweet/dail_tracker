@@ -25,6 +25,58 @@ v_judiciary_legal_diary_* views; the profile's "Before the court" section and th
 cross-day "Who is suing" league read v_judiciary_judge_sittings / v_judiciary_judge_diary
 / v_judiciary_plaintiff_league (the diary→roster name join and the applicant ranking are
 pipeline-owned — extractors/judiciary_diary_link.py and the league view's GROUPING SETS).
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~24,418 tokens (1,935 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     176-181    _esc
+#     182-189    _html
+#     190-199    _fmt_day
+#     200-209    _fmt_day_short
+#     210-218    _fmt_month
+#     219-227    _year
+#     228-445    _inject_jd_css
+#     446-471    _bench_card_html
+#     472-504    _render_the_bench
+#     505-642    _render_profile
+#     643-648    judge profile: Before the court (Legal Diary bridge)
+#     649-742    _render_profile_diary
+#     743-821    _render_appointments
+#     822-841    _clearance_bar
+#     842-871    _clearance_trend_chart
+#     872-908    _render_clearance
+#     909-930    _court_clearance_chart
+#     931-934    _stat_card
+#     935-1012   _render_court_detail
+#    1013-1046   _wait_card
+#    1047-1087   _render_waiting
+#    1088-1104   _render_waiting_groups
+#    1105-1150   _render_courthouses
+#    1151-1183   _render_courts
+#    1184-1209   _session_matters
+#    1210-1251   _render_ld_schedule
+#    1252-1289   _render_ld_busiest
+#    1290-1298   _matter_names_institution
+#    1299-1306   _cat_tag_html
+#    1307-1330   _case_party_html
+#    1331-1338   _matter_link_html
+#    1339-1345   _matter_row_html
+#    1346-1369   _day_digest_html
+#    1370-1391   _roll_html
+#    1392-1400   _matters_by_priority
+#    1401-1414   day schedule (the timetable a judge actually sat)
+#    1415-1424   _clean_sched_time
+#    1425-1435   _clean_sched_list
+#    1436-1441   _clean_room
+#    1442-1518   _day_schedule_html
+#    1519-1552   _case_row_html
+#    1553-1601   _render_ld_plaintiffs
+#    1602-1699   _render_ld_cases
+#    1700-1751   _render_plaintiff_league
+#    1752-1879   _render_legal_diary
+#    1880-1935   judiciary_page
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations

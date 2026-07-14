@@ -129,6 +129,35 @@ it is an internal DoJ system. Only C&AG + press coverage (RTÉ/Irish Post, Sept 
 story) and the C&AG's own note that further controls complete in 2026. Treat as a named control,
 not an ingestible source.
 
+### 📦 `ipas_facts.parquet` — ONE CANONICAL TABLE (`ipas_facts_consolidate.py`)
+
+**4,762 facts** unioned from 6 per-document extractors into the single canonical schema, with a
+**QUALITY GUARD** that fails loudly rather than shipping a degraded corpus (in the spirit of
+`tools/check_extraction_quality.py`: row counts hide silent field degradation, so check the fields).
+
+| doc | facts | unknown |
+|---|---|---|
+| HIQA 101 inspection reports | 3,275 | 482 |
+| HIQA overview 2024 | 691 | 9 |
+| C&AG RoAPS 2024 Ch.10 (+ chart recovery) | 389 | 19 |
+| C&AG 2015 Ch.6 | 229 | 6 |
+| IGEES paper | 178 | 13 |
+
+**GUARD: PASS** — 0 rows missing `source_url` · 0 category drift · 0 unclassified · 0
+`value_safe_to_sum=True` (never-sum invariant holds) · 0 silent gaps · 0 duplicate `fact_id` ·
+**533 explicit unknowns (11.2%)** — never guessed. 22 of 26 canonical categories in use.
+
+**The guard EARNED ITS KEEP on the first run:** the per-document agents had DRIFTED from the
+canonical vocabulary — inventing 15 of their own category labels (`compliance_standard`,
+`metrics_quality_safety`, `resident_experience_adults`…) plus 193 uncategorised rows and 4 rows
+holding no value while not flagged unknown. All crosswalked (`CATEGORY_MAP` — a rename, never a
+reclassification) or made explicitly unknown. The guard now FAILS on any future drift, so a later
+loop cannot quietly rot the vocabulary.
+
+Still to fold in on the next run (agent in flight): Accommodation Strategy · **National Standards
+lookup (gives every one of the 2,668 HIQA judgments a human-readable meaning)** · PID · the
+remaining 9 pages of the IPAS weekly stats.
+
 ### 🧭 IPAS corpus: RESUMABLE EXTRACTION ARCHITECTURE (2026-07-14)
 
 The asylum corpus is now organised so a FUTURE SESSION CAN RESUME IT, and so anything
@@ -296,9 +325,13 @@ Driven by memory `project_planning_feasibility_product_learnings_2026_07_14`. **
 
 | Source | Script | Output (`c:/tmp/dail_new_sources/silver/`) | Rows | Coverage | Method |
 |---|---|---|---|---|---|
-| ABP/ACP inspector reports (reasoning layer) | `abp_inspector_reports.py` | `abp_inspector_reports.parquet` (+ `abp_report_misses.txt`) | **412** so far (of ~21.5k available) | **nationwide, all 31 planning authorities**; 25,679 ACP cases enumerated, 412 reports pulled, 72 confirmed no-report (404) | deterministic PDF URL `pleanala.ie/.../reports/<grp>/r<cid>.pdf` (grp=first-3 of 6-digit core) → **fitz text, NO OCR** |
+| ABP/ACP inspector reports (reasoning layer) | `abp_inspector_reports.py` | `abp_inspector_reports.parquet` (+ `abp_report_misses.txt`) | **13,720** ✅ **2020+ BACKFILL COMPLETE (queue = 0)** | **nationwide, all 32 planning authorities, 2020–2026.** 16,432 decided cases attempted → 13,720 reports + 2,712 confirmed no-report = **84% hit rate** (exactly as projected). By year: 2020:1,828 · 2021:1,849 · 2022:1,253 · 2023:2,475 · 2024:2,632 · 2025:2,302 · 2026:969 | deterministic PDF URL `pleanala.ie/.../reports/<grp>/r<cid>.pdf` (grp=first-3 of 6-digit core) → **fitz text, NO OCR** |
 
-Born-digital, rich: mean **29 pages / 55k chars** per report. Section-presence flags (appropriate_assessment, flood, traffic/road-safety, EIA, reasons_for_refusal, grounds_of_appeal, conditions, reasons_and_considerations) + `inspector`, `recommendation_verdict`, `recommendation_snippet`. Full house provenance per row (`source_document_hash`, `fetched_at`, `extraction_method=fitz_text`, `confidence`, `privacy_tier=public`). Raw PDF + extracted `.txt` cached to bronze with SHA-256.
+Born-digital, rich: mean **31 pages / 58k chars** per report. Section-presence flags (appropriate_assessment, flood, traffic/road-safety, EIA, reasons_for_refusal, grounds_of_appeal, conditions, reasons_and_considerations) + `inspector`, `recommendation_verdict`, `recommendation_snippet`, `is_scanned`/`needs_ocr`. Full house provenance per row (`source_document_hash`, `fetched_at`, `extraction_method`, `confidence`, `privacy_tier=public`). Extracted `.txt` cached to bronze with SHA-256.
+
+**Final labels (the ML value — see memory `project_abp_inspector_corpus_ml_asset`):** **9,076 GRANT/REFUSE verdicts** parsed (74% of 12,186 Appeals — GRANT 5,293 / REFUSE 3,783); inspector named on 10,408 (76%); **218 rows flagged `needs_ocr`** (1.6% scanned — the bounded OCR queue, matching the projected rate). Disk **2.5 GB** (13,720 `.txt` + 623 `.pdf`) vs ~7.6 GB had every PDF been kept. ~405 of those PDFs are **legacy** (cached before text-only landed) and are **prunable** — only the 218 `needs_ocr` binaries are needed.
+
+**Steady state:** re-run the same command to top up — it pulls only newly-decided cases (~60/week), and recently-decided 404s are retried as ACP publishes them (see the publication-lag trap below).
 
 **RESUMABLE by design.** `--max-fetch N` caps new network fetches per run; already-parsed cases and known-404s (`abp_report_misses.txt`) are skipped, so re-running just continues the queue. `--reparse` re-derives all parsed fields from the cached bronze `.txt` with **zero network** — parser improvements are re-applied to the whole corpus for free (used twice below).
 

@@ -61,7 +61,7 @@ drop from the link spend side (spend-only €9.38bn→€9.04bn, honest denomina
 fixes the LINK extractor; removing them from the actual rankings page needs the same CSV applied in
 the payments-consolidation `supplier_class` step (still TODO, page-facing change).
 
-**NDFA/PPP source SCOPED:** `doc/NDFA_PPP_SCOPING.md` — the €9bn unlinked residual (NBI €1.34bn,
+**NDFA/PPP source SCOPED:** `doc/archive/NDFA_PPP_SCOPING.md` — the €9bn unlinked residual (NBI €1.34bn,
 BAM/MPFI/Inspired school bundles, M50/road concessions) needs a CURATED PPP project registry, not
 a scraper: ~30-40 projects, sources = DPER gov.ie PPP projects (spine) + C&AG PPP chapters (values,
 PDF) + NDFA project pages (SPV→consortium map, the join key) + TII (15 road PPPs). Deliverable =
@@ -77,7 +77,7 @@ EXISTS and is used by the (sandbox) link extractor; re-applying to the page = a 
 validated promotion, NOT done. See [[feedback_pipeline_changes_data_anchored_promotion]].
 
 **PPP = SCOPING/RESEARCH ONLY, NOT wired.** `data/_meta/ppp_project_registry.csv` (25 SPV rows) +
-`doc/NDFA_PPP_SCOPING.md`. Nothing reads the CSV. ⚠️ I was OVER-CONFIDENT on the sums (owner caught
+`doc/archive/NDFA_PPP_SCOPING.md`. Nothing reads the CSV. ⚠️ I was OVER-CONFIDENT on the sums (owner caught
 it): "€2.83bn labelled" mixed TIERS — it's €2.50bn PAID (payment_actual) + €0.33bn COMMITTED
 (po_committed = orders incl. ALL of Courts bundle + €172m NBI), and it's a 14-yr cumulative
 (2012-26, run-rate €7m→€500m/yr), with €260m null-year. NBI = €1.17bn paid + €0.17bn committed

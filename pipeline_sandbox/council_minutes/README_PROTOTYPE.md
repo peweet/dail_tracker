@@ -1,6 +1,6 @@
 # Your Councillors — sandbox prototype (BUILT 2026-06-22)
 
-Runnable prototype of the feature designed in `doc/YOUR_COUNCILLORS_UI_BRIEF.md`.
+Runnable prototype of the feature designed in `doc/archive/YOUR_COUNCILLORS_UI_BRIEF.md`.
 **Sandbox only — NOT wired into the prod app, nav, or gold.** Reads sandbox data directly.
 
 ## Run it
@@ -41,7 +41,7 @@ No tier ever implies zero activity falsely.
   vote extraction for other roll-call councils (Kilkenny/Laois/South Dublin/Fingal).
 
 ## Promotion path (when you sign off — needs gold, not done)
-The production build needs the pipeline views in `doc/YOUR_COUNCILLORS_UI_BRIEF.md` §10
+The production build needs the pipeline views in `doc/archive/YOUR_COUNCILLORS_UI_BRIEF.md` §10
 (`v_la_councillors`, `v_la_councillor_votes`, coverage tier-flag, …), a real page in
 `utility/pages_code/`, and an `app.py` nav entry. None touched — this prototype is for assessment.
 """

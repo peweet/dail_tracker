@@ -47,6 +47,42 @@ def fetch_housing_hap_national_result() -> QueryResult:
 
 
 @st.cache_data(ttl=600)
+def fetch_ipas_la_profile_result() -> QueryResult:
+    """Council-map contract: IP applicants per local authority + per-1,000 population."""
+    return _q.ipas_la_profile(get_housing_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_ipas_operators_result() -> QueryResult:
+    """Named operators + compliance record + public money. Identity-gated; never causal."""
+    return _q.ipas_operators(get_housing_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_ipas_centre_compliance_result(county: str | None = None) -> QueryResult:
+    """Per-centre, per-standard HIQA judgments (optionally one county — the drill-down)."""
+    return _q.ipas_centre_compliance(get_housing_conn(), county)
+
+
+@st.cache_data(ttl=600)
+def fetch_ipas_property_rates_result(county: str | None = None) -> QueryResult:
+    """What a bed costs per person per night (C&AG Annex 10A)."""
+    return _q.ipas_property_rates(get_housing_conn(), county)
+
+
+@st.cache_data(ttl=600)
+def fetch_ipas_entitlements_result() -> QueryResult:
+    """Entitlement in law vs what the auditor and inspector found."""
+    return _q.ipas_entitlements(get_housing_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_ipas_citations_result(doc_key: str | None = None) -> QueryResult:
+    """Citation backing store for the provenance footer — source figures, don't aggregate."""
+    return _q.ipas_citations(get_housing_conn(), doc_key)
+
+
+@st.cache_data(ttl=600)
 def fetch_accommodation_spend_by_year_result() -> QueryResult:
     return _q.accommodation_spend_by_year(get_housing_conn())
 
