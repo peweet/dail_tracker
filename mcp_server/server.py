@@ -311,10 +311,12 @@ def revolving_door(limit: int = 20) -> list[dict]:
 def ministerial_diary_top_organisations(limit: int = 25, outside_only: bool = True) -> list[dict]:
     """Organisations ranked by how many meetings ministers logged with them in their OWN
     published diaries — the access record. Each row has meetings, ministers_met,
-    ministers_lobbied_and_met, total_lobbying_returns and `corroborated` (the org both MET and
-    filed a lobbying return naming the same minister). `outside_only` drops state/semi-state
-    bodies. Co-occurrence only — access, NOT proof of influence; diaries are self-curated,
-    non-exhaustive and quarterly-in-arrears."""
+    ministers_lobbied_and_met, total_lobbying_returns and `corroborated` (the org both MET a
+    minister AND appears on a lobbying return — as the registrant or as a named client — naming
+    that same minister). Lobbying counts are PER-ORGANISATION associations: never sum them across
+    organisations, since one return attaches to its registrant and to each of its clients.
+    `outside_only` drops state/semi-state bodies. Co-occurrence only — access, NOT proof of
+    influence; diaries are self-curated, non-exhaustive and quarterly-in-arrears."""
     return _rows(mdiary.org_overlap_ranked(_cur(), limit=limit, outside_only=outside_only))
 
 
@@ -350,25 +352,32 @@ def company_influence(name: str) -> dict:
     money, it does NOT imply a meeting caused a contract. Empty = the company isn't named in the
     published ministerial diaries (the procurement_* tools cover suppliers that never met a
     minister)."""
-    rows = mdiary.company_influence(_cur(), name)
+    # _rows(): serialise the QueryResult (and turn a dead source into {"error": ...}) exactly like
+    # every other diary tool. Without it this returned a raw QueryResult nested in the dict, which
+    # is not JSON-serialisable — the tool could never have answered a call.
+    rows = _rows(mdiary.company_influence(_cur(), name))
     return rows if isinstance(rows, dict) else {"company_matches": rows}
 
 
-# Two lobbying measures ride on each access_to_contracts row and they are NOT the same thing
-# (MCP sweep 2026-07-11 DQ #2 — the ROADSTONE contradiction: this tool said 0 returns while
-# cross_register_watchlist said 2). `total_lobbying_returns` is the diary chain's grain: returns
-# the organisation itself FILED (as registrant) that NAMED a politician, joined on the diary-side
-# org_key — 0 can mean "not matched", NOT "never lobbied" (lobbying filed by a hired PR firm names
-# the company only as CLIENT, which that join never sees). The spine fields added below are the
-# register-wide footprint (registrant OR client) on the canonical shared/name_norm key — the SAME
-# spine cross_register_watchlist reads, so the two tools can no longer contradict each other.
+# Two lobbying measures ride on each access_to_contracts row and they are NOT the same thing.
+# `total_lobbying_returns` is the DIARY chain's grain: distinct returns that NAMED A POLITICIAN and
+# on which the org is the REGISTRANT **or** a NAMED CLIENT. That client side was the MCP sweep's
+# DQ #2 (the ROADSTONE contradiction: this tool said 0 returns while cross_register_watchlist said
+# 2) — the diary joined the register on the registrant name ALONE, so every org that lobbies via a
+# PR firm read 0. Fixed at the root 2026-07-14 in extractors/diary_lobbying_overlap.py; the join is
+# still an EXACT match on the diary org_key, so 0 means "not matched", never "did not lobby".
+# The spine fields below are the register-WIDE footprint (every return, not just politician-naming
+# ones) on the canonical shared/name_norm key — the SAME spine cross_register_watchlist reads, so
+# the two tools can no longer contradict each other.
 _ACCESS_TO_CONTRACTS_CAVEAT = (
-    "total_lobbying_returns counts only returns the organisation itself filed (as registrant) "
-    "that named a politician — 0 can mean 'not matched', not 'never lobbied' (lobbying done for "
-    "it by a PR/consultancy names it only as client). on_lobbying_register / "
-    "register_lobby_returns are the register-wide footprint (registrant OR client, exact "
-    "canonical-name match — a floor that misses name variants) from the same entity-crosswalk "
-    "spine as cross_register_watchlist. Access + money map, never causation; € figures carry the "
+    "total_lobbying_returns counts distinct lobbying returns that named a politician and on which "
+    "the organisation is the registrant OR a named client (so lobbying done for it by a hired "
+    "PR/consultancy counts) — an exact-name join, so 0 can still mean 'not matched', not 'never "
+    "lobbied'. on_lobbying_register / register_lobby_returns are the wider register footprint "
+    "(all returns, registrant OR client, exact canonical-name match) from the same "
+    "entity-crosswalk spine as cross_register_watchlist. Both are PER-ORGANISATION association "
+    "counts: never sum them across organisations, because one return attaches to its registrant "
+    "and to each of its clients. Access + money map, never causation; € figures carry the "
     "procurement caveats and are never summed across grains."
 )
 
@@ -396,12 +405,13 @@ def access_to_contracts(limit: int = 25, order_by: str = "awards_eur") -> dict:
     """Companies that BOTH met ministers (in their published diaries) AND won/were paid public
     money, ranked. order_by ∈ {awards_eur, paid_eur, meetings, total_lobbying_returns}. Each row
     has meetings, ministers_met, awards_eur, paid_eur, the matched supplier, and TWO distinct
-    lobbying measures: `total_lobbying_returns` (returns the org itself filed naming a
-    politician — 0 can mean 'not matched', not 'never lobbied') and the register-wide
-    `on_lobbying_register` / `register_lobby_returns` (registrant OR client, from the same
-    entity-crosswalk spine as cross_register_watchlist). Access + money map, never causation;
-    diaries are self-curated/quarterly-in-arrears and the € carry the procurement caveats.
-    Surface the `caveat`."""
+    lobbying measures: `total_lobbying_returns` (returns naming a politician on which the org is
+    the registrant OR a named client — 0 can mean 'not matched', not 'never lobbied') and the
+    wider `on_lobbying_register` / `register_lobby_returns` (ALL returns, registrant OR client,
+    from the same entity-crosswalk spine as cross_register_watchlist). Never sum either across
+    organisations — one return attaches to its registrant and each client. Access + money map,
+    never causation; diaries are self-curated/quarterly-in-arrears and the € carry the procurement
+    caveats. Surface the `caveat`."""
     rows = _rows(mdiary.access_to_contracts(_cur(), limit=limit, order_by=order_by))
     if isinstance(rows, dict):  # {error}: source unavailable
         return rows

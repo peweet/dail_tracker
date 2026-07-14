@@ -33,6 +33,15 @@ SURNAME. Surname keys are crude (the diary minister is a filename guess like "Ry
 True here is indicative, not proof — and a common surname can collide. NEVER read this as
 influence/causation: it evidences ACCESS (lobbied + met), there is no outcome variable.
 
+REGISTRANT **OR** CLIENT (widened 2026-07-14 — see register_associations below). A return names
+two organisations: the REGISTRANT who filed it and, when the lobbying was done for hire, the
+CLIENT it was filed for. Matching the diary on the registrant ALONE — as this builder did until
+now — made every organisation that lobbies through a PR firm / public-affairs consultancy read as
+`total_lobbying_returns = 0` and never corroborated, right across the diary surface. Both keys are
+now matched, so `total_lobbying_returns` counts returns the org filed **or** was named as a client
+on. These are PER-ENTITY association counts and must NEVER be summed across organisations: one
+return legitimately attaches to both its registrant and each of its clients.
+
 Outputs -> data/sandbox/enrichment/
   diary_lobbying_overlap.parquet        one row per (meeting × matched org); the detail grain
   diary_lobbying_overlap_ranked.parquet one row per org: who met ministers most + corroboration
@@ -364,6 +373,60 @@ def surname_key(name: str | None) -> str:
     return last[:-1] if last.endswith("s") and len(last) > 4 else last
 
 
+# CLIENT-SIDE COLLISION GUARD (fail-closed). norm() strips descriptive words (ireland|irish|group|
+# holdings|the) as well as true legal suffixes. That is usually exactly what MAKES the client side
+# work — it bridges "Stryker"→"STRYKER IRELAND LIMITED", "Aldi"→"ALDI Ireland", "Glanbia plc"→
+# "Glanbia Ireland", "Depaul"→"Depaul Ireland" (15 such bridges, each hand-verified). But it
+# collapses two GENUINELY DIFFERENT entities when the stripped word carries the identity instead of
+# merely tagging it. A full classification sweep of every client-side link this widening creates
+# (261 exact-name matches + 6 acronym-bridge + those 15 suffix bridges) turned up exactly ONE:
+#     "Enterprise Ireland"           the STATE agency, 180 diary meetings        → key "enterprise"
+#     "Enterprise Holdings Limited"  the car-rental group, lobbying via Cullen   → key "enterprise"
+#                                    Communications / Hanover Media Strategy
+# Unguarded, the state agency inherits 25 returns and 14 "corroborated" ministers that belong to a
+# private company — a false claim about a public body. So the key is BLOCKED from contributing any
+# client-side association. Fail-closed, per this chain's standing rule that a miss is a false
+# negative, never a false claim. Values are org_key() OUTPUT keys; hand-vetted, one verified
+# collision each — extend only on evidence, never on suspicion.
+CLIENT_KEY_COLLISIONS: frozenset[str] = frozenset({"enterprise"})
+
+# Only the register columns the association build needs (the file is ~1.1M rows × 28 cols).
+REGISTER_COLS = ["lobbyist_name", "client_name", "full_name", "position", "lobby_url"]
+
+
+def register_associations(pol: pl.DataFrame) -> pl.DataFrame:
+    """Explode the register to one row per (ASSOCIATED org × return × politician).
+
+    An organisation is associated with a return if it is the REGISTRANT (``lobbyist_name``) or a
+    NAMED CLIENT (``client_name``) — the registrant-only join was blind to every org that lobbies
+    through a PR firm (the Roadstone defect; see the module docstring). Both sides are keyed with
+    the SAME org_key() the diary side uses, so either can match a diary organisation.
+
+    The two sides are STACKED, not joined: a return whose registrant and client fold to the same key
+    (an org filing for itself) contributes a row per side, but every downstream measure
+    de-duplicates — ``lobby_url`` n_unique for the counts, ``unique()`` for the (org, minister)
+    pairs — so a self-filed return can never be counted twice.
+
+    org_key/surname_key are Python UDFs and the register is ~1.1M rows, so the keys are computed
+    over the DISTINCT names and joined back: identical values, ~3% of the calls.
+    """
+
+    def keyed(col: str, fn: object, out: str) -> pl.DataFrame:
+        uniq = pol[col].unique().drop_nulls()
+        return pl.DataFrame({col: uniq}).with_columns(pl.col(col).map_elements(fn, return_dtype=pl.Utf8).alias(out))
+
+    keys = (
+        pol.join(keyed("lobbyist_name", org_key, "registrant_nk"), on="lobbyist_name", how="left")
+        .join(keyed("client_name", org_key, "client_nk"), on="client_name", how="left")
+        .join(keyed("full_name", surname_key, "min_sk"), on="full_name", how="left")
+    )
+    cols = ["org_nk", "min_sk", "lobby_url", "position"]
+    registrant = keys.rename({"registrant_nk": "org_nk"}).select(cols)
+    client = keys.rename({"client_nk": "org_nk"}).select(cols).filter(~pl.col("org_nk").is_in(CLIENT_KEY_COLLISIONS))
+    # rows with no client (self-filed returns) key to null/"" — drop, they carry no association
+    return pl.concat([registrant, client]).filter(pl.col("org_nk").fill_null("") != "")
+
+
 def main() -> int:
     setup_standalone_logging("diary_lobbying_overlap")
     for p in (ENTRIES, MENTIONS, POL):
@@ -408,17 +471,16 @@ def main() -> int:
         log.error("no overlap rows survived the strict filters — check inputs")
         return 1
 
+    # Register associations: the org is the return's REGISTRANT **or** one of its NAMED CLIENTS.
+    pol = register_associations(pl.read_parquet(POL, columns=REGISTER_COLS))
+
     # corroboration: (org_nk, minister surname) pairs the register says were lobbied as a Minister
-    pol = pl.read_parquet(POL).with_columns(
-        [
-            pl.col("lobbyist_name").map_elements(org_key, return_dtype=pl.Utf8).alias("org_nk"),
-            pl.col("full_name").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
-        ]
-    )
     pol_min = pol.filter(pl.col("position").fill_null("").str.contains("Minister"))
     lobbied_pairs = (
         pol_min.select(["org_nk", "min_sk"]).unique().with_columns(pl.lit(True).alias("lobbied_same_minister"))
     )
+    # per-ENTITY association count — distinct returns the org filed OR was named a client on.
+    # NEVER sum this across organisations: one return attaches to its registrant AND each client.
     returns_per_org = pol.group_by("org_nk").agg(pl.col("lobby_url").n_unique().alias("total_lobbying_returns"))
 
     overlap = (

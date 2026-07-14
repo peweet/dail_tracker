@@ -133,6 +133,83 @@ def _name_html(name: str, party: str) -> str:
 
 
 # ── COUNCIL-VIEW tabs ────────────────────────────────────────────────────────--
+# OPR/Ministerial-Direction outcomes → label + chip colour. Deuteranopia-safe (no red/green pair);
+# the override is the warm accent, the council being UPHELD is the cool blue used for "for" votes.
+_PLAN_OUTCOME = {
+    "direction_issued": ("Plan overruled by the Minister", "#c2410c"),
+    "minister_declined": ("Minister declined to overrule the council", "#1d4ed8"),
+    "in_progress": ("Under review — not concluded", "#6b7280"),
+    "suspension_notice": ("Part of the plan suspended (2024 Act)", "#6b7280"),
+}
+
+
+def _render_plan_overrides(county: str) -> None:
+    """The reserved-function override: the members adopt the development plan (and the zonings in
+    it), and the Planning Regulator can take that vote to the Minister, who may issue a Direction
+    that is deemed written into the plan — with no appeal.
+
+    HONESTY RAILS (see doc/LOCAL_DEMOCRACY_OVERRIDE_RESEARCH.md):
+      * NOT an 'overrides' counter — the register also records the Minister DECLINING to override
+        the members (Sligo, Kilkenny). Both outcomes are rendered, from the same view column.
+      * The power is RESTRICTIVE only — a Direction can strike a zoning, never create one.
+      * We do NOT characterise WHY any individual plan was overruled — the published Direction
+        states the Minister's reasons, and we link to it. No inference in the copy.
+      * This is NOT the appeals-board overturn rate (that overrules the Chief Executive's
+        planners, not the councillors) — different actors, never combined.
+    """
+    res = ycd.fetch_plan_directions(county)
+    if not res.ok:
+        return
+    evidence_heading("When the plan your councillors adopted was overruled")
+    if res.is_empty:
+        st.caption(
+            "No Ministerial Directions on record for this council's plans. Since 2019 the Office "
+            "of the Planning Regulator has reviewed every development plan — where it objects to "
+            "what the elected members adopted, it can ask the Minister to overrule them. That has "
+            "not happened here."
+        )
+        return
+
+    st.html(
+        '<p class="con-section-note">Adopting the development plan — and zoning land in it — is a '
+        "<strong>reserved function</strong>: one of the few decisions your elected councillors "
+        "actually take. But since 2019 the <strong>Office of the Planning Regulator</strong>, which "
+        "is not elected, reviews what they adopt. Where the members go against its recommendations, "
+        "it must refer the plan to the <strong>Minister</strong>, who can issue a <strong>Direction "
+        "that is deemed written into the plan</strong> — the councillors' wording is deemed never to "
+        "have been included. <strong>There is no appeal.</strong> The Minister can only <em>remove</em> "
+        "what the members put in; a Direction can strike a zoning, never create one. The Minister "
+        "does not always agree with the Regulator — where that happened, it is shown below.</p>"
+    )
+    for r in res.data.itertuples():
+        label, colour = _PLAN_OUTCOME.get(str(r.plan_outcome), ("Referred to the Minister", "#6b7280"))
+        span = (
+            f"{_h(str(r.first_doc_date))} → {_h(str(r.last_doc_date))}"
+            if str(r.first_doc_date) != str(r.last_doc_date)
+            else _h(str(r.last_doc_date))
+        )
+        src = (
+            f'<a href="{_h(str(r.outcome_doc_url))}" target="_blank" rel="noopener" '
+            f'style="font-size:.78rem">Read the Minister\'s decision ↗</a>'
+            if str(getattr(r, "outcome_doc_url", "") or "").startswith("http")
+            else ""
+        )
+        info_card(
+            f'<div style="font-weight:700;margin-bottom:.2rem">{_h(str(r.plan_name))}</div>'
+            f'<span style="background:{colour};color:#fff;border-radius:3px;padding:.05rem .5rem;'
+            f'font-size:.72rem;font-weight:600">{_h(label)}</span>'
+            f'<div style="color:var(--text-meta);font-size:.78rem;margin-top:.35rem">{span} · '
+            f"{int(r.n_documents)} published documents</div>"
+            f'<div style="margin-top:.3rem">{src}</div>',
+            border_left_color=colour,
+        )
+    st.caption(
+        "Source: the Planning Regulator's own register of recommendations to the Minister — the "
+        "de-facto national record, as these Directions are not published centrally. Each linked "
+        "document sets out the Minister's reasons in full."
+    )
+
+
 def _tab_councillors(county: str, lea: str) -> None:
     rr = ycd.fetch_roster(county, lea)
     if not (rr.ok and not rr.is_empty):
@@ -347,7 +424,7 @@ def your_councillors_page() -> None:
         return
 
     # ── COUNCIL view ──
-    if county and lea:
+    if county and lea:  # noqa: PLR1702
         if back_button("← Change area", key="area_back"):
             for k in ("clr_county", "clr_lea", "clr_name"):
                 qp.pop(k, None)
@@ -377,6 +454,8 @@ def your_councillors_page() -> None:
             "elected by the councillors each year.",
             border_left_color=_ACCENT,
         )
+
+        _render_plan_overrides(county)
 
         t1, t2, t3 = st.tabs(["Your councillors", "How it works", "Agendas"])
         with t1:
