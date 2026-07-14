@@ -296,6 +296,16 @@ CHAINS: list[tuple[str, str]] = [
     # data. Monitoring only here (always exits 0); CI/scheduled runs use --strict to
     # gate, and --update-baseline accepts an intended change. Pure read.
     ("output_regressions", "tools/check_output_regressions.py"),
+    # extraction_quality runs last: the MATCH-RATE guard (vs output_regressions' row/column
+    # completeness). Row count can look healthy while the extracted FIELDS silently degrade
+    # (blank/garbled/unmatched) — a PDF/HTML layout drift that keeps producing roughly the
+    # same row count but garbage content. Compares the matched-vs-total ratios extractors
+    # already publish to data/_meta/*_coverage.json (PILOT: judiciary_diary_link,
+    # entity_xref — see tools/check_extraction_quality.py ADAPTERS to extend) against
+    # data/_meta/extraction_quality_baseline.json. Monitoring only here (always exits 0);
+    # CI/scheduled runs use --strict to gate, --update-baseline accepts an intended change.
+    # Pure read.
+    ("extraction_quality", "tools/check_extraction_quality.py"),
 ]
 
 _CHAIN_BLURBS: dict[str, str] = {
@@ -345,6 +355,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
     "output_regressions": "completeness guard: gold row/column drop vs baseline -> data/_meta/output_regressions.json",
+    "extraction_quality": "match-rate guard: coverage-JSON matched/total ratio drop vs baseline (pilot: judiciary_diary_link, entity_xref) -> data/_meta/extraction_quality_regressions.json",
 }
 
 _SUMMARY_SKIP_PREFIXES = ("warning:", "warn:", "[warn", "deprecation")

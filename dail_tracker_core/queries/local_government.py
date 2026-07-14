@@ -83,6 +83,20 @@ def housing_performance(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult
     return _run(conn, "SELECT * FROM v_la_housing_performance WHERE local_authority = ?", [la])
 
 
+def lgas_audit(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """The independent LGAS statutory audit reports for one council, newest first — the
+    auditor's own opinion + findings on each year's AFS. Verbatim only (opinion text, literal
+    heading flags); no derived score. Executive accountability: the CE administers the accounts
+    the auditor examines, councillors sign none of it."""
+    return _run(
+        conn,
+        "SELECT year, audit_opinion_text, has_emphasis_of_matter, has_ce_response, "
+        "section_headings, pages, report_page_url "
+        "FROM v_la_lgas_audit WHERE local_authority = ? ORDER BY year DESC",
+        [la],
+    )
+
+
 def council_money(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     """Council procurement scale (purchase orders / payments over €20k) — context for
     the size of money the executive signs off. Only ~23/31 councils publish."""

@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-07-14T06:09:18+00:00",
+  "source": "https://www.opr.ie/recommendations-made-by-the-opr-to-the-minister/",
+  "grain": "one row per (plan, published document); plan_outcome repeated per row",
+  "plans": 33,
+  "councils": [
+    "Clare",
+    "Cork City",
+    "Cork County",
+    "Donegal",
+    "Dun Laoghaire-Rathdown",
+    "Fingal",
+    "Galway City",
+    "Galway County",
+    "Kerry",
+    "Kilkenny",
+    "Laois",
+    "Limerick",
+    "Mayo",
+    "Meath",
+    "Monaghan",
+    "Roscommon",
+    "Sligo",
+    "South Dublin",
+    "Westmeath",
+    "Wicklow"
+  ],
+  "documents": 142,
+  "outcomes": {
+    "direction_issued": 28,
+    "in_progress": 2,
+    "suspension_notice": 1,
+    "minister_declined": 2
+  },
+  "unmapped_plans": [],
+  "caveat": "Councillors' development-plan/zoning votes reviewed by the OPR. NOT an overrides counter \u2014 outcomes include the Minister DECLINING to follow the OPR, plans in progress, and s.63(6) suspensions. The Minister/OPR can strike a zoning, never create one. NEVER merge with planning_appeal_outcomes (which measures the board overturning the CHIEF EXECUTIVE's planners, not councillors)."
+}

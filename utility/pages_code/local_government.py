@@ -39,6 +39,7 @@ from data_access.local_government_data import (
     fetch_derelict_sites_levy_result,
     fetch_housing_performance_result,
     fetch_la_map_layers_result,
+    fetch_lgas_audit_result,
     fetch_la_outlines,
     fetch_national_summary_result,
     fetch_noac_indicators_result,
@@ -544,6 +545,46 @@ def _card_derelict(name: str) -> str:
     return _stat_card("Derelict sites", rows, "Dept of Housing Derelict Sites annual return 2024", extra=badge)
 
 
+def _card_audit(name: str) -> str:
+    """The LGAS statutory audit report — the independent auditor's own words on the council's
+    AFS. VERBATIM only: the opinion sentence and the emphasis-of-matter flag come straight from
+    the report (no derived good/bad score). The clearest external-accountability signal there is."""
+    res = fetch_lgas_audit_result(name)
+    if not res.ok or res.data.empty:
+        return ""
+    latest = res.data.iloc[0]
+    yr = str(int(latest.get("year")))  # plain year — never thousands-separated ("2024" not "2,024")
+    n_years = len(res.data)
+    eom = bool(latest.get("has_emphasis_of_matter"))
+    # emphasis-of-matter = the auditor is drawing readers' attention to something in the accounts;
+    # state it factually, never as a verdict (no-inference rule)
+    flag = (
+        '<div class="lg-badge">⚑ Latest report carries an “Emphasis of Matter”</div>'
+        if eom
+        else ""
+    )
+    opinion = str(latest.get("audit_opinion_text") or "").strip()
+    snippet = (opinion[:280].rsplit(" ", 1)[0] + "…") if len(opinion) > 280 else opinion
+    quote = (
+        f'<div class="lg-audit-quote">“{_h(snippet)}”</div>'
+        if snippet
+        else ""
+    )
+    rows = [
+        _metric(str(yr), "Most recent audited year"),
+        _metric(str(n_years), f"Audit reports published (2012–{yr})"),
+    ]
+    url = str(latest.get("report_page_url") or "")
+    return _stat_card(
+        "Independent audit (LGAS)",
+        rows,
+        f"Local Government Audit Service statutory audit report, {yr}. The auditor examines the "
+        "accounts the Chief Executive administers; councillors sign none of it.",
+        extra=flag + quote,
+        src_url=url,
+    )
+
+
 def _card_planning(name: str) -> str:
     ov = fetch_planning_overturn_result(name)
     if not ov.ok or ov.data.empty:
@@ -694,6 +735,7 @@ def _render_performance(name: str) -> None:
         _card_housing(name),
         _card_derelict(name),
         _card_planning(name),
+        _card_audit(name),
         _card_council_money(name),
         _card_how_run(name),
         _card_services(name),

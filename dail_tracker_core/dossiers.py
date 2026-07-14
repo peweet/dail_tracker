@@ -134,7 +134,10 @@ def build_member_dossier(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str
             "latest_year": latest_year,
             "days_in_chamber_latest": days_latest,
             "votes_cast": votes_cast,
-            "divisions": divisions,
+            # td_vote_summary only has rows for votes cast, so this is the count of
+            # divisions the member PARTICIPATED in — a career divisions-held
+            # denominator is not derivable (named-division gold starts 2025).
+            "divisions_participated": divisions,
             "payments_total_eur": pay_total,
         },
         "attendance_by_year": serialize.to_records(att),

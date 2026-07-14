@@ -25,7 +25,7 @@ from _common import BRONZE, SILVER, now_iso
 
 PDF = BRONZE / "cag_reports" / "pdf" / \
     "10-management-of-international-protection-accommodation-contracts-copy.pdf"
-SRC_URL = ("https://www.audit.gov.ie/media/kudhih1z/"
+SRC_URL = ("https://www.audit.gov.ie/media/huahyz0u/"
            "10-management-of-international-protection-accommodation-contracts-copy.pdf")
 
 R = []  # (page, ref, category, metric, value, unit, qual, period, scope, notes)

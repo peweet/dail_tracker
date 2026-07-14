@@ -77,6 +77,11 @@ def fetch_noac_scorecard_result(la: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_lgas_audit_result(la: str) -> QueryResult:
+    return _q.lgas_audit(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
 def fetch_cash_signals_result(la: str) -> QueryResult:
     return _q.cash_signals(get_constituency_conn(), la)
 

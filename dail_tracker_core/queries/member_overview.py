@@ -261,7 +261,6 @@ def votes_summary(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult
         [join_key],
     )
 
-
 def pay_overview(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
     return _run(
         conn,
