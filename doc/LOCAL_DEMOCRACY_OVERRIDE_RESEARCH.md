@@ -1,5 +1,14 @@
 # How Councillors Get Overruled — research findings for a local-democracy piece
 
+> **TIER: CONTEXT — NOT FOR THE APP FRONT END.**
+> This is the *library*: long-form, cited, auditable — go here to CHECK a claim. The narrative and
+> historical material below (Mahon, s.4 motions, dissolutions, the Council of Europe critique) fails
+> the promotion gate — it is not per-council, not refreshable, and partly evaluative. See
+> [[feedback_promote_vs_context_gate]]. The durable, cross-referenceable claims — and the list of
+> claims that are WRONG — are distilled in memory: `reference_local_government_domain`.
+> Only the Schedule 14A register, the OPR Directions fact, and the per-council usage data are
+> promotable; see [LOCAL_DEMOCRACY_FEATURE_DESIGN.md](LOCAL_DEMOCRACY_FEATURE_DESIGN.md) §6.
+
 **Date:** 2026-07-14 · **Status:** RESEARCH + BUILD ASSESSMENT. Nothing built; no data ingested.
 **Origin:** owner found that the Office of the Planning Regulator can effectively overrule councillors on rezoning, and asked what other override mechanisms exist.
 **Method:** 4 parallel research strands (planning-plan overrides · planning bypass/appeal · money & governance · data availability), each source-cited; the two sharpest legal claims re-verified by me against the primary text (Law Reform Commission *Revised Acts*).

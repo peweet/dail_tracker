@@ -3,7 +3,7 @@
 Given a point (and a development type), evaluate which planning *issues* the site
 triggers, quote the governing rule verbatim from the per-council rulebook, and attach
 ACP precedent — never a grant/refuse verdict or a design prescription (see
-doc/PLANNING_SITING_DECISION_TREE.md §1 + memory feedback_no_inference_in_app).
+doc/archive/PLANNING_SITING_DECISION_TREE.md §1 + memory feedback_no_inference_in_app).
 
 Layout (built incrementally):
   catalogue.py — load planning_rules/issue_catalogue.yaml into typed nodes

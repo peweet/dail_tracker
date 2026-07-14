@@ -3,7 +3,7 @@ Income & Expenditure by SERVICE DIVISION, every published year (2009–2024).
 
 Source: Dept of Housing 'Local Authority Annual Financial Statements' collection (gov.ie),
 audited amalgamation of all 31 LAs. The unique BUDGET/SPENT-by-function macro layer (the
-only COMPLETE, AUDITED total — see doc/PROCUREMENT_INVESTIGATION.md). PRE-ETL: writes a
+only COMPLETE, AUDITED total — see doc/PROCUREMENT_MASTER.md). PRE-ETL: writes a
 tidy parquet to data/sandbox/parquet/ (NOT gold, NOT wired to pipeline.py).
 
 Per year: download → find the I&E-by-division statement page (≥6 division labels + a

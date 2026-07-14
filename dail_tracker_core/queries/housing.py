@@ -39,6 +39,62 @@ def supply_national(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_housing_supply_national")
 
 
+# ── International-protection accommodation ────────────────────────────────────
+# Retrieval only. Every figure here is AUDIT/REGULATOR NARRATIVE grain
+# (value_safe_to_sum=False) — never sum it, never union it with the payments facts.
+
+
+def ipas_la_profile(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """IP applicants by local authority + per-1,000 population + the C&AG's own band.
+    The council-map contract. 31 LAs; the counts sum to the source's published total."""
+    return _run(conn, "SELECT * FROM v_ipas_la_profile")
+
+
+def ipas_operators(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Named centre operators, their HIQA compliance record, and the public money they
+    received. Identity-gated: only exactly-resolved operators are present.
+    NEVER CAUSAL — the compliance and payment windows differ (see the view's caveat)."""
+    return _run(conn, "SELECT * FROM v_ipas_operators")
+
+
+def ipas_centre_compliance(
+    conn: duckdb.DuckDBPyConnection, county: str | None = None
+) -> QueryResult:
+    """Per-centre, per-standard HIQA judgments with the standard's binding statement.
+    Optionally filtered to one county (the map drill-down)."""
+    if county:
+        return _run(
+            conn,
+            "SELECT * FROM v_ipas_centre_compliance WHERE county = ? "
+            "ORDER BY centre_name, standard_ref",
+            [county],
+        )
+    return _run(conn, "SELECT * FROM v_ipas_centre_compliance ORDER BY centre_name, standard_ref")
+
+
+def ipas_property_rates(
+    conn: duckdb.DuckDBPyConnection, county: str | None = None
+) -> QueryResult:
+    """What a bed actually costs per person per night (C&AG Annex 10A sample of 20).
+    Rates the auditor recorded as 'Unclear' stay NULL — they are not imputed."""
+    if county:
+        return _run(conn, "SELECT * FROM v_ipas_property_rates WHERE county = ?", [county])
+    return _run(conn, "SELECT * FROM v_ipas_property_rates")
+
+
+def ipas_entitlements(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """What an applicant is entitled to in law, beside what the auditor/inspector found."""
+    return _run(conn, "SELECT * FROM v_ipas_entitlements")
+
+
+def ipas_citations(conn: duckdb.DuckDBPyConnection, doc_key: str | None = None) -> QueryResult:
+    """The citation backing store — for the provenance footer. Read this to SOURCE a
+    figure, never to aggregate one (it is an archive, not a serving table)."""
+    if doc_key:
+        return _run(conn, "SELECT * FROM v_ipas_facts WHERE doc_key = ?", [doc_key])
+    return _run(conn, "SELECT * FROM v_ipas_facts")
+
+
 def accommodation_spend_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """State asylum (international-protection) + Ukraine accommodation spend per year,
     split by stream — from the published over-€20k purchase-order registers."""

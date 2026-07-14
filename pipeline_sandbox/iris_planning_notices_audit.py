@@ -25,7 +25,7 @@ KEY FINDING (no-inference): Iris carries the national planning LEGISLATION
 thin band of local-authority planning + CPO/road-scheme notices. It does NOT
 carry per-application planning permission decisions or per-site Section 5
 exempted-development declarations — those live on council registers (consistent
-with doc/PLANNING_PERMISSION_SCOPING.md §10.1).
+with doc/archive/PLANNING_PERMISSION_SCOPING.md §10.1).
 """
 
 from __future__ import annotations
@@ -161,7 +161,7 @@ def main() -> None:
         "> marine (Foreshore) consents + An Bord Pleanála items + a thin band of local-authority",
         "> planning & CPO/road-scheme notices. It does **not** carry per-application planning",
         "> permission decisions or per-site Section 5 exempted-development declarations (those are",
-        "> on council registers — see doc/PLANNING_PERMISSION_SCOPING.md §10.1).",
+        "> on council registers — see doc/archive/PLANNING_PERMISSION_SCOPING.md §10.1).",
         "",
         "## Counts by sub-type",
         "",

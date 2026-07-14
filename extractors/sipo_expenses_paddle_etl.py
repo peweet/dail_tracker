@@ -1,6 +1,6 @@
 """SIPO GE2024 candidate-expenses extractor — MULTI-PARTY, TWO-STAGE.
 
-Validated approach (doc/SIPO_OCR_INVESTIGATION.md): the scans are crisp; Tesseract
+Validated approach (doc/SIPO_OCR_REMAINING_QUEUE.md): the scans are crisp; Tesseract
 mangled them. Re-OCR the raster with PaddleOCR (free, local, Apache-2.0) and feed
 the cells into a geometry + 43-constituency closed-set anchor.
 
@@ -447,7 +447,7 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
         # the candidate name is split across two text-layer lines; that two-line
         # layout occasionally spawns a phantom constituency anchor with no name cell
         # beside it (the deeper name-pairing limitation is documented in
-        # doc/SIPO_OCR_INVESTIGATION.md). A candidate-expenses fact with no candidate
+        # doc/SIPO_OCR_REMAINING_QUEUE.md). A candidate-expenses fact with no candidate
         # isn't usable — drop it transparently rather than ship a blank-name row. We
         # never invent the missing name (faithful-extraction).
         nameless = df.filter(pl.col("candidate_name_raw").str.strip_chars() == "")

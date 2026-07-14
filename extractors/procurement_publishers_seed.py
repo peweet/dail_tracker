@@ -2,7 +2,7 @@
 
 Companion to the local-authority registry (procurement_la_seed.py /
 procurement_la_registry.py). Where that one covers the 31 councils, this one seeds the
-*other* public-money publishers named in doc/PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md:
+*other* public-money publishers named in doc/PROCUREMENT_MASTER.md:
 semi-state bodies, OPW/property, central departments, agencies/regulators, health, and
 education — plus FOI/AIE-only leads kept separate.
 
@@ -515,7 +515,7 @@ SEEDS: list[dict] = [
     ),
     # ============================ 5.9 DISCOVERY SWEEP 2026-06-04 ========================
     # Bodies absent from the original seed, surfaced by the category-2 discovery sweep
-    # (doc/PROCUREMENT_SOURCE_DISCOVERY_2026_06_04.md) after the NPHDB finding. Landing URLs
+    # (doc/PROCUREMENT_MASTER.md) after the NPHDB finding. Landing URLs
     # were seen in live search/fetch and look supplier-level, but status stays
     # NEEDS_MANUAL_CHECK — the probe must byte-confirm before any CONFIRMED claim. Grain/
     # format hints + direct-file URLs are parked in notes for the probe + later wiring.

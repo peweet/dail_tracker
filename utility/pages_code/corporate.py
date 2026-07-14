@@ -28,6 +28,44 @@ Sections (top → bottom):
      Cards carry a CBI authorisation badge when notice_ref matches the
      sandbox cross-ref.
   6. Detail view on ?ref= (also carries the CBI badge when matched)
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~27,662 tokens (2,435 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     156-886    _inject_corp_css
+#     887-911    load_corporate
+#     912-924    _row_cbi_badge
+#     925-930    load_cbi_repeat_distress
+#     931-936    load_cbi_enforcement
+#     937-944    load_brand_aliases
+#     945-950    _safe
+#     951-954    _pretty_subtype
+#     955-968    _subtype_pill_class
+#     969-983    _card_name
+#     984-999    _apply_filters
+#    1000-1022   _clear_facet
+#    1023-1207   _render_featured
+#    1208-1272   _render_this_year_callout
+#    1273-1330   _render_operator_strip
+#    1331-1349   _firm_notice_mask
+#    1350-1364   _explode_fund_counts
+#    1365-1389   _firm_ranked_rows
+#    1390-1505   _render_firm_view
+#    1506-1586   _render_methodology_expander
+#    1587-1655   _shorten_register
+#    1656-1711   _render_cbi_repeat_distress
+#    1712-1726   _fine_eur
+#    1727-1798   _render_cbi_enforcement
+#    1799-1880   _render_rescue_panel
+#    1881-1898   _active_filter_chips
+#    1899-1979   _render_facets
+#    1980-2028   _render_card
+#    2029-2105   _render_feed
+#    2106-2210   _render_detail
+#    2211-2415   corporate_page
+#    2416-2435   Provenance
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations

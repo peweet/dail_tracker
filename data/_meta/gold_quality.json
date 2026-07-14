@@ -5,19 +5,19 @@
       "output": "cro_xref_corporate_notices.parquet",
       "kind": "DUP_INCREASE",
       "baseline": 602,
-      "now": 798
+      "now": 802
     },
     {
       "output": "judicial_legal_diary_cases.parquet",
       "kind": "DUP_INCREASE",
       "baseline": 1493,
-      "now": 2032
+      "now": 2458
     },
     {
       "output": "judicial_legal_diary_counts.parquet",
       "kind": "DUP_INCREASE",
       "baseline": 74,
-      "now": 101
+      "now": 127
     },
     {
       "output": "si_current_state.parquet",
@@ -42,6 +42,10 @@
   ],
   "summary": {
     "tables_with_all_null_cols": {
+      "ipas_la_profile.parquet": [
+        "population_unknown_reason",
+        "unknown_reason"
+      ],
       "judiciary_bench.parquet": [
         "assignment",
         "assignment_term"
@@ -63,32 +67,32 @@
     },
     "tables_with_dup_rows": {
       "cbi_xref_corporate_notices.parquet": {
-        "dup_rows": 4,
-        "rows": 253
+        "dup_rows": 7,
+        "rows": 260
       },
       "corporate_notices.parquet": {
-        "dup_rows": 1159,
-        "rows": 50844
+        "dup_rows": 1163,
+        "rows": 51149
       },
       "corporate_notices_enriched.parquet": {
-        "dup_rows": 1159,
-        "rows": 50844
+        "dup_rows": 1163,
+        "rows": 51149
       },
       "cro_xref_corporate_notices.parquet": {
-        "dup_rows": 798,
-        "rows": 27236
+        "dup_rows": 802,
+        "rows": 27396
       },
       "judicial_legal_diary_cases.parquet": {
-        "dup_rows": 2032,
-        "rows": 8473
+        "dup_rows": 2458,
+        "rows": 10110
       },
       "judicial_legal_diary_counts.parquet": {
-        "dup_rows": 101,
-        "rows": 821
+        "dup_rows": 127,
+        "rows": 981
       },
       "judicial_legal_diary_openview_cases.parquet": {
-        "dup_rows": 228111,
-        "rows": 786090
+        "dup_rows": 226120,
+        "rows": 785897
       },
       "judiciary_courts_clearance.parquet": {
         "dup_rows": 64,
@@ -96,11 +100,11 @@
       },
       "public_appointments.parquet": {
         "dup_rows": 4,
-        "rows": 1149
+        "rows": 1152
       },
       "stateboards_roster.parquet": {
         "dup_rows": 12,
-        "rows": 2070
+        "rows": 2050
       }
     },
     "tables_with_encoding_artifacts": {
@@ -121,6 +125,10 @@
       "eu_tam_state_aid.parquet": {
         "entrusted_entity": 5,
         "financial_intermediary": 8
+      },
+      "ipas_facts.parquet": {
+        "unit": 6,
+        "confidence": 9
       },
       "most_lobbied_politicians.parquet": {
         "full_name": 1

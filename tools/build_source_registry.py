@@ -118,6 +118,50 @@ def adapt_oireachtas(sources: dict) -> list[dict]:
     return out
 
 
+def adapt_ipas(sources: list[dict]) -> list[dict]:
+    """ipas_sources.IPAS_SOURCES — the asylum/international-protection accommodation
+    corpus (C&AG, HIQA, IGEES, IPAS weekly stats, National Standards, Strategy).
+
+    Extractors still live in ``pipeline_sandbox/new_sources/`` (hand-run), so
+    ``parser_wired=False`` / ``status="sandbox"`` — but they ARE registered so that
+    health/freshness notice when an upstream document goes stale. Without this the
+    corpus rots silently: HIQA publishes new inspection reports and IPAS publishes a
+    new weekly statistics PDF, and nothing would tell us.
+
+    ``cloud_safe=False`` sources are gov.ie-family (assets.gov.ie / hiqa.ie) whose CDN
+    403s datacenter IPs — they belong on the local/edge refresh lane, not GitHub
+    Actions. That constraint is carried into the caveat so it survives into the JSON.
+    """
+    out = []
+    for s in sources:
+        caveat = s.get("caveat") or ""
+        if not s.get("cloud_safe", True):
+            caveat = (
+                "NOT CLOUD-SAFE (gov.ie-family CDN 403s datacenter IPs; local/edge lane "
+                "only, browser UA + Referer, pace >=5s). " + caveat
+            ).strip()
+        out.append(
+            _record(
+                source_id=f"ipas_accommodation:{s['id']}",
+                group="ipas_accommodation",
+                owner_module="pipeline_sandbox.new_sources",
+                name=s["name"],
+                check_type=s["check_type"],
+                listing_url=s.get("listing_url"),
+                grain=s.get("grain"),
+                value_semantics="audit_report_narrative",  # never summable
+                privacy_risk="provider_names_public_display_gated",
+                status="sandbox",
+                pollable=True,
+                parser_wired=False,
+                refresh_mode="manual",
+                stale_after_days=s.get("stale_after_days"),
+                caveat=caveat or None,
+            )
+        )
+    return out
+
+
 def adapt_public_body(publishers: list[dict]) -> list[dict]:
     """procurement_public_body_extract.PUBLISHERS — list of cfg() dicts. Parse
     targets, not yet wired into pipeline.py (parser_wired=False)."""
@@ -400,6 +444,11 @@ def build_records() -> list[dict]:
 
         return adapt_oireachtas(SOURCES)
 
+    def _ipas():
+        from ipas_sources import IPAS_SOURCES
+
+        return adapt_ipas(IPAS_SOURCES)
+
     def _public_body():
         from procurement_public_body_extract import PUBLISHERS
 
@@ -441,6 +490,7 @@ def build_records() -> list[dict]:
         return adapt_cro_fs(FS_META)
 
     _try("oireachtas_pdfs", _oireachtas)
+    _try("ipas_accommodation", _ipas)
     _try("public_body_payments", _public_body)
     _try("local_authority_payments", _la)
     _try("afs_amalgamated", _afs)

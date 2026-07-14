@@ -1,7 +1,7 @@
 """One-shot data patch: repair the ``paid_flag`` column-misalignment leak in the
 already-written payment facts (silver + gold), offline.
 
-WHY: the 2026-06-22 DQ audit (doc/DATA_QUALITY_AUDIT.md) found that ~16% of
+WHY: the 2026-06-22 DQ audit (doc/archive/DATA_QUALITY_AUDIT.md) found that ~16% of
 ``public_payments_fact`` rows carried non-flag content in ``paid_flag`` — leaked
 category text, payment-month dates, or amounts — because the generic public-body
 parser's column-role heuristic grabbed the wrong column for some publishers. The

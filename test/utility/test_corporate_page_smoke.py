@@ -11,6 +11,7 @@ wrong percentage fails the test (verified by mutation — see the asserts).
 Run:  pytest test/utility/test_corporate_page_smoke.py -v
 """
 
+import importlib
 import sys
 from pathlib import Path
 
@@ -18,10 +19,15 @@ import pandas as pd
 import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(_ROOT / "utility"))
-sys.path.insert(0, str(_ROOT / "utility" / "pages_code"))
+for _p in (str(_ROOT), str(_ROOT / "utility"), str(_ROOT / "utility" / "pages_code")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-import corporate  # noqa: E402
+# Import by dotted path: a bare ``import corporate`` resolves to the root-level
+# ``corporate/`` ETL package whenever that package is already in sys.modules (it is,
+# once test/corporate/ has run — which is every full-suite/CI run, alphabetically),
+# and the page's attributes then appear to be missing. Same trap as test_votes_page.py.
+corporate = importlib.import_module("utility.pages_code.corporate")
 
 
 @pytest.fixture

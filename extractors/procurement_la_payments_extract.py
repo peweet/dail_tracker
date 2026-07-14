@@ -1,7 +1,7 @@
 """LA Purchase-Orders / Payments over €20,000 — 31-council per-transaction fact.
 
 The per-transaction COMMITTED/SPENT layer of the procurement lifecycle (see
-doc/PROCUREMENT_INVESTIGATION.md "LA PO corpus" + doc/PROCUREMENT_BUILD_PLAN.md §4b/§8b).
+doc/PROCUREMENT_MASTER.md "LA PO corpus" + doc/PROCUREMENT_MASTER.md §4b/§8b).
 Circular Fin 07/2012 obliges every local authority to publish its purchase-orders (or
 payments) over €20k; each does so on its OWN website in a near-converged
 `Supplier · Amount(€) · Description` shape. This builds them into ONE silver fact.
@@ -29,6 +29,54 @@ Run:
   ./.venv/Scripts/python.exe extractors/procurement_la_payments_extract.py --list
   ./.venv/Scripts/python.exe extractors/procurement_la_payments_extract.py --only south_dublin,cork_county
   ./.venv/Scripts/python.exe extractors/procurement_la_payments_extract.py --max-files 6
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~17,677 tokens (1,639 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     128-163    regexes
+#     164-164    CONFIG
+#     165-314    la
+#     315-374    tabular (XLSX / CSV) — no PDF parsing
+#     375-512    digital PDF (fitz largest-x-gap; NO OCR)
+#     513-580    one-hop crawl from the landing page
+#     581-610    NEEDS-RENDER to enumerate, but file URLs are known → fetch d
+#     611-644    NEEDS-RENDER, no known direct URL → Playwright enumeration d
+#     645-688    non-publishers (kept for the full 31 census; never parsed)
+#     689-692    hr
+#     693-697    fetch
+#     698-709    _curl
+#     710-727    fetch_bytes
+#     728-732    fetch_text
+#     733-754    fetch_to_bronze
+#     755-755    harvest
+#     756-831    harvest_files
+#     832-836    _url_year
+#     837-837    readers
+#     838-853    to_eur
+#     854-859    strip_id_prefix
+#     860-860    PDF: layout-agnostic largest-x-gap split (proven in probe_pr
+#     861-877    cluster_word_rows
+#     878-902    split_row
+#     903-932    read_pdf
+#     933-993    read_pdf_offaly
+#     994-1047   read_pdf_reading_order
+#    1048-1048   XLSX / CSV: header-detect + content-fallback (handles odd he
+#    1049-1086   _col_roles
+#    1087-1096   read_xlsx
+#    1097-1106   read_xls
+#    1107-1120   read_csv
+#    1121-1175   _tabular_rows
+#    1176-1176   period
+#    1177-1188   period_from_url
+#    1189-1204   period_from_text
+#    1205-1205   extract
+#    1206-1300   emit_file
+#    1301-1400   classify_and_flag
+#    1401-1401   main
+#    1402-1552   main
+#    1553-1639   Cross-period republish de-duplication
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations

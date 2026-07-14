@@ -1,5 +1,5 @@
 -- v_judiciary_judge_diary — anonymised Legal Diary listings PER ROSTER JUDGE.
--- Sources (UNIONED, disjoint by court — see doc/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md):
+-- Sources (UNIONED, disjoint by court — see doc/archive/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md):
 --   data/gold/parquet/judicial_legal_diary_cases.parquet           (.docx — HIGH COURT only)
 --   data/gold/parquet/judicial_legal_diary_openview_cases.parquet  (OpenView — Circuit +
 --     Supreme/Appeal/Central Criminal, with full history)

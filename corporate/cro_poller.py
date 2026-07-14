@@ -62,7 +62,7 @@ logger = logging.getLogger("cro_poller")
 # the FULL-register silver join: one ~46MB fetch beats ~26 paginated API pages of
 # 815k rows. Sibling dataset `financial-statements` explored 2026-06-04 — a
 # filing INDEX (PDF pointer + dates), not financial figures; see
-# doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.
+# doc/SOURCES.md.
 
 # ── source config (read by tools/build_source_registry.py) ───────────────────
 CKAN_BASE = "https://opendata.cro.ie"

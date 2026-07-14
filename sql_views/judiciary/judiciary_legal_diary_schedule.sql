@@ -1,5 +1,5 @@
 -- v_judiciary_legal_diary_schedule — daily judge sitting-schedule (Tier A).
--- Sources (UNIONED, disjoint by court — see doc/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md):
+-- Sources (UNIONED, disjoint by court — see doc/archive/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md):
 --   data/gold/parquet/judicial_legal_diary_schedule.parquet           (.docx — HIGH COURT only)
 --   data/gold/parquet/judicial_legal_diary_openview_schedule.parquet  (OpenView — Circuit +
 --     Supreme/Appeal/Central Criminal)

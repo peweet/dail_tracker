@@ -7,7 +7,7 @@ Planning-related notices identified: **740** (1.5% of corpus).
 > marine (Foreshore) consents + An Bord Pleanála items + a thin band of local-authority
 > planning & CPO/road-scheme notices. It does **not** carry per-application planning
 > permission decisions or per-site Section 5 exempted-development declarations (those are
-> on council registers — see doc/PLANNING_PERMISSION_SCOPING.md §10.1).
+> on council registers — see doc/archive/PLANNING_PERMISSION_SCOPING.md §10.1).
 
 ## Counts by sub-type
 

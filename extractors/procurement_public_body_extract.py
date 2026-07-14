@@ -31,6 +31,73 @@ Run:
   ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py --list --only ie_opw,ie_tii
   ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py                   # full ingest
   ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py --only ie_hse --max-files 2
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~34,775 tokens (2,983 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     188-355    regexes
+#     356-362    CONFIG
+#     363-400    cfg
+#     401-448    Tier A: clean tabular / high-confidence PDF
+#     449-527    Cheap wins 2026-06-08: gov.ie / enterprise.gov.ie department
+#     528-593    Tier F: government departments (gov.ie collections) — discov
+#     594-599    Tier B: OWNED BY A SEPARATE CONTEXT (procurement_hse_tusla_p
+#     600-725    Tier C: needed a corrected listing URL or a parser fix
+#     726-869    Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_SOURCE_D
+#     870-916    Tier E: regulators / cultural bodies (discovery sweep 2 — co
+#     917-999    Batch A 2026-06-19: clean candidates from the seed (procurem
+#    1000-1022   Batch B 2026-06-20: PROBE-FIRST (test parse quality before p
+#    1023-1023   fetch
+#    1024-1035   _curl
+#    1036-1053   fetch_bytes
+#    1054-1058   fetch_text
+#    1059-1081   fetch_to_bronze
+#    1082-1082   harvest
+#    1083-1169   harvest_files
+#    1170-1170   readers
+#    1171-1186   to_eur
+#    1187-1201   clean_supplier
+#    1202-1211   quarter_from_name
+#    1212-1220   period_from_url
+#    1221-1221   PDF (header-anchored)
+#    1222-1238   cluster_word_rows
+#    1239-1249   find_header
+#    1250-1263   header_columns
+#    1264-1277   assign_role
+#    1278-1289   row_to_cols
+#    1290-1319   refine_roles
+#    1320-1358   read_pdf
+#    1359-1373   reading-order PDF (DCEDIY / dept_children)
+#    1374-1465   read_reading_order
+#    1466-1574   read_courts
+#    1575-1582   _dd_supplier_first
+#    1583-1639   read_defence
+#    1640-1653   Revenue Commissioners reading-order reader. Each record is t
+#    1654-1699   read_revenue
+#    1700-1709   Tailte Éireann reading-order reader. Same shape as the Court
+#    1710-1784   read_tailte
+#    1785-1804   DPER / OGCIO reading-order reader. Two layout families under
+#    1805-1880   read_dper
+#    1881-1890   Dept of Culture reading-order reader. NO reference/PO column
+#    1891-1952   read_culture
+#    1953-2097   read_housing
+#    2098-2158   read_pdf_reading_order_fallback
+#    2159-2159   XLSX / XLS / CSV
+#    2160-2180   _tabular_from_raw
+#    2181-2188   read_xlsx
+#    2189-2196   read_xls
+#    2197-2230   read_csv
+#    2231-2278   detect_roles_tab
+#    2279-2279   extract
+#    2280-2552   emit_rows
+#    2553-2623   dedup_source_repeats
+#    2624-2645   canonicalise_supplier_raw
+#    2646-2664   flag_unidentifiable_suppliers
+#    2665-2737   classify_and_flag
+#    2738-2738   main
+#    2739-2983   main
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations
@@ -656,7 +723,7 @@ PUBLISHERS: list[dict] = [
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|over.?20k",
         caveat="agency (not DETE dept) procurement-policy page; quarterly XLSX 'Payments over €20,000' 2012-present",
     ),
-    # ---- Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_SOURCE_DISCOVERY_2026_06_04.md) --
+    # ---- Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_MASTER.md) --
     # Probe-confirmed, generic-reader-clean. Held back for bespoke/render passes (NOT here):
     #   Beaumont + Pobal (dual/MIXED PO+payment grain — need value_kind split),
     #   Coimisiún na Meán + Irish Prison Service (scanned PDFs — need OCR),

@@ -1,6 +1,6 @@
 """Your Councillors — runnable SANDBOX prototype (assessment only; NOT wired into the prod app/gold).
 
-Implements the 3-screen flow from doc/YOUR_COUNCILLORS_UI_BRIEF.md over the sandbox data:
+Implements the 3-screen flow from doc/archive/YOUR_COUNCILLORS_UI_BRIEF.md over the sandbox data:
   councillors_roster.csv · council_coverage.csv · member_votes.jsonl
 Run:  streamlit run pipeline_sandbox/council_minutes/your_councillors_prototype.py
 

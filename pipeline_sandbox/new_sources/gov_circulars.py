@@ -104,11 +104,20 @@ MONTHS = (
 
 
 def _get(url: str, headers: dict, binary: bool = False, timeout: int = 45):
-    """GET with polite pacing + exponential backoff on the WAF's 405 challenge."""
+    """GET with polite pacing + exponential backoff.
+
+    Retries BOTH failure modes: the WAF's 405 challenge AND transport errors
+    (DNS/connection resets). A transient `getaddrinfo failed` once killed a
+    15-minute crawl outright — a network blip must never end the run.
+    """
     last = None
     for attempt in range(MAX_RETRIES):
         time.sleep(REQ_DELAY_S * (2**attempt))  # 2s, 4s, 8s, 16s, 32s
-        r = requests.get(url, headers=headers, timeout=timeout)
+        try:
+            r = requests.get(url, headers=headers, timeout=timeout)
+        except requests.RequestException as e:
+            last = type(e).__name__
+            continue
         if r.ok:
             return (r.content if binary else r.content.decode("utf-8", "replace")), r
         last = r.status_code
@@ -195,17 +204,30 @@ def fetch_details(index: list[dict], limit: int | None = None) -> pl.DataFrame:
     cands = [r for r in index if r["is_policy_org"]]
     if limit:
         cands = cands[:limit]
-    print(f"[detail] fetching {len(cands)} policy pages at {REQ_DELAY_S}s "
-          f"(~{len(cands) * REQ_DELAY_S / 60:.0f} min), keeping >= {MIN_YEAR}")
+
+    # Resumable: every fetched page is cached to disk, so a crash (or a Ctrl-C)
+    # costs nothing on re-run. Crawling gov.ie is slow and WAF-throttled — we do
+    # not pay for the same page twice.
+    cache = BRONZE / SOURCE / "pages"
+    cache.mkdir(parents=True, exist_ok=True)
+    cached = sum(1 for c in cands if (cache / f"{c['slug'][:120]}.html").exists())
+    todo = len(cands) - cached
+    print(f"[detail] {len(cands)} policy pages ({cached} already cached, {todo} to fetch "
+          f"at {REQ_DELAY_S}s ≈ {todo * REQ_DELAY_S / 60:.0f} min), keeping >= {MIN_YEAR}")
 
     rows, dropped_old, undated, failed = [], 0, 0, 0
     for i, c in enumerate(cands, 1):
-        try:
-            html, _ = _get(c["source_url"], GOVIE_HEADERS)
-        except requests.HTTPError as e:
-            failed += 1
-            print(f"[detail]   FAIL {e}")
-            continue
+        page = cache / f"{c['slug'][:120]}.html"
+        if page.exists():
+            html = page.read_text(encoding="utf-8", errors="replace")
+        else:
+            try:
+                html, _ = _get(c["source_url"], GOVIE_HEADERS)
+            except requests.HTTPError as e:
+                failed += 1
+                print(f"[detail]   FAIL {e}", flush=True)
+                continue
+            page.write_text(html, encoding="utf-8")
 
         # Progress BEFORE the drop-continue: a long streak of pre-2020 circulars
         # would otherwise run silently and look like a hang.
@@ -250,7 +272,10 @@ def fetch_details(index: list[dict], limit: int | None = None) -> pl.DataFrame:
 
     print(f"[detail] done: kept {len(rows)}, dropped {dropped_old} pre-{MIN_YEAR}, "
           f"{undated} undatable (kept, confidence=low), {failed} failed")
-    return pl.DataFrame(rows)
+    # infer_schema_length=None: scan ALL rows. Sparse columns (authority_formula,
+    # signatory_role) are null for the first ~100 rows, so the default 100-row
+    # inference types them as Null and then dies on the first real string.
+    return pl.DataFrame(rows, infer_schema_length=None)
 
 
 # --------------------------------------------- Step 3: the PDF (authoritative text)

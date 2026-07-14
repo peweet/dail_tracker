@@ -8,7 +8,7 @@
 # substitutes the VERBATIM standard for the council in force. `council_overrides` below carries the few
 # per-council specifics (DM-standard numbers, zoning codes, landscape tables) that genuinely differ.
 #
-# Design rules (see doc/PLANNING_SITING_DECISION_TREE.md):
+# Design rules (see doc/archive/PLANNING_SITING_DECISION_TREE.md):
 #   - Issues + rules + precedent, never design prescriptions or refuse/grant verdicts.
 #   - flag_template uses {placeholders} resolved per-council/site at runtime; quote the real DM Standard.
 #   - mitigation_class: P = procedural | D = mitigable by design/condition | F = often fatal. Ranges ok.

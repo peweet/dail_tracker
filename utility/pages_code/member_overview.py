@@ -9,6 +9,96 @@ Entry points: row click, sidebar selectbox, ?member=join_key URL param
 TODO_PIPELINE_VIEW_REQUIRED: v_member_overview_browse
   Pending columns: attendance_rate, payment_total_eur, declared_interests_count,
   lobbying_interactions_count, revolving_door_flag, government_status
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~27,172 tokens (2,480 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     168-183    Profile section IA (Phase 2 chrome)
+#     184-206    Section router IA (2026-06-22)
+#     207-217    Data retrieval
+#     218-222    _member_list
+#     223-238    _member_list_all
+#     239-248    _member_house
+#     249-262    _identity
+#     263-267    _att_all_years
+#     268-278    _att_chamber_sitting_days
+#     279-291    _external_links
+#     292-303    _contact_details
+#     304-310    _news_mentions
+#     311-315    _votes_summary
+#     316-320    _pay_overview
+#     321-330    _pay_grand_total
+#     331-336    _salary
+#     337-341    _lobbying_rd
+#     342-346    _legislation
+#     347-352    _si_signed
+#     353-365    _ministerial_roles
+#     366-377    _constituency_context
+#     378-383    Questions section data helpers
+#     384-389    _q_profile
+#     390-395    _q_focus_shift
+#     396-401    _q_years
+#     402-408    _q_ministries
+#     409-414    _q_top_topics
+#     415-429    _q_feed
+#     430-437    _debate_years
+#     438-445    _debate_topics
+#     446-455    _debate_sections
+#     456-459    Speeches (floor contributions) section data helpers
+#     460-465    _speech_summary
+#     466-473    _speech_years
+#     474-481    _speech_business
+#     482-494    _member_speeches
+#     495-497    Profile section renderers
+#     498-565    _section_legislation
+#     566-580    _fmt_tenure_days
+#     581-626    _section_ministerial_roles
+#     627-695    _section_statutory_instruments
+#     696-712    _section_questions
+#     713-811    Build header strip
+#     812-868    Filter bar
+#     869-981    Feed
+#     982-1043   _render_speech_card
+#    1044-1072   _section_debates
+#    1073-1084   Header strip (reuses stat_strip)
+#    1085-1171   Filter bar
+#    1172-1203   _section_committees
+#    1204-1214   _named_parties
+#    1215-1227   _party_pill_options
+#    1228-1238   _dail_filter_options
+#    1239-1282   _render_browse
+#    1283-1451   Historic members
+#    1452-1462   Constituency civic context (Census 2022 / Electoral Commissi
+#    1463-1531   _render_constituency_context
+#    1532-1547   _tel_href
+#    1548-1592   _render_news_mentions_block
+#    1593-1668   _render_contact_block
+#    1669-1671   Profile
+#    1672-1697   _prev_next_member
+#    1698-1753   _render_profile_nav
+#    1754-1771   _render_section_switcher
+#    1772-1779   Overview summary cards (default landing)
+#    1780-1793   _ov_card
+#    1794-1807   _ov_votes
+#    1808-1833   _ov_interests
+#    1834-1849   _ov_lobbying
+#    1850-1864   _ov_payments
+#    1865-1892   _ov_attendance
+#    1893-1902   _ov_questions
+#    1903-1910   _ov_legislation
+#    1911-1922   _ov_committees
+#    1923-1940   _render_overview
+#    1941-1982   _render_pay_summary_tiles
+#    1983-2112   _render_stage2
+#    2113-2122   Official contact details (scraped from the oireachtas.ie pro
+#    2123-2243   Headline stats — single source of truth, no duplication
+#    2244-2255   Constituency civic context (Census 2022 / Electoral Commissi
+#    2256-2417   Section router (2026-06-22)
+#    2418-2456   Unified provenance footer
+#    2457-2460   Main entry point
+#    2461-2480   member_overview_page
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations

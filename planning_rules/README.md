@@ -48,4 +48,4 @@ planning_rules/
   **Cork City** runs its own portal, and a few are PDF-only.
 
 See [MANIFEST.md](MANIFEST.md) for per-authority status. Scoping context:
-[../doc/PLANNING_PERMISSION_SCOPING.md](../doc/PLANNING_PERMISSION_SCOPING.md) §12.
+[../doc/archive/PLANNING_PERMISSION_SCOPING.md](../doc/archive/PLANNING_PERMISSION_SCOPING.md) §12.

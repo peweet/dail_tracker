@@ -8,7 +8,7 @@ appealed cases — the actual reason text.
 
 **Derivation.** The axioms are the rulebook; the sources are *how you evaluate them*. Environmental
 axioms (#12-14, #21) → NPWS SAC/SPA + OPW flood. Archaeology (#17) → NMS SMR zones. Access/sightlines
-(#6-8) → TII + OSM roads. See `doc/PLANNING_PERMISSION_SCOPING.md` §18 for the narrative.
+(#6-8) → TII + OSM roads. See `doc/archive/PLANNING_PERMISSION_SCOPING.md` §18 for the narrative.
 
 **Status legend:** `live` = ArcGIS/REST endpoint probed this session · `located` = found, not probed ·
 `endpoint-TBD` = needs discovery. Galway checklist `#` = row in

@@ -1,5 +1,5 @@
 """Regression guard for the paid_flag column-misalignment cleaner
-(extractors/_paid_flag_clean.py — see doc/DATA_QUALITY_AUDIT.md).
+(extractors/_paid_flag_clean.py — see doc/archive/DATA_QUALITY_AUDIT.md).
 
 Unit tests pin the repair semantics on synthetic rows; the integration test asserts
 the real facts ship a flag-or-null paid_flag (DAIL_INTEGRATION_TESTS=1, like the

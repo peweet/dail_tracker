@@ -3,7 +3,7 @@
 The extractor is two-stage by design: PaddleOCR renders each page to a list of
 cell dicts ({text, score, x0, y0, x1, y1}), then a pure geometry parser turns
 cells → rows. The OCR stage is irreducible I/O; this whole parse layer is pure
-and is where the documented OCR-mangling bugs live (doc/SIPO_OCR_INVESTIGATION.md
+and is where the documented OCR-mangling bugs live (doc/SIPO_OCR_REMAINING_QUEUE.md
 — e.g. €17,844.78 garbling). These tests drive it with synthetic cells: no PDF,
 no OCR.
 """

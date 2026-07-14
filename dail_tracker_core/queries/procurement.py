@@ -9,6 +9,97 @@ difference is the return type (``QueryResult`` instead of a bare DataFrame, with
 DuckDB failures surfaced as ``unavailable`` instead of a silent empty frame).
 
 Build a connection with ``dail_tracker_core.db.connect_with_views(["procurement_*.sql"])``.
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~20,535 tokens (1,628 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     135-146    _run
+#     147-173    supplier_summary
+#     174-182    available_years
+#     183-203    coverage_stats
+#     204-225    supplier_concentration
+#     226-252    competition
+#     253-302    bid_signal
+#     303-313    awards_by_year
+#     314-350    value_contrast
+#     351-373    cpv_summary_real
+#     374-392    payments_real_by_year
+#     393-409    payments_real_trend
+#     410-431    awards_for_supplier
+#     432-451    supplier_year_trend
+#     452-477    supplier_payments_by_year
+#     478-496    authority_summary
+#     497-522    cpv_summary
+#     523-540    awards_for_authority
+#     541-556    awards_for_cpv
+#     557-565    TED (EU Official Journal award notices) — a SEPARATE award r
+#     566-586    ted_corpus_stats
+#     587-613    ted_competition_stats
+#     614-626    ted_awards_by_year
+#     627-641    ted_supplier_summary
+#     642-652    ted_for_supplier
+#     653-664    epa_compliance_for_supplier
+#     665-675    epa_supplier_index
+#     676-703    ted_notices_for_supplier
+#     704-706    TED COMPETITION / TENDER notices (cn-standard) — a THIRD gra
+#     707-722    ted_tenders_stats
+#     723-756    ted_tenders
+#     757-771    ted_tender_sectors
+#     772-787    expiring_contracts_stats
+#     788-812    expiring_contracts
+#     813-820    NATIONAL live tender pipeline (etenders.gov.ie) — the PLANNE
+#     821-856    live_tenders
+#     857-874    live_tender_sectors
+#     875-893    live_tenders_stats
+#     894-917    expiring_contracts_etenders
+#     918-923    Public-body PAYMENTS (the SPENT / COMMITTED tiers) — a DIFFE
+#     924-927    _tier
+#     928-947    payments_corpus_stats
+#     948-961    payments_publisher_summary
+#     962-975    payments_supplier_summary
+#     976-992    payments_for_publisher
+#     993-1008   payments_by_year
+#    1009-1019   council_summary
+#    1020-1043   payments_publisher_profile
+#    1044-1060   payments_for_supplier
+#    1061-1085   payments_supplier_header
+#    1086-1103   payments_publishers_for_supplier
+#    1104-1131   payment_lines_for_pair
+#    1132-1157   payment_lines_for_supplier
+#    1158-1161   Corporate-group rollup (Follow-the-money "BAM" node)
+#    1162-1190   payment_group_header
+#    1191-1220   payment_group_members
+#    1221-1240   entity_chain_for_company
+#    1241-1244   AFS (per-LA audited Annual Financial Statement) — the BUDGET
+#    1245-1258   afs_total_by_year
+#    1259-1274   afs_by_division
+#    1275-1289   la_budget_vs_actual
+#    1290-1302   afs_capital_by_year
+#    1303-1315   afs_capital_by_division
+#    1316-1331   afs_coverage_by_council
+#    1332-1348   afs_vs_po_coverage
+#    1349-1363   afs_national_by_division
+#    1364-1372   afs_national_by_year
+#    1373-1396   eu_tam_state_aid
+#    1397-1407   lobbying_overlap
+#    1408-1426   charity_overlap
+#    1427-1429   Entity search + derived-signal views (doc/PROCUREMENT_NUGGET
+#    1430-1444   entity_search
+#    1445-1456   supplier_single_bid
+#    1457-1469   single_bid_baseline
+#    1470-1482   competition_by_cpv
+#    1483-1501   single_bid_notices_for_cpv
+#    1502-1513   new_entrants_by_year
+#    1514-1527   incumbency_for_supplier
+#    1528-1541   incumbency_top
+#    1542-1554   dependency_for_supplier
+#    1555-1572   dependency_top
+#    1573-1584   quarter_profile_top
+#    1585-1595   quarter_totals
+#    1596-1613   sector_breadth_top
+#    1614-1628   call_offs_for_supplier
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations

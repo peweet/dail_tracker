@@ -3,7 +3,7 @@
 evaluate() walks the issue catalogue, evaluates each node's trigger against the ingested
 designation layers, resolves the governing rule VERBATIM for the council in force, and
 returns the fired issues grouped for rendering. It NEVER outputs a grant/refuse verdict or
-a design prescription (doc/PLANNING_SITING_DECISION_TREE.md §1; memory feedback_no_inference).
+a design prescription (doc/archive/PLANNING_SITING_DECISION_TREE.md §1; memory feedback_no_inference).
 
 Honesty rules baked in:
   - A node whose source layer is not yet ingested is marked data_status="layer_missing"

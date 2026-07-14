@@ -2,7 +2,7 @@
 
 **Status:** SCOPING (concept + source research + first SI mining done; no ETL built).
 **Date:** 2026-06-14.
-**Owner doc.** Companion to `doc/IDEAS.md` (master map) and `doc/PROCUREMENT_MASTER.md`.
+**Owner doc.** Companion to `doc/archive/IDEAS.md` (master map) and `doc/PROCUREMENT_MASTER.md`.
 
 ---
 

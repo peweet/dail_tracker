@@ -1,6 +1,6 @@
 """Sandbox: anonymized land-acquisition / CPO compensation by area × year.
 
-A new MONEY LAYER for the planning-permission feature (doc/PLANNING_PERMISSION_SCOPING.md). It is
+A new MONEY LAYER for the planning-permission feature (doc/archive/PLANNING_PERMISSION_SCOPING.md). It is
 the inverse of §19 development contributions: contributions = what a *developer pays the council* for
 a grant; this = what the *State pays a landowner* to acquire land (compulsory purchase orders, dwelling
 / land-bank purchases, road-scheme land). Read live from the consolidated public-body payment fact

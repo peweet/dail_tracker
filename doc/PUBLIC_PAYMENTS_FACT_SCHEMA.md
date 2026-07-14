@@ -6,7 +6,7 @@ gold + `ted_ie_awards` silver + per-LA AFS + `la_payments_fact` + `public_paymen
 sandbox all exist as *separate* tables today — this doc is the target model to conform them to.)
 **Created:** 2026-06-03 · **Unified-model pass:** 2026-06-04
 **Companion to:** `doc/PROCUREMENT_MASTER.md` (master + value taxonomy §8),
-`doc/PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md`, `doc/DATA_MAP.md` (status board + grains).
+`doc/PROCUREMENT_MASTER.md`, `doc/DATA_MAP.md` (status board + grains).
 
 > **Subordinate to the master plan `doc/PROCUREMENT_MASTER.md`.** Implements the master's
 > **VALUE TAXONOMY (§4b): `value_kind` + `realisation_tier`**, `value_safe_to_sum` derived from

@@ -129,7 +129,7 @@ A summary; the authoritative, status-labelled catalogue is in
 Upstream data stays under the publishing bodies' own licences — see
 [Licensing](#licensing) and [`NOTICE.md`](NOTICE.md). Candidate future datasets
 are catalogued in [`doc/ROADMAP_SOURCES.md`](doc/ROADMAP_SOURCES.md) and
-[`doc/ENRICHMENTS.md`](doc/ENRICHMENTS.md).
+[`doc/archive/ENRICHMENTS.md`](doc/archive/ENRICHMENTS.md).
 
 **Editorial rule:** no inference in the app UI. Every claim shown to a user must
 trace to a query; context and real-world claims appear only as cited footnotes.

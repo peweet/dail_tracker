@@ -41,7 +41,7 @@ Detailed model design is deferred (a separate step); this registry is the input 
 2 = high-value next (zoning, flood, ACA/RPS, contributions, CSO/BCMS reconciliation).
 3 = enrichment / blocked / cross-reference.
 
-Source context: `doc/PLANNING_PERMISSION_SCOPING.md` (§8 ingest, §10–13 sources, §15 resource register,
+Source context: `doc/archive/PLANNING_PERMISSION_SCOPING.md` (§8 ingest, §10–13 sources, §15 resource register,
 §19 contributions, §20 worked case study). Per-council rules: `planning_rules/`. Criteria: `planning_rules/_criteria_map/`.
 Companion (axiom→source view): `planning_rules/SOURCE_REGISTRY.md`.
 

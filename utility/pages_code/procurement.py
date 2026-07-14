@@ -20,6 +20,117 @@ Honesty rails (non-negotiable, see doc/archive/REVIEW_SYNTHESIS.md):
 Layout: browse view (caveat → Suppliers / Authorities / Categories / Lobbying
 overlap tabs → provenance) with a ``?supplier=<norm>`` drill-down to a single
 supplier's profile and full award history. CSS lives in shared_css.py (``pr-*``).
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~59,079 tokens (4,556 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     245-250    _esc
+#     251-267    _eur
+#     268-274    _n
+#     275-286    _truthy
+#     287-303    _coalesce
+#     304-307    _awards_word
+#     308-322    _eur_scale
+#     323-328    _supplier_href
+#     329-339    _authority_href
+#     340-351    _authority_link
+#     352-355    _cpv_href
+#     356-359    _ted_winner_href
+#     360-363    _single_bid_cpv_href
+#     364-367    _paid_supplier_href
+#     368-378    _paid_pair_href
+#     379-388    _sort_toggle
+#     389-396    _year_pills
+#     397-400    _year_label
+#     401-411    _yr_axis
+#     412-424    _award_year_pills
+#     425-456    _filter_awards_by_year
+#     457-481    _section_picker
+#     482-492    _return_to_browse
+#     493-503    _card
+#     504-507    _value_pill
+#     508-528    _afs_bar_row
+#     529-535    _cro_pill
+#     536-544    _lobby_pill
+#     545-556    _concentration_and_trend
+#     557-635    _render_suppliers
+#     636-660    _render_authorities
+#     661-688    _render_real_terms_rail
+#     689-772    _render_cpv
+#     773-810    _render_overlap
+#     811-822    _gov_share_pill
+#     823-871    _render_charity_overlap
+#     872-880    _tier_toggle
+#     881-884    _paid_verb
+#     885-890    _paid_pill
+#     891-896    _paid_publisher_href
+#     897-950    _render_payments
+#     951-1032   _render_payments_bridge
+#    1033-1088   _render_payments_real_trend
+#    1089-1142   _render_paid_suppliers
+#    1143-1198   _render_paid_publishers
+#    1199-1217   _council_tier_pills
+#    1218-1228   _council_summary_row
+#    1229-1307   _render_councils
+#    1308-1318   _lane_header
+#    1319-1328   _net_cost_label
+#    1329-1341   _self_funded_note
+#    1342-1491   _render_council_running_lane
+#    1492-1558   _render_council_building_lane
+#    1559-1585   _render_council_accounts_context
+#    1586-1791   _render_payments_publisher_profile
+#    1792-1894   _render_payments_supplier_profile
+#    1895-1953   _payment_line_row
+#    1954-2050   _render_payment_lines
+#    2051-2114   _render_supplier_register_footprint
+#    2115-2177   _render_paid_supplier_panel
+#    2178-2185   _ted_value_pill
+#    2186-2218   _ted_competition_strip
+#    2219-2297   _render_afs_national
+#    2298-2374   _render_eu_tam
+#    2375-2453   _render_ted
+#    2454-2461   _cro_pill_from
+#    2462-2496   _render_ted_supplier_panel
+#    2497-2563   _render_epa_credentials_panel
+#    2564-2587   _ted_notice_li
+#    2588-2623   _ted_notices_sections
+#    2624-2701   _render_ted_winner_profile
+#    2702-2736   _render_supplier_competition_panel
+#    2737-2798   _render_supplier_relationships_panel
+#    2799-2845   _render_supplier_call_offs_panel
+#    2846-2954   _render_ted_tenders
+#    2955-3043   _render_expiring_contracts
+#    3044-3060   _national_freshness_html
+#    3061-3085   _national_sector_facet
+#    3086-3216   _render_national_open_tenders
+#    3217-3281   _render_national_expiring
+#    3282-3292   _award_value_html
+#    3293-3307   _award_notice_url
+#    3308-3332   _award_row
+#    3333-3347   _award_detail_meta
+#    3348-3368   _award_row_html
+#    3369-3376   _supplier_head
+#    3377-3395   _award_row_by_supplier
+#    3396-3410   _award_row_cpv
+#    3411-3444   _supplier_secured_trend
+#    3445-3505   _supplier_awards_section
+#    3506-3565   _render_supplier_profile
+#    3566-3597   _render_award_list
+#    3598-3626   _render_authority_profile
+#    3627-3656   _render_cpv_profile
+#    3657-3752   _entity_search_hero
+#    3753-3815   _render_single_bid_cpv
+#    3816-4007   _render_patterns
+#    4008-4046   _page_lede
+#    4047-4076   _data_completeness_note
+#    4077-4154   _lifecycle_strip
+#    4155-4162   _spread_x
+#    4163-4185   _band_bar
+#    4186-4255   _bid_signal_card
+#    4256-4333   _render_bid_signal
+#    4334-4556   procurement_page
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations

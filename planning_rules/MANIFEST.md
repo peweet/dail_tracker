@@ -6,12 +6,12 @@
 > **Companion: [`SOURCE_REGISTRY.md`](SOURCE_REGISTRY.md)** — the axiom→external-dataset seed registry
 > (one source per obligation axiom: NPWS SAC/SPA, NMS SMR zones, OPW flood, RPS/ACA/NIAH, TII/OSM roads,
 > GSI/Teagasc soils, zoning composite, ACP reason-text PDFs). Drives the consolidated planning feature.
-> Narrative in `doc/PLANNING_PERMISSION_SCOPING.md` §18.
+> Narrative in `doc/archive/PLANNING_PERMISSION_SCOPING.md` §18.
 >
 > **Companion: [`issue_catalogue.yaml`](issue_catalogue.yaml)** — build-ready decision-tree config for the
 > citizen siting-check feature (11 issue nodes: trigger → source → flag → specialist → mitigation class →
-> ACP precedent; `council_overrides`). Content spec in `doc/PLANNING_SITING_DECISION_TREE.md`; feature
-> architecture in `doc/PLANNING_PERMISSION_SCOPING.md` §23.
+> ACP precedent; `council_overrides`). Content spec in `doc/archive/PLANNING_SITING_DECISION_TREE.md`; feature
+> architecture in `doc/archive/PLANNING_PERMISSION_SCOPING.md` §23.
 
 Status legend: ✅ captured · 🟡 partial (draft plan / standards dispersed / two-column extraction) ·
 ❌ not found.

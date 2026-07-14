@@ -1,5 +1,5 @@
 -- v_judiciary_legal_diary_cases — ANONYMISED daily case listings (Tier C).
--- Sources (UNIONED, disjoint by court — see doc/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md):
+-- Sources (UNIONED, disjoint by court — see doc/archive/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md):
 --   data/gold/parquet/judicial_legal_diary_cases.parquet           (.docx — HIGH COURT only)
 --   data/gold/parquet/judicial_legal_diary_openview_cases.parquet  (OpenView — Circuit +
 --     Supreme/Appeal/Central Criminal, with history; extractors/legal_diary_openview_extract.py)
