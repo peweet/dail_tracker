@@ -1,3 +1,63 @@
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~17,878 tokens (1,838 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#      78-85     clean_meta
+#      86-109    search_normalise
+#     110-121    search_matches
+#     122-139    text_search_mask
+#     140-173    period_year_pills
+#     174-192    fmt_civic_date
+#     193-231    page_error_boundary
+#     232-281    year_selector
+#     282-330    render_notable_chips
+#     331-366    info_card
+#     367-403    card_row
+#     404-421    hero_banner
+#     422-448    finding_lede
+#     449-461    _bn_eur
+#     462-500    render_national_finance_context
+#     501-516    card_sources_html
+#     517-535    glossary_strip
+#     536-568    totals_strip
+#     569-588    stat_strip
+#     589-597    outcome_badge
+#     598-615    evidence_heading
+#     616-627    subsection_heading
+#     628-684    todo_callout
+#     685-691    empty_state
+#     692-770    member_moved_callout
+#     771-779    back_button
+#     780-814    main_member_jump
+#     815-824    field_label
+#     825-852    hide_sidebar
+#     853-884    member_jump_panel
+#     885-915    filter_bar
+#     916-973    breadcrumb
+#     974-984    pill
+#     985-1042   member_card_html
+#    1043-1089   ranked_member_card
+#    1090-1142   rank_card_row
+#    1143-1148   party_colour
+#    1149-1201   party_stripe_html
+#    1202-1242   proportion_stripe_html
+#    1243-1295   committee_row_html
+#    1296-1371   committee_identity_strip
+#    1372-1401   find_a_td_search
+#    1402-1461   find_a_td_filter
+#    1462-1466   stat_item
+#    1467-1471   render_stat_strip
+#    1472-1511   member_profile_header
+#    1512-1541   sidebar_date_range
+#    1542-1576   sidebar_member_filter
+#    1577-1619   clickable_card_link
+#    1620-1639   nav_button
+#    1640-1662   _page_window
+#    1663-1696   paginate
+#    1697-1815   pagination_controls
+#    1816-1838   interest_declaration_item
+# ── END SECTION MAP ── ─────────────────────────────────
 """Shared UI components for Dáil Tracker Streamlit pages (v5)."""
 
 from __future__ import annotations

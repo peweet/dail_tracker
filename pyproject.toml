@@ -228,6 +228,33 @@ known-first-party = ["utility", "shared"]
 testpaths = ["test"]
 pythonpath = ["."]
 
+# ── Coverage (a RATCHET, not a target) ───────────────────────────────────────
+# `source` is an explicit list of the shipped trees, NOT ".", so throwaway trees
+# (pipeline_sandbox/, experimental/, tmp/, audit_screenshots/) can never dilute the
+# number — they're excluded by omission, and a sandbox script landing at 0% must not
+# be able to drag the floor down and mask a real regression in shipped code.
+#
+# The floor exists to stop BACKSLIDE, not to claim the suite is well covered. It sits a
+# few points under the measured figure so routine churn doesn't flap the build. Coverage
+# here is very uneven by layer and that's deliberate: the serving/core layer is well
+# covered (api ~92%, dail_tracker_core ~82%, services ~74%) while the ingest layer is
+# thin (extractors ~32%, iris ~28%). RAISE the floor when a tree is genuinely improved;
+# never lower it to make a red build go green.
+[tool.coverage.run]
+source = [
+    "api", "attendance", "charity", "committees", "corporate", "dail_tracker_core",
+    "debates", "extractors", "iris", "legislation", "lobbying", "mcp_server", "members",
+    "payments", "pdf_infra", "reference", "services", "shared", "tools", "utility",
+    "votes", "wikidata", "pipeline.py", "config.py", "manifest.py",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
 # ── basedpyright (scoped static type-checking) ───────────────────────────────
 # Deliberately NOT repo-wide. Type-checking pays off on the API/JSON boundary
 # (services/ + the pure-logic modules), where a wrong type is a real latent bug

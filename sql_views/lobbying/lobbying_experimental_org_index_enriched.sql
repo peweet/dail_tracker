@@ -203,7 +203,7 @@ company_pick AS (
 -- FILING INDEX (silver; metadata only — the figures are paywalled). Recent
 -- period-years are INCOMPLETE (companies file on later statutory deadlines), so
 -- downstream surfaces only WHAT WAS filed (latest period + count), never
--- delinquency. See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.
+-- delinquency. See doc/SOURCES.md.
 filings_pick AS (
     SELECT
         company_num,

@@ -1,9 +1,9 @@
 {
-  "generated_utc": "2026-07-11T07:15:27.932865+00:00",
+  "generated_utc": "2026-07-14T17:16:28.368991+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
   "n_rows": 401624,
-  "n_publishers": 86,
+  "n_publishers": 84,
   "n_suppliers": 31205,
   "cro_matched_pct": 49.5,
   "rows_by_publisher_type": {
@@ -15,7 +15,7 @@
     "semi_state": 10484,
     "hospital": 414
   },
-  "n_local_authorities": 31,
+  "n_local_authorities": 29,
   "safe_eur_by_tier": {
     "COMMITTED": 29920584688.48,
     "SPENT": 25174333145.7

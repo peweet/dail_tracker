@@ -74,7 +74,7 @@ Columns: **Source · Status · Active retrieval link · Records to ingest · Joi
 | `sipo.ie/funding-of-political-parties/`, `/election-expenses/`, `/referendums/` | 500/404 — use the parent collection `sipo.ie/en/collection/9f7db-publications`. |
 | `gov.ie/.../9c6d5-capital-tracker/` | 404 — use the Investment Projects & Programmes Tracker URL. |
 | `pleanala.ie` body name | Renamed to **An Coimisiún Pleanála** (Planning and Development Act 2024). |
-| README links to `doc/COMPETITIVE_LANDSCAPE.md` and `doc/API_LAYER_PLAN.md` | **Both files do not exist** — dead links (removed in this doc update). |
+| README links to `doc/COMPETITIVE_LANDSCAPE.md` and `doc/archive/API_LAYER_PLAN.md` | **Both files do not exist** — dead links (removed in this doc update). |
 | Several `ENRICHMENTS.md` URLs | Flagged "unverified" in that doc's URL audit — re-check before pasting anywhere user-facing. |
 
 ---

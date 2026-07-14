@@ -87,7 +87,20 @@ jobs:
       #   sql — runs in its own `sql-contracts` job below (against committed gold).
       #   sources — external network. Source-URL health runs on a schedule via
       #     .github/workflows/nightly.yml (pdf_endpoint_check.py), not here.
-      - run: uv run pytest -m "not integration and not sql and not sources and not bronze" -v
+      # Coverage is a BACKSLIDE RATCHET, not a target. The floor sits just under the
+      # measured figure (40% at time of writing) so ordinary churn doesn't flap the build,
+      # while a change that deletes or bypasses a meaningful chunk of tested code fails the
+      # PR. What counts as "covered" is pinned in [tool.coverage.run] in pyproject.toml —
+      # an explicit list of shipped trees, NOT ".", so a 0%-covered sandbox script can never
+      # dilute the number and mask a real regression in shipped code.
+      #
+      # Coverage here is deliberately uneven by layer: the serving/core layer is well covered
+      # (api ~92%, dail_tracker_core ~82%, services ~74%), the ingest layer is thin
+      # (extractors ~32%, iris ~28%). RAISE the floor when a tree genuinely improves; never
+      # lower it to turn a red build green.
+      - run: >-
+          uv run pytest -m "not integration and not sql and not sources and not bronze" -v
+          --cov --cov-report=term-missing:skip-covered --cov-fail-under=38
 
   # SQL view contract suite (~80 tests): executes every registered view against
   # the committed gold parquet under data/gold/ (un-gitignored), so it gates PRs
@@ -120,6 +133,14 @@ jobs:
       # `python tools/check_gold_quality.py --update-baseline` (commit the JSON).
       - name: Gold content-quality guard (no silent content drift)
         run: uv run python tools/check_gold_quality.py --strict
+      # Match-rate guard: rows+columns+content can all look sane while a source's PDF/HTML
+      # layout drift silently degrades the extracted FIELDS — the parser keeps running and
+      # keeps producing the same row count, but the matched-vs-total ratios collapse. Compares
+      # the ratios extractors publish to data/_meta/*_coverage.json against
+      # data/_meta/extraction_quality_baseline.json. Re-baseline an intended change via
+      # `python tools/check_extraction_quality.py --update-baseline` (commit the JSON).
+      - name: Extraction match-rate guard (no silent field degradation)
+        run: uv run python tools/check_extraction_quality.py --strict
       - run: uv run pytest -m sql -q
         env:
           DAIL_INTEGRATION_TESTS: "1"

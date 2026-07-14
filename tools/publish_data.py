@@ -129,25 +129,55 @@ def _validate(root: Path, changed: list[str], *, tolerance: float) -> None:
             raise SystemExit(f"publish: ABORT — {rel} has 0 rows (failed/partial write?). Nothing committed.")
     print(f"publish: gate — {len(parquets)} parquet(s) readable + non-empty.")
 
-    # Whole-gold completeness vs the committed baseline. Run in-venv so polars +
-    # config resolve exactly as they do for the rest of the pipeline.
-    guard = root / "tools" / "check_output_regressions.py"
-    r = subprocess.run(
-        [sys.executable, str(guard), "--strict", "--tolerance", str(tolerance)],
-        cwd=root,
-        text=True,
-        capture_output=True,
-    )
-    if r.stdout:
-        sys.stdout.write(r.stdout)
-    if r.returncode != 0:
-        if r.stderr:
-            sys.stderr.write(r.stderr)
-        raise SystemExit(
-            "publish: ABORT — gold completeness regression vs baseline (see above). Nothing committed. "
-            "Re-baseline only if the change is intended: python tools/check_output_regressions.py --update-baseline"
+    # The three baseline guards, each catching a regression the others are blind to.
+    # ALL THREE matter here specifically because this script pushes STRAIGHT TO MAIN from an
+    # unattended cron — that path never opens a PR, so the copies of these guards in CI
+    # (.github/workflows/ci.yml) never see this data. If a guard is not in this gate, it does
+    # not protect the automated refresh at all.
+    #
+    #   completeness → rows/columns vanished (table emptied, thinned, column dropped)
+    #   content      → rows+columns intact but the DATA rotted (column all-null, dupes
+    #                  multiplying, mojibake/sentinels leaking in)
+    #   match-rate   → row count healthy and content well-formed, but the extracted FIELDS
+    #                  silently degraded (a source's layout drifted; the parser kept running)
+    #
+    # A parser can pass any two of these while failing the third, so each is a separate abort.
+    guards: list[tuple[str, list[str], str]] = [
+        (
+            "completeness",
+            ["tools/check_output_regressions.py", "--strict", "--tolerance", str(tolerance)],
+            "python tools/check_output_regressions.py --update-baseline",
+        ),
+        (
+            "content-quality",
+            ["tools/check_gold_quality.py", "--strict"],
+            "python tools/check_gold_quality.py --update-baseline",
+        ),
+        (
+            "extraction match-rate",
+            ["tools/check_extraction_quality.py", "--strict"],
+            "python tools/check_extraction_quality.py --update-baseline",
+        ),
+    ]
+
+    for label, argv, rebaseline in guards:
+        script, *flags = argv
+        r = subprocess.run(
+            [sys.executable, str(root / script), *flags],
+            cwd=root,
+            text=True,
+            capture_output=True,
         )
-    print("publish: gate — completeness OK.")
+        if r.stdout:
+            sys.stdout.write(r.stdout)
+        if r.returncode != 0:
+            if r.stderr:
+                sys.stderr.write(r.stderr)
+            raise SystemExit(
+                f"publish: ABORT — gold {label} regression vs baseline (see above). Nothing committed. "
+                f"Re-baseline only if the change is intended: {rebaseline}"
+            )
+        print(f"publish: gate — {label} OK.")
 
 
 def _build_message(root: Path) -> str:

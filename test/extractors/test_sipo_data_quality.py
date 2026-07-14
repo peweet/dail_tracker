@@ -11,7 +11,7 @@ Two layers in one file (same shape as test_procurement_data_quality.py):
      and writes a JSON report to c:/tmp.
 
 These assert the validity bounds the extractor promises (engine-independent QA layer in
-doc/SIPO_OCR_INVESTIGATION.md): every constituency is in the closed set of 43; spend and
+doc/SIPO_OCR_REMAINING_QUEUE.md): every constituency is in the closed set of 43; spend and
 assigned amounts respect the GE2024 statutory candidate limit; the per-row `flag` honestly
 marks the rows that break those bounds. NO OCR is run here — read-only on parquet.
 """

@@ -15,6 +15,118 @@ Run (stdio, for Claude Desktop / local clients):
 ⚠️ Stdio-only today. Do NOT expose this beyond a local client until the remote
 transport work lands (streamable HTTP + API keys + audit logging — see
 doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~22,303 tokens (1,826 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     197-205    _cur
+#     206-214    _rows
+#     215-221    _one
+#     222-225    Members
+#     226-234    search_members
+#     235-256    get_member_record
+#     257-260    Votes
+#     261-268    list_recent_votes
+#     269-275    get_division
+#     276-279    Cross-reference: votes × Register of Members' Interests
+#     280-290    division_interest_breakdown
+#     291-354    voting_vs_interests
+#     355-358    Legislation
+#     359-366    search_legislation
+#     367-374    get_bill
+#     375-392    search_statutory_instruments
+#     393-396    Payments / lobbying
+#     397-403    top_payments
+#     404-411    lobbying_organisations
+#     412-418    revolving_door
+#     419-422    Ministerial diaries — who ministers meet
+#     423-435    ministerial_diary_top_organisations
+#     436-448    ministerial_diary_organisation
+#     449-458    who_ministers_meet
+#     459-496    company_influence
+#     497-515    _spine_lobbying_lookup
+#     516-552    access_to_contracts
+#     553-570    procurement_lobbying_overlap
+#     571-574    Procurement
+#     575-584    search_suppliers
+#     585-592    get_supplier
+#     593-609    procurement_competition
+#     610-613    Committees
+#     614-620    list_committees
+#     621-626    get_committee
+#     627-630    Interests (Register of Members' Interests)
+#     631-638    get_member_interests
+#     639-642    Ministerial accountability
+#     643-649    who_was_minister
+#     650-653    Parliamentary questions
+#     654-677    get_member_questions
+#     678-681    Payments by year
+#     682-688    payments_by_year
+#     689-692    Member floor speeches
+#     693-719    member_speeches
+#     720-723    SIPO political finance (party donations + GE2024 election ex
+#     724-742    party_donations
+#     743-758    party_election_spend
+#     759-762    Judiciary (the bench + court-system health)
+#     763-779    judicial_appointments
+#     780-792    courts_health
+#     793-796    Public appointments (state boards)
+#     797-802    public_appointments
+#     803-827    Charity finances
+#     828-873    _charity_sector_dq_flags
+#     874-903    charity_financials
+#     904-906    Corporate distress notices (Iris Oifigiúil — companies only,
+#     907-913    _trim_notice
+#     914-950    corporate_distress_notices
+#     951-976    corporate_repeat_distress
+#     977-980    Public-body payments (the realised-SPEND grain)
+#     981-999    public_body_payments
+#    1000-1003   Procurement — deeper cuts (authority / CPV / live tenders)
+#    1004-1011   procurement_by_authority
+#    1012-1018   procurement_by_cpv
+#    1019-1025   open_tenders
+#    1026-1029   Ministerial roll-up
+#    1030-1039   current_cabinet
+#    1040-1043   Lobbying — revolving-door individual profile
+#    1044-1059   dpo_lobbying_profile
+#    1060-1063   Corpus search: divisions by topic
+#    1064-1109   search_votes_by_topic
+#    1110-1113   Data coverage (scope guard for honest answers)
+#    1114-1136   data_coverage
+#    1137-1152   source_fetch_failures
+#    1153-1156   Procurement conduit (authoritative-source bridge + serve-vs-
+#    1157-1234   procurement_notice
+#    1235-1258   project_value_estimate
+#    1259-1261   Siting check (planning-constraint triage for a point — the c
+#    1262-1274   _brief_item
+#    1275-1349   siting_check
+#    1350-1353   Cross-register watchlist + organisation dossier (entity-cros
+#    1354-1377   cross_register_watchlist
+#    1378-1395   _org_name_key
+#    1396-1407   _org_registers
+#    1408-1456   _resolve_org_candidates
+#    1457-1524   organisation_dossier
+#    1525-1528   Local government (council accountability scorecard)
+#    1529-1575   council_scorecard
+#    1576-1579   AFS (local-authority audited accounts — the BUDGET grain)
+#    1580-1625   afs_coverage
+#    1626-1629   Housing money (national demand / supply / accommodation spen
+#    1630-1659   housing_money
+#    1660-1663   Attendance (division turnout + TAA compliance)
+#    1664-1705   attendance_ranking
+#    1706-1709   National public finance (CSO general-government)
+#    1710-1725   gov_finance_annual
+#    1726-1729   Prompts (audit templates surfaced as client slash-commands)
+#    1730-1741   audit_member
+#    1742-1751   trace_bill_sis
+#    1752-1762   procurement_lobbying_check
+#    1763-1775   audit_party_finance
+#    1776-1787   judicial_appointment_trace
+#    1788-1802   assess_procurement_award
+#    1803-1817   siting_brief
+#    1818-1826   coverage_resource
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations
@@ -993,6 +1105,88 @@ def search_votes_by_topic(topics: str, house: str = "Dáil", include_member_vote
     if include_member_votes:
         out["votes"] = rows
     return out
+
+
+# ── Join map (the association guard — read BEFORE cross-referencing) ────────────
+
+
+@mcp.tool(annotations=_RO)
+def join_map() -> dict:
+    """HOW TO CROSS-REFERENCE this data — consult BEFORE attempting ANY association between
+    registers (procurement x lobbying, company x charity, member x interests, ...). Returns the
+    two canonical join keys, the entity spine and its MEASURED yields, the structural blind spot,
+    and the hard NEVER-JOIN / NEVER-SUM rules.
+
+    Exists because the guardrails were previously scattered across prose and easy to miss. The
+    single most important fact it carries: the entity spine is ANCHORED ON PROCUREMENT SUPPLIERS,
+    so an organisation that never won a public contract is ABSENT ENTIRELY — a 0 or a low
+    cross-register count is a FLOOR, never proof of absence. Full detail: doc/JOIN_MAP.md."""
+    return {
+        "canonical_keys": {
+            "organisation": {
+                "impl": "shared/name_norm.py :: name_norm_expr (Polars) / name_norm_str (Python)",
+                "rule": "NFD accent-fold -> UPPER -> strip .,&'\" -> drop legal suffixes "
+                "(THE|AND|LIMITED|LTD|DAC|PLC|CLG|UC|COMPANY|GROUP|HOLDINGS|IRELAND|IRL|OF) "
+                "-> drop non-alnum -> collapse whitespace",
+                "used_by": "CRO, procurement suppliers, lobbying registrants+clients, TED winners, "
+                "ministerial-diary orgs, CBI registers (~18 call sites)",
+                "note": "the two impls are pinned byte-identical by test/shared/test_name_norm.py — "
+                "adding a third normaliser reintroduces the 'distress join = 0' bug class",
+            },
+            "person_member": {
+                "impl": "shared/normalise_join_key.py :: normalise_df_td_name -> join_key",
+                "rule": "lowercase -> NFD accent-fold -> strip apostrophes/non-alpha -> strip honorifics "
+                "-> remove ALL whitespace -> SORT CHARACTERS ALPHABETICALLY",
+                "warning": "this is an ANAGRAM key: order-insensitive by design (Richard Boyd Barrett == "
+                "Barrett Richard Boyd), but genuine character-anagram COLLISIONS are possible. Treat a "
+                "member match as a strong lead, not proof; verify against the member register.",
+            },
+            "rule": "NEVER use the ORG key on people or the PERSON key on organisations — they strip "
+            "different things and only one is an anagram key.",
+        },
+        "entity_spine": {
+            "view": "v_supplier_entity_xref (data/gold/parquet/supplier_entity_xref.parquet)",
+            "key": "supplier_norm (the ORG key)",
+            "orgs": 10017,
+            "BLIND_SPOT": "ANCHORED ON PROCUREMENT SUPPLIERS — every org in the spine won public "
+            "procurement. An org that never won a contract (lobbying-only body, charity with no "
+            "contracts, company appearing only in Iris notices) is ABSENT ENTIRELY and cannot be "
+            "associated via the spine at all.",
+            "measured_yields_2026_07_14": {
+                "has_cro": "6,469 / 10,017 (64.6%) — of a 819,429-company CRO universe",
+                "on_lobbying_register": "239 (2.4%) — but the register holds ~2,557 lobbyist orgs "
+                "+ 1,992 clients, so ~91% of lobbying orgs are NOT in the spine",
+                "has_corporate_notice": "246 (2.5%)",
+                "is_charity": "72 (0.7%) — of 14,448 registered charities",
+                "has_epa_licence": "38 (0.4%)",
+            },
+            "how_to_read_a_zero": "Low/zero counts mix TWO effects the data cannot separate: a genuinely "
+            "small overlap AND exact-name match failure (subsidiaries, trading names, spelling variants). "
+            "So on_lobbying_register=False means 'NOT MATCHED', never 'did not lobby'.",
+        },
+        "never_join_never_sum": [
+            "3 money grains NEVER sum/union across each other: BUDGET (LA adopted budgets, AFS) vs "
+            "AWARD/ceiling (eTenders, TED) vs PAYMENT/supplier (LA payments, public_payments).",
+            "NEVER sum TED with national awards — TED overlaps eTenders; summing double-counts.",
+            "procurement x lobbying: NEVER sum awarded_value across the overlap — one return attaches to "
+            "its registrant AND to each client, so any org-level sum double-counts.",
+            "Lobbying return COUNTS are not additive across organisations (same reason).",
+            "votes x member interests: only the LANDLORD/PROPERTY cross-reference is substantively real; "
+            "do not build a general 'voted on their own interest' claim.",
+            "CO-OCCURRENCE IS NOT CAUSATION — no key links a lobbying return to a contract award. Two "
+            "registers sharing an entity is a RESEARCH LEAD, never evidence one explains the other.",
+        ],
+        "how_to_run_an_association": [
+            "Resolve with organisation_dossier (it returns a `disambiguation` list rather than guessing).",
+            "Read the returned `caveat` field — 13 tools return one in-band; it is not decoration.",
+            "Treat every cross-register hit as a LEAD requiring verification; state the match tier.",
+            "Beyond exact-match is a TIERED-MATCHING problem: keep EXACT as the only assertable tier and "
+            "label fuzzy/embedding candidates as unverified leads. NEVER silently fuse a fuzzy match.",
+        ],
+        "doc": "doc/JOIN_MAP.md",
+        "caveat": "Yields measured 2026-07-14 and are a FLOOR, not a ceiling. Absence of a cross-register "
+        "match is never evidence of absence of the underlying activity.",
+    }
 
 
 # ── Data coverage (scope guard for honest answers) ──────────────────────────────

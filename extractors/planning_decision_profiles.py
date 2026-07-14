@@ -1,6 +1,6 @@
 """Sandbox: national per-decision PROFILE over the whole 495k planning corpus.
 
-Generalises the Galway SAC case study (doc/PLANNING_PERMISSION_SCOPING.md §13) to the ENTIRE
+Generalises the Galway SAC case study (doc/archive/PLANNING_PERMISSION_SCOPING.md §13) to the ENTIRE
 country: for every planning application it attaches (a) the structured DECISION-FUNCTION fields
 (decided / refused / latency / RFI / appealed), and (b) the spatial OBLIGATION TRIGGERS — which
 nature-conservation designations the site sits in (NPWS SAC / SPA / NHA / pNHA). The result is a

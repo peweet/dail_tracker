@@ -20,7 +20,7 @@ candidate queue for human review — it never feeds gold directly.
 This register complements (does not duplicate) the Iris public-appointments
 spine: Iris captures appointment EVENTS; this is the CURRENT ROSTER plus the
 public-body universe (~250 bodies) behind Public-Body-Profile joins.
-Scoping/verdict: doc/PUBLIC_RECORD_SOURCES_REVIEW.md (shortlist #2).
+Scoping/verdict: doc/archive/PUBLIC_RECORD_SOURCES_REVIEW.md (shortlist #2).
 
 Reads  : membership.stateboards.ie (HTML cached to data/bronze/stateboards/)
          data/_meta/stateboards_wikidata_curated.csv      (hand-curated, tracked)

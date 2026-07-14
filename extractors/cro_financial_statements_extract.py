@@ -9,7 +9,7 @@ What this IS / is NOT
 ---------------------
 It is the submission INDEX: per-filing metadata + the *paywalled* document
 filename. It is NOT the financial figures — those sit in the PDFs behind the CORE
-paywall (~€2.50/doc). See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.
+paywall (~€2.50/doc). See doc/SOURCES.md.
 
 Why ingest it (benefit over the register's last_accounts_date)
 --------------------------------------------------------------
@@ -183,7 +183,7 @@ def _coverage(df: pl.DataFrame, resources: list[dict], bronze_rows: dict[int, in
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "source": f"{CKAN_BASE}/dataset/{PACKAGE_ID}",
         "note": "CRO financial-statements FILING INDEX (metadata only; PDFs paywalled). "
-        "See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.",
+        "See doc/SOURCES.md.",
         "resources": [
             {"year": r["year"], "last_modified": r["last_modified"], "bronze_rows": bronze_rows.get(r["year"])}
             for r in resources

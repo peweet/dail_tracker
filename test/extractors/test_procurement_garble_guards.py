@@ -1,4 +1,4 @@
-"""Regression guards for the 2026-06 procurement garble fixes (doc/DATA_QUALITY_AUDIT.md §6):
+"""Regression guards for the 2026-06 procurement garble fixes (doc/archive/DATA_QUALITY_AUDIT.md §6):
   * _drop_unattributable — period/section TOTAL rows (blank supplier+desc+po) must not survive to gold
   * _strip_bled_amount   — a leading amount duplicated into description is stripped ONLY when it == amount_eur
   * courts reading-order reader — no empty suppliers; period-total rows excluded

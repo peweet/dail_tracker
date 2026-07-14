@@ -27,6 +27,66 @@ page still points at the full accountability profile.
 The per-politician body (render_member_lobbying) is embedded on
 /member-overview (show_header=False) and also reached standalone via
 ?lp3_pol=X from the landing's most-lobbied list.
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~23,080 tokens (2,237 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     173-180    _resolve_or_join
+#     181-186    _p
+#     187-250    _fmt_period
+#     251-255    _init
+#     256-260    _clear_lp3_qp
+#     261-263    HTML helpers (calm building blocks)
+#     264-276    _quiet_hero
+#     277-283    _section_head
+#     284-295    _tile_html
+#     296-305    _topic_tile_html
+#     306-336    _ranked_card_html
+#     337-352    _provenance_footer
+#     353-355    Sidebar
+#     356-395    _render_search_bar
+#     396-398    Landing
+#     399-645    _render_landing
+#     646-648    Shared helpers across Stage 2 handlers
+#     649-655    _back_button
+#     656-662    _fmt_mmm
+#     663-729    _return_card_html
+#     730-779    _datasette_table
+#     780-791    Organisation index
+#     792-881    _render_org_index
+#     882-894    _eur
+#     895-968    _render_charity_finances
+#     969-971    Organisation Stage 2
+#     972-1018   _render_org
+#    1019-1225   Organisation register record
+#    1226-1236   Attached references (third-party PDFs in return free-text)
+#    1237-1295   _render_org_attached_references
+#    1296-1298   Area Stage 2
+#    1299-1428   _render_area
+#    1429-1431   Topic Stage 2 (curated free-text scan)
+#    1432-1524   _render_topic
+#    1525-1527   Revolving Door index
+#    1528-1538   _bucket
+#    1539-1627   _render_rd_index
+#    1628-1630   Revolving Door individual
+#    1631-1766   _render_dpo_individual
+#    1767-1769   Area × Politician (Stage 3)
+#    1770-1833   _render_results
+#    1834-1836   Org × Politician (Stage 3)
+#    1837-1906   _render_org_results
+#    1907-1909   DPO × Politician (Stage 3)
+#    1910-1976   _render_dpo_results
+#    1977-1983   Per-politician body (embedded on /member-overview)
+#    1984-2003   _lob_card_html
+#    2004-2074   render_member_lobbying
+#    2075-2100   Orgs by intensity — ranked cards (primary view)
+#    2101-2145   Policy exposure
+#    2146-2178   Lobbying returns
+#    2179-2191   Official source links
+#    2192-2195   Entry point
+#    2196-2237   lobbying_poc_page
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations
@@ -1001,7 +1061,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     # INDEX is metadata only (the figures are paywalled) and recent period-years
     # are incomplete (companies file on later statutory deadlines) — so this is a
     # neutral recency disclosure (what period the latest filed accounts cover),
-    # never delinquency. See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.
+    # never delinquency. See doc/SOURCES.md.
     latest_acct = str(org_row.get("latest_accounts_period_end", "") or "")
     if latest_acct and latest_acct not in ("None", "NaT"):
         try:
