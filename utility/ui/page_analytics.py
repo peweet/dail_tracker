@@ -78,6 +78,7 @@ def top_pages(path: Path | None = None):
     df = read_page_views(path)
     if df.empty:
         return pd.DataFrame(columns=["page", "views"])
-    counts = df["page"].value_counts().reset_index()
+    # App's own page-view telemetry log, not civic data — no pipeline view exists for it.
+    counts = df["page"].value_counts().reset_index()  # logic_firewall: display_only
     counts.columns = ["page", "views"]
     return counts

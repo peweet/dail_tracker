@@ -69,13 +69,23 @@ with `git checkout 936650a -- <path>` (untracked prototype parquets/csvs were no
 Still-WIP prototypes (NOT promoted, kept): `disclosed_po_spend/` (TIER1-B genuine gap, verified
 2026-06-27), `spend_service_bridge/`, `pq_disclosures/`, `historic_members/`.
 
-## Dead-probe candidates for a FUTURE retirement pass (NOT yet removed)
+## Dead probes — ARCHIVED to `pipeline_sandbox/_archive/` (2026-07-16, from HEAD `18dd551`)
 
-Zero references in live code or tests; cold 3+ weeks. When/if retired, **git history is
-the archive** — `git checkout <sha> -- <path>` restores any of them; log each here with
-its last SHA at that time. Nothing below has been removed yet:
+Zero references in live code or tests; cold 3+ weeks. Moved (not deleted) to
+`pipeline_sandbox/_archive/` — restore with `git mv pipeline_sandbox/_archive/<f> pipeline_sandbox/<f>`
+or `git checkout 18dd551 -- pipeline_sandbox/<f>`. See that folder's `README.md`.
 
 `etenders_live_probe.py`, `etenders_itt_pull_probe.py` (ITT login/JS-gated dead end),
 `inspect_hse_tusla.py` (throwaway), `cpo_planning_prospect_probe.py` (CPO feature parked),
 `procurement_unlinked_payees_probe.py` (superseded by `services/coverage_qa.py`),
-`si_department_backfill.py` (one-off backfill, already applied).
+`si_department_backfill.py` (one-off backfill, already applied),
+`procurement_la_registry.py` (routes merged into `extractors/procurement_la_payments_extract.py`).
+
+### Still under review (NOT archived — confirm before moving)
+- **Siting probes** `siting_api_bench.py`, `siting_api_prototype.py`,
+  `siting_grid_precompute_experimental.py`, `siting_layers_simplify_experimental.py`
+  (`_finalize` sibling shipped) — no live refs, but may be intentional hand-run
+  benchmarks; awaiting owner call.
+- **`pipeline_sandbox/housing/` experimental cluster** (~19 probes) — the Housing PAGE is
+  LIVE and integrated; a handful of these feed it (see below), the rest are exploratory.
+  Needs a per-file producer check before any move.

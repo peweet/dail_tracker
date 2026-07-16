@@ -28,12 +28,13 @@ Run:  python -m tools.curate_official_sitting_days
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 import logging
 from collections import defaultdict
 from pathlib import Path
 
 import fitz
-import pandas as pd
+import polars as pl
 
 import attendance.attendance as att
 from config import ATTENDANCE_PDF_DIR, ATTENDANCE_PDF_DIR_SEANAD
@@ -48,9 +49,9 @@ _OUT = Path("data/_meta/official_sitting_days.csv")
 _PRINTED_TOTAL_MARK = "Total number of sitting days in the period"
 
 
-def _distinct_sitting_dates_by_year(pdf_dir: Path) -> dict[int, set[pd.Timestamp]]:
+def _distinct_sitting_dates_by_year(pdf_dir: Path) -> dict[int, set[dt.datetime]]:
     """{year: set of distinct chamber sitting dates} from the union of all members."""
-    by_year: dict[int, set[pd.Timestamp]] = defaultdict(set)
+    by_year: dict[int, set[dt.datetime]] = defaultdict(set)
     for pdf_path in sorted(pdf_dir.glob("*.pdf")):
         if att._ATTENDANCE_PDF_MARKER not in pdf_path.name.lower():
             continue
@@ -96,7 +97,7 @@ def _year_complete(pdf_dir: Path, year: int) -> bool:
     return False
 
 
-def curate() -> pd.DataFrame:
+def curate() -> pl.DataFrame:
     rows: list[dict[str, object]] = []
     for house, pdf_dir in (("Dáil", ATTENDANCE_PDF_DIR), ("Seanad", ATTENDANCE_PDF_DIR_SEANAD)):
         by_year = _distinct_sitting_dates_by_year(pdf_dir)
@@ -122,13 +123,18 @@ def curate() -> pd.DataFrame:
                 len(by_year[year]),
                 "complete" if complete else "PARTIAL/in-progress",
             )
-    df = pd.DataFrame(rows).sort_values(["house", "year"]).reset_index(drop=True)
+    df = pl.DataFrame(rows).sort(["house", "year"])
     _OUT.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(_OUT, index=False)
+    # complete_year is written as True/False (pandas casing) to keep the committed
+    # reference byte-stable across the pandas->polars engine swap.
+    df.with_columns(
+        pl.when(pl.col("complete_year")).then(pl.lit("True")).otherwise(pl.lit("False")).alias("complete_year")
+    ).write_csv(_OUT)
     _log.info("Wrote %s (%d rows)", _OUT, len(df))
     return df
 
 
 if __name__ == "__main__":
     setup_standalone_logging("curate_official_sitting_days")
-    print(curate().to_string(index=False))
+    with pl.Config(tbl_rows=-1, tbl_cols=-1):
+        print(curate())

@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-07-16T18:23:22+00:00",
+  "generated_utc": "2026-07-16T18:34:41+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 199,
   "facts": {
@@ -34,12 +34,16 @@
       "read_by": [
         "read by procurement/procurement_afs_national.sql"
       ],
-      "size_bytes": 6097
+      "size_bytes": 6097,
+      "grain": "one row per (year",
+      "money_grain": "division) national",
+      "never_sum_with": "accounts",
+      "purpose": "awarded|payments|budget"
     },
     "attendance_by_td_year": {
       "file": "data/gold/parquet/attendance_by_td_year.parquet",
       "layer": "gold",
-      "rows": 499,
+      "rows": 616,
       "columns": [
         "full_name",
         "year",
@@ -52,6 +56,18 @@
         "other_days",
         "total_days"
       ],
+      "column_types": {
+        "full_name": "String",
+        "year": "Int64",
+        "unique_member_code": "String",
+        "member_id": "String",
+        "party_name": "String",
+        "constituency": "String",
+        "is_minister": "Boolean",
+        "sitting_days": "Int64",
+        "other_days": "Int64",
+        "total_days": "Int64"
+      },
       "read_by": [
         "read by attendance/attendance_member_summary.sql, attendance/attendance_member_year_summary.sql, attendance/attendance_missing_members.sql"
       ],
@@ -60,7 +76,7 @@
     "bilateral_relationships": {
       "file": "data/gold/parquet/bilateral_relationships.parquet",
       "layer": "gold",
-      "rows": 68063,
+      "rows": 68086,
       "columns": [
         "lobbyist_name",
         "full_name",
@@ -71,6 +87,16 @@
         "relationship_start",
         "relationship_last_seen"
       ],
+      "column_types": {
+        "lobbyist_name": "String",
+        "full_name": "String",
+        "chamber": "String",
+        "returns_in_relationship": "Int64",
+        "distinct_policy_areas": "Int64",
+        "distinct_periods": "Int64",
+        "relationship_start": "Datetime(time_unit='us', time_zone=None)",
+        "relationship_last_seen": "Datetime(time_unit='us', time_zone=None)"
+      },
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_org_intensity.sql, lobbying/lobbying_summary.sql"
       ],
@@ -118,7 +144,7 @@
     "bill_statutory_instruments": {
       "file": "data/gold/parquet/bill_statutory_instruments.parquet",
       "layer": "gold",
-      "rows": 390,
+      "rows": 794,
       "columns": [
         "bill_id",
         "bill_short_title",
@@ -127,6 +153,7 @@
         "si_number",
         "si_id",
         "si_title",
+        "si_commenced_sections",
         "si_signed_date",
         "si_minister",
         "si_minister_named",
@@ -141,6 +168,29 @@
         "iris_source_pdf",
         "match_score"
       ],
+      "column_types": {
+        "bill_id": "String",
+        "bill_short_title": "String",
+        "sponsor_unique_member_code": "String",
+        "si_year": "Int64",
+        "si_number": "Int64",
+        "si_id": "String",
+        "si_title": "String",
+        "si_commenced_sections": "String",
+        "si_signed_date": "Date",
+        "si_minister": "String",
+        "si_minister_named": "String",
+        "si_policy_domain": "String",
+        "si_policy_domains_all": "String",
+        "si_operation": "String",
+        "si_operation_flags": "String",
+        "si_form": "String",
+        "si_eu_relationship": "String",
+        "si_is_eu": "Boolean",
+        "eisb_url": "String",
+        "iris_source_pdf": "String",
+        "match_score": "Float64"
+      },
       "read_by": [
         "read by legislation/legislation_statutory_instruments.sql"
       ],
@@ -190,7 +240,7 @@
     "cbi_xref_corporate_notices": {
       "file": "data/gold/parquet/cbi_xref_corporate_notices.parquet",
       "layer": "gold",
-      "rows": 228,
+      "rows": 260,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -210,6 +260,25 @@
         "ref_nos",
         "firm_name_raw_first"
       ],
+      "column_types": {
+        "notice_ref": "String",
+        "issue_date": "String",
+        "issue_number": "Int64",
+        "notice_category": "String",
+        "notice_subtype": "String",
+        "entity_name": "String",
+        "display_title": "String",
+        "title": "String",
+        "raw_text": "String",
+        "iris_source_pdf": "String",
+        "brand_mentions": "List(String)",
+        "parent_fund_mentions": "List(String)",
+        "fund_type_mentions": "List(String)",
+        "entity_norm": "String",
+        "registers": "List(String)",
+        "ref_nos": "List(String)",
+        "firm_name_raw_first": "String"
+      },
       "year_span": [
         2012,
         2026
@@ -299,10 +368,86 @@
         "nace_section_letter",
         "nace_section_label"
       ],
+      "column_types": {
+        "rcn": "Int64",
+        "registered_charity_name": "String",
+        "also_known_as": "String",
+        "name_norm": "String",
+        "aka_norm": "String",
+        "status": "String",
+        "governing_form": "String",
+        "classification_primary": "String",
+        "classification_secondary": "String",
+        "classification_sub": "String",
+        "country_established": "String",
+        "county": "String",
+        "cro_number": "Int64",
+        "has_cro_number_flag": "Boolean",
+        "trustee_count": "Int32",
+        "company_name": "String",
+        "company_name_norm": "String",
+        "company_status": "String",
+        "company_status_pill_value": "String",
+        "company_type": "String",
+        "company_reg_date": "Date",
+        "comp_dissolved_date": "Date",
+        "entity_age_years": "Int32",
+        "nace_v2_code": "Int64",
+        "eircode": "String",
+        "routing_key": "String",
+        "link_method": "String",
+        "period_end_latest": "Date",
+        "period_year_latest": "Int32",
+        "gross_income_latest_eur": "Float64",
+        "gross_expenditure_latest_eur": "Float64",
+        "gov_funded_share_latest": "Float64",
+        "surplus_deficit_latest": "Float64",
+        "total_assets_latest_eur": "Float64",
+        "total_liabilities_latest_eur": "Float64",
+        "net_assets_latest_eur": "Float64",
+        "cash_at_hand_latest_eur": "Float64",
+        "reserves_months": "Float64",
+        "reserves_band": "String",
+        "share_government": "Float64",
+        "share_other_public": "Float64",
+        "share_philanthropic": "Float64",
+        "share_donations": "Float64",
+        "share_trading": "Float64",
+        "share_other": "Float64",
+        "share_bequests": "Float64",
+        "dominant_income_source": "String",
+        "funding_profile": "String",
+        "employees_band_latest": "String",
+        "volunteers_band_latest": "String",
+        "employees_ft_latest": "Float64",
+        "employees_pt_latest": "Float64",
+        "beneficiary_tags": "List(String)",
+        "report_activity_latest": "String",
+        "years_filed": "UInt32",
+        "first_period_year": "Int32",
+        "last_period_year": "Int32",
+        "deficit_years_count": "Int32",
+        "income_change_pct": "Float64",
+        "income_trend": "String",
+        "state_adjacent_flag": "Boolean",
+        "charity_filing_overdue_flag": "Boolean",
+        "charity_deficit_latest_flag": "Boolean",
+        "charity_insolvent_latest_flag": "Boolean",
+        "cro_last_ar_date": "Date",
+        "cro_nard": "Date",
+        "cro_last_accounts_date": "Date",
+        "cro_annual_return_overdue": "Boolean",
+        "cro_accounts_overdue": "Boolean",
+        "cro_recent_distress": "Boolean",
+        "cro_no_registered_address": "Boolean",
+        "cro_recent_rename": "Boolean",
+        "nace_section_letter": "String",
+        "nace_section_label": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 1571984
+      "size_bytes": 1570867
     },
     "committee_activity_summary": {
       "file": "data/gold/parquet/committee_activity_summary.parquet",
@@ -446,7 +591,7 @@
     "corporate_notices": {
       "file": "data/gold/parquet/corporate_notices.parquet",
       "layer": "gold",
-      "rows": 50723,
+      "rows": 51149,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -462,6 +607,21 @@
         "parent_fund_mentions",
         "fund_type_mentions"
       ],
+      "column_types": {
+        "notice_ref": "String",
+        "issue_date": "String",
+        "issue_number": "Int64",
+        "notice_category": "String",
+        "notice_subtype": "String",
+        "entity_name": "String",
+        "display_title": "String",
+        "title": "String",
+        "raw_text": "String",
+        "iris_source_pdf": "String",
+        "brand_mentions": "List(String)",
+        "parent_fund_mentions": "List(String)",
+        "fund_type_mentions": "List(String)"
+      },
       "year_span": [
         2012,
         2026
@@ -501,7 +661,7 @@
       "column_types": {
         "notice_ref": "String",
         "issue_date": "String",
-        "issue_number": "Float64",
+        "issue_number": "Int64",
         "notice_category": "String",
         "notice_subtype": "String",
         "entity_name": "String",
@@ -512,7 +672,7 @@
         "brand_mentions": "List(String)",
         "parent_fund_mentions": "List(String)",
         "fund_type_mentions": "List(String)",
-        "year": "Float64",
+        "year": "Int32",
         "is_receivership": "Boolean",
         "is_spv": "Boolean",
         "has_parent_mention": "Boolean",
@@ -524,7 +684,7 @@
       "read_by": [
         "read by corporate/corporate_corporate_notices.sql, corporate/corporate_receiver.sql"
       ],
-      "size_bytes": 8356283
+      "size_bytes": 8547573
     },
     "corporate_receiver_appointers": {
       "file": "data/gold/parquet/corporate_receiver_appointers.parquet",
@@ -545,7 +705,7 @@
       "read_by": [
         "read by corporate/corporate_receiver.sql"
       ],
-      "size_bytes": 3299
+      "size_bytes": 2002
     },
     "corporate_receiver_firms": {
       "file": "data/gold/parquet/corporate_receiver_firms.parquet",
@@ -564,7 +724,7 @@
       "read_by": [
         "read by corporate/corporate_receiver.sql"
       ],
-      "size_bytes": 2452
+      "size_bytes": 1352
     },
     "cpo_land_acquisition_by_area_year": {
       "file": "data/silver/parquet/cpo_land_acquisition_by_area_year.parquet",
@@ -601,7 +761,7 @@
     "cro_xref_corporate_notices": {
       "file": "data/gold/parquet/cro_xref_corporate_notices.parquet",
       "layer": "gold",
-      "rows": 19746,
+      "rows": 27396,
       "columns": [
         "notice_ref",
         "entity_name",
@@ -615,6 +775,19 @@
         "comp_dissolved_date",
         "status_pill_value"
       ],
+      "column_types": {
+        "notice_ref": "String",
+        "entity_name": "String",
+        "entity_norm": "String",
+        "issue_date": "String",
+        "notice_category": "String",
+        "notice_subtype": "String",
+        "company_num": "Int64",
+        "company_status": "String",
+        "company_reg_date": "Date",
+        "comp_dissolved_date": "Date",
+        "status_pill_value": "String"
+      },
       "year_span": [
         2012,
         2026
@@ -711,6 +884,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "CensusYear": "String",
+        "C04104V04868": "String",
+        "County and City": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -732,6 +915,18 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Census Year": "String",
+        "C04104V04868": "String",
+        "County and City": "String",
+        "C02699V03267": "String",
+        "Nature of Occupancy": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by housing/housing_rent_by_county.sql, housing/housing_supply_national.sql"
       ],
@@ -751,6 +946,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Census Year": "String",
+        "C03903V04655": "String",
+        "Constituency 2017": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -770,6 +975,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03144V03796": "String",
+        "Item": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by publicfinance/publicfinance_gov_finance_annual.sql"
       ],
@@ -789,6 +1004,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(Q1)": "String",
+        "Quarter": "String",
+        "C03144V03796": "String",
+        "Item": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -831,6 +1056,18 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03789V04537": "String",
+        "Local Authority": "String",
+        "C03677V04419": "String",
+        "Family Type": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by housing/housing_hap_national.sql, housing/housing_supply_national.sql"
       ],
@@ -852,6 +1089,18 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "STATISTIC Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C02451V02968": "String",
+        "Local Authority": "String",
+        "C03573V04310": "String",
+        "DEASP Scheme Group": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -873,6 +1122,18 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03789V04537": "String",
+        "Local Authority": "String",
+        "C03833V04582": "String",
+        "HAP Tenants": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by housing/housing_hap_national.sql"
       ],
@@ -892,6 +1153,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03789V04537": "String",
+        "Local Authority": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by housing/housing_hap_national.sql"
       ],
@@ -911,6 +1182,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03789V04537": "String",
+        "Local Authority": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -930,6 +1211,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03789V04537": "String",
+        "Local Authority": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by housing/housing_hap_national.sql"
       ],
@@ -955,6 +1246,22 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(M1)": "String",
+        "Month": "String",
+        "C03346V04033": "String",
+        "Dwelling Status": "String",
+        "C03341V04028": "String",
+        "Stamp Duty Event": "String",
+        "C03348V04035": "String",
+        "RPPI Region": "String",
+        "C03344V04031": "String",
+        "Type of Buyer": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by constituency/constituency_housing_context.sql"
       ],
@@ -980,6 +1287,22 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(M1)": "String",
+        "Month": "String",
+        "C03346V04033": "String",
+        "Dwelling Status": "String",
+        "C03341V04028": "String",
+        "Stamp Duty Event": "String",
+        "C03348V04035": "String",
+        "RPPI Region": "String",
+        "C03344V04031": "String",
+        "Type of Buyer": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -999,6 +1322,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(M1)": "String",
+        "Month": "String",
+        "C02803V03373": "String",
+        "Type of Residential Property": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1018,6 +1351,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C01947V02657": "String",
+        "Local Authority": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1095,6 +1438,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03015V04198": "String",
+        "Item": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1114,6 +1467,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(Q1)": "String",
+        "Quarter": "String",
+        "C03898V04649": "String",
+        "Local Electoral Area": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by constituency/constituency_housing_context.sql, housing/housing_completions_trend.sql"
       ],
@@ -1135,6 +1498,18 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "STATISTIC Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C02076V02508": "String",
+        "Age Group": "String",
+        "C02199V02655": "String",
+        "Sex": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1158,6 +1533,20 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C02076V02508": "String",
+        "Age Group": "String",
+        "C02199V02655": "String",
+        "Sex": "String",
+        "C03788V04538": "String",
+        "County": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_totals.sql"
       ],
@@ -1177,6 +1566,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "STATISTIC Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C02541V03076": "String",
+        "Component": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1196,6 +1595,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(Q1)": "String",
+        "Quarter": "String",
+        "C03789V04537": "String",
+        "Local Authority": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "read by constituency/constituency_housing_context.sql, housing/housing_supply_national.sql"
       ],
@@ -1215,6 +1624,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(Q1)": "String",
+        "Quarter": "String",
+        "C03898V04649": "String",
+        "Local Electoral Area": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1234,6 +1653,16 @@
         "UNIT",
         "VALUE"
       ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(Q1)": "String",
+        "Quarter": "String",
+        "C03904V04656": "String",
+        "Electoral Divisions": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1271,7 +1700,7 @@
     "current_dail_vote_history": {
       "file": "data/gold/parquet/current_dail_vote_history.parquet",
       "layer": "gold",
-      "rows": 230331,
+      "rows": 235158,
       "columns": [
         "unique_member_code",
         "vote_outcome",
@@ -1291,6 +1720,25 @@
         "party",
         "constituency_name"
       ],
+      "column_types": {
+        "unique_member_code": "String",
+        "vote_outcome": "String",
+        "vote_id": "String",
+        "debate_title": "String",
+        "vote_type": "String",
+        "subject": "String",
+        "house_number": "Int64",
+        "vote_url": "String",
+        "date": "String",
+        "year_elected": "Int64",
+        "last_name": "String",
+        "dail_term": "String",
+        "dail_number": "Int64",
+        "full_name": "String",
+        "first_name": "String",
+        "party": "String",
+        "constituency_name": "String"
+      },
       "year_span": [
         2016,
         2026
@@ -1303,7 +1751,7 @@
     "current_seanad_vote_history": {
       "file": "data/gold/parquet/current_seanad_vote_history.parquet",
       "layer": "gold",
-      "rows": 42520,
+      "rows": 43330,
       "columns": [
         "unique_member_code",
         "vote_outcome",
@@ -1323,6 +1771,25 @@
         "party",
         "constituency_name"
       ],
+      "column_types": {
+        "unique_member_code": "String",
+        "vote_outcome": "String",
+        "vote_id": "String",
+        "debate_title": "String",
+        "vote_type": "String",
+        "subject": "String",
+        "house_number": "Int64",
+        "vote_url": "String",
+        "date": "String",
+        "year_elected": "Int64",
+        "last_name": "String",
+        "dail_term": "String",
+        "dail_number": "Int64",
+        "full_name": "String",
+        "first_name": "String",
+        "party": "String",
+        "constituency_name": "String"
+      },
       "year_span": [
         2016,
         2026
@@ -1344,6 +1811,14 @@
         "constituency",
         "total_amount_paid_since_2020"
       ],
+      "column_types": {
+        "rank": "UInt32",
+        "join_key": "String",
+        "identifier": "String",
+        "party": "String",
+        "constituency": "String",
+        "total_amount_paid_since_2020": "Float64"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1361,6 +1836,14 @@
         "constituency",
         "total_amount_paid_since_2020"
       ],
+      "column_types": {
+        "rank": "UInt32",
+        "join_key": "String",
+        "identifier": "String",
+        "party": "String",
+        "constituency": "String",
+        "total_amount_paid_since_2020": "Float64"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1459,6 +1942,16 @@
         "pay_date",
         "source_file"
       ],
+      "column_types": {
+        "ref": "String",
+        "provider": "String",
+        "amount_eur": "Float64",
+        "category": "String",
+        "stream": "String",
+        "year": "Int64",
+        "pay_date": "String",
+        "source_file": "String"
+      },
       "read_by": [
         "read by housing/housing_accommodation_spend_by_year.sql, housing/housing_accommodation_spend_providers.sql"
       ],
@@ -1508,7 +2001,7 @@
     "debate_summary": {
       "file": "data/gold/parquet/debate_summary.parquet",
       "layer": "gold",
-      "rows": 885,
+      "rows": 899,
       "columns": [
         "debate_title",
         "divisions",
@@ -1519,6 +2012,16 @@
         "total_yes",
         "total_no"
       ],
+      "column_types": {
+        "debate_title": "String",
+        "divisions": "Int64",
+        "first_date": "Date",
+        "last_date": "Date",
+        "carried": "Decimal(precision=38, scale=0)",
+        "lost": "Decimal(precision=38, scale=0)",
+        "total_yes": "Decimal(precision=38, scale=0)",
+        "total_no": "Decimal(precision=38, scale=0)"
+      },
       "year_span": [
         2016,
         2026
@@ -1588,12 +2091,17 @@
     "delivery_method_mix": {
       "file": "data/gold/parquet/delivery_method_mix.parquet",
       "layer": "gold",
-      "rows": 9813,
+      "rows": 9820,
       "columns": [
         "lobbyist_name",
         "delivery",
         "delivery_count"
       ],
+      "column_types": {
+        "lobbyist_name": "String",
+        "delivery": "String",
+        "delivery_count": "Int64"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1685,6 +2193,17 @@
         "total_received_eur",
         "cumulative_outstanding_eur"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "notices_issued": "Float64",
+        "sites_on_register_end": "Float64",
+        "sites_levied": "Float64",
+        "amount_levied_eur": "Float64",
+        "amount_received_levied_eur": "Float64",
+        "total_received_eur": "Float64",
+        "cumulative_outstanding_eur": "Float64"
+      },
       "read_by": [
         "read by constituency/constituency_council_housing_performance.sql, constituency/constituency_la_derelict_sites_levy.sql"
       ],
@@ -1883,7 +2402,7 @@
     "distinct_orgs_per_politician": {
       "file": "data/gold/parquet/distinct_orgs_per_politician.parquet",
       "layer": "gold",
-      "rows": 6271,
+      "rows": 6258,
       "columns": [
         "full_name",
         "chamber",
@@ -1892,6 +2411,14 @@
         "distinct_returns",
         "distinct_policy_areas"
       ],
+      "column_types": {
+        "full_name": "String",
+        "chamber": "String",
+        "position": "String",
+        "distinct_orgs": "Int64",
+        "distinct_returns": "Int64",
+        "distinct_policy_areas": "Int64"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -1909,6 +2436,14 @@
         "boundaries_label",
         "source_key"
       ],
+      "column_types": {
+        "constituency_name": "String",
+        "population_2022": "Int64",
+        "population_per_td_2022": "Int64",
+        "td_seats_2024": "Int64",
+        "boundaries_label": "String",
+        "source_key": "String"
+      },
       "read_by": [
         "read by member/member_constituency_demographics.sql"
       ],
@@ -1934,6 +2469,22 @@
         "n_non_compliance",
         "n_open"
       ],
+      "column_types": {
+        "company_num": "Int64",
+        "licence_classes": "String",
+        "licence_statuses": "String",
+        "any_active_licence": "Boolean",
+        "is_public_body": "Boolean",
+        "uww_priority_site": "Boolean",
+        "enforcement_crawled": "Boolean",
+        "last_record_date": "String",
+        "n_licences": "Int64",
+        "n_enforcement_events": "Int64",
+        "n_incident": "Int64",
+        "n_complaint": "Int64",
+        "n_non_compliance": "Int64",
+        "n_open": "Int64"
+      },
       "year_span": [
         2022,
         2026
@@ -2907,6 +3458,10 @@
         "lobbyist_name",
         "grassroots_returns_count"
       ],
+      "column_types": {
+        "lobbyist_name": "String",
+        "grassroots_returns_count": "Int64"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -3442,7 +3997,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 6368,
+      "rows": 10110,
       "columns": [
         "diary_date",
         "court",
@@ -3458,6 +4013,21 @@
         "source_url",
         "source_sha256"
       ],
+      "column_types": {
+        "diary_date": "String",
+        "court": "String",
+        "judge": "String",
+        "list_type": "String",
+        "status": "String",
+        "category": "String",
+        "case_anonymised": "String",
+        "plaintiff": "String",
+        "defendant": "String",
+        "plaintiff_kind": "String",
+        "source": "String",
+        "source_url": "String",
+        "source_sha256": "String"
+      },
       "year_span": [
         2026,
         2026
@@ -3470,7 +4040,7 @@
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 624,
+      "rows": 981,
       "columns": [
         "diary_date",
         "court",
@@ -3478,6 +4048,13 @@
         "list_type",
         "n_items"
       ],
+      "column_types": {
+        "diary_date": "String",
+        "court": "String",
+        "judge": "String",
+        "list_type": "String",
+        "n_items": "Int64"
+      },
       "year_span": [
         2026,
         2026
@@ -3490,7 +4067,7 @@
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
       "layer": "gold",
-      "rows": 786090,
+      "rows": 785897,
       "columns": [
         "court",
         "venue",
@@ -3509,6 +4086,24 @@
         "source",
         "source_url"
       ],
+      "column_types": {
+        "court": "String",
+        "venue": "String",
+        "diary_date": "String",
+        "judge": "String",
+        "courtroom": "String",
+        "time": "String",
+        "status": "String",
+        "list_type": "String",
+        "panel_size": "Int64",
+        "category": "String",
+        "case_anonymised": "String",
+        "plaintiff": "String",
+        "defendant": "String",
+        "plaintiff_kind": "String",
+        "source": "String",
+        "source_url": "String"
+      },
       "year_span": [
         2018,
         2026
@@ -3521,7 +4116,7 @@
     "judicial_legal_diary_openview_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_schedule.parquet",
       "layer": "gold",
-      "rows": 95102,
+      "rows": 95109,
       "columns": [
         "court",
         "venue",
@@ -3533,6 +4128,17 @@
         "panel_size",
         "n_items"
       ],
+      "column_types": {
+        "court": "String",
+        "venue": "String",
+        "diary_date": "String",
+        "judge": "String",
+        "courtroom": "String",
+        "time": "String",
+        "list_type": "String",
+        "panel_size": "Int64",
+        "n_items": "UInt32"
+      },
       "year_span": [
         2018,
         2026
@@ -3545,7 +4151,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 1096,
+      "rows": 1718,
       "columns": [
         "diary_date",
         "court",
@@ -3555,6 +4161,15 @@
         "time",
         "n_items"
       ],
+      "column_types": {
+        "diary_date": "String",
+        "court": "String",
+        "courtroom": "String",
+        "judge": "String",
+        "list_type": "String",
+        "time": "String",
+        "n_items": "Int64"
+      },
       "year_span": [
         2026,
         2026
@@ -3583,6 +4198,21 @@
         "elevated_to",
         "requires_manual_review"
       ],
+      "column_types": {
+        "judge_key": "String",
+        "appointee": "String",
+        "issue_date": "String",
+        "appointed_court": "String",
+        "role": "String",
+        "appointing_authority": "String",
+        "notice_ref": "String",
+        "source_url": "String",
+        "current_court": "String",
+        "status": "String",
+        "is_elevation": "Boolean",
+        "elevated_to": "String",
+        "requires_manual_review": "Boolean"
+      },
       "year_span": [
         2016,
         2026
@@ -3620,6 +4250,30 @@
         "source_url",
         "source_published_at"
       ],
+      "column_types": {
+        "judge_key": "String",
+        "judge_name": "String",
+        "court": "String",
+        "current_court": "String",
+        "court_rank": "Int64",
+        "is_ex_officio_or_multi": "Boolean",
+        "seat_count": "Int64",
+        "salary_band_eur": "Float64",
+        "salary_office": "String",
+        "salary_source": "String",
+        "assignment": "Null",
+        "assignment_term": "Null",
+        "has_spine": "Boolean",
+        "first_appointed_date": "String",
+        "first_appointing_authority": "String",
+        "appointed_court": "String",
+        "is_elevation": "Boolean",
+        "elevation_path": "String",
+        "requires_manual_review": "Boolean",
+        "appt_source_url": "String",
+        "source_url": "String",
+        "source_published_at": "String"
+      },
       "year_span": [
         2016,
         2026
@@ -3645,6 +4299,18 @@
         "source_name",
         "source_url"
       ],
+      "column_types": {
+        "court_house": "String",
+        "address": "String",
+        "eircode": "String",
+        "region": "String",
+        "county": "String",
+        "circuit": "String",
+        "latitude": "Float64",
+        "longitude": "Float64",
+        "source_name": "String",
+        "source_url": "String"
+      },
       "read_by": [
         "read by judiciary/judiciary_courthouses.sql"
       ],
@@ -3664,6 +4330,16 @@
         "source_name",
         "source_url"
       ],
+      "column_types": {
+        "jurisdiction": "String",
+        "area_of_law": "String",
+        "year": "Int64",
+        "category": "String",
+        "incoming": "Int64",
+        "resolved": "Float64",
+        "source_name": "String",
+        "source_url": "String"
+      },
       "read_by": [
         "read by judiciary/judiciary_courts_clearance.sql, judiciary/judiciary_courts_clearance_area.sql"
       ],
@@ -3685,6 +4361,18 @@
         "jurisdiction",
         "list_context"
       ],
+      "column_types": {
+        "page": "Int64",
+        "matter_or_venue": "String",
+        "wait_2024": "String",
+        "wait_2023": "String",
+        "is_clean_label": "Boolean",
+        "source_name": "String",
+        "source_url": "String",
+        "seq_in_page": "Int64",
+        "jurisdiction": "String",
+        "list_context": "String"
+      },
       "read_by": [
         "read by judiciary/judiciary_courts_waiting.sql"
       ],
@@ -3693,7 +4381,7 @@
     "judiciary_diary_judge_map": {
       "file": "data/gold/parquet/judiciary_diary_judge_map.parquet",
       "layer": "gold",
-      "rows": 7949,
+      "rows": 8893,
       "columns": [
         "judge",
         "court",
@@ -3702,6 +4390,14 @@
         "bench_court",
         "match_method"
       ],
+      "column_types": {
+        "judge": "String",
+        "court": "String",
+        "judge_key": "String",
+        "judge_name": "String",
+        "bench_court": "String",
+        "match_method": "String"
+      },
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_judge_sittings.sql"
       ],
@@ -3722,6 +4418,17 @@
         "source_name",
         "source_url"
       ],
+      "column_types": {
+        "announce_date": "String",
+        "nominee": "String",
+        "judge_key": "String",
+        "target_court": "String",
+        "prior_career": "String",
+        "vacancy_cause": "String",
+        "predecessor": "String",
+        "source_name": "String",
+        "source_url": "String"
+      },
       "year_span": [
         2024,
         2026
@@ -3784,7 +4491,11 @@
       "read_by": [
         "read by procurement/procurement_afs_capital_by_division.sql, procurement/procurement_afs_capital_by_year.sql, procurement/procurement_council_summary.sql"
       ],
-      "size_bytes": 27183
+      "size_bytes": 27183,
+      "grain": "one row per (council",
+      "money_grain": "year",
+      "never_sum_with": "division)",
+      "purpose": "accounts"
     },
     "la_afs_divisions": {
       "file": "data/silver/parquet/la_afs_divisions.parquet",
@@ -3835,7 +4546,11 @@
       "read_by": [
         "read by procurement/procurement_afs_by_division.sql, procurement/procurement_afs_total_by_year.sql, procurement/procurement_afs_vs_po_coverage.sql\u2026"
       ],
-      "size_bytes": 32712
+      "size_bytes": 32712,
+      "grain": "one row per (council",
+      "money_grain": "year",
+      "never_sum_with": "division)",
+      "purpose": "accounts"
     },
     "la_budget_divisions": {
       "file": "data/silver/parquet/la_budget_divisions.parquet",
@@ -3868,7 +4583,11 @@
       "read_by": [
         "read by procurement/procurement_la_budget_divisions.sql, procurement/procurement_la_budget_vs_actual.sql"
       ],
-      "size_bytes": 20397
+      "size_bytes": 20397,
+      "grain": "one row per (council",
+      "money_grain": "year",
+      "never_sum_with": "division)",
+      "purpose": "budget"
     },
     "la_lgas_audit_reports": {
       "file": "data/silver/parquet/la_lgas_audit_reports.parquet",
@@ -4010,7 +4729,7 @@
     "lobbyist_persistence": {
       "file": "data/gold/parquet/lobbyist_persistence.parquet",
       "layer": "gold",
-      "rows": 2570,
+      "rows": 2576,
       "columns": [
         "lobbyist_name",
         "first_return_date",
@@ -4019,6 +4738,14 @@
         "distinct_periods_filed",
         "active_span_days"
       ],
+      "column_types": {
+        "lobbyist_name": "String",
+        "first_return_date": "Datetime(time_unit='us', time_zone=None)",
+        "last_return_date": "Datetime(time_unit='us', time_zone=None)",
+        "total_returns": "Int64",
+        "distinct_periods_filed": "Int64",
+        "active_span_days": "Int64"
+      },
       "year_span": [
         2015,
         2026
@@ -4103,7 +4830,7 @@
     "member_interest_leaderboard": {
       "file": "data/gold/parquet/member_interest_leaderboard.parquet",
       "layer": "gold",
-      "rows": 173,
+      "rows": 542,
       "columns": [
         "full_name",
         "party",
@@ -4113,6 +4840,15 @@
         "ever_landlord",
         "ever_property_owner"
       ],
+      "column_types": {
+        "full_name": "String",
+        "party": "String",
+        "max_interest_count": "Int64",
+        "years_declared": "Int64",
+        "latest_year": "Int32",
+        "ever_landlord": "Boolean",
+        "ever_property_owner": "Boolean"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -4246,7 +4982,7 @@
     "ministerial_diary_engagements": {
       "file": "data/gold/parquet/ministerial_diary_engagements.parquet",
       "layer": "gold",
-      "rows": 43239,
+      "rows": 110100,
       "columns": [
         "entry_date",
         "time_slot",
@@ -4259,6 +4995,18 @@
         "entry_class",
         "minister_display"
       ],
+      "column_types": {
+        "entry_date": "Date",
+        "time_slot": "String",
+        "subject": "String",
+        "department": "String",
+        "minister": "String",
+        "source_pdf_url": "String",
+        "ingested_date": "Date",
+        "entry_id": "String",
+        "entry_class": "String",
+        "minister_display": "String"
+      },
       "year_span": [
         2015,
         2026
@@ -4271,7 +5019,7 @@
     "ministerial_diary_org_mentions": {
       "file": "data/gold/parquet/ministerial_diary_org_mentions.parquet",
       "layer": "gold",
-      "rows": 3044,
+      "rows": 7186,
       "columns": [
         "entry_id",
         "entry_date",
@@ -4285,6 +5033,19 @@
         "gaz_origin",
         "minister_display"
       ],
+      "column_types": {
+        "entry_id": "String",
+        "entry_date": "Date",
+        "minister": "String",
+        "subject": "String",
+        "matched_org_name": "String",
+        "match_source": "String",
+        "match_method": "String",
+        "match_confidence": "String",
+        "gazetteer_key": "String",
+        "gaz_origin": "String",
+        "minister_display": "String"
+      },
       "year_span": [
         2015,
         2026
@@ -4297,7 +5058,7 @@
     "ministerial_diary_org_overlap": {
       "file": "data/gold/parquet/ministerial_diary_org_overlap.parquet",
       "layer": "gold",
-      "rows": 522,
+      "rows": 789,
       "columns": [
         "matched_org_name",
         "sector",
@@ -4310,6 +5071,18 @@
         "last_meeting",
         "is_state_body"
       ],
+      "column_types": {
+        "matched_org_name": "String",
+        "sector": "String",
+        "meetings": "UInt32",
+        "high_conf_meetings": "UInt32",
+        "ministers_met": "UInt32",
+        "ministers_lobbied_and_met": "UInt32",
+        "total_lobbying_returns": "UInt32",
+        "first_meeting": "Date",
+        "last_meeting": "Date",
+        "is_state_body": "Boolean"
+      },
       "read_by": [
         "read by diary/ministerial_diary_org_overlap.sql"
       ],
@@ -4318,7 +5091,7 @@
     "most_lobbied_politicians": {
       "file": "data/gold/parquet/most_lobbied_politicians.parquet",
       "layer": "gold",
-      "rows": 5769,
+      "rows": 5757,
       "columns": [
         "unique_member_code",
         "full_name",
@@ -4327,6 +5100,14 @@
         "distinct_orgs",
         "total_returns"
       ],
+      "column_types": {
+        "unique_member_code": "String",
+        "full_name": "String",
+        "chamber": "String",
+        "lobby_returns_targeting": "Int64",
+        "distinct_orgs": "Int64",
+        "total_returns": "Int64"
+      },
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_summary.sql"
       ],
@@ -4441,6 +5222,16 @@
         "dwellings_la_ownership_31_12_2024_count",
         "la_owned_dwellings_planned_for_demolition_count"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "dwellings_la_ownership_01_01_2024_count": "Float64",
+        "dwellings_added_la_owned_stock_2024_count": "Float64",
+        "la_owned_dwellings_sold_2024_count": "Float64",
+        "la_owned_dwellings_demolished_2024_count": "Float64",
+        "dwellings_la_ownership_31_12_2024_count": "Float64",
+        "la_owned_dwellings_planned_for_demolition_count": "Float64"
+      },
       "read_by": [
         "read by constituency/constituency_council_housing_performance.sql"
       ],
@@ -4455,6 +5246,11 @@
         "year",
         "percentage_la_owned_dwellings_vacant_on_pct"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "percentage_la_owned_dwellings_vacant_on_pct": "Float64"
+      },
       "read_by": [
         "read by constituency/constituency_council_housing_performance.sql"
       ],
@@ -4470,6 +5266,12 @@
         "average_re_letting_time_vacation_re_weeks",
         "average_cost_getting_re_tenanted_dwellings_eur"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "average_re_letting_time_vacation_re_weeks": "Float64",
+        "average_cost_getting_re_tenanted_dwellings_eur": "Float64"
+      },
       "read_by": [
         "read by constituency/constituency_council_housing_performance.sql"
       ],
@@ -4484,6 +5286,11 @@
         "year",
         "maintenance_expenditure_2024_per_dwelling_h1e_eur"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "maintenance_expenditure_2024_per_dwelling_h1e_eur": "Float64"
+      },
       "read_by": [
         "read by constituency/constituency_council_housing_performance.sql"
       ],
@@ -4498,6 +5305,11 @@
         "year",
         "long_term_homeless_adults_as_pct_pct"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "long_term_homeless_adults_as_pct_pct": "Float64"
+      },
       "read_by": [
         "read by constituency/constituency_council_housing_performance.sql"
       ],
@@ -4516,6 +5328,15 @@
         "total_annual_energy_savings_mwh_from_mwh",
         "total_carbon_emission_reduction_tco2_from_tco2"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "houses_retrofitted_01_01_2024_31_count": "Float64",
+        "retrofitted_houses_achieving_ber_b2_or_count": "Float64",
+        "heat_pumps_installed_retrofitted_houses_count": "Float64",
+        "total_annual_energy_savings_mwh_from_mwh": "Float64",
+        "total_carbon_emission_reduction_tco2_from_tco2": "Float64"
+      },
       "read_by": [
         "read by constituency/constituency_council_housing_performance.sql"
       ],
@@ -4563,6 +5384,13 @@
         "rent_annuities_collection_pct",
         "housing_loans_collection_pct"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "commercial_rates_collection_pct": "Float64",
+        "rent_annuities_collection_pct": "Float64",
+        "housing_loans_collection_pct": "Float64"
+      },
       "read_by": [
         "read by constituency/constituency_council_housing_performance.sql, constituency/constituency_la_collection_rates.sql"
       ],
@@ -4948,6 +5776,12 @@
         "vote_count",
         "pct_of_party_votes"
       ],
+      "column_types": {
+        "party": "String",
+        "vote_type": "String",
+        "vote_count": "Int64",
+        "pct_of_party_votes": "Float64"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -4956,7 +5790,7 @@
     "payments_full_psa": {
       "file": "data/gold/parquet/payments_full_psa.parquet",
       "layer": "gold",
-      "rows": 12214,
+      "rows": 12386,
       "columns": [
         "member_name",
         "position",
@@ -4972,6 +5806,21 @@
         "party_name",
         "constituency"
       ],
+      "column_types": {
+        "member_name": "String",
+        "position": "String",
+        "payment_kind": "String",
+        "taa_band_raw": "String",
+        "taa_band_label": "String",
+        "date_paid": "Date",
+        "narrative": "String",
+        "amount": "Float64",
+        "source_pdf": "String",
+        "schema": "String",
+        "unique_member_code": "String",
+        "party_name": "String",
+        "constituency": "String"
+      },
       "year_span": [
         2020,
         2026
@@ -4979,7 +5828,11 @@
       "read_by": [
         "read by payments/payments_base.sql"
       ],
-      "size_bytes": 119587
+      "size_bytes": 119587,
+      "grain": "one row per PSA payment line",
+      "money_grain": "payments",
+      "never_sum_with": "awarded|budget|ted",
+      "purpose": "Full public-service-agreement payments"
     },
     "payments_full_psa_quarantine": {
       "file": "data/gold/parquet/payments_full_psa_quarantine.parquet",
@@ -4997,6 +5850,18 @@
         "source_pdf",
         "schema"
       ],
+      "column_types": {
+        "member_name": "String",
+        "position": "String",
+        "payment_kind": "String",
+        "taa_band_raw": "String",
+        "taa_band_label": "String",
+        "date_paid": "Date",
+        "narrative": "String",
+        "amount": "Float64",
+        "source_pdf": "String",
+        "schema": "String"
+      },
       "year_span": [
         2020,
         2026
@@ -5298,6 +6163,11 @@
         "return_count",
         "distinct_lobbyists"
       ],
+      "column_types": {
+        "public_policy_area": "String",
+        "return_count": "Int64",
+        "distinct_lobbyists": "Int64"
+      },
       "read_by": [
         "read by lobbying/lobbying_policy_area_summary.sql, lobbying/lobbying_summary.sql"
       ],
@@ -5306,7 +6176,7 @@
     "politician_policy_exposure": {
       "file": "data/gold/parquet/politician_policy_exposure.parquet",
       "layer": "gold",
-      "rows": 51730,
+      "rows": 51720,
       "columns": [
         "full_name",
         "chamber",
@@ -5314,6 +6184,13 @@
         "returns_targeting",
         "distinct_lobbyists"
       ],
+      "column_types": {
+        "full_name": "String",
+        "chamber": "String",
+        "public_policy_area": "String",
+        "returns_targeting": "Int64",
+        "distinct_lobbyists": "Int64"
+      },
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_policy_area_summary.sql, lobbying/lobbying_policy_exposure.sql"
       ],
@@ -5361,8 +6238,50 @@
         "value_kind",
         "is_large_award_review",
         "value_safe_to_sum",
-        "estimated_value_eur"
+        "estimated_value_eur",
+        "value_plausible"
       ],
+      "column_types": {
+        "Tender ID": "String",
+        "Awarded Suppliers": "String",
+        "Contracting Authority": "String",
+        "Sum of Awarded Value (\u20ac)": "String",
+        "Notice Published Date/Contract Created Date": "String",
+        "Competition Type": "String",
+        "Parent Agreement ID": "String",
+        "Main Cpv Code": "String",
+        "Main Cpv Code Description": "String",
+        "Tender/Contract Name": "String",
+        "Spend Category": "String",
+        "Contract Type": "String",
+        "Procedure": "String",
+        "Contract Duration (Months)": "String",
+        "No of Bids Received": "String",
+        "No of SMEs Bids Received": "String",
+        "No of Awarded SMEs": "String",
+        "Additional CPV Codes on CFT": "String",
+        "TED Notice Link": "String",
+        "TED CAN Link": "String",
+        "sl": "String",
+        "supplier_raw": "String",
+        "supplier": "String",
+        "name_repaired": "Boolean",
+        "name_truncated": "Boolean",
+        "supplier_norm": "String",
+        "has_company_suffix": "Boolean",
+        "foreign_form": "Boolean",
+        "is_public_body": "Boolean",
+        "supplier_class": "String",
+        "value_eur": "Float64",
+        "is_framework_or_dps": "Boolean",
+        "is_call_off": "Boolean",
+        "value_shared_across_suppliers": "Boolean",
+        "value_kind": "String",
+        "is_large_award_review": "Boolean",
+        "value_safe_to_sum": "Boolean",
+        "estimated_value_eur": "Float64",
+        "value_plausible": "Boolean"
+      },
       "year_span": [
         2013,
         2026
@@ -5370,12 +6289,16 @@
       "read_by": [
         "read by procurement/procurement_authority_summary.sql, procurement/procurement_authority_year_summary.sql, procurement/procurement_awards.sql\u2026"
       ],
-      "size_bytes": 4179899
+      "size_bytes": 4179899,
+      "grain": "one row per awarded contract/lot",
+      "money_grain": "awarded",
+      "never_sum_with": "payments|budget|ted",
+      "purpose": "Contract AWARDS from eTenders/OGP \u2014 the ceiling awarded, NOT cash paid"
     },
     "procurement_lobbying_overlap": {
       "file": "data/gold/parquet/procurement_lobbying_overlap.parquet",
       "layer": "gold",
-      "rows": 316,
+      "rows": 323,
       "columns": [
         "lobby_name",
         "lobby_side",
@@ -5386,6 +6309,16 @@
         "n_authorities",
         "awarded_value_safe_eur"
       ],
+      "column_types": {
+        "lobby_name": "String",
+        "lobby_side": "String",
+        "supplier_norm": "String",
+        "supplier": "String",
+        "n_lobby_returns": "UInt32",
+        "n_award_rows": "UInt32",
+        "n_authorities": "UInt32",
+        "awarded_value_safe_eur": "Float64"
+      },
       "read_by": [
         "read by lobbying/lobbying_org_procurement.sql, procurement/procurement_lobbying_overlap.sql, procurement/procurement_supplier_summary.sql\u2026"
       ],
@@ -5394,7 +6327,7 @@
     "procurement_payments_fact": {
       "file": "data/gold/parquet/procurement_payments_fact.parquet",
       "layer": "gold",
-      "rows": 423989,
+      "rows": 401624,
       "columns": [
         "publisher_id",
         "publisher_name",
@@ -5438,15 +6371,62 @@
         "spend_category",
         "value_plausible"
       ],
+      "column_types": {
+        "publisher_id": "String",
+        "publisher_name": "String",
+        "publisher_type": "String",
+        "sector": "String",
+        "source_landing_url": "String",
+        "source_file_url": "String",
+        "source_file_hash": "String",
+        "period": "String",
+        "year": "Int64",
+        "quarter": "Int64",
+        "supplier_raw": "String",
+        "supplier_normalised": "String",
+        "amount_eur": "Float64",
+        "amount_semantics": "String",
+        "value_safe_to_sum": "Boolean",
+        "description": "String",
+        "po_number": "String",
+        "paid_flag": "String",
+        "source_row_number": "Int64",
+        "source_page_number": "Int64",
+        "parser_name": "String",
+        "parser_version": "String",
+        "extraction_status": "String",
+        "extraction_confidence": "String",
+        "caveat_text_detected": "Boolean",
+        "supplier_class": "String",
+        "privacy_status": "String",
+        "public_display": "Boolean",
+        "source_caveat": "String",
+        "value_kind": "String",
+        "realisation_tier": "String",
+        "vat_status": "String",
+        "disclosure_basis": "String",
+        "disclosure_threshold_eur": "Int64",
+        "threshold_vat": "String",
+        "body_procurement_class": "String",
+        "regime_note": "String",
+        "cro_company_num": "Int64",
+        "cro_company_status": "String",
+        "spend_category": "String",
+        "value_plausible": "Boolean"
+      },
       "read_by": [
         "read by housing/housing_accommodation_spend_by_year.sql, housing/housing_accommodation_spend_providers.sql, procurement/procurement_afs_vs_po_coverage.sql\u2026"
       ],
-      "size_bytes": 7468221
+      "size_bytes": 7468221,
+      "grain": "one row per disclosed payment/PO line",
+      "money_grain": "payments",
+      "never_sum_with": "awarded|budget|ted",
+      "purpose": "Actual purchase-order/payment lines >\u20ac20k from public bodies + councils"
     },
     "procurement_supplier_cro_match": {
       "file": "data/gold/parquet/procurement_supplier_cro_match.parquet",
       "layer": "gold",
-      "rows": 9979,
+      "rows": 9992,
       "columns": [
         "supplier",
         "supplier_norm",
@@ -5456,6 +6436,15 @@
         "match_method",
         "match_confidence"
       ],
+      "column_types": {
+        "supplier": "String",
+        "supplier_norm": "String",
+        "n_cro": "UInt32",
+        "company_num": "Int64",
+        "company_status": "String",
+        "match_method": "String",
+        "match_confidence": "Float64"
+      },
       "read_by": [
         "read by procurement/procurement_charity_overlap.sql, procurement/procurement_entity_chain.sql, procurement/procurement_supplier_summary.sql\u2026"
       ],
@@ -5464,7 +6453,7 @@
     "public_appointments": {
       "file": "data/gold/parquet/public_appointments.parquet",
       "layer": "gold",
-      "rows": 1147,
+      "rows": 1152,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -5480,6 +6469,21 @@
         "title",
         "iris_source_pdf"
       ],
+      "column_types": {
+        "notice_ref": "String",
+        "issue_date": "String",
+        "appointing_authority": "String",
+        "appointment_type": "String",
+        "body": "String",
+        "appointee": "String",
+        "appointee_count": "Int64",
+        "role": "String",
+        "portfolio": "String",
+        "english_summary": "String",
+        "lang": "String",
+        "title": "String",
+        "iris_source_pdf": "String"
+      },
       "year_span": [
         2012,
         2026
@@ -5558,7 +6562,11 @@
       "read_by": [
         "ETL input folded into gold procurement_payments_fact (consolidate chain)"
       ],
-      "size_bytes": 1562590
+      "size_bytes": 1562590,
+      "grain": "one row per public-body payment line",
+      "money_grain": "payments",
+      "never_sum_with": "awarded|budget|ted",
+      "purpose": "Central/semi-state body payments \u2014 same PAYMENTS grain as procurement_payments_fact"
     },
     "questions": {
       "file": "data/silver/parquet/questions.parquet",
@@ -5685,6 +6693,15 @@
         "distinct_policy_areas",
         "distinct_politicians_targeted"
       ],
+      "column_types": {
+        "dpos_or_former_dpos_who_carried_out_lobbying_name": "String",
+        "current_or_former_dpos_position": "String",
+        "current_or_former_dpos_chamber": "String",
+        "returns_involved_in": "Int64",
+        "distinct_lobbyist_firms": "Int64",
+        "distinct_policy_areas": "Int64",
+        "distinct_politicians_targeted": "Int64"
+      },
       "read_by": [
         "read by lobbying/lobbying_revolving_door.sql"
       ],
@@ -5785,7 +6802,7 @@
     "seanad_attendance_by_year": {
       "file": "data/gold/parquet/seanad_attendance_by_year.parquet",
       "layer": "gold",
-      "rows": 142,
+      "rows": 200,
       "columns": [
         "full_name",
         "year",
@@ -5798,6 +6815,18 @@
         "other_days",
         "total_days"
       ],
+      "column_types": {
+        "full_name": "String",
+        "year": "Int64",
+        "unique_member_code": "String",
+        "member_id": "String",
+        "party_name": "String",
+        "constituency": "String",
+        "is_minister": "Boolean",
+        "sitting_days": "Int64",
+        "other_days": "Int64",
+        "total_days": "Int64"
+      },
       "read_by": [
         "read by attendance/attendance_member_summary.sql, attendance/attendance_member_year_summary.sql"
       ],
@@ -5887,7 +6916,7 @@
     "seanad_payments_full_psa": {
       "file": "data/gold/parquet/seanad_payments_full_psa.parquet",
       "layer": "gold",
-      "rows": 840,
+      "rows": 901,
       "columns": [
         "member_name",
         "position",
@@ -5904,6 +6933,22 @@
         "party_name",
         "constituency"
       ],
+      "column_types": {
+        "member_name": "String",
+        "position": "String",
+        "payment_kind": "String",
+        "taa_band_raw": "String",
+        "taa_band_label": "String",
+        "date_paid": "Date",
+        "narrative": "String",
+        "amount": "Float64",
+        "source_pdf": "String",
+        "schema": "String",
+        "house": "String",
+        "unique_member_code": "String",
+        "party_name": "String",
+        "constituency": "String"
+      },
       "year_span": [
         2025,
         2026
@@ -5930,6 +6975,19 @@
         "schema",
         "house"
       ],
+      "column_types": {
+        "member_name": "String",
+        "position": "String",
+        "payment_kind": "String",
+        "taa_band_raw": "String",
+        "taa_band_label": "String",
+        "date_paid": "Date",
+        "narrative": "String",
+        "amount": "Float64",
+        "source_pdf": "String",
+        "schema": "String",
+        "house": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -5974,7 +7032,7 @@
     "si_current_state": {
       "file": "data/gold/parquet/si_current_state.parquet",
       "layer": "gold",
-      "rows": 7379,
+      "rows": 9880,
       "columns": [
         "si_id",
         "si_year",
@@ -5990,6 +7048,21 @@
         "directory_updated_to",
         "confidence"
       ],
+      "column_types": {
+        "si_id": "String",
+        "si_year": "Int64",
+        "si_number": "Int64",
+        "directory_title": "String",
+        "current_state": "String",
+        "affecting_sis": "List(String)",
+        "affecting_si_urls": "List(String)",
+        "this_si_eli_url": "String",
+        "how_affected_raw": "String",
+        "state_source": "String",
+        "state_source_url": "String",
+        "directory_updated_to": "String",
+        "confidence": "Float64"
+      },
       "read_by": [
         "read by legislation/legislation_si_amendments.sql, legislation/legislation_si_current_state.sql"
       ],
@@ -5998,7 +7071,7 @@
     "si_lrc_enrichment_summary": {
       "file": "data/gold/parquet/si_lrc_enrichment_summary.parquet",
       "layer": "gold",
-      "rows": 5963,
+      "rows": 7702,
       "columns": [
         "si_year",
         "si_number",
@@ -6021,6 +7094,28 @@
         "lrc_fills_empty_domain",
         "lrc_caveat"
       ],
+      "column_types": {
+        "si_year": "Int64",
+        "si_number": "Int64",
+        "si_title": "String",
+        "si_policy_domain": "String",
+        "eisb_url": "String",
+        "lrc_subjects": "List(String)",
+        "lrc_leaves": "List(String)",
+        "lrc_paths": "List(String)",
+        "lrc_primary_subject": "String",
+        "lrc_primary_leaf": "String",
+        "lrc_eisb_url": "String",
+        "lrc_list_updated_to": "String",
+        "lrc_n_subjects": "UInt32",
+        "si_number_year": "String",
+        "has_lrc_classified_list_match": "Boolean",
+        "lrc_enrichment_status": "String",
+        "match_method": "String",
+        "match_confidence": "Float64",
+        "lrc_fills_empty_domain": "Boolean",
+        "lrc_caveat": "String"
+      },
       "read_by": [
         "read by legislation/legislation_si_lrc_enrichment.sql"
       ],
@@ -6037,6 +7132,13 @@
         "n_items",
         "n_candidates"
       ],
+      "column_types": {
+        "category": "String",
+        "category_label": "String",
+        "total_eur": "Float64",
+        "n_items": "UInt32",
+        "n_candidates": "UInt32"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -6053,6 +7155,13 @@
         "n_candidates",
         "top_category"
       ],
+      "column_types": {
+        "detail": "String",
+        "total_eur": "Float64",
+        "n_items": "UInt32",
+        "n_candidates": "UInt32",
+        "top_category": "String"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -6069,6 +7178,13 @@
         "median_eur",
         "n_candidates"
       ],
+      "column_types": {
+        "party": "String",
+        "total_eur": "Float64",
+        "mean_eur": "Float64",
+        "median_eur": "Float64",
+        "n_candidates": "UInt32"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -6095,6 +7211,23 @@
         "is_elected_td",
         "party"
       ],
+      "column_types": {
+        "ref": "String",
+        "category": "String",
+        "detail": "String",
+        "cost_eur": "Float64",
+        "source_page": "String",
+        "item_confidence": "Float64",
+        "media_id": "String",
+        "category_label": "String",
+        "cost_suspect": "Boolean",
+        "candidate_slug": "String",
+        "candidate_name": "String",
+        "constituency_name": "String",
+        "unique_member_code": "String",
+        "is_elected_td": "Boolean",
+        "party": "String"
+      },
       "year_span": [
         1960,
         2085
@@ -6137,6 +7270,35 @@
         "is_elected_td",
         "election_event"
       ],
+      "column_types": {
+        "media_id": "String",
+        "candidate_slug": "String",
+        "candidate_name": "String",
+        "constituency_slug": "String",
+        "constituency_name": "String",
+        "party_declared": "String",
+        "spend_not_public_eur": "Float64",
+        "spend_public_eur": "Float64",
+        "total_spend_eur": "Float64",
+        "reconciles": "Boolean",
+        "min_confidence": "Float64",
+        "n_pages": "Int64",
+        "ocr_complete": "Boolean",
+        "source_pdf_url": "String",
+        "cat_5A_eur": "Float64",
+        "cat_5B_eur": "Float64",
+        "cat_5C_eur": "Float64",
+        "cat_5D_eur": "Float64",
+        "cat_5E_eur": "Float64",
+        "cat_5F_eur": "Float64",
+        "cat_5G_eur": "Float64",
+        "cat_5H_eur": "Float64",
+        "total_suspect": "Boolean",
+        "party": "String",
+        "unique_member_code": "String",
+        "is_elected_td": "Boolean",
+        "election_event": "String"
+      },
       "year_span": [
         1960,
         2085
@@ -6162,6 +7324,18 @@
         "ocr_complete",
         "source_pdf_url"
       ],
+      "column_types": {
+        "election_event": "String",
+        "candidate_name": "String",
+        "constituency_name": "String",
+        "party": "String",
+        "party_declared": "String",
+        "unique_member_code": "String",
+        "is_elected_td": "Boolean",
+        "filed_status": "String",
+        "ocr_complete": "Boolean",
+        "source_pdf_url": "String"
+      },
       "read_by": [
         "read by sipo/sipo_candidate_expenses.sql"
       ],
@@ -6192,6 +7366,27 @@
         "source_page",
         "election_event"
       ],
+      "column_types": {
+        "party": "String",
+        "appropriate_officer": "String",
+        "donation_page": "Int64",
+        "donor_name": "String",
+        "value_eur": "Float64",
+        "value_raw": "String",
+        "nature": "String",
+        "description_of_donor": "String",
+        "date_received_raw": "String",
+        "requested": "String",
+        "corporate_approval_form": "String",
+        "receipt_issued": "String",
+        "donor_irish_citizen": "Null",
+        "receipt_issuer": "String",
+        "min_confidence": "Float64",
+        "flag": "String",
+        "source_pdf": "String",
+        "source_page": "Int64",
+        "election_event": "String"
+      },
       "year_span": [
         2024,
         2024
@@ -6199,12 +7394,16 @@
       "read_by": [
         "read by sipo/sipo_donations.sql"
       ],
-      "size_bytes": 12271
+      "size_bytes": 12271,
+      "grain": "one row per declared donation",
+      "money_grain": "political_finance",
+      "never_sum_with": "expenses|awarded|payments",
+      "purpose": "SIPO political donations \u2014 never sum with election expenses"
     },
     "sipo_expense_categories": {
       "file": "data/gold/parquet/sipo_expense_categories.parquet",
       "layer": "gold",
-      "rows": 19,
+      "rows": 152,
       "columns": [
         "section",
         "category",
@@ -6218,6 +7417,19 @@
         "reconciles",
         "election_event"
       ],
+      "column_types": {
+        "section": "String",
+        "category": "String",
+        "category_total_eur": "Float64",
+        "total_confidence": "Float64",
+        "is_overall": "Boolean",
+        "source_pdf": "String",
+        "source_page": "Int64",
+        "party": "String",
+        "items_sum_eur": "Float64",
+        "reconciles": "Boolean",
+        "election_event": "String"
+      },
       "read_by": [
         "read by sipo/sipo_party_national_expenses.sql"
       ],
@@ -6226,7 +7438,7 @@
     "sipo_expense_items": {
       "file": "data/gold/parquet/sipo_expense_items.parquet",
       "layer": "gold",
-      "rows": 169,
+      "rows": 1081,
       "columns": [
         "party",
         "section",
@@ -6241,6 +7453,20 @@
         "flag",
         "election_event"
       ],
+      "column_types": {
+        "party": "String",
+        "section": "String",
+        "category": "String",
+        "ref": "String",
+        "item_description": "String",
+        "cost_eur": "Float64",
+        "cost_confidence": "Float64",
+        "row_min_confidence": "Float64",
+        "source_pdf": "String",
+        "source_page": "Int64",
+        "flag": "String",
+        "election_event": "String"
+      },
       "read_by": [
         "read by sipo/sipo_party_national_expenses.sql"
       ],
@@ -6249,7 +7475,7 @@
     "sipo_expenses_fact": {
       "file": "data/gold/parquet/sipo_expenses_fact.parquet",
       "layer": "gold",
-      "rows": 399,
+      "rows": 402,
       "columns": [
         "party",
         "candidate_name_raw",
@@ -6264,10 +7490,28 @@
         "source_pdf",
         "source_page"
       ],
+      "column_types": {
+        "party": "String",
+        "candidate_name_raw": "String",
+        "constituency": "String",
+        "constituency_match_score": "Float64",
+        "amount_assigned_eur": "Float64",
+        "expenditure_eur": "Float64",
+        "expenditure_confidence": "Float64",
+        "row_min_confidence": "Float64",
+        "statutory_limit_eur": "Float64",
+        "flag": "String",
+        "source_pdf": "String",
+        "source_page": "Int64"
+      },
       "read_by": [
         "read by sipo/sipo_expenses_base.sql"
       ],
-      "size_bytes": 13651
+      "size_bytes": 13651,
+      "grain": "one row per election-expense line",
+      "money_grain": "political_finance",
+      "never_sum_with": "donations|awarded|payments",
+      "purpose": "SIPO election expenses \u2014 never sum with donations"
     },
     "sipo_ge2020_expense_categories": {
       "file": "data/gold/parquet/sipo_ge2020_expense_categories.parquet",
@@ -6405,6 +7649,28 @@
         "constituency",
         "year"
       ],
+      "column_types": {
+        "date": "String",
+        "chamber": "String",
+        "debate_section_id": "String",
+        "section_heading": "String",
+        "business": "String",
+        "contribution_type": "String",
+        "contribution_order": "Int64",
+        "akn_eid": "String",
+        "unique_member_code": "String",
+        "speaker_raw": "String",
+        "recorded_time": "String",
+        "speech_text": "String",
+        "house": "String",
+        "word_count": "Int64",
+        "irish_score": "Float64",
+        "is_irish": "Boolean",
+        "member_name": "String",
+        "party": "String",
+        "constituency": "String",
+        "year": "Int32"
+      },
       "read_by": [
         "read by debates/speech_base.sql {SPEECH_FACT_PARQUET_PATH}"
       ],
@@ -6436,6 +7702,28 @@
         "constituency",
         "year"
       ],
+      "column_types": {
+        "date": "String",
+        "chamber": "String",
+        "debate_section_id": "String",
+        "section_heading": "String",
+        "business": "String",
+        "contribution_type": "String",
+        "contribution_order": "Int64",
+        "akn_eid": "String",
+        "unique_member_code": "String",
+        "speaker_raw": "String",
+        "recorded_time": "String",
+        "speech_text": "String",
+        "house": "String",
+        "word_count": "Int64",
+        "irish_score": "Float64",
+        "is_irish": "Boolean",
+        "member_name": "String",
+        "party": "String",
+        "constituency": "String",
+        "year": "Int32"
+      },
       "size_bytes": 213022616
     },
     "sponsors": {
@@ -6509,6 +7797,18 @@
         "70_years_old_or_more",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "less_than_25_years_old": "Int64",
+        "25_29_years_old": "Int64",
+        "30_39_years_old": "Int64",
+        "40_49_years_old": "Int64",
+        "50_59_years_old": "Int64",
+        "60_69_years_old": "Int64",
+        "70_years_old_or_more": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_composition.sql"
       ],
@@ -6530,6 +7830,18 @@
         "training_back_to_work_solas_scheme",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "unemployed_and_in_receipt_of_social_community_welfare_benefit": "Int64",
+        "employed_full_part_self": "Int64",
+        "other": "Int64",
+        "one_parent_family_support_only": "Int64",
+        "pensioner_retired": "Int64",
+        "homemaker_no_income": "Int64",
+        "training_back_to_work_solas_scheme": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_composition.sql"
       ],
@@ -6548,6 +7860,15 @@
         "combination_of_employment_and_social_welfare",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "social_welfare_only": "Int64",
+        "employment_only": "Int64",
+        "other": "Int64",
+        "combination_of_employment_and_social_welfare": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_composition.sql"
       ],
@@ -6575,6 +7896,24 @@
         "couple_1_or_more_adults_3_or_more_children",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "1_adult": "Int64",
+        "1_adult_1_2_children": "Int64",
+        "couple_1_2_children": "Int64",
+        "couple": "Int64",
+        "1_adult_3_or_more_children": "Int64",
+        "couple_3_or_more_children": "Int64",
+        "2_adults": "Int64",
+        "2_adults_with_children": "Int64",
+        "couple_1_or_more_adults_1_2_children": "Int64",
+        "couple_with_1_or_more_other_adults": "Int64",
+        "3_or_more_adults": "Int64",
+        "3_or_more_adults_with_children": "Int64",
+        "couple_1_or_more_adults_3_or_more_children": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_composition.sql"
       ],
@@ -6602,6 +7941,24 @@
         "other_form_of_disability",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "unsuitable_particular_household_circumstance": "Int64",
+        "requires_rent_supplement": "Int64",
+        "requirement_for_separate_accommodation": "Int64",
+        "homeless_institution_emergency_accommodation": "Int64",
+        "overcrowded_accommodation": "Int64",
+        "intellectual_disability": "Int64",
+        "physical_disability": "Int64",
+        "mental_health_disability": "Int64",
+        "unfit_accommodation": "Int64",
+        "unsustainable_mortgage": "Int64",
+        "sensory_disability": "Int64",
+        "medical_or_compassionate_grounds": "Int64",
+        "other_form_of_disability": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_composition.sql"
       ],
@@ -6621,6 +7978,16 @@
         "household_member_s_is_a_traveller",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "no_specific_accommodation_requirement": "Int64",
+        "household_member_s_is_homeless": "Int64",
+        "physical_sensory_mental_or_intellectual_impairment": "Int64",
+        "household_member_s_is_aged_65_years_or_more": "Int64",
+        "household_member_s_is_a_traveller": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_composition.sql"
       ],
@@ -6641,6 +8008,17 @@
         "owner_occupier",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "private_rented_accommodation_with_and_without_rent_supplement": "Int64",
+        "living_with_parents": "Int64",
+        "living_with_relatives_friends": "Int64",
+        "emergency_accommodation_none": "Int64",
+        "other": "Int64",
+        "owner_occupier": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_composition.sql"
       ],
@@ -6663,6 +8041,19 @@
         "more_than_7_years",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "less_than_6_months": "Int64",
+        "6_12_months": "Int64",
+        "1_2_years": "Int64",
+        "2_3_years": "Int64",
+        "3_4_years": "Int64",
+        "4_5_years": "Int64",
+        "5_7_years": "Int64",
+        "more_than_7_years": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by constituency/constituency_ssha_waiting_list.sql, housing/housing_ssha_waiting_list_composition.sql, housing/housing_ssha_waiting_list_totals.sql"
       ],
@@ -6681,6 +8072,15 @@
         "uk_citizen",
         "total"
       ],
+      "column_types": {
+        "la": "String",
+        "year": "Int64",
+        "irish_citizen": "Int64",
+        "eea_citizen": "Int64",
+        "non_eea_citizen": "Int64",
+        "uk_citizen": "Int64",
+        "total": "Int64"
+      },
       "read_by": [
         "read by housing/housing_ssha_waiting_list_composition.sql"
       ],
@@ -6809,7 +8209,7 @@
     "stateboards_roster": {
       "file": "data/silver/parquet/stateboards_roster.parquet",
       "layer": "silver",
-      "rows": 2070,
+      "rows": 2050,
       "columns": [
         "department",
         "body",
@@ -6820,16 +8220,20 @@
         "first_appointed",
         "reappointed",
         "expiry_date",
-        "source_url",
-        "wikidata_qid",
-        "wikidata_url",
-        "wikidata_label",
-        "wikidata_description",
-        "wikidata_occupations",
-        "wikidata_employers",
-        "wikidata_positions_held",
-        "wikidata_curation_note"
+        "source_url"
       ],
+      "column_types": {
+        "department": "String",
+        "body": "String",
+        "body_full": "String",
+        "member_name": "String",
+        "position_type": "String",
+        "basis_of_appointment": "String",
+        "first_appointed": "Date",
+        "reappointed": "Date",
+        "expiry_date": "Date",
+        "source_url": "String"
+      },
       "year_span": [
         2018,
         2033
@@ -6842,7 +8246,7 @@
     "statutory_instruments": {
       "file": "data/gold/parquet/statutory_instruments.parquet",
       "layer": "gold",
-      "rows": 5963,
+      "rows": 7702,
       "columns": [
         "si_id",
         "si_year",
@@ -6869,6 +8273,32 @@
         "iris_source_pdf",
         "si_taxonomy_confidence"
       ],
+      "column_types": {
+        "si_id": "String",
+        "si_year": "Int64",
+        "si_number": "Int64",
+        "si_title": "String",
+        "si_signed_date": "Date",
+        "si_operation": "String",
+        "si_operation_flags": "String",
+        "si_form": "String",
+        "si_eu_relationship": "String",
+        "si_is_eu": "Boolean",
+        "si_policy_domain": "String",
+        "si_policy_domains_all": "String",
+        "si_responsible_actor": "String",
+        "si_signatory_name": "String",
+        "si_department": "String",
+        "si_department_label": "String",
+        "si_minister_member_code": "String",
+        "si_minister_name": "String",
+        "si_parent_legislation": "String",
+        "bill_id": "String",
+        "bill_short_title": "String",
+        "eisb_url": "String",
+        "iris_source_pdf": "String",
+        "si_taxonomy_confidence": "Float64"
+      },
       "read_by": [
         "read by legislation/legislation_si_amendments.sql, legislation/legislation_si_index.sql"
       ],
@@ -6955,6 +8385,16 @@
         "abstentions",
         "yes_rate_pct"
       ],
+      "column_types": {
+        "full_name": "String",
+        "party": "String",
+        "constituency_name": "String",
+        "divisions": "Int64",
+        "yes_votes": "Decimal(precision=38, scale=0)",
+        "no_votes": "Decimal(precision=38, scale=0)",
+        "abstentions": "Decimal(precision=38, scale=0)",
+        "yes_rate_pct": "Float64"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -7057,7 +8497,11 @@
       "read_by": [
         "read by procurement/procurement_competition.sql, procurement/procurement_competition_by_cpv.sql, procurement/procurement_entity_chain.sql\u2026"
       ],
-      "size_bytes": 847891
+      "size_bytes": 847891,
+      "grain": "one row per TED award notice",
+      "money_grain": "ted",
+      "never_sum_with": "awarded|payments|budget",
+      "purpose": "EU TED contract-award notices \u2014 OVERLAPS procurement_awards, never sum the two"
     },
     "ted_ie_buyer_history": {
       "file": "data/silver/parquet/ted_ie_buyer_history.parquet",
@@ -7233,7 +8677,7 @@
     "top_client_companies": {
       "file": "data/gold/parquet/top_client_companies.parquet",
       "layer": "gold",
-      "rows": 1988,
+      "rows": 1992,
       "columns": [
         "client_name",
         "return_count",
@@ -7242,6 +8686,14 @@
         "distinct_policy_areas",
         "distinct_chambers"
       ],
+      "column_types": {
+        "client_name": "String",
+        "return_count": "Int64",
+        "distinct_lobbyist_firms": "Int64",
+        "distinct_politicians_targeted": "Int64",
+        "distinct_policy_areas": "Int64",
+        "distinct_chambers": "Int64"
+      },
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
@@ -7250,7 +8702,7 @@
     "top_lobbyist_organisations": {
       "file": "data/gold/parquet/top_lobbyist_organisations.parquet",
       "layer": "gold",
-      "rows": 2551,
+      "rows": 2557,
       "columns": [
         "lobbyist_name",
         "returns_filed",
@@ -7262,6 +8714,17 @@
         "company_registered_name",
         "lobby_org_link"
       ],
+      "column_types": {
+        "lobbyist_name": "String",
+        "returns_filed": "Int64",
+        "distinct_politicians_targeted": "Int64",
+        "distinct_policy_areas": "Int64",
+        "main_activities_of_organisation": "String",
+        "website": "String",
+        "company_registration_number": "String",
+        "company_registered_name": "String",
+        "lobby_org_link": "String"
+      },
       "read_by": [
         "read by lobbying/lobbying_experimental_org_index_enriched.sql, lobbying/lobbying_org_index.sql, lobbying/lobbying_summary.sql"
       ],

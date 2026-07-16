@@ -405,7 +405,7 @@ def _yr_axis(df: pd.DataFrame, col: str = "year") -> pd.DataFrame:
     if col not in getattr(df, "columns", ()):
         return df
     out = df.copy()
-    out[col] = out[col].map(lambda v: str(int(v)) if pd.notna(v) else "")
+    out[col] = out[col].map(lambda v: str(int(v)) if pd.notna(v) else "")  # logic_firewall: display_only
     return out
 
 

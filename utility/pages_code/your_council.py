@@ -139,7 +139,7 @@ def _render_index() -> None:
 
     # Bucket the 31 councils into province bands (North->South). province comes from the summary row;
     # the 4 councils with no spending row fall back to the fixed geography map.
-    bands: dict[tuple[int, str], list] = defaultdict(list)
+    bands: dict[tuple[int, str], list] = defaultdict(list)  # logic_firewall: display_only
     for r in res.data.itertuples():
         la = str(r.local_authority)
         s = srows.get(la)
@@ -253,7 +253,7 @@ def _section_councillors(council: str) -> None:
     leas = _real_leas(df)
 
     # Council-wide party breakdown + an honest voting-coverage line from the gold coverage view.
-    st.html(party_stripe_html(list(Counter(df["party"]).items()), show_legend=True))
+    st.html(party_stripe_html(list(Counter(df["party"]).items()), show_legend=True))  # logic_firewall: display_only
     cov = fetch_coverage(council)
     tier = str(cov.data.iloc[0]["tier"]) if cov.ok and cov.data is not None and not cov.data.empty else "unseeded"
     st.caption(

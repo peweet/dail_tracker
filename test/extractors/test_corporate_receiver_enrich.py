@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
+import polars as pl
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,13 +35,13 @@ def test_gold_matches_verbatim_page_logic():
     """build_appointers/firms must agree with the reference recomputation that
     mirrors corporate._render_featured exactly (top-N, bucket mix, scalar counts)."""
     m = _enrichment()
-    notices = pd.read_parquet(NOTICES)
+    notices = pl.read_parquet(NOTICES)
     enriched = m.enrich_notices(notices)
     appointers = m.build_appointers(enriched)
 
     ref_top, ref_buckets, ref_scalars = m._reference_topn_and_buckets(enriched)
-    assert appointers["parent"].head(m.FEATURED_TOP_N).tolist() == ref_top
-    assert appointers.groupby("type_bucket")["n_notices"].sum().to_dict() == ref_buckets
+    assert appointers["parent"].head(m.FEATURED_TOP_N).to_list() == ref_top
+    assert dict(appointers.group_by("type_bucket").agg(pl.col("n_notices").sum()).iter_rows()) == ref_buckets
     assert int(enriched["is_receivership"].sum()) == ref_scalars["n_recv"]
     assert int((enriched["is_receivership"] & enriched["has_parent_mention"]).sum()) == ref_scalars["n_tagged"]
 

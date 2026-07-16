@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-14T16:37:44Z",
+  "generated_at": "2026-07-16T18:48:43Z",
   "links_checked": false,
   "summary": {
     "sources_checked": 129,
@@ -78,10 +78,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "74d old (<= 180d)",
+      "detail": "76d old (<= 180d)",
       "input_pattern": "data/bronze/charities/public_register_*.xlsx",
       "latest_file": "data/bronze/charities/public_register_20260426.xlsx",
-      "days_old": 74,
+      "days_old": 76,
       "stale_after_days": 180
     },
     {
@@ -89,10 +89,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "3d old (<= 7d)",
+      "detail": "5d old (<= 7d)",
       "input_pattern": "data/bronze/cro/companies_*.csv",
       "latest_file": "data/bronze/cro/companies_20260711.csv",
-      "days_old": 3,
+      "days_old": 5,
       "stale_after_days": 7
     },
     {
@@ -100,10 +100,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "40d old (<= 200d)",
+      "detail": "42d old (<= 200d)",
       "input_pattern": "data/silver/cro/financial_statements.parquet",
       "latest_file": "data/silver/cro/financial_statements.parquet",
-      "days_old": 40,
+      "days_old": 42,
       "stale_after_days": 200
     },
     {
@@ -923,10 +923,10 @@
       "group": "stateboards",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "3d old (<= 60d)",
+      "detail": "5d old (<= 60d)",
       "input_pattern": "data/silver/parquet/stateboards_roster.parquet",
       "latest_file": "data/silver/parquet/stateboards_roster.parquet",
-      "days_old": 3,
+      "days_old": 5,
       "stale_after_days": 60
     }
   ]

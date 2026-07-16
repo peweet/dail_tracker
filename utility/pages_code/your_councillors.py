@@ -216,7 +216,7 @@ def _tab_councillors(county: str, lea: str) -> None:
         empty_state("No councillors found", f"We don't have a roster for {lea} yet.")
         return
     df = rr.data
-    st.html(party_stripe_html(list(Counter(df["party"]).items()), show_legend=True))
+    st.html(party_stripe_html(list(Counter(df["party"]).items()), show_legend=True))  # logic_firewall: display_only
     st.caption(f"{len(df)} councillors represent {lea}. Select one for their voting record and pay.")
     for i, r in df.reset_index(drop=True).iterrows():
         if card_row(
@@ -404,14 +404,14 @@ def your_councillors_page() -> None:
             parts = latest[latest["category"] != "total_payment"]
             lines = "".join(
                 f'<div style="display:flex;justify-content:space-between;margin:.1rem 0">'
-                f'<span>{_h(str(r["category"]).replace("_", " ").capitalize())}</span>'
+                f"<span>{_h(str(r['category']).replace('_', ' ').capitalize())}</span>"
                 f'<span style="font-variant-numeric:tabular-nums">€{r["amount_eur"]:,.2f}</span></div>'
                 for _, r in parts.iterrows()
             )
             head = (
                 f'<div style="font-weight:700;margin-bottom:.25rem">What this councillor was actually '
                 f"paid — {latest_yr}"
-                + (f' · €{float(total_row.iloc[0]["amount_eur"]):,.2f} total' if not total_row.empty else "")
+                + (f" · €{float(total_row.iloc[0]['amount_eur']):,.2f} total" if not total_row.empty else "")
                 + "</div>"
             )
             info_card(head + lines)

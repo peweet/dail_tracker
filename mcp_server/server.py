@@ -1215,6 +1215,68 @@ def data_coverage() -> dict:
     }
 
 
+_FACT_CARDS = Path(__file__).resolve().parents[1] / "data/_meta/fact_cards.json"
+
+
+def _load_fact_cards() -> dict:
+    if not _FACT_CARDS.exists():
+        return {}
+    with contextlib.suppress(Exception):
+        return json.loads(_FACT_CARDS.read_text(encoding="utf-8")).get("facts", {})
+    return {}
+
+
+@mcp.tool(annotations=_RO)
+def list_datasets(layer: str = "", domain: str = "", money_only: bool = False) -> dict:
+    """The index of every fact the tracker holds — call this INSTEAD of listing data/ or scanning
+    parquet. Returns one small line per silver/gold fact: name, layer, rows, year span, purpose,
+    and (for money facts) the never-sum grain. Filter by `layer` ('gold'|'silver'), a `domain`
+    substring (e.g. 'procurement', 'sipo', 'la_'), or `money_only=True` for the value facts that
+    carry a never-union rule. Use this to discover what exists, then `describe_dataset(name)` for
+    the full schema. Answering a data question by reading a parquet is almost always wrong — start
+    here."""
+    cards = _load_fact_cards()
+    if not cards:
+        return {"error": "fact_cards.json absent — run `python tools/build_fact_cards.py`"}
+    out = []
+    for name, c in cards.items():
+        if layer and c.get("layer") != layer:
+            continue
+        if domain and domain.lower() not in name.lower():
+            continue
+        if money_only and not c.get("money_grain"):
+            continue
+        row = {"name": name, "layer": c.get("layer"), "rows": c.get("rows")}
+        if c.get("year_span"):
+            row["years"] = c["year_span"]
+        if c.get("purpose"):
+            row["purpose"] = c["purpose"]
+        if c.get("money_grain"):
+            row["money_grain"] = c["money_grain"]
+            row["never_sum_with"] = c.get("never_sum_with")
+        out.append(row)
+    return {"count": len(out), "datasets": sorted(out, key=lambda r: (r["layer"] or "", r["name"]))}
+
+
+@mcp.tool(annotations=_RO)
+def describe_dataset(name: str) -> dict:
+    """The schema and shape of ONE fact WITHOUT reading it — the cheap answer to "what columns does
+    X have?", "how many rows?", "what years?". `name` is the parquet stem (e.g.
+    'procurement_payments_fact', 'la_afs_divisions'; use `list_datasets` to find it). Returns
+    columns + types, row count, year span, grain/purpose, the never-sum money class, which SQL
+    views read it, data-quality flags and freshness. Reading the parquet to answer any of these is
+    a mistake — a 200 MB fact blows the context window; this returns the same facts from the file
+    footer. Money facts carry `never_sum_with`: obey it."""
+    cards = _load_fact_cards()
+    if not cards:
+        return {"error": "fact_cards.json absent — run `python tools/build_fact_cards.py`"}
+    c = cards.get(name)
+    if not c:
+        near = [k for k in cards if name.lower() in k.lower()][:8]
+        return {"error": f"no fact named {name!r}", "did_you_mean": near or "call list_datasets()"}
+    return c
+
+
 @mcp.tool(annotations=_RO)
 def source_fetch_failures() -> dict:
     """Which procurement source sites failed to download on the last extractor runs, and

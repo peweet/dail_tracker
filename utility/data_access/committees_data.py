@@ -62,7 +62,7 @@ def fetch_committee_summary(chamber: str) -> pd.DataFrame:
     df["chairs"] = df["chairs"].astype(int)
     df["members"] = df["members"].astype(int)
     df["parties"] = df["parties"].astype(int)
-    df["party_seats"] = df["party_seats_json"].map(
+    df["party_seats"] = df["party_seats_json"].map(  # logic_firewall: display_only
         lambda s: [(d["party"], int(d["seats"])) for d in json.loads(s)] if s else []
     )
     return df.drop(columns=["party_seats_json"])

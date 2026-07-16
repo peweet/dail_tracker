@@ -934,6 +934,7 @@ def _render_charity_finances(org_row: pd.Series) -> None:
     )
 
     # Multi-year income vs expenditure trend (promoted from the annual-report series).
+    # Wide->long reshape of an already-aggregated frame into Altair chart input.  # logic_firewall: display_only
     plot = series[["period_year", "gross_income", "gross_expenditure"]].copy()
     long = plot.melt(id_vars="period_year", var_name="metric", value_name="eur").dropna(subset=["eur"])
     long["metric"] = long["metric"].map({"gross_income": "Income", "gross_expenditure": "Expenditure"})
@@ -1568,7 +1569,7 @@ def _render_rd_index(summary: pd.DataFrame) -> None:
     )
     bucket_counts: dict[str, int] = {}
     for c in chambers_present:
-        bucket_counts[_bucket(c)] = bucket_counts.get(_bucket(c), 0) + 1
+        bucket_counts[_bucket(c)] = bucket_counts.get(_bucket(c), 0) + 1  # logic_firewall: display_only
 
     options = [f"All chambers ({len(all_dpos):,})"]
     for bucket in ("Dáil", "Seanad", "Department", "Other body"):
