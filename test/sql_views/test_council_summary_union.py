@@ -1,16 +1,19 @@
 """Tripwire for v_procurement_council_summary — the "Your council" directory.
 
-The view was rebuilt 2026-06-26 from a payments-only SELECT into a UNION across the three council
-money lanes (purchase orders + audited revenue AFS + audited capital AFS), so that councils which
-publish audited accounts but NO purchase-order list — Dublin City (the largest LA in the State),
-Dún Laoghaire-Rathdown, Louth, Tipperary — appear in the directory and are reachable in the dossier
-instead of being silently dropped. These guards lock that contract:
+The view UNIONs the three council money lanes (purchase orders + audited revenue AFS + audited
+capital AFS) so a council appears in the directory if it publishes ANY of them.
 
-  * the four audited-accounts-only councils are present, flagged has_paying = false but
-    has_running / has_building true (so the page renders their accounts lanes, not "No payments");
-  * the never-sum tiers stay separate (ordered_safe_eur / paid_safe_eur are distinct columns);
-  * province is assigned for every council (no NULL band would drop a card);
-  * a known payer (Mayo) keeps has_paying = true.
+⚠️ HISTORY — this test used to assert Dublin City / DLR / Louth / Tipperary were "audited-accounts
+ONLY" (has_paying = false). That was WRONG: their purchase-order rows existed all along in the
+disclosed_bq_po_newbodies lane, but under the formal spelling ("Dublin City Council") that failed
+to match the union's "Dublin City" — the same publisher-name orphaning fixed on 2026-07-14 by the
+canonicaliser in procurement_payments_consolidate._canon_la_publisher_names. Once the names were
+canonicalised, all 31 councils carry a paying lane. The guards now lock the CORRECTED contract:
+
+  * every council in the directory has a paying lane (the orphaning must not return);
+  * the previously-orphaned councils carry BOTH a paying lane and an accounts lane;
+  * the never-sum tiers stay separate (ordered_safe_eur / paid_safe_eur distinct columns);
+  * province is assigned for every council; a known payer (Mayo) keeps has_paying = true.
 
 Reads the three facts the view reads, so it skips cleanly when those parquets are absent (CI).
 """
@@ -30,7 +33,9 @@ FACTS = [
 
 pytestmark = pytest.mark.skipif(not all(f.exists() for f in FACTS), reason="council money facts absent")
 
-AFS_ONLY = ["Dublin City", "Dun Laoghaire-Rathdown", "Louth", "Tipperary"]
+# The 8 councils whose payment rows were orphaned by the long-name spelling before 2026-07-14.
+# All must now show a paying lane AND their audited-accounts lanes.
+FORMERLY_ORPHANED = ["Carlow", "Cavan", "Dublin City", "Dun Laoghaire-Rathdown", "Kerry", "Louth", "Roscommon", "Tipperary"]
 
 
 @pytest.fixture(scope="module")
@@ -40,16 +45,27 @@ def con():
     return c
 
 
-def test_afs_only_councils_present_and_flagged(con):
+def test_no_council_is_orphaned_from_its_payment_lane(con):
+    """The regression this whole fix is about: a council with payments must show has_paying=true.
+    Before the canonicaliser, 8 councils (incl. Dublin City, the largest LA) showed false here
+    because their PO rows sat under a formal spelling the union could not match."""
     rows = con.execute(
         "SELECT council, has_paying, has_running, has_building FROM v_procurement_council_summary WHERE council IN ?",
-        [AFS_ONLY],
+        [FORMERLY_ORPHANED],
     ).fetchall()
     found = {r[0] for r in rows}
-    assert found == set(AFS_ONLY), f"missing audited-accounts-only councils: {set(AFS_ONLY) - found}"
-    for council, has_paying, has_running, has_building in rows:
-        assert not has_paying, f"{council} should have no purchase-order lane"
-        assert has_running or has_building, f"{council} should carry an audited-accounts lane"
+    assert found == set(FORMERLY_ORPHANED), f"councils dropped from the directory: {set(FORMERLY_ORPHANED) - found}"
+    for council, has_paying, _has_running, _has_building in rows:
+        assert has_paying, f"{council} lost its purchase-order lane — the name-orphaning regressed"
+
+
+def test_union_surfaces_accounts_lanes(con):
+    """The union's purpose: a council that publishes audited accounts is reachable via them even
+    if the paying lane were ever absent. Dublin City carries both a paying and an accounts lane."""
+    dc = con.execute(
+        "SELECT has_running, has_building FROM v_procurement_council_summary WHERE council = 'Dublin City'"
+    ).fetchone()
+    assert dc and (dc[0] or dc[1]), "Dublin City should carry an audited-accounts lane"
 
 
 def test_every_council_has_a_province(con):

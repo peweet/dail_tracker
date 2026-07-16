@@ -75,7 +75,7 @@ _INSPECTOR = re.compile(
 # with no "recommend" at all), so match the verb, not a fixed sentence shape.
 # Windows are evaluated LAST-FIRST (the operative recommendation sits near the end; a table-of-
 # contents entry carries no decision verb, so it falls through harmlessly).
-_REC_HEADING = re.compile(r"\n\s*\d*\.?\s*Recommendations?\s*\n", re.I)
+_REC_HEADING = re.compile(r"(?:^|\n)\s*[\d.]*\s*Recommendations?\s*\n", re.I)  # [\d.]* handles "9.0", "10.0"
 _REC_SENTENCE = re.compile(r"(?:I\s+recommend|It\s+is\s+recommended)\b[^.]{0,220}\.", re.I)
 # Ordered by position-of-match, NOT list order: the EARLIEST verb in the window is the operative one
 # (so "granted notwithstanding the planning authority's reasons for refusal" reads as GRANT).
