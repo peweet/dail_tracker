@@ -16,5 +16,7 @@
 # Any extra args pass straight through to refresh.ps1 -> refresh.py.
 
 $ErrorActionPreference = "Stop"
-& "$PSScriptRoot\refresh.ps1" --select payments,attendance,lobbying,iris,source_health @args
+# NB: the selection must be a single quoted string — unquoted, PowerShell parses the
+# commas as an array and splats each chain as a separate argument, which argparse rejects.
+& "$PSScriptRoot\refresh.ps1" --select "payments,attendance,lobbying,iris,source_health" @args
 exit $LASTEXITCODE

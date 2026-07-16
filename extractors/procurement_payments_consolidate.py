@@ -358,25 +358,38 @@ def _canon_la_publisher_names(df: pl.DataFrame) -> pl.DataFrame:
     la_budget_divisions, v_la_chief_executives, the LPT fact and the councillor facts). Applied
     ONCE here, at the last choke point before the gold write, so no lane can reintroduce a
     variant. Fails loudly on an unmappable council rather than silently orphaning it again.
+
+    !! DO NOT resolve names by stripping "city"/"county" and comparing the remainder — "Cork City"
+    and "Cork County" (likewise Galway) then collapse to the SAME key and one silently overwrites
+    the other. (That was the first attempt here, and it relabelled Cork City's 5,323 rows as Cork
+    County.) Resolve by PREFIX-MATCHING the canonical name (longest first), allowing only
+    council-suffix boilerplate as the remainder — the same rule as la_budgets_extract.canon_council.
     """
     if "publisher_type" not in df.columns:
         return df
     xwalk = ROOT / "data" / "_meta" / "constituency_la_crosswalk.csv"
     canon = sorted({r["local_authority"] for r in csv.DictReader(xwalk.open(encoding="utf-8"))})
+    # longest first: "Cork County" must be tested before any bare "Cork" prefix could shadow it
+    canon_sorted = sorted(canon, key=len, reverse=True)
+    suffix_junk = {"county", "city", "council", "co", "cou", "and", "&"}
 
-    def _fold(s: str) -> str:
-        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
-        s = re.sub(r"\b(county|city|and|&|council|co)\b", " ", s)
-        return re.sub(r"[^a-z]+", "", s)
+    def _resolve(name: str) -> str | None:
+        n = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
+        low = re.sub(r"\s+", " ", n).strip().lower().replace("-", " ")
+        for c in canon_sorted:
+            cl = unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode().lower().replace("-", " ")
+            if low == cl or low.startswith(cl + " "):
+                rest = low[len(cl) :].replace(".", " ").split()
+                if all(t in suffix_junk for t in rest):
+                    return c
+        return None
 
-    by_fold = {_fold(c): c for c in canon}
-    present = (
-        df.filter(pl.col("publisher_type") == "local_authority")["publisher_name"].unique().to_list()
-    )
-    mapping = {p: by_fold[_fold(p)] for p in present if p and _fold(p) in by_fold and by_fold[_fold(p)] != p}
-    unmapped = [p for p in present if p and _fold(p) not in by_fold]
+    present = df.filter(pl.col("publisher_type") == "local_authority")["publisher_name"].unique().to_list()
+    resolved = {p: _resolve(p) for p in present if p}
+    unmapped = sorted([p for p, c in resolved.items() if c is None])
     if unmapped:
-        raise SystemExit(f"local_authority publishers not in the canonical 31: {sorted(unmapped)}")
+        raise SystemExit(f"local_authority publishers not in the canonical 31: {unmapped}")
+    mapping = {p: c for p, c in resolved.items() if c and c != p}
     if mapping:
         print(f"  canonicalised {len(mapping)} council name(s) → crosswalk spelling: {sorted(mapping)}")
         df = df.with_columns(
