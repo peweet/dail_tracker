@@ -97,7 +97,10 @@ SCRIPTS = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.S)
 SIGNATORY_ROLE = re.compile(
     r"(Secretary General|Deputy Secretary|Assistant Secretary|Principal Officer|Assistant Principal)"
 )
-AUTHORITY = re.compile(r"(I am directed by the Ministers?[^.]{0,120}\.)", re.I)
+# Unanchored on purpose: the directive sentence rarely has a clean '.'/blank-line
+# terminator within range (it runs "...Minister for X, Mr. Y, \nTD to advise…"), so
+# requiring one found only 10 of 146. Capture a fixed window; trim in _pdf_signature.
+AUTHORITY = re.compile(r"(I am directed by the Ministers?[\s\S]{0,180})", re.I)
 MONTHS = (
     "January|February|March|April|May|June|July|August|September|October|November|December"
 )
@@ -296,12 +299,18 @@ def _pdf_signature(text: str) -> tuple[str | None, str | None, str | None]:
     the gov.ie HTML page does not carry.
     """
     a = AUTHORITY.search(text)
-    formula = re.sub(r"\s+", " ", a.group(1)).strip() if a else None
+    # Trim the fixed capture window at the first sentence end / blank line if present.
+    formula = None
+    if a:
+        f = re.sub(r"\s+", " ", a.group(1)).strip()
+        formula = re.split(r"(?<=[a-z])\.\s(?=[A-Z])", f)[0]
 
     name = role = None
     tail = text[-1800:]
-    m = re.search(r"(?:Mise le meas|Yours sincerely|Yours faithfully)[,\s]*\n+(.{0,220})",
-                  tail, re.S | re.I)
+    # "Is mise le meas" is the usual Irish sign-off — the earlier pattern matched
+    # only the truncated "Mise le meas" and missed most of them.
+    m = re.search(r"(?:Is\s+mise\s+le\s+meas|Mise\s+le\s+meas|Yours\s+sincerely|Yours\s+faithfully)"
+                  r"[,\s]*\n+(.{0,220})", tail, re.S | re.I)
     if m:
         for ln in [x.strip() for x in m.group(1).split("\n") if x.strip()][:4]:
             r = SIGNATORY_ROLE.search(ln)
@@ -329,15 +338,25 @@ def enrich_pdfs() -> None:
     todo = df.filter(pl.col("pdf_url").is_not_null())
     print(f"[pdf] {todo.height}/{df.height} circulars have a PDF — fetching at {REQ_DELAY_S}s")
 
+    # Resumable, same discipline as fetch_details: every PDF is cached to disk on
+    # first fetch, so a re-run (or a WAF-throttled crawl that stalled) reads from
+    # bronze and never pays assets.gov.ie twice.
+    cache_dir = BRONZE / SOURCE
     got: dict[str, dict] = {}
+    hit = 0
     for i, r in enumerate(todo.iter_rows(named=True), 1):
         url = r["pdf_url"]
-        try:
-            raw, _ = _get(url, GOVIE_HEADERS, binary=True, timeout=90)
-        except requests.HTTPError as e:
-            print(f"[pdf]   FAIL {e}")
-            continue
-        cache_raw(SOURCE, url.rsplit("/", 1)[-1][:120], raw)
+        cached = cache_dir / url.rsplit("/", 1)[-1][:120]
+        if cached.exists():
+            raw = cached.read_bytes()
+            hit += 1
+        else:
+            try:
+                raw, _ = _get(url, GOVIE_HEADERS, binary=True, timeout=90)
+            except requests.HTTPError as e:
+                print(f"[pdf]   FAIL {e}", flush=True)
+                continue
+            cache_raw(SOURCE, url.rsplit("/", 1)[-1][:120], raw)
         text = _pdf_text(raw)
         name, role, formula = _pdf_signature(text) if text.strip() else (None, None, None)
         got[r["source_url"]] = {
@@ -348,7 +367,7 @@ def enrich_pdfs() -> None:
             "authority_formula_pdf": formula,
         }
         if i % 25 == 0 or i == todo.height:
-            print(f"[pdf]   {i}/{todo.height}  ok={len(got)}", flush=True)
+            print(f"[pdf]   {i}/{todo.height}  ok={len(got)} (from cache={hit})", flush=True)
 
     add = pl.DataFrame(
         [{"source_url": k, **v} for k, v in got.items()],
