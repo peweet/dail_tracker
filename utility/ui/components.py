@@ -1,4 +1,3 @@
-
 # ── SECTION MAP ── ─────────────────────────────────────────
 # ⚠️  DO NOT READ WHOLE — ~17,878 tokens (1,838 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
@@ -306,7 +305,7 @@ def render_notable_chips(
     surname_counts: dict[str, int] = {}
     for n in visible:
         last = n.split()[-1] if n else n
-        surname_counts[last] = surname_counts.get(last, 0) + 1
+        surname_counts[last] = surname_counts.get(last, 0) + 1  # logic_firewall: display_only
 
     def _chip_label(name: str) -> str:
         parts = name.split()

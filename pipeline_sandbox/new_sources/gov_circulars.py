@@ -48,6 +48,7 @@ a URL-derived fact.
 """
 from __future__ import annotations
 
+import os
 import re
 import sys
 import time
@@ -70,7 +71,7 @@ GOVIE_HEADERS = {
 }
 LEGACY_HEADERS = {"User-Agent": "Mozilla/5.0 (DailTracker research; non-commercial)"}
 
-MIN_YEAR = 2020
+MIN_YEAR = int(os.environ.get("GOV_CIRCULARS_MIN_YEAR", "2020"))  # override to widen the window
 REQ_DELAY_S = 2.0   # measured: 1.5s sustains cleanly; 2.0s leaves headroom
 MAX_RETRIES = 5     # the WAF 405s intermittently even at a polite rate — back off, don't give up
 
