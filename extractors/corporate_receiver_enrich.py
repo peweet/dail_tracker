@@ -35,6 +35,11 @@ dominant-fund-type tiebreak and the type-bucket map are LIFTED VERBATIM from
 corporate.py so the gold is byte-identical to what the page rendered. A reference
 recomputation at the bottom of main() asserts the two agree before writing.
 
+Engine: Polars (project convention — Polars for ETL, pandas only in the UI layer).
+The per-row Python loops (firm regexes, CBI resolver, parent/ftype zip) are kept
+as loops on purpose: the match semantics are pinned verbatim to corporate.py's
+Python `re` patterns, and the corpus (~51k notices) is loop-cheap.
+
 Run:
     .venv/Scripts/python.exe extractors/corporate_receiver_enrich.py
 """
@@ -43,9 +48,10 @@ from __future__ import annotations
 
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
-import pandas as pd
+import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -68,9 +74,10 @@ FEATURED_TOP_N = 8  # mirrors corporate.FEATURED_TOP_N (display cap lives in the
 
 # ── Verbatim matchers from corporate.py ───────────────────────────────────────
 _RECEIVERSHIP_RE = "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER"
-# Non-capturing group — identical match set to corporate.py's _SPV_RE, without
-# the pandas "pattern has match groups" warning on str.contains.
-_SPV_RE = re.compile(r"\b(?:DAC|DESIGNATED ACTIVITY COMPANY|ICAV)\b", re.I)
+# Non-capturing group — identical match set to corporate.py's _SPV_RE. Applied
+# case-insensitively ((?i) at the call site — Polars regex takes inline flags,
+# not a compiled-pattern object).
+_SPV_RE = r"\b(?:DAC|DESIGNATED ACTIVITY COMPANY|ICAV)\b"
 
 # Dominant-type-per-parent tiebreak (canonical role wins) — corporate.py _TYPE_PRIORITY.
 _TYPE_PRIORITY = {
@@ -156,13 +163,13 @@ def _norm_entity(name) -> str:
     ``entity_norm`` (also shared.name_norm) so ``build_cbi_badge_resolver`` actually
     lands. Was a LOWERCASE variant — a case/suffix mismatch against the UPPERCASE
     reg_map keys that silently suppressed matches. Drops any 't/a XYZ' tail first."""
-    if name is None or (isinstance(name, float) and pd.isna(name)):
+    if name is None or (isinstance(name, float) and name != name):  # None / NaN
         return ""
     s = re.sub(r"\bt/?a\b.*$", "", str(name), flags=re.IGNORECASE)
     return name_norm_str(s)
 
 
-def build_cbi_badge_resolver(xref: pd.DataFrame):
+def build_cbi_badge_resolver(xref: pl.DataFrame):
     """Return resolve(entity_name) -> (register, ref_no).
 
     Method B2 (validated 2026-06-20 as the accuracy/truthfulness optimum):
@@ -175,7 +182,7 @@ def build_cbi_badge_resolver(xref: pd.DataFrame):
         the real entity name (Havbell No.2 DAC, M&F Finance Ireland, …).
     """
     reg_map: dict[str, tuple[str, str]] = {}
-    for _, r in xref.iterrows():
+    for r in xref.iter_rows(named=True):
         en = r.get("entity_norm")
         if not en or len(str(en)) < _CBI_MIN_NORM_CHARS:
             continue
@@ -219,137 +226,159 @@ def _type_bucket(ft: str) -> str:
     return "other"
 
 
-def _dominant_ftype(s: pd.Series) -> str:
+def _dominant_ftype(ftypes: list[str]) -> str:
     """corporate.py _dominant_ftype — modal fund_type, ties broken by canonical
     priority then alphabetically."""
-    counts = s.value_counts()
-    if counts.empty:
+    counts = Counter(ftypes)
+    if not counts:
         return ""
-    top_n = counts.iloc[0]
-    winners = counts[counts == top_n].index.tolist()
+    top_n = max(counts.values())
+    winners = [ft for ft, n in counts.items() if n == top_n]
     winners.sort(key=lambda x: (_TYPE_PRIORITY.get(x, 99), x))
     return winners[0]
 
 
-def enrich_notices(notices: pd.DataFrame, cbi_xref: pd.DataFrame | None = None) -> pd.DataFrame:
+def _parent_ftype_pairs(recv: pl.DataFrame) -> list[tuple[str, str]]:
+    """(parent, ftype) mention pairs across receivership notices — verbatim zip
+    semantics from corporate.py (positional pairing, short ftype list pads '')."""
+    pairs: list[tuple[str, str]] = []
+    for parents, ftypes in recv.select("parent_fund_mentions", "fund_type_mentions").iter_rows():
+        parents = _as_list(parents)
+        ftypes = _as_list(ftypes)
+        for i, p in enumerate(parents):
+            if p:
+                pairs.append((p, (ftypes[i] if i < len(ftypes) else "") or ""))
+    return pairs
+
+
+def enrich_notices(notices: pl.DataFrame, cbi_xref: pl.DataFrame | None = None) -> pl.DataFrame:
     """Return the notices superset with the per-notice receiver flags + CBI badge."""
-    df = notices.copy()
-    # Year — identical parse to corporate.load_corporate (L849-850) so the
-    # precomputed sparkline counts match what the page derived at render time.
-    df["year"] = pd.to_datetime(df["issue_date"], errors="coerce").dt.year
-    raw = df["raw_text"].fillna("").astype(str)
-    ent = df["entity_name"].fillna("").astype(str)
-    df["is_receivership"] = (df["notice_subtype"] == "receivership") | raw.str.contains(
-        _RECEIVERSHIP_RE, case=False, regex=True, na=False
-    )
-    df["is_spv"] = ent.str.contains(_SPV_RE, regex=True, na=False)
-    df["has_parent_mention"] = df["parent_fund_mentions"].apply(lambda x: len(_as_list(x)) > 0)
-    df["receiver_firms"] = raw.apply(_firms_in)
-    df["has_receiver_firm"] = df["receiver_firms"].apply(lambda fs: len(fs) > 0)
+    df = notices.with_columns(
+        # Year — identical parse result to corporate.load_corporate (L849-850)
+        # (issue_date is ISO yyyy-mm-dd or null; coerce → null) so the precomputed
+        # sparkline counts match what the page derived at render time.
+        pl.col("issue_date").str.to_date("%Y-%m-%d", strict=False).dt.year().alias("year"),
+        (
+            (pl.col("notice_subtype") == "receivership")
+            | pl.col("raw_text").fill_null("").str.contains(f"(?i){_RECEIVERSHIP_RE}")
+        )
+        .fill_null(False)
+        .alias("is_receivership"),
+        pl.col("entity_name").fill_null("").str.contains(f"(?i){_SPV_RE}").alias("is_spv"),
+        (pl.col("parent_fund_mentions").list.len() > 0).fill_null(False).alias("has_parent_mention"),
+        pl.col("raw_text")
+        .fill_null("")
+        .map_elements(_firms_in, return_dtype=pl.List(pl.String))
+        .alias("receiver_firms"),
+    ).with_columns((pl.col("receiver_firms").list.len() > 0).alias("has_receiver_firm"))
 
     # CBI authorisation badge — precomputed (was a row-time substring join in the page).
-    if cbi_xref is not None and not cbi_xref.empty:
+    if cbi_xref is not None and not cbi_xref.is_empty():
         resolve = build_cbi_badge_resolver(cbi_xref)
-        badges = df["entity_name"].map(resolve)
-        df["cbi_register"] = badges.map(lambda t: t[0])
-        df["cbi_ref_no"] = badges.map(lambda t: t[1])
+        badges = [resolve(name) for name in df["entity_name"]]
+        df = df.with_columns(
+            pl.Series("cbi_register", [b[0] for b in badges], dtype=pl.String),
+            pl.Series("cbi_ref_no", [b[1] for b in badges], dtype=pl.String),
+        )
     else:
-        df["cbi_register"] = ""
-        df["cbi_ref_no"] = ""
+        df = df.with_columns(
+            pl.lit("").alias("cbi_register"),
+            pl.lit("").alias("cbi_ref_no"),
+        )
     return df
 
 
-def build_appointers(enriched: pd.DataFrame) -> pd.DataFrame:
+def build_appointers(enriched: pl.DataFrame) -> pl.DataFrame:
     """One row per parent fund named across receivership notices."""
-    recv = enriched[enriched["is_receivership"]]
-    rows: list[dict] = []
-    for _, r in recv.iterrows():
-        parents = _as_list(r.get("parent_fund_mentions"))
-        ftypes = _as_list(r.get("fund_type_mentions"))
-        for i, p in enumerate(parents):
-            if p:
-                rows.append({"parent": p, "ftype": (ftypes[i] if i < len(ftypes) else "") or ""})
-    if not rows:
-        return pd.DataFrame(columns=["parent", "n_notices", "dominant_fund_type", "type_bucket"])
-    pdf = pd.DataFrame(rows)
-    parent_to_ftype = pdf.groupby("parent")["ftype"].agg(_dominant_ftype).to_dict()
-    out = (
-        pdf.groupby("parent")
-        .size()
-        .rename("n_notices")
-        .reset_index()
-        .assign(dominant_fund_type=lambda d: d["parent"].map(parent_to_ftype))
-        .sort_values(["n_notices", "parent"], ascending=[False, True])
-        .reset_index(drop=True)
+    pairs = _parent_ftype_pairs(enriched.filter(pl.col("is_receivership")))
+    if not pairs:
+        return pl.DataFrame(
+            schema={
+                "parent": pl.String,
+                "n_notices": pl.Int64,
+                "dominant_fund_type": pl.String,
+                "type_bucket": pl.String,
+            }
+        )
+    ftypes_by_parent: dict[str, list[str]] = {}
+    for p, ft in pairs:
+        ftypes_by_parent.setdefault(p, []).append(ft)
+    out = pl.DataFrame(
+        [
+            {
+                "parent": p,
+                "n_notices": len(fts),
+                "dominant_fund_type": _dominant_ftype(fts),
+                "type_bucket": _type_bucket(_dominant_ftype(fts)),
+            }
+            for p, fts in ftypes_by_parent.items()
+        ],
+        schema={
+            "parent": pl.String,
+            "n_notices": pl.Int64,
+            "dominant_fund_type": pl.String,
+            "type_bucket": pl.String,
+        },
     )
-    out["type_bucket"] = out["dominant_fund_type"].map(_type_bucket)
-    return out[["parent", "n_notices", "dominant_fund_type", "type_bucket"]]
+    return out.sort(["n_notices", "parent"], descending=[True, False])
 
 
-def build_firms(enriched: pd.DataFrame) -> pd.DataFrame:
+def build_firms(enriched: pl.DataFrame) -> pl.DataFrame:
     """One row per professional firm named across receivership notices
     (notice-presence, counted at most once per notice)."""
-    recv = enriched[enriched["is_receivership"]]
+    recv = enriched.filter(pl.col("is_receivership"))
     counts: dict[str, int] = {}
     for fs in recv["receiver_firms"]:
         for name in set(fs):
             counts[name] = counts.get(name, 0) + 1
     if not counts:
-        return pd.DataFrame(columns=["firm", "n_notices", "is_big6"])
-    out = pd.DataFrame(
-        sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])), columns=["firm", "n_notices"]
-    ).reset_index(drop=True)
-    out["is_big6"] = out["firm"].isin(_BIG6)
-    return out
+        return pl.DataFrame(schema={"firm": pl.String, "n_notices": pl.Int64, "is_big6": pl.Boolean})
+    out = pl.DataFrame(
+        sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])),
+        schema={"firm": pl.String, "n_notices": pl.Int64},
+        orient="row",
+    )
+    return out.with_columns(pl.col("firm").is_in(list(_BIG6)).alias("is_big6"))
 
 
 # ── Reference recomputation (parity guard) ────────────────────────────────────
-def _reference_topn_and_buckets(enriched: pd.DataFrame) -> tuple[list, dict, dict]:
+def _reference_topn_and_buckets(enriched: pl.DataFrame) -> tuple[list, dict, dict]:
     """Replicate corporate._render_featured's exact structure to cross-check the
-    gold. Returns (top-N parent list, bucket->mention-count, scalar counts)."""
-    recv = enriched[enriched["is_receivership"]]
-    n_recv = len(recv)
-    parent_rows: list[dict] = []
-    for _, r in recv.iterrows():
-        parents = _as_list(r.get("parent_fund_mentions"))
-        ftypes = _as_list(r.get("fund_type_mentions"))
-        for i, p in enumerate(parents):
-            if p:
-                parent_rows.append({"parent": p, "ftype": (ftypes[i] if i < len(ftypes) else "") or ""})
-    pdf = pd.DataFrame(parent_rows)
-    parent_to_ftype = pdf.groupby("parent")["ftype"].agg(_dominant_ftype).to_dict()
-    top = (
-        pdf.groupby("parent")
-        .size()
-        .rename("n")
-        .reset_index()
-        .assign(ftype=lambda d: d["parent"].map(parent_to_ftype))
-        .sort_values("n", ascending=False)
-        .head(FEATURED_TOP_N)
-        .set_index("parent")
-    )
-    pdf["bucket"] = pdf["parent"].map(parent_to_ftype).map(_type_bucket)
-    bucket_counts = pdf["bucket"].value_counts().to_dict()
-    n_tagged = int(recv["parent_fund_mentions"].apply(lambda x: len(_as_list(x)) > 0).sum())
-    scalars = {"n_recv": n_recv, "n_tagged": n_tagged}
-    return list(top.index), bucket_counts, scalars
+    gold. Returns (top-N parent list, bucket->mention-count, scalar counts).
+    Tie order within equal mention counts is pinned parent-ascending (the gold
+    tiebreak — the page's sort left ties engine-ordered)."""
+    recv = enriched.filter(pl.col("is_receivership"))
+    n_recv = recv.height
+    pairs = _parent_ftype_pairs(recv)
+    ftypes_by_parent: dict[str, list[str]] = {}
+    for p, ft in pairs:
+        ftypes_by_parent.setdefault(p, []).append(ft)
+    parent_to_ftype = {p: _dominant_ftype(fts) for p, fts in ftypes_by_parent.items()}
+    ranked = sorted(ftypes_by_parent.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    top = [p for p, _ in ranked[:FEATURED_TOP_N]]
+    bucket_counts = dict(Counter(_type_bucket(parent_to_ftype[p]) for p, _ in pairs))
+    n_tagged = recv.select((pl.col("parent_fund_mentions").list.len() > 0).sum()).item()
+    scalars = {"n_recv": n_recv, "n_tagged": int(n_tagged)}
+    return top, bucket_counts, scalars
 
 
 def main() -> int:
     if not NOTICES_PARQUET.exists():
         raise SystemExit(f"corporate notices gold not found: {NOTICES_PARQUET} (run the iris chain first)")
 
-    notices = pd.read_parquet(NOTICES_PARQUET)
-    cbi_xref = pd.read_parquet(CBI_XREF_PARQUET) if CBI_XREF_PARQUET.exists() else None
+    notices = pl.read_parquet(NOTICES_PARQUET)
+    cbi_xref = pl.read_parquet(CBI_XREF_PARQUET) if CBI_XREF_PARQUET.exists() else None
     enriched = enrich_notices(notices, cbi_xref)
     appointers = build_appointers(enriched)
     firms = build_firms(enriched)
 
     # ── Parity guard: gold must agree with the verbatim page structure ────────
     ref_top, ref_buckets, ref_scalars = _reference_topn_and_buckets(enriched)
-    gold_top = appointers["parent"].head(FEATURED_TOP_N).tolist()
+    gold_top = appointers["parent"].head(FEATURED_TOP_N).to_list()
     assert gold_top == ref_top, f"top-N mismatch:\n gold={gold_top}\n ref ={ref_top}"
-    gold_buckets = appointers.groupby("type_bucket")["n_notices"].sum().to_dict()
+    gold_buckets = dict(
+        appointers.group_by("type_bucket").agg(pl.col("n_notices").sum()).iter_rows()
+    )
     assert gold_buckets == ref_buckets, f"bucket mismatch:\n gold={gold_buckets}\n ref={ref_buckets}"
     n_recv_gold = int(enriched["is_receivership"].sum())
     n_tagged_gold = int((enriched["is_receivership"] & enriched["has_parent_mention"]).sum())
@@ -362,12 +391,12 @@ def main() -> int:
 
     n_spv = int((enriched["is_receivership"] & enriched["is_spv"]).sum())
     n_any_firm = int((enriched["is_receivership"] & enriched["has_receiver_firm"]).sum())
-    n_cbi = int((enriched["cbi_register"].astype(str) != "").sum())
+    n_cbi = int((enriched["cbi_register"] != "").sum())
     print(f"[corporate_receiver] wrote {ENRICHED_PARQUET.name}, {APPOINTERS_PARQUET.name}, {FIRMS_PARQUET.name}")
-    print(f"  notices in            : {len(notices):,}")
+    print(f"  notices in            : {notices.height:,}")
     print(f"  receivership notices  : {n_recv_gold:,}  (spv-shaped {n_spv:,}, parent-tagged {n_tagged_gold:,})")
-    print(f"  distinct appointers   : {len(appointers):,}")
-    print(f"  distinct firms        : {len(firms):,}  (firm-tagged notices {n_any_firm:,})")
+    print(f"  distinct appointers   : {appointers.height:,}")
+    print(f"  distinct firms        : {firms.height:,}  (firm-tagged notices {n_any_firm:,})")
     print(f"  CBI-badged notices    : {n_cbi:,}  (exact + >=2-token substring; B2)")
     print(f"  parity                : OK (top-{FEATURED_TOP_N}, buckets, scalar counts agree with page logic)")
     return 0

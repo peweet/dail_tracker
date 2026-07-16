@@ -85,17 +85,22 @@ def _footer(path: Path) -> tuple[int, dict[str, str], list[int] | None]:
 def _grain_seed() -> dict[str, dict]:
     if not GRAIN_SEED.exists():
         return {}
-    with GRAIN_SEED.open(encoding="utf-8") as fh:
+    with GRAIN_SEED.open(encoding="utf-8", newline="") as fh:
         out = {}
         for r in csv.DictReader(fh):
-            key = r.get("fact", "").strip()
-            if key:
-                out[key] = {k: v.strip() for k, v in r.items() if k != "fact" and v.strip()}
+            key = (r.get("fact") or "").strip()
+            if not key:
+                continue
+            # guard str-only: a stray comma can push overflow under DictReader's None restkey (a list)
+            out[key] = {
+                k: v.strip()
+                for k, v in r.items()
+                if isinstance(k, str) and k != "fact" and isinstance(v, str) and v.strip()
+            }
         return out
 
 
 def build() -> dict:
-    baseline = _load("output_baseline.json").get("outputs", {})
     quality = _load("gold_quality_baseline.json")
     quality = quality.get("baseline", quality)  # tolerate either shape
     manifest = _load("runtime_data_manifest.json")
@@ -121,25 +126,16 @@ def build() -> dict:
         for p in sorted(d.glob("*.parquet")):
             fname, stem = p.name, p.stem
             card: dict = {"file": f"data/{'gold' if layer == 'gold' else 'silver'}/parquet/{fname}", "layer": layer}
-            base = baseline.get(fname, {})
-            # rows + columns: prefer the (free) baseline, else read the footer
-            if base.get("rows") is not None and base.get("columns"):
-                card["rows"] = base["rows"]
-                card["columns"] = base["columns"]  # baseline stores a list of names
-            else:
-                with contextlib.suppress(Exception):
-                    rows, cols, span = _footer(p)
-                    card["rows"] = rows
-                    card["columns"] = list(cols)
-                    card["column_types"] = cols
-                    if span:
-                        card["year_span"] = span
-            # year span for baseline-covered facts (baseline has no span) — footer read
-            if "year_span" not in card:
-                with contextlib.suppress(Exception):
-                    _, _, span = _footer(p)
-                    if span:
-                        card["year_span"] = span
+            # rows + columns + year-span ALWAYS from the live footer (the regression baseline goes
+            # stale the moment a fact is rebuilt — as procurement_payments_fact did this session —
+            # and the footer read is ~30ms, so there is no reason to trust a snapshot).
+            with contextlib.suppress(Exception):
+                rows, cols, span = _footer(p)
+                card["rows"] = rows
+                card["columns"] = list(cols)
+                card["column_types"] = cols
+                if span:
+                    card["year_span"] = span
             q = quality.get(fname, {})
             if q:
                 card["dq"] = {

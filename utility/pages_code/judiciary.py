@@ -706,9 +706,7 @@ def _render_profile_diary(judge_key: str, current_court: str | None = None) -> N
         day_cases = diary[diary["diary_date"] == day] if diary is not None and not diary.empty else None
         n_matters = 0 if day_cases is None else len(day_cases)
         head_meta = "" if n_matters else '<span class="jd-day-meta">schedule only</span>'
-        st.html(
-            f'<div class="jd-day-head"><span class="jd-day-date">{_esc(_fmt_day(day))}</span>{head_meta}</div>'
-        )
+        st.html(f'<div class="jd-day-head"><span class="jd-day-date">{_esc(_fmt_day(day))}</span>{head_meta}</div>')
         if day_cases is not None and not day_cases.empty:
             _html(_day_digest_html(day_cases))
         if day_sit is not None and not day_sit.empty:
@@ -1356,7 +1354,9 @@ def _day_digest_html(cases: pd.DataFrame) -> str:
         for key, (label, cls) in _CAT_TAG.items()
         if counts.get(key)
     ]
-    named = int((cases["plaintiff_kind"].isin(_NAMED_KINDS) | cases["category"].isin(("public-law", "commercial"))).sum())
+    named = int(
+        (cases["plaintiff_kind"].isin(_NAMED_KINDS) | cases["category"].isin(("public-law", "commercial"))).sum()
+    )
     named_html = f'<span class="jd-digest-named">{named} name a company or public body</span>' if named else ""
     return (
         '<div class="jd-digest">'
@@ -1462,7 +1462,7 @@ def _day_schedule_html(day_sit: pd.DataFrame) -> str:
         if g is None:
             g = groups[key] = {"court": court, "lists": {}, "times": set(), "psize": psize, "n_sit": 0, "items": 0}
             order.append(key)
-        g["n_sit"] += 1
+        g["n_sit"] += 1  # logic_firewall: display_only
         g["items"] += n
         g["psize"] = max(g["psize"], psize)
         if tm:
@@ -1491,9 +1491,9 @@ def _day_schedule_html(day_sit: pd.DataFrame) -> str:
         # double-counts (a matter appears in the call-over AND its hearing list).
         nlists = len(g["lists"])
         meta = (
-            f'{nlists} list{"s" if nlists != 1 else ""}'
+            f"{nlists} list{'s' if nlists != 1 else ''}"
             if nlists
-            else f'{g["n_sit"]} sitting{"s" if g["n_sit"] != 1 else ""}'
+            else f"{g['n_sit']} sitting{'s' if g['n_sit'] != 1 else ''}"
         )
         head = (
             f'<div class="jd-sched-head"><span class="jd-sched-room-name">{_esc(key)}</span>'
@@ -1505,7 +1505,9 @@ def _day_schedule_html(day_sit: pd.DataFrame) -> str:
         for label, e in lists[:_SCHED_LISTS_PER_ROOM]:
             tchip = f'<span class="jd-timeline">{_esc(e["tm"])}</span>' if e["tm"] else ""
             ncount = f'<span class="jd-sched-n">{e["n"]}</span>' if e["n"] else ""
-            items.append(f'<div class="jd-sched-item">{tchip}<span class="jd-sched-list">{_esc(label)}</span>{ncount}</div>')
+            items.append(
+                f'<div class="jd-sched-item">{tchip}<span class="jd-sched-list">{_esc(label)}</span>{ncount}</div>'
+            )
         if not items:  # a room with only unlabelled sittings (e.g. bare panel times)
             tchips = ", ".join(sorted(g["times"])) or "listed"
             items.append(f'<div class="jd-sched-item"><span class="jd-sched-list">Sat at {_esc(tchips)}</span></div>')

@@ -46,13 +46,14 @@ import calendar
 import contextlib
 import json
 import logging
+import math
 import sys
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote_plus
 
-import pandas as pd
+import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -130,8 +131,11 @@ _STOP_TOKENS = {"as", "ag"}
 def _load_aliases() -> dict[str, str]:
     if not ALIAS_CSV.exists():
         return {}
-    df = pd.read_csv(ALIAS_CSV)
-    return {str(a).strip().lower(): str(c).strip().lower() for a, c in zip(df["alias"], df["canonical"], strict=False)}
+    df = pl.read_csv(ALIAS_CSV)
+    return {
+        str(a).strip().lower(): str(c).strip().lower()
+        for a, c in zip(df["alias"].to_list(), df["canonical"].to_list(), strict=False)
+    }
 
 
 def normalise_key(name: str, aliases: dict[str, str]) -> str:
@@ -147,7 +151,7 @@ def normalise_key(name: str, aliases: dict[str, str]) -> str:
     match, and a source spelling a name without the apostrophe ("OShea" -> "oshea")
     would diverge — change the apostrophe handling here only with a coordinated re-promote
     of all judiciary parquets + the diary map (the key format would shift)."""
-    if name is None or (isinstance(name, float) and pd.isna(name)):
+    if name is None or (isinstance(name, float) and math.isnan(name)):
         return ""
     s = unicodedata.normalize("NFD", str(name))
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")  # drop accents
@@ -177,10 +181,15 @@ def normalise_key(name: str, aliases: dict[str, str]) -> str:
     return " ".join(tokens).strip()
 
 
+def _keyed(names: list, aliases: dict[str, str]) -> pl.Series:
+    """normalise_key over a column's values (nulls -> "" exactly like the row-wise call)."""
+    return pl.Series([normalise_key(n, aliases) for n in names], dtype=pl.String)
+
+
 def _iris_url(issue_date, pdf: str | None) -> str | None:
     """Reconstruct the Iris Oifigiúil archive URL for an appointment notice."""
     try:
-        d = pd.to_datetime(issue_date)
+        d = datetime.fromisoformat(str(issue_date))
     except Exception:  # noqa: BLE001
         return None
     fname = str(pdf) if pdf and str(pdf) != "nan" else f"IR{d.strftime('%d%m%y')}.pdf"
@@ -188,7 +197,7 @@ def _iris_url(issue_date, pdf: str | None) -> str | None:
     return f"https://irisoifigiuil.ie/archive/{d.year}/{month}/{fname}"
 
 
-def _write(df: pd.DataFrame, name: str) -> Path:
+def _write(df: pl.DataFrame, name: str) -> Path:
     out = GOLD_PARQUET_DIR / f"{name}.parquet"
     save_parquet(df, out)
     logger.info("wrote %s (%d rows, %d cols)", out.name, len(df), len(df.columns))
@@ -196,109 +205,157 @@ def _write(df: pd.DataFrame, name: str) -> Path:
 
 
 # ───────────────────────────────────────────────────────── build: appointments
-def build_appointments(spine: pd.DataFrame, join: pd.DataFrame, aliases: dict[str, str]) -> pd.DataFrame:
+_EVENT_SCHEMA = {
+    "judge_key": pl.String,
+    "appointee": pl.String,
+    "issue_date": pl.String,
+    "appointed_court": pl.String,
+    "role": pl.String,
+    "appointing_authority": pl.String,
+    "notice_ref": pl.String,
+    "source_url": pl.String,
+}
+
+
+def build_appointments(spine: pl.DataFrame, join: pl.DataFrame, aliases: dict[str, str]) -> pl.DataFrame:
     """Event grain: one row per appointee per appointment notice (real courts only)."""
     rows = []
-    real = spine[spine["is_real_court"]]
-    for r in real.itertuples():
-        names = [n.strip() for n in str(r.appointee).split(";") if n and n.strip() and n.strip().lower() != "none"]
+    real = spine.filter(pl.col("is_real_court"))
+    for r in real.iter_rows(named=True):
+        names = [n.strip() for n in str(r["appointee"]).split(";") if n and n.strip() and n.strip().lower() != "none"]
         for nm in names:
             rows.append(
                 {
                     "judge_key": normalise_key(nm, aliases),
                     "appointee": nm,
-                    "issue_date": str(r.issue_date),
-                    "appointed_court": r.court,
-                    "role": r.role,
-                    "appointing_authority": r.appointing_authority,
-                    "notice_ref": None if r.notice_ref is None else str(r.notice_ref),
-                    "source_url": _iris_url(r.issue_date, r.iris_source_pdf),
+                    "issue_date": str(r["issue_date"]),
+                    "appointed_court": r["court"],
+                    "role": r["role"],
+                    "appointing_authority": r["appointing_authority"],
+                    "notice_ref": None if r["notice_ref"] is None else str(r["notice_ref"]),
+                    "source_url": _iris_url(r["issue_date"], r["iris_source_pdf"]),
                 }
             )
-    ev = pd.DataFrame(rows)
+    ev = pl.DataFrame(rows, schema=_EVENT_SCHEMA)
 
     # Reuse the validated sandbox match for current_court + status (matched/elevated/unmatched).
-    j = join.copy()
-    j["issue_date"] = j["appointed_date"].astype(str)
-    j = j[["appointee", "issue_date", "current_court", "status"]]
-    ev = ev.merge(j, on=["appointee", "issue_date"], how="left")
-    ev["status"] = ev["status"].fillna("unmatched")
+    j = join.select(
+        pl.col("appointee").cast(pl.String),
+        pl.col("appointed_date").cast(pl.String).alias("issue_date"),
+        pl.col("current_court").cast(pl.String),
+        pl.col("status").cast(pl.String),
+    )
+    ev = ev.join(j, on=["appointee", "issue_date"], how="left", maintain_order="left")
+    ev = ev.with_columns(pl.col("status").fill_null("unmatched"))
 
-    ar = ev["appointed_court"].map(COURT_RANK)
-    cr = ev["current_court"].map(COURT_RANK)
-    ev["is_elevation"] = ev["status"].eq("elevated")
-    ev["elevated_to"] = ev["current_court"].where(ev["is_elevation"])
-    # An "elevation" to a more junior court is impossible -> name-collision artefact, flag it.
-    ev["requires_manual_review"] = ev["is_elevation"] & cr.notna() & ar.notna() & (cr > ar)
-    return ev.sort_values(["issue_date", "appointed_court", "appointee"]).reset_index(drop=True)
+    ar = pl.col("appointed_court").replace_strict(COURT_RANK, default=None, return_dtype=pl.Int64)
+    cr = pl.col("current_court").replace_strict(COURT_RANK, default=None, return_dtype=pl.Int64)
+    ev = ev.with_columns(pl.col("status").eq("elevated").alias("is_elevation"))
+    ev = ev.with_columns(
+        pl.when(pl.col("is_elevation")).then(pl.col("current_court")).otherwise(None).alias("elevated_to"),
+        # An "elevation" to a more junior court is impossible -> name-collision artefact, flag it.
+        (pl.col("is_elevation") & cr.is_not_null() & ar.is_not_null() & (cr > ar))
+        .fill_null(False)
+        .alias("requires_manual_review"),
+    )
+    return ev.sort(["issue_date", "appointed_court", "appointee"])
 
 
 # ───────────────────────────────────────────────────────── build: bench identity
 def build_bench(
-    roster: pd.DataFrame,
-    appts: pd.DataFrame,
+    roster: pl.DataFrame,
+    appts: pl.DataFrame,
     salaries_present: set[str],
-    hc: pd.DataFrame,
+    hc: pl.DataFrame,
     aliases: dict[str, str],
-) -> pd.DataFrame:
-    ros = roster.copy()
-    ros["judge_key"] = ros["judge_name"].map(lambda n: normalise_key(n, aliases))
-    ros["court_rank"] = ros["court"].map(COURT_RANK).fillna(99).astype(int)
+) -> pl.DataFrame:
+    ros = roster.with_columns(
+        _keyed(roster["judge_name"].to_list(), aliases).alias("judge_key"),
+        pl.col("court").replace_strict(COURT_RANK, default=None, return_dtype=pl.Int64)
+        .fill_null(99)
+        .alias("court_rank"),
+    )
 
     # Resolve ex-officio cross-listings: one row per judge_key, prefer the substantive
     # (non ex-officio) seat, then the most senior court listed.
-    ros = ros.sort_values(["judge_key", "is_ex_officio_or_multi", "court_rank"])
-    raw_seats = ros.groupby("judge_key").size().rename("seat_count")
-    ident = ros.drop_duplicates("judge_key", keep="first").merge(raw_seats, on="judge_key")
+    ros = ros.sort(["judge_key", "is_ex_officio_or_multi", "court_rank"])
+    raw_seats = ros.group_by("judge_key").len().select("judge_key", pl.col("len").cast(pl.Int64).alias("seat_count"))
+    ident = ros.unique(subset=["judge_key"], keep="first", maintain_order=True).join(
+        raw_seats, on="judge_key", how="inner", maintain_order="left"
+    )
 
     # HC specialist-list assignment (Hilary Term 2026) by key.
-    hc = hc.copy()
-    hc["judge_key"] = hc["judge"].map(lambda n: normalise_key(n, aliases))
-    hc_map = hc.drop_duplicates("judge_key").set_index("judge_key")
-    ident["assignment"] = ident["judge_key"].map(hc_map["assignment"]) if len(hc_map) else None
-    ident["assignment_term"] = ident["judge_key"].map(hc_map["term"]) if len(hc_map) else None
+    hc = hc.with_columns(_keyed(hc["judge"].to_list(), aliases).alias("judge_key"))
+    hc_map = hc.unique(subset=["judge_key"], keep="first", maintain_order=True).select(
+        "judge_key",
+        pl.col("assignment").cast(pl.String),
+        pl.col("term").cast(pl.String).alias("assignment_term"),
+    )
+    ident = ident.join(hc_map, on="judge_key", how="left", maintain_order="left")
 
     # Appointment spine rollup per judge.
-    a = appts.sort_values("issue_date")
+    a = appts.sort("issue_date")
     spine_rows = []
-    for key, g in a.groupby("judge_key"):
+    for (key,), g in a.group_by("judge_key", maintain_order=True):
+        current = g["current_court"].drop_nulls()
+        sources = g["source_url"].drop_nulls()
         path = []
-        for c in list(g["appointed_court"]) + [
-            g["current_court"].dropna().iloc[-1] if g["current_court"].notna().any() else None
-        ]:
+        for c in list(g["appointed_court"]) + [current[-1] if len(current) else None]:
             if c and (not path or path[-1] != c):
                 path.append(c)
         spine_rows.append(
             {
                 "judge_key": key,
-                "first_appointed_date": g["issue_date"].iloc[0],
-                "first_appointing_authority": g["appointing_authority"].iloc[0],
-                "appointed_court": g["appointed_court"].iloc[0],
+                "first_appointed_date": g["issue_date"][0],
+                "first_appointing_authority": g["appointing_authority"][0],
+                "appointed_court": g["appointed_court"][0],
                 "is_elevation": bool(g["is_elevation"].any()),
                 "elevation_path": " → ".join(path) if len(path) > 1 else None,
-                "appt_source_url": g["source_url"].dropna().iloc[0] if g["source_url"].notna().any() else None,
+                "appt_source_url": sources[0] if len(sources) else None,
                 "appt_review": bool(g["requires_manual_review"].any()),
             }
         )
-    sp = pd.DataFrame(spine_rows)
-    ident = ident.merge(sp, on="judge_key", how="left")
-    ident["has_spine"] = ident["judge_key"].isin(set(appts["judge_key"]))
+    sp = pl.DataFrame(
+        spine_rows,
+        schema={
+            "judge_key": pl.String,
+            "first_appointed_date": pl.String,
+            "first_appointing_authority": pl.String,
+            "appointed_court": pl.String,
+            "is_elevation": pl.Boolean,
+            "elevation_path": pl.String,
+            "appt_source_url": pl.String,
+            "appt_review": pl.Boolean,
+        },
+    )
+    ident = ident.join(sp, on="judge_key", how="left", maintain_order="left")
+    ident = ident.with_columns(pl.col("judge_key").is_in(appts["judge_key"].to_list()).alias("has_spine"))
 
     # Salary band — ordinary-judge band by court; suppressed for ex-officio/president
     # seats (their premium can't be attributed to a named person from the roster alone).
-    def _salary(row):
-        if row["is_ex_officio_or_multi"]:
-            return (None, "President / ex-officio (premium not attributed)")
-        band = SALARY_BY_COURT.get(row["court"])
-        return (band, SALARY_OFFICE_BY_COURT.get(row["court"]) if band else None)
+    band = pl.col("court").replace_strict(SALARY_BY_COURT, default=None, return_dtype=pl.Int64)
+    office = pl.col("court").replace_strict(SALARY_OFFICE_BY_COURT, default=None, return_dtype=pl.String)
+    ident = ident.with_columns(
+        pl.when(pl.col("is_ex_officio_or_multi"))
+        .then(None)
+        .otherwise(band)
+        .cast(pl.Float64)  # matches the historical pandas gold schema (None-promoted float)
+        .alias("salary_band_eur"),
+        pl.when(pl.col("is_ex_officio_or_multi"))
+        .then(pl.lit("President / ex-officio (premium not attributed)"))
+        .when(band.is_not_null())
+        .then(office)
+        .otherwise(None)
+        .alias("salary_office"),
+        pl.lit(SALARY_SOURCE).alias("salary_source"),
+    )
 
-    ident[["salary_band_eur", "salary_office"]] = ident.apply(lambda r: pd.Series(_salary(r)), axis=1)
-    ident["salary_source"] = SALARY_SOURCE
-
-    ident["requires_manual_review"] = ident["appt_review"].fillna(False).astype(bool)
-    ident["current_court"] = ident["court"]  # the roster is the current state of record
-    ident["source_url"] = ROSTER_SOURCE_URL
-    ident["source_published_at"] = ROSTER_SNAPSHOT_DATE
+    ident = ident.with_columns(
+        pl.col("appt_review").fill_null(False).cast(pl.Boolean).alias("requires_manual_review"),
+        pl.col("court").alias("current_court"),  # the roster is the current state of record
+        pl.lit(ROSTER_SOURCE_URL).alias("source_url"),
+        pl.lit(ROSTER_SNAPSHOT_DATE).alias("source_published_at"),
+    )
 
     cols = [
         "judge_key",
@@ -324,22 +381,26 @@ def build_bench(
         "source_url",
         "source_published_at",
     ]
-    return ident[cols].sort_values(["court_rank", "judge_name"]).reset_index(drop=True)
+    return ident.select(cols).sort(["court_rank", "judge_name"])
 
 
 # ───────────────────────────────────────────────────────── build: nominations
-def build_nominations(nom: pd.DataFrame, aliases: dict[str, str]) -> pd.DataFrame:
-    n = nom.copy()
-    n["judge_key"] = n["nominee"].map(lambda x: normalise_key(x, aliases))
-    n["source_name"] = "gov.ie nomination announcement"
+def build_nominations(nom: pl.DataFrame, aliases: dict[str, str]) -> pl.DataFrame:
     # gov.ie retired the single judicial-appointments listing page (the old
     # /en/publication/judicial-appointments/ URL now 404s) and per-announcement
     # URLs were never captured in the sandbox scrape. A nominee-scoped gov.ie
     # search is the closest stable, per-row link to the announcement itself.
-    n["source_url"] = [
+    urls = [
         GOVIE_SEARCH_URL + quote_plus(f"{nominee} {court}")
-        for nominee, court in zip(n["nominee"].fillna(""), n["target_court"].fillna(""), strict=True)
+        for nominee, court in zip(
+            nom["nominee"].fill_null("").to_list(), nom["target_court"].fill_null("").to_list(), strict=True
+        )
     ]
+    n = nom.with_columns(
+        _keyed(nom["nominee"].to_list(), aliases).alias("judge_key"),
+        pl.lit("gov.ie nomination announcement").alias("source_name"),
+        pl.Series("source_url", urls, dtype=pl.String),
+    )
     cols = [
         "announce_date",
         "nominee",
@@ -351,7 +412,7 @@ def build_nominations(nom: pd.DataFrame, aliases: dict[str, str]) -> pd.DataFram
         "source_name",
         "source_url",
     ]
-    return n[cols].sort_values(["announce_date", "target_court", "nominee"]).reset_index(drop=True)
+    return n.select(cols).sort(["announce_date", "target_court", "nominee"])
 
 
 # ──────────────────────────────────────────── build: the courts (system health)
@@ -375,29 +436,27 @@ COURTHOUSE_SOURCE_URL = "https://data.courts.ie/files/court-offices/court-office
 _COURT_CANON = {"Court Of Appeal": "Court of Appeal"}
 
 
-def build_courts_clearance(clr: pd.DataFrame) -> pd.DataFrame:
+def build_courts_clearance(clr: pl.DataFrame) -> pl.DataFrame:
     """Faithful clearance facts at source grain (jurisdiction × area × category × year).
     Casing normalised so the view can group a court; counts untouched. The view computes
     clearance_pct = resolved/incoming (which legitimately exceeds 100% when a court clears
     backlog — that is a real signal, never capped here or downstream)."""
-    c = clr.copy()
-    c["jurisdiction"] = c["JURISDICTION"].replace(_COURT_CANON)
-    out = pd.DataFrame(
-        {
-            "jurisdiction": c["jurisdiction"],
-            "area_of_law": c["AREA_OF_LAW"],
-            "year": c["YEAR"].astype(int),
-            "category": c["CATEGORY"],
-            "incoming": c["INCOMING"].astype(int),
-            "resolved": c["RESOLVED"],
-            "source_name": "Courts Service annual statistics",
-            "source_url": CLEARANCE_SOURCE_URL,
-        }
+    out = clr.select(
+        pl.col("JURISDICTION").replace(_COURT_CANON).alias("jurisdiction"),
+        pl.col("AREA_OF_LAW").alias("area_of_law"),
+        pl.col("YEAR").cast(pl.Int64).alias("year"),
+        pl.col("CATEGORY").alias("category"),
+        pl.col("INCOMING").cast(pl.Int64).alias("incoming"),
+        # RESOLVED carries nulls (unpublished cells) -> Float64, matching the historical
+        # pandas gold schema (NaN-promoted float); values are untouched.
+        pl.col("RESOLVED").cast(pl.Float64).alias("resolved"),
+        pl.lit("Courts Service annual statistics").alias("source_name"),
+        pl.lit(CLEARANCE_SOURCE_URL).alias("source_url"),
     )
-    return out.sort_values(["year", "jurisdiction", "area_of_law", "category"]).reset_index(drop=True)
+    return out.sort(["year", "jurisdiction", "area_of_law", "category"])
 
 
-def build_courts_waiting(wt: pd.DataFrame) -> pd.DataFrame:
+def build_courts_waiting(wt: pl.DataFrame) -> pl.DataFrame:
     """Waiting-time lists as published (latest two years side by side), VERBATIM.
     The source PDF carries ligature-extraction artefacts on the deeper matter-type rows
     ('certfii ed', U+FFFD where an apostrophe/en-dash stood). These are NOT guessed at
@@ -415,82 +474,78 @@ def build_courts_waiting(wt: pd.DataFrame) -> pd.DataFrame:
     mislabelling a court. The CSV also carries the Central Criminal Court rows
     (seq_in_page < 0) the regex extraction missed — that table publishes bare week
     numbers ("44") rather than "44 weeks" strings."""
-    w = wt.copy()
-    label = w["matter_or_venue"].astype(str)
-    is_clean = ~label.str.contains(r"[�]|fii|\bfi\s", regex=True, na=False)
-    out = pd.DataFrame(
-        {
-            "page": w["page"].astype(int),
-            "matter_or_venue": w["matter_or_venue"],
-            "wait_2024": w["wait_2024"],
-            "wait_2023": w["wait_2023"],
-            "is_clean_label": is_clean.values,
-            "source_name": "Courts Service Annual Report 2024 (Waiting Times)",
-            "source_url": WAITING_SOURCE_URL,
-        }
-    )
-    out["seq_in_page"] = out.groupby("page").cumcount()
+    is_clean = ~pl.col("matter_or_venue").cast(pl.String).str.contains(r"[�]|fii|\bfi\s").fill_null(False)
+    out = wt.select(
+        pl.col("page").cast(pl.Int64),
+        pl.col("matter_or_venue"),
+        pl.col("wait_2024"),
+        pl.col("wait_2023"),
+        is_clean.alias("is_clean_label"),
+        pl.lit("Courts Service Annual Report 2024 (Waiting Times)").alias("source_name"),
+        pl.lit(WAITING_SOURCE_URL).alias("source_url"),
+    ).with_columns(pl.int_range(pl.len()).over("page").alias("seq_in_page"))
 
-    ctx = pd.read_csv(WAITING_CONTEXT_CSV)
-    mapped = ctx[ctx["seq_in_page"] >= 0]
-    out = out.merge(
-        mapped[["page", "seq_in_page", "match_prefix", "jurisdiction", "list_context"]],
+    ctx = pl.read_csv(WAITING_CONTEXT_CSV, schema_overrides={"wait_2024": pl.String, "wait_2023": pl.String})
+    mapped = ctx.filter(pl.col("seq_in_page") >= 0)
+    out = out.join(
+        mapped.select("page", "seq_in_page", "match_prefix", "jurisdiction", "list_context"),
         on=["page", "seq_in_page"],
         how="left",
+        maintain_order="left",
     )
     # drift guard: a context row must agree with the published label it claims to describe
-    bad = out[
-        out["match_prefix"].notna()
-        & ~out.apply(
-            lambda r: str(r["matter_or_venue"]).casefold().startswith(str(r["match_prefix"]).casefold()),
-            axis=1,
-        )
+    bad = [
+        {k: r[k] for k in ("page", "seq_in_page", "matter_or_venue", "match_prefix")}
+        for r in out.iter_rows(named=True)
+        if r["match_prefix"] is not None
+        and not str(r["matter_or_venue"]).casefold().startswith(str(r["match_prefix"]).casefold())
     ]
-    if not bad.empty:
+    if bad:
         raise ValueError(
             "courts_waiting_context.csv no longer matches the extracted waiting-time rows "
-            f"(re-curate it): {bad[['page', 'seq_in_page', 'matter_or_venue', 'match_prefix']].to_dict('records')}"
+            f"(re-curate it): {bad}"
         )
-    out = out.drop(columns=["match_prefix"])
+    out = out.drop("match_prefix")
 
-    supplements = ctx[ctx["seq_in_page"] < 0]
-    if not supplements.empty:
-        extra = pd.DataFrame(
-            {
-                "page": supplements["page"].astype(int),
-                "matter_or_venue": supplements["match_prefix"],
-                "wait_2024": supplements["wait_2024"],
-                "wait_2023": supplements["wait_2023"],
-                "is_clean_label": True,
-                "source_name": "Courts Service Annual Report 2024 (Waiting Times)",
-                "source_url": WAITING_SOURCE_URL,
-                "seq_in_page": supplements["seq_in_page"].astype(int),
-                "jurisdiction": supplements["jurisdiction"],
-                "list_context": supplements["list_context"],
-            }
+    supplements = ctx.filter(pl.col("seq_in_page") < 0)
+    if supplements.height:
+        extra = supplements.select(
+            pl.col("page").cast(pl.Int64),
+            pl.col("match_prefix").alias("matter_or_venue"),
+            pl.col("wait_2024"),
+            pl.col("wait_2023"),
+            pl.lit(True).alias("is_clean_label"),
+            pl.lit("Courts Service Annual Report 2024 (Waiting Times)").alias("source_name"),
+            pl.lit(WAITING_SOURCE_URL).alias("source_url"),
+            pl.col("seq_in_page").cast(pl.Int64),
+            pl.col("jurisdiction"),
+            pl.col("list_context"),
         )
-        out = pd.concat([out, extra], ignore_index=True)
-    return out.reset_index(drop=True)
+        out = pl.concat([out, extra], how="vertical")
+    return out
 
 
-def build_courthouses(ch: pd.DataFrame) -> pd.DataFrame:
+def build_courthouses(ch: pl.DataFrame) -> pl.DataFrame:
     """Active, geocoded courthouses for the venue map (lat/lon + place metadata)."""
-    h = ch[ch["active_status"] == "active"].copy()
-    out = pd.DataFrame(
-        {
-            "court_house": h["court_house"],
-            "address": h["court_house_address"],
-            "eircode": h["court_house_eircode"],
-            "region": h["region"],
-            "county": h["county"],
-            "circuit": h["circuit"],
-            "latitude": h["latitude"],
-            "longitude": h["longitude"],
-            "source_name": "Courts Service court-office register",
-            "source_url": COURTHOUSE_SOURCE_URL,
-        }
+    out = ch.filter(pl.col("active_status") == "active").select(
+        pl.col("court_house"),
+        pl.col("court_house_address").alias("address"),
+        pl.col("court_house_eircode").alias("eircode"),
+        pl.col("region"),
+        pl.col("county"),
+        pl.col("circuit"),
+        pl.col("latitude"),
+        pl.col("longitude"),
+        pl.lit("Courts Service court-office register").alias("source_name"),
+        pl.lit(COURTHOUSE_SOURCE_URL).alias("source_url"),
     )
-    return out.dropna(subset=["latitude", "longitude"]).sort_values("court_house").reset_index(drop=True)
+    out = out.filter(
+        pl.col("latitude").is_not_null()
+        & pl.col("latitude").is_not_nan()
+        & pl.col("longitude").is_not_null()
+        & pl.col("longitude").is_not_nan()
+    )
+    return out.sort("court_house")
 
 
 # ───────────────────────────────────────────────────────────────────── main
@@ -498,16 +553,16 @@ def main() -> int:
     setup_standalone_logging("judiciary_bench_extract")
     aliases = _load_aliases()
 
-    spine = pd.read_parquet(SANDBOX_DIR / "judicial_appointments_spine.parquet")
-    roster = pd.read_parquet(SANDBOX_DIR / "judiciary_current_roster.parquet")
-    join = pd.read_parquet(SANDBOX_DIR / "judiciary_appointment_roster_join.parquet")
-    nom = pd.read_parquet(SANDBOX_DIR / "judicial_nominations_govie.parquet")
-    hc = pd.read_parquet(SANDBOX_DIR / "judiciary_hc_assignments.parquet")
-    salaries = pd.read_parquet(SANDBOX_DIR / "judicial_salaries.parquet")
-    salaries_present = set(salaries["office"])
-    clearance_raw = pd.read_parquet(SANDBOX_DIR / "courts_clearance.parquet")
-    waiting_raw = pd.read_parquet(SANDBOX_DIR / "courts_waiting_times.parquet")
-    courthouses_raw = pd.read_parquet(SANDBOX_DIR / "courthouses.parquet")
+    spine = pl.read_parquet(SANDBOX_DIR / "judicial_appointments_spine.parquet")
+    roster = pl.read_parquet(SANDBOX_DIR / "judiciary_current_roster.parquet")
+    join = pl.read_parquet(SANDBOX_DIR / "judiciary_appointment_roster_join.parquet")
+    nom = pl.read_parquet(SANDBOX_DIR / "judicial_nominations_govie.parquet")
+    hc = pl.read_parquet(SANDBOX_DIR / "judiciary_hc_assignments.parquet")
+    salaries = pl.read_parquet(SANDBOX_DIR / "judicial_salaries.parquet")
+    salaries_present = set(salaries["office"].to_list())
+    clearance_raw = pl.read_parquet(SANDBOX_DIR / "courts_clearance.parquet")
+    waiting_raw = pl.read_parquet(SANDBOX_DIR / "courts_waiting_times.parquet")
+    courthouses_raw = pl.read_parquet(SANDBOX_DIR / "courthouses.parquet")
 
     appts = build_appointments(spine, join, aliases)
     bench = build_bench(roster, appts, salaries_present, hc, aliases)

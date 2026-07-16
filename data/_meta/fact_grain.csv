@@ -1,0 +1,13 @@
+fact,grain,money_grain,never_sum_with,purpose
+procurement_awards,one row per awarded contract/lot,awarded,payments|budget|ted,"Contract AWARDS from eTenders/OGP — the ceiling awarded, NOT cash paid"
+procurement_payments_fact,one row per disclosed payment/PO line,payments,awarded|budget|ted,"Actual purchase-order/payment lines >€20k from public bodies + councils"
+ted_ie_awards,one row per TED award notice,ted,awarded|payments|budget,"EU TED contract-award notices — OVERLAPS procurement_awards, never sum the two"
+la_budget_divisions,one row per (council,year,division),budget,awarded|payments|accounts,"ADOPTED council budgets (a PLAN) — the 4th money grain, never union with actuals"
+la_afs_divisions,one row per (council,year,division),accounts,awarded|payments|budget,"Audited council revenue accounts (outturn) by service division"
+la_afs_capital_divisions,one row per (council,year,division),accounts,awarded|payments|budget,"Audited council CAPITAL accounts — distinct from revenue; never sum the two"
+afs_amalgamated_divisions,one row per (year,division) national,accounts,awarded|payments|budget,"National amalgamated council accounts (all 31 summed) — never mix with per-LA AFS"
+public_payments_fact,one row per public-body payment line,payments,awarded|budget|ted,"Central/semi-state body payments — same PAYMENTS grain as procurement_payments_fact"
+payments_full_psa,one row per PSA payment line,payments,awarded|budget|ted,"Full public-service-agreement payments"
+la_councillor_payments,one row per (councillor,period,category),allowance,awarded|payments|budget,"s.142 register payments to councillors — an allowance grain, never public spend"
+sipo_donations,one row per declared donation,political_finance,expenses|awarded|payments,"SIPO political donations — never sum with election expenses"
+sipo_expenses_fact,one row per election-expense line,political_finance,donations|awarded|payments,"SIPO election expenses — never sum with donations"

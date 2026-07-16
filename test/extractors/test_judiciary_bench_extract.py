@@ -13,6 +13,9 @@ the columns each function reads and assert on shape / columns / key rows, with e
 values derived from the code logic (COURT_RANK, SALARY_BY_COURT, the alias/honorific
 strip rules), not guesses.
 
+The extractor is Polars (Polars=ETL convention), so inputs/outputs here are
+``pl.DataFrame``.
+
 Skipped deliberately:
   * ``main`` — IO (reads sandbox parquet, writes gold + coverage json);
   * ``build_courts_waiting`` — reads ``data/_meta/courts_waiting_context.csv`` from
@@ -26,7 +29,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pandas as pd
+import polars as pl
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "extractors"))
@@ -84,7 +87,7 @@ def test_normalise_key_handles_none_and_nan():
 def _appt_inputs():
     """Two real-court notices + one junk (is_real_court=False) + a multi-name notice.
     The join supplies current_court/status keyed on (appointee, issue_date)."""
-    spine = pd.DataFrame(
+    spine = pl.DataFrame(
         {
             "is_real_court": [True, True, False],
             # second notice has two appointees joined by ';' (and a 'None' to be skipped)
@@ -97,7 +100,7 @@ def _appt_inputs():
             "iris_source_pdf": ["IR150120.pdf", None, None],
         }
     )
-    join = pd.DataFrame(
+    join = pl.DataFrame(
         {
             "appointee": ["Brian O'Shea"],
             "appointed_date": ["2020-01-15"],
@@ -117,24 +120,24 @@ def test_build_appointments_drops_junk_and_splits_names():
     assert "Junk Body" not in set(ev["appointee"])
     assert set(ev["appointee"]) == {"Brian O'Shea", "Anne Field", "Carl Stone"}
     # judge_key is the normalised name (single-letter 'o' from O'Shea dropped)
-    assert ev.loc[ev["appointee"] == "Brian O'Shea", "judge_key"].iloc[0] == "brian shea"
+    assert ev.filter(pl.col("appointee") == "Brian O'Shea")["judge_key"][0] == "brian shea"
 
 
 def test_build_appointments_unmatched_status_filled():
     spine, join = _appt_inputs()
     ev = build_appointments(spine, join, {})
     # only O'Shea is in the join; the others get status='unmatched'.
-    unmatched = ev[ev["appointee"].isin(["Anne Field", "Carl Stone"])]
+    unmatched = ev.filter(pl.col("appointee").is_in(["Anne Field", "Carl Stone"]))
     assert (unmatched["status"] == "unmatched").all()
-    assert unmatched["is_elevation"].eq(False).all()
+    assert (unmatched["is_elevation"] == False).all()  # noqa: E712
 
 
 def test_build_appointments_elevation_to_senior_not_flagged():
     spine, join = _appt_inputs()
     ev = build_appointments(spine, join, {})
-    oshea = ev[ev["appointee"] == "Brian O'Shea"].iloc[0]
+    oshea = ev.filter(pl.col("appointee") == "Brian O'Shea").row(0, named=True)
     # High Court (rank 3) -> Supreme Court (rank 1): a legitimate (more senior) elevation.
-    assert oshea["is_elevation"] is True or bool(oshea["is_elevation"]) is True
+    assert bool(oshea["is_elevation"]) is True
     assert oshea["elevated_to"] == "Supreme Court"
     # current rank (1) < appointed rank (3) -> NOT impossible -> no manual review.
     assert bool(oshea["requires_manual_review"]) is False
@@ -142,7 +145,7 @@ def test_build_appointments_elevation_to_senior_not_flagged():
 
 def test_build_appointments_impossible_junior_elevation_flagged():
     # an 'elevation' to a MORE JUNIOR court is a name-collision artefact -> flag it.
-    spine = pd.DataFrame(
+    spine = pl.DataFrame(
         {
             "is_real_court": [True],
             "appointee": ["Pat Collision"],
@@ -154,7 +157,7 @@ def test_build_appointments_impossible_junior_elevation_flagged():
             "iris_source_pdf": [None],
         }
     )
-    join = pd.DataFrame(
+    join = pl.DataFrame(
         {
             "appointee": ["Pat Collision"],
             "appointed_date": ["2018-02-02"],
@@ -163,14 +166,14 @@ def test_build_appointments_impossible_junior_elevation_flagged():
         }
     )
     ev = build_appointments(spine, join, {})
-    row = ev.iloc[0]
+    row = ev.row(0, named=True)
     assert bool(row["is_elevation"]) is True
     assert bool(row["requires_manual_review"]) is True
 
 
 # ───────────────────────────────────────────────────────── build_nominations
 def test_build_nominations_keys_and_per_row_search_url():
-    nom = pd.DataFrame(
+    nom = pl.DataFrame(
         {
             "announce_date": ["2025-02-01", "2025-01-10"],
             "nominee": ["Síofra O'Leary", "Mary Quinn"],
@@ -184,11 +187,11 @@ def test_build_nominations_keys_and_per_row_search_url():
     # judge_key is normalised; every row carries a gov.ie SEARCH url scoped to nominee+court.
     assert set(out["judge_key"]) == {"siofra leary", "mary quinn"}
     # sorted by (announce_date, target_court, nominee): 2025-01-10 row comes first.
-    assert out.iloc[0]["nominee"] == "Mary Quinn"
+    assert out.row(0, named=True)["nominee"] == "Mary Quinn"
     assert (out["source_name"] == "gov.ie nomination announcement").all()
-    assert out["source_url"].str.startswith("https://www.gov.ie/en/search/?q=").all()
+    assert out["source_url"].str.starts_with("https://www.gov.ie/en/search/?q=").all()
     # the per-row url embeds both nominee and court (url-encoded)
-    mary = out[out["nominee"] == "Mary Quinn"].iloc[0]
+    mary = out.filter(pl.col("nominee") == "Mary Quinn").row(0, named=True)
     assert "Mary+Quinn" in mary["source_url"]
     assert "High+Court" in mary["source_url"]
     # exact output column contract
@@ -207,7 +210,7 @@ def test_build_nominations_keys_and_per_row_search_url():
 
 # ───────────────────────────────────────────────────────── build_courts_clearance
 def test_build_courts_clearance_canonicalises_casing_and_typing():
-    clr = pd.DataFrame(
+    clr = pl.DataFrame(
         {
             # 'Court Of Appeal' (criminal table casing) must collapse to 'Court of Appeal'.
             "JURISDICTION": ["Court Of Appeal", "Court of Appeal", "High Court"],
@@ -221,21 +224,21 @@ def test_build_courts_clearance_canonicalises_casing_and_typing():
     out = build_courts_clearance(clr)
     # the two Court-of-Appeal rows now share one canonical jurisdiction spelling.
     assert set(out["jurisdiction"]) == {"Court of Appeal", "High Court"}
-    assert (out[out["area_of_law"] == "Criminal"]["jurisdiction"] == "Court of Appeal").all()
+    assert (out.filter(pl.col("area_of_law") == "Criminal")["jurisdiction"] == "Court of Appeal").all()
     # YEAR / INCOMING cast to int; counts untouched.
-    assert out["year"].dtype.kind == "i"
-    assert out["incoming"].dtype.kind == "i"
-    assert out[out["area_of_law"] == "Criminal"]["incoming"].iloc[0] == 100
+    assert out.schema["year"] == pl.Int64
+    assert out.schema["incoming"] == pl.Int64
+    assert out.filter(pl.col("area_of_law") == "Criminal")["incoming"][0] == 100
     # provenance stamped on every row; no clearance_pct computed here (firewall).
     assert (out["source_name"] == "Courts Service annual statistics").all()
     assert "clearance_pct" not in out.columns
     # sorted by year asc -> the 2023 High Court row sorts first.
-    assert out.iloc[0]["year"] == 2023
+    assert out.row(0, named=True)["year"] == 2023
 
 
 # ───────────────────────────────────────────────────────── build_courthouses
 def test_build_courthouses_filters_active_and_requires_geocode():
-    ch = pd.DataFrame(
+    ch = pl.DataFrame(
         {
             "active_status": ["active", "closed", "active"],
             "court_house": ["Zeta Courthouse", "Old Courthouse", "Alpha Courthouse"],
@@ -250,16 +253,16 @@ def test_build_courthouses_filters_active_and_requires_geocode():
     )
     out = build_courthouses(ch)
     # 'closed' dropped; the active-but-null-lat row dropped -> only Zeta survives.
-    assert out["court_house"].tolist() == ["Zeta Courthouse"]
-    assert out["latitude"].notna().all()
-    assert out["longitude"].notna().all()
+    assert out["court_house"].to_list() == ["Zeta Courthouse"]
+    assert out["latitude"].is_not_null().all()
+    assert out["longitude"].is_not_null().all()
     # renamed/curated columns + provenance present
     assert "address" in out.columns and "eircode" in out.columns
     assert (out["source_name"] == "Courts Service court-office register").all()
 
 
 def test_build_courthouses_sorted_by_name():
-    ch = pd.DataFrame(
+    ch = pl.DataFrame(
         {
             "active_status": ["active", "active"],
             "court_house": ["Zeta Courthouse", "Alpha Courthouse"],
@@ -273,14 +276,14 @@ def test_build_courthouses_sorted_by_name():
         }
     )
     out = build_courthouses(ch)
-    assert out["court_house"].tolist() == ["Alpha Courthouse", "Zeta Courthouse"]
+    assert out["court_house"].to_list() == ["Alpha Courthouse", "Zeta Courthouse"]
 
 
 # ───────────────────────────────────────────────────────── build_bench
 def _bench_inputs():
     """A roster with an ex-officio cross-listing to exercise the seat dedup + salary
     suppression, plus a matching appointment spine and an HC assignment."""
-    roster = pd.DataFrame(
+    roster = pl.DataFrame(
         {
             "judge_name": [
                 "Brian O'Shea",  # Supreme Court, ex-officio cross-listing (President)
@@ -292,7 +295,7 @@ def _bench_inputs():
         }
     )
     appts = build_appointments(*_appt_inputs(), {})  # O'Shea has a spine; Field/Stone too
-    hc = pd.DataFrame(
+    hc = pl.DataFrame(
         {
             "judge": ["Mary Quinn"],
             "assignment": ["Commercial List"],
@@ -306,9 +309,9 @@ def test_build_bench_resolves_ex_officio_to_one_seat_per_judge():
     roster, appts, hc = _bench_inputs()
     bench = build_bench(roster, appts, set(), hc, {})
     # one row per judge_key (the two O'Shea rows collapse).
-    assert bench["judge_key"].is_unique
+    assert bench["judge_key"].n_unique() == bench.height
     assert set(bench["judge_key"]) == {"brian shea", "mary quinn"}
-    oshea = bench[bench["judge_key"] == "brian shea"].iloc[0]
+    oshea = bench.filter(pl.col("judge_key") == "brian shea").row(0, named=True)
     # seat_count keeps the raw count of listings (2) even after dedup.
     assert int(oshea["seat_count"]) == 2
     # dedup keeps the substantive (non ex-officio) High Court seat, not the Supreme ex-officio.
@@ -319,7 +322,7 @@ def test_build_bench_resolves_ex_officio_to_one_seat_per_judge():
 def test_build_bench_salary_band_by_court_and_provenance():
     roster, appts, hc = _bench_inputs()
     bench = build_bench(roster, appts, set(), hc, {})
-    mary = bench[bench["judge_key"] == "mary quinn"].iloc[0]
+    mary = bench.filter(pl.col("judge_key") == "mary quinn").row(0, named=True)
     # ordinary High Court band straight from SALARY_BY_COURT.
     assert mary["salary_band_eur"] == SALARY_BY_COURT["High Court"]
     assert mary["salary_office"] == "Ordinary Judge, High Court"
@@ -334,7 +337,7 @@ def test_build_bench_salary_band_by_court_and_provenance():
 def test_build_bench_ex_officio_salary_suppressed():
     # a purely ex-officio/president seat must have its salary band suppressed (premium
     # can't be attributed to a named person from the roster alone).
-    roster = pd.DataFrame(
+    roster = pl.DataFrame(
         {
             "judge_name": ["Pres Ident"],
             "court": ["Supreme Court"],
@@ -343,7 +346,7 @@ def test_build_bench_ex_officio_salary_suppressed():
     )
     # an appointment spine for a DIFFERENT judge -> the President has no spine row.
     other_appts = build_appointments(
-        pd.DataFrame(
+        pl.DataFrame(
             {
                 "is_real_court": [True],
                 "appointee": ["Some Other Judge"],
@@ -355,14 +358,21 @@ def test_build_bench_ex_officio_salary_suppressed():
                 "iris_source_pdf": [None],
             }
         ),
-        pd.DataFrame({"appointee": [], "appointed_date": [], "current_court": [], "status": []}),
+        pl.DataFrame(
+            schema={
+                "appointee": pl.String,
+                "appointed_date": pl.String,
+                "current_court": pl.String,
+                "status": pl.String,
+            }
+        ),
         {},
     )
-    hc = pd.DataFrame({"judge": [], "assignment": [], "term": []})
+    hc = pl.DataFrame(schema={"judge": pl.String, "assignment": pl.String, "term": pl.String})
     bench = build_bench(roster, other_appts, set(), hc, {})
-    bench = bench[bench["judge_key"] == normalise_key("Pres Ident", {})]
-    row = bench.iloc[0]
-    assert pd.isna(row["salary_band_eur"]) or row["salary_band_eur"] is None
+    bench = bench.filter(pl.col("judge_key") == normalise_key("Pres Ident", {}))
+    row = bench.row(0, named=True)
+    assert row["salary_band_eur"] is None
     assert "ex-officio" in str(row["salary_office"]).lower()
     assert bool(row["has_spine"]) is False
 
