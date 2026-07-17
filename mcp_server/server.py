@@ -131,6 +131,7 @@ doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 from pathlib import Path
