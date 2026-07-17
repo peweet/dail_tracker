@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: commercial
+updated: 2026-06-28
+supersedes: []
+read_when: scoping the BI spinout's business model, data reuse inventory, licensing, or ethics firewall before building any of it
+key: SPEC|LIVE|commercial
+---
+
 # Commercial BI Spinout — Architecture & Business Model
 
 **Date:** 2026-06-28

@@ -80,7 +80,7 @@ $common = @(
 if ($DryRun) { $common += '--dry-run' }
 
 $failed = 0
-foreach ($tree in 'bronze', 'silver') {
+foreach ($tree in 'bronze', 'silver', 'raw_bq') {
     $src = Join-Path $root "data\$tree"
     if (-not (Test-Path $src)) { continue }
     & $rclone copy $src "${remote}:${bucket}/$tree" @common

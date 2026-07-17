@@ -141,22 +141,39 @@ def test_row_cbi_badge_reads_precomputed_columns():
     assert corporate._row_cbi_badge(pd.Series({"cbi_register": None, "cbi_ref_no": None})) is None
 
 
-# ── _firm_notice_mask (filters on the precomputed receiver_firms tag) ──────────
-def test_firm_notice_mask_uses_receiver_firms_column():
-    df = pd.DataFrame(
-        {
-            "receiver_firms": [["KPMG", "Deloitte"], ["Grant Thornton"], []],
-            "raw_text": ["x", "y", "names KPMG in prose"],
-        }
+# ── firm_notices query (filters on the precomputed receiver_firms tag) ─────────
+# The old page-side _firm_notice_mask graduated into dail_tracker_core.queries.
+# corporate.firm_notices, where the matching runs in DuckDB. Same semantics pinned.
+def _firm_notices_conn(rows_sql: str):
+    import duckdb
+
+    con = duckdb.connect()
+    con.execute(f"CREATE VIEW v_corporate_notices AS SELECT * FROM (VALUES {rows_sql}) t(receiver_firms, raw_text)")
+    return con
+
+
+def test_firm_notices_uses_receiver_firms_column():
+    from dail_tracker_core.queries import corporate as q
+
+    con = _firm_notices_conn(
+        "(['KPMG','Deloitte'], 'x'), (['Grant Thornton'], 'y'), (CAST([] AS VARCHAR[]), 'names KPMG in prose')"
     )
-    mask = corporate._firm_notice_mask(df, "KPMG")
-    assert mask.tolist() == [True, False, False], "curated firm matched via the tag column, not raw_text"
+    res = q.firm_notices(con, "KPMG")
+    assert res.ok
+    assert res.data["raw_text"].tolist() == ["x"], "curated firm matched via the tag column, not raw_text"
 
 
-def test_firm_notice_mask_falls_back_to_raw_text_for_uncurated_firm():
-    df = pd.DataFrame({"receiver_firms": [[], []], "raw_text": ["mentions Acme Receivers Ltd", "nothing"]})
-    mask = corporate._firm_notice_mask(df, "Acme Receivers")
-    assert mask.tolist() == [True, False], "uncurated firm falls back to word-boundary raw_text search"
+def test_firm_notices_falls_back_to_raw_text_for_uncurated_firm():
+    from dail_tracker_core.queries import corporate as q
+
+    con = _firm_notices_conn(
+        "(CAST([] AS VARCHAR[]), 'mentions Acme Receivers Ltd'), (CAST([] AS VARCHAR[]), 'nothing')"
+    )
+    res = q.firm_notices(con, "Acme Receivers")
+    assert res.ok
+    assert res.data["raw_text"].tolist() == ["mentions Acme Receivers Ltd"], (
+        "uncurated firm falls back to word-boundary raw_text search"
+    )
 
 
 # ── integration: real page over live views ────────────────────────────────────

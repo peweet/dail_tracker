@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: money
+updated: 2026-06-03
+supersedes: []
+read_when: before extending per-council AFS coverage (new councils/years) or checking which councils are digital, scanned, or undiscovered — note Phase 0 shipped but this remains an active build plan
+key: PLAN|LIVE|money
+---
+
 # Per-LA Annual Financial Statements — feasibility census + build plan
 
 > **UPDATE 2026-06-03 — PHASE 0 SHIPPED.** `pipeline_sandbox/la_afs_extract.py` →

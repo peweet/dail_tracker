@@ -79,6 +79,14 @@ def derelict_sites_levy(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult
     return _run(conn, "SELECT * FROM v_la_derelict_sites_levy WHERE local_authority = ?", [la])
 
 
+def derelict_levy_ranking(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """All councils ranked for cross-council derelict-levy ENFORCEMENT comparison — the
+    national view the per-council ``derelict_sites_levy`` can't give in one call. The view
+    already carries national window totals + the ``levied_nothing`` flag + the arrears-aware
+    ``collection_rate_pct``; here we just return every council, worst outstanding first."""
+    return _run(conn, "SELECT * FROM v_la_derelict_sites_levy ORDER BY cumulative_outstanding_eur DESC NULLS LAST")
+
+
 def housing_performance(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     return _run(conn, "SELECT * FROM v_la_housing_performance WHERE local_authority = ?", [la])
 

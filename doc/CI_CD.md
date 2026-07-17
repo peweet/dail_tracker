@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: infra
+updated: 2026-06-21
+supersedes: []
+read_when: changing CI/CD workflows, or checking what checks already exist before adding a new one
+key: PLAN|LIVE|infra
+---
+
 # CI/CD plan for Dáil Tracker
 
 A phased plan for adding continuous integration and (eventually) deployment automation to this repo. The shape is dictated by what *this* project actually is: a Python data pipeline (Polars / DuckDB / pandas) feeding a Streamlit UI, with pipeline outputs persisted as Parquet and surfaced through SQL views.

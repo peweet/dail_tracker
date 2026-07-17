@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: infra
+updated: 2026-06-21
+supersedes: []
+read_when: a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook
+key: PLAN|LIVE|infra
+---
+
 # Source Recovery Runbook — "source X broke, here's what to do"
 
 **Date:** 2026-06-21 · **Audience:** future-you, or a collaborator who has never seen this break before.

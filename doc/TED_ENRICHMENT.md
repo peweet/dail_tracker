@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: procurement
+updated: 2026-06-08
+supersedes: []
+read_when: checking what TED enrichment already exists before proposing new TED ingestion/enrichment work
+key: CONTEXT|LIVE|procurement
+---
+
 # TED enrichment — current state and how to factor it in
 
 **Status:** reference + forward plan. Generated 2026-06-08.

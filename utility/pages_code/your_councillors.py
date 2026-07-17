@@ -30,9 +30,8 @@ from ui.components import (  # noqa: E402
     empty_state,
     evidence_heading,
     hero_banner,
-    hide_sidebar,
     info_card,
-    page_error_boundary,
+    dt_page,
     party_stripe_html,
     subsection_heading,
     totals_strip,
@@ -338,9 +337,8 @@ def _tab_agendas(county: str) -> None:
 
 
 # ── PAGE ─────────────────────────────────────────────────────────────────────-
-@page_error_boundary
+@dt_page
 def your_councillors_page() -> None:
-    hide_sidebar()
     councils_r = ycd.fetch_councils()
     if not councils_r.ok or councils_r.is_empty:
         st.title("Your Councillors")

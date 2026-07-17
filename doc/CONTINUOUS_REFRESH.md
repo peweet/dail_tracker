@@ -1,3 +1,17 @@
+---
+tier: PLAN
+status: SUPERSEDED
+domain: infra
+updated: 2026-07-17
+supersedes: []
+superseded_by: doc/HYBRID_REFRESH_PLAN.md
+read_when: historical only — the live refresh runbook is HYBRID_REFRESH_PLAN.md; the two-lane R2 design below is DEAD (see [[project_two_lane_reconciliation_flaw_2026_07_09]])
+key: PLAN|SUPERSEDED|infra
+---
+
+> **⚠️ SUPERSEDED (2026-07-17).** The live refresh design is **`doc/HYBRID_REFRESH_PLAN.md`**.
+> The two-lane R2 reconciliation described below is **dead as designed**. Kept for history only.
+
 # Continuous, reliable, broad refresh — runbook
 
 **Created:** 2026-06-14. **Goal:** keep the live site's money-flow data fresh automatically, the

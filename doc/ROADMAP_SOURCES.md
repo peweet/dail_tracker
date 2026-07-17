@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: sources
+updated: 2026-07-17
+supersedes: []
+read_when: scoping a candidate new ingestion source before claiming it's built, or prioritising the ingestion backlog
+key: PLAN|LIVE|sources
+---
+
 # ROADMAP_SOURCES.md — candidate ingestion sources, monetization, and product direction
 
 Forward-looking, honest, and explicitly **not** a claim of implementation. Every

@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: commercial
+updated: 2026-07-08
+supersedes: []
+read_when: deciding whether to proceed with the BI spinout plan, or checking its named load-bearing risks (unvalidated demand, PHASE-2-TODO dependency, diary-data ethics) before greenlighting Stage A build
+key: RECORD|LIVE|commercial
+---
+
 # BI Spinout — Independent Assessment (Fable model)
 
 **Date:** 2026-07-08 · **Assessor:** Fable 5 (5 independent skeptical lenses + synthesis), commissioned as a second-model review.

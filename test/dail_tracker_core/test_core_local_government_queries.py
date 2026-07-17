@@ -90,6 +90,20 @@ def test_national_summary_one_row(conn):
     assert row["derelict_outstanding_eur"] > 0
 
 
+def test_derelict_levy_ranking_all_councils(conn):
+    """Cross-council derelict-levy ranking: 31 rows, national totals present, and the
+    arrears-aware collection rate is NULL exactly where a council levied nothing."""
+    res = q.derelict_levy_ranking(conn)
+    assert res.ok and len(res.data) == 31
+    row = res.data.iloc[0]
+    assert row["national_outstanding_eur"] > 0
+    # levied_nothing councils carry a NULL collection rate, never 0-vs-0 nonsense
+    nothing = res.data[res.data["levied_nothing"]]
+    assert nothing["collection_rate_pct"].isna().all()
+    # ordered worst-outstanding first
+    assert res.data["cumulative_outstanding_eur"].iloc[0] >= res.data["cumulative_outstanding_eur"].iloc[-1]
+
+
 def test_dossier_signals_for_donegal(conn):
     """Donegal resolves on every signal (the cross-signal example used in the UI)."""
     assert q.chief_executive(conn, "Donegal").data.iloc[0]["chief_executive"]

@@ -55,8 +55,7 @@ from ui.components import (
     evidence_heading,
     find_a_td_filter,
     hero_banner,
-    hide_sidebar,
-    page_error_boundary,
+    dt_page,
     party_stripe_html,
     proportion_stripe_html,
     ranked_member_card,
@@ -65,6 +64,7 @@ from ui.components import (
     totals_strip,
 )
 from ui.entity_links import member_profile_url
+from ui.format import eur, fmt_int, pct
 
 _EC_REVIEW_URL = "https://www.electoralcommission.ie/constituency-reviews/"
 
@@ -78,41 +78,10 @@ _SRC_DERELICT = (
 
 
 # ── display-only formatting (no derivation) ───────────────────────────────────
-def _eur(v) -> str:
-    """Compact euro label: €1.44bn / €478m / €212k / €950."""
-    if v is None or (isinstance(v, float) and pd.isna(v)):
-        return "—"
-    try:
-        v = float(v)
-    except (TypeError, ValueError):
-        return "—"
-    a = abs(v)
-    if a >= 1e9:
-        return f"€{v / 1e9:.2f}bn"
-    if a >= 1e6:
-        return f"€{v / 1e6:.0f}m"
-    if a >= 1e3:
-        return f"€{v / 1e3:.0f}k"
-    return f"€{v:,.0f}"
-
-
-def _int(v) -> str:
-    if v is None or (isinstance(v, float) and pd.isna(v)):
-        return "—"
-    try:
-        return f"{int(v):,}"
-    except (TypeError, ValueError):
-        return "—"
-
-
-def _pct(v) -> str:
-    """Whole-number percent label: 23% (display only)."""
-    if v is None or (isinstance(v, float) and pd.isna(v)):
-        return "—"
-    try:
-        return f"{float(v):.0f}%"
-    except (TypeError, ValueError):
-        return "—"
+# Canonical formatters (ui.format, 2026-07 consolidation): €1.4bn / €478.0m / €212k / €950.
+_eur = eur
+_int = fmt_int
+_pct = pct
 
 
 def _num1(v) -> str:
@@ -857,9 +826,8 @@ def _render_dossier(name: str) -> None:
     )
 
 
-@page_error_boundary
+@dt_page
 def constituency_page() -> None:
-    hide_sidebar()
     selected = st.query_params.get("constituency")
     if selected:
         _render_dossier(selected)

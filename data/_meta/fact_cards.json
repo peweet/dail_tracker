@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-07-16T18:34:41+00:00",
+  "generated_utc": "2026-07-17T10:11:44+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
-  "count": 199,
+  "count": 200,
   "facts": {
     "afs_amalgamated_divisions": {
       "file": "data/silver/parquet/afs_amalgamated_divisions.parquet",
@@ -3537,6 +3537,46 @@
       ],
       "size_bytes": 17677
     },
+    "housing_construction_pipeline": {
+      "file": "data/gold/parquet/housing_construction_pipeline.parquet",
+      "layer": "gold",
+      "rows": 31,
+      "columns": [
+        "local_authority",
+        "pipeline_units",
+        "pipeline_schemes",
+        "units_on_site",
+        "schemes_on_site",
+        "units_completed",
+        "report_period",
+        "source_name",
+        "source_url",
+        "fetched_at",
+        "extraction_method",
+        "privacy_tier",
+        "value_safe_to_sum"
+      ],
+      "column_types": {
+        "local_authority": "String",
+        "pipeline_units": "Int64",
+        "pipeline_schemes": "UInt32",
+        "units_on_site": "Int64",
+        "schemes_on_site": "UInt32",
+        "units_completed": "Int64",
+        "report_period": "String",
+        "source_name": "String",
+        "source_url": "String",
+        "fetched_at": "String",
+        "extraction_method": "String",
+        "privacy_tier": "String",
+        "value_safe_to_sum": "Boolean"
+      },
+      "year_span": [
+        2025,
+        2025
+      ],
+      "size_bytes": 6897
+    },
     "hse_tusla_payments_fact": {
       "file": "data/silver/parquet/hse_tusla_payments_fact.parquet",
       "layer": "silver",
@@ -3997,7 +4037,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 10110,
+      "rows": 10414,
       "columns": [
         "diary_date",
         "court",
@@ -4035,12 +4075,12 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_legal_diary_cases.sql, judiciary/judiciary_plaintiff_league.sql"
       ],
-      "size_bytes": 132711
+      "size_bytes": 136046
     },
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 981,
+      "rows": 1022,
       "columns": [
         "diary_date",
         "court",
@@ -4062,7 +4102,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 7064
+      "size_bytes": 7169
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -4151,7 +4191,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 1718,
+      "rows": 1792,
       "columns": [
         "diary_date",
         "court",
@@ -4177,7 +4217,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 14194
+      "size_bytes": 14456
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -4220,7 +4260,7 @@
       "read_by": [
         "read by judiciary/judiciary_appointments.sql, judiciary/judiciary_authority_summary.sql, judiciary/judiciary_elevation_ladder.sql"
       ],
-      "size_bytes": 13181
+      "size_bytes": 10074
     },
     "judiciary_bench": {
       "file": "data/gold/parquet/judiciary_bench.parquet",
@@ -4261,8 +4301,8 @@
         "salary_band_eur": "Float64",
         "salary_office": "String",
         "salary_source": "String",
-        "assignment": "Null",
-        "assignment_term": "Null",
+        "assignment": "String",
+        "assignment_term": "String",
         "has_spine": "Boolean",
         "first_appointed_date": "String",
         "first_appointing_authority": "String",
@@ -4281,7 +4321,7 @@
       "read_by": [
         "read by judiciary/judiciary_profile.sql, judiciary/judiciary_roster.sql"
       ],
-      "size_bytes": 19683
+      "size_bytes": 14573
     },
     "judiciary_courthouses": {
       "file": "data/gold/parquet/judiciary_courthouses.parquet",
@@ -4314,7 +4354,7 @@
       "read_by": [
         "read by judiciary/judiciary_courthouses.sql"
       ],
-      "size_bytes": 13082
+      "size_bytes": 10912
     },
     "judiciary_courts_clearance": {
       "file": "data/gold/parquet/judiciary_courts_clearance.parquet",
@@ -4343,7 +4383,7 @@
       "read_by": [
         "read by judiciary/judiciary_courts_clearance.sql, judiciary/judiciary_courts_clearance_area.sql"
       ],
-      "size_bytes": 11191
+      "size_bytes": 9034
     },
     "judiciary_courts_waiting": {
       "file": "data/gold/parquet/judiciary_courts_waiting.parquet",
@@ -4376,12 +4416,12 @@
       "read_by": [
         "read by judiciary/judiciary_courts_waiting.sql"
       ],
-      "size_bytes": 8424
+      "size_bytes": 6321
     },
     "judiciary_diary_judge_map": {
       "file": "data/gold/parquet/judiciary_diary_judge_map.parquet",
       "layer": "gold",
-      "rows": 8893,
+      "rows": 8899,
       "columns": [
         "judge",
         "court",
@@ -4436,7 +4476,7 @@
       "read_by": [
         "read by judiciary/judiciary_appointments.sql, judiciary/judiciary_nominations.sql, judiciary/judiciary_profile.sql"
       ],
-      "size_bytes": 7729
+      "size_bytes": 6112
     },
     "la_afs_capital_divisions": {
       "file": "data/silver/parquet/la_afs_capital_divisions.parquet",

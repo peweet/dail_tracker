@@ -120,6 +120,13 @@ def completions_trend(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT year, completions FROM v_housing_completions_trend ORDER BY year")
 
 
+def construction_pipeline(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Social-housing build programme per LA — not-yet-completed pipeline units, the
+    on-site subset, completed-to-date, and each LA's share of the national pipeline.
+    Ordered largest-pipeline first (the view applies the rank)."""
+    return _run(conn, "SELECT * FROM v_housing_construction_pipeline")
+
+
 def rent_by_county(conn: duckdb.DuckDBPyConnection, county: str) -> QueryResult:
     """Average weekly private rent for one county (Census 2022). Empty for Dublin /
     Galway (F2023B splits them with no single total)."""

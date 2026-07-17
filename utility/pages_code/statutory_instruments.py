@@ -34,18 +34,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.freshness_data import freshness_line
 from data_access.legislation_data import (
+    fetch_circulars_for_si,
     fetch_si_amendments_made,
     fetch_si_entity_index,
     fetch_si_entity_index_classified,
 )
-from shared_css import inject_css
 from ui.components import (
     back_button,
+    dt_page,
     empty_state,
     finding_lede,
     fmt_civic_date as _fmt_date,
     hero_banner,
-    hide_sidebar,
     paginate,
     pagination_controls,
     render_stat_strip,
@@ -1135,6 +1135,52 @@ def _render_amendments_made(row: pd.Series) -> None:
     )
 
 
+def _render_operationalising_circulars(row: pd.Series) -> None:
+    """The RULE CHAIN, instruction side: government circular(s) that operationalise
+    this SI — a department telling public bodies how to apply the law. The SI is
+    the law (minister-signed, laid before the Oireachtas); the circular is the
+    instruction (civil-servant signed, no Oireachtas scrutiny). Reads
+    v_circular_si_crosswalk via the data-access layer — the page computes nothing
+    (logic firewall). Renders nothing for SIs no circular cites."""
+    try:
+        si_year = int(row.get("si_year"))
+        si_number = int(row.get("si_number"))
+    except (TypeError, ValueError):
+        return
+    df = fetch_circulars_for_si(si_year, si_number)
+    if df.empty:
+        return
+
+    items: list[str] = []
+    for r in df.itertuples(index=False):
+        no = _safe(getattr(r, "circular_no", "")) or "Circular"
+        title = _safe(getattr(r, "circular_title", ""))
+        dept = _pretty_token(_safe(getattr(r, "department", "")).replace("department-of-", ""))
+        url = _safe(getattr(r, "circular_source_url", ""))
+        cite = f"Circular {no}" if not no.lower().startswith("circular") else no
+        label = f"{cite} — {title}" if title else cite
+        link = source_link_html(url, label) if url else html.escape(label)
+        dept_html = f' <span class="si-amends-prov">({html.escape(dept)})</span>' if dept else ""
+        items.append(
+            f'<li class="si-amends-item">'
+            f'<span class="si-amends-eff si-amends-eff--amends">applies</span>'
+            f"<span>{link}{dept_html}</span></li>"
+        )
+
+    n = len(items)
+    kicker = f"Operationalised by {n} government circular{'s' if n != 1 else ''}"
+    src = (
+        '<div class="si-amends-src">A circular is a department’s instruction on how public '
+        "bodies apply this instrument — issued on the Minister’s authority but signed by a "
+        "civil servant, with no Oireachtas scrutiny. Factual citations from the gov.ie "
+        "circulars corpus (2020+, PSI Licence / CC-BY); present for a minority of SIs.</div>"
+    )
+    st.html(
+        f'<div class="si-amends"><div class="si-amends-kicker">↳ {html.escape(kicker)}</div>'
+        f'<ul class="si-amends-list">{"".join(items)}</ul>{src}</div>'
+    )
+
+
 def _render_si_detail(row: pd.Series) -> None:
     if back_button("← Back to SI Index", key="si_detail"):
         st.session_state.pop("si_selected_id", None)
@@ -1367,12 +1413,17 @@ def _render_si_detail(row: pd.Series) -> None:
     # nothing when this SI amends/revokes no indexed instrument.
     _render_amendments_made(row)
 
+    # The instruction layer: government circular(s) telling public bodies how to
+    # apply this SI. Renders nothing for the vast majority of SIs (only ~70
+    # circulars in the 2020+ corpus cite an SI).
+    _render_operationalising_circulars(row)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Entry point
 # ──────────────────────────────────────────────────────────────────────────────
+@dt_page
 def statutory_instruments_page() -> None:
-    inject_css()
     _inject_si_css()
 
     si_df = load_si()
@@ -1393,11 +1444,8 @@ def statutory_instruments_page() -> None:
         st.rerun()
 
     # ── Sidebar removed (sidebar→filter-bar migration) ──────────────────────────
-    # The sidebar was header-only — all filters already live in the main panel
-    # (see _render_facets), and page identity is carried by the top-nav tab +
-    # the main hero (index) / back button + breadcrumb (detail). hide_sidebar()
-    # drops the now-empty rail and the brand band's sidebar-clearing gutter.
-    hide_sidebar()
+    # The sidebar is header-only — all filters live in the main panel (see
+    # _render_facets); @dt_page drops the now-empty rail app-convention-wide.
 
     # Source-state guard. load_si() returns a bare (column-less) empty frame when
     # the v_statutory_instruments view is missing or failed to register — both the

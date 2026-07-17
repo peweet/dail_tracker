@@ -52,9 +52,9 @@ from pages_code.your_councillors import _pcolour, _render_cathaoirleach, _render
 from ui.components import (
     back_button,
     clickable_card_link,
+    dt_page,
     empty_state,
     hero_banner,
-    hide_sidebar,
     info_card,
     party_stripe_html,
     subsection_heading,
@@ -474,8 +474,8 @@ def _render_hub(council: str) -> None:
         _section_who_runs_it(council)
 
 
+@dt_page
 def your_council_page() -> None:
-    hide_sidebar()
     p = st.query_params
 
     # ── spending drill-down LEAVES (leaf-first, mirrors council_spending.py routing order) ──

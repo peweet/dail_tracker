@@ -44,7 +44,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-from services.logging_setup import setup_standalone_logging  # noqa: E402
+from services.coverage_io import save_coverage  # noqa: E402
+from services.extract_runner import run_extractor  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared import buyer_clean  # noqa: E402
 
@@ -284,7 +285,7 @@ def _snapshot_age_hours() -> float | None:
 
 
 def main() -> None:
-    setup_standalone_logging("etenders_live_tenders_extract")
+    # logging + UTF-8 + exit-code handling live in run_extractor (__main__ below)
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-pages", type=int, default=120, help="page cap per feed (politeness)")
     ap.add_argument(
@@ -410,9 +411,9 @@ def main() -> None:
         "retrieved_utc — refresh via tools/poll_live_tenders.ps1. ToU unconfirmed — research use.",
         "parser_version": PARSER_VERSION,
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"coverage -> {OUT_COV}")
 
 
 if __name__ == "__main__":
-    main()
+    run_extractor(main)

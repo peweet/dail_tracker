@@ -88,6 +88,15 @@ CORP_RECEIVER = (
     "receivership notice is a public-record fact, not a verdict on any company or director"
 )
 
+# ── Derelict-sites levy enforcement (council-grain) ───────────────────────────
+DERELICT_LEVY = (
+    "Derelict Sites Act 1990: levying and collecting are EXECUTIVE functions (the Chief "
+    "Executive's administration, not the elected councillors). collection_rate_pct is "
+    "arrears-aware — total_received includes prior-year collections, so it can exceed 100% "
+    "and is NULL where nothing was levied; treat it as a direction, not a clean within-year "
+    "fraction. Low enforcement is context for scrutiny, not proof of failure. 2024 return only."
+)
+
 # ── Ministerial diaries (who ministers meet) ──────────────────────────────────
 DIARY = (
     "from ministers' own published diaries — access, not influence; self-curated, non-exhaustive and "

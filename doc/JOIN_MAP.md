@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: data
+updated: 2026-07-14
+supersedes: []
+read_when: before attempting any cross-register association/join between datasets (ORG name-norm or PERSON anagram key)
+key: CONTEXT|LIVE|data
+---
+
 # JOIN MAP — how to cross-reference this data (and how NOT to)
 
 **Read this before attempting ANY cross-register association.** It is the one place that records

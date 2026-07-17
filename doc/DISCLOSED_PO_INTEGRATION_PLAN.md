@@ -1,3 +1,18 @@
+---
+tier: PLAN
+status: SUPERSEDED
+domain: procurement
+updated: 2026-07-17
+supersedes: []
+superseded_by: extractors/disclosed_bq_po_extract.py
+read_when: historical only — this design SHIPPED; the live ingest is extractors/disclosed_bq_po_extract.py + disclosed_bq_po_newbodies_extract.py
+key: PLAN|SUPERSEDED|procurement
+---
+
+> **⚠️ SUPERSEDED (2026-07-17).** The "NOTHING here ingests" note below is no longer true — this
+> plan was **built**. Live ingest: **`extractors/disclosed_bq_po_extract.py`** (+ `_newbodies_extract.py`).
+> Current state: [[project_disclosed_national_po_dataset]]. Kept for the build-history/call-chain map.
+
 # Disclosed national "PO/payments over €20,000" — integration plan (DESIGN ONLY)
 
 _Author: scoping pass 2026-06-22. This is an engineering map + plan. NOTHING here ingests,

@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: procurement
+updated: 2026-06-28
+supersedes: []
+read_when: designing confidence badges, trust grades, or caveat wording across mixed-provenance procurement/BI data
+key: SPEC|LIVE|procurement
+---
+
 # Source-Confidence & Caveat System
 
 Design for the procurement / business-intelligence product. Goal: when one report mixes

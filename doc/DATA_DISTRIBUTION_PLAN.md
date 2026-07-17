@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: infra
+updated: 2026-06-19
+supersedes: []
+read_when: planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane)
+key: PLAN|LIVE|infra
+---
+
 # Data Distribution Plan — stop using git as the data channel
 
 Sibling to [archive/SCALABILITY_PLAN.md](archive/SCALABILITY_PLAN.md). That doc scales *serving*

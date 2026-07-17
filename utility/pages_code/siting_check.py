@@ -24,8 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # utility/ on path
 
 from dail_tracker_core.siting.brief import cascade_text, road_sightline_line, tier_issues  # noqa: E402
 from data_access.siting_data import evaluate_site  # noqa: E402
-from shared_css import inject_css  # noqa: E402
-from ui.components import hide_sidebar  # noqa: E402
+from ui.components import dt_page  # noqa: E402
 
 # mitigation-class presentation: severity order F > D > P
 _CLASS_META = {
@@ -288,9 +287,8 @@ def _render_standard(issue) -> None:
     _render_rule_expander(issue, label=f"What the Development Plan says — {issue.title}")
 
 
+@dt_page
 def siting_check_page() -> None:
-    hide_sidebar()
-    inject_css()
     _css()
 
     st.html(

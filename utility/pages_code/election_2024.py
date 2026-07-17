@@ -65,14 +65,12 @@ from data_access.sipo_expenses_data import (
     fetch_party_national_items,
     fetch_party_national_overall,
 )
-from shared_css import inject_css
 from ui.components import (
     back_button,
     empty_state,
     glossary_strip,
     hero_banner,
-    hide_sidebar,
-    page_error_boundary,
+    dt_page,
     party_colour,
     text_search_mask,
     totals_strip,
@@ -987,10 +985,8 @@ def _render_provenance(view: str = "") -> None:
 # ── entry point ───────────────────────────────────────────────────────────────────
 
 
-@page_error_boundary
+@dt_page
 def election_2024_page() -> None:
-    inject_css()
-    hide_sidebar()
     st.html(_ESP_CSS)
 
     qp = st.query_params

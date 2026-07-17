@@ -26,17 +26,16 @@ from __future__ import annotations
 import contextlib
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
-
-import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
+
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
 TMP = Path("c:/tmp/procurement_la")
@@ -259,27 +258,11 @@ def hr(t: str) -> None:
 NAV_HINT = re.compile(r"purchase|procure|over.?20|20k|payment|quarter|qtr|finance|publication|spend|supplier", re.I)
 
 
-def _curl(url: str) -> bytes | None:
-    """Fallback fetch via curl — some council hosts (Meath/Sligo) fail Python's TLS
-    stack but answer curl fine (NOT a server block). -k tolerates their cert quirks."""
-    try:
-        p = subprocess.run(
-            ["curl", "-sS", "-k", "-L", "--max-time", "40", "-A", H["User-Agent"], url],
-            capture_output=True,
-            timeout=60,
-        )
-        return p.stdout if p.returncode == 0 and p.stdout else None
-    except Exception:
-        return None
-
-
 def fetch_bytes(url: str) -> bytes | None:
-    try:
-        r = requests.get(url, headers=H, timeout=40)
-        r.raise_for_status()
-        return r.content
-    except Exception:
-        return _curl(url)
+    """Requests→curl ladder now lives in services.http_engine.fetch_bytes (same
+    contract: bytes or None, curl -k fallback for the Meath/Sligo TLS quirks).
+    Kept as a named wrapper because la_afs_extract imports it from here."""
+    return http_fetch_bytes(url, headers=H, timeout=40)
 
 
 def fetch_text(url: str) -> str | None:

@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: ui
+updated: 2026-06-20
+supersedes: []
+read_when: before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel)
+key: CONTEXT|LIVE|ui
+---
+
 # Navigation Graph — composability map & defect register
 
 *Living map of how the app's pages link to one another as an entity graph.*

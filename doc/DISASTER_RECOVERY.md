@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: infra
+updated: 2026-06-13
+supersedes: []
+read_when: the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2
+key: PLAN|LIVE|infra
+---
+
 # Disaster recovery — "the laptop died, now what?"
 
 Read this first. It tells you where everything lives and how to get back to a

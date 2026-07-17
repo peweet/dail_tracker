@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: infra
+updated: 2026-07-17
+supersedes: []
+read_when: decoupling business/data-access logic from Streamlit, or exposing it via FastAPI/other interfaces
+key: PLAN|LIVE|infra
+---
+
 # FastAPI / Query-Core Uncoupling Plan for `dail_tracker`
 
 ## Goal

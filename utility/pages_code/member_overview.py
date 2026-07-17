@@ -116,7 +116,6 @@ _UTIL = Path(__file__).resolve().parent.parent
 if str(_UTIL) not in sys.path:
     sys.path.insert(0, str(_UTIL))
 
-from shared_css import inject_css
 from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
@@ -131,7 +130,7 @@ from ui.components import (
     glossary_strip,
     hide_sidebar,
     member_card_html,
-    page_error_boundary,
+    dt_page,
     paginate,
     pagination_controls,
     party_colour,
@@ -233,6 +232,15 @@ def _member_list_all(_conn) -> pd.DataFrame:
             df["served_from_year"] = pd.NA
             df["served_to_year"] = pd.NA
     return df
+
+
+@st.cache_data(ttl=300)
+def _member_codes_for_dail(_conn, dail: str) -> set[str]:
+    """Member codes who served in one Dáil/Seanad term — the comma-list
+    dails_served is split in SQL (v_member_registry_all), so the browse page's
+    term filter is a plain isin() on these codes."""
+    df = moq.member_codes_for_dail(_conn, dail).data
+    return set() if df.empty else set(df["unique_member_code"].astype(str))
 
 
 @st.cache_data(ttl=300)
@@ -1324,7 +1332,9 @@ def _render_browse(conn) -> None:
                 label_visibility="collapsed",
             )
         if dail_pick != "All":
-            df = df[df["dails_served"].fillna("").apply(lambda s: dail_pick in str(s).split(","))]
+            # Term membership resolved in SQL (list_contains over dails_served);
+            # here it's just an isin() filter on the approved key column.
+            df = df[df["unique_member_code"].astype(str).isin(_member_codes_for_dail(conn, dail_pick))]
         if year_sel != "All years":
             y = int(year_sel)
             frm = pd.to_numeric(df["served_from_year"], errors="coerce")
@@ -2457,9 +2467,8 @@ def _render_stage2(
 # ── Main entry point ───────────────────────────────────────────────────────────
 
 
-@page_error_boundary
+@dt_page
 def member_overview_page() -> None:
-    inject_css()
     conn = get_member_overview_conn()
 
     url_jk = st.query_params.get("member")

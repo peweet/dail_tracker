@@ -30,13 +30,12 @@ from pages_code.procurement import (
     _render_payments_publisher_profile,
     _render_payments_supplier_profile,
 )
-from ui.components import hero_banner, hide_sidebar
+from ui.components import dt_page, hero_banner
 from ui.source_pdfs import provenance_expander
 
 
+@dt_page
 def council_spending_page() -> None:
-    hide_sidebar()
-
     # Drill-down: a council card sets ?paid_publisher= (+ &paid_tier=). The dossier renderer
     # is shared with Procurement's "Who actually gets paid?" tab — the same per-council
     # profile (suppliers + audited-accounts / AFS context). Councils mostly publish purchase

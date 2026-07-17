@@ -39,16 +39,14 @@ from data_access.payments_data import (
     fetch_since_2020_summary,
     fetch_year_ranking,
 )
-from shared_css import inject_css
 from ui.components import (
     clean_meta,
     clickable_card_link,
     empty_state,
     glossary_strip,
     hero_banner,
-    hide_sidebar,
     member_jump_panel,
-    page_error_boundary,
+    dt_page,
     ranked_member_card,
     totals_strip,
 )
@@ -344,10 +342,8 @@ def _render_primary(year_options: list[str], summary: pd.Series, house: str, ter
 # spending. This page is now purely parliamentary member payments.
 
 
-@page_error_boundary
+@dt_page
 def payments_page() -> None:
-    inject_css()
-    hide_sidebar()
 
     summary = fetch_payments_summary()
 

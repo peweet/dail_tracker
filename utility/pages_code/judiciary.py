@@ -116,10 +116,10 @@ from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
     back_button,
     clickable_card_link,
+    dt_page,
     empty_state,
     glossary_strip,
     hero_banner,
-    hide_sidebar,
     text_search_mask,
     year_selector,
 )
@@ -1879,9 +1879,9 @@ def _render_legal_diary() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+@dt_page
 def judiciary_page() -> None:
     _inject_jd_css()
-    hide_sidebar()
 
     # Profile drill-down — a single judge's career arc, full width, with back nav.
     judge_key = st.query_params.get("judge")

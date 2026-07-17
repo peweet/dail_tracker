@@ -162,3 +162,42 @@ def test_si_by_bill_eu_filter_narrows(full_conn):
     full = _result_or_skip(q.si_by_bill(full_conn, bid_si))
     eu = _result_or_skip(q.si_by_bill(full_conn, bid_si, eu_only=True))
     assert len(eu.data) <= len(full.data)
+
+
+def test_circular_si_crosswalk_missing_view_is_unavailable():
+    """No view registered → surfaced as unavailable, not a silent empty frame."""
+    conn = duckdb.connect()
+    try:
+        r = q.circular_si_crosswalk(conn)
+        assert isinstance(r, QueryResult) and r.ok is False and r.unavailable_reason
+    finally:
+        conn.close()
+
+
+def test_circular_si_crosswalk_pairs_and_resolution(full_conn):
+    """The crosswalk reads the git-tracked citation CSV and LEFT JOINs our SI index:
+    every row carries the contract columns, and si_resolved TRUE rows expose the SI's
+    title (the rule chain is complete only when the cited SI is in our holdings)."""
+    r = _result_or_skip(q.circular_si_crosswalk(full_conn))
+    cols = {"circular_no", "rule_type", "si_id", "si_resolved", "si_title", "circular_source_url"}
+    assert cols.issubset(set(r.data.columns))
+    assert len(r.data) > 0
+    resolved = r.data[r.data["si_resolved"]]
+    if len(resolved):
+        assert resolved["si_title"].notna().all()  # resolved ⇒ SI attributes present
+    # unresolved rows are real citations we don't hold, not errors: NULL SI title
+    unresolved = r.data[~r.data["si_resolved"]]
+    if len(unresolved):
+        assert unresolved["si_title"].isna().all()
+
+
+def test_circular_si_crosswalk_single_si_filter(full_conn):
+    """Filtering to one SI returns only that SI's pairs (the 'which circular applies
+    this SI?' lookup)."""
+    r = _result_or_skip(q.circular_si_crosswalk(full_conn))
+    if r.data.empty:
+        pytest.skip("no crosswalk rows")
+    row = r.data.iloc[0]
+    one = _result_or_skip(q.circular_si_crosswalk(full_conn, si_year=int(row["si_year"]),
+                                                  si_number=int(row["si_number"])))
+    assert (one.data["si_id"] == row["si_id"]).all()

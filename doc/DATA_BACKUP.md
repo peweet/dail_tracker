@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: infra
+updated: 2026-07-17
+supersedes: []
+read_when: setting up or verifying the R2 backup of data/bronze and data/silver before it's lost
+key: PLAN|LIVE|infra
+---
+
 # Data backup — off-box durability for the 9 GB of raw + derived data
 
 ## The problem this solves

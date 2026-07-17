@@ -170,23 +170,10 @@ def period_year_pills(df, key: str) -> tuple[str | None, str | None]:
     return f"{chosen}-01-01", f"{chosen}-12-31"
 
 
-def fmt_civic_date(val) -> str:
-    """Format a date for civic display as ``"7 Jul 2024"`` (no leading zero on
-    the day). Used across legislation, statutory instruments, votes, and
-    lobbying for a consistent ink-on-paper date shape.
-
-    Returns ``"—"`` for None / NaN; passes through unparseable values as
-    ``str(val)`` so SQL strings or already-formatted labels don't blow up.
-    """
-    import pandas as pd  # local import keeps pages that never call this off the pandas import path
-
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return "—"
-    try:
-        ts = pd.Timestamp(val)
-        return f"{ts.day} {ts.strftime('%b %Y')}"
-    except Exception:
-        return str(val)
+# fmt_civic_date's canonical home is now ui.format (the shared display-formatting
+# module, 2026-07 consolidation); re-exported here because many pages import it
+# from components.
+from ui.format import fmt_civic_date  # noqa: E402, F401
 
 
 def page_error_boundary(page_fn):
@@ -226,6 +213,34 @@ def page_error_boundary(page_fn):
             return None
 
     return wrapper
+
+
+def dt_page(page_fn):
+    """THE page bootstrap — one decorator for every ``pages_code`` entry point.
+
+    Composes the boot sequence pages previously hand-rolled (inconsistently —
+    12 of 26 pages had no error boundary and could surface raw red tracebacks):
+
+      1. ``inject_css()``  — harmless no-op after the app-level injection
+         (once-per-run guard in shared_css); belt-and-braces for a page
+         rendered outside ``app.py``.
+      2. ``hide_sidebar()`` — the app-wide convention (filters live in
+         main-panel filter bars).
+      3. ``page_error_boundary`` — outermost, so a failure inside the boot
+         itself still renders the calm civic-voice fallback.
+
+    New pages should use this instead of re-typing the three lines.
+    """
+
+    @functools.wraps(page_fn)
+    def _booted(*args, **kwargs):
+        from shared_css import inject_css  # local: defer the 6k-line CSS module until render
+
+        inject_css()
+        hide_sidebar()
+        return page_fn(*args, **kwargs)
+
+    return page_error_boundary(_booted)
 
 
 def year_selector(

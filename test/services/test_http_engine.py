@@ -378,3 +378,133 @@ def test_fetch_all_text_counts_failures_without_aborting():
 
     assert [u for u, _ in results] == [urls[0]]
     assert failures == 1
+
+
+# ---------------------------------------------------------------------------
+# fetch_bytes / polite_headers — scraper-grade download path
+# ---------------------------------------------------------------------------
+
+
+def test_polite_headers_default_research_ua():
+    import services.http_engine as he
+
+    h = he.polite_headers()
+    assert h["User-Agent"] == he.RESEARCH_UA
+    assert "dail-tracker" in h["User-Agent"]
+
+
+def test_polite_headers_browser_and_extra():
+    import services.http_engine as he
+
+    h = he.polite_headers(browser=True, extra={"Accept-Encoding": "gzip, deflate"})
+    assert h["User-Agent"] == he.BROWSER_UA
+    assert h["Accept-Encoding"] == "gzip, deflate"
+
+
+@responses.activate
+def test_fetch_bytes_returns_content_on_success(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *a, **k: pytest.fail("curl must not run on success"))
+    url = "https://council.example.com/afs-2024.pdf"
+    responses.add(responses.GET, url, body=b"%PDF-1.7 data", status=200)
+
+    assert he.fetch_bytes(url) == b"%PDF-1.7 data"
+
+
+@responses.activate
+def test_fetch_bytes_quotes_raw_spaces_in_url(monkeypatch):
+    """Publishers emit hrefs with literal spaces (Sligo) — requests/curl reject
+    them as malformed. fetch_bytes must percent-encode before fetching."""
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *a, **k: None)
+    responses.add(responses.GET, "https://council.example.com/AFS%202024.pdf", body=b"ok", status=200)
+
+    assert he.fetch_bytes("https://council.example.com/AFS 2024.pdf") == b"ok"
+
+
+@responses.activate
+def test_fetch_bytes_falls_back_to_curl_on_403(monkeypatch):
+    """Permanent 4xx (the WAF-block case) must go straight to the curl leg,
+    not retry the requests leg."""
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    curl_calls: list[str] = []
+
+    def fake_curl(url, ua, timeout):
+        curl_calls.append(ua)
+        return b"%PDF via curl"
+
+    monkeypatch.setattr(he, "_curl_bytes", fake_curl)
+    url = "https://waf.example.com/blocked.pdf"
+    responses.add(responses.GET, url, status=403)
+
+    assert he.fetch_bytes(url) == b"%PDF via curl"
+    assert len(responses.calls) == 1  # no retry on permanent 4xx
+    assert curl_calls == [he.RESEARCH_UA]  # curl reuses the request's UA
+
+
+@responses.activate
+def test_fetch_bytes_validate_rejects_waf_interstitial(monkeypatch):
+    """A 200 HTML interstitial instead of the asked-for PDF must count as a
+    miss AND trigger the curl fallback — the validate hook is what catches it."""
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *a, **k: b"%PDF real")
+    url = "https://waf.example.com/doc.pdf"
+    responses.add(responses.GET, url, body=b"<html>checking your browser</html>", status=200)
+
+    got = he.fetch_bytes(url, validate=lambda b: b[:4] == b"%PDF")
+    assert got == b"%PDF real"
+
+
+@responses.activate
+def test_fetch_bytes_returns_none_when_curl_also_fails_never_raises(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    monkeypatch.setattr(he, "_curl_bytes", lambda *a, **k: None)
+    url = "https://dead.example.com/gone.pdf"
+    responses.add(responses.GET, url, status=404)
+
+    assert he.fetch_bytes(url) is None  # no exception
+
+
+@responses.activate
+def test_fetch_bytes_no_curl_when_fallback_disabled(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    monkeypatch.setattr(he, "_curl_bytes", lambda *a, **k: pytest.fail("curl_fallback=False must not run curl"))
+    url = "https://dead.example.com/gone.pdf"
+    responses.add(responses.GET, url, status=404)
+
+    assert he.fetch_bytes(url, curl_fallback=False) is None
+
+
+@responses.activate
+def test_fetch_bytes_retries_transient_5xx_then_succeeds(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    monkeypatch.setattr(he, "_curl_bytes", lambda *a, **k: pytest.fail("curl must not run when requests recovers"))
+    url = "https://flaky.example.com/data.csv"
+    responses.add(responses.GET, url, status=503)  # attempt 1 (retryable)
+    responses.add(responses.GET, url, body=b"a,b\n1,2", status=200)  # attempt 2
+
+    assert he.fetch_bytes(url) == b"a,b\n1,2"
+    assert len(responses.calls) == 2
+
+
+@responses.activate
+def test_fetch_bytes_custom_headers_reach_the_wire(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *a, **k: None)
+    url = "https://council.example.com/file.pdf"
+    responses.add(responses.GET, url, body=b"ok", status=200)
+
+    he.fetch_bytes(url, headers=he.polite_headers(browser=True))
+    assert responses.calls[0].request.headers["User-Agent"] == he.BROWSER_UA

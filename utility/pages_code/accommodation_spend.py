@@ -29,6 +29,7 @@ from __future__ import annotations
 import base64
 import html
 import sys
+from functools import partial
 from pathlib import Path
 
 import pandas as pd
@@ -45,7 +46,8 @@ from data_access.housing_data import (
     fetch_ipas_operators_result,
     fetch_ipas_property_rates_result,
 )
-from ui.components import empty_state, evidence_heading, hero_banner, hide_sidebar, page_error_boundary, totals_strip
+from ui.components import dt_page, empty_state, evidence_heading, hero_banner, totals_strip
+from ui.format import eur, eur_full
 
 # Authoritative denominator (C&AG 2024, Ch.10) — so our register-based figure is never
 # read as the full spend.
@@ -73,25 +75,9 @@ _BAND_ORDER = ["0-2", "3-5", "6-8", "9-11", "12+"]
 _BAND_COLOUR = {"0-2": "#cfe0ec", "3-5": "#9dc0da", "6-8": "#6a9fc7", "9-11": "#3d719c", "12+": "#234a68"}
 
 
-def _eur_full(v) -> str:
-    """Full comma-delimited euro: €113,863,982. — for none/zero."""
-    if v is None or (isinstance(v, float) and pd.isna(v)) or float(v) == 0:
-        return "—"
-    return f"€{float(v):,.0f}"
-
-
-def _eur(v) -> str:
-    if v is None or (isinstance(v, float) and pd.isna(v)):
-        return "—"
-    v = float(v)
-    a = abs(v)
-    if a >= 1e9:
-        return f"€{v / 1e9:.2f}bn"
-    if a >= 1e6:
-        return f"€{v / 1e6:.1f}m"
-    if a >= 1e3:
-        return f"€{v / 1e3:.0f}k"
-    return f"€{v:,.0f}"
+# Canonical formatters (ui.format, 2026-07 consolidation).
+_eur_full = partial(eur_full, dash_zero=True)  # €113,863,982; — for none/zero
+_eur = eur
 
 
 def _html_table(headers: list[str], rows: list[list], numeric_cols: tuple[int, ...] = ()) -> str:
@@ -574,9 +560,8 @@ def render_accommodation_body(*, embedded: bool = False) -> None:
     _render_money_tab()
 
 
-@page_error_boundary
+@dt_page
 def accommodation_spend_page() -> None:
-    hide_sidebar()
     hero_banner(
         kicker="ASYLUM ACCOMMODATION",
         title="Asylum & Ukraine accommodation",

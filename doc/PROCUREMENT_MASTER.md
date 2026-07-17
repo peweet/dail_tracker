@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: procurement
+updated: 2026-06-28
+supersedes: []
+read_when: making any procurement-page change — authoritative money-grain rules and verified headline figures
+key: PLAN|LIVE|procurement
+---
+
 # Procurement — Master Plan (consolidated)
 
 **Status:** authoritative. Consolidates and **supersedes** the scattered procurement

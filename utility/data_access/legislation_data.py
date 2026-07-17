@@ -203,3 +203,13 @@ def fetch_si_entity_index_classified() -> pd.DataFrame:
 def fetch_si_amendments_made(si_year: int, si_number: int) -> pd.DataFrame:
     """The instruments THIS SI amends/revokes (forward direction of the SI→SI graph)."""
     return _q.si_amendments_made(get_legislation_conn(), si_year, si_number).data
+
+
+@st.cache_data(ttl=300)
+def fetch_circulars_for_si(si_year: int, si_number: int) -> pd.DataFrame:
+    """Government circular(s) that operationalise THIS SI — the instruction layer atop the
+    law. Resolved rows only (the citing circular refers to this SI). Empty for most SIs:
+    only ~70 circulars in the 2020+ corpus cite an SI."""
+    qr = _q.circular_si_crosswalk(get_legislation_conn(), si_year=si_year, si_number=si_number,
+                                  resolved_only=True)
+    return qr.data if qr.ok else pd.DataFrame()

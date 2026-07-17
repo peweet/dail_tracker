@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: local-gov
+updated: 2026-07-14
+supersedes: []
+read_when: before building or refining the "Who decides in your county?" feature, or deciding which local-democracy claims are promotable to the app front end
+key: SPEC|LIVE|local-gov
+---
+
 # "Who decides in your county?" — feature design brief
 
 > **TIER: SPEC — drives the app, but only the gate-passing subset.**

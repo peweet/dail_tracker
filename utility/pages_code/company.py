@@ -56,10 +56,10 @@ from pages_code.procurement import (
 from ui.components import (
     back_button,
     clickable_card_link,
+    dt_page,
     empty_state,
     finding_lede,
     hero_banner,
-    hide_sidebar,
     paginate,
     pagination_controls,
     text_search_mask,
@@ -408,8 +408,8 @@ def _landing() -> None:
     st.html(_DOSSIER_FOOT)
 
 
+@dt_page
 def company_page() -> None:
-    hide_sidebar()
     supplier = st.query_params.get("supplier")
     if supplier:
         _dossier(supplier)

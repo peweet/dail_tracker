@@ -56,9 +56,9 @@ from pages_code.procurement import (
 from ui.components import (
     back_button,
     clickable_card_link,
+    dt_page,
     empty_state,
     hero_banner,
-    hide_sidebar,
     text_search_mask,
 )
 from ui.source_pdfs import provenance_expander
@@ -548,8 +548,8 @@ def _render_landing() -> None:
 
 
 # ── page ──────────────────────────────────────────────────────────────────────
+@dt_page
 def follow_the_money_page() -> None:
-    hide_sidebar()
     params = st.query_params
     node = _current_node(params)
     if node is None:

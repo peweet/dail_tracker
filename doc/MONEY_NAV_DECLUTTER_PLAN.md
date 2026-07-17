@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: money
+updated: 2026-07-12
+supersedes: []
+read_when: before changing "The Money" section's page count, nav labels, or entity-link wiring (Payments, Procurement, Companies, Follow-the-Money, Accommodation)
+key: PLAN|LIVE|money
+---
+
 # "The Money" — Navigation Declutter Plan
 
 **Status:** proposal for owner review · **Author:** Claude · **Date:** 2026-07-08

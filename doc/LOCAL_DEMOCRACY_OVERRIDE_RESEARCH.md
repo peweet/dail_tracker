@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: local-gov
+updated: 2026-07-14
+supersedes: []
+read_when: when researching or fact-checking how councillors are overruled (OPR/Ministerial Directions, s.4 motions, budget-rejection dissolution) for a local-democracy piece
+key: CONTEXT|LIVE|local-gov
+---
+
 # How Councillors Get Overruled — research findings for a local-democracy piece
 
 > **TIER: CONTEXT — NOT FOR THE APP FRONT END.**

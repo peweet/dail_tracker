@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: procurement
+updated: 2026-07-10
+supersedes: []
+read_when: assessing whether/how supplier-side competitor analysis (co-occurrence, trade tagger, CRO anchor) can be built or extended
+key: RECORD|LIVE|procurement
+---
+
 # Competitor Analysis — Data Investigation & Enrichment Report
 
 **Scope:** can the Dáil Tracker procurement data support "who do I compete against, and which

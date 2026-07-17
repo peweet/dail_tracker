@@ -10,7 +10,21 @@ key: SPEC|LIVE|infra
 
 # AI context & token optimisation — audit + plan
 
-**Date:** 2026-07-14 · **Status:** PLAN — nothing implemented. Ranked, costed, ready to execute.
+**Date:** 2026-07-14 · **Status:** TIER A + TIER B (retrieval layer) SHIPPED 2026-07-16/17; config (A0/A1) still owner-gated.
+
+## What shipped
+- **Section maps** on all 12 files >1,500 lines, generator `tools/section_map.py` (`--check` CI gate). Finding one thing across the whales: **~394k → ~23k tokens (95% cut)**.
+- **`utility/pages_code/MANIFEST.md`** (sizes + domain-triple + CSS split-brain) and **`utility/README.MD`** rewritten from a stray ChatGPT prompt into a real map.
+- **18 dead doc references** repointed (archived → `doc/archive/`, missing → supersedor).
+- **Retrieval layer (Tier B keystone):** `tools/build_fact_cards.py` → `data/_meta/fact_cards.json` (199 facts, live footer read ~5s incl. the 200MB whales, `--check` gate, wired into `pipeline.py` after freshness) + curated `data/_meta/fact_grain.csv` (the never-sum rule as DATA) + MCP tools **`describe_dataset`** and **`list_datasets`**. Tests: `test/tools/test_fact_cards.py` (8).
+- **Two data bugs found and fixed en route:** 8 councils orphaned by long publisher names (`_canon_la_publisher_names` in the consolidator — Dublin City's 40,431 rows rejoined, 22→30 councils join AFS; collision guard + `test_payments_la_canon_names.py`); stale runtime manifest (7 IPAS parquets).
+
+## Still owner-gated (A0/A1 — self-modification guard blocked me, correctly)
+The `Read` deny-list + git deny + `mcp__dail-tracker` allowlist — exact JSON below in §0b/§2. These widen my own permissions off a bare "continue", so they need your hand.
+
+---
+
+**Original plan (below) — Tier C items (extractors/dail_tracker_core/tools manifests, MEMORY.md trim, dead-CSS deletion) remain open.**
 **Method:** 4 parallel audits (doc/module navigation · token whales · data retrieval · agent config & spend).
 *(This file carries the proposed front-matter block as a live specimen — see §3.)*
 

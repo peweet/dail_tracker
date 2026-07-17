@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: data
+updated: 2026-07-17
+supersedes: []
+read_when: before citing any dataset's completeness, scope, or coverage of a person/topic — check known caveats and silent-failure risks first
+key: CONTEXT|LIVE|data
+---
+
 # DATA_LIMITATIONS.md
 
 Known data-quality issues, scope decisions, and silent-failure risks in the `dail_tracker` pipeline.

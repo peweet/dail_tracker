@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: procurement
+updated: 2026-07-07
+supersedes: []
+read_when: touching inflation-adjusted procurement benchmarking (real-terms views, CPI/deflator index registry, gated UI/API)
+key: SPEC|LIVE|procurement
+---
+
 # Inflation-Adjusted Procurement Benchmarking — Design
 
 **Status:** FEATURE COMPLETE end-to-end (2026-07-07), behind `DAIL_EXPERIMENTAL`. Data → 4-index

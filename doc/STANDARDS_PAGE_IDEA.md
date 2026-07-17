@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: procurement
+updated: 2026-06-14
+supersedes: []
+read_when: scoping the supplier-credentials/standards-register page idea before building the ETL for it
+key: PLAN|LIVE|procurement
+---
+
 # Standards & Credentials — Page Idea + Source Map
 
 **Status:** SCOPING (concept + source research + first SI mining done; no ETL built).

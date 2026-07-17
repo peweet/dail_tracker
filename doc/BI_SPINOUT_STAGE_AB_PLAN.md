@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: commercial
+updated: 2026-07-08
+supersedes: []
+read_when: implementing the Stage A trust-UI primitives or running Stage B reports-first design-partner operations for the BI spinout
+key: PLAN|LIVE|commercial
+---
+
 # BI Spinout — Stage A/B Build-Ready Execution Plan
 
 | | |
