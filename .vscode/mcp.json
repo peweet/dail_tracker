@@ -1,0 +1,17 @@
+{
+  // Dáil Tracker read-only MCP server (stdio). Gives VS Code Copilot agents the
+  // same query-not-scan toolset Claude Code already has: describe_dataset /
+  // list_datasets / join_map / search_project + ~60 domain tools + resources.
+  // The server is a pure read over committed data; the app/Cloud deploy never
+  // imports it (the `mcp` extra gates its deps). See mcp_server/server.py.
+  "servers": {
+    "dail-tracker": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["${workspaceFolder}/mcp_server/server.py"],
+      "env": { "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" },
+      // Auto-restart the server while iterating on it (Node/Python stdio only).
+      "dev": { "watch": "mcp_server/**/*.py" }
+    }
+  }
+}

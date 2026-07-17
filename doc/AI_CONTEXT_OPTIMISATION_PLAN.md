@@ -18,6 +18,7 @@ key: SPEC|LIVE|infra
 - **18 dead doc references** repointed (archived → `doc/archive/`, missing → supersedor).
 - **Retrieval layer (Tier B keystone):** `tools/build_fact_cards.py` → `data/_meta/fact_cards.json` (199 facts, live footer read ~5s incl. the 200MB whales, `--check` gate, wired into `pipeline.py` after freshness) + curated `data/_meta/fact_grain.csv` (the never-sum rule as DATA) + MCP tools **`describe_dataset`** and **`list_datasets`**. Tests: `test/tools/test_fact_cards.py` (8).
 - **Two data bugs found and fixed en route:** 8 councils orphaned by long publisher names (`_canon_la_publisher_names` in the consolidator — Dublin City's 40,431 rows rejoined, 22→30 councils join AFS; collision guard + `test_payments_la_canon_names.py`); stale runtime manifest (7 IPAS parquets).
+- **A pre-existing test flake fixed:** `test_page_imports.py` failed non-deterministically (28/16/7 across runs) because 27 pages shared one interpreter's `sys.modules` and a page's function-level `from data_access.X import Y` could observe `ui.components` mid-init (`NameError: dt_page`). Rewrote each page-import to run in a fresh subprocess — deterministic (28 pass ×3), and it now proves cold-start import like `streamlit run`. Independent of this session's work (flakes even run alone); my new tests only shifted the timing that surfaced it.
 
 ## Still owner-gated (A0/A1 — self-modification guard blocked me, correctly)
 The `Read` deny-list + git deny + `mcp__dail-tracker` allowlist — exact JSON below in §0b/§2. These widen my own permissions off a bare "continue", so they need your hand.
@@ -181,3 +182,27 @@ key: SPEC|LIVE|infra
 ## 4. The one-line finding
 
 > **The project has 55 excellent *domain* tools and zero *metadata* tools — so the cheapest question forces the most expensive action. And the data to fix it has been sitting in `output_baseline.json` all along, read by nothing but a regression test.**
+
+---
+
+## 5. Wired in 2026-07-17 — full-session-history retro (appended by a second session; details in memory `project_session_retrospective_2026_07_17`)
+
+A deterministic parse of **all 203 transcripts** (16 Jun–17 Jul: ~78.5M output tokens, ~120 corrections, 776 tool errors) confirms this plan's thesis — guardrails/routing beat trimming — and adds hard numbers plus two new mechanisms.
+
+**Evidence reinforcing existing items (raises their priority):**
+- **A1 (MCP allowlist) is the highest-ROI open item.** MCP association sweeps were the best reward-per-token activity in the entire history (tiny spend → 20 leads + 11 DQ defects), yet every call still hits a permission prompt.
+- **Guardrails thesis confirmed:** the top two token sinks were one runaway workflow (1,022 agent transcripts) and one 2.4M-token research arc — episodic, not always-on. *(User ruling: idea-exploration to a clear verdict is legitimate spend; the fix is right-sizing the probe, not banning exploration.)*
+- **25% of all tool errors** (194/776) were read-before-edit / stale-read failures, and ~80 more were tracebacks from throwaway inline `python -c` — convention: **write scratchpad script files, never inline multi-line python**.
+- **Written memory measurably ends correction clusters** — the "I don't see it in the app" correction (≥14× in June) stopped within a day of the validate-fresh-server + wiring memories landing. Memory-writing is a token *investment*, not overhead.
+
+### R1 — Rework ledger (NEW; the missing tracking)
+Rework of previously-"done" features was a top-3 sink (attendance rebuilt "from top to bottom" ~1.6M tok; NOAC nearly rebuilt; the June "don't-see-it" loop). "Done" is currently a sentence in a transcript — nothing anchors it. Proposal (S, ~1h):
+- `doc/FEATURE_LEDGER.csv` — one row per shipped feature: `feature, page/nav_path, shipped_date, verification_anchor (test id or deep-link URL), rework_events`.
+- **Definition of done:** a feature is "done" only with (a) nav path stated, (b) verified visible on a fresh server, (c) an anchoring test or data check recorded in the ledger.
+- Any rebuild of a ledger row increments `rework_events` — making the rework rate a measurable number instead of a vibe.
+
+### R2 — Build-gate / scope card (NEW; formalises assess-before-build)
+The user issued "park it / assess only / don't build" **10+ times**, and a deep-research run drew "why did you launch such a huge research piece?" (07-17). Proposal (minutes, config+convention):
+- **Assess-first default** for new features/sources: deliver assessment, STOP, build on explicit go (already memory `feedback_assess_before_build_scope_gate`; promote into CLAUDE.md as a one-liner).
+- **Scope card** before any Workflow/deep-research/fan-out expected to exceed ~100k output tokens: one sentence — goal, agent count, rough token estimate — and a user nod. Complements the existing runaway/wave guards, which trigger *during* a run; this gates *launch*.
+- Candidate enforcement: plan-mode default for "build X" requests + the CLAUDE.md line; no tooling needed to start.

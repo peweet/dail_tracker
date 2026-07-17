@@ -133,6 +133,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -1310,6 +1311,155 @@ def describe_dataset(name: str) -> dict:
     return c
 
 
+# ── search_project: one metadata-layer retrieval call instead of a tree-grep ────
+# The single biggest recurring token cost in this repo is agents re-deriving
+# "where does X live?" by grepping/reading the tree. This tool indexes ONLY the
+# metadata layer — fact-card names/purposes/columns, doc/INDEX.md front-matter,
+# and sql_views/ header comments — never parquet or page source, so it stays cheap
+# and returns small structured hits with a repo-relative path to open next.
+_PROJECT_INDEX: list[dict] | None = None
+_WORD = re.compile(r"[a-z0-9_]+")
+
+
+def _tokens(s: str) -> list[str]:
+    return _WORD.findall((s or "").lower())
+
+
+def _build_project_index() -> list[dict]:
+    """Build the (cached) metadata index. Each entry: kind, name, path, haystack,
+    plus a short human `desc`. Cheap: reads fact_cards.json, doc/INDEX.md, and the
+    leading comment of each sql_views/*.sql (not their bodies)."""
+    idx: list[dict] = []
+
+    # 1) Datasets — from the fact cards (name + purpose + grain + columns).
+    for name, c in _load_fact_cards().items():
+        cols = c.get("columns", "")
+        desc = c.get("purpose") or c.get("grain") or ""
+        idx.append(
+            {
+                "kind": "dataset",
+                "name": name,
+                "path": c.get("file", f"data/**/{name}.parquet"),
+                "desc": desc,
+                "haystack": " ".join([name, desc, c.get("grain", ""), str(cols), c.get("money_grain", "")]),
+            }
+        )
+
+    # 2) Docs — parse the generated doc/INDEX.md table rows (title | domain | … | read when).
+    index_md = REPO / "doc" / "INDEX.md"
+    if index_md.exists():
+        with contextlib.suppress(Exception):
+            for line in index_md.read_text(encoding="utf-8").splitlines():
+                m = re.match(r"\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|(.*)$", line)
+                if not m:
+                    continue
+                title, rel, rest = m.group(1), m.group(2), m.group(3)
+                cells = [x.strip() for x in rest.split("|")]
+                domain = cells[0] if cells else ""
+                read_when = cells[-2] if len(cells) >= 2 else ""  # last real cell before trailing ''
+                idx.append(
+                    {
+                        "kind": "doc",
+                        "name": title,
+                        "path": f"doc/{rel}",
+                        "desc": read_when or domain,
+                        "haystack": " ".join([title, domain, read_when]),
+                    }
+                )
+
+    # 3) SQL views — the leading comment block + the CREATE VIEW name. Read only the
+    #    header (first ~15 lines), never the query body.
+    views_dir = REPO / "sql_views"
+    if views_dir.is_dir():
+        for sql in sorted(views_dir.rglob("*.sql")):
+            with contextlib.suppress(Exception):
+                head = []
+                view_name = ""
+                for i, ln in enumerate(sql.read_text(encoding="utf-8").splitlines()):
+                    if i > 24:
+                        break
+                    s = ln.strip()
+                    cm = re.search(r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)", s, re.I)
+                    if cm:
+                        view_name = cm.group(1)
+                        break
+                    if s.startswith("--"):
+                        head.append(s.lstrip("-").strip())
+                desc = " ".join(head)[:240]
+                rel = sql.relative_to(REPO).as_posix()
+                name = view_name or sql.stem
+                idx.append(
+                    {"kind": "sql_view", "name": name, "path": rel, "desc": desc, "haystack": f"{name} {sql.stem} {desc}"}
+                )
+
+    return idx
+
+
+def _project_index() -> list[dict]:
+    global _PROJECT_INDEX
+    if _PROJECT_INDEX is None:
+        _PROJECT_INDEX = _build_project_index()
+    return _PROJECT_INDEX
+
+
+@mcp.tool(annotations=_RO)
+def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
+    """"Where does X live?" — ONE structured retrieval call over the repo's metadata
+    layer, so you don't grep or read the tree to place a topic. Ranks matches across
+    three surfaces: silver/gold DATASETS (fact-card name, purpose, grain, columns),
+    DOCS (doc/INDEX.md title, domain, read-when), and SQL VIEWS (the leading comment +
+    view name in sql_views/). Returns the top hits as {kind, name, path, why} — open the
+    `path` next, or call describe_dataset(name) for a dataset. Optional `kind` filter:
+    'dataset' | 'doc' | 'sql_view'. It indexes METADATA only — never parquet rows or page
+    source — so it is cheap and safe. Use it as the first move on any "which dataset/view/doc
+    covers …?" question, before Grep/Glob."""
+    q_tokens = _tokens(query)
+    if not q_tokens:
+        return {"error": "empty query"}
+    q_join = "".join(q_tokens)
+    want = {k.strip() for k in kind.lower().split(",") if k.strip()}
+
+    scored = []
+    for e in _project_index():
+        if want and e["kind"] not in want:
+            continue
+        name_l = e["name"].lower()
+        hay = e["haystack"].lower()
+        hay_tokens = set(_tokens(hay))
+        score = 0
+        hit_in_name, hit_in_desc = [], []
+        for t in q_tokens:
+            if t in name_l:
+                score += 3
+                hit_in_name.append(t)
+            elif t in hay_tokens:
+                score += 1
+                hit_in_desc.append(t)
+            elif t in hay:  # substring (e.g. 'lobby' inside 'lobbying')
+                score += 1
+                hit_in_desc.append(t)
+        if q_join and q_join in name_l.replace("_", ""):
+            score += 3  # whole-query hit on the name
+        if not score:
+            continue
+        why = []
+        if hit_in_name:
+            why.append(f"name matches {', '.join(sorted(set(hit_in_name)))}")
+        if hit_in_desc:
+            why.append(f"describes {', '.join(sorted(set(hit_in_desc)))}")
+        scored.append(
+            {"kind": e["kind"], "name": e["name"], "path": e["path"], "why": "; ".join(why), "_s": score}
+        )
+
+    scored.sort(key=lambda r: (-r["_s"], r["kind"], r["name"]))
+    top = scored[: max(1, min(limit, 50))]
+    for r in top:
+        r.pop("_s", None)
+    if not top:
+        return {"query": query, "count": 0, "results": [], "hint": "no metadata match — try a broader term or Grep the source tree"}
+    return {"query": query, "count": len(top), "results": top}
+
+
 @mcp.tool(annotations=_RO)
 def source_fetch_failures() -> dict:
     """Which procurement source sites failed to download on the last extractor runs, and
@@ -2040,6 +2190,80 @@ def coverage_resource() -> dict:
     """Machine-readable scope manifest (same payload as the data_coverage tool) so a client can
     load it as ambient context and scope answers without spending a tool call."""
     return data_coverage()
+
+
+@mcp.resource("data://fact-cards")
+def fact_cards_resource() -> dict:
+    """The whole fact-card index (data/_meta/fact_cards.json) — one small card per silver/gold
+    fact: columns, rows, grain, purpose, never-sum money class, which SQL views read it. Attach
+    this as ambient context to answer 'what datasets exist / what shape is X' WITHOUT scanning any
+    parquet or spending list_datasets/describe_dataset calls."""
+    if not _FACT_CARDS.exists():
+        return {"error": "fact_cards.json absent — run `python tools/build_fact_cards.py`"}
+    with contextlib.suppress(Exception):
+        return json.loads(_FACT_CARDS.read_text(encoding="utf-8"))
+    return {"error": "fact_cards.json unreadable"}
+
+
+@mcp.resource("data://fact-card/{dataset}")
+def fact_card_resource(dataset: str) -> dict:
+    """One dataset's fact card by parquet stem (e.g. 'procurement_payments_fact') — the same
+    payload as describe_dataset(name), attachable as context."""
+    return describe_dataset(dataset)
+
+
+@mcp.resource("data://join-map")
+def join_map_resource() -> dict:
+    """The cross-register JOIN map (same payload as the join_map tool): the 2 canonical keys
+    (ORG name-norm vs PERSON anagram — never conflate), the procurement-anchored spine, and the
+    NEVER-JOIN list. Attach before attempting ANY cross-dataset association."""
+    return join_map()
+
+
+@mcp.resource("doc://index")
+def doc_index_resource() -> str:
+    """doc/INDEX.md verbatim — the generated map of every doc (title, domain, size, read-when).
+    Scan this instead of grepping doc/ or reading a doc whole to find out if it's relevant."""
+    p = REPO / "doc" / "INDEX.md"
+    return p.read_text(encoding="utf-8") if p.exists() else "doc/INDEX.md absent — run `python tools/build_doc_index.py`"
+
+
+@mcp.resource("doc://sandbox-map")
+def doc_sandbox_map_resource() -> str:
+    """doc/SANDBOX_MAP.md verbatim — what's LIVE vs experimental under pipeline_sandbox/. Read
+    before deleting/moving anything there (LIVE extractors are DO-NOT-DELETE)."""
+    p = REPO / "doc" / "SANDBOX_MAP.md"
+    return p.read_text(encoding="utf-8") if p.exists() else "doc/SANDBOX_MAP.md absent"
+
+
+@mcp.prompt()
+def data_question(question: str) -> str:
+    """Answer a question about the tracker's data the cheap, correct way (discover → describe →
+    query → cite) without scanning parquet."""
+    return (
+        f"Answer this question about the Dáil Tracker data: {question}\n\n"
+        "Work in this order, using the dail-tracker tools only — never read a parquet:\n"
+        "1. search_project(<topic>) to locate the dataset(s)/view(s)/doc(s) that cover it.\n"
+        "2. list_datasets / describe_dataset to confirm the exact fact, its grain, year span and "
+        "columns before querying.\n"
+        "3. Call the specific domain tool(s) for the numbers.\n"
+        "4. If the answer involves money, obey each fact's never_sum_with class — NEVER add figures "
+        "across procurement-awarded, payments, budgets, donations or allowances.\n"
+        "Present only what the data shows (no inference) and cite the source URLs the tools return."
+    )
+
+
+@mcp.prompt()
+def scope_check(topic: str) -> str:
+    """Before answering a coverage/money question, establish what the data can and cannot support."""
+    return (
+        f"Before answering anything about '{topic}', establish scope honestly. Call data_coverage "
+        "(or read the data://coverage resource) for what's in scope, then list_datasets(domain=…) "
+        "for the exact facts and their year spans. State the coverage boundaries and any silent-gap "
+        "risks up front. If money is involved, name each figure's grain and the never-sum rule that "
+        "applies. Do NOT present an absence of data as evidence of absence, and do not infer values "
+        "the data doesn't contain."
+    )
 
 
 if __name__ == "__main__":

@@ -40,7 +40,8 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 META = ROOT / "data" / "_meta"
 OUT = META / "fact_cards.json"
-GRAIN_SEED = META / "fact_grain.csv"
+GRAIN_SEED_YAML = META / "fact_contracts.yaml"
+GRAIN_SEED_CSV = META / "fact_grain.csv"  # legacy fallback (fragile: unquoted grain commas)
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -83,9 +84,36 @@ def _footer(path: Path) -> tuple[int, dict[str, str], list[int] | None]:
 
 
 def _grain_seed() -> dict[str, dict]:
-    if not GRAIN_SEED.exists():
+    """The hand-curated semantic layer (grain / money_grain / never_sum_with / purpose).
+
+    Prefers the YAML contract (`fact_contracts.yaml`), which holds commas/€/em-dashes
+    in grain strings without the quoting fragility that corrupted the legacy CSV.
+    Falls back to `fact_grain.csv` only if the YAML is absent.
+    """
+    if GRAIN_SEED_YAML.exists():
+        import yaml  # pyyaml — already a dep (page_contracts are YAML)
+
+        with contextlib.suppress(Exception):
+            raw = yaml.safe_load(GRAIN_SEED_YAML.read_text(encoding="utf-8")) or {}
+            out: dict[str, dict] = {}
+            for fact, fields in raw.items():
+                if not isinstance(fields, dict):
+                    continue
+                clean: dict[str, str] = {}
+                for k, v in fields.items():
+                    if k == "fact" or v is None:
+                        continue
+                    if isinstance(v, (list, tuple)):  # tolerate never_sum_with as a real list
+                        v = "|".join(str(x) for x in v)
+                    s = str(v).strip()
+                    if s:
+                        clean[k] = s
+                if str(fact).strip():
+                    out[str(fact).strip()] = clean
+            return out
+    if not GRAIN_SEED_CSV.exists():
         return {}
-    with GRAIN_SEED.open(encoding="utf-8", newline="") as fh:
+    with GRAIN_SEED_CSV.open(encoding="utf-8", newline="") as fh:
         out = {}
         for r in csv.DictReader(fh):
             key = (r.get("fact") or "").strip()
@@ -173,10 +201,21 @@ def main() -> int:
         for layer, d in LAYERS.items():  # noqa: B007
             if d.is_dir():
                 missing += [p.stem for p in d.glob("*.parquet") if p.stem not in have]
+        # contract drift: a semantic-contract entry that names a fact with no parquet
+        orphan = sorted(k for k in _grain_seed() if k not in have)
+        problems = []
         if missing:
-            print(f"fact-cards: {len(missing)} parquet(s) without a card: {sorted(missing)[:8]}")
+            problems.append(f"{len(missing)} parquet(s) without a card: {sorted(missing)[:8]}")
+        if orphan:
+            problems.append(
+                f"{len(orphan)} contract entr(ies) in fact_contracts.yaml name a fact "
+                f"with no parquet (drift): {orphan}"
+            )
+        if problems:
+            for p in problems:
+                print(f"fact-cards: {p}")
             return 1
-        print(f"fact-cards: OK — {data['count']} facts carded")
+        print(f"fact-cards: OK — {data['count']} facts carded, contract clean")
         return 0
 
     OUT.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
