@@ -480,7 +480,7 @@ _SILHOUETTE_RAW = (
 _SILHOUETTE = (
     '<img src="data:image/svg+xml;base64,'
     + base64.b64encode(_SILHOUETTE_RAW.encode("utf-8")).decode("ascii")
-    + '" width="46" height="72" alt="" style="opacity:0.34;flex:none"/>'
+    + '" width="54" height="84" alt="" style="opacity:0.5;flex:none"/>'
 )
 
 
@@ -536,38 +536,12 @@ def _render_person_tab() -> None:
 
 
 # ─────────────────────────── Page shells ───────────────────────────
-def render_accommodation_body(*, embedded: bool = False) -> None:
-    """The MONEY block, composable so the Public Payments hub can render it inline
-    (Money nav declutter Phase 3). The hub embed stays money-only and compact; the
-    standalone page (below) adds the accountability tabs."""
-    if embedded:
-        evidence_heading("Asylum & Ukraine accommodation spending")
-        st.caption(
-            "What the State pays private providers — hotels, former hostels, emergency "
-            "centres and others — to accommodate people seeking international protection and "
-            "Ukrainian beneficiaries of temporary protection, from the published over-€20,000 "
-            "purchase-order registers."
-        )
-    else:
-        hero_banner(
-            kicker="THE MONEY",
-            title="Asylum & Ukraine accommodation spending",
-            dek="What the State pays private providers — hotels, former hostels, emergency "
-            "centres and others — to accommodate people seeking international protection and "
-            "Ukrainian beneficiaries of temporary protection, from the published over-€20,000 "
-            "purchase-order registers.",
-        )
-    _render_money_tab()
-
-
-@dt_page
-def accommodation_spend_page() -> None:
-    hero_banner(
-        kicker="ASYLUM ACCOMMODATION",
-        title="Asylum & Ukraine accommodation",
-        dek="What the State pays to house people seeking international protection, who runs those "
-        "centres and how they inspect, and what a person is entitled to in law.",
-    )
+def _render_accommodation_tabs() -> None:
+    """The four-concern dossier: the money, where people are housed, who runs the
+    centres, and what a person is entitled to. Shared by the standalone page and the
+    Public Payments hub embed so both surface the SAME accountability tabs — the embed
+    used to render the money block only, which left the other three (and the C&AG
+    distribution / entitlements) unreachable from the visible nav."""
     money, where, who, person = st.tabs(
         ["The money", "Where people are housed", "Who runs the centres", "What you're entitled to"]
     )
@@ -579,3 +553,38 @@ def accommodation_spend_page() -> None:
         _render_operators_tab()
     with person:
         _render_person_tab()
+
+
+def render_accommodation_body(*, embedded: bool = False) -> None:
+    """The whole accommodation dossier, composable so the Public Payments hub can render
+    it inline (Money nav declutter Phase 3). Embedded = a compact evidence heading instead
+    of the page hero; the accountability tabs render either way so the hub is the full
+    front door, not a money-only teaser."""
+    if embedded:
+        evidence_heading("Asylum & Ukraine accommodation")
+        st.caption(
+            "What the State pays to house people seeking international protection and Ukrainian "
+            "beneficiaries of temporary protection, where they are accommodated, who runs those "
+            "centres and how they are inspected, and what a person is entitled to in law."
+        )
+    else:
+        hero_banner(
+            kicker="THE MONEY",
+            title="Asylum & Ukraine accommodation spending",
+            dek="What the State pays private providers — hotels, former hostels, emergency "
+            "centres and others — to accommodate people seeking international protection and "
+            "Ukrainian beneficiaries of temporary protection, from the published over-€20,000 "
+            "purchase-order registers.",
+        )
+    _render_accommodation_tabs()
+
+
+@dt_page
+def accommodation_spend_page() -> None:
+    hero_banner(
+        kicker="ASYLUM ACCOMMODATION",
+        title="Asylum & Ukraine accommodation",
+        dek="What the State pays to house people seeking international protection, who runs those "
+        "centres and how they inspect, and what a person is entitled to in law.",
+    )
+    _render_accommodation_tabs()

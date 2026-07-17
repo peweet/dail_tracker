@@ -53,6 +53,15 @@ def fetch_minister_briefs() -> pd.DataFrame:
     return _q.minister_briefs(get_diary_conn()).data
 
 
+@st.cache_data(ttl=600)
+def fetch_access_to_contracts(limit: int = 25, order_by: str = "awards_eur") -> pd.DataFrame:
+    """The ACCESS × MONEY cross-reference: companies that appear in ministers' published diaries
+    AND won contracts / were paid public money, ranked. Read honestly — co-occurrence is ACCESS,
+    never proof a meeting caused a contract (the awards/payments carry their own never-sum grains).
+    order_by ∈ {awards_eur, paid_eur, meetings, total_lobbying_returns}."""
+    return _q.access_to_contracts(get_diary_conn(), limit=limit, order_by=order_by).data
+
+
 # ── Period-grain rollups (the page's Year/Month filter becomes a WHERE clause) ─────────────
 # year=None → whole corpus; month=None → whole year. The rollups are precomputed in the
 # ministerial_diary_zz_* views at all three grains, so no pandas re-aggregation happens here

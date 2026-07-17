@@ -39,15 +39,33 @@ jobs:
       # committed gold parquet. No silver/bronze needed — gold is un-gitignored.
       - run: uv sync --frozen --extra pipeline
       - name: Check lobbying freshness vs upstream
-        run: uv run python tools/lobbying_freshness_check.py --slack-days "${{ github.event.inputs.slack_days || '14' }}"
+        id: check
+        run: |
+          set +e
+          # Exit codes: 0 current · 1 STALE (real, actionable) · 2 could-not-check (network/schema).
+          # Retry absorbs lobbying.ie dropping the connection; only a real STALE verdict should
+          # alarm, so a network blip no longer opens a misleading "behind upstream" issue.
+          code=0
+          for attempt in 1 2 3; do
+            uv run python tools/lobbying_freshness_check.py --slack-days "${{ github.event.inputs.slack_days || '14' }}"
+            code=$?
+            [ "$code" = "2" ] || break            # retry ONLY on could-not-check (network/schema)
+            echo "::warning::attempt $attempt could not reach lobbying.ie (exit 2); retrying in 30s"
+            sleep 30
+          done
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" = "2" ] && echo "::warning::lobbying.ie unreachable after retries — treating as transient, not stale"
+          # Fail the run ONLY on a real STALE verdict, so the issue below never fires on a network blip.
+          [ "$code" = "1" ] && exit 1
+          exit 0
       - name: Open issue on staleness (scheduled runs only)
-        if: failure() && github.event_name == 'schedule'
+        if: always() && steps.check.outputs.code == '1' && github.event_name == 'schedule'
         uses: actions/github-script@v7
         with:
           script: |
             github.rest.issues.create({
               ...context.repo,
-              title: `Lobbying data may be behind upstream (${new Date().toISOString().slice(0, 10)})`,
-              body: `\`tools/lobbying_freshness_check.py\` exited non-zero: either lobbying.ie has a newer reporting period than the committed gold ships (STALE), or the check could not run (network/schema).\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nLobbying ingestion is manual (see project_lobbying_automation). To refresh: re-pull lobbying.ie returns and re-run the lobbying chain, then commit the updated gold.`,
+              title: `Lobbying data is behind upstream (${new Date().toISOString().slice(0, 10)})`,
+              body: `\`tools/lobbying_freshness_check.py\` returned STALE: lobbying.ie has a newer reporting period than the committed gold ships.\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nLobbying ingestion is manual (see project_lobbying_automation). To refresh: re-pull lobbying.ie returns and re-run the lobbying chain, then commit the updated gold.`,
               labels: ["data", "lobbying"],
             });

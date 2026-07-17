@@ -35,6 +35,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.ministerial_diary_data import (
+    fetch_access_to_contracts,
     fetch_dept_minister_rollup,
     fetch_dept_rollup,
     fetch_engagements,
@@ -53,6 +54,7 @@ from ui.components import (
     info_card,
     subsection_heading,
 )
+from ui.format import eur, fmt_int
 
 _GLOSSARY = [
     (
@@ -471,7 +473,8 @@ def ministerial_diaries_page() -> None:
 
     mode = st.segmented_control(
         "Browse",
-        ["Search meetings", "By department", "By minister", "By organisation", "Department priorities"],
+        ["Search meetings", "By department", "By minister", "By organisation",
+         "Access → contracts", "Department priorities"],
         default="Search meetings",
         key="diary_mode",
     )
@@ -481,11 +484,75 @@ def ministerial_diaries_page() -> None:
         _render_by_dept(year_i, month_i)
     elif mode == "By minister":
         _render_by_minister(year_i, month_i)
+    elif mode == "Access → contracts":
+        _render_access_to_contracts()  # the access×money cross-reference (whole corpus, period-independent)
     elif mode == "Department priorities":
         _render_department_priorities()  # the incoming-minister BRIEF agenda layer (period-independent)
     else:
         _render_by_org(overlap, meetings, period_active)
     _provenance()
+
+
+def _render_access_to_contracts() -> None:
+    """The ACCESS × MONEY cross-reference (gold v_ministerial_diary_company_influence): companies
+    that appear in ministers' published diaries AND won contracts / were paid public money. Was a
+    complete backend + MCP tool with no UI until now. Read honestly — co-occurrence is ACCESS, never
+    proof a meeting caused a contract; awarded and paid are DIFFERENT money grains, shown side by
+    side, never summed."""
+    subsection_heading("Companies that met ministers — and won public money")
+    df = fetch_access_to_contracts(limit=25, order_by="awards_eur")
+    if df is None or df.empty:
+        empty_state("Not available", "The access-to-contracts cross-reference did not load.")
+        return
+    info_card(
+        "Companies named in ministers' own diaries that also appear on the public-money registers. "
+        "A meeting is <b>access</b> — being in the room — not a lobbying return and not proof it "
+        "caused a contract. <b>Awarded</b> (the contract ceiling) and <b>paid</b> (cash out) are "
+        "different measures and are never added together.",
+        border_left_color="#7a5b43",
+    )
+    cards = []
+    for _, r in df.iterrows():
+        org = str(r.get("organisation") or "")
+        metrics = [
+            f'<span class="dt-diary-metric"><b>{fmt_int(r.get("meetings"))}</b> meetings</span>',
+            f'<span class="dt-diary-metric"><b>{fmt_int(r.get("ministers_met"))}</b> ministers met</span>',
+        ]
+        if (r.get("awards_eur") or 0) > 0:
+            metrics.append(f'<span class="dt-diary-metric"><b>{eur(r.get("awards_eur"))}</b> awarded</span>')
+        if (r.get("paid_eur") or 0) > 0:
+            metrics.append(f'<span class="dt-diary-metric"><b>{eur(r.get("paid_eur"))}</b> paid</span>')
+        if (r.get("total_lobbying_returns") or 0) > 0:
+            metrics.append(
+                f'<span class="dt-diary-metric">{fmt_int(r.get("total_lobbying_returns"))} lobbying returns</span>'
+            )
+        matched = str(r.get("matched_supplier") or "")
+        match_note = (
+            f'<div class="dt-diary-eng-meta">matched to register name: {_h(matched)}</div>' if matched else ""
+        )
+        sector = str(r.get("sector") or "")
+        inner = (
+            f'<div class="dt-diary-card"><div class="dt-diary-main">'
+            f'<div class="dt-diary-title">{_h(org)}</div>'
+            + (f'<div class="dt-diary-badges">{_h(sector)}</div>' if sector else "")
+            + match_note
+            + '</div><div class="dt-diary-metrics">'
+            + "".join(metrics)
+            + "</div></div>"
+        )
+        cards.append(
+            clickable_card_link(
+                href=f"?org={quote(org, safe='')}",
+                inner_html=inner,
+                aria_label=f"See the diary meetings behind {org}",
+            )
+        )
+    st.html("\n".join(cards))
+    st.caption(
+        f"Top {len(df)} by contract value awarded. Click a company to see the meetings behind it. "
+        "Awarded/paid figures carry the procurement layer's own caveats; state and semi-state bodies "
+        "are excluded upstream."
+    )
 
 
 def _search_suggestions(overlap: pd.DataFrame) -> list[str]:

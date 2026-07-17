@@ -16,116 +16,138 @@ Run (stdio, for Claude Desktop / local clients):
 transport work lands (streamable HTTP + API keys + audit logging — see
 doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 
+
 # ── SECTION MAP ── ─────────────────────────────────────────
-# ⚠️  DO NOT READ WHOLE — ~22,303 tokens (1,826 lines after this header).
+# ⚠️  DO NOT READ WHOLE — ~28,715 tokens (2,327 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
-#     197-205    _cur
-#     206-214    _rows
-#     215-221    _one
-#     222-225    Members
-#     226-234    search_members
-#     235-256    get_member_record
-#     257-260    Votes
-#     261-268    list_recent_votes
-#     269-275    get_division
-#     276-279    Cross-reference: votes × Register of Members' Interests
-#     280-290    division_interest_breakdown
-#     291-354    voting_vs_interests
-#     355-358    Legislation
-#     359-366    search_legislation
-#     367-374    get_bill
-#     375-392    search_statutory_instruments
-#     393-396    Payments / lobbying
-#     397-403    top_payments
-#     404-411    lobbying_organisations
-#     412-418    revolving_door
-#     419-422    Ministerial diaries — who ministers meet
-#     423-435    ministerial_diary_top_organisations
-#     436-448    ministerial_diary_organisation
-#     449-458    who_ministers_meet
-#     459-496    company_influence
-#     497-515    _spine_lobbying_lookup
-#     516-552    access_to_contracts
-#     553-570    procurement_lobbying_overlap
-#     571-574    Procurement
-#     575-584    search_suppliers
-#     585-592    get_supplier
-#     593-609    procurement_competition
-#     610-613    Committees
-#     614-620    list_committees
-#     621-626    get_committee
-#     627-630    Interests (Register of Members' Interests)
-#     631-638    get_member_interests
-#     639-642    Ministerial accountability
-#     643-649    who_was_minister
-#     650-653    Parliamentary questions
-#     654-677    get_member_questions
-#     678-681    Payments by year
-#     682-688    payments_by_year
-#     689-692    Member floor speeches
-#     693-719    member_speeches
-#     720-723    SIPO political finance (party donations + GE2024 election ex
-#     724-742    party_donations
-#     743-758    party_election_spend
-#     759-762    Judiciary (the bench + court-system health)
-#     763-779    judicial_appointments
-#     780-792    courts_health
-#     793-796    Public appointments (state boards)
-#     797-802    public_appointments
-#     803-827    Charity finances
-#     828-873    _charity_sector_dq_flags
-#     874-903    charity_financials
-#     904-906    Corporate distress notices (Iris Oifigiúil — companies only,
-#     907-913    _trim_notice
-#     914-950    corporate_distress_notices
-#     951-976    corporate_repeat_distress
-#     977-980    Public-body payments (the realised-SPEND grain)
-#     981-999    public_body_payments
-#    1000-1003   Procurement — deeper cuts (authority / CPV / live tenders)
-#    1004-1011   procurement_by_authority
-#    1012-1018   procurement_by_cpv
-#    1019-1025   open_tenders
-#    1026-1029   Ministerial roll-up
-#    1030-1039   current_cabinet
-#    1040-1043   Lobbying — revolving-door individual profile
-#    1044-1059   dpo_lobbying_profile
-#    1060-1063   Corpus search: divisions by topic
-#    1064-1109   search_votes_by_topic
-#    1110-1113   Data coverage (scope guard for honest answers)
-#    1114-1136   data_coverage
-#    1137-1152   source_fetch_failures
-#    1153-1156   Procurement conduit (authoritative-source bridge + serve-vs-
-#    1157-1234   procurement_notice
-#    1235-1258   project_value_estimate
-#    1259-1261   Siting check (planning-constraint triage for a point — the c
-#    1262-1274   _brief_item
-#    1275-1349   siting_check
-#    1350-1353   Cross-register watchlist + organisation dossier (entity-cros
-#    1354-1377   cross_register_watchlist
-#    1378-1395   _org_name_key
-#    1396-1407   _org_registers
-#    1408-1456   _resolve_org_candidates
-#    1457-1524   organisation_dossier
-#    1525-1528   Local government (council accountability scorecard)
-#    1529-1575   council_scorecard
-#    1576-1579   AFS (local-authority audited accounts — the BUDGET grain)
-#    1580-1625   afs_coverage
-#    1626-1629   Housing money (national demand / supply / accommodation spen
-#    1630-1659   housing_money
-#    1660-1663   Attendance (division turnout + TAA compliance)
-#    1664-1705   attendance_ranking
-#    1706-1709   National public finance (CSO general-government)
-#    1710-1725   gov_finance_annual
-#    1726-1729   Prompts (audit templates surfaced as client slash-commands)
-#    1730-1741   audit_member
-#    1742-1751   trace_bill_sis
-#    1752-1762   procurement_lobbying_check
-#    1763-1775   audit_party_finance
-#    1776-1787   judicial_appointment_trace
-#    1788-1802   assess_procurement_award
-#    1803-1817   siting_brief
-#    1818-1826   coverage_resource
+#     222-230    _cur
+#     231-239    _rows
+#     240-246    _one
+#     247-250    Members
+#     251-259    search_members
+#     260-281    get_member_record
+#     282-285    Votes
+#     286-293    list_recent_votes
+#     294-300    get_division
+#     301-304    Cross-reference: votes × Register of Members' Interests
+#     305-315    division_interest_breakdown
+#     316-379    voting_vs_interests
+#     380-383    Legislation
+#     384-391    search_legislation
+#     392-399    get_bill
+#     400-418    search_statutory_instruments
+#     419-448    circular_si_crosswalk
+#     449-452    Payments / lobbying
+#     453-459    top_payments
+#     460-467    lobbying_organisations
+#     468-474    revolving_door
+#     475-478    Ministerial diaries — who ministers meet
+#     479-491    ministerial_diary_top_organisations
+#     492-504    ministerial_diary_organisation
+#     505-514    who_ministers_meet
+#     515-552    company_influence
+#     553-571    _spine_lobbying_lookup
+#     572-608    access_to_contracts
+#     609-626    procurement_lobbying_overlap
+#     627-630    Procurement
+#     631-640    search_suppliers
+#     641-648    get_supplier
+#     649-665    procurement_competition
+#     666-669    Committees
+#     670-676    list_committees
+#     677-682    get_committee
+#     683-686    Interests (Register of Members' Interests)
+#     687-694    get_member_interests
+#     695-698    Ministerial accountability
+#     699-705    who_was_minister
+#     706-709    Parliamentary questions
+#     710-733    get_member_questions
+#     734-737    Payments by year
+#     738-744    payments_by_year
+#     745-748    Member floor speeches
+#     749-775    member_speeches
+#     776-779    SIPO political finance (party donations + GE2024 election ex
+#     780-798    party_donations
+#     799-814    party_election_spend
+#     815-818    Judiciary (the bench + court-system health)
+#     819-835    judicial_appointments
+#     836-848    courts_health
+#     849-852    Public appointments (state boards)
+#     853-858    public_appointments
+#     859-883    Charity finances
+#     884-929    _charity_sector_dq_flags
+#     930-959    charity_financials
+#     960-962    Corporate distress notices (Iris Oifigiúil — companies only,
+#     963-969    _trim_notice
+#     970-1006   corporate_distress_notices
+#    1007-1032   corporate_repeat_distress
+#    1033-1036   Public-body payments (the realised-SPEND grain)
+#    1037-1055   public_body_payments
+#    1056-1059   Procurement — deeper cuts (authority / CPV / live tenders)
+#    1060-1067   procurement_by_authority
+#    1068-1074   procurement_by_cpv
+#    1075-1081   open_tenders
+#    1082-1085   Ministerial roll-up
+#    1086-1095   current_cabinet
+#    1096-1099   Lobbying — revolving-door individual profile
+#    1100-1115   dpo_lobbying_profile
+#    1116-1119   Corpus search: divisions by topic
+#    1120-1165   search_votes_by_topic
+#    1166-1169   Join map (the association guard — read BEFORE cross-referenc
+#    1170-1247   join_map
+#    1248-1251   Data coverage (scope guard for honest answers)
+#    1252-1276   data_coverage
+#    1277-1285   _load_fact_cards
+#    1286-1317   list_datasets
+#    1318-1335   describe_dataset
+#    1336-1345   search_project: one metadata-layer retrieval call instead of
+#    1346-1349   _tokens
+#    1350-1424   _build_project_index
+#    1425-1432   _project_index
+#    1433-1491   search_project
+#    1492-1503   code_outline
+#    1504-1519   view_deps
+#    1520-1535   source_fetch_failures
+#    1536-1539   Procurement conduit (authoritative-source bridge + serve-vs-
+#    1540-1617   procurement_notice
+#    1618-1641   project_value_estimate
+#    1642-1644   Siting check (planning-constraint triage for a point — the c
+#    1645-1657   _brief_item
+#    1658-1732   siting_check
+#    1733-1736   Cross-register watchlist + organisation dossier (entity-cros
+#    1737-1760   cross_register_watchlist
+#    1761-1778   _org_name_key
+#    1779-1790   _org_registers
+#    1791-1839   _resolve_org_candidates
+#    1840-1907   organisation_dossier
+#    1908-1911   Local government (council accountability scorecard)
+#    1912-1955   derelict_levy_compliance
+#    1956-2002   council_scorecard
+#    2003-2006   AFS (local-authority audited accounts — the BUDGET grain)
+#    2007-2052   afs_coverage
+#    2053-2056   Housing money (national demand / supply / accommodation spen
+#    2057-2086   housing_money
+#    2087-2090   Attendance (division turnout + TAA compliance)
+#    2091-2132   attendance_ranking
+#    2133-2136   National public finance (CSO general-government)
+#    2137-2152   gov_finance_annual
+#    2153-2156   Prompts (audit templates surfaced as client slash-commands)
+#    2157-2168   audit_member
+#    2169-2178   trace_bill_sis
+#    2179-2189   procurement_lobbying_check
+#    2190-2202   audit_party_finance
+#    2203-2214   judicial_appointment_trace
+#    2215-2229   assess_procurement_award
+#    2230-2244   siting_brief
+#    2245-2251   coverage_resource
+#    2252-2264   fact_cards_resource
+#    2265-2271   fact_card_resource
+#    2272-2279   join_map_resource
+#    2280-2287   doc_index_resource
+#    2288-2295   doc_sandbox_map_resource
+#    2296-2312   data_question
+#    2313-2327   scope_check
 # ── END SECTION MAP ── ─────────────────────────────────
 """
 
@@ -174,7 +196,7 @@ from dail_tracker_core.queries import public_payments as pubpay  # noqa: E402
 from dail_tracker_core.queries import publicfinance as pf  # noqa: E402
 from dail_tracker_core.queries import sipo  # noqa: E402
 from dail_tracker_core.queries import votes as vot  # noqa: E402
-from mcp_server import qs_valuation, ted_conduit  # noqa: E402
+from mcp_server import code_index, qs_valuation, sql_index, ted_conduit  # noqa: E402
 
 mcp = FastMCP("dail-tracker")
 
@@ -1392,6 +1414,11 @@ def _build_project_index() -> list[dict]:
                     {"kind": "sql_view", "name": name, "path": rel, "desc": desc, "haystack": f"{name} {sql.stem} {desc}"}
                 )
 
+    # 4) Code — one entry per repo .py (module path + docstring first line + def/class
+    #    names), parsed with stdlib ast; never executed, bodies never read into results.
+    with contextlib.suppress(Exception):
+        idx.extend(code_index.build_code_index(REPO))
+
     return idx
 
 
@@ -1406,13 +1433,14 @@ def _project_index() -> list[dict]:
 def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     """"Where does X live?" — ONE structured retrieval call over the repo's metadata
     layer, so you don't grep or read the tree to place a topic. Ranks matches across
-    three surfaces: silver/gold DATASETS (fact-card name, purpose, grain, columns),
-    DOCS (doc/INDEX.md title, domain, read-when), and SQL VIEWS (the leading comment +
-    view name in sql_views/). Returns the top hits as {kind, name, path, why} — open the
-    `path` next, or call describe_dataset(name) for a dataset. Optional `kind` filter:
-    'dataset' | 'doc' | 'sql_view'. It indexes METADATA only — never parquet rows or page
-    source — so it is cheap and safe. Use it as the first move on any "which dataset/view/doc
-    covers …?" question, before Grep/Glob."""
+    four surfaces: silver/gold DATASETS (fact-card name, purpose, grain, columns),
+    DOCS (doc/INDEX.md title, domain, read-when), SQL VIEWS (the leading comment +
+    view name in sql_views/), and CODE (every repo .py's module path, docstring first
+    line and def/class names). Returns the top hits as {kind, name, path, why} — then
+    describe_dataset(name) for a dataset, or code_outline(path) for code. Optional `kind`
+    filter: 'dataset' | 'doc' | 'sql_view' | 'code'. It indexes METADATA only — never
+    parquet rows or source bodies — so it is cheap and safe. Use it as the first move on
+    any "which dataset/view/doc/module covers …?" question, before Grep/Glob."""
     q_tokens = _tokens(query)
     if not q_tokens:
         return {"error": "empty query"}
@@ -1458,6 +1486,34 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     if not top:
         return {"query": query, "count": 0, "results": [], "hint": "no metadata match — try a broader term or Grep the source tree"}
     return {"query": query, "count": len(top), "results": top}
+
+
+@mcp.tool(annotations=_RO)
+def code_outline(path: str, limit: int = 200) -> dict:
+    """Structural X-ray of repo Python WITHOUT reading it whole: module docstring, imports,
+    and every class/def with signature, line span, decorators and one-line docstring — a
+    multi-thousand-token file outlines in a few hundred tokens. Pass a repo-relative .py
+    file, or a package directory (e.g. 'dail_tracker_core/queries') for a per-module
+    summary + subpackage list. Workflow: search_project(query, kind='code') to find the
+    module → code_outline(path) to find the def → Read(path, offset, limit) ONLY that
+    span. Source is parsed with stdlib ast — never executed, bodies never returned."""
+    return code_index.outline(REPO, path, limit=limit)
+
+
+@mcp.tool(annotations=_RO)
+def view_deps(view: str = "") -> dict:
+    """The sql_views/ dependency graph from REAL SQL ASTs (DuckDB's own parser via
+    json_serialize_sql; regex fallback for the few non-serializable bodies — each view
+    reports its parse `mode`). No parquet is read. With `view` (e.g. 'v_payments_base'):
+    its file, the views it reads, its dependents, and its read_parquet sources. Without:
+    layer summary — view/edge counts, parse-mode tally, ORDER RISKS (a same-directory
+    dependency whose filename sorts AFTER its consumer breaks sorted-glob registration —
+    the zz_/sort-first trap, checked instead of remembered), and cross-directory edges
+    (which rely on the CALLER registering the other domain first). Use before ANY change
+    to sql_views registration order, view renames, or new views that JOIN existing ones."""
+    if view:
+        return sql_index.detail(REPO, view)
+    return sql_index.summary(REPO)
 
 
 @mcp.tool(annotations=_RO)

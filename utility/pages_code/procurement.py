@@ -174,6 +174,7 @@ from data_access.procurement_data import (
     fetch_dependency_top_result,
     fetch_entity_chain_for_company_result,
     fetch_entity_search_result,
+    fetch_eu_tam_state_aid_count_result,
     fetch_eu_tam_state_aid_result,
     fetch_incumbency_for_supplier_result,
     fetch_incumbency_top_result,
@@ -2257,9 +2258,13 @@ def _render_eu_tam() -> None:
     years = df["date_granted"].dropna().astype(str).str[:4]
     span = f"{years.min()}–{years.max()}" if not years.empty else ""
     top = df.iloc[0]
+    # Disclose the full corpus size rather than silently show only the top slice.
+    cnt = fetch_eu_tam_state_aid_count_result()
+    total_awards = int(cnt.data.iloc[0]["n_awards"]) if cnt.ok and not cnt.data.empty else len(df)
+    of_total = f" of <strong>{total_awards:,}</strong> disclosed awards" if total_awards > len(df) else ""
     st.html(
         '<p class="pr-cap">'
-        f"The largest <strong>{len(df)}</strong> disclosed EU State-Aid awards to Irish beneficiaries"
+        f"The largest <strong>{len(df)}</strong>{of_total} EU State-Aid awards to Irish beneficiaries"
         f"{f' ({_esc(span)})' if span else ''} — grants and subsidies from bodies like IDA Ireland, "
         "Enterprise Ireland and the Dept of Agriculture, published on the EU Transparency register. "
         f"The largest here is <strong>{_eur_scale(top.get('aid_element_value'))}</strong> to "

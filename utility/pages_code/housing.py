@@ -371,7 +371,7 @@ def _render_county_rent(county: str) -> None:
 # Top-level sections — synced to ?tab= so the choice survives the county drill, Back, and
 # refresh (st.tabs resets to the first tab on every rerun; a URL-backed segmented control
 # does not — the procurement-page pattern).
-_SECTIONS = {"The list": "list", "Who's waiting": "who", "Supply & cost": "supply", "By county": "county"}
+_SECTIONS = {"The list": "list", "Who's waiting": "who", "Supply & new homes": "supply", "By county": "county"}
 _SSHA_FOOTER = (
     f"**Source:** [Housing Agency — Summary of Social Housing Assessments 2025]({_SRC_SSHA}). "
     "Council-area figures rolled up to county — the area is not a constituency."
@@ -425,10 +425,11 @@ def _render_county_detail(county: str) -> None:
 def housing_page() -> None:
     hero_banner(
         kicker="HOUSING",
-        title="Who's on the social housing list",
-        dek="The social-housing waiting list (net need) from the Housing Agency's 2025 "
-        "Summary of Social Housing Assessments — how many households are waiting, for "
-        "how long, who they are, and how it differs across the country.",
+        title="Housing — who's waiting, what's being built, what it costs",
+        dek="Both sides of the housing picture: the social-housing waiting list (net need) — "
+        "how many households are waiting, for how long, and who they are — set beside the supply "
+        "side: new homes completed, where social homes are being built, vacancy, private rents "
+        "and the Housing Assistance Payment. Pick a section below.",
     )
 
     if st.query_params.get("county"):

@@ -214,6 +214,11 @@ def test_accommodation_body_embedded_smoke(monkeypatch):
                         lambda *a, **k: QueryResult.success(pd.DataFrame({"provider": ["X"]})))
     monkeypatch.setattr(acc, "_render_by_year", lambda *a, **k: None)
     monkeypatch.setattr(acc, "_render_providers", lambda *a, **k: None)
+    # The embed now renders the FULL four-tab dossier (money + the three accountability
+    # tabs), so stub the other tab bodies too — this stays a pure heading/no-raise smoke.
+    monkeypatch.setattr(acc, "_render_where_tab", lambda *a, **k: None)
+    monkeypatch.setattr(acc, "_render_operators_tab", lambda *a, **k: None)
+    monkeypatch.setattr(acc, "_render_person_tab", lambda *a, **k: None)
     captions: list[str] = []
     monkeypatch.setattr(acc, "evidence_heading", lambda *a, **k: captions.append(str(a[0]) if a else ""))
     monkeypatch.setattr(acc.st, "caption", lambda *a, **k: captions.append(str(a[0]) if a else ""))
