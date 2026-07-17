@@ -30,9 +30,27 @@ jobs:
       - name: Install requests (only dep the canary needs)
         run: pip install requests
       - name: Probe the OpenView source structure
-        run: python tools/legal_diary_openview_health.py
+        id: probe
+        run: |
+          set +e
+          # Exit codes: 0 healthy · 1 transient network · 2 structural drift.
+          # Retry absorbs a flaky Domino server; only real drift (exit 2) should alarm, so a
+          # one-off timeout no longer opens a misleading "structure drifted" issue.
+          code=0
+          for attempt in 1 2 3; do
+            python tools/legal_diary_openview_health.py
+            code=$?
+            [ "$code" = "1" ] || break            # retry ONLY on a transient network failure
+            echo "::warning::attempt $attempt: OpenView unreachable (exit 1); retrying in 30s"
+            sleep 30
+          done
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" = "1" ] && echo "::warning::OpenView still unreachable after retries — treating as transient, not drift"
+          # Fail the run ONLY on structural drift, so the issue below fires for real drift, never a blip.
+          [ "$code" = "2" ] && exit 2
+          exit 0
       - name: Open issue on source drift (scheduled runs only)
-        if: failure() && github.event_name == 'schedule'
+        if: always() && steps.probe.outputs.code == '2' && github.event_name == 'schedule'
         uses: actions/github-script@v7
         with:
           script: |

@@ -791,20 +791,19 @@ def _card_services(name: str) -> str:
 
 
 def _render_performance(name: str) -> None:
-    cards = [
-        _card_money_collected(name),
-        _card_housing(name),
-        _card_derelict(name),
-        _card_planning(name),
-        _card_audit(name),
-        _card_council_money(name),
-        _card_how_run(name),
-        _card_services(name),
-    ]
-    cards = [c for c in cards if c]
+    # Lead group: the indicators a resident is most likely to want first (homes, services,
+    # rates collected, planning). The governance / audit / spending-detail / derelict cards are
+    # demoted behind one expander so first paint isn't an eight-card wall — the same declutter
+    # treatment the Corporate page got. Every card is still one click away; nothing is dropped.
+    lead = [c for c in (_card_housing(name), _card_services(name), _card_money_collected(name),
+                        _card_planning(name)) if c]
+    more = [c for c in (_card_council_money(name), _card_audit(name), _card_derelict(name),
+                        _card_how_run(name)) if c]
+    if not lead:  # a council with only the secondary indicators still leads with something
+        lead, more = more, []
 
     evidence_heading(f"How {name} performs")
-    if not cards:
+    if not lead and not more:
         empty_state("No indicators yet", "No published performance indicators are mapped for this council.")
         return
     st.html(
@@ -815,7 +814,10 @@ def _render_performance(name: str) -> None:
         "administration, not the elected councillors. ▲/▼ shows where the council sits relative to "
         "the benchmark; no judgement is implied.</p>"
     )
-    st.html(f'<div class="lg-perf-grid">{"".join(cards)}</div>')
+    st.html(f'<div class="lg-perf-grid">{"".join(lead)}</div>')
+    if more:
+        with st.expander(f"More indicators — governance, audit, spending & derelict sites ({len(more)})"):
+            st.html(f'<div class="lg-perf-grid">{"".join(more)}</div>')
     _render_all_indicators(name)
 
 

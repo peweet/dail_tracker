@@ -68,8 +68,20 @@ jobs:
 
       - name: Poll OpenView (incremental, or full on demand)
         run: |
-          uv run python -m pdf_infra.legal_diary_openview_poller \
-            ${{ github.event.inputs.full == 'true' && '--full' || '' }}
+          set +e
+          # The Domino server drops connections under load; retry the (idempotent, incremental)
+          # poll so a transient drop doesn't fail the whole daily refresh and open an issue.
+          # A persistent failure still fails after 3 tries — that IS worth an issue.
+          code=0
+          for attempt in 1 2 3; do
+            uv run python -m pdf_infra.legal_diary_openview_poller \
+              ${{ github.event.inputs.full == 'true' && '--full' || '' }}
+            code=$?
+            [ "$code" = "0" ] && break
+            echo "::warning::poll attempt $attempt failed (exit $code); retrying in 60s"
+            sleep 60
+          done
+          exit $code
 
       - name: Rebuild OpenView gold
         run: uv run python extractors/legal_diary_openview_extract.py

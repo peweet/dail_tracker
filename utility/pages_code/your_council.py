@@ -120,6 +120,45 @@ def _spend_scale(s) -> float:
     return -2.0
 
 
+def _render_how_councils_work() -> None:
+    """Plain-language power model at the index level (display-only static markup). Who really
+    decides what in a council is the single most misunderstood thing about local government, and
+    until now it lived three clicks deep inside a council dossier. Surfaced here so every visitor
+    reads it before picking a council. Reuses the reserved-vs-executive framing / CSS of the
+    per-council explainer; no data, no logic."""
+    subsection_heading("How your council works — who really holds power")
+    st.html(
+        '<p class="con-section-note">Two people run every council. The <strong>councillors you '
+        "elect</strong> hold only a short list of <strong>reserved functions</strong> — adopt the "
+        "county development plan, adopt the annual budget, set the rates. Almost everything else — "
+        "planning permissions, contracts, staff, housing allocation — is an <strong>executive "
+        "function</strong> carried out by the <strong>Chief Executive, who is appointed, not "
+        "elected</strong>.</p>"
+    )
+    exec_card = (
+        '<div class="con-council-card">'
+        '<div class="con-council-name">The Chief Executive (appointed)</div>'
+        '<div class="con-grain-row">'
+        '<span class="con-grain">Planning permissions</span>'
+        '<span class="con-grain">Contracts &amp; spending</span>'
+        '<span class="con-grain">Council staff</span>'
+        '<span class="con-grain">Housing allocation</span>'
+        '<span class="con-grain">…everything not reserved</span>'
+        "</div></div>"
+    )
+    reserved_card = (
+        '<div class="con-council-card">'
+        '<div class="con-council-name">Your councillors (elected)</div>'
+        '<div class="con-grain-row">'
+        '<span class="con-grain con-grain-rev">Adopt the budget</span>'
+        '<span class="con-grain con-grain-rev">Adopt the development plan</span>'
+        '<span class="con-grain con-grain-rev">Set the rates</span>'
+        '<span class="con-grain con-grain-rev">Appoint the Chief Executive</span>'
+        "</div></div>"
+    )
+    st.html(f'<div class="con-council-grid">{exec_card}{reserved_card}</div>')
+
+
 def _render_index() -> None:
     hero_banner(
         kicker="YOUR AREA",
@@ -127,6 +166,8 @@ def _render_index() -> None:
         dek="Your county or city council in one place — who runs it (the appointed Chief Executive), "
         "the councillors you elect, and what it spends. Pick a council.",
     )
+    # The power model up front (not three clicks deep): who really decides what in local government.
+    _render_how_councils_work()
     # Clickable national map first (the visual entry point) — reuses the local_government choropleth,
     # linking each council to this page's ?council= dossier. Degrades silently to the cards if the
     # map geometry/layers aren't available.
