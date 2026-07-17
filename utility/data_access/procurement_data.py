@@ -363,6 +363,13 @@ def fetch_eu_tam_state_aid_result(limit: int | None = 60) -> QueryResult:
     return _q.eu_tam_state_aid(get_procurement_conn(), limit=limit)
 
 
+@st.cache_data(ttl=300)
+def fetch_eu_tam_state_aid_count_result() -> QueryResult:
+    """Total count of real per-beneficiary State-Aid awards — so a top-N listing can disclose
+    the full corpus size rather than truncate silently."""
+    return _q.eu_tam_state_aid_count(get_procurement_conn())
+
+
 # ── TED (EU-journal awards) — separate register ───────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_ted_corpus_stats_result() -> QueryResult:

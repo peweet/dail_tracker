@@ -440,44 +440,52 @@ def _isif_amount(stated, currency, is_up_to) -> str:
     return f"up to {amt}" if bool(is_up_to) else amt
 
 
+def _isif_row_html(r) -> str:
+    """One ISIF commitment row (display-only)."""
+    name = _esc(getattr(r, "investee_name", None)) or "—"
+    amt = _esc(
+        _isif_amount(
+            getattr(r, "amount_stated", None),
+            getattr(r, "amount_currency", None),
+            getattr(r, "amount_is_up_to", None),
+        )
+    )
+    yr = _esc(str(getattr(r, "commitment_year_label", "") or ""))
+    desc = _esc(getattr(r, "description", None) or "")
+    if len(desc) > 150:
+        desc = desc[:147] + "…"
+    amt_html = f'<span class="mf-isif-amt">{amt}</span>' if amt else ""
+    return (
+        '<div class="mf-isif-row">'
+        f'<div class="mf-isif-head"><span class="mf-isif-name">{name}</span>{amt_html}'
+        f'<span class="mf-isif-yr">{yr}</span></div>'
+        f'<div class="mf-isif-desc">{desc}</div>'
+        "</div>"
+    )
+
+
 def _render_isif_lane() -> None:
     """STATE AS INVESTOR — the other direction of the money trail. Beyond what public bodies
-    PAY, the State (via the Ireland Strategic Investment Fund) also INVESTS in companies. Newest
-    commitments, as a named list. NEVER summed (mixed currency / 'up to' ceilings); display-only.
-    Silently no-ops if the view is unavailable."""
-    df = fetch_isif_portfolio(limit=10)
+    PAY, the State (via the Ireland Strategic Investment Fund) also INVESTS in companies. A lead
+    set shows inline; the full portfolio is one expander away (was silently capped at 10, hiding
+    ~200 commitments). NEVER summed (mixed currency / 'up to' ceilings); display-only. Silently
+    no-ops if the view is unavailable."""
+    df = fetch_isif_portfolio(limit=None)
     if df is None or df.empty:
         return
-    rows: list[str] = []
-    for r in df.itertuples():
-        name = _esc(getattr(r, "investee_name", None)) or "—"
-        amt = _esc(
-            _isif_amount(
-                getattr(r, "amount_stated", None),
-                getattr(r, "amount_currency", None),
-                getattr(r, "amount_is_up_to", None),
-            )
-        )
-        yr = _esc(str(getattr(r, "commitment_year_label", "") or ""))
-        desc = _esc(getattr(r, "description", None) or "")
-        if len(desc) > 150:
-            desc = desc[:147] + "…"
-        amt_html = f'<span class="mf-isif-amt">{amt}</span>' if amt else ""
-        rows.append(
-            '<div class="mf-isif-row">'
-            f'<div class="mf-isif-head"><span class="mf-isif-name">{name}</span>{amt_html}'
-            f'<span class="mf-isif-yr">{yr}</span></div>'
-            f'<div class="mf-isif-desc">{desc}</div>'
-            "</div>"
-        )
+    all_rows = [_isif_row_html(r) for r in df.itertuples()]  # logic_firewall: display_only
+    lead, rest = all_rows[:12], all_rows[12:]
     st.html(
         '<section class="mf-isif" aria-label="State as investor — ISIF commitments">'
         '<div class="mf-isif-kick">STATE AS INVESTOR</div>'
         '<div class="mf-isif-sub">The other direction of the trail: beyond what public bodies '
         "<em>pay</em>, the State also <strong>invests</strong> in companies through the Ireland "
-        "Strategic Investment Fund. Recent commitments — a <strong>different instrument</strong> from "
-        "payments, in mixed currencies, <strong>never added together</strong>.</div>" + "".join(rows) + "</section>"
+        "Strategic Investment Fund. A <strong>different instrument</strong> from payments, in mixed "
+        "currencies, <strong>never added together</strong>.</div>" + "".join(lead) + "</section>"
     )
+    if rest:
+        with st.expander(f"All {len(all_rows)} ISIF commitments"):
+            st.html('<section class="mf-isif">' + "".join(rest) + "</section>")
 
 
 def _render_landing() -> None:

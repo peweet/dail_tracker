@@ -1394,6 +1394,17 @@ def eu_tam_state_aid(conn: duckdb.DuckDBPyConnection, *, limit: int | None = Non
     return _run(conn, sql, params)
 
 
+def eu_tam_state_aid_count(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """How many real per-beneficiary State-Aid awards exist (excluding the scheme-total
+    artefacts the view flags), so a top-N listing can disclose the full corpus size instead
+    of silently truncating."""
+    return _run(
+        conn,
+        "SELECT COUNT(*) AS n_awards FROM v_procurement_eu_tam_state_aid"
+        " WHERE NOT COALESCE(aid_element_suspect_scheme_total, false)",
+    )
+
+
 def lobbying_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Companies on BOTH the procurement and lobbying registers (co-occurrence
     disclosure only — never causation; see the view header)."""

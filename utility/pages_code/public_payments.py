@@ -866,9 +866,10 @@ def public_payments_page() -> None:
         '<a class="mf-featured" href="?pp=accom" target="_self" '
         'aria-label="Accommodation spend — open the accommodation section">'
         '<div class="mf-featured-kick">FEATURED</div>'
-        '<div class="mf-featured-name">Accommodation spend</div>'
-        '<div class="mf-featured-blurb">What the State pays to accommodate people seeking '
-        "international protection, and Ukrainian beneficiaries of temporary protection.</div></a>"
+        '<div class="mf-featured-name">Asylum &amp; Ukraine accommodation</div>'
+        '<div class="mf-featured-blurb">What the State pays to house people seeking international '
+        "protection — plus where they are accommodated, who runs the centres, and what a person is "
+        "entitled to in law.</div></a>"
         "</div>"
     )
     # In-page sections (Phase 3, council-hub pattern): the cards above and external

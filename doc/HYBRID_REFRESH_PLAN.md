@@ -16,6 +16,14 @@ read-only probe in §9 (`.github/workflows/procurement_ip_probe.yml`). Fix-order
 **inverted** from the first sketch: the reconciliation semantics are broken and must be fixed
 *before* any hardware.
 
+**Re-verified 2026-07-17:** every load-bearing fact below still holds (WAF silvers still git-tracked,
+`money_flow_refresh.yml` still `--ignore-existing` on restore *and* backup, gate still `0.5`/gold-only,
+AFS still absent from `PUBLISH_PATHS`, `c:/tmp` procurement wart still present) and **no Phase-0/1 fix
+has been done**. The plan + probe are committed (`f0db97d`). Only drift: the chain inventory grew
+44→47 (§2C/§4) — three new *cloud-safe* chains, WAF edge set unchanged. New wrinkle:
+`etenders_live_tenders` is now *both* a pipeline chain (line 181) and its own standalone publishing lane
+(`live_tenders_refresh.yml`) — a consolidation question (§7), not a blocker.
+
 Related: `doc/CONTINUOUS_REFRESH.md` (the existing lane), `doc/DATA_BACKUP.md` /
 `doc/DISASTER_RECOVERY.md` (R2), `doc/DATA_DISTRIBUTION_PLAN.md` (the git-as-CDN retirement).
 
@@ -34,8 +42,8 @@ Refresh the pipeline **unattended, laptop closed**, maximising coverage despite 
 | # | Finding | Evidence |
 |---|---------|----------|
 | A | **Pipeline is essentially OS-agnostic.** 65 Windows-coupling findings, 19 flagged BLOCKER; only **1** survived adversarial verification, and it doesn't crash/corrupt. The other 18 are Windows-only OCR/ops tools `pipeline.py` never invokes. | audit 2026-07-08 |
-| B | **Per-chain timeout already exists** (committed `c694632`): `_kill_process_tree` os-guarded (taskkill/`proc.kill`), `DEFAULT_CHAIN_TIMEOUT_S=1200` + per-chain overrides. **Not a P0 to build.** | `pipeline.py:354-404` |
-| C | **35/44 chains cloud-safe/cron-able.** Only `afs`, `public_body_payments`, `la_payments` are hard-WAF. `procurement` is uncertain (§9). `members`/`member_contact` have a soft throttle on oireachtas.ie profile HTML (skippable). `hse_tusla` is a dead source. | per-chain audit |
+| B | **Per-chain timeout already exists** (committed `c694632`): `_kill_process_tree` os-guarded (taskkill/`proc.kill`), `DEFAULT_CHAIN_TIMEOUT_S=1200` + per-chain overrides. **Not a P0 to build.** | `pipeline.py:396-460` (07-17) |
+| C | **38/47 chains cloud-safe/cron-able** (47 as of 07-17: +`etenders_live_tenders` Playwright, +`fact_cards`, +`extraction_quality` — all cloud-safe). Only `afs`, `public_body_payments`, `la_payments` are hard-WAF. `procurement` is uncertain (§9). `members`/`member_contact` have a soft throttle on oireachtas.ie profile HTML (skippable). `hse_tusla` is a dead source. | per-chain audit + 07-17 re-verify |
 | D | **CI runs entirely on ubuntu-latest and is green** — the suite already passes on Linux. It guards code + gold contracts but is **blind to silver/bronze** behaviour (none in CI). | `ci.yml` (6 jobs, all ubuntu) |
 | E | 🔴 **The two-lane reconciliation is DEAD as designed.** The four WAF-chain silvers are **git-tracked** (`.gitignore:367-377`); the cloud restore uses `rclone copy --ignore-existing` (`money_flow_refresh.yml:81-82`), which **skips files already in the checkout** → the box's fresh R2 silver is never applied → `procurement_consolidate` folds the **stale committed silver** daily, gate passes, ships. Silent no-op. | `git ls-files`, code |
 | F | **The completeness gate is a catastrophic-loss gate, not a completeness gate**: `DEFAULT_TOLERANCE = 0.5`, gold-only, count-based. A 40% council-history loss, or a count-preserving value tamper, passes. | `check_output_regressions.py:40,43-48` |
@@ -78,7 +86,7 @@ the manifest + per-publisher reconcile."
 
 | Bucket | Runner | Chains |
 |---|---|---|
-| Cloud-safe, cron now (R2 restore for stateful) | GitHub-hosted | bootstrap, seanad, lobbying, iris, legislation, committee_evidence, legal_diary_poller, cbi, cso, stateboards, planning_appeal_outcomes, ted, ted_tenders, derelict_sites *(cached)*, + all transforms |
+| Cloud-safe, cron now (R2 restore for stateful) | GitHub-hosted | bootstrap, seanad, lobbying, iris, legislation, committee_evidence, legal_diary_poller, cbi, cso, stateboards, planning_appeal_outcomes, ted, ted_tenders, etenders_live_tenders *(Playwright)*, derelict_sites *(cached)*, + all transforms (incl. new fact_cards, extraction_quality) |
 | No-op-safe on cloud (exit 0 harmlessly) | GitHub-hosted | disclosed_bq_po×2, ministerial_diaries |
 | **Edge worker (residential IP)** | laptop wake-timer → box | **afs, public_body_payments, la_payments** (+ procurement iff §9 says WAF) |
 | Throttle-soft | either (pace / skip) | members, member_contact — `DAIL_SKIP_MEMBER_CONTACT=1` or route to edge |
