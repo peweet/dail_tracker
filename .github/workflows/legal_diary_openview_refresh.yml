@@ -57,7 +57,7 @@ jobs:
       # rolling key (run_id) writes a fresh entry each run; restore-keys pulls the newest
       # prior one. Bronze is gitignored — it lives ONLY in this cache, never in the repo.
       - name: Restore bronze archive + manifest
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             data/bronze/legal_diary_openview
