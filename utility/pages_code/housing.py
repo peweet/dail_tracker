@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.housing_data import (
     fetch_housing_completions_trend_result,
+    fetch_housing_construction_pipeline_result,
     fetch_housing_hap_national_result,
     fetch_housing_rent_by_county_result,
     fetch_housing_supply_national_result,
@@ -36,8 +37,7 @@ from ui.components import (
     empty_state,
     evidence_heading,
     hero_banner,
-    hide_sidebar,
-    page_error_boundary,
+    dt_page,
     proportion_stripe_html,
     totals_strip,
 )
@@ -194,6 +194,53 @@ def _render_supply() -> None:
         trend = ctres.data.set_index("year")["completions"]
         st.bar_chart(trend, color="#3d719c", height=240)
         st.caption("CSO new dwelling completions (NDQ09), complete calendar years.")
+
+    # Where social homes are being built — per-LA build programme (the one per-LA
+    # housing metric not already on the council/constituency pages).
+    _render_construction_pipeline()
+
+
+def _render_construction_pipeline() -> None:
+    """Per-LA social-housing build programme — the supply-side answer to "are homes
+    being built where I live?". This is the one per-LA housing metric not already on
+    the council/constituency pages. Snapshot; never summed across quarters."""
+    res = fetch_housing_construction_pipeline_result()
+    if not res.ok or res.data.empty:
+        return
+    df = res.data
+    head = df.iloc[0]
+    period = str(head.get("report_period") or "")
+    st.html('<h3 class="hou-dim-title hou-chart-label">Where social homes are being built</h3>')
+    totals_strip([
+        (_int(head.get("national_pipeline_units")), f"homes in the pipeline ({period})"),
+        (_int(head.get("national_units_on_site")), "on site now"),
+        (_int(head.get("national_pipeline_schemes")), "active schemes"),
+    ])
+    rows_html = [
+        [
+            _h(str(r["local_authority"])),
+            _int(r["pipeline_units"]),
+            _int(r["units_on_site"]),
+            _pct(r["pct_pipeline_on_site"], 0),
+            _int(r["units_completed"]),
+            _pct(r["pct_of_national"], 1),
+        ]
+        for _, r in df.iterrows()
+    ]
+    st.html(
+        _html_table(
+            ["Local authority", "In the pipeline", "On site now", "% on site", "Completed to date", "Share"],
+            rows_html,
+            numeric_cols=(1, 2, 3, 4, 5),
+        )
+    )
+    st.caption(
+        "Social-housing build programme by local authority — DHLGH Construction Status "
+        f"Report {period}. “In the pipeline” = approved schemes not yet completed; "
+        "“on site now” is the subset physically under construction. A quarterly snapshot: "
+        "the same scheme recurs each quarter until delivered, so these counts are never "
+        "summed across quarters. Source: opendata.housing.gov.ie (open data)."
+    )
 
 
 def _render_hap() -> None:
@@ -374,9 +421,8 @@ def _render_county_detail(county: str) -> None:
     st.caption(_SSHA_FOOTER)
 
 
-@page_error_boundary
+@dt_page
 def housing_page() -> None:
-    hide_sidebar()
     hero_banner(
         kicker="HOUSING",
         title="Who's on the social housing list",

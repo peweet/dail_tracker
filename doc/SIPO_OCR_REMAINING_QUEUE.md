@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: elections
+updated: 2026-06-26
+supersedes: []
+read_when: before running or resuming a SIPO OCR job (candidate expenses, party national-agent returns)
+key: PLAN|LIVE|elections
+---
+
 # SIPO OCR — remaining work queue (run OFF-BOX, one at a time)
 
 > ✅ **JOB 1 + JOB 2 COMPLETE — 2026-06-26.** Ran on the local **GPU** (single process, zero

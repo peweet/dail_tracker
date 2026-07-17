@@ -44,7 +44,125 @@ def test_all_views_build(conn) -> None:
         "v_ministerial_diary_engagements",
         "v_ministerial_diary_meetings",
         "v_ministerial_diary_company_influence",
+        # period-grain rollups (2026-07 logic-firewall graduation of the page's
+        # groupby faceting — see the ministerial_diary_zz_*.sql headers)
+        "v_ministerial_diary_minister_period",
+        "v_ministerial_diary_dept_period",
+        "v_ministerial_diary_dept_minister_period",
+        "v_ministerial_diary_top_orgs",
     }
+
+
+# ── period-grain rollups (the page's Year/Month filter as a WHERE clause) ────────────────
+
+
+def test_minister_period_all_grain_matches_meetings(conn) -> None:
+    # the 'all' grain of the rollup must agree exactly with a direct count over the
+    # meetings view (per named minister) — a drifted GROUPING SETS cell would lie on cards
+    bad = conn.execute(
+        "WITH direct AS ("
+        "  SELECT minister, COUNT(*) AS n, MIN(entry_date) AS first_m, MAX(entry_date) AS last_m"
+        "  FROM v_ministerial_diary_meetings WHERE minister IS NOT NULL AND minister <> ''"
+        "  GROUP BY minister)"
+        " SELECT count(*) FROM direct d"
+        " JOIN v_ministerial_diary_minister_period p ON p.minister = d.minister AND p.period_grain = 'all'"
+        " WHERE p.meetings <> d.n OR p.first_meeting <> d.first_m OR p.last_meeting <> d.last_m"
+    ).fetchone()[0]
+    assert bad == 0
+
+
+def test_minister_period_grains_are_disjoint_and_complete(conn) -> None:
+    # year cells sum back to the all cell per minister (no double counting across grains)
+    bad = conn.execute(
+        "WITH yr AS ("
+        "  SELECT minister, SUM(meetings) AS n FROM v_ministerial_diary_minister_period"
+        "  WHERE period_grain = 'year' GROUP BY minister)"
+        " SELECT count(*) FROM yr"
+        " JOIN v_ministerial_diary_minister_period p ON p.minister = yr.minister AND p.period_grain = 'all'"
+        " WHERE p.meetings <> yr.n"
+    ).fetchone()[0]
+    assert bad == 0
+    # period columns are null exactly per the grain contract
+    n_bad = conn.execute(
+        "SELECT count(*) FROM v_ministerial_diary_minister_period WHERE"
+        " (period_grain = 'all' AND (period_year IS NOT NULL OR period_month IS NOT NULL))"
+        " OR (period_grain = 'year' AND (period_year IS NULL OR period_month IS NOT NULL))"
+        " OR (period_grain = 'month' AND (period_year IS NULL OR period_month IS NULL))"
+    ).fetchone()[0]
+    assert n_bad == 0
+
+
+def test_minister_period_depts_is_sorted_portfolio(conn) -> None:
+    # multi-portfolio ministers carry every department they logged under (e.g. Ryan
+    # held Transport + Climate) — comma-joined, sorted, no blanks
+    row = conn.execute(
+        "SELECT depts FROM v_ministerial_diary_minister_period WHERE minister = 'Ryan' AND period_grain = 'all'"
+    ).fetchone()
+    if row is not None:  # a future gold re-cut may rename; the shape contract below still holds
+        depts = row[0].split(",")
+        assert len(depts) >= 2 and depts == sorted(depts)
+    n_blank = conn.execute(
+        "SELECT count(*) FROM v_ministerial_diary_minister_period WHERE depts IS NULL OR depts = ''"
+    ).fetchone()[0]
+    assert n_blank == 0
+
+
+def test_dept_period_ministers_counts_named_only(conn) -> None:
+    # ministers = DISTINCT named ministers; unattributed rows may add meetings but never ministers
+    bad = conn.execute(
+        "WITH direct AS ("
+        "  SELECT department, COUNT(*) AS n,"
+        "         COUNT(DISTINCT minister) FILTER (WHERE minister IS NOT NULL AND minister <> '') AS m"
+        "  FROM v_ministerial_diary_meetings WHERE department IS NOT NULL AND department <> ''"
+        "  GROUP BY department)"
+        " SELECT count(*) FROM direct d"
+        " JOIN v_ministerial_diary_dept_period p ON p.department = d.department AND p.period_grain = 'all'"
+        " WHERE p.meetings <> d.n OR p.ministers <> d.m"
+    ).fetchone()[0]
+    assert bad == 0
+
+
+def test_dept_minister_period_slices_the_minister_rollup(conn) -> None:
+    # a minister's per-dept cells sum to their minister_period total (same grain), and the
+    # attached portfolio matches the minister rollup's depts for the same period
+    bad = conn.execute(
+        "WITH per AS ("
+        "  SELECT minister, SUM(meetings) AS n FROM v_ministerial_diary_dept_minister_period"
+        "  WHERE period_grain = 'all' GROUP BY minister)"
+        " SELECT count(*) FROM per"
+        " JOIN v_ministerial_diary_minister_period p ON p.minister = per.minister AND p.period_grain = 'all'"
+        " WHERE p.meetings <> per.n"
+    ).fetchone()[0]
+    assert bad == 0
+    drift = conn.execute(
+        "SELECT count(*) FROM v_ministerial_diary_dept_minister_period dm"
+        " JOIN v_ministerial_diary_minister_period mp"
+        "   ON mp.minister = dm.minister AND mp.period_grain = dm.period_grain"
+        "  AND mp.period_year IS NOT DISTINCT FROM dm.period_year"
+        "  AND mp.period_month IS NOT DISTINCT FROM dm.period_month"
+        " WHERE dm.depts <> mp.depts"
+    ).fetchone()[0]
+    assert drift == 0
+
+
+def test_top_orgs_rank_is_dense_and_ordered(conn) -> None:
+    # rnk is a proper 1..n ranking within each (entity_kind, entity, period) partition:
+    # starts at 1, no gaps, and n never increases as rnk increases
+    n_bad = conn.execute(
+        "WITH w AS ("
+        "  SELECT entity_kind, entity, period_grain, period_year, period_month, n, rnk,"
+        "         lag(rnk)  OVER win AS prev_rnk,"
+        "         lag(n)    OVER win AS prev_n"
+        "  FROM v_ministerial_diary_top_orgs"
+        "  WINDOW win AS ("
+        "    PARTITION BY entity_kind, entity, period_grain, period_year, period_month ORDER BY rnk))"
+        " SELECT count(*) FROM w WHERE"
+        " (prev_rnk IS NULL AND rnk <> 1) OR (prev_rnk IS NOT NULL AND rnk <> prev_rnk + 1)"
+        " OR (prev_n IS NOT NULL AND n > prev_n)"
+    ).fetchone()[0]
+    assert n_bad == 0
+    kinds = {r[0] for r in conn.execute("SELECT DISTINCT entity_kind FROM v_ministerial_diary_top_orgs").fetchall()}
+    assert kinds == {"minister", "department"}
 
 
 def test_overlap_has_expected_columns(conn) -> None:

@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: money
+updated: 2026-06-04
+supersedes: []
+read_when: designing/building the unified procurement+payments gold model or the value_kind/realisation_tier taxonomy
+key: SPEC|LIVE|money
+---
+
 # Public Contracting & Payments — Unified Data Model + Schema Contract (DRAFT)
 
 **Project:** Dáil Tracker

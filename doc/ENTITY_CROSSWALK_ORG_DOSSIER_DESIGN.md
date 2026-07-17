@@ -1,3 +1,18 @@
+---
+tier: SPEC
+status: SUPERSEDED
+domain: procurement
+updated: 2026-07-17
+supersedes: []
+superseded_by: sql_views/procurement/procurement_supplier_entity_xref.sql
+read_when: historical only — the "no code written yet" note is stale; entity_xref shipped (view + extractors/entity_xref_build.py + dail_tracker_core/dossiers.py)
+key: SPEC|SUPERSEDED|procurement
+---
+
+> **⚠️ SUPERSEDED (2026-07-17).** The "design-only (no code written yet)" note below is stale — this
+> **shipped**: `sql_views/procurement/procurement_supplier_entity_xref.sql`, `extractors/entity_xref_build.py`,
+> `dail_tracker_core/dossiers.py`, `dail_tracker_core/queries/entity.py`. Kept as the design rationale.
+
 # Company Entity Crosswalk + Organisation 360° Dossier — Design
 
 **Status:** design-only (no code written yet). Owner sign-off required before any pipeline change or gold promotion.

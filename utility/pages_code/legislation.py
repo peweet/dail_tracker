@@ -26,7 +26,6 @@ from data_access.legislation_data import (
     fetch_si_freshness,
     fetch_si_years_for_bill,
 )
-from shared_css import inject_css
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -36,8 +35,7 @@ from ui.components import (
     filter_bar,
     fmt_civic_date as _fmt_date,
     hero_banner,
-    hide_sidebar,
-    page_error_boundary,
+    dt_page,
     paginate,
     pagination_controls,
     render_stat_strip,
@@ -955,14 +953,8 @@ def _render_bill_detail(bill_id: str) -> None:
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 
-@page_error_boundary
+@dt_page
 def legislation_page() -> None:
-    inject_css()
-    # Sidebar→filter-bar migration: filters live in a main-panel filter bar
-    # under the hero. hide_sidebar() drops the empty rail + the brand band's
-    # sidebar-clearing gutter for this page (see ui.components.hide_sidebar).
-    hide_sidebar()
-
     # URL-driven entry: ?bill=<bill_id> opens the detail view (mirrors the
     # member_overview ?member=… pattern). Session state is the source of
     # truth thereafter so back-button + reruns stay consistent.

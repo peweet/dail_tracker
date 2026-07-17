@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: procurement
+updated: 2026-06-29
+supersedes: []
+read_when: building or evaluating the bid-intelligence pack engine (auto-assembled market-research pack for a matched tender)
+key: SPEC|LIVE|procurement
+---
+
 # Bid-Intelligence Pack — Assessment & Engine
 
 **Date:** 2026-06-29

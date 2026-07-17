@@ -36,6 +36,7 @@ from data_access.local_government_data import (
     fetch_chief_executives_result,
     fetch_collection_rates_result,
     fetch_council_money_result,
+    fetch_derelict_levy_ranking_result,
     fetch_derelict_sites_levy_result,
     fetch_housing_performance_result,
     fetch_la_map_layers_result,
@@ -54,40 +55,24 @@ from ui.components import (
     evidence_heading,
     find_a_td_filter,
     hero_banner,
-    hide_sidebar,
-    page_error_boundary,
+    dt_page,
     search_matches,
     subsection_heading,
     totals_strip,
 )
 from ui.entity_links import council_spending_url
+from ui.format import eur, eur_full, fmt_int, pct
 
 _SALARY_BAND = "€132,511–€189,301"  # national CE pay scale (not published per-council)
 _LGA_URL = "https://www.irishstatutebook.ie/eli/2001/act/37/enacted/en/html"
 
 
 # ── display-only formatting (no derivation) ───────────────────────────────────
-def _eur(v) -> str:
-    if v is None or pd.isna(v):
-        return "—"
-    v = float(v)
-    if abs(v) >= 1_000_000:
-        return f"€{v / 1_000_000:.2f}m"
-    if abs(v) >= 1_000:
-        return f"€{v / 1_000:.0f}k"
-    return f"€{v:,.0f}"
-
-
-def _eur_full(v) -> str:
-    return "—" if v is None or pd.isna(v) else f"€{float(v):,.0f}"
-
-
-def _pct(v, dp: int = 0) -> str:
-    return "—" if v is None or pd.isna(v) else f"{float(v):.{dp}f}%"
-
-
-def _int(v) -> str:
-    return "—" if v is None or pd.isna(v) else f"{int(v):,}"
+# Canonical formatters (ui.format, 2026-07 consolidation): €1.4bn / €918.5m / €212k.
+_eur = eur
+_eur_full = eur_full
+_pct = pct
+_int = fmt_int
 
 
 def _num1(v) -> str:
@@ -366,6 +351,81 @@ def _render_national_summary() -> None:
     )
 
 
+def _render_derelict_levy_ranking() -> None:
+    """Cross-council derelict-levy ENFORCEMENT league — which councils levy the charge
+    but collect little of it, and which levy nothing at all despite holding derelict
+    sites on their register. The per-council figure is on each dossier; this is the
+    national comparison. Reads v_la_derelict_sites_levy via data-access (no logic here).
+
+    Levying and collecting are the Chief Executive's EXECUTIVE functions, and the
+    obligation is reasserted by DHLGH Circulars PL 05/2022 & PL 09/2021 (annual return).
+    collection_rate_pct is arrears-aware — shown as a direction, not a clean fraction."""
+    res = fetch_derelict_levy_ranking_result()
+    if not res.ok or res.data.empty:
+        return
+    df = res.data
+
+    # Worst collectors: levied a real sum (>€10k) but collected under a quarter of it.
+    levied = df[df["amount_levied_eur"].fillna(0) > 10_000].copy()
+    levied = levied[levied["collection_rate_pct"].fillna(0) < 25]
+    levied = levied.sort_values("collection_rate_pct", na_position="first").head(8)
+
+    # Councils holding derelict sites on the register but levying €0 — no enforcement.
+    nil = df[df["levied_nothing"] & (df["sites_on_register"].fillna(0) > 0)]
+    nil_names = nil.sort_values("sites_on_register", ascending=False)["local_authority"].tolist()
+
+    if levied.empty and not nil_names:
+        return
+
+    st.html(
+        '<h2 style="font-size:1.15rem;margin:1.6rem 0 0.2rem;">Derelict-site levy enforcement</h2>'
+        '<p style="color:#5b6b73;font-size:0.9rem;margin:0 0 0.9rem;max-width:52rem;">'
+        "The Derelict Sites Act 1990 lets a council charge a 7% annual levy on a registered "
+        "derelict site — an <strong>executive</strong> function, reasserted by DHLGH Circular "
+        "PL 05/2022. These councils levied the charge but collected little of it. Click a "
+        "council for its dossier.</p>"
+    )
+
+    bars: list[str] = []
+    for r in levied.itertuples(index=False):
+        la = str(r.local_authority)
+        pct_v = 0.0 if pd.isna(r.collection_rate_pct) else float(r.collection_rate_pct)
+        outstanding = eur(r.cumulative_outstanding_eur)
+        width = max(2.0, min(pct_v, 100.0))
+        bars.append(
+            f'<a href="?la={quote(la)}" target="_self" '
+            f'style="display:grid;grid-template-columns:9rem 1fr auto;gap:0.7rem;align-items:center;'
+            f'padding:0.35rem 0;text-decoration:none;color:inherit;border-bottom:1px solid #ece7dc;">'
+            f'<span style="font-weight:600;">{_h(la)}</span>'
+            f'<span style="background:#f0eadd;border-radius:5px;height:0.7rem;position:relative;">'
+            f'<span style="position:absolute;left:0;top:0;bottom:0;width:{width:.0f}%;'
+            f'background:#a5431c;border-radius:5px;"></span></span>'
+            f'<span style="font-variant-numeric:tabular-nums;color:#5b6b73;font-size:0.85rem;">'
+            f'{pct_v:.0f}% collected · {_h(outstanding)} outstanding</span></a>'
+        )
+    if bars:
+        st.html('<div style="max-width:52rem;">' + "".join(bars) + "</div>")
+
+    if nil_names:
+        chips = " ".join(
+            f'<a href="?la={quote(n)}" target="_self" style="text-decoration:none;">'
+            f'<span style="display:inline-block;background:#fbeecb;border:1px solid #e6c87a;'
+            f'color:#7a5a00;border-radius:999px;padding:0.15rem 0.7rem;margin:0.15rem 0.2rem;'
+            f'font-size:0.82rem;font-weight:600;">{_h(str(n))}</span></a>'
+            for n in nil_names
+        )
+        st.html(
+            f'<p style="color:#5b6b73;font-size:0.9rem;margin:1rem 0 0.3rem;max-width:52rem;">'
+            f"<strong>{len(nil_names)} councils</strong> hold derelict sites on their register "
+            f"but levied €0 in 2024 — no charge raised at all:</p>"
+            f'<div style="max-width:52rem;">{chips}</div>'
+            f'<p style="color:#8a97a0;font-size:0.78rem;margin:0.7rem 0 0;max-width:52rem;">'
+            "Source: DHLGH Derelict Sites annual return, 2024 (gov.ie, CC-BY). Collection rate "
+            "is arrears-aware (prior-year receipts can lift it) — a direction, not a clean "
+            "within-year ratio. A low rate is context for scrutiny, not proof of failure.</p>"
+        )
+
+
 def _render_index() -> None:
     hero_banner(
         kicker="LOCAL GOVERNMENT",
@@ -374,6 +434,7 @@ def _render_index() -> None:
         "not by the councillors you elect. Pick a council to see who runs it and how it performs.",
     )
     _render_national_summary()
+    _render_derelict_levy_ranking()
 
     res = fetch_chief_executives_result()
     if not res.ok or res.data.empty:
@@ -813,9 +874,8 @@ def _render_dossier(name: str) -> None:
     )
 
 
-@page_error_boundary
+@dt_page
 def local_government_page() -> None:
-    hide_sidebar()
     selected = st.query_params.get("la")
     if selected:
         _render_dossier(selected)

@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: commercial
+updated: 2026-06-28
+supersedes: []
+read_when: setting up, reviewing, or invoking the AGPL/commercial dual-licensing scaffolding (CLA, COMMERCIAL-LICENSE.md) before a first commercial sale
+key: PLAN|LIVE|commercial
+---
+
 # Commercialisation & Dual-Licensing Plan — Dáil Tracker
 
 **Status:** scaffolding created 2026-06-28; **legal review and placeholder fill-in still required before first commercial use.**

@@ -163,6 +163,7 @@ from dail_tracker_core.queries import corporate as corp  # noqa: E402
 from dail_tracker_core.queries import entity as ent  # noqa: E402
 from dail_tracker_core.queries import housing as hsg  # noqa: E402
 from dail_tracker_core.queries import judiciary as jud  # noqa: E402
+from dail_tracker_core.queries import legislation as leg  # noqa: E402
 from dail_tracker_core.queries import lobbying as lb  # noqa: E402
 from dail_tracker_core.queries import local_government as lg  # noqa: E402
 from dail_tracker_core.queries import ministerial as min_  # noqa: E402
@@ -389,6 +390,37 @@ def search_statutory_instruments(
         limit=limit,
     )
     return records
+
+
+@mcp.tool(annotations=_RO)
+def circular_si_crosswalk(si_year: int = 0, si_number: int = 0, limit: int = 50) -> dict:
+    """The RULE CHAIN — a government circular (the operational instruction to public bodies,
+    signed by a civil servant) paired with the Statutory Instrument it implements (the law,
+    signed by the Minister and laid before the Oireachtas).
+
+    With `si_year` + `si_number`: the circular(s) that operationalise that ONE SI (e.g.
+    2020, 92). With no arguments: the whole crosswalk (limit rows). Each pair carries
+    `si_resolved` — TRUE when the cited SI is in our SI holdings (which start 2016; older
+    citations resolve FALSE with NULL SI attributes, a real reference we don't hold).
+
+    Why it matters: a circular carries NO ministerial signature and never goes before the
+    Oireachtas, yet it dictates how the SI is applied — so this exposes the two-tier
+    structure of Irish rule-making and its accountability asymmetry. Source: gov.ie
+    circulars (PSI Licence / CC-BY); pairs are factual citations extracted from the circular
+    text, joined to our SI index."""
+    qr = leg.circular_si_crosswalk(_cur(), si_year=si_year, si_number=si_number)
+    if not qr.ok:
+        return {"error": qr.unavailable_reason}
+    rows = serialize.to_records(qr.data)
+    resolved = sum(1 for r in rows if r.get("si_resolved"))
+    return {
+        "query": {"si_year": si_year or None, "si_number": si_number or None},
+        "n_pairs": len(rows),
+        "n_resolved": resolved,
+        "pairs": rows[:limit],
+        "note": "si_resolved=false means the circular cites an SI we don't hold "
+                "(our SI data starts 2016), not a broken link",
+    }
 
 
 # ── Payments / lobbying ───────────────────────────────────────────────────────
@@ -1668,6 +1700,50 @@ def organisation_dossier(name: str, company_num: str = "") -> dict:
 
 
 # ── Local government (council accountability scorecard) ─────────────────────────
+
+
+@mcp.tool(annotations=_RO)
+def derelict_levy_compliance(limit: int = 31) -> dict:
+    """Cross-council DERELICT-SITES LEVY enforcement ranking — the national compliance view
+    that council_scorecard (per-council) can't give in one call. Returns every council with
+    its sites-on-register, amount levied, amount received, arrears-aware collection rate, and
+    cumulative outstanding, worst outstanding first — plus national totals and the roster of
+    councils that levied €0 despite holding sites on their register.
+
+    The Derelict Sites Act 1990 lets each council register a derelict site and charge a 7%
+    annual levy; maintaining the register, levying and collecting are all the Chief
+    Executive's EXECUTIVE functions. Central government reasserts the obligation and requires
+    the annual data return via DHLGH Circulars PL 05/2022 and PL 09/2021 (Derelict Sites Act
+    1990 — Data Returns) — so this pairs a standing legal duty with each council's own
+    reported performance against it.
+
+    ⚠️ Low enforcement is context for scrutiny, not proof of failure, and no figure is
+    apportioned or summed across councils. Surface the `caveat` (collection_rate_pct is
+    arrears-aware and can exceed 100%)."""
+    cur = _cur()
+    qr = lg.derelict_levy_ranking(cur)
+    if not qr.ok:
+        return {"error": qr.unavailable_reason}
+    rows = serialize.to_records(qr.data)
+    if not rows:
+        return {"error": "no derelict-sites levy data available"}
+    nat = rows[0]
+    levied = nat.get("national_amount_levied_eur")
+    received = nat.get("national_total_received_eur")
+    return {
+        "national": {
+            "amount_levied_eur": levied,
+            "total_received_eur": received,
+            "collection_rate_pct": round(100.0 * received / levied, 1) if levied else None,
+            "cumulative_outstanding_eur": nat.get("national_outstanding_eur"),
+            "councils": len(rows),
+            "year": nat.get("year"),
+        },
+        "levied_nothing": [r["local_authority"] for r in rows if r.get("levied_nothing")],
+        "ranking": rows[:limit],
+        "obligation": "Derelict Sites Act 1990; DHLGH Circulars PL 05/2022 & PL 09/2021 (annual data return)",
+        "caveat": caveats.DERELICT_LEVY,
+    }
 
 
 @mcp.tool(annotations=_RO)

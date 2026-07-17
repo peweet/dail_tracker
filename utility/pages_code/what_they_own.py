@@ -35,17 +35,15 @@ from data_access.interests_data import (
     fetch_member_index,
     fetch_member_index_alltime,
 )
-from shared_css import inject_css
 from ui.components import (
     clean_meta,
     clickable_card_link,
     empty_state,
     evidence_heading,
     hero_banner,
-    hide_sidebar,
     main_member_jump,
     member_moved_callout,
-    page_error_boundary,
+    dt_page,
     pagination_controls,
     pill,
     ranked_member_card,
@@ -176,11 +174,8 @@ def _render_provenance(house: str) -> None:
     )
 
 
-@page_error_boundary
+@dt_page
 def what_they_own_page() -> None:
-    inject_css()
-    hide_sidebar()
-
     hero_banner(
         kicker="REGISTER OF MEMBERS' INTERESTS",
         title="What they own",

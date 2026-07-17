@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: sources
+updated: 2026-06-22
+supersedes: []
+read_when: needing the detailed technical audit of the publicinformation.ie FOI/CSO pipeline repos before integrating with them
+key: RECORD|LIVE|sources
+---
+
 # Partnership assessment — publicinformation.ie (gingertechie)
 
 Status: **ASSESSMENT** (2026-06-22). Evaluates the two Codeberg repos as a partnership/integration

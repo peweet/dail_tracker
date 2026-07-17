@@ -17,9 +17,9 @@ when there's no script run context).
 
 from __future__ import annotations
 
-import importlib
+import os
+import subprocess
 import sys
-import warnings
 from pathlib import Path
 
 import pytest
@@ -43,41 +43,34 @@ def _discover_pages() -> list[str]:
 PAGE_MODULES = _discover_pages()
 
 
-@pytest.fixture
-def isolated_config_resolution():
-    """Reset sys.modules entries that shadow utility/config.py.
-
-    The repo has two `config.py` files — root and utility/. Once a non-page
-    test imports the root one (e.g. test_payments_golden imports
-    payments_full_psa_etl which loads root config), sys.modules['config']
-    is bound to root, and the subsequent page import sees the wrong module.
-    Restoring sys.modules around each page import keeps the resolution
-    clean regardless of test order.
-
-    See note in module docstring on the two-config-modules collision.
-    """
-    saved_modules = {k: sys.modules[k] for k in list(sys.modules) if k == "config" or k.startswith("utility.")}
-    # Force re-resolution: pages do `from config import …` and must find
-    # utility/config.py via the test-prepared sys.path priority.
-    sys.modules.pop("config", None)
-    yield
-    # Restore so we don't leak into other tests in the file.
-    sys.modules.pop("config", None)
-    for k, v in saved_modules.items():
-        sys.modules[k] = v
-
-
 @pytest.mark.parametrize("page", PAGE_MODULES)
-def test_page_imports_cleanly(page: str, isolated_config_resolution) -> None:
+def test_page_imports_cleanly(page: str) -> None:
     """Importing the page module must not raise.
 
-    Streamlit's cache_data warns "No runtime found" outside `streamlit run`;
-    we suppress that here so test output stays clean. Any other warning still
-    surfaces.
+    Each page is imported in a FRESH SUBPROCESS. Same-process importing was
+    flaky (28/16/7 pass non-deterministically across runs): the 27 pages share
+    one interpreter's ``sys.modules``, and pages do function-level
+    ``from data_access.X import Y`` where ``data_access.X`` does module-level
+    ``from ui.components import …`` — so a shift in import ORDER can observe
+    ``ui.components`` mid-initialisation and raise ``NameError: dt_page`` (or any
+    other symbol not yet bound). A subprocess gives every page a clean module
+    table, which is what an import-smoke test actually wants to prove: "this page
+    imports from a cold start", exactly as ``streamlit run`` does. It also fixes
+    the two-``config.py`` (root vs utility/) shadowing the old fixture juggled.
+
+    Streamlit's cache_data warns "No runtime found" outside ``streamlit run``;
+    ``-W ignore`` keeps that out of stderr. Any real error surfaces in the
+    captured output on failure.
     """
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="No runtime found")
-        importlib.import_module(f"utility.pages_code.{page}")
+    code = (
+        "import warnings; warnings.filterwarnings('ignore', message='No runtime found'); "
+        f"import utility.pages_code.{page}"
+    )
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join((str(PROJECT_ROOT), str(PROJECT_ROOT / "utility")))}
+    r = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120, check=False
+    )
+    assert r.returncode == 0, f"page {page!r} failed to import:\n{r.stderr[-3000:]}"
 
 
 def test_page_discovery_finds_expected_count() -> None:

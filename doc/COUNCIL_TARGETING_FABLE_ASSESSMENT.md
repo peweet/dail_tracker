@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: local-gov
+updated: 2026-07-09
+supersedes: []
+read_when: before scoping new county-council data work (AFS, minutes/agendas, named votes) or deciding what council data source to pursue next
+key: RECORD|LIVE|local-gov
+---
+
 # County Council Data — Targeting Assessment (Fable model)
 
 **Date:** 2026-07-09 · **Assessor:** Fable 5 (4 independent lenses + adversarial synthesis), commissioned as: *"target county council — particularly the budgets i.e. AFS, the scanned agendas/minutes of meetings, and anything else relevant."*

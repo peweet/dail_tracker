@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: sources
+updated: 2026-06-22
+supersedes: []
+read_when: judging whether to pursue a data partnership with publicinformation.ie (gingertechie) — the single self-contained doc to share externally
+key: RECORD|LIVE|sources
+---
+
 # publicinformation.ie × Dáil Tracker — partnership assessment
 
 **A standalone assessment of a data partnership between publicinformation.ie (gingertechie) and Dáil

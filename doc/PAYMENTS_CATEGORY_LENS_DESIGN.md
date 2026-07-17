@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: money
+updated: 2026-06-13
+supersedes: []
+read_when: building the "What the money buys" category lens on the Public Payments page, or checking which supporting gold views already exist
+key: SPEC|LIVE|money
+---
+
 # Public-Payments "Category Lens" — Design Spec (preserve precisely)
 
 **Status:** design / not built (the supporting **gold views are already built & tested**; the UI is not).

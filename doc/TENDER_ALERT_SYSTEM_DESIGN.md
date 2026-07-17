@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: procurement
+updated: 2026-06-28
+supersedes: []
+read_when: building the tender-alert email / bid-intelligence notification system (Phase 5, owner-gated)
+key: SPEC|LIVE|procurement
+---
+
 # Tender-Alert & Bid-Intelligence Email System — Design
 
 **Date:** 2026-06-28

@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: procurement
+updated: 2026-06-11
+supersedes: []
+read_when: looking for validated derived-signal ideas for the procurement module, ranked by story value x coverage x cost
+key: RECORD|LIVE|procurement
+---
+
 # Procurement Nuggets — derived-signal audit (2026-06-11)
 
 Every candidate signal below was validated with live DuckDB queries against the

@@ -284,6 +284,12 @@ CHAINS: list[tuple[str, str]] = [
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.
     ("freshness", "tools/check_freshness.py"),
+    # fact_cards runs after freshness: rebuilds data/_meta/fact_cards.json — the machine-readable
+    # metadata index (schema/rows/year-span/grain/never-sum) every silver+gold parquet, served by
+    # the MCP describe_dataset/list_datasets tools so an agent never scans a parquet to learn its
+    # shape. Reads the parquet FOOTERS + freshness (just written) + the curated fact_grain.csv
+    # seed. Pure read of data; must run AFTER any fact is rebuilt or its row count goes stale.
+    ("fact_cards", "tools/build_fact_cards.py"),
     # source_health runs last: reads the in-code source registry + bronze and
     # writes data/_meta/source_health.json (manual-source staleness now; listing
     # reachability when DAIL_CHECK_LINKS=1). Monitoring only — always exits 0 (a
@@ -353,6 +359,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "derelict_sites": "DHLGH Derelict Sites annual return: per-LA levied/collected/outstanding -> gold (cached XLSX, reconciled)",
     "planning_appeal_outcomes": "council vs An Coimisiún Pleanála appeal decisions -> silver ABP-overturn metric (ArcGIS + committed planning silver)",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
+    "fact_cards": "metadata index (schema/rows/grain/never-sum) of every parquet -> data/_meta/fact_cards.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
     "output_regressions": "completeness guard: gold row/column drop vs baseline -> data/_meta/output_regressions.json",
     "extraction_quality": "match-rate guard: coverage-JSON matched/total ratio drop vs baseline (pilot: judiciary_diary_link, entity_xref) -> data/_meta/extraction_quality_regressions.json",

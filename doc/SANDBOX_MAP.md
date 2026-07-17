@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: infra
+updated: 2026-07-16
+supersedes: []
+read_when: before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first
+key: CONTEXT|LIVE|infra
+---
+
 # pipeline_sandbox — what's load-bearing, what's dead, how to touch it safely
 
 `pipeline_sandbox/` is **not** a graveyard. It is half throwaway probes and half

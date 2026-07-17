@@ -136,7 +136,6 @@ from data_access.lobbying_data import (
     fetch_topic_returns,
     fetch_topic_summary,
 )
-from shared_css import inject_css
 from ui.avatars import avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
@@ -149,7 +148,7 @@ from ui.components import (
     filter_bar,
     hero_banner,
     hide_sidebar,
-    page_error_boundary,
+    dt_page,
     pagination_controls,
     period_year_pills as _year_pills,
     pill,
@@ -167,6 +166,7 @@ from ui.entity_links import (
     source_link_html,
 )
 from ui.export_controls import export_button
+from ui.format import eur, fmt_month
 from ui.source_links import render_source_links
 
 
@@ -184,16 +184,8 @@ def _p(n: int, singular: str, plural: str | None = None) -> str:
     return f"{n:,} {word}"
 
 
-def _fmt_period(value: object) -> str:
-    """Friendly month-year format for ISO date / period strings.
-    `2025-09-01` → `Sep 2025`; `2025-09` → `Sep 2025`; falsy → '—'.
-    """
-    if value is None or value == "" or value == "None":
-        return "—"
-    try:
-        return pd.to_datetime(value).strftime("%b %Y")
-    except Exception:
-        return str(value)
+# Canonical month-year format (ui.format): `2025-09-01`/`2025-09` → `Sep 2025`; falsy → '—'.
+_fmt_period = fmt_month
 
 
 from ui.source_pdfs import provenance_expander
@@ -879,17 +871,8 @@ def _render_org_index(summary: pd.DataFrame) -> None:
     _provenance_footer(summary)
 
 
-def _eur(v: float) -> str:
-    """Compact euro label: €1.2m / €840k / €120."""
-    try:
-        v = float(v)
-    except (TypeError, ValueError):
-        return "—"
-    if abs(v) >= 1e6:
-        return f"€{v / 1e6:,.1f}m"
-    if abs(v) >= 1e3:
-        return f"€{v / 1e3:,.0f}k"
-    return f"€{v:,.0f}"
+# Canonical formatter (ui.format, 2026-07 consolidation): €1.2m / €840k / €120.
+_eur = eur
 
 
 def _render_charity_finances(org_row: pd.Series) -> None:
@@ -2193,10 +2176,9 @@ def render_member_lobbying(
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 
-@page_error_boundary
+@dt_page
 def lobbying_poc_page() -> None:
     _init()
-    inject_css()
 
     qp = st.query_params
     # Sidebar→filter-bar migration: the search/jump moved into a main-panel

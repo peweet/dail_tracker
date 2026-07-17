@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: procurement
+updated: 2026-07-08
+supersedes: []
+read_when: checking current verification status (CONFIRMED-LIVE/UNVERIFIED/STALE) before quoting a procurement/payments money figure
+key: RECORD|LIVE|procurement
+---
+
 # Procurement / Money Data-Value Register
 
 *Generated 2026-07-08 by a scoped Fable discovery pass. Scope: purchase-order / public-body

@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: sources
+updated: 2026-07-17
+supersedes: []
+read_when: checking whether a data source is actually implemented/API-exposed before claiming it exists or is built
+key: CONTEXT|LIVE|sources
+---
+
 # SOURCES.md — implemented source catalogue
 
 What Dáil Tracker actually ingests, links, and serves — derived from the

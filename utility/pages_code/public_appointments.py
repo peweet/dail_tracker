@@ -39,13 +39,12 @@ from data_access.appointments_data import (
     fetch_stateboards_roster,
 )
 from data_access.freshness_data import freshness_line
-from shared_css import inject_css
 from ui.components import (
     back_button,
+    dt_page,
     empty_state,
     fmt_civic_date as _fmt_date,
     hero_banner,
-    hide_sidebar,
     paginate,
     pagination_controls,
     text_search_mask,
@@ -1262,9 +1261,8 @@ def _render_stateboards_tab(roster: pd.DataFrame, boards: pd.DataFrame) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 # Entry point
 # ──────────────────────────────────────────────────────────────────────────────
+@dt_page
 def public_appointments_page() -> None:
-    inject_css()
-    hide_sidebar()
     _inject_pa_css()
 
     df = load_appointments()

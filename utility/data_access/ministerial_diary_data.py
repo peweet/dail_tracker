@@ -51,3 +51,33 @@ def fetch_minister_briefs() -> pd.DataFrame:
     """Incoming-minister BRIEF corpus — per-department stated goals / priorities / machinery-of-
     government changes (the agenda layer that pairs with the diaries). Display-only."""
     return _q.minister_briefs(get_diary_conn()).data
+
+
+# ── Period-grain rollups (the page's Year/Month filter becomes a WHERE clause) ─────────────
+# year=None → whole corpus; month=None → whole year. The rollups are precomputed in the
+# ministerial_diary_zz_* views at all three grains, so no pandas re-aggregation happens here
+# or in the page.
+
+
+@st.cache_data(ttl=600)
+def fetch_minister_rollup(year: int | None = None, month: int | None = None) -> pd.DataFrame:
+    """Per-minister meetings / date span / portfolio (comma-joined depts) for one period."""
+    return _q.minister_rollup(get_diary_conn(), year, month).data
+
+
+@st.cache_data(ttl=600)
+def fetch_dept_rollup(year: int | None = None, month: int | None = None) -> pd.DataFrame:
+    """Per-department meetings + distinct named ministers for one period."""
+    return _q.dept_rollup(get_diary_conn(), year, month).data
+
+
+@st.cache_data(ttl=600)
+def fetch_dept_minister_rollup(dept: str, year: int | None = None, month: int | None = None) -> pd.DataFrame:
+    """One department's ministers by meetings logged for one period (depts = full portfolio)."""
+    return _q.dept_minister_rollup(get_diary_conn(), dept, year, month).data
+
+
+@st.cache_data(ttl=600)
+def fetch_top_orgs(entity_kind: str, year: int | None = None, month: int | None = None, top: int = 3) -> pd.DataFrame:
+    """Most-named organisations per minister/department ('Most-met' card context) for one period."""
+    return _q.top_orgs(get_diary_conn(), entity_kind, year, month, top=top).data

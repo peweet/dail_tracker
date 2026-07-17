@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: members
+updated: 2026-06-22
+supersedes: []
+read_when: when working on the attendance/participation feature, or needing to know what shipped in the 2026-06-22 TAA-to-participation redesign
+key: RECORD|LIVE|members
+---
+
 # Attendance → Participation & Absence: redesign
 
 **Status: BUILT & SHIPPED 2026-06-22.** Full vertical slice live and tested

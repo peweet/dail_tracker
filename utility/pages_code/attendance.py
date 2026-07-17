@@ -27,7 +27,6 @@ from html import escape as _h
 import pandas as pd
 import streamlit as st
 
-from shared_css import inject_css
 from ui.components import (
     clickable_card_link,
     empty_state,
@@ -37,7 +36,7 @@ from ui.components import (
     hide_sidebar,
     member_jump_panel,
     member_moved_callout,
-    page_error_boundary,
+    dt_page,
     stat_strip,
     year_selector,
 )
@@ -288,10 +287,8 @@ def _render_divergence(df: pd.DataFrame) -> None:
 # ── page ──────────────────────────────────────────────────────────────────────
 
 
-@page_error_boundary
+@dt_page
 def attendance_page() -> None:
-    inject_css()
-
     try:
         ready = _views_ready()
     except Exception as exc:  # noqa: BLE001

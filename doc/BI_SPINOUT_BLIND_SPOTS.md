@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: commercial
+updated: 2026-07-09
+supersedes: []
+read_when: sizing the BI spinout market/TAM or unit economics, or picking up the unfinished competitive-landscape section before a pricing decision
+key: RECORD|LIVE|commercial
+---
+
 # BI Spinout — Blind-Spot Analyses
 
 **Date:** 2026-07-09 · **Status:** fills the four blind spots flagged in [doc/BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) §6.

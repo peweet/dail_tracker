@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: sources
+updated: 2026-06-27
+supersedes: []
+read_when: before re-running or re-scoping OCR jobs, or checking what OCR/GPU extraction work has already been done (SIPO, ministerial diaries, council minutes)
+key: RECORD|LIVE|sources
+---
+
 # OCR backlog run + extraction assessment — 2026-06-26
 
 Autonomous run of the remaining OCR queues, on **GPU, one process at a time**. Goal was
