@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-07-17T10:11:44+00:00",
+  "generated_utc": "2026-07-17T15:20:30+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 200,
   "facts": {
@@ -35,10 +35,10 @@
         "read by procurement/procurement_afs_national.sql"
       ],
       "size_bytes": 6097,
-      "grain": "one row per (year",
-      "money_grain": "division) national",
-      "never_sum_with": "accounts",
-      "purpose": "awarded|payments|budget"
+      "grain": "one row per (year,division) national",
+      "money_grain": "accounts",
+      "never_sum_with": "awarded|payments|budget",
+      "purpose": "National amalgamated council accounts (all 31 summed) \u2014 never mix with per-LA AFS"
     },
     "attendance_by_td_year": {
       "file": "data/gold/parquet/attendance_by_td_year.parquet",
@@ -3575,6 +3575,9 @@
         2025,
         2025
       ],
+      "read_by": [
+        "read by housing/housing_construction_pipeline.sql"
+      ],
       "size_bytes": 6897
     },
     "hse_tusla_payments_fact": {
@@ -4532,10 +4535,10 @@
         "read by procurement/procurement_afs_capital_by_division.sql, procurement/procurement_afs_capital_by_year.sql, procurement/procurement_council_summary.sql"
       ],
       "size_bytes": 27183,
-      "grain": "one row per (council",
-      "money_grain": "year",
-      "never_sum_with": "division)",
-      "purpose": "accounts"
+      "grain": "one row per (council,year,division)",
+      "money_grain": "accounts",
+      "never_sum_with": "awarded|payments|budget",
+      "purpose": "Audited council CAPITAL accounts \u2014 distinct from revenue; never sum the two"
     },
     "la_afs_divisions": {
       "file": "data/silver/parquet/la_afs_divisions.parquet",
@@ -4587,10 +4590,10 @@
         "read by procurement/procurement_afs_by_division.sql, procurement/procurement_afs_total_by_year.sql, procurement/procurement_afs_vs_po_coverage.sql\u2026"
       ],
       "size_bytes": 32712,
-      "grain": "one row per (council",
-      "money_grain": "year",
-      "never_sum_with": "division)",
-      "purpose": "accounts"
+      "grain": "one row per (council,year,division)",
+      "money_grain": "accounts",
+      "never_sum_with": "awarded|payments|budget",
+      "purpose": "Audited council revenue accounts (outturn) by service division"
     },
     "la_budget_divisions": {
       "file": "data/silver/parquet/la_budget_divisions.parquet",
@@ -4624,10 +4627,10 @@
         "read by procurement/procurement_la_budget_divisions.sql, procurement/procurement_la_budget_vs_actual.sql"
       ],
       "size_bytes": 20397,
-      "grain": "one row per (council",
-      "money_grain": "year",
-      "never_sum_with": "division)",
-      "purpose": "budget"
+      "grain": "one row per (council,year,division)",
+      "money_grain": "budget",
+      "never_sum_with": "awarded|payments|accounts",
+      "purpose": "ADOPTED council budgets (a PLAN) \u2014 the 4th money grain, never union with actuals"
     },
     "la_lgas_audit_reports": {
       "file": "data/silver/parquet/la_lgas_audit_reports.parquet",
