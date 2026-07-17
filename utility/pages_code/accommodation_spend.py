@@ -26,6 +26,7 @@ Hard rails (see sql_views/housing/*.sql and doc/archive/REVIEW_SYNTHESIS.md):
 
 from __future__ import annotations
 
+import base64
 import html
 import sys
 from pathlib import Path
@@ -481,20 +482,19 @@ _REALITY_STYLE = {
 
 # A muted, low-opacity walking-figure outline — humanises the number without othering,
 # and avoids any photograph of an identifiable person. Decorative only.
-# Delivered as a URL-encoded SVG data-URI <img>: Streamlit's st.html sanitiser strips
-# inline <svg>, but keeps an <img> whose src is a data: URI.
-_SILHOUETTE_SVG = (
-    "data:image/svg+xml,"
-    "%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='46'%20height='72'%20"
-    "viewBox='0%200%2046%2072'%3E"
-    "%3Ccircle%20cx='24'%20cy='9'%20r='7'%20fill='none'%20stroke='%232c4048'%20stroke-width='2.2'/%3E"
-    "%3Cpath%20d='M24%2017%20L21%2039%20M24%2024%20L36%2031%20M24%2022%20L11%2030%20"
-    "M21%2039%20L12%2062%20M21%2039%20L31%2060'%20fill='none'%20stroke='%232c4048'%20"
-    "stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E"
+# st.html strips inline <svg>, so embed as a base64 data-URI <img> — the same technique
+# the choropleths use (see local_government.py / constituency.py).
+_SILHOUETTE_RAW = (
+    "<svg xmlns='http://www.w3.org/2000/svg' width='46' height='72' viewBox='0 0 46 72'>"
+    "<circle cx='24' cy='9' r='7' fill='none' stroke='#2c4048' stroke-width='2.2'/>"
+    "<path d='M24 17 L21 39 M24 24 L36 31 M24 22 L11 30 M21 39 L12 62 M21 39 L31 60' "
+    "fill='none' stroke='#2c4048' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/>"
+    "</svg>"
 )
 _SILHOUETTE = (
-    f'<img src="{_SILHOUETTE_SVG}" width="46" height="72" alt="" '
-    'style="opacity:0.34;flex:none"/>'
+    '<img src="data:image/svg+xml;base64,'
+    + base64.b64encode(_SILHOUETTE_RAW.encode("utf-8")).decode("ascii")
+    + '" width="46" height="72" alt="" style="opacity:0.34;flex:none"/>'
 )
 
 

@@ -1,6 +1,9 @@
 import concurrent.futures
 import logging
+import subprocess
 import time
+from collections.abc import Callable
+from urllib.parse import quote
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -208,6 +211,113 @@ def fetch_all(urls: list[str], max_workers: int = 5) -> tuple[list[dict], int, i
 
     logger.info(f"Finished fetch_all | results={len(results)} | failures={failures} | downloaded={total_bytes:,} bytes")
     return results, total_bytes, failures
+
+
+# ---------------------------------------------------------------------------
+# Scraper-grade download path (2026-07 utility consolidation)
+#
+# fetch_json/fetch_text above serve the Oireachtas JSON/AKN case: trusted
+# hosts, raise-on-failure. The file-downloading extractors (council PDFs,
+# gov.ie CSVs, revenue.ie tables) need a different contract — polite headers,
+# best-effort bytes-or-None, and a curl fallback, because several gov CDNs/
+# WAFs reject python-requests' TLS fingerprint or its UA while serving curl
+# or a browser UA fine (gov.ie GOVIE_HEADERS precedent; Meath/Sligo council
+# TLS quirks; revenue.ie on some networks). Before this existed ~11 extractors
+# hand-rolled the same requests→curl ladder with ~28 divergent UA literals.
+# New scrapers should call fetch_bytes() instead of rolling their own.
+# ---------------------------------------------------------------------------
+
+# Honest-contact research UA (the default): most publishers serve it fine and
+# it identifies the project. browser=True is the escape hatch for WAFs that
+# block anything non-browser (Sligo) — prefer the honest UA where it works.
+RESEARCH_UA = "Mozilla/5.0 (dail-tracker research; contact: p.glynn18@gmail.com)"
+BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+
+# some publishers emit hrefs with raw spaces — requests/curl reject them as malformed;
+# '%' stays in the safe set so already-encoded hrefs don't double-encode.
+_URL_QUOTE_SAFE = "!#$%&'()*+,/:;=?@[]~"
+
+
+def polite_headers(*, browser: bool = False, extra: dict[str, str] | None = None) -> dict[str, str]:
+    """Canonical request headers for scrapers — one UA instead of 28 literals.
+
+    browser=True swaps in a real-browser UA for hosts whose WAF blocks the
+    research UA. `extra` merges additional headers (Accept, Accept-Encoding…).
+    """
+    headers = {"User-Agent": BROWSER_UA if browser else RESEARCH_UA}
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def _curl_bytes(url: str, user_agent: str, timeout: int) -> bytes | None:
+    """Last-resort fetch via the curl binary. -k tolerates council cert quirks
+    (Meath/Sligo fail Python's TLS stack but answer curl fine — NOT a server
+    block); --compressed lets curl negotiate only encodings it can decode
+    (avoids the gov.ie brotli trap seen on the diary refresh)."""
+    try:
+        p = subprocess.run(
+            ["curl", "-sS", "-k", "-L", "--compressed", "--max-time", str(timeout), "-A", user_agent, url],
+            capture_output=True,
+            timeout=timeout + 30,
+        )
+        return p.stdout if p.returncode == 0 and p.stdout else None
+    except Exception:
+        return None
+
+
+def fetch_bytes(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: int = 90,
+    curl_fallback: bool = True,
+    validate: Callable[[bytes], bool] | None = None,
+) -> bytes | None:
+    """Best-effort file download: requests (shared session + retry) → curl.
+
+    Contract differs from fetch_json/fetch_text deliberately: returns bytes or
+    None, NEVER raises — harvest loops over hundreds of publisher files treat a
+    miss as a coverage stat, not an abort.
+
+    `validate` (bytes -> bool, e.g. ``lambda b: b[:4] == b"%PDF"``) guards
+    against WAF interstitials that return HTTP 200 HTML instead of the asked-for
+    asset: a response failing it is treated as a miss, which also triggers the
+    curl fallback. Transient faults (429/5xx/timeouts) retry with backoff on the
+    requests leg; permanent 4xx (WAF 403 is the canonical case) fall straight
+    through to curl.
+    """
+    headers = headers if headers is not None else polite_headers()
+    url = quote(url, safe=_URL_QUOTE_SAFE)
+
+    body: bytes | None = None
+    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+        try:
+            response = session.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+            if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
+                _sleep_backoff(attempt)
+                continue
+            response.raise_for_status()
+            body = response.content
+            break
+        except _RETRYABLE_EXC:
+            if attempt < RETRY_MAX_ATTEMPTS:
+                _sleep_backoff(attempt)
+                continue
+            break  # transient budget exhausted → curl leg
+        except Exception:
+            break  # permanent failure (4xx, TLS handshake…) → curl leg
+
+    if body and (validate is None or validate(body)):
+        return body
+
+    if not curl_fallback:
+        return None
+    logger.warning("fetch_bytes %s: requests leg failed%s, trying curl", url, " validation" if body else "")
+    body = _curl_bytes(url, headers.get("User-Agent", RESEARCH_UA), timeout)
+    if body and (validate is None or validate(body)):
+        return body
+    return None
 
 
 if __name__ == "__main__":
