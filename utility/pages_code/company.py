@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import sys
 import urllib.parse
+from functools import partial
 from pathlib import Path
 
 import pandas as pd
@@ -39,10 +40,7 @@ from pages_code.procurement import (
     _awards_word,
     _card,
     _cro_pill,
-    _esc,
-    _eur,
     _lobby_pill,
-    _n,
     _render_epa_credentials_panel,
     _render_paid_supplier_panel,
     _render_supplier_call_offs_panel,
@@ -50,7 +48,6 @@ from pages_code.procurement import (
     _render_supplier_relationships_panel,
     _render_ted_supplier_panel,
     _supplier_awards_section,
-    _truthy,
     _value_pill,
 )
 from ui.components import (
@@ -65,6 +62,12 @@ from ui.components import (
     text_search_mask,
 )
 from ui.entity_links import corporate_notices_url, entity_cta_html, lobbying_org_url
+from ui.format import esc as _esc
+from ui.format import eur, to_int as _n, truthy as _truthy
+
+# Awards/payment amounts dash non-positive values ("€0" = not disclosed, not zero) —
+# preserves procurement._eur behaviour now that this page owns the alias directly.
+_eur = partial(eur, dash_nonpositive=True)
 
 _LAND_PAGE = 24  # landing cards per page (multiple of 3 for the pr-grid)
 

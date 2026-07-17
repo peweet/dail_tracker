@@ -1,0 +1,99 @@
+# Hand-curated SEMANTIC contract for silver/gold money facts.
+#
+# Merged into data/_meta/fact_cards.json by tools/build_fact_cards.py and served to
+# agents via the `describe_dataset` / `list_datasets` MCP tools. This is the
+# deterministic semantic layer over the data — the 3-money-grain never-sum rule,
+# encoded as data an agent reads, not prose it might miss.
+#
+# ONLY semantic fields belong here. Mechanical fields (columns, column_types, rows,
+# size_bytes, year_span, read_by) are auto-derived from the parquet footer — never
+# hand-author them; doing so reintroduces drift.
+#
+# Replaces the legacy fact_grain.csv, whose unquoted commas in grain strings like
+# "(council,year,division)" corrupted 4 cards. YAML plain scalars hold commas, €,
+# and em-dashes without quoting, and this format extends to join_key/caveat later.
+#
+# CI guard: `python tools/build_fact_cards.py --check` fails if any entry here names
+# a fact with no matching parquet (contract drift).
+#
+# Fields:
+#   grain          one row per WHAT — the unit of a row
+#   money_grain    the money class: awarded | payments | budget | accounts |
+#                  allowance | political_finance  (never sum across classes)
+#   never_sum_with pipe-joined list of money_grains this must NOT be summed/unioned with
+#   purpose        one line an agent can quote back
+
+procurement_awards:
+  grain: "one row per awarded contract/lot"
+  money_grain: awarded
+  never_sum_with: payments|budget|ted
+  purpose: "Contract AWARDS from eTenders/OGP — the ceiling awarded, NOT cash paid"
+
+procurement_payments_fact:
+  grain: "one row per disclosed payment/PO line"
+  money_grain: payments
+  never_sum_with: awarded|budget|ted
+  purpose: "Actual purchase-order/payment lines >€20k from public bodies + councils"
+
+ted_ie_awards:
+  grain: "one row per TED award notice"
+  money_grain: ted
+  never_sum_with: awarded|payments|budget
+  purpose: "EU TED contract-award notices — OVERLAPS procurement_awards, never sum the two"
+
+la_budget_divisions:
+  grain: "one row per (council,year,division)"
+  money_grain: budget
+  never_sum_with: awarded|payments|accounts
+  purpose: "ADOPTED council budgets (a PLAN) — the 4th money grain, never union with actuals"
+
+la_afs_divisions:
+  grain: "one row per (council,year,division)"
+  money_grain: accounts
+  never_sum_with: awarded|payments|budget
+  purpose: "Audited council revenue accounts (outturn) by service division"
+
+la_afs_capital_divisions:
+  grain: "one row per (council,year,division)"
+  money_grain: accounts
+  never_sum_with: awarded|payments|budget
+  purpose: "Audited council CAPITAL accounts — distinct from revenue; never sum the two"
+
+afs_amalgamated_divisions:
+  grain: "one row per (year,division) national"
+  money_grain: accounts
+  never_sum_with: awarded|payments|budget
+  purpose: "National amalgamated council accounts (all 31 summed) — never mix with per-LA AFS"
+
+public_payments_fact:
+  grain: "one row per public-body payment line"
+  money_grain: payments
+  never_sum_with: awarded|budget|ted
+  purpose: "Central/semi-state body payments — same PAYMENTS grain as procurement_payments_fact"
+
+payments_full_psa:
+  grain: "one row per PSA payment line"
+  money_grain: payments
+  never_sum_with: awarded|budget|ted
+  purpose: "Full public-service-agreement payments"
+
+# DRIFT (2026-07-17): no `la_councillor_payments` parquet exists in silver/ or gold/
+# (the --check drift guard flagged this — it was a dead entry in the legacy CSV too).
+# Semantics preserved here; re-enable when the fact lands under this exact stem.
+# la_councillor_payments:
+#   grain: "one row per (councillor,period,category)"
+#   money_grain: allowance
+#   never_sum_with: awarded|payments|budget
+#   purpose: "s.142 register payments to councillors — an allowance grain, never public spend"
+
+sipo_donations:
+  grain: "one row per declared donation"
+  money_grain: political_finance
+  never_sum_with: expenses|awarded|payments
+  purpose: "SIPO political donations — never sum with election expenses"
+
+sipo_expenses_fact:
+  grain: "one row per election-expense line"
+  money_grain: political_finance
+  never_sum_with: donations|awarded|payments
+  purpose: "SIPO election expenses — never sum with donations"

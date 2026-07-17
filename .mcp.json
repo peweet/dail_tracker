@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "dail-tracker": {
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["${workspaceFolder}/mcp_server/server.py"],
+      "env": { "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" }
+    }
+  }
+}

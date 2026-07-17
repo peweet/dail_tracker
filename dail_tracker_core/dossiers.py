@@ -62,6 +62,7 @@ def list_members(
     party: str | None = None,
     constituency: str | None = None,
     fuzzy_name: str | None = None,
+    dail: str | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[list[dict[str, Any]], int, bool]:
@@ -69,12 +70,19 @@ def list_members(
 
     Roster selection (exact house/party/constituency, substring name) on a ~176-row
     frame — selection, not a metric, so it stays here rather than spawning a view.
+    ``dail`` keeps only members who served in that Dáil/Seanad term (e.g. '33'): the
+    term split happens in SQL (moq.member_codes_for_dail) and the filter here is a
+    plain isin() on the returned codes — the browse page's exact pattern.
     """
     df = moq.member_list(conn).data
     if df.empty:
         return [], 0, False
     # .loc[mask] (not df[mask]) keeps the static type a DataFrame for the pandas
     # stubs, so .iloc / .str below type-check without casts.
+    if dail:
+        codes_df = moq.member_codes_for_dail(conn, dail).data
+        codes = set(codes_df["unique_member_code"].tolist()) if not codes_df.empty else set()
+        df = df.loc[df["unique_member_code"].isin(codes)]
     if house:
         df = df.loc[df["house"] == house]
     if party:
@@ -727,6 +735,66 @@ def party_election_spend(conn: duckdb.DuckDBPyConnection, *, party: str | None =
     }
 
 
+# ── SIPO per-candidate GE2024 election expenses (the granular OCR tier) ────────
+# Each individual candidate's Election Expenses Statement down to the Part-5 line
+# items. Same money grain as party_election_spend's candidate tier — still NEVER
+# summed with donations. No donor data exists on these views (they are EXPENSES);
+# every response carries caveats.SIPO_CANDIDATE (OCR verify / incremental / detail
+# is not a vendor list).
+
+_SIPO_CANDIDATE_CAVEAT = caveats.SIPO_CANDIDATE
+
+
+def candidate_election_spend(conn: duckdb.DuckDBPyConnection, *, limit: int = 100) -> dict[str, Any]:
+    """GE2024 per-candidate election-expenses league: the headline totals across all
+    candidates loaded so far, candidates ranked by total spend, and the candidates who
+    filed a statement with no trustworthy total (searchable, NO amount by design —
+    showing a corrupt OCR magnitude would be a fabricated number)."""
+    ranked = sipo.candidate_ranked(conn, limit)
+    if not ranked.ok:
+        return {"error": ranked.unavailable_reason}
+    return {
+        "summary": serialize.first_record(sipo.candidate_totals(conn).data),
+        "candidates": serialize.to_records(ranked.data),
+        "filed_unquantified": serialize.to_records(sipo.candidate_filed_unquantified(conn).data),
+        "caveat": _SIPO_CANDIDATE_CAVEAT,
+    }
+
+
+def candidate_election_detail(conn: duckdb.DuckDBPyConnection, candidate: str) -> dict[str, Any] | None:
+    """One candidate's GE2024 expenses statement (headline + per-category grid + verify
+    flag + the official SIPO PDF link) with the Part-5 line items behind it. None when no
+    loaded statement matches the exact candidate name (OCR is incremental — absence means
+    not-yet-extracted, never a nil return)."""
+    one = sipo.candidate_one(conn, candidate)
+    if not one.ok:
+        return {"error": one.unavailable_reason}
+    statement = serialize.first_record(one.data)
+    if statement is None:
+        return None
+    return {
+        "candidate": candidate,
+        "statement": statement,
+        "line_items": serialize.to_records(sipo.candidate_line_items(conn, candidate).data),
+        "caveat": _SIPO_CANDIDATE_CAVEAT,
+    }
+
+
+def candidate_election_breakdown(conn: duckdb.DuckDBPyConnection, *, top: int = 25) -> dict[str, Any]:
+    """Where GE2024 candidate money went, across all loaded candidates: the 8 statutory
+    categories (5A–5H), the per-party rollup, and the top spend-detail lines (a MIX of
+    suppliers and item descriptions — never a clean vendor list)."""
+    cats = sipo.candidate_by_category(conn)
+    if not cats.ok:
+        return {"error": cats.unavailable_reason}
+    return {
+        "by_category": serialize.to_records(cats.data),
+        "by_party": serialize.to_records(sipo.candidate_by_party(conn).data),
+        "top_details": serialize.to_records(sipo.candidate_top_details(conn, top).data),
+        "caveat": _SIPO_CANDIDATE_CAVEAT,
+    }
+
+
 # ── Judiciary (the bench + court-system health) ────────────────────────────────
 # Appointment / office / rank / assignment only — NO performance, conduct or ranking
 # data exists by design. courts_health names NO judge (system-capacity signals only).
@@ -986,6 +1054,66 @@ def corporate_receivers(conn: duckdb.DuckDBPyConnection, *, limit: int = 25) -> 
         "notices_by_year": serialize.to_records(corp.receiver_year_counts(conn).data),
         "caveat": _CORP_RECEIVER_CAVEAT,
     }
+
+
+def corporate_firm_notices(
+    conn: duckdb.DuckDBPyConnection, firm: str, *, limit: int = 50
+) -> dict[str, Any] | None:
+    """Every notice naming ONE receiver / insolvency firm. Curated firms match on the
+    precomputed receiver_firms tag column; a free-text firm falls back to a word-bounded
+    regexp over the notice text (both run in DuckDB — see corp.firm_notices). Matching is
+    notice PRESENCE, not a confirmed appointment. None when no notice names the firm.
+    The bulky raw_text/title scratch columns are dropped, as on /corporate/notices."""
+    res = corp.firm_notices(conn, firm)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    rows = serialize.to_records(res.data, drop_cols=["raw_text", "title"])[:limit]
+    if not rows:
+        return None
+    return {
+        "firm": firm,
+        "count": len(rows),
+        "notices": rows,
+        "match_note": caveats.CORP_FIRM_MATCH,
+        "caveat": _CORP_NOTICE_CAVEAT,
+    }
+
+
+def corporate_firm_fund_counts(conn: duckdb.DuckDBPyConnection, firm: str) -> dict[str, Any]:
+    """The fund↔firm connection for one curated firm: appointing parent funds/banks co-named
+    on the firm's notices — n_recv (receivership-shaped notices only) and n_all (every
+    notice). Precomputed in v_corporate_firm_fund_counts; free-text firms are absent by
+    construction, so an empty list means the firm is not in the curated tag set."""
+    res = corp.firm_fund_counts(conn, firm)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {
+        "firm": firm,
+        "funds": serialize.to_records(res.data),
+        "note": "curated firms only — free-text firms are absent by construction",
+        "match_note": caveats.CORP_FIRM_MATCH,
+        "caveat": _CORP_RECEIVER_CAVEAT,
+    }
+
+
+def corporate_brand_aliases(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """The curated brand → parent-fund → fund-type alias map behind the receiver-appointer
+    tags, rolled up to one row per (parent_fund, fund_type) with the brands joined — the
+    methodology-expander table, precomputed in v_corporate_brand_alias_groups."""
+    res = corp.brand_alias_groups(conn)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {"groups": serialize.to_records(res.data), "caveat": _CORP_RECEIVER_CAVEAT}
+
+
+def corporate_isif_portfolio(conn: duckdb.DuckDBPyConnection, *, limit: int | None = None) -> dict[str, Any]:
+    """ISIF (Ireland Strategic Investment Fund) sovereign-fund investment commitments — the
+    State putting money INTO companies, one row per investee, newest first. Carries the
+    not-summable caveat (mixed currencies, 'up to' ceilings)."""
+    res = corp.isif_portfolio(conn, limit=limit)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {"commitments": serialize.to_records(res.data), "caveat": caveats.CORP_ISIF}
 
 
 # ── Ministerial diaries (who ministers meet) ───────────────────────────────────

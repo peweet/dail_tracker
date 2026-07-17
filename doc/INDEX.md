@@ -3,7 +3,7 @@
 
 # doc/ index
 
-54 docs · ~303.5k tokens total · 50 LIVE · 3 superseded/stale · 0 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+55 docs · ~307.3k tokens total · 50 LIVE · 3 superseded/stale · 0 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -19,7 +19,7 @@
 | [DATA_MAP.md](DATA_MAP.md) | data | 3.8k | 2026-06-04 | scoping any new dataset work — to check its maturity tier and avoid conflating money grains |
 | [JOIN_MAP.md](JOIN_MAP.md) | data | 1.7k | 2026-07-14 | before attempting any cross-register association/join between datasets (ORG name-norm or PERSON anagram key) |
 | [SIPO_OCR_REMAINING_QUEUE.md](SIPO_OCR_REMAINING_QUEUE.md) | elections | 1.0k | 2026-06-26 | before running or resuming a SIPO OCR job (candidate expenses, party national-agent returns) |
-| [AI_CONTEXT_OPTIMISATION_PLAN.md](AI_CONTEXT_OPTIMISATION_PLAN.md) | infra | 3.9k | 2026-07-14 | cutting AI/agent token spend, or adding docs/manifests/MCP tools |
+| [AI_CONTEXT_OPTIMISATION_PLAN.md](AI_CONTEXT_OPTIMISATION_PLAN.md) | infra | 4.8k | 2026-07-14 | cutting AI/agent token spend, or adding docs/manifests/MCP tools |
 | [CI_CD.md](CI_CD.md) | infra | 4.9k | 2026-06-21 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.5k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DATA_DISTRIBUTION_PLAN.md](DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |

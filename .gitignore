@@ -262,6 +262,22 @@ data/gold/
 .agents/
 CLAUDE.md
 
+# === Agent-customization config — committed deliberately (portable, no secrets) ===
+# The blanket *.json rule (top of file) swallows these. They use ${workspaceFolder}
+# and carry NO secrets, so re-include them (last match wins) — versioning the MCP
+# wiring + VS Code prompt files means a fresh clone gets them. See
+# doc/AGENT_CUSTOMIZATION_PLAN.md.
+# NOTE on what stays LOCAL by this repo's convention: the whole .claude/ tree
+# (settings, rules, skills, agents) AND .vscode/settings.json AND CLAUDE.md are
+# ignored above — AI/editor config is local here. The rules under .claude/rules/
+# CANNOT be un-ignored anyway (git won't descend into the pruned .claude/ dir), so
+# they intentionally stay local like CLAUDE.md itself.
+!.vscode/mcp.json
+!.mcp.json
+# portable VS Code prompt files (ported .claude/commands) — no secrets.
+!.github/prompts/
+!.github/prompts/*.md
+
 # Generated logs
 pipeline.log
 *.log

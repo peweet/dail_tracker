@@ -42,10 +42,7 @@ from data_access.procurement_data import (
 from pages_code.procurement import (
     _PAY_FOOT_HTML,
     _card,
-    _coalesce,
     _cro_pill_from,
-    _esc,
-    _n,
     _paid_pill,
     _paid_verb,
     _render_payment_lines,
@@ -61,6 +58,9 @@ from ui.components import (
     hero_banner,
     text_search_mask,
 )
+from ui.format import coalesce as _coalesce
+from ui.format import esc as _esc
+from ui.format import to_int as _n
 from ui.source_pdfs import provenance_expander
 
 # A topical, ready-made starting trail — the question that prompted this page. The publisher

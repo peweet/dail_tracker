@@ -74,6 +74,18 @@ PUBPAY = (
 # ── Lobbying — revolving-door individual (DPO) ────────────────────────────────
 DPO = "Co-occurrence on the public lobbying register only — NOT evidence of improper influence."
 
+# ── SIPO per-candidate GE2024 election expenses (OCR tier) ────────────────────
+# Lifted verbatim from the approved no-inference caveat block in
+# utility/data_access/sipo_candidate_data.py (which mirrors the
+# sql_views/sipo/sipo_candidate_expenses.sql view header).
+SIPO_CANDIDATE = (
+    "OCR-derived from the official scanned returns — rows carry a \"verify vs SIPO PDF\" mark "
+    "(needs_verify); decimal-loss mis-reads are excluded from gold, not guessed. OCR is "
+    "INCREMENTAL — only the candidates extracted so far are loaded. 'detail' is the form's "
+    "free-text \"Details of item\" field — a MIX of supplier names and item descriptions, NOT "
+    "a clean vendor list."
+)
+
 # ── Corporate notices (Iris Oifigiúil gazette) ────────────────────────────────
 CORP_NOTICE = (
     "corporate notices only (no individuals); a wind-up/receivership is a legal-status fact, "
@@ -86,6 +98,16 @@ CORP_REPEAT = (
 CORP_RECEIVER = (
     "whole-corpus rankings (filter-independent, precomputed gold); an appointer/operator named on a "
     "receivership notice is a public-record fact, not a verdict on any company or director"
+)
+# Lifted verbatim from the corporate.firm_notices query docstring: firm matching is by
+# notice text, so a hit is presence on the notice, never a confirmed appointment.
+CORP_FIRM_MATCH = "matching is notice PRESENCE, not a confirmed appointment"
+# Lifted verbatim from the corporate.isif_portfolio query docstring (the State putting
+# money INTO companies — a fourth kind of figure, never summed with any money grain).
+CORP_ISIF = (
+    "NOT summable: amounts are in mixed currencies (EUR/USD), some are 'up to' ceilings, and "
+    "value_safe_to_sum is False on the view. A commitment is a public investment record, not "
+    "evidence of anything else."
 )
 
 # ── Derelict-sites levy enforcement (council-grain) ───────────────────────────

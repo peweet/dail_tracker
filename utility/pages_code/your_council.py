@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import sys
 from collections import Counter, defaultdict
+from functools import partial
 from html import escape as _h
 from pathlib import Path
 from urllib.parse import quote
@@ -43,7 +44,6 @@ from pages_code.local_government import (
 )
 from pages_code.procurement import (
     _council_summary_row,
-    _eur,
     _render_payment_lines,
     _render_payments_publisher_profile,
     _render_payments_supplier_profile,
@@ -59,6 +59,11 @@ from ui.components import (
     party_stripe_html,
     subsection_heading,
 )
+from ui.format import eur
+
+# Council spend headlines dash non-positive amounts ("€0" = not published, not zero) —
+# preserves procurement._eur behaviour now that this page owns the alias directly.
+_eur = partial(eur, dash_nonpositive=True)
 
 _SECTIONS = ["Who runs it", "Your councillors", "Spending"]
 

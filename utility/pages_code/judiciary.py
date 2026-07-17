@@ -82,7 +82,6 @@ pipeline-owned — extractors/judiciary_diary_link.py and the league view's GROU
 from __future__ import annotations
 
 import datetime
-import html
 import re
 import sys
 import urllib.parse
@@ -123,6 +122,7 @@ from ui.components import (
     text_search_mask,
     year_selector,
 )
+from ui.format import esc as _esc
 
 # Court display order — constitutional seniority, the natural reading order.
 _COURT_ORDER = [
@@ -171,12 +171,6 @@ _AUTHORITY = {
     "Minister": ("the Minister for Justice", "other"),
     "Unknown": ("authority not recorded", "other"),
 }
-
-
-def _esc(val) -> str:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return ""
-    return html.escape(str(val))
 
 
 def _html(markup: str) -> None:
