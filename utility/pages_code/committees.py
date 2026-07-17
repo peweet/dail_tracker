@@ -24,7 +24,6 @@ import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from shared_css import inject_css
 from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
@@ -39,7 +38,7 @@ from ui.components import (
     hide_sidebar,
     member_moved_callout,
     member_profile_header,
-    page_error_boundary,
+    dt_page,
     paginate,
     pagination_controls,
     party_colour,
@@ -57,6 +56,7 @@ from data_access.committees_data import (
 from data_access.identity_resolver import resolve_member_code
 from ui.entity_links import member_link_html, member_profile_url
 from ui.export_controls import export_button
+from ui.format import fmt_civic_date
 from ui.table_config import committee_membership_column_config, committee_roster_column_config
 
 from config import COMMITTEE_TYPES
@@ -294,15 +294,9 @@ def _as_list(v) -> list:
         return []
 
 
-def _fmt_meeting_date(raw) -> str:
-    """ISO meeting date → '18 Jun 2026' (falls back to the raw string)."""
-    try:
-        return pd.to_datetime(raw).strftime("%-d %b %Y")
-    except (ValueError, TypeError):
-        try:  # Windows strftime has no %-d
-            return pd.to_datetime(raw).strftime("%#d %b %Y")
-        except (ValueError, TypeError):
-            return str(raw or "—")
+# Canonical civic date (ui.format): ISO meeting date → '18 Jun 2026',
+# platform-independent (no %-d/%#d dance), falls back to the raw string.
+_fmt_meeting_date = fmt_civic_date
 
 
 def _witness_line(orgs: list[str], persons: list[str]) -> str:
@@ -830,9 +824,8 @@ def _provenance(chamber: str) -> None:
 # ── page entry ────────────────────────────────────────────────────────
 
 
-@page_error_boundary
+@dt_page
 def committees_page() -> None:
-    inject_css()
 
     if "comm_chamber" not in st.session_state:
         st.session_state["comm_chamber"] = "Dáil"

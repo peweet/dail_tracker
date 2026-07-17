@@ -52,6 +52,9 @@ from afs_amalgamated_extract import parse_ie  # noqa: E402
 from procurement_la_seed import HREF_RE, fetch_bytes, fetch_text  # noqa: E402
 
 import config  # noqa: E402
+from services.coverage_io import save_coverage  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
+from services.http_engine import polite_headers  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
 CACHE = config.BRONZE_PDF_DIR / "la_afs"
@@ -535,17 +538,8 @@ def select_afs(urls: list[str]) -> str | None:
     return max(urls, key=key)
 
 
-def _browser_curl(url: str) -> bytes | None:
-    """curl with a real-browser UA — some council WAFs (Sligo) block the research UA used by
-    fetch_bytes/_curl but serve a normal browser fine."""
-    with contextlib.suppress(Exception):
-        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-        url = url.replace(" ", "%20")  # curl won't auto-encode a literal space (Sligo) → 404
-        p = subprocess.run(
-            ["curl", "-sS", "-k", "-L", "--max-time", "60", "-A", ua, url], capture_output=True, timeout=90, check=False
-        )
-        return p.stdout if p.returncode == 0 and p.stdout[:4] == b"%PDF" else None
-    return None
+def _is_pdf(b: bytes) -> bool:
+    return b[:4] == b"%PDF"
 
 
 def download(slug: str, url: str, year: int) -> Path | None:
@@ -553,9 +547,11 @@ def download(slug: str, url: str, year: int) -> Path | None:
     if dest.exists() and dest.stat().st_size > 20000:
         return dest
     b = fetch_bytes(url)
-    if not b or b[:4] != b"%PDF":
-        b = _browser_curl(url)  # WAF fallback (e.g. Sligo)
-    if not b or b[:4] != b"%PDF":
+    if not b or not _is_pdf(b):
+        # browser-UA retry — some council WAFs (Sligo) block the research UA but
+        # serve a normal browser fine; the engine handles space-encoding + curl.
+        b = http_fetch_bytes(url, headers=polite_headers(browser=True), timeout=60, validate=_is_pdf)
+    if not b or not _is_pdf(b):
         return None
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(b)
@@ -981,7 +977,7 @@ def main() -> None:
         "(council, year). NEVER reconcile against afs_amalgamated_divisions "
         "(national) or la_payments_fact (cash-PO/payment grain) — different grains.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2, default=str), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(
         f"\n  coverage: {df['council'].n_unique()}/{n_total} councils available; "
         f"{len(unavailable)} flagged ({', '.join(sorted({m['reason_category'] for m in unavailable}))})"

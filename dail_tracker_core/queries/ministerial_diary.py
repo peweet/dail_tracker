@@ -52,6 +52,78 @@ def minister_briefs(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_minister_briefs")
 
 
+# ── Period-grain rollups (the page's Year/Month filter as a WHERE clause) ─────────────────
+#
+# The ministerial_diary_zz_* views precompute every rollup the page renders at three period
+# grains — 'all' (whole corpus), 'year', 'month' — so the retrieval below is WHERE-only and
+# the page never re-aggregates in pandas (logic-firewall audit 2026-07-16).
+
+
+def _period_where(year: int | None, month: int | None) -> tuple[str, list]:
+    """WHERE fragment selecting one period grain of a ministerial_diary_zz_* rollup view."""
+    if year is None:
+        return "period_grain = 'all'", []
+    if month is None:
+        return "period_grain = 'year' AND period_year = ?", [int(year)]
+    return "period_grain = 'month' AND period_year = ? AND period_month = ?", [int(year), int(month)]
+
+
+def minister_rollup(conn: duckdb.DuckDBPyConnection, year: int | None = None, month: int | None = None) -> QueryResult:
+    """Per-minister meeting counts + date span + portfolio for one period grain."""
+    where, params = _period_where(year, month)
+    return _run(
+        conn,
+        "SELECT minister, meetings, first_meeting, last_meeting, depts "
+        f"FROM v_ministerial_diary_minister_period WHERE {where} ORDER BY meetings DESC, minister",
+        params,
+    )
+
+
+def dept_rollup(conn: duckdb.DuckDBPyConnection, year: int | None = None, month: int | None = None) -> QueryResult:
+    """Per-department meeting counts + distinct named ministers for one period grain."""
+    where, params = _period_where(year, month)
+    return _run(
+        conn,
+        "SELECT department, meetings, ministers, first_meeting, last_meeting "
+        f"FROM v_ministerial_diary_dept_period WHERE {where} ORDER BY meetings DESC, department",
+        params,
+    )
+
+
+def dept_minister_rollup(
+    conn: duckdb.DuckDBPyConnection, dept: str, year: int | None = None, month: int | None = None
+) -> QueryResult:
+    """One department's ministers (current + former) by meetings logged, for one period grain.
+    ``depts`` is each minister's FULL portfolio in the period (for the card badges)."""
+    where, params = _period_where(year, month)
+    return _run(
+        conn,
+        "SELECT minister, meetings, first_meeting, last_meeting, depts "
+        f"FROM v_ministerial_diary_dept_minister_period WHERE department = ? AND {where} "
+        "ORDER BY meetings DESC, minister",
+        [dept, *params],
+    )
+
+
+def top_orgs(
+    conn: duckdb.DuckDBPyConnection,
+    entity_kind: str,
+    year: int | None = None,
+    month: int | None = None,
+    top: int = 3,
+) -> QueryResult:
+    """Most-named organisations per minister or per department ('Most-met' card context) for
+    one period grain. entity_kind ∈ {'minister', 'department'}; rnk is precomputed in the view."""
+    kind = entity_kind if entity_kind in {"minister", "department"} else "minister"
+    where, params = _period_where(year, month)
+    return _run(
+        conn,
+        "SELECT entity, organisation, n, rnk FROM v_ministerial_diary_top_orgs "
+        f"WHERE entity_kind = ? AND {where} AND rnk <= ? ORDER BY entity, rnk",
+        [kind, *params, int(top)],
+    )
+
+
 # ── Parameterised retrieval for the MCP/API surface (no Streamlit page to facet) ──────────
 
 

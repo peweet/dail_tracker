@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: local-gov
+updated: 2026-06-20
+supersedes: []
+read_when: when working on local-authority accountability data — CE roster, NOAC collection rates, planning overturn rate, or derelict sites levy
+key: CONTEXT|LIVE|local-gov
+---
+
 # Local Authority Accountability — the unelected executive layer
 
 **Premise.** In Irish local government most power is held not by elected councillors

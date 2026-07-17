@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import json
 import re
 import subprocess
 import sys
@@ -47,6 +46,8 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import config  # noqa: E402
+from services.coverage_io import save_coverage  # noqa: E402
+from services.extract_runner import run_extractor  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
 CACHE = config.BRONZE_PDF_DIR / "la_budgets"
@@ -427,9 +428,9 @@ def main() -> None:
         "summary_delta_pct is the advisory gap vs the publication's own summary gross.",
         "by_year": stats,
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2, default=str), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"  wrote {OUT_PARQUET}\n        {OUT_COV}")
 
 
 if __name__ == "__main__":
-    main()
+    run_extractor(main)

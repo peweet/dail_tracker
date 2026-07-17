@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: infra
+updated: 2026-07-08
+supersedes: []
+read_when: designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture
+key: PLAN|LIVE|infra
+---
+
 # Hybrid unattended-refresh — corrected plan (2026-07)
 
 **Status:** assessment complete, verified against code + an independent (Fable-5) adversarial

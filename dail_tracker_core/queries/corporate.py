@@ -9,6 +9,7 @@ connection with ``connect_with_views(["corporate_*.sql"], swallow_errors=True)``
 from __future__ import annotations
 
 import logging
+import re
 
 import duckdb
 
@@ -25,6 +26,34 @@ def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) 
 def corporate_notices(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Every in-scope corporate notice (personal insolvency excluded upstream)."""
     return _run(conn, "SELECT * FROM v_corporate_notices")
+
+
+def firm_notices(conn: duckdb.DuckDBPyConnection, firm: str) -> QueryResult:
+    """Every notice naming one receiver / insolvency firm (the ?firm= landing).
+
+    Curated firms match on the precomputed ``receiver_firms`` tag column (the
+    same regex tags the operator strip counts with). A free-text firm not in
+    the curated tag set falls back to a literal word-boundary regexp over
+    raw_text — the match itself runs in DuckDB, never in pandas. Matching is
+    notice PRESENCE, not a confirmed appointment (the page copy carries that)."""
+    tagged = _run(conn, "SELECT * FROM v_corporate_notices WHERE list_contains(receiver_firms, ?)", [firm])
+    if tagged.ok and not tagged.data.empty:
+        return tagged
+    pattern = r"\b" + re.escape(firm) + r"\b"  # literal firm string, word-bounded
+    return _run(conn, "SELECT * FROM v_corporate_notices WHERE regexp_matches(COALESCE(raw_text, ''), ?)", [pattern])
+
+
+def firm_fund_counts(conn: duckdb.DuckDBPyConnection, firm: str) -> QueryResult:
+    """The fund↔firm connection for one curated firm: appointing parent funds/banks
+    co-named on the firm's notices — n_recv (receivership-shaped only, the page's
+    primary series) and n_all (every notice, the fallback). Precomputed in
+    v_corporate_firm_fund_counts; free-text firms are absent by construction."""
+    return _run(
+        conn,
+        "SELECT parent, n_recv, n_all FROM v_corporate_firm_fund_counts"
+        " WHERE firm = ? ORDER BY n_recv DESC, n_all DESC, parent",
+        [firm],
+    )
 
 
 def corporate_notices_for_company(conn: duckdb.DuckDBPyConnection, company_num) -> QueryResult:
@@ -74,6 +103,16 @@ def cbi_enforcement(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 def brand_aliases(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Brand -> parent_fund -> fund_type curated alias map."""
     return _run(conn, "SELECT * FROM v_corporate_brand_aliases")
+
+
+def brand_alias_groups(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """The methodology-expander table: the curated alias map rolled up to one row
+    per (parent_fund, fund_type) with brands joined — precomputed in
+    v_corporate_brand_alias_groups (graduated out of the page's groupby)."""
+    return _run(
+        conn,
+        "SELECT parent_fund, fund_type, brands, notes_concat FROM v_corporate_brand_alias_groups",
+    )
 
 
 def isif_portfolio(conn: duckdb.DuckDBPyConnection, *, limit: int | None = None) -> QueryResult:

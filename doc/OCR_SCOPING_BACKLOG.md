@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: sources
+updated: 2026-07-13
+supersedes: []
+read_when: before scoping a new OCR job, or deciding whether a scanned-only source is worth the OCR cost
+key: PLAN|LIVE|sources
+---
+
 # OCR scoping backlog — scanned sources awaiting a go/no-go
 
 Candidate scanned-only sources that *would* need OCR to extract. OCR runs **off-box only**

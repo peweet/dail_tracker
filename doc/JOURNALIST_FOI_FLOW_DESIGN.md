@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: sources
+updated: 2026-06-22
+supersedes: []
+read_when: designing or explaining the journalist investigation-to-FOI-request flow that joins Dáil Tracker spend data with publicinformation.ie's FOI log
+key: SPEC|LIVE|sources
+---
+
 # Design doc — Journalist investigation → FOI request, on a combined spend + FOI-log dataset
 
 **Audience:** gingertechie (publicinformation.ie) — viability assessment for a partnership.

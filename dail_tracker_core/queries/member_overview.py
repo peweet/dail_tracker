@@ -62,6 +62,18 @@ def member_list_all(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
+def member_codes_for_dail(conn: duckdb.DuckDBPyConnection, dail: str) -> QueryResult:
+    """Member codes who served in one Dáil/Seanad term. Splits the view's
+    comma-list ``dails_served`` ('32,33,34') in SQL so the browse page's term
+    filter is a plain isin() on the returned codes — no string parsing in the UI."""
+    return _run(
+        conn,
+        "SELECT unique_member_code FROM v_member_registry_all"
+        " WHERE list_contains(string_split(COALESCE(dails_served, ''), ','), ?)",
+        [str(dail)],
+    )
+
+
 def join_key_by_name(conn: duckdb.DuckDBPyConnection, name: str, house: str | None = None) -> QueryResult:
     """Resolve a member name to its ``unique_member_code``.
 
@@ -260,6 +272,7 @@ def votes_summary(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult
         " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
         [join_key],
     )
+
 
 def pay_overview(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
     return _run(

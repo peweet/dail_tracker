@@ -28,7 +28,6 @@ from __future__ import annotations
 import contextlib
 import html as html_mod
 import re
-import subprocess
 import sys
 import unicodedata
 from datetime import date
@@ -41,12 +40,15 @@ sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
+from services.extract_runner import run_extractor  # noqa: E402
+from services.http_engine import fetch_bytes, polite_headers  # noqa: E402
+
 OUT_CSV = ROOT / "data" / "_meta" / "lpt_local_adjustment_factors.csv"
 CROSSWALK = ROOT / "data" / "_meta" / "constituency_la_crosswalk.csv"
 
-# revenue.ie fetches fine with a plain browser UA; curl fallback kept for parity with
-# the gov.ie GOVIE_HEADERS precedent (some networks 403 python-requests).
-H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"}
+# revenue.ie fetches fine with a plain browser UA; the engine's curl fallback keeps
+# parity with the gov.ie GOVIE_HEADERS precedent (some networks 403 python-requests).
+H = polite_headers(browser=True)
 
 LIVE_URL = "https://www.revenue.ie/en/property/local-property-tax/valuing-your-property/valuation-bands-rates.aspx"
 # Immutable web.archive.org snapshots of the 2022-2025-era page carrying each year's
@@ -64,25 +66,10 @@ PCT = re.compile(r"^([+-]?)\s*(\d+(?:\.\d+)?)\s*%$")
 
 
 def fetch(url: str) -> str | None:
-    try:
-        import requests
-
-        r = requests.get(url, headers=H, timeout=90)
-        if r.status_code == 200 and "<table" in r.text:
-            return r.text
-    except Exception:
-        pass
-    with contextlib.suppress(Exception):  # browser-UA curl fallback (GOVIE_HEADERS precedent)
-        p = subprocess.run(
-            ["curl", "-sS", "-L", "--max-time", "90", "-A", H["User-Agent"], url],
-            capture_output=True,
-            timeout=120,
-            check=False,
-        )
-        text = p.stdout.decode("utf-8", errors="replace")
-        if "<table" in text:
-            return text
-    return None
+    # validate=<table guards against WAF interstitials AND triggers the curl leg
+    # when requests gets a 200 that isn't the LAF page (GOVIE_HEADERS precedent).
+    b = fetch_bytes(url, headers=H, validate=lambda body: b"<table" in body)
+    return b.decode("utf-8", errors="replace") if b else None
 
 
 def canonical_la(raw: str) -> str:
@@ -201,4 +188,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_extractor(main)

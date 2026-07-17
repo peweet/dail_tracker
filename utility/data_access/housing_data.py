@@ -100,3 +100,9 @@ def fetch_housing_completions_trend_result() -> QueryResult:
 @st.cache_data(ttl=600)
 def fetch_housing_rent_by_county_result(county: str) -> QueryResult:
     return _q.rent_by_county(get_housing_conn(), county)
+
+
+@st.cache_data(ttl=600)
+def fetch_housing_construction_pipeline_result() -> QueryResult:
+    """Per-LA social-housing build programme (pipeline / on-site / completed)."""
+    return _q.construction_pipeline(get_housing_conn())

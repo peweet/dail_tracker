@@ -25,9 +25,9 @@ procurement ``pr-*`` family in shared_css.py.
 
 from __future__ import annotations
 
-import html
 import sys
 import urllib.parse
+from functools import partial
 from pathlib import Path
 
 import pandas as pd
@@ -62,17 +62,18 @@ from ui.components import (
     back_button,
     card_sources_html,
     clickable_card_link,
+    dt_page,
     empty_state,
     finding_lede,
     glossary_strip,
     hero_banner,
-    hide_sidebar,
     paginate,
     pagination_controls,
     render_national_finance_context,
     text_search_mask,
 )
 from ui.entity_links import company_profile_url, entity_cta_html, source_link_html
+from ui.format import coalesce, esc, eur, to_int
 
 # Shared council audited-accounts (AFS by-division) context block. Cross-page
 # import mirrors member_overview → lobbying_3; the renderer and its fetches are
@@ -102,64 +103,13 @@ _Q_PAGE = 8  # quarter sections per page on the supplier drill-down
 # ──────────────────────────────────────────────────────────────────────────────
 # Formatting helpers (mirrors procurement.py — possibly-NA safe)
 # ──────────────────────────────────────────────────────────────────────────────
-def _esc(val) -> str:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return ""
-    return html.escape(str(val))
-
-
-def _eur(val) -> str:
-    """Compact euro label: €1.2m / €345k / €1,234 / — ."""
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return "—"
-    try:
-        n = float(val)
-    except (TypeError, ValueError):
-        return "—"
-    if n <= 0:
-        return "—"
-    if n >= 1_000_000:
-        return f"€{n / 1_000_000:.1f}m"
-    if n >= 1_000:
-        return f"€{n / 1_000:.0f}k"
-    return f"€{n:,.0f}"
-
-
-def _eur_scale(val) -> str:
-    """Headline scale label allowing billions: €6.4bn / €4.2m / €0 ."""
-    try:
-        n = float(val)
-    except (TypeError, ValueError):
-        return "—"
-    if n >= 1_000_000_000:
-        return f"€{n / 1_000_000_000:.1f}bn"
-    if n >= 1_000_000:
-        return f"€{n / 1_000_000:.1f}m"
-    if n >= 1_000:
-        return f"€{n / 1_000:.0f}k"
-    return f"€{n:,.0f}"
-
-
-def _n(val) -> int:
-    try:
-        return int(val)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _coalesce(*vals) -> str:
-    for v in vals:
-        if v is None:
-            continue
-        try:
-            if pd.isna(v):
-                continue
-        except (TypeError, ValueError):
-            pass
-        s = str(v).strip()
-        if s:
-            return s
-    return ""
+# Canonical formatters (ui.format, 2026-07 consolidation). Payment amounts dash
+# non-positive values: €0 in this register means "not disclosed", not zero.
+_esc = esc
+_eur = partial(eur, dash_nonpositive=True)
+_eur_scale = eur  # headline scale label allowing billions: €6.4bn / €4.2m / €0
+_n = to_int
+_coalesce = coalesce
 
 
 def _lines_word(n: int) -> str:
@@ -848,9 +798,8 @@ def _render_category_profile(category: str) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+@dt_page
 def public_payments_page() -> None:
-    hide_sidebar()
-
     params = st.query_params
     if params.get("publisher"):
         _render_publisher_profile(params.get("publisher"))

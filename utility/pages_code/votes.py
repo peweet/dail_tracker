@@ -9,7 +9,6 @@ import streamlit as st
 
 from html import escape as _h
 
-from shared_css import inject_css
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -18,7 +17,7 @@ from ui.components import (
     filter_bar,
     hide_sidebar,
     member_moved_callout,
-    page_error_boundary,
+    dt_page,
     todo_callout,
     year_selector,
 )
@@ -409,10 +408,8 @@ def _render_mode_c(vote_id: str, v_from: str) -> None:
 # ── Page entry point ───────────────────────────────────────────────────────────
 
 
-@page_error_boundary
+@dt_page
 def votes_page() -> None:
-    inject_css()
-
     # Resolve pending back-navigation flags before any widgets are instantiated
     if st.session_state.get("_v_clear_member"):
         st.session_state.pop("_v_clear_member", None)

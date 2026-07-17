@@ -1,3 +1,13 @@
+---
+tier: SPEC
+status: LIVE
+domain: procurement
+updated: 2026-07-13
+supersedes: []
+read_when: building or extending the buyer/public-body procurement dossier feature
+key: SPEC|LIVE|procurement
+---
+
 # Buyer / Public-Body Procurement Dossier — Design
 
 **Status:** design-only (no code written). Companion to `doc/PROCUREMENT_MASTER.md`,

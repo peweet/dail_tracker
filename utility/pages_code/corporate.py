@@ -34,11 +34,11 @@ Sections (top → bottom):
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
 #     156-886    _inject_corp_css
-#     887-911    load_corporate
-#     912-924    _row_cbi_badge
-#     925-930    load_cbi_repeat_distress
-#     931-936    load_cbi_enforcement
-#     937-944    load_brand_aliases
+#     887-916    load_corporate / load_firm_notices / load_firm_fund_counts
+#     917-930    _row_cbi_badge
+#     931-936    load_cbi_repeat_distress
+#     937-942    load_cbi_enforcement
+#     943-956    load_brand_aliases / load_brand_alias_groups
 #     945-950    _safe
 #     951-954    _pretty_subtype
 #     955-968    _subtype_pill_class
@@ -48,8 +48,8 @@ Sections (top → bottom):
 #    1023-1207   _render_featured
 #    1208-1272   _render_this_year_callout
 #    1273-1330   _render_operator_strip
-#    1331-1349   _firm_notice_mask
-#    1350-1364   _explode_fund_counts
+#    1331-1349   _fund_rows_for_firm
+#    1350-1364   _fallback_fund_counts
 #    1365-1389   _firm_ranked_rows
 #    1390-1505   _render_firm_view
 #    1506-1586   _render_methodology_expander
@@ -74,6 +74,7 @@ import datetime
 import html
 import re
 import sys
+from functools import partial
 from pathlib import Path
 
 import pandas as pd
@@ -82,10 +83,13 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.corporate_data import (
+    fetch_brand_alias_groups,
     fetch_brand_aliases,
     fetch_cbi_enforcement,
     fetch_cbi_repeat_distress,
     fetch_corporate_notices,
+    fetch_firm_fund_counts,
+    fetch_firm_notices,
     fetch_receiver_appointers,
     fetch_receiver_bucket_mix,
     fetch_receiver_firms,
@@ -93,19 +97,19 @@ from data_access.corporate_data import (
     fetch_receiver_year_counts,
 )
 from data_access.freshness_data import freshness_line
-from shared_css import inject_css
 from ui.components import (
     back_button,
+    dt_page,
     empty_state,
     fmt_civic_date as _fmt_date,
     glossary_strip,
     hero_banner,
-    hide_sidebar,
     paginate,
     pagination_controls,
     text_search_mask,
 )
 from ui.export_controls import export_button
+from ui.format import eur
 from ui.source_pdfs import iris_archive_url, provenance_expander
 
 PAGE_SIZE = 12
@@ -885,28 +889,33 @@ def _inject_corp_css() -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner="Loading Corporate notices…")
 def load_corporate() -> pd.DataFrame:
+    """The full v_corporate_notices frame. year / display_ref (stable 'row-N'
+    fallback for null-ref split fragments) / parent_mentions_str (comma-joined
+    parent_fund_mentions for the fund str.contains filter) are all precomputed
+    on the view — the only page-side step is the datetime cast for display."""
     df = fetch_corporate_notices()
     if df.empty:
         return df
     df["issue_date"] = pd.to_datetime(df["issue_date"], errors="coerce")
-    df["year"] = df["issue_date"].dt.year
-    df = df.reset_index(drop=True)
-    # Stable display-time ref for rows where notice_ref is null (split fragments)
-    fallback = pd.Series([f"row-{i}" for i in range(len(df))], index=df.index)
-    has_ref = df["notice_ref"].notna() & (df["notice_ref"].astype(str).str.strip() != "")
-    df["display_ref"] = df["notice_ref"].where(has_ref, fallback)
+    return df.reset_index(drop=True)
 
-    # Materialise an exploded "any-parent-mentioned" column for fund filtering
-    # without the page doing list-join business logic on its own. Stored as a
-    # comma-joined string for easy str.contains() filtering.
-    def _join_list(lst, sep=", "):
-        if lst is None or not hasattr(lst, "__iter__"):
-            return ""
-        items = list(lst)
-        return sep.join(str(x) for x in items) if items else ""
 
-    df["_parent_mentions_str"] = df["parent_fund_mentions"].apply(_join_list)
-    return df
+@st.cache_data(show_spinner=False)
+def load_firm_notices(firm: str) -> pd.DataFrame:
+    """Every notice naming one firm (?firm= landing) — matched in DuckDB
+    (curated receiver_firms tag, word-bounded raw_text regexp fallback)."""
+    df = fetch_firm_notices(firm)
+    if df.empty:
+        return df
+    df["issue_date"] = pd.to_datetime(df["issue_date"], errors="coerce")
+    return df.reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def load_firm_fund_counts(firm: str) -> pd.DataFrame:
+    """Appointing parent funds/banks co-named with one curated firm — n_recv
+    (receivership-shaped) + n_all, precomputed in v_corporate_firm_fund_counts."""
+    return fetch_firm_fund_counts(firm)
 
 
 def _row_cbi_badge(row: pd.Series) -> dict | None:
@@ -937,6 +946,13 @@ def load_cbi_enforcement() -> pd.DataFrame:
 def load_brand_aliases() -> pd.DataFrame:
     """Curated brand → parent → fund_type table for the methodology expander."""
     return fetch_brand_aliases()
+
+
+@st.cache_data(show_spinner=False)
+def load_brand_alias_groups() -> pd.DataFrame:
+    """Grouped (parent_fund × fund_type, brands joined) methodology table —
+    precomputed in v_corporate_brand_alias_groups."""
+    return fetch_brand_alias_groups()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -990,7 +1006,7 @@ def _apply_filters(
     if subtypes:
         out = out[out["notice_subtype"].isin(subtypes)]
     if fund and fund != "All":
-        out = out[out["_parent_mentions_str"].astype(str).str.contains(fund, case=False, na=False, regex=False)]
+        out = out[out["parent_mentions_str"].astype(str).str.contains(fund, case=False, na=False, regex=False)]
     if search and search.strip():
         out = out[text_search_mask(out, search, ["entity_name", "display_title", "raw_text"])]
     # type_label tracked in chips even though it's the same as subtypes set
@@ -1328,37 +1344,35 @@ def _render_operator_strip() -> None:
 # Honesty: matching is notice-presence (precomputed receiver_firms tag — same
 # regex the strip counts with), so copy says "named in", never "was receiver in".
 # ──────────────────────────────────────────────────────────────────────────────
-def _firm_notice_mask(df: pd.DataFrame, firm: str) -> pd.Series:
-    """Boolean mask of notices naming the firm. Curated firms are matched via the
-    precomputed receiver_firms tag column (filter on an approved column). A
-    free-text firm not in the curated tag set falls back to a literal
-    word-boundary search over raw_text."""
-
-    def _tagged(fs) -> bool:
-        try:
-            return firm in fs
-        except TypeError:
-            return False
-
-    by_tag = df["receiver_firms"].apply(_tagged)
-    if bool(by_tag.any()):
-        return by_tag
-    pat = re.compile(r"\b" + re.escape(firm) + r"\b")
-    return df["raw_text"].fillna("").astype(str).apply(lambda t: bool(pat.search(t)))
+def _fund_rows_for_firm(firm: str, fdf: pd.DataFrame) -> list[tuple[str, int]]:
+    """Ranked (parent, count) pairs for the fund↔firm panel. Curated firms come
+    precomputed from v_corporate_firm_fund_counts: the receivership-shaped series
+    (n_recv) when the firm has any receivership-shaped notice — the connection is
+    sharpest there — else all-notice counts (n_all). A free-text ?firm= not in
+    the curated tag set has no precomputed row and takes the render-time fallback."""
+    fc = load_firm_fund_counts(firm)
+    if fc is None or fc.empty:
+        return _fallback_fund_counts(fdf)
+    col = "n_recv" if bool(fdf["is_receivership_shaped"].fillna(False).any()) else "n_all"
+    pairs = [(str(r.parent), int(getattr(r, col))) for r in fc.itertuples() if int(getattr(r, col)) > 0]
+    return sorted(pairs, key=lambda kv: -kv[1])
 
 
-def _explode_fund_counts(sub: pd.DataFrame) -> list[tuple[str, int]]:
-    """Count how often each appointing parent fund is co-named across a subset,
-    one count per notice per distinct parent."""
-    counts: dict[str, int] = {}
+def _fallback_fund_counts(fdf: pd.DataFrame) -> list[tuple[str, int]]:
+    """Free-text ?firm= ONLY (hand-typed URL for a non-curated firm — every in-app
+    firm link is a curated tag served by the view). Counts distinct parents per
+    notice over the already-matched subset, receivership-shaped rows preferred —
+    a render-time count of the active filter set, mirroring the view's series."""
+    sub = fdf[fdf["is_receivership_shaped"].fillna(False)]
+    if sub.empty:
+        sub = fdf
+    counts: dict[str, int] = {}  # logic_firewall: display_only — render-time count of the fetched subset
     for parents in sub["parent_fund_mentions"]:
-        seen: set[str] = set()
         if parents is None or not hasattr(parents, "__iter__"):
             continue
-        for p in parents:
-            if p and p not in seen:
+        for p in set(parents):
+            if p:
                 counts[p] = counts.get(p, 0) + 1
-                seen.add(p)
     return sorted(counts.items(), key=lambda kv: -kv[1])
 
 
@@ -1387,13 +1401,13 @@ def _firm_ranked_rows(items: list[tuple[str, int]], link_fund: bool = False) -> 
     return "".join(rows)
 
 
-def _render_firm_view(df: pd.DataFrame, firm: str) -> None:
+def _render_firm_view(firm: str) -> None:
     if back_button("← Back to corporate notices", key="corp_firm"):
         st.session_state.pop("corp_firm_view", None)
         st.query_params.clear()
         st.rerun()
 
-    fdf = df[_firm_notice_mask(df, firm)]
+    fdf = load_firm_notices(firm)  # matched in DuckDB — curated tag, regexp fallback
     n = len(fdf)
     if n == 0:
         empty_state(
@@ -1402,20 +1416,10 @@ def _render_firm_view(df: pd.DataFrame, firm: str) -> None:
         )
         return
 
-    # Receivership-shaped subset — the fund↔firm connection is sharpest here.
-    recv = fdf[
-        (fdf["notice_subtype"] == "receivership")
-        | fdf["raw_text"]
-        .fillna("")
-        .astype(str)
-        .str.contains(
-            "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER",
-            case=False,
-            regex=True,
-            na=False,
-        )
-    ]
-    fund_rows = _explode_fund_counts(recv if not recv.empty else fdf)
+    # Receivership-shaped count — is_receivership_shaped is a view column
+    # (subtype OR the appointment-of-receiver wording), not a page-side regex.
+    n_recv = int(fdf["is_receivership_shaped"].fillna(False).sum())
+    fund_rows = _fund_rows_for_firm(firm, fdf)
 
     # Role mix — notice-type breakdown.  logic_firewall: display_only
     sub_counts = [(_pretty_subtype(s), int(c)) for s, c in fdf["notice_subtype"].value_counts().items()]
@@ -1429,7 +1433,7 @@ def _render_firm_view(df: pd.DataFrame, firm: str) -> None:
         f'<h1 class="corp-firm-h">{html.escape(firm)}</h1>'
         '<div class="corp-firm-sub">'
         f"Named in <strong>{n:,}</strong> corporate notice{'s' if n != 1 else ''} "
-        f"({yr_span}), of which <strong>{len(recv):,}</strong> are receiverships. "
+        f"({yr_span}), of which <strong>{n_recv:,}</strong> are receiverships. "
         '<span class="corp-firm-caveat">A firm named in a notice is not necessarily the '
         "appointed receiver — it may appear as solicitor, auditor or filing agent. "
         "Counts are notice presence (regex over the published text), not confirmed appointments.</span>"
@@ -1506,23 +1510,15 @@ _METHODOLOGY_GLOSSARY = [
 def _render_methodology_expander(aliases: pd.DataFrame) -> None:
     """Collapsed `<details>` block under the receiver-appointer panel showing
     the curated brand → parent mapping + plain-English type glossary. Source
-    of truth is data/_meta/loan_book_fund_aliases.csv."""
+    of truth is data/_meta/loan_book_fund_aliases.csv; the grouped table rows
+    are precomputed in v_corporate_brand_alias_groups (``aliases`` — the
+    ungrouped map — feeds only the CSV takeaway below)."""
     if aliases is None or aliases.empty:
         return
 
-    # Group brands by parent + canonical type for the table. `notes` is an
-    # optional column in the curated CSV — aggregate it only when present so a
-    # leaner alias file (brand/parent_fund/fund_type only) still renders.
-    agg_kwargs = {"brands": ("brand", lambda s: ", ".join(sorted(s)))}
-    if "notes" in aliases.columns:
-        agg_kwargs["notes_concat"] = ("notes", lambda s: " · ".join(sorted({str(n) for n in s if str(n).strip()})))
-    grouped = (
-        aliases.groupby(["parent_fund", "fund_type"], as_index=False)  # logic_firewall: display_only
-        .agg(**agg_kwargs)
-        .sort_values(["fund_type", "parent_fund"])
-    )
-    if "notes_concat" not in grouped.columns:
-        grouped["notes_concat"] = ""
+    grouped = load_brand_alias_groups()
+    if grouped is None or grouped.empty:
+        return
 
     rows_html: list[str] = []
     for _, r in grouped.iterrows():
@@ -1709,19 +1705,9 @@ def _render_cbi_repeat_distress(df_cbi: pd.DataFrame) -> None:
     )
 
 
-def _fine_eur(val) -> str:
-    """Compact fine label: €30.7m / €452k / €51.8k / €— ."""
-    try:
-        n = float(val)
-    except (TypeError, ValueError):
-        return "—"
-    if n <= 0:
-        return "—"
-    if n >= 1_000_000:
-        return f"€{n / 1_000_000:.1f}m"
-    if n >= 1_000:
-        return f"€{n / 1_000:.0f}k"
-    return f"€{n:,.0f}"
+# Canonical formatter (ui.format, 2026-07 consolidation): €30.7m / €452k; a
+# non-positive fine means "not disclosed", so it dashes.
+_fine_eur = partial(eur, dash_nonpositive=True)
 
 
 def _render_cbi_enforcement(df_enf: pd.DataFrame) -> None:
@@ -2208,9 +2194,8 @@ def _render_detail(row: pd.Series) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 # Entry
 # ──────────────────────────────────────────────────────────────────────────────
+@dt_page
 def corporate_page() -> None:
-    inject_css()
-    hide_sidebar()
     _inject_corp_css()
 
     df = load_corporate()
@@ -2293,7 +2278,7 @@ def corporate_page() -> None:
                 "The underlying gold parquet did not load.",
             )
             return
-        _render_firm_view(df, firm_view)
+        _render_firm_view(firm_view)
         return
 
     # Index — pure-data lede. No interpretive framing per the no-inference
@@ -2402,7 +2387,7 @@ def corporate_page() -> None:
             return "; ".join(items)
 
         for c in ("parent_fund_mentions", "brand_mentions"):
-            export_df[c] = export_df[c].apply(_csv_join)
+            export_df[c] = export_df[c].apply(_csv_join)  # logic_firewall: display_only
         export_button(
             export_df,
             label=f"Download {len(filtered):,} notices (CSV)",

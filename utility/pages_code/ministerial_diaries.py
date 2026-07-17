@@ -35,18 +35,21 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.ministerial_diary_data import (
+    fetch_dept_minister_rollup,
+    fetch_dept_rollup,
     fetch_engagements,
     fetch_meetings,
     fetch_minister_briefs,
+    fetch_minister_rollup,
     fetch_org_overlap,
+    fetch_top_orgs,
 )
-from shared_css import inject_css
 from ui.components import (
     clickable_card_link,
+    dt_page,
     empty_state,
     glossary_strip,
     hero_banner,
-    hide_sidebar,
     info_card,
     subsection_heading,
 )
@@ -121,35 +124,22 @@ def _most_met_strip(orgs: list[str], *, tag: str = "div", style: str = "") -> st
     return f'<{tag} class="dt-diary-most"{sty}><b>Most-met</b> · {body}</{tag}>'
 
 
-def _top_orgs(eng: pd.DataFrame, key_col: str, top: int = 3) -> dict[str, list[str]]:
-    """Top organisations logged per minister / per department (display_only — counts org
-    mentions in the active engagement set; NOT a ranked metric, just card context)."""
-    if eng is None or eng.empty or key_col not in eng.columns or "organisation" not in eng.columns:
-        return {}
-    sub = eng[eng[key_col].notna() & eng["organisation"].notna()]
-    if sub.empty:
-        return {}
-    counts = (  # logic_firewall: display_only
-        sub.groupby([key_col, "organisation"]).size().reset_index(name="n").sort_values("n", ascending=False)
-    )
+def _most_met_map(entity_kind: str, year: int | None, month: int | None, top: int = 3) -> dict[str, list[str]]:
+    """Most-met organisations per minister / per department for the active period. Counting +
+    ranking are precomputed in v_ministerial_diary_top_orgs (card CONTEXT, not a ranked
+    metric); this just shapes the already-ranked rows into {entity: [org, …]}."""
+    rows = fetch_top_orgs(entity_kind, year, month, top=top)
     out: dict[str, list[str]] = {}
-    for _, r in counts.iterrows():
-        lst = out.setdefault(r[key_col], [])
-        if len(lst) < top:
-            lst.append(str(r["organisation"]))
+    if rows is None or rows.empty:
+        return out
+    for r in rows.itertuples():  # rows arrive ordered by (entity, rnk)
+        out.setdefault(str(r.entity), []).append(str(r.organisation))
     return out
 
 
-def _minister_depts(meetings: pd.DataFrame) -> dict[str, list[str]]:
-    """Each minister's portfolio(s) over the active set — a minister may hold several depts
-    (e.g. Ryan = Transport + Climate). display_only context for the card badges."""
-    m = meetings[meetings["minister"].notna() & (meetings["minister"] != "")]
-    if m.empty:
-        return {}
-    g = (  # logic_firewall: display_only
-        m.groupby("minister")["department"].agg(lambda s: sorted({x for x in s if pd.notna(x)}))
-    )
-    return g.to_dict()
+def _split_depts(v: object) -> list[str]:
+    """The rollup views carry a minister's portfolio as a comma-joined, sorted string."""
+    return [d for d in str(v or "").split(",") if d]
 
 
 # ── period filter (year / month) — display_only faceting on entry_date ──────────────────
@@ -194,6 +184,16 @@ def _filter_period(frame: pd.DataFrame, year: str, month: str) -> pd.DataFrame:
     return frame[mask]
 
 
+def _period_ints(year: str, month: str) -> tuple[int | None, int | None]:
+    """Map the Year/Month selectbox strings onto the rollup views' period keys
+    (None = 'all years' / 'all months') — the WHERE-clause form of the same filter."""
+    if year == _ALL_YEARS:
+        return None, None
+    if month == _ALL_MONTHS:
+        return int(year), None
+    return int(year), _MONTHS.index(month) + 1
+
+
 # ── card / row builders (project clickable_card_link stretched-link pattern) ────────────
 def _org_card(row: pd.Series) -> str:
     inner = (
@@ -212,7 +212,7 @@ def _org_card(row: pd.Series) -> str:
 
 
 def _minister_card(row: pd.Series, most_met: dict[str, list[str]]) -> str:
-    badges = _dept_badges(list(row.get("depts") or []))
+    badges = _dept_badges(_split_depts(row.get("depts")))
     most = _most_met_strip(most_met.get(row["minister"], []))
     inner = (
         f'<div class="dt-diary-card">'
@@ -222,7 +222,7 @@ def _minister_card(row: pd.Series, most_met: dict[str, list[str]]) -> str:
         f"{most}</div>"
         f'<div class="dt-diary-metrics">'
         f'<span class="dt-diary-metric"><b>{int(row["meetings"])}</b> meetings</span>'
-        f'<span class="dt-diary-metric">{_h(row["first"])} → {_h(row["last"])}</span>'
+        f'<span class="dt-diary-metric">{_h(row["first_meeting"])} → {_h(row["last_meeting"])}</span>'
         f"</div></div>"
     )
     return clickable_card_link(
@@ -305,7 +305,7 @@ def _org_drill(org: str, engagements: pd.DataFrame) -> None:
     st.html(_meeting_rows(rows, show_minister=True))
 
 
-def _minister_drill(minister: str, meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
+def _minister_drill(minister: str, meetings: pd.DataFrame, year_i: int | None, month_i: int | None) -> None:
     st.html('<a class="dt-diary-back" href="?" target="_self">← back</a>')
     rows = meetings[meetings["minister"] == minister].sort_values("entry_date", ascending=False)
     if rows.empty:
@@ -316,7 +316,9 @@ def _minister_drill(minister: str, meetings: pd.DataFrame, eng: pd.DataFrame) ->
     # registry can't resolve unambiguously. Deferred until the diary view carries
     # a minister member_code (pipeline) — see project_ui_clutter_audit memory.
     badges = _dept_badges(sorted({x for x in rows["department"] if pd.notna(x)}))
-    most = _most_met_strip(_top_orgs(eng, "minister", top=6).get(minister, []), tag="p", style="margin-top:0.4rem")
+    most = _most_met_strip(
+        _most_met_map("minister", year_i, month_i, top=6).get(minister, []), tag="p", style="margin-top:0.4rem"
+    )
     st.html(
         f'<div class="dt-diary-hero"><h2>Minister {_h(minister)}</h2>'
         f'<div class="dt-diary-badges" style="margin:0.15rem 0 0.4rem">{badges}</div>'
@@ -326,23 +328,19 @@ def _minister_drill(minister: str, meetings: pd.DataFrame, eng: pd.DataFrame) ->
     st.html(_meeting_rows(rows, show_minister=False))
 
 
-def _dept_drill(dept_code: str, meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
+def _dept_drill(dept_code: str, meetings: pd.DataFrame, year_i: int | None, month_i: int | None) -> None:
     """A department as the entity: its ministers (current + former) and who they met — the
-    reverse of 'minister → ministry' the flat list never showed."""
+    reverse of 'minister → ministry' the flat list never showed. The per-minister rollup is
+    precomputed in v_ministerial_diary_dept_minister_period; the period is a WHERE clause."""
     st.html('<a class="dt-diary-back" href="?" target="_self">← back</a>')
     m = meetings[meetings["department"] == dept_code]
-    if m.empty:
+    agg = fetch_dept_minister_rollup(dept_code, year_i, month_i)
+    if m.empty or agg is None or agg.empty:
         empty_state("Not found", f"No logged meetings for {_dept_full(dept_code)}.")
         return
-    agg = (  # logic_firewall: display_only
-        m[m["minister"].notna() & (m["minister"] != "")]
-        .groupby("minister")
-        .agg(meetings=("subject", "size"), first=("entry_date", "min"), last=("entry_date", "max"))
-        .reset_index()
-        .sort_values("meetings", ascending=False)
+    most = _most_met_strip(
+        _most_met_map("department", year_i, month_i, top=6).get(dept_code, []), tag="p", style="margin-top:0.4rem"
     )
-    agg["depts"] = agg["minister"].map(_minister_depts(meetings))  # full portfolio for badge context
-    most = _most_met_strip(_top_orgs(eng, "department", top=6).get(dept_code, []), tag="p", style="margin-top:0.4rem")
     st.html(
         f'<div class="dt-diary-hero"><h2>{_h(_dept_full(dept_code))}</h2>'
         f"<p>{len(m):,} external meetings logged · {len(agg)} ministers · "
@@ -427,9 +425,8 @@ def _render_department_priorities() -> None:
         info_card(_brief_card_html(row), border_left_color=accent.get(row["source_type"], "rgba(0,0,0,0.14)"))
 
 
+@dt_page
 def ministerial_diaries_page() -> None:
-    hide_sidebar()
-    inject_css()
     hero_banner(
         kicker="Access & accountability",
         title="Who Ministers Meet",
@@ -449,6 +446,7 @@ def ministerial_diaries_page() -> None:
     year, month = _period_controls(meetings_all)
     meetings = _filter_period(meetings_all, year, month)
     eng = _filter_period(eng_all, year, month)
+    year_i, month_i = _period_ints(year, month)  # the same period as the rollup views' WHERE keys
     period_active = year != _ALL_YEARS
 
     # drill-downs (URL-routed) — honour the same period filter
@@ -457,11 +455,11 @@ def ministerial_diaries_page() -> None:
         _provenance()
         return
     if (dept := st.query_params.get("dept")) is not None:
-        _dept_drill(dept, meetings, eng)
+        _dept_drill(dept, meetings, year_i, month_i)
         _provenance()
         return
     if (minister := st.query_params.get("minister")) is not None:
-        _minister_drill(minister, meetings, eng)
+        _minister_drill(minister, meetings, year_i, month_i)
         _provenance()
         return
 
@@ -480,9 +478,9 @@ def ministerial_diaries_page() -> None:
     if mode == "Search meetings":
         _render_search(meetings, _search_suggestions(overlap))
     elif mode == "By department":
-        _render_by_dept(meetings, eng)
+        _render_by_dept(year_i, month_i)
     elif mode == "By minister":
-        _render_by_minister(meetings, eng)
+        _render_by_minister(year_i, month_i)
     elif mode == "Department priorities":
         _render_department_priorities()  # the incoming-minister BRIEF agenda layer (period-independent)
     else:
@@ -521,16 +519,14 @@ def _render_search(meetings: pd.DataFrame, suggestions: list[str]) -> None:
         st.html(_meeting_rows(rows, show_minister=True))
 
 
-def _render_by_minister(meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
-    m = meetings[meetings["minister"].notna() & (meetings["minister"] != "")]
-    agg = (  # logic_firewall: display_only — counting the active (period-filtered) set, not a metric
-        m.groupby("minister")
-        .agg(meetings=("subject", "size"), first=("entry_date", "min"), last=("entry_date", "max"))
-        .reset_index()
-        .sort_values("meetings", ascending=False)
-    )
-    agg["depts"] = agg["minister"].map(_minister_depts(meetings))  # which ministry/ministries
-    most_met = _top_orgs(eng, "minister")
+def _render_by_minister(year_i: int | None, month_i: int | None) -> None:
+    # Per-minister rollup (meetings, date span, portfolio) is precomputed in
+    # v_ministerial_diary_minister_period; the active period is a WHERE clause.
+    agg = fetch_minister_rollup(year_i, month_i)
+    if agg is None or agg.empty:
+        empty_state("No data", "No ministerial diaries in this period.")
+        return
+    most_met = _most_met_map("minister", year_i, month_i)
     q = st.text_input("Search minister", "", placeholder="e.g. Burke, Martin, Ryan…")
     if q.strip():
         agg = agg[agg["minister"].str.contains(_re_escape(q.strip()), case=False, na=False, regex=True)]
@@ -540,23 +536,14 @@ def _render_by_minister(meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
     st.html("\n".join(_minister_card(r, most_met) for _, r in agg.iterrows()))
 
 
-def _render_by_dept(meetings: pd.DataFrame, eng: pd.DataFrame) -> None:
-    m = meetings[meetings["department"].notna() & (meetings["department"] != "")]
-    if m.empty:
+def _render_by_dept(year_i: int | None, month_i: int | None) -> None:
+    # Per-department rollup (meetings, distinct named ministers) is precomputed in
+    # v_ministerial_diary_dept_period; the active period is a WHERE clause.
+    agg = fetch_dept_rollup(year_i, month_i)
+    if agg is None or agg.empty:
         empty_state("No data", "No departmental diaries in this period.")
         return
-    agg = (  # logic_firewall: display_only — counting the active (period-filtered) set, not a metric
-        m.groupby("department")
-        .agg(
-            meetings=("subject", "size"),
-            ministers=("minister", pd.Series.nunique),
-            first=("entry_date", "min"),
-            last=("entry_date", "max"),
-        )
-        .reset_index()
-        .sort_values("meetings", ascending=False)
-    )
-    most_met = _top_orgs(eng, "department")
+    most_met = _most_met_map("department", year_i, month_i)
     st.caption(
         f"{len(agg)} departments publish a diary — pick one to see its ministers "
         "(current and former) and who they logged meeting."

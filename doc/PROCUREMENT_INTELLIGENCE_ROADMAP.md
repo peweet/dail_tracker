@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: procurement
+updated: 2026-06-28
+supersedes: []
+read_when: prioritizing the next procurement-intelligence surfacing feature to build (Phase 0-5)
+key: PLAN|LIVE|procurement
+---
+
 # Procurement Intelligence Roadmap
 
 **Date:** 2026-06-28

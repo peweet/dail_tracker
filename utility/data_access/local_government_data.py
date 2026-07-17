@@ -72,6 +72,13 @@ def fetch_derelict_sites_levy_result(la: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_derelict_levy_ranking_result() -> QueryResult:
+    """All 31 councils ranked for cross-council derelict-levy enforcement (worst
+    outstanding first) — the national view behind the per-council figure."""
+    return _q.derelict_levy_ranking(get_constituency_conn())
+
+
+@st.cache_data(ttl=300)
 def fetch_noac_scorecard_result(la: str) -> QueryResult:
     return _q.noac_scorecard(get_constituency_conn(), la)
 

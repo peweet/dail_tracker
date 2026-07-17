@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: data
+updated: 2026-06-04
+supersedes: []
+read_when: scoping any new dataset work — to check its maturity tier and avoid conflating money grains
+key: CONTEXT|LIVE|data
+---
+
 # DATA MAP — the single status board for every dataset (read this FIRST)
 
 > **Purpose:** one place to see *where every dataset is* across all domains — parliamentary,

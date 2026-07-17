@@ -34,6 +34,23 @@ def fetch_corporate_notices() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def fetch_firm_notices(firm: str) -> pd.DataFrame:
+    """Every notice naming one receiver / insolvency firm (the ?firm= landing).
+    Curated firms match the precomputed receiver_firms tag; a free-text firm
+    falls back to a word-bounded regexp over raw_text — both matches run in
+    DuckDB (graduated out of the page's _firm_notice_mask)."""
+    return _q.firm_notices(get_corporate_conn(), firm).data
+
+
+@st.cache_data(ttl=300)
+def fetch_firm_fund_counts(firm: str) -> pd.DataFrame:
+    """Appointing parent funds/banks co-named on one curated firm's notices —
+    n_recv (receivership-shaped) + n_all (every notice). Precomputed in
+    v_corporate_firm_fund_counts; empty for non-curated (free-text) firms."""
+    return _q.firm_fund_counts(get_corporate_conn(), firm).data
+
+
+@st.cache_data(ttl=300)
 def fetch_corporate_notices_for_company_result(company_num: int) -> QueryResult:
     """One CRO company's corporate register / distress notices (Iris Oifigiúil) for the
     company dossier's corporate-register panel, matched on CRO ``company_num``. A
@@ -75,6 +92,18 @@ def fetch_brand_aliases() -> pd.DataFrame:
     df = _q.brand_aliases(get_corporate_conn()).data
     if df.empty:
         return pd.DataFrame(columns=["brand", "parent_fund", "fund_type", "notes"])
+    return df
+
+
+@st.cache_data(ttl=600)
+def fetch_brand_alias_groups() -> pd.DataFrame:
+    """Methodology-expander table: the curated alias map rolled up to one row per
+    (parent_fund, fund_type) with its brand strings joined — precomputed in
+    v_corporate_brand_alias_groups. Typed-empty fallback keeps the page's
+    column access safe when the view/source is absent."""
+    df = _q.brand_alias_groups(get_corporate_conn()).data
+    if df.empty:
+        return pd.DataFrame(columns=["parent_fund", "fund_type", "brands", "notes_concat"])
     return df
 
 

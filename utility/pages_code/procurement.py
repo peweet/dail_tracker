@@ -224,100 +224,38 @@ from ui.entity_links import authority_profile_url, company_profile_url, council_
 from ui.components import (
     back_button,
     clickable_card_link,
+    dt_page,
     empty_state,
     finding_lede,
     fmt_civic_date,
     glossary_strip,
     hero_banner,
-    hide_sidebar,
     paginate,
     pagination_controls,
     text_search_mask,
     year_selector,
 )
+from functools import partial
+
+from ui.format import coalesce as _coalesce
+from ui.format import esc as _esc
+from ui.format import eur
+from ui.format import to_int as _n
+from ui.format import truthy as _truthy
 
 _TOP = 60  # cards shown per non-paginated tab (views are pre-ordered DESC)
 _SUP_PAGE = 24  # supplier cards per page (multiple of 3 for the grid)
 _AWARD_PAGE = 25  # award rows per page on a supplier profile
 _LIVE_PAGE = 24  # open-tender cards per page (multiple of 3 for the grid)
 
-
-def _esc(val) -> str:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return ""
-    return html.escape(str(val))
-
-
-def _eur(val) -> str:
-    """Compact euro label: €1.2m / €345k / €1,234 / — ."""
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return "—"
-    try:
-        n = float(val)
-    except (TypeError, ValueError):
-        return "—"
-    if n <= 0:
-        return "—"
-    if n >= 1_000_000:
-        return f"€{n / 1_000_000:.1f}m"
-    if n >= 1_000:
-        return f"€{n / 1_000:.0f}k"
-    return f"€{n:,.0f}"
-
-
-def _n(val) -> int:
-    try:
-        return int(val)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _truthy(val) -> bool:
-    """Safe truthiness for possibly-NA pandas cells — ``bool(pd.NA)`` raises."""
-    if val is None:
-        return False
-    try:
-        if pd.isna(val):
-            return False
-    except (TypeError, ValueError):
-        pass
-    return bool(val)
-
-
-def _coalesce(*vals) -> str:
-    """First non-NA, non-empty value as a stripped string, else ''. Avoids the
-    ``pd.NA or x`` truthiness error when coalescing nullable columns."""
-    for v in vals:
-        if v is None:
-            continue
-        try:
-            if pd.isna(v):
-                continue
-        except (TypeError, ValueError):
-            pass
-        s = str(v).strip()
-        if s:
-            return s
-    return ""
+# Canonical formatters (ui.format, 2026-07 consolidation). Award amounts dash
+# non-positive values: €0 in this register means "not disclosed", not zero.
+_eur = partial(eur, dash_nonpositive=True)
+_eur_scale = eur  # headline scale label allowing billions: €23.5bn / €4.2m / €0
 
 
 def _awards_word(n: int) -> str:
     return f"{n:,} award{'s' if n != 1 else ''}"
-
-
-def _eur_scale(val) -> str:
-    """Headline scale label allowing billions: €23.5bn / €4.2m / €0 ."""
-    try:
-        n = float(val)
-    except (TypeError, ValueError):
-        return "—"
-    if n >= 1_000_000_000:
-        return f"€{n / 1_000_000_000:.1f}bn"
-    if n >= 1_000_000:
-        return f"€{n / 1_000_000:.1f}m"
-    if n >= 1_000:
-        return f"€{n / 1_000:.0f}k"
-    return f"€{n:,.0f}"
 
 
 def _supplier_href(supplier_norm) -> str:
@@ -4331,9 +4269,8 @@ def _render_bid_signal() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+@dt_page
 def procurement_page() -> None:
-    hide_sidebar()
-
     # Drill-downs — full-width detail views with back nav.
     params = st.query_params
     if params.get("supplier"):

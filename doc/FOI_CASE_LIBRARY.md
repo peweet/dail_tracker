@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: LIVE
+domain: sources
+updated: 2026-06-22
+supersedes: []
+read_when: needing worked example FOI-request leads generated from the combined spend+FOI-log join, to demo or pitch the journalist flow
+key: RECORD|LIVE|sources
+---
+
 # FOI case library — 20 worked leads across 4 categories
 
 **Companion to** `doc/JOURNALIST_FOI_FLOW_DESIGN.md`. This applies the 6-stage journalist→FOI flow to

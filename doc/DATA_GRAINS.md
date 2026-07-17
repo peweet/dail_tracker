@@ -1,3 +1,13 @@
+---
+tier: CONTEXT
+status: LIVE
+domain: data
+updated: 2026-07-17
+supersedes: []
+read_when: before summing or comparing any money figure across procurement, payments, budgets, donations, or allowances
+key: CONTEXT|LIVE|data
+---
+
 # DATA_GRAINS.md — money grains and trust boundaries
 
 The single most important rule in Dáil Tracker: **money fields are not

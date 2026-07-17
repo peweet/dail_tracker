@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: LIVE
+domain: sources
+updated: 2026-06-28
+supersedes: []
+read_when: scoping or prioritizing a new data source to ingest into the pipeline
+key: PLAN|LIVE|sources
+---
+
 # NEW_SOURCE_INGESTION_PLAN.md — build-ready new-source roadmap
 
 _Compiled 2026-06-28. This is the **implementation-level** companion to the two
