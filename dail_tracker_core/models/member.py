@@ -23,7 +23,10 @@ class HeadlineStats(BaseModel):
     latest_year: int | None = None
     days_in_chamber_latest: int | None = None
     votes_cast: int = 0
-    divisions: int = 0
+    # Count of divisions the member PARTICIPATED in (v_td_vote_summary has rows only
+    # for votes cast). Field name must match the dossier key — pydantic silently
+    # drops unknown keys, which previously pinned this to 0 under the old name.
+    divisions_participated: int = 0
     payments_total_eur: float = 0.0
 
 
@@ -48,3 +51,6 @@ class MemberDossier(BaseModel):
     speeches_profile: dict[str, Any] | None = None
     external_links: dict[str, Any] = Field(default_factory=dict)
     constituency_context: dict[str, Any] | None = None
+    # Present only when a section's source was down: [{"section": …, "reason": …}].
+    # Distinguishes "source outage" from "genuinely no rows" per section.
+    unavailable_sections: list[dict[str, str]] | None = None

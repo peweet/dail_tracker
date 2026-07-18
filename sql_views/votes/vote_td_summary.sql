@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW td_vote_summary AS
+CREATE OR REPLACE VIEW v_td_vote_summary AS
 SELECT
     unique_member_code                                              AS member_id,
     full_name                                                       AS member_name,

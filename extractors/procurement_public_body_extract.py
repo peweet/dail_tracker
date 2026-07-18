@@ -32,71 +32,71 @@ Run:
   ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py                   # full ingest
   ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py --only ie_hse --max-files 2
 
+
 # ── SECTION MAP ── ─────────────────────────────────────────
-# ⚠️  DO NOT READ WHOLE — ~34,775 tokens (2,983 lines after this header).
+# ⚠️  DO NOT READ WHOLE — ~34,660 tokens (2,967 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
-#     188-355    regexes
-#     356-362    CONFIG
-#     363-400    cfg
-#     401-448    Tier A: clean tabular / high-confidence PDF
-#     449-527    Cheap wins 2026-06-08: gov.ie / enterprise.gov.ie department
-#     528-593    Tier F: government departments (gov.ie collections) — discov
-#     594-599    Tier B: OWNED BY A SEPARATE CONTEXT (procurement_hse_tusla_p
-#     600-725    Tier C: needed a corrected listing URL or a parser fix
-#     726-869    Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_SOURCE_D
-#     870-916    Tier E: regulators / cultural bodies (discovery sweep 2 — co
-#     917-999    Batch A 2026-06-19: clean candidates from the seed (procurem
-#    1000-1022   Batch B 2026-06-20: PROBE-FIRST (test parse quality before p
-#    1023-1023   fetch
-#    1024-1035   _curl
-#    1036-1053   fetch_bytes
-#    1054-1058   fetch_text
-#    1059-1081   fetch_to_bronze
-#    1082-1082   harvest
-#    1083-1169   harvest_files
-#    1170-1170   readers
-#    1171-1186   to_eur
-#    1187-1201   clean_supplier
-#    1202-1211   quarter_from_name
-#    1212-1220   period_from_url
-#    1221-1221   PDF (header-anchored)
-#    1222-1238   cluster_word_rows
-#    1239-1249   find_header
-#    1250-1263   header_columns
-#    1264-1277   assign_role
-#    1278-1289   row_to_cols
-#    1290-1319   refine_roles
-#    1320-1358   read_pdf
-#    1359-1373   reading-order PDF (DCEDIY / dept_children)
-#    1374-1465   read_reading_order
-#    1466-1574   read_courts
-#    1575-1582   _dd_supplier_first
-#    1583-1639   read_defence
-#    1640-1653   Revenue Commissioners reading-order reader. Each record is t
-#    1654-1699   read_revenue
-#    1700-1709   Tailte Éireann reading-order reader. Same shape as the Court
-#    1710-1784   read_tailte
-#    1785-1804   DPER / OGCIO reading-order reader. Two layout families under
-#    1805-1880   read_dper
-#    1881-1890   Dept of Culture reading-order reader. NO reference/PO column
-#    1891-1952   read_culture
-#    1953-2097   read_housing
-#    2098-2158   read_pdf_reading_order_fallback
-#    2159-2159   XLSX / XLS / CSV
-#    2160-2180   _tabular_from_raw
-#    2181-2188   read_xlsx
-#    2189-2196   read_xls
-#    2197-2230   read_csv
-#    2231-2278   detect_roles_tab
-#    2279-2279   extract
-#    2280-2552   emit_rows
-#    2553-2623   dedup_source_repeats
-#    2624-2645   canonicalise_supplier_raw
-#    2646-2664   flag_unidentifiable_suppliers
-#    2665-2737   classify_and_flag
-#    2738-2738   main
-#    2739-2983   main
+#     189-356    regexes
+#     357-363    CONFIG
+#     364-401    cfg
+#     402-449    Tier A: clean tabular / high-confidence PDF
+#     450-528    Cheap wins 2026-06-08: gov.ie / enterprise.gov.ie department
+#     529-594    Tier F: government departments (gov.ie collections) — discov
+#     595-600    Tier B: OWNED BY A SEPARATE CONTEXT (procurement_hse_tusla_p
+#     601-726    Tier C: needed a corrected listing URL or a parser fix
+#     727-870    Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_MASTER.m
+#     871-917    Tier E: regulators / cultural bodies (discovery sweep 2 — co
+#     918-1000   Batch A 2026-06-19: clean candidates from the seed (procurem
+#    1001-1023   Batch B 2026-06-20: PROBE-FIRST (test parse quality before p
+#    1024-1024   fetch
+#    1025-1036   _curl
+#    1037-1054   fetch_bytes
+#    1055-1059   fetch_text
+#    1060-1082   fetch_to_bronze
+#    1083-1083   harvest
+#    1084-1170   harvest_files
+#    1171-1171   readers
+#    1172-1187   to_eur
+#    1188-1202   clean_supplier
+#    1203-1212   quarter_from_name
+#    1213-1221   period_from_url
+#    1222-1222   PDF (header-anchored)
+#    1223-1233   find_header
+#    1234-1247   header_columns
+#    1248-1261   assign_role
+#    1262-1273   row_to_cols
+#    1274-1303   refine_roles
+#    1304-1342   read_pdf
+#    1343-1357   reading-order PDF (DCEDIY / dept_children)
+#    1358-1449   read_reading_order
+#    1450-1558   read_courts
+#    1559-1566   _dd_supplier_first
+#    1567-1623   read_defence
+#    1624-1637   Revenue Commissioners reading-order reader. Each record is t
+#    1638-1683   read_revenue
+#    1684-1693   Tailte Éireann reading-order reader. Same shape as the Court
+#    1694-1768   read_tailte
+#    1769-1788   DPER / OGCIO reading-order reader. Two layout families under
+#    1789-1864   read_dper
+#    1865-1874   Dept of Culture reading-order reader. NO reference/PO column
+#    1875-1936   read_culture
+#    1937-2081   read_housing
+#    2082-2142   read_pdf_reading_order_fallback
+#    2143-2143   XLSX / XLS / CSV
+#    2144-2164   _tabular_from_raw
+#    2165-2172   read_xlsx
+#    2173-2180   read_xls
+#    2181-2214   read_csv
+#    2215-2262   detect_roles_tab
+#    2263-2263   extract
+#    2264-2536   emit_rows
+#    2537-2607   dedup_source_repeats
+#    2608-2629   canonicalise_supplier_raw
+#    2630-2648   flag_unidentifiable_suppliers
+#    2649-2721   classify_and_flag
+#    2722-2722   main
+#    2723-2967   main
 # ── END SECTION MAP ── ─────────────────────────────────
 """
 
@@ -129,6 +129,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.pdf_layout import cluster_word_rows  # noqa: E402
 from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
@@ -1219,23 +1220,6 @@ def period_from_url(url: str) -> tuple[str | None, int | None, int | None]:
 
 
 # ---- PDF (header-anchored) ----
-def cluster_word_rows(page, ytol: float = 3.0) -> list[list]:
-    words = page.get_text("words")
-    words.sort(key=lambda w: (round(w[1] / ytol), w[0]))
-    rows, cur, cur_y = [], [], None
-    for w in words:
-        y = w[1]
-        if cur_y is None or abs(y - cur_y) <= ytol:
-            cur.append(w)
-            cur_y = y if cur_y is None else cur_y
-        else:
-            rows.append(cur)
-            cur, cur_y = [w], y
-    if cur:
-        rows.append(cur)
-    return rows
-
-
 def find_header(rows: list[list]):
     best, best_hits = None, 1
     for r in rows[:18]:

@@ -19,3 +19,5 @@ class BillDossier(BaseModel):
     debates: list[dict[str, Any]] = Field(default_factory=list)
     si_composition: list[dict[str, Any]] = Field(default_factory=list)
     statutory_instruments: list[dict[str, Any]] = Field(default_factory=list)
+    # Present only when a section's source was down (outage ≠ empty).
+    unavailable_sections: list[dict[str, str]] | None = None

@@ -274,7 +274,7 @@ def test_render_member_votes_with_duckdb():
 
     conn = duckdb.connect(":memory:")
     conn.execute(
-        "CREATE TABLE td_vote_summary AS SELECT * FROM (VALUES "
+        "CREATE TABLE v_td_vote_summary AS SELECT * FROM (VALUES "
         "('m1','Jane Doe','PartyA','Dublin',10,2,1,13,76.9)) "
         "t(member_id, member_name, party_name, constituency, yes_count, no_count, "
         "abstained_count, division_count, yes_rate_pct)"
@@ -285,7 +285,7 @@ def test_render_member_votes_with_duckdb():
         "t(vote_id, vote_date, debate_title, vote_type, vote_outcome, member_id, oireachtas_url)"
     )
     conn.execute(
-        "CREATE TABLE td_vote_year_summary AS SELECT * FROM (VALUES "
+        "CREATE TABLE v_td_vote_year_summary AS SELECT * FROM (VALUES "
         "('m1', 2024, 8, 1, 1)) t(member_id, year, yes_count, no_count, abstained_count)"
     )
     assert ve.render_member_votes(conn, "m1", key_suffix="_t") is None
@@ -297,7 +297,7 @@ def test_render_member_votes_member_not_found():
 
     conn = duckdb.connect(":memory:")
     conn.execute(
-        "CREATE TABLE td_vote_summary AS SELECT * FROM (VALUES "
+        "CREATE TABLE v_td_vote_summary AS SELECT * FROM (VALUES "
         "('m1','Jane','P','C',1,1,1,3,50.0)) "
         "t(member_id, member_name, party_name, constituency, yes_count, no_count, "
         "abstained_count, division_count, yes_rate_pct)"

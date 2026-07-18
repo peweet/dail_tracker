@@ -70,9 +70,9 @@ def search_votes_by_topic(
 ) -> dict:
     data = dossiers.search_votes_by_topic(cur, topics, house=house)
     if "error" in data:
-        # Empty-after-strip keywords is a client error; an unavailable view is a 503.
-        code = 400 if "topic keyword" in data["error"] else 503
-        raise HTTPException(status_code=code, detail=data["error"])
+        # An unavailable view RAISES SourceUnavailable (→ 503 via the app-level
+        # handler), so a returned {"error"} is always a client error.
+        raise HTTPException(status_code=400, detail=data["error"])
     return data
 
 

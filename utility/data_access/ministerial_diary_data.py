@@ -17,7 +17,7 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import ministerial_diary as _q
 
 
@@ -25,7 +25,7 @@ from dail_tracker_core.queries import ministerial_diary as _q
 def get_diary_conn() -> duckdb.DuckDBPyConnection:
     # + minister_briefs.sql: the incoming-minister BRIEF corpus (agenda layer) lives on the same
     # page as the diaries, so it shares this connection.
-    return connect_with_views(["ministerial_diary_*.sql", "minister_briefs.sql"], swallow_errors=True)
+    return domain_conn("ministerial_diary")
 
 
 @st.cache_data(ttl=600)

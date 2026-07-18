@@ -22,7 +22,7 @@ Link types covered (the full ``entity_links.py`` internal surface):
   member_profile_url   ?member=  → member-overview      (3-tier identity)   [cross-view: REAL risk]
   bill_detail_url      ?bill=    → rankings-legislation (v_legislation_detail) [cross-view: REAL risk]
   division_url         ?vote=    → rankings-votes       (v_vote_index)
-  member_votes_url     ?member=  → rankings-votes       (td_vote_summary)
+  member_votes_url     ?member=  → rankings-votes       (v_td_vote_summary)
   si_detail_url        ?si=      → statutory-instruments(v_statutory_instruments)
   company_profile_url  ?supplier=→ company              (v_procurement_supplier_summary)
 """
@@ -70,8 +70,8 @@ _LINK_CONTRACTS = [
     },
     {
         "id": "member_votes_url",
-        "source": [("td_vote_summary", "member_id")],
-        "resolver": [("td_vote_summary", "member_id")],
+        "source": [("v_td_vote_summary", "member_id")],
+        "resolver": [("v_td_vote_summary", "member_id")],
     },
     {
         "id": "si_detail_url",

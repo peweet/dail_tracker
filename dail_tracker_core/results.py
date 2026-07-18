@@ -30,6 +30,18 @@ from dataclasses import dataclass
 import pandas as pd
 
 
+class SourceUnavailable(RuntimeError):
+    """A REQUIRED source could not be queried (missing parquet / unregistered view).
+
+    Raised by ``QueryResult.require()`` at gates where treating an outage as
+    "no rows" would lie to the caller (a member dossier rendering as "not found"
+    because the registry view failed to register). Interfaces map it once:
+    FastAPI has a global handler → 503; MCP tools catch it → an ``{"error"}``
+    dict. Optional per-section reads should keep degrading softly instead —
+    see ``dossiers._section``.
+    """
+
+
 @dataclass(frozen=True)
 class QueryResult:
     """Outcome of a single core query.
@@ -62,5 +74,22 @@ class QueryResult:
 
     @property
     def is_empty(self) -> bool:
-        """True when the query ran but returned no rows. Always True when not ok."""
-        return self.data.empty
+        """True when the query ran but returned no rows. Always True when not ok.
+
+        Defensive: a raw-constructed result carrying ``data=None`` counts as
+        empty rather than raising — pages branch on ``ok``/``is_empty`` and must
+        never crash on a malformed result.
+        """
+        return self.data is None or self.data.empty
+
+    def require(self) -> pd.DataFrame:
+        """The DataFrame, or ``SourceUnavailable`` when the query could not run.
+
+        Use at GATES (identity lookups, list indexes) where an outage must not
+        collapse into "empty"/"not found" — the exact conflation this class
+        exists to prevent. For optional enrichment sections, read ``.data``
+        and record the degradation instead.
+        """
+        if not self.ok:
+            raise SourceUnavailable(self.unavailable_reason or "source unavailable")
+        return self.data

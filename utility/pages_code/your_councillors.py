@@ -305,17 +305,88 @@ def _tab_how_it_works(county: str) -> None:
     _render_standing_orders(county)
 
 
+# The highlight taxonomy — the item classes a citizen actually wants to see first, each with
+# its accent and (where the power model warrants it) a one-line statutory note. Categories are
+# computed in v_la_agenda_items; this is display grouping only.
+_HL_GROUPS = [
+    (
+        "disposal",
+        "Land & property the council is disposing of",
+        "#9c5b2e",
+        "Selling or leasing council land needs a s.183 notice to the elected members — the "
+        "disposal proceeds unless they resolve otherwise.",
+    ),
+    ("motion", "Motions from your councillors", "#6d5a8c", None),
+    ("planning", "Planning decisions reserved to the members", "#2f7d5b", None),
+    ("money", "Money decisions", "#3a6b7e", None),
+]
+
+
+def _render_agenda_highlights(county: str) -> None:
+    """The interesting layer of the agendas — named motions, s.183 disposals, reserved
+    planning and money items — pulled out of the meeting-by-meeting dumps below, newest
+    first. Wording is the council's own (verbatim items); only the grouping is ours."""
+    hr = ycd.fetch_agenda_highlights(county)
+    if not hr.ok or hr.is_empty:
+        return
+    df = hr.data
+    blocks = []
+    for key, title, accent, note in _HL_GROUPS:
+        sub = df[df["category"] == key]
+        if sub.empty:
+            continue
+        rows = []
+        for _, r in sub.head(4).iterrows():
+            src = (
+                f' · <a class="dt-source-link" href="{_h(str(r["source_url"]))}" target="_blank" '
+                'rel="noopener">source</a>'
+                if str(r.get("source_url") or "").strip()
+                else ""
+            )
+            rows.append(
+                '<li style="margin:.28rem 0;line-height:1.35">'
+                f"{_h(str(r['item']))}"
+                f'<span style="color:var(--text-meta,#6b7280);font-size:.75rem;white-space:nowrap">'
+                f" — {_h(str(r['meeting_date']))}{src}</span></li>"
+            )
+        more = (
+            f'<div style="color:var(--text-meta,#6b7280);font-size:.75rem">{len(sub)} in the recent agendas</div>'
+            if len(sub) > 4
+            else ""
+        )
+        note_html = (
+            f'<div style="color:var(--text-secondary,#555);font-size:.78rem;margin:.1rem 0 .25rem">{note}</div>'
+            if note
+            else ""
+        )
+        blocks.append(
+            f'<div style="border-left:4px solid {accent};padding:.15rem 0 .15rem .85rem;margin:.65rem 0">'
+            f'<div style="font-weight:700;color:#16243a">{_h(title)}</div>{note_html}'
+            f'<ul style="margin:.2rem 0 .2rem 1.05rem;padding:0">{"".join(rows)}</ul>{more}</div>'
+        )
+    if not blocks:
+        return
+    evidence_heading("What's actually at stake")
+    st.caption(
+        "Pulled from the same agendas below — grouped by our reading of each item's type; "
+        "the wording is the council's own."
+    )
+    st.html("".join(blocks))
+
+
 def _tab_agendas(county: str) -> None:
     ar = ycd.fetch_agendas(county)
     if not (ar.ok and not ar.is_empty):
         empty_state("Agendas not available", f"{county}'s meeting agendas have not been processed yet.")
         return
+    _render_agenda_highlights(county)
     today = datetime.date.today()
     recs = sorted(
         ar.data.to_dict("records"),
         key=lambda m: _parse_date(m["meeting_date"]) or datetime.date(1900, 1, 1),
         reverse=True,
     )
+    subsection_heading("Meeting by meeting")
     st.caption(
         "What the council tabled for discussion. The next meeting's agenda appears here once the council publishes it."
     )

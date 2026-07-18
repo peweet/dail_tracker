@@ -30,52 +30,52 @@ Run:
   ./.venv/Scripts/python.exe extractors/procurement_la_payments_extract.py --only south_dublin,cork_county
   ./.venv/Scripts/python.exe extractors/procurement_la_payments_extract.py --max-files 6
 
+
 # ── SECTION MAP ── ─────────────────────────────────────────
-# ⚠️  DO NOT READ WHOLE — ~17,677 tokens (1,639 lines after this header).
+# ⚠️  DO NOT READ WHOLE — ~17,565 tokens (1,623 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
-#     128-163    regexes
-#     164-164    CONFIG
-#     165-314    la
-#     315-374    tabular (XLSX / CSV) — no PDF parsing
-#     375-512    digital PDF (fitz largest-x-gap; NO OCR)
-#     513-580    one-hop crawl from the landing page
-#     581-610    NEEDS-RENDER to enumerate, but file URLs are known → fetch d
-#     611-644    NEEDS-RENDER, no known direct URL → Playwright enumeration d
-#     645-688    non-publishers (kept for the full 31 census; never parsed)
-#     689-692    hr
-#     693-697    fetch
-#     698-709    _curl
-#     710-727    fetch_bytes
-#     728-732    fetch_text
-#     733-754    fetch_to_bronze
-#     755-755    harvest
-#     756-831    harvest_files
-#     832-836    _url_year
-#     837-837    readers
-#     838-853    to_eur
-#     854-859    strip_id_prefix
-#     860-860    PDF: layout-agnostic largest-x-gap split (proven in probe_pr
-#     861-877    cluster_word_rows
-#     878-902    split_row
-#     903-932    read_pdf
-#     933-993    read_pdf_offaly
-#     994-1047   read_pdf_reading_order
-#    1048-1048   XLSX / CSV: header-detect + content-fallback (handles odd he
-#    1049-1086   _col_roles
-#    1087-1096   read_xlsx
-#    1097-1106   read_xls
-#    1107-1120   read_csv
-#    1121-1175   _tabular_rows
-#    1176-1176   period
-#    1177-1188   period_from_url
-#    1189-1204   period_from_text
-#    1205-1205   extract
-#    1206-1300   emit_file
-#    1301-1400   classify_and_flag
-#    1401-1401   main
-#    1402-1552   main
-#    1553-1639   Cross-period republish de-duplication
+#     129-164    regexes
+#     165-165    CONFIG
+#     166-315    la
+#     316-375    tabular (XLSX / CSV) — no PDF parsing
+#     376-513    digital PDF (fitz largest-x-gap; NO OCR)
+#     514-581    one-hop crawl from the landing page
+#     582-611    NEEDS-RENDER to enumerate, but file URLs are known → fetch d
+#     612-645    NEEDS-RENDER, no known direct URL → Playwright enumeration d
+#     646-689    non-publishers (kept for the full 31 census; never parsed)
+#     690-693    hr
+#     694-698    fetch
+#     699-710    _curl
+#     711-728    fetch_bytes
+#     729-733    fetch_text
+#     734-755    fetch_to_bronze
+#     756-756    harvest
+#     757-832    harvest_files
+#     833-837    _url_year
+#     838-838    readers
+#     839-854    to_eur
+#     855-860    strip_id_prefix
+#     861-861    PDF: layout-agnostic largest-x-gap split (proven in probe_pr
+#     862-886    split_row
+#     887-916    read_pdf
+#     917-977    read_pdf_offaly
+#     978-1031   read_pdf_reading_order
+#    1032-1032   XLSX / CSV: header-detect + content-fallback (handles odd he
+#    1033-1070   _col_roles
+#    1071-1080   read_xlsx
+#    1081-1090   read_xls
+#    1091-1104   read_csv
+#    1105-1159   _tabular_rows
+#    1160-1160   period
+#    1161-1172   period_from_url
+#    1173-1188   period_from_text
+#    1189-1189   extract
+#    1190-1284   emit_file
+#    1285-1384   classify_and_flag
+#    1385-1385   main
+#    1386-1536   main
+#    1537-1623   Cross-period republish de-duplication
 # ── END SECTION MAP ── ─────────────────────────────────
 """
 
@@ -107,6 +107,7 @@ import config  # noqa: E402
 from services.fetch_report import Breaker, FetchReport, classify_body, classify_exception, write_sentinel  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.pdf_layout import cluster_word_rows  # noqa: E402
 from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research)"}
@@ -858,23 +859,6 @@ def strip_id_prefix(s: str) -> str:
 
 
 # ---- PDF: layout-agnostic largest-x-gap split (proven in probe_procurement_pdf_counties) ----
-def cluster_word_rows(page, ytol: float = 3.0) -> list[list]:
-    words = page.get_text("words")
-    words.sort(key=lambda w: (round(w[1] / ytol), w[0]))
-    rows, cur, cur_y = [], [], None
-    for w in words:
-        y = w[1]
-        if cur_y is None or abs(y - cur_y) <= ytol:
-            cur.append(w)
-            cur_y = y if cur_y is None else cur_y
-        else:
-            rows.append(cur)
-            cur, cur_y = [w], y
-    if cur:
-        rows.append(cur)
-    return rows
-
-
 def split_row(words: list) -> dict | None:
     """Drop the (rightmost) money token; split the remaining words at their largest
     horizontal gap → left=supplier, right=description. Order-independent."""

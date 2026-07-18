@@ -25,7 +25,7 @@ import logging
 
 import duckdb
 
-from dail_tracker_core.queries import run_query
+from dail_tracker_core.queries import make_runner
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
@@ -50,8 +50,7 @@ _LINE_ORDER = {
 }
 
 
-def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    return run_query(conn, sql, params, label="public_payments", log=_log)
+_run = make_runner("public_payments", _log)
 
 
 def coverage_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:

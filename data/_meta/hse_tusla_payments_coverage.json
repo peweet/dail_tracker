@@ -68,22 +68,22 @@
     }
   ],
   "supplier_class_counts": {
-    "company": 26823,
     "public_body": 333,
+    "company": 26823,
     "sole_trader_or_individual": 4698,
-    "unknown": 52,
-    "foreign_company": 57
+    "foreign_company": 57,
+    "unknown": 52
   },
   "amount_semantics_counts": {
     "payment_actual": 16972,
     "po_committed": 14991
   },
   "value_safe_to_sum_rows": 31527,
-  "value_safe_to_sum_total_eur": 7529328528.870001,
+  "value_safe_to_sum_total_eur": 7529328528.87,
   "rows_review_personal_data": 4698,
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-07-11T07:13:32+00:00",
+  "generated_at": "2026-07-18T05:37:30+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. HSE here is the HISTORIC \u2265\u20ac100k cumulative (Q4-2021..Q3-2025) ONLY \u2014 the \u20ac20k\u2013\u20ac100k band for that period is lost (HSE's \u20ac20k cumulative was deleted, never archived). HSE 2025-Q4 + 2026-Q1 at \u2265\u20ac20k are supplied by the disclosed-BigQuery fact and folded in at consolidation (NOT here, to avoid double-count). Layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False)."
 }

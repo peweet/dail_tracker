@@ -18,7 +18,7 @@ import logging
 import duckdb
 import pandas as pd
 
-from dail_tracker_core.queries import run_query
+from dail_tracker_core.queries import make_runner
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
@@ -27,8 +27,7 @@ VOTE_INDEX_LIMIT = 500
 DIVISION_MEMBERS_LIMIT = 5000
 
 
-def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    return run_query(conn, sql, params, label="votes", log=_log)
+_run = make_runner("votes", _log)
 
 
 def _and_clauses(clauses: list[str]) -> str:
@@ -61,14 +60,14 @@ def member_names(conn: duckdb.DuckDBPyConnection, party: str = "", house: str = 
     if party:
         return _run(
             conn,
-            "SELECT DISTINCT member_name FROM td_vote_summary"
+            "SELECT DISTINCT member_name FROM v_td_vote_summary"
             " WHERE member_name IS NOT NULL AND house = ? AND party_name = ?"
             " ORDER BY member_name ASC LIMIT 1000",
             [house, party],
         )
     return _run(
         conn,
-        "SELECT DISTINCT member_name FROM td_vote_summary"
+        "SELECT DISTINCT member_name FROM v_td_vote_summary"
         " WHERE member_name IS NOT NULL AND house = ? ORDER BY member_name ASC LIMIT 1000",
         [house],
     )
@@ -77,7 +76,7 @@ def member_names(conn: duckdb.DuckDBPyConnection, party: str = "", house: str = 
 def party_names(conn: duckdb.DuckDBPyConnection, house: str = "Dáil") -> QueryResult:
     return _run(
         conn,
-        "SELECT DISTINCT party_name FROM td_vote_summary"
+        "SELECT DISTINCT party_name FROM v_td_vote_summary"
         " WHERE party_name IS NOT NULL AND house = ? ORDER BY party_name ASC LIMIT 100",
         [house],
     )
@@ -88,7 +87,7 @@ def td_row_by_name(conn: duckdb.DuckDBPyConnection, member_name: str, house: str
         conn,
         "SELECT member_id, member_name, party_name, constituency,"
         " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_name = ? AND house = ? LIMIT 1",
+        " FROM v_td_vote_summary WHERE member_name = ? AND house = ? LIMIT 1",
         [member_name, house],
     )
 
@@ -96,13 +95,13 @@ def td_row_by_name(conn: duckdb.DuckDBPyConnection, member_name: str, house: str
 def td_name_by_id(conn: duckdb.DuckDBPyConnection, member_id: str) -> QueryResult:
     return _run(
         conn,
-        "SELECT member_name FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+        "SELECT member_name FROM v_td_vote_summary WHERE member_id = ? LIMIT 1",
         [member_id],
     )
 
 
 def member_vote_summary(conn: duckdb.DuckDBPyConnection, member_id: str) -> QueryResult:
-    """Per-TD headline row from td_vote_summary, looked up by member_id (LIMIT 1).
+    """Per-TD headline row from v_td_vote_summary, looked up by member_id (LIMIT 1).
 
     Sibling of :func:`td_row_by_name` (by name) — used by the member-votes UI body.
     """
@@ -110,7 +109,7 @@ def member_vote_summary(conn: duckdb.DuckDBPyConnection, member_id: str) -> Quer
         conn,
         "SELECT member_id, member_name, party_name, constituency,"
         " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+        " FROM v_td_vote_summary WHERE member_id = ? LIMIT 1",
         [member_id],
     )
 
@@ -145,7 +144,7 @@ def member_year_summary(conn: duckdb.DuckDBPyConnection, member_id: str) -> Quer
     return _run(
         conn,
         "SELECT year, yes_count, no_count, abstained_count"
-        " FROM td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
+        " FROM v_td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
         [member_id],
     )
 
@@ -188,7 +187,7 @@ def vote_by_id(conn: duckdb.DuckDBPyConnection, vote_id: str) -> QueryResult:
 def party_breakdown(conn: duckdb.DuckDBPyConnection, vote_id) -> QueryResult:
     return _run(
         conn,
-        "SELECT party_name, vote_type, member_count, vote_pct FROM party_vote_breakdown WHERE vote_id = ? LIMIT 500",
+        "SELECT party_name, vote_type, member_count, vote_pct FROM v_party_vote_breakdown WHERE vote_id = ? LIMIT 500",
         [vote_id],
     )
 

@@ -17,6 +17,52 @@ Features:
   4. SI detail panel — full taxonomy, irishstatutebook.ie link, Iris source
   5. Cross-link to legislation — the enabling Act, where a confident match
      exists (~30% of SIs).
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~19,468 tokens (1,598 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     104-111    Page config
+#     112-319    _inject_si_css
+#     320-342    load_si
+#     343-353    _eisb_url
+#     354-364    _safe
+#     365-387    _pretty_token
+#     388-393    _split_multi
+#     394-441    Legal status (eISB Legislation Directory, via v_si_current_s
+#     442-450    _state_card_pill
+#     451-457    _fmt_si_ref
+#     458-465    _si_ref_eli_url
+#     466-486    _affecting_list
+#     487-517    _apply_filters
+#     518-548    _render_kpi_strip
+#     549-564    _clear_all_filters
+#     565-573    _set_eu_scrutiny_scope
+#     574-598    _eu_scrutiny_stats
+#     599-657    _render_eu_scrutiny_tab
+#     658-682    _clear_facet
+#     683-719    _active_filter_chips
+#     720-730    _tab_label
+#     731-734    _render_facets
+#     735-746    Row 1: search + EU toggle
+#     747-765    Row 2: active-filter scope bar (only when something is filte
+#     766-788    Row 3: Year — always visible, single line, multi-select
+#     789-928    Row 4: tabbed primary facets — only one set of pills shows a
+#     929-973    _render_si_card
+#     974-1002   _render_si_index
+#    1003-1095   _render_legal_status
+#    1096-1121   _render_lrc_classification
+#    1122-1183   _render_amendments_made
+#    1184-1234   _render_operationalising_circulars
+#    1235-1327   _render_si_detail
+#    1328-1396   Who signed — office-primary, person attributed
+#    1397-1476   Cross-link panel — the enabling Act
+#    1477-1496   statutory_instruments_page
+#    1497-1515   Sidebar removed (sidebar→filter-bar migration)
+#    1516-1536   Detail view
+#    1537-1578   Index view
+#    1579-1598   Provenance
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations
@@ -1157,6 +1203,11 @@ def _render_operationalising_circulars(row: pd.Series) -> None:
         title = _safe(getattr(r, "circular_title", ""))
         dept = _pretty_token(_safe(getattr(r, "department", "")).replace("department-of-", ""))
         url = _safe(getattr(r, "circular_source_url", ""))
+        # The stored title often repeats the number ("06/2021 Circular PL 06/2021 –
+        # Takeaway…"); strip that leading self-reference so the cite isn't doubled.
+        title = re.sub(r"^\s*\d{1,3}[/-]\d{2,4}\s+", "", title)
+        title = re.sub(r"^\s*Circular\s+(?:Letter\s+)?[A-Z()]{0,7}\s*\d{1,3}[/-]\d{2,4}\s*[–:\-]\s*",
+                       "", title, flags=re.I).strip()
         cite = f"Circular {no}" if not no.lower().startswith("circular") else no
         label = f"{cite} — {title}" if title else cite
         link = source_link_html(url, label) if url else html.escape(label)

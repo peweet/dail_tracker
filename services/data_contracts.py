@@ -85,6 +85,29 @@ PRIVACY_STATUS: frozenset[str] = frozenset({"ok", "review_personal_data", "publi
 # leaked amount / description / date from a mis-aligned PDF column → quarantine.
 PAID_FLAG_CLEAN: frozenset[str] = frozenset({"y", "n", "yes", "no", "paid", "unpaid", "true", "false", "1", "0", ""})
 
+# Award-grain (eTenders) value kinds — a DIFFERENT grain from the payment fact, with its
+# own closed vocabulary; the two must never be summed together. All three values are
+# DESIGNED outputs of the classifier in extractors/procurement_etenders_extract.py
+# (framework/DPS → ceiling, parent-agreement → call-off, else one-off award).
+# "framework_call_off" has 0 rows in current gold (anchored 2026-07-17 via the @sql
+# contract test) but is a legitimate branch — the guard halts only on a value OUTSIDE
+# this set, which by construction means the classifier changed without this contract.
+AWARD_VALUE_KIND: frozenset[str] = frozenset(
+    {"contract_award_value", "framework_or_dps_ceiling", "framework_call_off"}
+)
+
+# The derived columns every award-grain fact must carry (the raw eTenders export columns
+# on top are source-shaped and may drift; these are ours). A missing one means the
+# consolidation dropped a derivation — downstream views and the CRO match break.
+AWARD_FACT_REQUIRED_COLUMNS: tuple[str, ...] = (
+    "supplier",
+    "supplier_norm",
+    "supplier_class",
+    "value_eur",
+    "value_kind",
+    "value_safe_to_sum",
+)
+
 # The 29 columns every payment-grain SILVER fact must carry (la_payments_fact adds a
 # few; the consolidation adds the regime/CRO/spend_category columns on top). Structural
 # floor — a missing one means a parser dropped a column.
@@ -137,6 +160,14 @@ PAYMENT_FACT_RULES: tuple[ColumnRule, ...] = (
     # Known-dirty: ~6% of gold rows already carry a leaked amount/description here.
     # Quarantine every run for investigation; only halt if it jumps past 12%.
     ColumnRule("paid_flag", PAID_FLAG_CLEAN, "quarantine", case_insensitive=True, max_offending_frac=0.12),
+)
+
+
+# Vocab rules for the award-grain fact. value_eur nullability is NOT ruled here — ~3.6k
+# of 62.7k award rows genuinely carry no value (direct/legacy awards), which is real data.
+AWARD_FACT_RULES: tuple[ColumnRule, ...] = (
+    ColumnRule("value_kind", AWARD_VALUE_KIND, "hard"),
+    ColumnRule("supplier_class", SUPPLIER_CLASS, "hard"),
 )
 
 
@@ -413,6 +444,74 @@ def guard_payment_fact(
     """
     report = enforce_contract(df, name=name, quarantine_dir=quarantine_dir)
     report.invariant_errors = payment_fact_invariant_violations(df)
+    if report.vocab_breaches or report.structural_errors or report.invariant_errors:
+        logger.info(
+            "contract report for %s: vocab=%s struct=%s invariants=%s",
+            name,
+            report.vocab_breaches,
+            report.structural_errors,
+            report.invariant_errors,
+        )
+    if hard:
+        report.raise_if_failed()
+    return report
+
+
+# Cross-column rules for the award grain. Both hold on current gold (anchored 2026-06-27:
+# 0 violations across 16,404 summable rows; the value_kind rule is definitional — see the
+# value_safe_to_sum derivation in procurement_etenders_extract). Regression insurance: a
+# refactor that lets a framework ceiling or a null-value row into value_safe_to_sum
+# re-opens the multi-supplier double-count this fact was built to prevent.
+_AWARD_FACT_INVARIANTS: tuple[tuple[str, pl.Expr], ...] = (
+    (
+        "summable award without a positive value_eur (phantom row in every SUM-where-summable)",
+        pl.col("value_safe_to_sum") & (pl.col("value_eur").is_null() | (pl.col("value_eur") <= 0)),
+    ),
+    (
+        "summable non-award value_kind (only one-off contract_award_value may be summed — "
+        "a summable framework/DPS ceiling or call-off double-counts the same money)",
+        pl.col("value_safe_to_sum") & (pl.col("value_kind") != "contract_award_value"),
+    ),
+)
+
+
+def award_fact_invariant_violations(df: pl.DataFrame) -> list[str]:
+    """Return a human-readable error per violated award-grain invariant (empty == clean)."""
+    errors: list[str] = []
+    for label, expr in _AWARD_FACT_INVARIANTS:
+        try:
+            n = int(df.select(expr.alias("_v")).to_series().sum())
+        except pl.exceptions.ColumnNotFoundError:
+            continue
+        if n:
+            errors.append(f"{n:,} rows violate: {label}")
+    return errors
+
+
+def guard_award_fact(
+    df: pl.DataFrame,
+    *,
+    name: str = "procurement_awards",
+    hard: bool = True,
+    quarantine_dir: Path = QUARANTINE_DIR,
+) -> ContractReport:
+    """Runtime drift gate for the AWARD-grain fact — run BEFORE the gold write.
+
+    Mirrors :func:`guard_payment_fact` for the other money grain: closed vocabularies
+    for ``value_kind`` / ``supplier_class`` (out-of-vocab = an unclassified value), the
+    derived-column structural floor, and the two never-sum invariants above. ``hard=True``
+    raises :class:`ContractViolation` so the pipeline stops before gold is written;
+    offending rows are quarantined first so the evidence survives the halt.
+    """
+    report = enforce_contract(
+        df,
+        name=name,
+        rules=AWARD_FACT_RULES,
+        required_columns=AWARD_FACT_REQUIRED_COLUMNS,
+        nonnull_columns=(),
+        quarantine_dir=quarantine_dir,
+    )
+    report.invariant_errors = award_fact_invariant_violations(df)
     if report.vocab_breaches or report.structural_errors or report.invariant_errors:
         logger.info(
             "contract report for %s: vocab=%s struct=%s invariants=%s",

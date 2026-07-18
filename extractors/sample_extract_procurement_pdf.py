@@ -39,6 +39,9 @@ sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
+# Re-exported: procurement_hse_tusla_materialize / _parser import cluster_word_rows from here.
+from shared.pdf_layout import cluster_word_rows  # noqa: E402
+
 TMP = Path("c:/tmp/procurement_publishers")
 PROBE = TMP / "procurement_publishers_probe.json"
 OUT = TMP / "sample_extraction_pdf_report.json"
@@ -115,23 +118,6 @@ def fetch(url: str) -> bytes | None:
         cache.write_bytes(b)
         return b
     return None
-
-
-def cluster_word_rows(page, ytol: float = 3.0) -> list[list]:
-    words = page.get_text("words")
-    words.sort(key=lambda w: (round(w[1] / ytol), w[0]))
-    rows, cur, cur_y = [], [], None
-    for w in words:
-        y = w[1]
-        if cur_y is None or abs(y - cur_y) <= ytol:
-            cur.append(w)
-            cur_y = y if cur_y is None else cur_y
-        else:
-            rows.append(cur)
-            cur, cur_y = [w], y
-    if cur:
-        rows.append(cur)
-    return rows
 
 
 def find_header(rows: list[list]) -> list | None:

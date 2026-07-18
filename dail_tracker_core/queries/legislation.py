@@ -22,7 +22,7 @@ import logging
 
 import duckdb
 
-from dail_tracker_core.queries import run_query
+from dail_tracker_core.queries import make_runner
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
@@ -37,8 +37,7 @@ _COLS = (
 MOST_CONTESTED_LIMIT = 50
 
 
-def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    return run_query(conn, sql, params, label="legislation", log=_log)
+_run = make_runner("legislation", _log)
 
 
 # ── Bill index ────────────────────────────────────────────────────────────────
@@ -265,7 +264,8 @@ def circular_si_crosswalk(conn: duckdb.DuckDBPyConnection, si_year: int = 0, si_
     to our SI holdings lives in v_circular_si_crosswalk; this only SELECTs and filters."""
     where, params = [], []
     if si_year and si_number:
-        where.append("si_year = ? AND si_number = ?"); params += [si_year, si_number]
+        where.append("si_year = ? AND si_number = ?")
+        params += [si_year, si_number]
     if resolved_only:
         where.append("si_resolved")
     clause = (" WHERE " + " AND ".join(where)) if where else ""

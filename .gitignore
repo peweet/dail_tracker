@@ -418,7 +418,7 @@ data/silver/sipo_candidate/
 # clone with no ETL, so without this the planning JOIN throws and the whole map silently vanishes.
 !data/silver/parquet/planning_appeal_outcomes.parquet
 # Silver facts the deployed app's runtime SQL views read DIRECTLY and query live in
-# DuckDB (registered via utility/data_access/_sql_registry.py + member_overview_data.py).
+# DuckDB (registered via dail_tracker_core/db.py register_views + connections.py).
 # Without these a fresh Cloud clone hard-crashes the Lobbying / Interests / Committees
 # pages (swallow_errors=False) and leaves Home / Legislation / Attendance half-empty.
 # ~85 MB total, all zstd. Parent dirs re-included first (git can't un-ignore a file

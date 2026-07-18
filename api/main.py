@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from api import __version__
 from api.routers import (
@@ -41,6 +42,7 @@ from api.routers import (
     votes,
 )
 from dail_tracker_core.connections import api_conn
+from dail_tracker_core.results import SourceUnavailable
 
 _DESCRIPTION = (
     "Read-only JSON API over Irish parliamentary accountability data "
@@ -66,6 +68,13 @@ app = FastAPI(
     description=_DESCRIPTION,
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(SourceUnavailable)
+async def _source_unavailable(_request: Request, exc: SourceUnavailable) -> JSONResponse:
+    # A REQUIRED view/parquet could not be queried. 503 — never let an outage
+    # masquerade as 404/"no data" (the distinction QueryResult exists to keep).
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 app.include_router(health.router, prefix="/v1")
 app.include_router(catalog.router, prefix="/v1")

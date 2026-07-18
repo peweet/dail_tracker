@@ -14,14 +14,14 @@ from __future__ import annotations
 import duckdb
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import publicfinance as _q
 from dail_tracker_core.results import QueryResult
 
 
 @st.cache_resource
 def get_publicfinance_conn() -> duckdb.DuckDBPyConnection:
-    return connect_with_views(["publicfinance_*.sql"], swallow_errors=True)
+    return domain_conn("publicfinance")
 
 
 @st.cache_data(ttl=600)

@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW party_vote_breakdown AS
+CREATE OR REPLACE VIEW v_party_vote_breakdown AS
 SELECT
     vote_id,
     party                       AS party_name,

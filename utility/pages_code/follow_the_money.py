@@ -23,6 +23,7 @@ below the prime contractor — the leaf (the body's own line items) is the termi
 
 from __future__ import annotations
 
+import math
 import sys
 import urllib.parse
 from pathlib import Path
@@ -429,6 +430,8 @@ def _isif_amount(stated, currency, is_up_to) -> str:
     try:
         n = float(stated)
     except (TypeError, ValueError):
+        return ""
+    if math.isnan(n):  # NaN passes float() and would render literally as "€nan"
         return ""
     sym = {"EUR": "€", "USD": "$", "GBP": "£"}.get(_coalesce(currency) or "EUR", "")
     if n >= 1_000_000:

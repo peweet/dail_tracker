@@ -13,14 +13,13 @@ import logging
 
 import duckdb
 
-from dail_tracker_core.queries import run_query
+from dail_tracker_core.queries import make_runner
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
 
 
-def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    return run_query(conn, sql, params, label="your_councillors", log=_log)
+_run = make_runner("your_councillors", _log)
 
 
 def councils(conn: duckdb.DuckDBPyConnection) -> QueryResult:
@@ -111,6 +110,24 @@ def plan_directions(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
 def agendas(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     return _run(
         conn, "SELECT meeting_date, agenda, source_url FROM v_la_meeting_agendas WHERE local_authority = ?", [la]
+    )
+
+
+def agenda_highlights(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """The agenda items worth a citizen's attention — named motions, s.183/s.211 land
+    disposals, reserved planning decisions, money decisions — split and classified in
+    v_la_agenda_items. The category is OUR display taxonomy (regex over the council's own
+    wording, computed in the view); the item text stays verbatim. Bare section headers
+    ('Notices of Motion' with no content) are excluded. Newest meetings first; rows whose
+    date didn't parse sort last rather than being dropped."""
+    return _run(
+        conn,
+        "SELECT meeting_date, item, category, source_url"
+        " FROM v_la_agenda_items"
+        " WHERE local_authority = ? AND is_highlight"
+        " AND lower(trim(item)) NOT IN ('notices of motion', 'notice of motion')"
+        " ORDER BY meeting_ts DESC NULLS LAST",
+        [la],
     )
 
 

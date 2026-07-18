@@ -19,7 +19,7 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import attendance as _q
 
 
@@ -28,7 +28,7 @@ def get_attendance_conn() -> duckdb.DuckDBPyConnection:
     # swallow_errors=True preserves the prior register_views(...) behaviour:
     # a missing optional attendance view degrades that section to its empty
     # state rather than taking the whole page down.
-    return connect_with_views(["attendance_*.sql"], swallow_errors=True)
+    return domain_conn("attendance")
 
 
 # ── Retrieval wrappers (caching + presentation reshaping only) ────────────────

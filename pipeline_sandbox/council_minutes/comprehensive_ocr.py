@@ -65,23 +65,78 @@ def harvest(pages):
             tx = a.get_text(" ", strip=True)
             if u.lower().endswith(".pdf") and MINUTE_RX.search(u) and YEAR_RX.search(u + tx):
                 if u not in seen:
-                    seen.add(u); pdfs.append(u)
+                    seen.add(u)
+                    pdfs.append(u)
             elif YEAR_RX.search(tx) and MINUTE_RX.search(tx + u) and ".pdf" not in u.lower() and u not in todo and len(todo) < 18:
                 todo.append(u)
     return pdfs[:24]
 
 
+# An agenda item starts with a numbered marker — either on the SAME line as its text
+# ("1. Election of ...", OCR text-boxes) or ALONE on its line with the text following
+# ("1.\nElection of ..." in born-digital PDFs; Louth numbers items "1.0", "2.0"...).
+# The bare \d. alternative also fires on numbered paragraphs deep inside minutes prose
+# (the source of the Louth motion-fragment garbage), so leads must start uppercase, ≥5 chars.
+_ITEM_START = re.compile(r"^\s*(?:ITEM\s*N[O0]\.?\s*\d+[.:]?|\d{1,2}[.\)])\s+(\S.*\S)")
+_MARKER_ONLY = re.compile(r"^\s*(?:ITEM\s*N[O0]\.?\s*)?\d{1,2}(?:\.\d)?\s*[.\):]?\s*$")
+_STOP = re.compile(r"^\s*(page\b|minutes of\b|present[:\s]|apolog|in attend|signed\b|-{3,}|\[)", re.I)
+_BOILER = ("page", "present", "apolog", "in attend")
+
+
+def _is_start(lines: list[str], i: int) -> bool:
+    m = _ITEM_START.match(lines[i])
+    if m:
+        return len(m.group(1)) >= 5 and m.group(1)[:1].isupper()
+    return bool(_MARKER_ONLY.match(lines[i]))
+
+
 def agenda_items(text: str) -> list[str]:
+    """Agenda item headings from a minutes/agenda text. Items WRAP across lines (and in OCR
+    text every detected box is its own line), so each numbered start joins its continuation
+    lines — until the next item marker, boilerplate, a bilingual " / " section header, or
+    terminal punctuation. The old single-line ([^\\n]{5,95}) capture truncated most items
+    mid-sentence at the first line break and missed marker-on-own-line layouts entirely."""
+    lines = text.splitlines()
+    starts: list[tuple[int, str | None]] = []  # (line idx, same-line lead or None)
+    for i, ln in enumerate(lines):
+        m = _ITEM_START.match(ln)
+        if m and len(m.group(1)) >= 5 and m.group(1)[:1].isupper():
+            starts.append((i, m.group(1)))
+        elif _MARKER_ONLY.match(ln):
+            starts.append((i, None))
     out = []
-    for m in re.finditer(r"(?:ITEM\s*N[O0]\.?\s*\d+|^\s*\d{1,2}[.\)])\s*([A-Z][^\n]{5,95})", text, re.M):
-        s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", re.sub(r"\s+", " ", m.group(1)).strip(" .-"))
-        s = re.sub(r"\s+", " ", s)[:90]
-        if s and not s.lower().startswith(("page", "minutes of", "present", "apolog", "in attend")):
+    for n, (i, lead) in enumerate(starts):
+        nxt = starts[n + 1][0] if n + 1 < len(starts) else len(lines)
+        j0 = i
+        if lead is None:
+            # marker alone on its line — the first following non-blank line is the lead
+            for j in range(i + 1, min(nxt, i + 4)):
+                cand = lines[j].strip()
+                if cand:
+                    if len(cand) >= 5 and cand[:1].isupper() and not _STOP.match(cand):
+                        lead, j0 = cand, j
+                    break
+            if lead is None:
+                continue  # stray number (page number etc.), not an item
+        parts = [lead]
+        for j in range(j0 + 1, min(nxt, j0 + 9)):
+            cont = lines[j].strip()
+            if not cont:
+                continue  # blank inside a wrapped item — items can span a fold
+            if _is_start(lines, j) or _STOP.match(cont) or " / " in cont:
+                break  # next item / boilerplate / bilingual section header of the next item
+            parts.append(cont)
+            if re.search(r"[.:;?]$", cont) or len(" ".join(parts)) > 220:
+                break
+        s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", re.sub(r"\s+", " ", " ".join(parts)).strip(" .-"))
+        s = re.sub(r"\s+", " ", s)[:220]
+        if s and not s.lower().startswith(_BOILER):
             out.append(s)
     seen, u = set(), []
     for x in out:
         if x not in seen:
-            seen.add(x); u.append(x)
+            seen.add(x)
+            u.append(x)
     return u[:15]
 
 
@@ -107,8 +162,8 @@ def ocr_one(args):
         if native >= 80 * max(1, len(doc)):
             text = "\n".join(p.get_text() for p in doc)  # born-digital after all
         else:
-            text = "\n".join(l for p in list(doc)[:MAX_PAGES]
-                             for l in [t for _, t, _ in (ocr(p.get_pixmap(dpi=200).tobytes("png"))[0] or [])])
+            text = "\n".join(ln for p in list(doc)[:MAX_PAGES]
+                             for ln in [t for _, t, _ in (ocr(p.get_pixmap(dpi=200).tobytes("png"))[0] or [])])
         items = agenda_items(text)
         return {"council": la, "file": unquote(url.split("/")[-1]), "date": mdate(url),
                 "agenda_items": items, "source_url": url, "n_items": len(items)}
@@ -134,7 +189,11 @@ def main():
 
     good = [r for r in rows if r.get("agenda_items")]
     # merge into meeting_history.jsonl (dedupe by council+date+file)
-    mh = [json.loads(l) for l in (HERE / "meeting_history.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+    mh = [
+        json.loads(ln)
+        for ln in (HERE / "meeting_history.jsonl").read_text(encoding="utf-8").splitlines()
+        if ln.strip()
+    ]
     seen = {(r["council"], r.get("date", ""), r.get("file", "")) for r in mh}
     added = 0
     for r in good:

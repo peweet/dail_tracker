@@ -58,7 +58,7 @@ from pathlib import Path
 
 import polars as pl
 
-from extractors._diary_minister import resolve_minister  # canonical minister from filename/dept+date
+from extractors._diary_minister import resolve_minister, surname_key  # canonical minister from filename/dept+date
 from extractors.diary_org_match import ACRONYMS, norm  # identical org/subject normaliser + curated acronym map
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
@@ -356,21 +356,6 @@ def org_key(name: str | None) -> str:
                 key = norm(ACRONYMS[acr])
                 break
     return DIARY_REGISTER_ALIASES.get(key, key)
-
-
-def surname_key(name: str | None) -> str:
-    """Crude surname key: ASCII-folded last token, trailing possessive 's' stripped.
-
-    Aligns the diary minister filename-guess ("Ryans", "Brownes") with the lobbying
-    register full_name ("Eamon Ryan"). Deliberately lossy — collisions possible.
-    """
-    if not name:
-        return ""
-    toks = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode().lower().split()
-    if not toks:
-        return ""
-    last = toks[-1]
-    return last[:-1] if last.endswith("s") and len(last) > 4 else last
 
 
 # CLIENT-SIDE COLLISION GUARD (fail-closed). norm() strips descriptive words (ireland|irish|group|

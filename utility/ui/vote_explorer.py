@@ -139,7 +139,7 @@ def _fmt_date(val) -> str:
 
 
 def _party_chart(df: pd.DataFrame) -> go.Figure | None:
-    """Build horizontal stacked bar from already-aggregated party_vote_breakdown rows."""
+    """Build horizontal stacked bar from already-aggregated v_party_vote_breakdown rows."""
     if df.empty or "party_name" not in df.columns or "vote_type" not in df.columns:
         return None
 
@@ -274,13 +274,13 @@ def render_division_panel(
 
         evidence_heading("Party breakdown")
         if breakdown_df.empty:
-            todo_callout("party_vote_breakdown — per-party vote counts per division")
+            todo_callout("v_party_vote_breakdown — per-party vote counts per division")
         else:
             fig = _party_chart(breakdown_df)
             if fig is not None:
                 st.plotly_chart(fig, width="stretch")
             else:
-                todo_callout("party_vote_breakdown — party_name or vote_type column missing")
+                todo_callout("v_party_vote_breakdown — party_name or vote_type column missing")
 
         evidence_heading("Member votes")
         if members_df.empty:
@@ -576,7 +576,7 @@ def render_td_panel(
                 mc_str = missing_y[0]
                 for c in missing_y[1:]:
                     mc_str += ", " + c
-                todo_callout(f"td_vote_year_summary missing columns: {mc_str}")
+                todo_callout(f"v_td_vote_year_summary missing columns: {mc_str}")
             else:
                 _year_chart(year_df)
 
@@ -629,7 +629,7 @@ def render_member_votes(
     date_to: str | None = None,
     key_suffix: str = "",
 ) -> None:
-    """One-call per-TD voting body: fetches td_vote_summary + history +
+    """One-call per-TD voting body: fetches v_td_vote_summary + history +
     year_summary against the supplied DuckDB connection, then renders via
     :func:`render_td_panel`.
 
@@ -649,7 +649,7 @@ def render_member_votes(
     if not summary_res.ok:
         empty_state(
             "TD not found",
-            "td_vote_summary returned no record for this member id.",
+            "v_td_vote_summary returned no record for this member id.",
         )
         return
 
@@ -657,7 +657,7 @@ def render_member_votes(
     if td_df.empty:
         empty_state(
             "No vote data for this member",
-            "td_vote_summary returned no rows — this TD may have no recorded divisions.",
+            "v_td_vote_summary returned no rows — this TD may have no recorded divisions.",
         )
         return
 

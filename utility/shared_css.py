@@ -4608,9 +4608,17 @@ def inject_css() -> None:
             white-space: nowrap;
             text-transform: none;
             margin-left: auto;
-            max-width: 18ch;
+            /* 2026-07-17 audit: 18ch truncated ~20 of the first 25 cards
+               ("Committee an…", "Second Stage (Re…") and the tooltip rescue
+               doesn't exist on touch. 34ch fits the common worst case
+               ("Restoration to Order Paper (Resumed)", 37ch) at this font
+               size; phones keep the tighter cap below. */
+            max-width: 38ch;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        @media (max-width: 640px) {
+            .vt-card-stage { max-width: 18ch; }
         }
         /* P2-8 Private Members pill — same chip family as the stage pill
            but a slightly warmer surface so the two read as siblings

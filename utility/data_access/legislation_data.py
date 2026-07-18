@@ -18,7 +18,7 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import legislation as _q
 
 # Column contracts the page consumed from the old narrower SELECTs. The core
@@ -41,7 +41,7 @@ _INTENSITY_COLS = [
 
 @st.cache_resource
 def get_legislation_conn() -> duckdb.DuckDBPyConnection:
-    return connect_with_views(["legislation_*.sql"], swallow_errors=True)
+    return domain_conn("legislation")
 
 
 # ── Index ──────────────────────────────────────────────────────────────────────

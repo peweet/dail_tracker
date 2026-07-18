@@ -314,8 +314,13 @@ def render_notable_chips(
     citizens couldn't tell them apart. Now: when a surname collides among
     visible chips, prepend the first initial (D. Healy-Rae, M. Healy-Rae).
     """
-    st.markdown('<p class="sidebar-label">Notable members</p>', unsafe_allow_html=True)
     visible = [n for n in names if n in available]
+    if not visible:
+        # No label without chips: an orphan "Notable members" heading captions
+        # whatever control the page renders next (seen on TD Payments, where it
+        # sat over the year pills in the 2026-07-17 visual audit).
+        return False
+    st.markdown('<p class="sidebar-label">Notable members</p>', unsafe_allow_html=True)
     # Count surnames to detect collisions among visible chips only.
     surname_counts: dict[str, int] = {}
     for n in visible:

@@ -162,11 +162,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 # utility/ APPENDED (not inserted at front) so the project-root config.py still
-# wins — utility/ has its own config.py that would shadow it. We only need
-# utility/ on the path to import the real production view loader
-# (data_access._sql_registry.register_views) for the registration smoke test.
+# wins — utility/ has its own config.py that would shadow it.
 sys.path.append(str(Path(__file__).parents[2] / "utility"))
-from data_access._sql_registry import register_views
+from dail_tracker_core.db import register_views
 
 from config import (
     DATA_DIR,
@@ -1432,17 +1430,17 @@ def test_v_corporate_cbi_repeat_distress_executes():
 
 # NOTE: View names and column assertions match what each SQL file actually
 # CREATEs. Some views use the `v_` prefix and some don't — this is an
-# inconsistency in production SQL (td_vote_*, party_vote_breakdown vs the
+# inconsistency in production SQL (td_vote_*, v_party_vote_breakdown vs the
 # `v_vote_*` convention) that the old test parametrize didn't account for.
 # Aliases (full_name → member_name, party → party_name) are reflected here.
 VOTE_VIEWS = [
     ("vote_index.sql", "v_vote_index", ["vote_id", "vote_date", "vote_outcome"]),
     ("vote_member_detail.sql", "v_vote_member_detail", ["member_name", "vote_type"]),
-    ("vote_party_breakdown.sql", "party_vote_breakdown", ["party_name", "vote_type", "member_count"]),
+    ("vote_party_breakdown.sql", "v_party_vote_breakdown", ["party_name", "vote_type", "member_count"]),
     ("vote_result_summary.sql", "v_vote_result_summary", ["division_count", "member_count"]),
     ("vote_sources.sql", "v_vote_sources", ["vote_id", "source_url"]),
-    ("vote_td_summary.sql", "td_vote_summary", ["member_name", "yes_count"]),
-    ("vote_td_year_summary.sql", "td_vote_year_summary", ["member_name", "year"]),
+    ("vote_td_summary.sql", "v_td_vote_summary", ["member_name", "yes_count"]),
+    ("vote_td_year_summary.sql", "v_td_vote_year_summary", ["member_name", "year"]),
 ]
 
 
@@ -2789,17 +2787,11 @@ def test_v_procurement_ted_tenders_pre_award_grain():
 # VIEW-NAMING LINT  (no data needed — always runs)
 # ---------------------------------------------------------------------------
 #
-# The project convention is a `v_` prefix on every view. Three production views
-# predate it and are NOT prefixed; they are an accepted, documented exception.
-# This test locks that set: it fails if a NEW non-prefixed view is added (drift)
-# OR if one of the known exceptions is finally renamed (update the allowlist).
-
-# Views that intentionally lack the `v_` prefix (legacy; see the votes section).
-_KNOWN_UNPREFIXED_VIEWS = {
-    "party_vote_breakdown",
-    "td_vote_summary",
-    "td_vote_year_summary",
-}
+# The project convention is a `v_` prefix on every view. The last three legacy
+# exceptions (td_vote_summary / td_vote_year_summary / party_vote_breakdown)
+# were renamed to the convention 2026-07-18 — the allowlist is now EMPTY and
+# every view must conform.
+_KNOWN_UNPREFIXED_VIEWS: set[str] = set()
 
 _CREATE_VIEW_RE = re.compile(r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)", re.IGNORECASE)
 

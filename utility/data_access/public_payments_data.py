@@ -20,7 +20,7 @@ from pathlib import Path
 import duckdb
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import public_payments as _q
 from dail_tracker_core.results import QueryResult
 
@@ -32,10 +32,7 @@ def get_public_payments_conn() -> duckdb.DuckDBPyConnection:
     # procurement_payments_by_category.sql carries the "What the money buys" lens views
     # (v_payments_by_category[_publisher] / v_payments_category_suppliers); both files read
     # the same gold payment fact, so registering them together is the whole dependency set.
-    return connect_with_views(
-        ["procurement_public_payments.sql", "procurement_payments_by_category.sql"],
-        swallow_errors=True,
-    )
+    return domain_conn("public_payments")
 
 
 @st.cache_data(ttl=600)

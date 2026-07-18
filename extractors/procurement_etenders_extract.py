@@ -38,6 +38,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.data_contracts import guard_award_fact  # noqa: E402
 from services.deflator import value_plausible_expr  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
@@ -528,6 +529,10 @@ def main() -> None:
     aw = aw.with_columns(value_plausible_expr("value_eur", hi=LARGE_AWARD_REVIEW_EUR).alias("value_plausible"))
     print(f"  value_plausible: {aw['value_plausible'].sum():,} of {aw['value_eur'].is_not_null().sum():,} valued rows")
 
+    # Runtime drift gate (mirrors guard_payment_fact on the payment grain): halts BEFORE
+    # the gold write on an out-of-vocab value_kind/supplier_class, a dropped derived
+    # column, or a never-sum invariant breach. Offending rows are quarantined first.
+    guard_award_fact(aw, name="procurement_awards", hard=True)
     save_parquet(aw, OUT_AWARDS)
     hr("AWARD-SUPPLIER ROWS")
     print(f"rows: {aw.height:,}  ->  {OUT_AWARDS}")

@@ -151,7 +151,16 @@ _TYPE_GROUPS = [
 # Junk-pattern rejection for the entity_name display fallback. When entity_name
 # matches one of these, the card shows display_title instead (or a graceful
 # "Company name not extracted in this notice" if both are junky).
-_JUNK_RE = "NOTICE IS HEREBY|ABOVE NAMED|IN THE MATTER|COMPANIES ACT|ICAV ACT|COLLECTIVE ASSET|^Notice is hereby"
+_JUNK_RE = (
+    "NOTICE IS HEREBY|ABOVE NAMED|IN THE MATTER|COMPANIES ACT|ICAV ACT|COLLECTIVE ASSET|^Notice is hereby"
+    # Sentence fragments and bare legal suffixes seen as card titles in the
+    # 2026-07-17 visual audit ("LIMITED", "it was ordered that … be wound up
+    # under the"). Only clear non-names — anything that could be a real
+    # registered name (e.g. "CONSTRUCTION LIMITED") is left to the parser.
+    "|^IT WAS ORDERED|WOUND UP UNDER|^THE HIGH COURT|^LIMITED$|^UNLIMITED$|^LIMITED COMPANY$"
+    # Confirmed parse fragment by data check (its display_title is 'THE HIGH COURT'):
+    "|^CONSTRUCTION LIMITED$"
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

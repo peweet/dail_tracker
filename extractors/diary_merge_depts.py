@@ -26,14 +26,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import unicodedata
 from datetime import date
 from pathlib import Path
 
 import fitz
 import polars as pl
 
-from extractors._diary_minister import minister_from_filename
+from extractors._diary_minister import minister_from_filename, surname_key as _surname_key
 from extractors.ministerial_diaries_extract import (
     OUT_DIR,
     _infer_default_year,
@@ -55,17 +54,6 @@ _RAW_COLS = ["entry_date", "time_slot", "subject", "department", "minister", "so
 # key misses ~half the cross-published Eamon Ryan entries. Surname-folding catches the same person
 # without collapsing genuinely different ministers who share a date/time/subject.
 _DEDUP_KEY = ["_mk", "entry_date", "time_slot", "subject"]
-
-
-def _surname_key(name: str | None) -> str:
-    """Folded last-name token, trailing possessive 's' stripped — 'Ryans'/'Ryan' → 'ryan'."""
-    if not name:
-        return ""
-    toks = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode().lower().split()
-    if not toks:
-        return ""
-    last = toks[-1]
-    return last[:-1] if last.endswith("s") and len(last) > 4 else last
 
 
 def parse_dept_entries(depts: set[str]) -> pl.DataFrame:

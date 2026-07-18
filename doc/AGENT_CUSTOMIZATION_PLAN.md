@@ -134,7 +134,7 @@ round-trip): add to `mcp_server/server.py`:
 **3b. `search_project(query)` meta-tool** — one repo-aware retrieval tool that ranks matches
 across the *metadata* layer only: fact-card names/descriptions/columns, `doc/INDEX.md`
 front-matter (title/domain/read_when), `sql_views/**/*.sql` header comments, and registered
-view names from `utility/data_access/_sql_registry.py`. Returns top-N `{kind, name, path,
+view names from the `dail_tracker_core/db.py` registry. Returns top-N `{kind, name, path,
 why-matched}` rows. This converts "where does X live?" from a tree-grep (hundreds of file
 reads for any agent) into one cheap structured call. Keep it metadata-only — never scan
 parquet or page source. Plain substring/token scoring is fine; no embeddings.

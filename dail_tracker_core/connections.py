@@ -207,6 +207,11 @@ CONSTITUENCY_FILES = [
     "constituency_la_councillor_payments.sql",  # ACTUAL s.142 payments (open-data councils; reads _meta CSV; no deps)
     "constituency_la_plan_directions.sql",  # OPR/Minister overrides of the MEMBERS' plan+zoning votes (reserved function; reads _meta CSV; no deps)
     "constituency_la_meeting_agendas.sql",  # what each council tabled (agenda)
+    # Per-ITEM split + classification of the agendas (self-contained: reads the
+    # _meta CSV directly). Was in NO list/glob until 2026-07-18 — the registration
+    # -graph test caught it: your_councillors.agenda_items had silently returned
+    # "unavailable" since the view shipped.
+    "constituency_la_agenda_items.sql",
     "constituency_la_standing_orders.sql",  # how agendas are formulated + voting rule (~8 councils)
     "constituency_la_planning_overturn.sql",  # council ABP-overturn rate (reads silver parquet; no deps)
     "constituency_la_derelict_sites_levy.sql",  # council Derelict Sites Levy enforcement (reads gold parquet; no deps)
@@ -274,58 +279,119 @@ def housing_conn() -> duckdb.DuckDBPyConnection:
     return conn
 
 
-# Domains the API serves beyond the member set. Each is registered with its own
-# Streamlit page's glob (within-domain alphabetical order is proven by the pages).
-# Only member_registry / member_external_links / vote_base need substitutions, and
-# those are handled by register_member_views first; we pass the same substitutions
-# to the vote_*.sql glob so the idempotent CREATE OR REPLACE of vote_base re-applies
-# them correctly rather than registering a literal-placeholder view.
-_API_DOMAIN_GLOBS = [
-    "legislation_*.sql",
-    "lobbying_*.sql",
-    "charity_*.sql",
-    "payments_*.sql",
-    "committees_*.sql",
-    "procurement_*.sql",
-    # interests: detail glob first, then the zz_ index/summary that JOIN it — the
-    # proven order from utility/data_access/interests_data.py. Reads parquet directly.
-    "member_interests_*.sql",
-    "member_zz_interests_*.sql",
-    "vote_*.sql",
-    "speech_*.sql",
-    # SIPO political finance / judiciary bench / public appointments. These views
-    # absolutize their own parquet paths (no substitution needed); the sipo glob's
-    # alphabetical order is dependency-safe (ge2024_party_finance reads the
-    # candidate/donations/expenses views, all earlier alphabetically). swallow_errors
-    # degrades a missing optional parquet to one unavailable domain, not a dead conn.
-    "sipo_*.sql",
-    "judiciary_*.sql",
-    "appointments_*.sql",
-    # ministerial diaries (who ministers meet x lobbying register). Views absolutize their
-    # own gold parquet paths; independent of the member set, so order-insensitive here.
-    "ministerial_diary_*.sql",
-    # corporate notices (Iris Oifigiúil gazette): distress/register notices + CRO/CBI xref +
-    # receiver-appointer/operator-firm precomputed gold. Same single glob the Streamlit page
-    # uses (utility/data_access/corporate_data.get_corporate_conn); alphabetical within-domain
-    # order is proven there, and swallow_errors degrades a missing optional view, not the conn.
-    "corporate_*.sql",
-]
+# ── Per-domain registration policy — the single domain→glob registry ──────────
+# Audit 2026-07-17: every data_access module enumerated its own glob list +
+# swallow choice inline, and the API re-listed the same globs independently (two
+# hand-synced registries). This table is now the ONE mapping; Streamlit modules
+# call ``domain_conn(domain)`` and the API derives its glob list from it.
+#
+# Phases run in order. ``swallow`` False = REQUIRED (fail loud — a broken core
+# view must not ship as a silently half-empty page); True = OPTIONAL enrichment
+# (a missing parquet degrades that section only). The loud/soft split preserves
+# each module's proven prior behaviour, incl. the 2026-07-10 incident rule: the
+# interests supplements enrichment must stay soft (a loud registration took down
+# every interests page when the view SQL shipped before its parquet).
+DOMAIN_REGISTRATIONS: dict[str, list[tuple[list[str], bool]]] = {
+    "appointments": [(["appointments_*.sql"], True)],
+    "attendance": [(["attendance_*.sql"], True)],
+    # Membership register is the page's core (loud); meeting-history evidence
+    # reads optional gold (soft).
+    "committees": [(["committees_*.sql"], False), (["committee_evidence_*.sql"], True)],
+    "corporate": [(["corporate_*.sql"], True)],
+    # Detail registers before the zz_ index that JOINs it; supplements are soft.
+    "interests": [
+        (["member_interests_detail.sql", "member_zz_interests_*.sql"], False),
+        (["member_interests_supplements.sql"], True),
+    ],
+    "judiciary": [(["judiciary_*.sql"], True)],
+    "legislation": [(["legislation_*.sql"], True)],
+    # Core lobbying views loud; the charity-finances tile degrades gracefully.
+    "lobbying": [(["lobbying_*.sql"], False), (["charity_financials_by_year.sql"], True)],
+    # minister_briefs.sql: the incoming-minister BRIEF corpus shares the page.
+    "ministerial_diary": [(["ministerial_diary_*.sql", "minister_briefs.sql"], True)],
+    "payments": [(["payments_*.sql"], False)],
+    "procurement": [(["procurement_*.sql"], True)],
+    # "What the money buys" lens: both files read the same gold payment fact.
+    "public_payments": [(["procurement_public_payments.sql", "procurement_payments_by_category.sql"], True)],
+    "publicfinance": [(["publicfinance_*.sql"], True)],
+    "sipo": [(["sipo_*.sql"], False)],
+    "votes": [(["vote_*.sql"], True)],
+}
+
+# Domains whose views carry {PLACEHOLDER} parquet paths substituted from config.
+# Extra keys in the shared dict are harmless — each .sql consumes only the
+# placeholders it references.
+_SUBSTITUTED_DOMAINS = {"votes"}
+
+
+def domain_conn(domain: str) -> duckdb.DuckDBPyConnection:
+    """A fresh in-memory connection registered per ``DOMAIN_REGISTRATIONS``.
+
+    The Streamlit data_access modules wrap this in ``@st.cache_resource`` (one
+    conn per session per domain); anything Streamlit-free can call it directly.
+    """
+    conn = duckdb.connect()
+    subs = _member_view_substitutions() if domain in _SUBSTITUTED_DOMAINS else None
+    for globs, swallow in DOMAIN_REGISTRATIONS[domain]:
+        register_views(conn, globs, substitutions=subs, swallow_errors=swallow)
+    return conn
+
+
+def _api_domain_globs() -> list[str]:
+    """The API union's ordered glob list, DERIVED from DOMAIN_REGISTRATIONS plus
+    the API-only surfaces (charity_* beyond the lobbying tile's single file;
+    speech_* for the speeches resource). Within-domain alphabetical order is
+    proven by the Streamlit pages; the cross-domain sequence preserves the
+    pre-derivation hand list. vote_*'s idempotent CREATE OR REPLACE of vote_base
+    re-applies the config substitutions passed by api_conn. Relative to the old
+    hand list this ADDS committee_evidence_*.sql and minister_briefs.sql (their
+    domains' optional phases) — additive, swallow_errors, previously a gap."""
+    sequence = [
+        "legislation",
+        "lobbying",
+        "payments",
+        "committees",
+        "procurement",
+        "interests",
+        "votes",
+        "sipo",
+        "judiciary",
+        "appointments",
+        "ministerial_diary",
+        "corporate",
+    ]
+    globs: list[str] = []
+    for domain in sequence:
+        for phase_globs, _swallow in DOMAIN_REGISTRATIONS[domain]:
+            globs.extend(g for g in phase_globs if g not in globs)
+        if domain == "lobbying":
+            globs.append("charity_*.sql")
+        if domain == "votes":
+            globs.append("speech_*.sql")
+    return globs
 
 
 def api_conn() -> duckdb.DuckDBPyConnection:
-    """One read-only connection with EVERY view set the API exposes.
+    """One read-only-BY-CONVENTION connection with EVERY view set the API exposes.
 
-    Built once at FastAPI startup; requests get a ``conn.cursor()``. All 111 views
-    are CREATE OR REPLACE (idempotent), so the member set (registered first, in its
+    Built once at FastAPI startup; requests get a ``conn.cursor()``. Every view is
+    CREATE OR REPLACE (idempotent), so the member set (registered first, in its
     load-bearing order, with substitutions) and the per-domain globs coexist.
+
+    "Read-only" is a naming convention, not an enforced guarantee: in-memory DuckDB
+    databases cannot be opened with ``read_only=True``, so nothing physically stops
+    a handler issuing DDL/DML. Interfaces must simply never do so (the exports
+    router, which legitimately writes files, opens its OWN connection).
     """
     conn = duckdb.connect()
     register_member_views(conn)  # member/registry/external/vote views + substitutions, explicit order
 
     # Re-apply the same substitutions to the domain globs: their idempotent
     # CREATE OR REPLACE of vote_base / member_registry must re-inject the paths
-    # rather than register a literal-placeholder view.
-    register_views(conn, _API_DOMAIN_GLOBS, substitutions=_member_view_substitutions(), swallow_errors=True)
+    # rather than register a literal-placeholder view. Everything is soft here —
+    # one union connection must not die because one domain's parquet is absent
+    # (each domain's loud/soft policy applies to ITS page conn, not the union).
+    register_views(conn, _api_domain_globs(), substitutions=_member_view_substitutions(), swallow_errors=True)
 
     # Full attendance view set. The member set already registered the participation +
     # year-rank subset (in load-bearing order); this glob adds summary / member_summary /
