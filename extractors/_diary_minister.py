@@ -34,6 +34,7 @@ Resolution order:
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime
 from pathlib import Path
 
@@ -246,6 +247,25 @@ DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
     # (who_was_minister-verified, 2025-01-23–). Earlier DCCS files carry surnames (resolve by filename).
     ("DCCS", "O'Donovan", date(2025, 1, 23), None),
 ]
+
+
+def surname_key(name: str | None) -> str:
+    """Crude surname key: ASCII-folded last token, trailing possessive 's' stripped.
+
+    The MINISTER person key for diary matching — aligns the filename-guess form
+    ("Ryans", "Brownes") with a register full_name ("Eamon Ryan"). Deliberately
+    lossy (collisions possible); distinct from the TD anagram join key in
+    shared/normalise_join_key.py — never conflate the two. One definition here so
+    the diary dedup (diary_merge_depts) and the lobbying overlap
+    (diary_lobbying_overlap) can never drift apart and match different people.
+    """
+    if not name:
+        return ""
+    toks = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode().lower().split()
+    if not toks:
+        return ""
+    last = toks[-1]
+    return last[:-1] if last.endswith("s") and len(last) > 4 else last
 
 
 def _normalise_token(tok: str) -> str:

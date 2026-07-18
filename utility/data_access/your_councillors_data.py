@@ -72,6 +72,13 @@ def fetch_agendas(la: str) -> QueryResult:
 
 
 @st.cache_data(ttl=600)
+def fetch_agenda_highlights(la: str) -> QueryResult:
+    """Classified citizen-interesting agenda items (motions / s.183 disposals / reserved
+    planning / money) for one council — the classification lives in v_la_agenda_items."""
+    return _q.agenda_highlights(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=600)
 def fetch_standing_orders(la: str) -> QueryResult:
     return _q.standing_orders(get_constituency_conn(), la)
 

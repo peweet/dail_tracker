@@ -19,14 +19,14 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 import streamlit as st
+from data_access.sipo_candidate_data import get_sipo_conn
 
-from dail_tracker_core.db import connect_with_views
 from dail_tracker_core.queries import sipo as _q
 
 
-@st.cache_resource
 def get_expenses_conn() -> duckdb.DuckDBPyConnection:
-    return connect_with_views(["sipo_*.sql"], swallow_errors=False)
+    """The SHARED per-session SIPO connection (cached in sipo_candidate_data)."""
+    return get_sipo_conn()
 
 
 @st.cache_data(ttl=300)

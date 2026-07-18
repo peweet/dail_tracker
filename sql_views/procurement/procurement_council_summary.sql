@@ -63,19 +63,24 @@ councils AS (
 )
 SELECT
     c.council,
+    -- Cavan/Kerry/Roscommon were absent from these lists (no data rows when the view was
+    -- written) and silently fell into the Leinster ELSE once their rows landed — seen live
+    -- in the 2026-07-17 visual audit (Kerry and Roscommon cards under the LEINSTER band).
     CASE
-        WHEN c.council IN ('Donegal', 'Monaghan')                                            THEN 'Ulster'
-        WHEN c.council IN ('Galway City', 'Galway County', 'Leitrim', 'Mayo', 'Sligo')       THEN 'Connacht'
-        WHEN c.council IN ('Clare', 'Cork City', 'Cork County', 'Limerick', 'Tipperary',
-                           'Waterford')                                                       THEN 'Munster'
-        ELSE 'Leinster'  -- Dublin City, Dún Laoghaire-Rathdown, Louth, Kildare, Kilkenny, Longford,
-                         -- Meath, Offaly, South Dublin, Westmeath, Wexford, Laois, Fingal
+        WHEN c.council IN ('Cavan', 'Donegal', 'Monaghan')                                   THEN 'Ulster'
+        WHEN c.council IN ('Galway City', 'Galway County', 'Leitrim', 'Mayo', 'Roscommon',
+                           'Sligo')                                                           THEN 'Connacht'
+        WHEN c.council IN ('Clare', 'Cork City', 'Cork County', 'Kerry', 'Limerick',
+                           'Tipperary', 'Waterford')                                          THEN 'Munster'
+        ELSE 'Leinster'  -- Carlow, Dublin City, Dún Laoghaire-Rathdown, Louth, Kildare, Kilkenny,
+                         -- Longford, Meath, Offaly, South Dublin, Westmeath, Wexford, Laois, Fingal
     END AS province,
     CASE
-        WHEN c.council IN ('Donegal', 'Monaghan')                                            THEN 1
-        WHEN c.council IN ('Galway City', 'Galway County', 'Leitrim', 'Mayo', 'Sligo')       THEN 2
-        WHEN c.council IN ('Clare', 'Cork City', 'Cork County', 'Limerick', 'Tipperary',
-                           'Waterford')                                                       THEN 4
+        WHEN c.council IN ('Cavan', 'Donegal', 'Monaghan')                                   THEN 1
+        WHEN c.council IN ('Galway City', 'Galway County', 'Leitrim', 'Mayo', 'Roscommon',
+                           'Sligo')                                                           THEN 2
+        WHEN c.council IN ('Clare', 'Cork City', 'Cork County', 'Kerry', 'Limerick',
+                           'Tipperary', 'Waterford')                                          THEN 4
         ELSE 3  -- Leinster
     END AS province_order,
     p.n_suppliers,

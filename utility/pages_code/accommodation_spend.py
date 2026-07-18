@@ -140,8 +140,10 @@ def _render_by_year(df) -> None:
         "published over-€20,000 registers — including the Dept of Children (DCEDIY) register "
         "for 2023–2024, the years IPAS sat under that department. For 2024 the "
         f"[Comptroller & Auditor General]({_SRC_CAG}) put IP accommodation at "
-        f"~{_eur(_CAG_2024_COMMERCIAL_EUR)} paid to commercial providers "
-        f"(~{_eur(_CAG_2024_TOTAL_EUR)} total incl. capital) — our 2024 IP figure is now in "
+        # ≈ not ~: a pair of bare tildes parses as markdown strikethrough, which
+        # struck out the whole C&AG figure on the rendered page.
+        f"≈{_eur(_CAG_2024_COMMERCIAL_EUR)} paid to commercial providers "
+        f"(≈{_eur(_CAG_2024_TOTAL_EUR)} total incl. capital) — our 2024 IP figure is now in "
         "that range. 2020–2022 remain thin (pre-surge; not separately published in a "
         "parsable register)."
     )

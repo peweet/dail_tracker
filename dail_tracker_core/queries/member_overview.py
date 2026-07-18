@@ -178,6 +178,22 @@ def att_all_years(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult
     )
 
 
+def att_headline_year(conn: duckdb.DuckDBPyConnection, join_key: str, today_year: int) -> QueryResult:
+    """The stat-strip's single attendance row: the most recent COMPLETED year —
+    the in-progress year makes every TD look like an absentee from Jan-May (audit
+    P1-6) — falling back to the in-progress year when it's the only one on file
+    (the page labels that case "(so far)"). The year-pick is a business rule and
+    lives here, not in the page, so it can't drift from the attendance views."""
+    return _run(
+        conn,
+        "SELECT year, attended_count, sitting_days, other_days, is_minister"
+        " FROM v_attendance_member_year_summary"
+        " WHERE unique_member_code = ?"
+        " ORDER BY (year < ?) DESC, year DESC LIMIT 1",
+        [join_key, today_year],
+    )
+
+
 def att_chamber_sitting_days(conn: duckdb.DuckDBPyConnection, house: str = "Dáil") -> QueryResult:
     """Per-year distinct plenary sitting dates for a house — the denominator for
     the hero stat-strip's plenary-attendance figure (data-derived; matches the
@@ -269,7 +285,7 @@ def votes_summary(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult
     return _run(
         conn,
         "SELECT yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+        " FROM v_td_vote_summary WHERE member_id = ? LIMIT 1",
         [join_key],
     )
 

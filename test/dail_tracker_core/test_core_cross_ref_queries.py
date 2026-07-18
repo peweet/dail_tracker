@@ -11,6 +11,8 @@ Two layers (mirrors test_core_interests_queries):
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import duckdb
 import pytest
 
@@ -54,11 +56,21 @@ def test_missing_views_is_unavailable_not_silent_empty():
 
 def test_director_shareholder_predicates_carry_nil_guard():
     # Regression: most Directorships/Shares rows are nil "No interests declared";
-    # the predicate MUST exclude them or every member counts as a director.
-    for key in ("director", "shareholder"):
-        assert "no interests declared" in q._INTEREST_SQL[key].lower()
-    # landlord/property use real pipeline booleans, no text guard needed.
-    assert q._INTEREST_SQL["landlord"] == "landlord_flag"
+    # the predicate MUST exclude them or every member counts as a director. The
+    # predicates moved from cross_ref.py into the single classification home,
+    # sql_views/member/member_zz_interests_flags.sql (2026-07-18) — assert the
+    # guard there, and that the module maps the enum onto the view's columns.
+    view_sql = (
+        Path(__file__).parents[2] / "sql_views" / "member" / "member_zz_interests_flags.sql"
+    ).read_text(encoding="utf-8")
+    assert view_sql.lower().count("no interests declared") >= 2  # director + shareholder
+    assert "BOOL_OR(landlord_flag)" in view_sql  # pipeline boolean, no text guard
+    assert q._INTEREST_COL == {
+        "landlord": "is_landlord",
+        "property": "is_property_owner",
+        "director": "is_director",
+        "shareholder": "is_shareholder",
+    }
 
 
 # ---------------------------------------------------------------------------

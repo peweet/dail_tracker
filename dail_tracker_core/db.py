@@ -5,14 +5,10 @@ function takes a ``duckdb.DuckDBPyConnection`` as an argument (so it is unit-
 testable and interface-agnostic); the caller builds that connection here via
 ``connect_with_views``.
 
-TRANSITIONAL NOTE: the registration loop below intentionally duplicates
-``utility/data_access/_sql_registry.py`` (~25 lines). That shared module is
-imported by ~14 live Streamlit data-access modules; rewriting it to re-export
-from here would touch all of them at once. To keep each migration PR small and
-reversible, core carries its own copy for now. Once every data-access module is
-a thin wrapper over core, ``_sql_registry.py`` collapses to a re-export shim (or
-is deleted) — tracked as a later consolidation step. The two copies are each
-covered by tests, and the path-rewrite rule is identical, so drift is caught.
+This is the ONLY implementation of the registration loop. The transitional
+duplicate that once lived in ``utility/data_access/_sql_registry.py`` collapsed
+to a re-export shim and was deleted 2026-07-18 — every consumer (data-access
+modules, tests, the API, the MCP server) imports from here.
 """
 
 from __future__ import annotations
@@ -35,7 +31,7 @@ def absolutize_data_paths(sql: str) -> str:
 
     DuckDB resolves relative literals against the process CWD, which is wrong
     whenever the app is launched from a subdirectory. Anchoring to PROJECT_ROOT
-    makes view registration CWD-independent. Identical rule to _sql_registry.
+    makes view registration CWD-independent.
     """
     return sql.replace("'data/", f"'{PROJECT_ROOT.as_posix()}/data/")
 

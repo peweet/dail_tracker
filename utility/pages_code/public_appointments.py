@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import datetime
 import html
+import re
 import sys
 from pathlib import Path
 
@@ -765,6 +766,29 @@ def _render_facets(full_df: pd.DataFrame) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 # Recent feed
 # ──────────────────────────────────────────────────────────────────────────────
+# Clear parse-fragment signatures only: a dangling article/preposition at the
+# end, notice-title or gazette-boilerplate openings. Anything that could be a
+# real body name is shown as parsed.
+_BODY_FRAGMENT_RE = re.compile(
+    r"(?:\b(?:of|the|to|by|for|and|an|a)$)|^appointment of|\bhave this day\b|^notice\b|^national$",
+    re.IGNORECASE,
+)
+
+
+def _body_is_fragment(body: str, appointee: str | None) -> bool:
+    """Display-only guard: True when the parsed body text is a sentence fragment
+    or merely repeats the appointee, so the card should omit its "to X" clause."""
+    b = body.strip().casefold()
+    if appointee:
+        # Containment either way, not just equality: garbled rows carry the org
+        # inside the appointee text ("the participation by Córas Iompair Éireann"
+        # to "Córas Iompair Éireann").
+        first = appointee.split(";")[0].strip().casefold()
+        if first and (b in first or first in b):
+            return True
+    return bool(_BODY_FRAGMENT_RE.search(b))
+
+
 def _render_card(row: pd.Series) -> str:
     ref = html.escape(_safe(row.get("display_ref")) or "", quote=True)
     auth = _safe(row.get("appointing_authority")) or "Unknown"
@@ -783,7 +807,8 @@ def _render_card(row: pd.Series) -> str:
     # Appointee display: "Name + N others" already in the appointee column when
     # the enrichment captured a list. Show "—" gracefully when missing.
     if appointee:
-        first = appointee.split(";")[0].strip()
+        # strip trailing separator debris from the parse ("Tim Duggan -")
+        first = appointee.split(";")[0].strip().strip(" -–·,")
         rest = max(0, count - 1)
         who_html = f'<span class="name">{html.escape(first)}</span>'
         if rest > 0:
@@ -793,8 +818,12 @@ def _render_card(row: pd.Series) -> str:
 
     role_html = f' · <span class="role">{html.escape(role)}</span>' if role else ""
 
+    # Display guard (2026-07-17 visual audit): the parsed body is sometimes a
+    # sentence fragment ("APPOINTMENT OF INTERIM CHAIR OF THE", "The Government
+    # have this day") or repeats the appointee. Showing nothing beats showing
+    # garbage — the card's detail view still carries the full original notice.
     body_html = ""
-    if body:
+    if body and not _body_is_fragment(body, appointee):
         body_html = f'<span class="body-prefix">to</span> <span class="body">{html.escape(body)}</span>'
 
     pills = [f'<span class="pa-pill pa-pill-auth {auth_cls}">{html.escape(auth_label)}</span>']

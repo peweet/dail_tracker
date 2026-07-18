@@ -74,9 +74,9 @@ def _sample_member_id(conn) -> str:
     res = q.member_vote_summary(conn, "__definitely_absent__")
     if not res.ok:
         pytest.skip(f"vote views not available: {res.unavailable_reason}")
-    row = conn.execute("SELECT member_id FROM td_vote_summary WHERE member_id IS NOT NULL LIMIT 1").fetchone()
+    row = conn.execute("SELECT member_id FROM v_td_vote_summary WHERE member_id IS NOT NULL LIMIT 1").fetchone()
     if not row:
-        pytest.skip("td_vote_summary has no rows")
+        pytest.skip("v_td_vote_summary has no rows")
     return row[0]
 
 
@@ -86,7 +86,7 @@ def test_member_vote_summary_parity(conn):
     ref = conn.execute(
         "SELECT member_id, member_name, party_name, constituency,"
         " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+        " FROM v_td_vote_summary WHERE member_id = ? LIMIT 1",
         [mid],
     ).df()
     assert_frame_equal(got, ref)
@@ -108,7 +108,7 @@ def test_member_year_summary_parity(conn):
     got = q.member_year_summary(conn, mid).data
     ref = conn.execute(
         "SELECT year, yes_count, no_count, abstained_count"
-        " FROM td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
+        " FROM v_td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
         [mid],
     ).df()
     assert_frame_equal(got, ref)

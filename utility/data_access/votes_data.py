@@ -16,8 +16,7 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from config import GOLD_SEANAD_VOTE_HISTORY_PARQUET, GOLD_VOTE_HISTORY_PARQUET
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import votes as _q
 
 
@@ -25,14 +24,10 @@ from dail_tracker_core.queries import votes as _q
 def get_votes_conn() -> duckdb.DuckDBPyConnection:
     # v_vote_base unions both chambers (Dáil + Seanad) and tags each row with a
     # `house` column; the page scopes by house via a chamber toggle.
-    return connect_with_views(
-        ["vote*.sql"],
-        substitutions={
-            "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
-            "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
-        },
-        swallow_errors=True,
-    )
+    # Substitutions (vote parquet paths from config) come from the shared
+    # connections._member_view_substitutions source of truth — the hand-rolled
+    # copy that used to live here could drift.
+    return domain_conn("votes")
 
 
 @st.cache_data(ttl=300)

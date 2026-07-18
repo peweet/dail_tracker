@@ -29,7 +29,12 @@ from config import GOLD_PARQUET_DIR  # noqa: E402
 
 # The events we have ground-truth OCR for. Promote-to-gold stamps this; a value
 # outside the set means a fact was built from a source we have not validated.
-ELECTION_EVENTS: frozenset[str] = frozenset({"GE2024"})
+# GE2020 added 2026-07-18: the national-agent party expenses were promoted LIVE via
+# extractors/sipo_ge2020_promote.py (stamps election_event='GE2020'); that promote
+# bypasses _guard_sipo, so THIS test-side vocab is what validates those files. The
+# runtime guard in sipo_promote_to_gold stays GE2024-only — GE2020 never flows
+# through it, and a wider runtime vocab would just weaken the gate.
+ELECTION_EVENTS: frozenset[str] = frozenset({"GE2024", "GE2020"})
 
 _NUMERIC = (pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.UInt32, pl.UInt64)
 

@@ -25,13 +25,20 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import sipo as _q
 
 
 @st.cache_resource
 def _conn() -> duckdb.DuckDBPyConnection:
-    return connect_with_views(["sipo_*.sql"], swallow_errors=False)
+    return domain_conn("sipo")
+
+
+# Public alias: the donations + expenses modules SHARE this session connection.
+# Before 2026-07-18 each of the three sipo modules cached its own conn over the
+# identical sipo_*.sql glob — the whole SIPO view set registered three times per
+# session for no isolation benefit.
+get_sipo_conn = _conn
 
 
 @st.cache_data(ttl=300)

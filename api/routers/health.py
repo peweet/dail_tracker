@@ -12,8 +12,14 @@ def health(request: Request) -> dict:
     conn = getattr(request.app.state, "conn", None)
     if conn is None:
         raise HTTPException(status_code=503, detail="connection not initialised")
+    # Probe on a request-scoped cursor, never the shared base connection — a
+    # DuckDBPyConnection object is not safe for concurrent .execute() across
+    # the anyio worker threads FastAPI runs sync handlers on.
+    cur = conn.cursor()
     try:
-        n = conn.execute("SELECT count(*) FROM information_schema.tables WHERE table_type='VIEW'").fetchone()
+        n = cur.execute("SELECT count(*) FROM information_schema.tables WHERE table_type='VIEW'").fetchone()
         return {"status": "ok", "views_registered": int(n[0]) if n else 0}
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"database unavailable: {exc}") from exc
+    finally:
+        cur.close()

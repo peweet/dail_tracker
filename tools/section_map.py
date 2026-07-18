@@ -11,13 +11,14 @@ Turns a 59k-token read into ~600 tokens of header + ~3k of the one section that 
 
 ⚠️ THE TRAP THIS TOOL EXISTS TO PREVENT: inserting the map SHIFTS every line number below it,
 so a hand-written map is wrong the moment it is saved (this happened while writing the first one
-— every range was off by 49). `--write` accounts for the header's own length; `--check` fails CI
-when a map has drifted, so it cannot silently rot.
+— every range was off by 49). `--write` accounts for the header's own length, and REFRESHES an
+existing map (strips the old block, regenerates). `--check` verifies PRESENCE only — it does not
+detect a drifted map, so re-run `--write <file>` after substantial edits to a mapped file.
 
 Usage:
-    python tools/section_map.py --check          # CI gate: any >1500-line file missing/stale map?
+    python tools/section_map.py --check          # CI gate: any >1500-line file with no map?
     python tools/section_map.py --list           # what would be mapped, and how big
-    python tools/section_map.py --write <file>   # (re)generate the map for one file
+    python tools/section_map.py --write <file>   # generate or refresh the map for one file
 """
 
 from __future__ import annotations
@@ -98,13 +99,32 @@ def render(p: Path, total: int, secs: list[tuple[int, str]], shift: int) -> str:
 _DOCSTART = re.compile(r'^\s*(?:from __future__ import annotations\s*\n)?\s*("""|\'\'\')')
 
 
+def _strip_block(src: str) -> str:
+    """Remove an existing MARKER..END_MARKER block (inclusive) so --write can refresh."""
+    kept, in_block = [], False
+    for ln in src.splitlines(keepends=True):
+        if not in_block and MARKER in ln:
+            in_block = True
+            continue
+        if in_block:
+            if END_MARKER in ln:
+                in_block = False
+            continue
+        kept.append(ln)
+    return "".join(kept)
+
+
 def write_map(p: Path) -> bool:
-    """Insert the map. If the module already has a docstring, the map goes INSIDE it — prepending
-    a second docstring would demote the original to a dead string expression and lose __doc__."""
+    """Insert or REFRESH the map. If the module already has a docstring, the map goes INSIDE it —
+    prepending a second docstring would demote the original to a dead string expression and lose
+    __doc__. An existing map is stripped first and regenerated (its line ranges drift the moment
+    the file is edited)."""
     src = p.read_text(encoding="utf-8", errors="replace")
     if MARKER in src:
-        print(f"  {p.relative_to(ROOT)}: already mapped")
-        return False
+        src = _strip_block(src)
+        # Persist the stripped text so sections() (which reads the file) sees
+        # post-strip line numbers — the whole point of the refresh.
+        p.write_text(src, encoding="utf-8")
     total = src.count("\n") + 1
     secs = sections(p)
     if not secs:

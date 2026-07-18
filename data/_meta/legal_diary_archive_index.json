@@ -124,5 +124,12 @@
     "bytes": 122014,
     "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary July 17th.docx",
     "revisions": 1
+  },
+  "2026-07-20": {
+    "sha256": "9471f7967ebfbb372e7bb16c4a1cdc2cefbc6803031fbfd8939779cbfc2c1e5a",
+    "filename": "2026-07-20.docx",
+    "bytes": 208541,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary July 20th.docx",
+    "revisions": 1
   }
 }

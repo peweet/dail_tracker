@@ -105,6 +105,28 @@ def test_att_all_years_columns_and_limit(conn):
     assert len(r.data) <= 20
 
 
+def test_att_headline_year_picks_completed_then_falls_back(conn):
+    """The stat-strip year-pick rule (hoisted from the page, audit P1-6): most
+    recent COMPLETED year; only-in-progress-on-file falls back to that year."""
+    members = _result_or_skip(q.member_list(conn))
+    code = str(members.data["unique_member_code"].iloc[0])
+    all_years = _result_or_skip(q.att_all_years(conn, code)).data
+    if all_years.empty:
+        pytest.skip("no attendance rows on file")
+    years = sorted(int(y) for y in all_years["year"])
+    # today after every year on file → the most recent (completed) year
+    r = _result_or_skip(q.att_headline_year(conn, code, years[-1] + 1))
+    assert len(r.data) == 1
+    assert int(r.data["year"].iloc[0]) == years[-1]
+    # no completed year → falls back to the latest (in-progress) year
+    r = _result_or_skip(q.att_headline_year(conn, code, years[0]))
+    assert int(r.data["year"].iloc[0]) == years[-1]
+    if len(years) > 1:
+        # latest year still in progress → the one before it
+        r = _result_or_skip(q.att_headline_year(conn, code, years[-1]))
+        assert int(r.data["year"].iloc[0]) == years[-2]
+
+
 def test_join_key_by_name_resolves(conn):
     members = _result_or_skip(q.member_list(conn))
     row = members.data.iloc[0]

@@ -241,10 +241,16 @@ def _count(conn, view: str) -> int | None:
 @router.get("/catalog", summary="Manifest of published resources + live counts")
 def catalog(request: Request) -> dict:
     conn = getattr(request.app.state, "conn", None)
-
-    resources = []
-    for r in _RESOURCES:
-        resources.append({**{k: v for k, v in r.items() if k != "count_view"}, "count": _count(conn, r["count_view"])})
+    # One request-scoped cursor for the ~24 counts — the shared base connection
+    # must never run .execute() concurrently across worker threads.
+    cur = conn.cursor() if conn is not None else None
+    try:
+        resources = []
+        for r in _RESOURCES:
+            resources.append({**{k: v for k, v in r.items() if k != "count_view"}, "count": _count(cur, r["count_view"])})
+    finally:
+        if cur is not None:
+            cur.close()
 
     return {
         "licence": "CC-BY-4.0",
