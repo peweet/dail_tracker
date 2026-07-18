@@ -237,7 +237,7 @@ def _choro_legend() -> str:
 
 def _render_choropleth() -> None:
     res = fetch_constituency_map_layers_result()
-    if not res.ok or res.data.empty:
+    if not res.ok or res.is_empty:
         return  # silent — the searchable grid below remains the reliable selector
     df = res.data
     subsection_heading("Compare every constituency")

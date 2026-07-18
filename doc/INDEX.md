@@ -3,7 +3,7 @@
 
 # doc/ index
 
-55 docs · ~307.3k tokens total · 50 LIVE · 3 superseded/stale · 0 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+56 docs · ~311.0k tokens total · 51 LIVE · 3 superseded/stale · 0 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -24,7 +24,8 @@
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.5k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DATA_DISTRIBUTION_PLAN.md](DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 1.1k | 2026-06-13 | the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2 |
-| [HYBRID_REFRESH_PLAN.md](HYBRID_REFRESH_PLAN.md) | infra | 3.2k | 2026-07-08 | designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture |
+| [DUCKDB_ENGINEERING_PLAN.md](DUCKDB_ENGINEERING_PLAN.md) | infra | 3.5k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |
+| [HYBRID_REFRESH_PLAN.md](HYBRID_REFRESH_PLAN.md) | infra | 3.4k | 2026-07-08 | designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |
 | [fastapi_query_core_uncoupling_plan.md](fastapi_query_core_uncoupling_plan.md) | infra | 5.0k | 2026-07-17 | decoupling business/data-access logic from Streamlit, or exposing it via FastAPI/other interfaces |
@@ -69,4 +70,4 @@
 | [DISCLOSED_PO_INTEGRATION_PLAN.md](DISCLOSED_PO_INTEGRATION_PLAN.md) | procurement | 11.0k | 2026-07-17 | historical only — this design SHIPPED; the live ingest is extractors/disclosed_bq_po_extract.py + disclosed_bq_po_newbodies_extract.py |
 | [ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md](ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md) | procurement | 3.0k | 2026-07-17 | historical only — the "no code written yet" note is stale; entity_xref shipped (view + extractors/entity_xref_build.py + dail_tracker_core/dossiers.py) |
 
-<!-- generated 2026-07-17 -->
+<!-- generated 2026-07-18 -->

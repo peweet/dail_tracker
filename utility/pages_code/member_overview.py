@@ -10,94 +10,97 @@ TODO_PIPELINE_VIEW_REQUIRED: v_member_overview_browse
   Pending columns: attendance_rate, payment_total_eur, declared_interests_count,
   lobbying_interactions_count, revolving_door_flag, government_status
 
+
 # ── SECTION MAP ── ─────────────────────────────────────────
-# ⚠️  DO NOT READ WHOLE — ~27,172 tokens (2,480 lines after this header).
+# ⚠️  DO NOT READ WHOLE — ~27,338 tokens (2,496 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
-#     168-183    Profile section IA (Phase 2 chrome)
-#     184-206    Section router IA (2026-06-22)
-#     207-217    Data retrieval
-#     218-222    _member_list
-#     223-238    _member_list_all
-#     239-248    _member_house
-#     249-262    _identity
-#     263-267    _att_all_years
-#     268-278    _att_chamber_sitting_days
-#     279-291    _external_links
-#     292-303    _contact_details
-#     304-310    _news_mentions
-#     311-315    _votes_summary
-#     316-320    _pay_overview
-#     321-330    _pay_grand_total
-#     331-336    _salary
-#     337-341    _lobbying_rd
-#     342-346    _legislation
-#     347-352    _si_signed
-#     353-365    _ministerial_roles
-#     366-377    _constituency_context
-#     378-383    Questions section data helpers
-#     384-389    _q_profile
-#     390-395    _q_focus_shift
-#     396-401    _q_years
-#     402-408    _q_ministries
-#     409-414    _q_top_topics
-#     415-429    _q_feed
-#     430-437    _debate_years
-#     438-445    _debate_topics
-#     446-455    _debate_sections
-#     456-459    Speeches (floor contributions) section data helpers
-#     460-465    _speech_summary
-#     466-473    _speech_years
-#     474-481    _speech_business
-#     482-494    _member_speeches
-#     495-497    Profile section renderers
-#     498-565    _section_legislation
-#     566-580    _fmt_tenure_days
-#     581-626    _section_ministerial_roles
-#     627-695    _section_statutory_instruments
-#     696-712    _section_questions
-#     713-811    Build header strip
-#     812-868    Filter bar
-#     869-981    Feed
-#     982-1043   _render_speech_card
-#    1044-1072   _section_debates
-#    1073-1084   Header strip (reuses stat_strip)
-#    1085-1171   Filter bar
-#    1172-1203   _section_committees
-#    1204-1214   _named_parties
-#    1215-1227   _party_pill_options
-#    1228-1238   _dail_filter_options
-#    1239-1282   _render_browse
-#    1283-1451   Historic members
-#    1452-1462   Constituency civic context (Census 2022 / Electoral Commissi
-#    1463-1531   _render_constituency_context
-#    1532-1547   _tel_href
-#    1548-1592   _render_news_mentions_block
-#    1593-1668   _render_contact_block
-#    1669-1671   Profile
-#    1672-1697   _prev_next_member
-#    1698-1753   _render_profile_nav
-#    1754-1771   _render_section_switcher
-#    1772-1779   Overview summary cards (default landing)
-#    1780-1793   _ov_card
-#    1794-1807   _ov_votes
-#    1808-1833   _ov_interests
-#    1834-1849   _ov_lobbying
-#    1850-1864   _ov_payments
-#    1865-1892   _ov_attendance
-#    1893-1902   _ov_questions
-#    1903-1910   _ov_legislation
-#    1911-1922   _ov_committees
-#    1923-1940   _render_overview
-#    1941-1982   _render_pay_summary_tiles
-#    1983-2112   _render_stage2
-#    2113-2122   Official contact details (scraped from the oireachtas.ie pro
-#    2123-2243   Headline stats — single source of truth, no duplication
-#    2244-2255   Constituency civic context (Census 2022 / Electoral Commissi
-#    2256-2417   Section router (2026-06-22)
-#    2418-2456   Unified provenance footer
-#    2457-2460   Main entry point
-#    2461-2480   member_overview_page
+#     170-185    Profile section IA (Phase 2 chrome)
+#     186-208    Section router IA (2026-06-22)
+#     209-219    Data retrieval
+#     220-224    _member_list
+#     225-240    _member_list_all
+#     241-249    _member_codes_for_dail
+#     250-259    _member_house
+#     260-273    _identity
+#     274-278    _att_all_years
+#     279-285    _att_headline_row
+#     286-296    _att_chamber_sitting_days
+#     297-309    _external_links
+#     310-321    _contact_details
+#     322-328    _news_mentions
+#     329-333    _votes_summary
+#     334-338    _pay_overview
+#     339-348    _pay_grand_total
+#     349-354    _salary
+#     355-359    _lobbying_rd
+#     360-364    _legislation
+#     365-370    _si_signed
+#     371-383    _ministerial_roles
+#     384-395    _constituency_context
+#     396-401    Questions section data helpers
+#     402-407    _q_profile
+#     408-413    _q_focus_shift
+#     414-419    _q_years
+#     420-426    _q_ministries
+#     427-432    _q_top_topics
+#     433-447    _q_feed
+#     448-455    _debate_years
+#     456-463    _debate_topics
+#     464-473    _debate_sections
+#     474-477    Speeches (floor contributions) section data helpers
+#     478-483    _speech_summary
+#     484-491    _speech_years
+#     492-499    _speech_business
+#     500-512    _member_speeches
+#     513-515    Profile section renderers
+#     516-583    _section_legislation
+#     584-598    _fmt_tenure_days
+#     599-644    _section_ministerial_roles
+#     645-713    _section_statutory_instruments
+#     714-730    _section_questions
+#     731-829    Build header strip
+#     830-886    Filter bar
+#     887-999    Feed
+#    1000-1061   _render_speech_card
+#    1062-1090   _section_debates
+#    1091-1102   Header strip (reuses stat_strip)
+#    1103-1189   Filter bar
+#    1190-1221   _section_committees
+#    1222-1232   _named_parties
+#    1233-1245   _party_pill_options
+#    1246-1256   _dail_filter_options
+#    1257-1300   _render_browse
+#    1301-1471   Historic members
+#    1472-1482   Constituency civic context (Census 2022 / Electoral Commissi
+#    1483-1551   _render_constituency_context
+#    1552-1567   _tel_href
+#    1568-1612   _render_news_mentions_block
+#    1613-1688   _render_contact_block
+#    1689-1691   Profile
+#    1692-1717   _prev_next_member
+#    1718-1773   _render_profile_nav
+#    1774-1791   _render_section_switcher
+#    1792-1799   Overview summary cards (default landing)
+#    1800-1813   _ov_card
+#    1814-1827   _ov_votes
+#    1828-1853   _ov_interests
+#    1854-1869   _ov_lobbying
+#    1870-1884   _ov_payments
+#    1885-1912   _ov_attendance
+#    1913-1922   _ov_questions
+#    1923-1930   _ov_legislation
+#    1931-1942   _ov_committees
+#    1943-1960   _render_overview
+#    1961-2002   _render_pay_summary_tiles
+#    2003-2132   _render_stage2
+#    2133-2142   Official contact details (scraped from the oireachtas.ie pro
+#    2143-2260   Headline stats — single source of truth, no duplication
+#    2261-2272   Constituency civic context (Census 2022 / Electoral Commissi
+#    2273-2434   Section router (2026-06-22)
+#    2435-2473   Unified provenance footer
+#    2474-2477   Main entry point
+#    2478-2496   member_overview_page
 # ── END SECTION MAP ── ─────────────────────────────────
 """
 
@@ -270,6 +273,13 @@ def _identity(_conn, join_key: str) -> dict:
 @st.cache_data(ttl=300)
 def _att_all_years(_conn, join_key: str) -> pd.DataFrame:
     return moq.att_all_years(_conn, join_key).data
+
+
+@st.cache_data(ttl=300)
+def _att_headline_row(_conn, join_key: str) -> pd.DataFrame:
+    """One-row frame for the hero stat strip (most recent completed year, else the
+    in-progress year). The year-pick rule lives in moq.att_headline_year."""
+    return moq.att_headline_year(_conn, join_key, datetime.date.today().year).data
 
 
 @st.cache_data(ttl=300)
@@ -2184,16 +2194,13 @@ def _render_stage2(
         )
     else:
         if not att_df.empty:
-            # Skip the in-progress calendar year on the stat strip — it makes
-            # every TD look like an absentee from Jan-May (audit P1-6, mirrors
-            # attendance P1-1 and payments P1-1). Pick the first completed
-            # year; if the dataset only contains the in-progress year, fall
-            # back to it and label "(so far)" so the framing stays honest.
-            this_year = datetime.date.today().year
-            completed = att_df[att_df["year"] < this_year]
-            row = completed.iloc[0] if not completed.empty else att_df.iloc[0]
+            # Skip the in-progress calendar year on the stat strip (audit P1-6,
+            # mirrors attendance P1-1 and payments P1-1); only-year-on-file falls
+            # back to it, labelled "(so far)". The pick itself is a query
+            # (moq.att_headline_year) — the page just renders the row.
+            row = _att_headline_row(conn, join_key).iloc[0]
             att_yr = int(row["year"])
-            so_far = " (so far)" if att_yr >= this_year else ""
+            so_far = " (so far)" if att_yr >= datetime.date.today().year else ""
             # Lead with PLENARY sitting days (days actually in the chamber),
             # rated against the chamber's own sitting-day count. The headline
             # used to show attended_count = sitting + "other" days (committee /

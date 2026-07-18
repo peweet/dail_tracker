@@ -26,7 +26,7 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import entity as _ent
 from dail_tracker_core.queries import procurement as _q
 from dail_tracker_core.results import QueryResult
@@ -36,7 +36,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 
 @st.cache_resource
 def get_procurement_conn() -> duckdb.DuckDBPyConnection:
-    return connect_with_views(["procurement_*.sql"], swallow_errors=True)
+    return domain_conn("procurement")
 
 
 @st.cache_data(ttl=300)
@@ -144,11 +144,12 @@ def fetch_coverage_stats_result() -> QueryResult:
     return _q.coverage_stats(get_procurement_conn())
 
 
-# ── QueryResult-returning siblings ────────────────────────────────────────────
+# ── QueryResult-returning fetchers ────────────────────────────────────────────
 # The page boundary uses these to distinguish "source unavailable" (a missing
-# view/parquet/DuckDB error) from "ran, no rows" — the ``.data`` wrappers below
-# collapse both to an empty DataFrame for back-compat. Caching a frozen
-# QueryResult is safe (see dail_tracker_core/results.py).
+# view/parquet/DuckDB error) from "ran, no rows". The superseded bare-``.data``
+# back-compat twins (supplier/authority/cpv summary, lobbying_overlap) were
+# verified orphaned and removed 2026-07-18. Caching a frozen QueryResult is safe
+# (see dail_tracker_core/results.py).
 @st.cache_data(ttl=300)
 def fetch_supplier_summary_result(
     limit: int | None = None, order_by: str = "awards", year: int | None = None
@@ -325,6 +326,14 @@ def fetch_la_budget_vs_actual_result(council: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_la_budget_divisions_result(council: str) -> QueryResult:
+    """One council's ADOPTED budget by (year, division) — the pure BUDGETED grain, all
+    published years including the newest budget (which has no audited outturn yet).
+    A plan, not spend: never summed with the PO/payment or AFS accounts grains."""
+    return _q.la_budget_by_division(get_procurement_conn(), council)
+
+
+@st.cache_data(ttl=300)
 def fetch_afs_vs_po_coverage_result(council: str, year: int | None = None) -> QueryResult:
     """Audited spend vs the named-supplier (PO) traceable slice, per year (the traceability line)."""
     return _q.afs_vs_po_coverage(get_procurement_conn(), council, year=year)
@@ -483,35 +492,9 @@ def fetch_awards_for_cpv(cpv_code: str, year: int | None = None) -> pd.DataFrame
 
 
 @st.cache_data(ttl=300)
-def fetch_supplier_summary(limit: int | None = None) -> pd.DataFrame:
-    """Supplier ranking — one row per distinct supplier (company-class), ordered by
-    contract count (the trustworthy metric). Carries CRO match + lobbying flags."""
-    return _q.supplier_summary(get_procurement_conn(), limit=limit).data
-
-
-@st.cache_data(ttl=300)
 def fetch_awards_for_supplier(supplier_norm: str) -> pd.DataFrame:
     """Every award row for one supplier (detail view), most recent first."""
     return _q.awards_for_supplier(get_procurement_conn(), supplier_norm).data
-
-
-@st.cache_data(ttl=300)
-def fetch_authority_summary(limit: int = 50) -> pd.DataFrame:
-    """Contracting authorities ranked by number of awards."""
-    return _q.authority_summary(get_procurement_conn(), limit=limit).data
-
-
-@st.cache_data(ttl=300)
-def fetch_cpv_summary(limit: int = 50) -> pd.DataFrame:
-    """CPV categories ranked by number of awards."""
-    return _q.cpv_summary(get_procurement_conn(), limit=limit).data
-
-
-@st.cache_data(ttl=300)
-def fetch_lobbying_overlap() -> pd.DataFrame:
-    """Companies on BOTH the procurement and lobbying registers (co-occurrence
-    disclosure only — never causation; see the view header)."""
-    return _q.lobbying_overlap(get_procurement_conn()).data
 
 
 @st.cache_data(ttl=300)

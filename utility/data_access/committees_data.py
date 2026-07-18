@@ -17,13 +17,13 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import committees as _q
 
 
 @st.cache_resource
 def get_committees_conn() -> duckdb.DuckDBPyConnection:
-    return connect_with_views(["committees_*.sql"], swallow_errors=False)
+    return domain_conn("committees")
 
 
 @st.cache_resource
@@ -35,7 +35,7 @@ def get_committee_evidence_conn() -> duckdb.DuckDBPyConnection:
     than breaking the whole Committees page — the membership register is the
     page's core and must always render.
     """
-    return connect_with_views(["committee_evidence_*.sql"], swallow_errors=True)
+    return get_committees_conn()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)

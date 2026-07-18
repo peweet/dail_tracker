@@ -47,11 +47,25 @@ from dail_tracker_core.queries import your_councillors as yc
 from dail_tracker_core.results import QueryResult
 
 
+def _section(res: QueryResult, name: str, sink: list[dict[str, str]]) -> pd.DataFrame:
+    """A dossier SECTION read: degrade softly on outage, but record it.
+
+    Returns the DataFrame (empty when unavailable) and, when the source was down,
+    appends ``{"section": name, "reason": …}`` to ``sink`` so the response can
+    carry an explicit ``unavailable_sections`` marker instead of silently
+    rendering the section as empty. Gates use ``QueryResult.require()`` instead.
+    """
+    if not res.ok:
+        sink.append({"section": name, "reason": res.unavailable_reason or "source unavailable"})
+    return res.data
+
+
 def _identity(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str, Any] | None:
-    df = moq.identity_attendance(conn, code).data
+    # Gate reads: an outage here must raise, not render as "member not found".
+    df = moq.identity_attendance(conn, code).require()
     if not df.empty:
         return df.iloc[0].to_dict()
-    df = moq.identity_registry(conn, code).data
+    df = moq.identity_registry(conn, code).require()
     return df.iloc[0].to_dict() if not df.empty else None
 
 
@@ -74,13 +88,13 @@ def list_members(
     term split happens in SQL (moq.member_codes_for_dail) and the filter here is a
     plain isin() on the returned codes — the browse page's exact pattern.
     """
-    df = moq.member_list(conn).data
+    df = moq.member_list(conn).require()
     if df.empty:
         return [], 0, False
     # .loc[mask] (not df[mask]) keeps the static type a DataFrame for the pandas
     # stubs, so .iloc / .str below type-check without casts.
     if dail:
-        codes_df = moq.member_codes_for_dail(conn, dail).data
+        codes_df = moq.member_codes_for_dail(conn, dail).require()
         codes = set(codes_df["unique_member_code"].tolist()) if not codes_df.empty else set()
         df = df.loc[df["unique_member_code"].isin(codes)]
     if house:
@@ -103,16 +117,17 @@ def build_member_dossier(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str
     if ident is None:
         return None
 
-    house_df = moq.member_house(conn, code).data
+    unavail: list[dict[str, str]] = []
+    house_df = _section(moq.member_house(conn, code), "house", unavail)
     house = str(house_df.iloc[0]["house"]) if not house_df.empty else "Dáil"
     is_minister = str(ident.get("is_minister", "")).lower() == "true"
     constituency = serialize.value(ident.get("constituency"))
 
-    att = moq.att_all_years(conn, code).data
+    att = _section(moq.att_all_years(conn, code), "attendance_by_year", unavail)
     latest_year = int(att.iloc[0]["year"]) if not att.empty else None
     days_latest = int(att.iloc[0]["attended_count"]) if not att.empty else None
 
-    vs = moq.votes_summary(conn, code).data
+    vs = _section(moq.votes_summary(conn, code), "votes", unavail)
     if not vs.empty:
         r = vs.iloc[0]
         votes_cast = (
@@ -122,14 +137,16 @@ def build_member_dossier(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str
     else:
         votes_cast = divisions = 0
 
-    pg = moq.pay_grand_total(conn, code).data
+    pg = _section(moq.pay_grand_total(conn, code), "payments_total", unavail)
     pay_total = float(pg.iloc[0]["total"]) if (not pg.empty and pd.notna(pg.iloc[0]["total"])) else 0.0
 
     constituency_context = None
     if house != "Seanad" and constituency:
-        constituency_context = serialize.first_record(moq.constituency_context(conn, str(constituency)).data)
+        constituency_context = serialize.first_record(
+            _section(moq.constituency_context(conn, str(constituency)), "constituency_context", unavail)
+        )
 
-    return {
+    dossier = {
         "member": {
             "unique_member_code": code,
             "member_name": serialize.value(ident.get("member_name")),
@@ -142,23 +159,30 @@ def build_member_dossier(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str
             "latest_year": latest_year,
             "days_in_chamber_latest": days_latest,
             "votes_cast": votes_cast,
-            # td_vote_summary only has rows for votes cast, so this is the count of
+            # v_td_vote_summary only has rows for votes cast, so this is the count of
             # divisions the member PARTICIPATED in — a career divisions-held
             # denominator is not derivable (named-division gold starts 2025).
             "divisions_participated": divisions,
             "payments_total_eur": pay_total,
         },
         "attendance_by_year": serialize.to_records(att),
-        "payments_by_year": serialize.to_records(moq.pay_overview(conn, code).data),
-        "legislation_sponsored": serialize.to_records(moq.legislation(conn, code).data),
-        "ministerial_roles": serialize.to_records(moq.ministerial_roles(conn, code).data),
-        "statutory_instruments_signed": serialize.to_records(moq.si_signed(conn, code).data),
-        "revolving_door": serialize.to_records(moq.lobbying_rd(conn, code).data),
-        "questions_profile": serialize.first_record(moq.question_profile(conn, code).data),
-        "speeches_profile": serialize.first_record(moq.speech_summary(conn, code).data),
-        "external_links": serialize.first_record(moq.external_links(conn, code).data) or {},
+        "payments_by_year": serialize.to_records(_section(moq.pay_overview(conn, code), "payments_by_year", unavail)),
+        "legislation_sponsored": serialize.to_records(
+            _section(moq.legislation(conn, code), "legislation_sponsored", unavail)
+        ),
+        "ministerial_roles": serialize.to_records(_section(moq.ministerial_roles(conn, code), "ministerial_roles", unavail)),
+        "statutory_instruments_signed": serialize.to_records(
+            _section(moq.si_signed(conn, code), "statutory_instruments_signed", unavail)
+        ),
+        "revolving_door": serialize.to_records(_section(moq.lobbying_rd(conn, code), "revolving_door", unavail)),
+        "questions_profile": serialize.first_record(_section(moq.question_profile(conn, code), "questions_profile", unavail)),
+        "speeches_profile": serialize.first_record(_section(moq.speech_summary(conn, code), "speeches_profile", unavail)),
+        "external_links": serialize.first_record(_section(moq.external_links(conn, code), "external_links", unavail)) or {},
         "constituency_context": constituency_context,
     }
+    if unavail:
+        dossier["unavailable_sections"] = unavail
+    return dossier
 
 
 # ── Legislation + statutory instruments (legislation_conn) ────────────────────
@@ -180,7 +204,7 @@ def list_bills(
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[list[dict[str, Any]], int, bool]:
-    df = leg.index_filtered(conn, start_date, end_date, status, title_search).data
+    df = leg.index_filtered(conn, start_date, end_date, status, title_search).require()
     if df.empty:
         return [], 0, False
     return _page(df, skip, limit)
@@ -189,19 +213,25 @@ def list_bills(
 def build_bill_dossier(conn: duckdb.DuckDBPyConnection, bill_id: str) -> dict[str, Any] | None:
     """Composed bill record: detail + timeline + amendments + sources + PDFs +
     debates + the statutory instruments made under it. None if the id is unknown."""
-    detail = leg.bill_detail(conn, bill_id).data
+    detail = leg.bill_detail(conn, bill_id).require()
     if detail.empty:
         return None
-    return {
+    unavail: list[dict[str, str]] = []
+    dossier = {
         "bill": serialize.first_record(detail),
-        "timeline": serialize.to_records(leg.bill_timeline(conn, bill_id).data),
-        "amendment_intensity": serialize.first_record(leg.amendment_intensity_for_bill(conn, bill_id).data),
-        "sources": serialize.first_record(leg.bill_sources(conn, bill_id).data),
-        "pdfs": serialize.to_records(leg.bill_pdfs(conn, bill_id).data),
-        "debates": serialize.to_records(leg.bill_debates(conn, bill_id).data),
-        "si_composition": serialize.to_records(leg.si_composition(conn, bill_id).data),
-        "statutory_instruments": serialize.to_records(leg.si_by_bill(conn, bill_id).data),
+        "timeline": serialize.to_records(_section(leg.bill_timeline(conn, bill_id), "timeline", unavail)),
+        "amendment_intensity": serialize.first_record(
+            _section(leg.amendment_intensity_for_bill(conn, bill_id), "amendment_intensity", unavail)
+        ),
+        "sources": serialize.first_record(_section(leg.bill_sources(conn, bill_id), "sources", unavail)),
+        "pdfs": serialize.to_records(_section(leg.bill_pdfs(conn, bill_id), "pdfs", unavail)),
+        "debates": serialize.to_records(_section(leg.bill_debates(conn, bill_id), "debates", unavail)),
+        "si_composition": serialize.to_records(_section(leg.si_composition(conn, bill_id), "si_composition", unavail)),
+        "statutory_instruments": serialize.to_records(_section(leg.si_by_bill(conn, bill_id), "statutory_instruments", unavail)),
     }
+    if unavail:
+        dossier["unavailable_sections"] = unavail
+    return dossier
 
 
 def list_statutory_instruments(
@@ -214,7 +244,7 @@ def list_statutory_instruments(
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[list[dict[str, Any]], int, bool]:
-    df = leg.si_entity_index(conn).data
+    df = leg.si_entity_index(conn).require()
     if df.empty:
         return [], 0, False
     if year is not None:
@@ -241,7 +271,7 @@ def list_votes(
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[list[dict[str, Any]], int, bool]:
-    df = vot.vote_index(conn, date_from, date_to, outcome, house).data
+    df = vot.vote_index(conn, date_from, date_to, outcome, house).require()
     if df.empty:
         return [], 0, False
     return _page(df, skip, limit)
@@ -249,15 +279,19 @@ def list_votes(
 
 def build_division_dossier(conn: duckdb.DuckDBPyConnection, vote_id: str) -> dict[str, Any] | None:
     """Composed division record: the vote + party breakdown + every member's vote + sources."""
-    one = vot.vote_by_id(conn, vote_id).data
+    one = vot.vote_by_id(conn, vote_id).require()
     if one.empty:
         return None
-    return {
+    unavail: list[dict[str, str]] = []
+    dossier = {
         "division": serialize.first_record(one),
-        "party_breakdown": serialize.to_records(vot.party_breakdown(conn, vote_id).data),
-        "members": serialize.to_records(vot.division_members(conn, vote_id).data),
-        "sources": serialize.first_record(vot.sources(conn, vote_id).data),
+        "party_breakdown": serialize.to_records(_section(vot.party_breakdown(conn, vote_id), "party_breakdown", unavail)),
+        "members": serialize.to_records(_section(vot.division_members(conn, vote_id), "members", unavail)),
+        "sources": serialize.first_record(_section(vot.sources(conn, vote_id), "sources", unavail)),
     }
+    if unavail:
+        dossier["unavailable_sections"] = unavail
+    return dossier
 
 
 # ── Cross-reference: votes × Register of Members' Interests ────────────────────
@@ -975,10 +1009,9 @@ def search_votes_by_topic(conn: duckdb.DuckDBPyConnection, topics: str, *, house
     if not kws:
         return {"error": "pass one or more comma-separated topic keywords"}
     patterns = tuple(f"%{k}%" for k in kws)
-    res = vot.topical_votes(conn, patterns, house)
-    if not res.ok:
-        return {"error": res.unavailable_reason}
-    rows = serialize.to_records(res.data)
+    # Unavailable raises (→ 503 via the interface's handler); any {"error"} this
+    # function RETURNS is therefore always a client error (→ 400).
+    rows = serialize.to_records(vot.topical_votes(conn, patterns, house).require())
     debates: dict[tuple, dict[str, Any]] = {}
     for r in rows:
         key = (r.get("debate_title"), r.get("vote_date"))

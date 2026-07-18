@@ -30,7 +30,9 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_access.news_data import fetch_news_feed
+# news_data moved HERE from utility/data_access/ 2026-07-18 (this sandbox page is
+# its only consumer — it was unwired from the production app).
+from news_data import fetch_news_feed
 from shared_css import inject_css
 from ui.components import empty_state, field_label, filter_bar, glossary_strip, hero_banner, hide_sidebar
 from ui.entity_links import member_link_html

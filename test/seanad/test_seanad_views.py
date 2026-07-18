@@ -42,7 +42,7 @@ def mo_conn():
 @pytest.fixture(scope="module")
 def att_conn():
     import duckdb
-    from data_access._sql_registry import register_views
+    from dail_tracker_core.db import register_views
 
     conn = duckdb.connect()
     register_views(conn, ["attendance_*.sql"], swallow_errors=False)
@@ -86,7 +86,7 @@ def test_kyne_appears_in_both_houses(mo_conn):
 # ── Domain views resolve a senator + keep Dáil intact ────────────────────────
 @_needs_gold
 def test_votes_glob_resolves_senator(mo_conn):
-    div = mo_conn.execute("SELECT division_count FROM td_vote_summary WHERE member_id = ?", [_AHEARN]).fetchone()
+    div = mo_conn.execute("SELECT division_count FROM v_td_vote_summary WHERE member_id = ?", [_AHEARN]).fetchone()
     assert div and div[0] > 0
 
 

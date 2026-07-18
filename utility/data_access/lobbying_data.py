@@ -20,7 +20,7 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views, register_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import lobbying as _q
 
 
@@ -29,9 +29,7 @@ def get_lobbying_conn() -> duckdb.DuckDBPyConnection:
     # lobbying_*.sql registers loud (a missing core view is a real break);
     # charity_financials_by_year.sql registers soft so the org panel's "Charity
     # finances" tile degrades gracefully rather than taking the page down.
-    conn = connect_with_views(["lobbying_*.sql"], swallow_errors=False)
-    register_views(conn, ["charity_financials_by_year.sql"], swallow_errors=True)
-    return conn
+    return domain_conn("lobbying")
 
 
 # ── Summary ────────────────────────────────────────────────────────────────────

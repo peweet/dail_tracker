@@ -321,12 +321,15 @@ def _render_choropleth(*, link_key: str = "la") -> None:
 # ── INDEX ─────────────────────────────────────────────────────────────────────
 def _council_card_inner(row) -> str:
     council = _h(str(row["council_name"]))
-    ce = _h(str(row.get("chief_executive") or "—"))
+    ce = _h(str(row.get("chief_executive") or ""))
     title = _h(str(row.get("head_title") or "Chief Executive"))
+    # Only ~23 of 31 councils publish a CE name — omit the line when empty
+    # rather than printing "Chief Executive: —" (reads as a data outage).
+    ce_html = f'<div class="con-card-meta">{title}: <strong>{ce}</strong></div>' if ce else ""
     return (
         f'<div class="con-card-inner">'
         f'<div class="con-card-name">{council}</div>'
-        f'<div class="con-card-meta">{title}: <strong>{ce}</strong></div>'
+        f"{ce_html}"
         f'<div class="con-card-sub">Appointed, not elected</div>'
         f"</div>"
     )
@@ -790,15 +793,17 @@ def _card_services(name: str) -> str:
     return _scorecard_card(name, "Services to residents", ["roads", "fire", "litter"])
 
 
-def _render_performance(name: str) -> None:
+def _render_performance(name: str, *, show_audit: bool = True) -> None:
     # Lead group: the indicators a resident is most likely to want first (homes, services,
     # rates collected, planning). The governance / audit / spending-detail / derelict cards are
     # demoted behind one expander so first paint isn't an eight-card wall — the same declutter
     # treatment the Corporate page got. Every card is still one click away; nothing is dropped.
+    # ``show_audit=False`` lets the Your Council hub keep the LGAS verdict out of this grid —
+    # there it renders as the AUDITED stage of the money flow instead (moved, not duplicated).
     lead = [c for c in (_card_housing(name), _card_services(name), _card_money_collected(name),
                         _card_planning(name)) if c]
-    more = [c for c in (_card_council_money(name), _card_audit(name), _card_derelict(name),
-                        _card_how_run(name)) if c]
+    more = [c for c in (_card_council_money(name), _card_audit(name) if show_audit else "",
+                        _card_derelict(name), _card_how_run(name)) if c]
     if not lead:  # a council with only the secondary indicators still leads with something
         lead, more = more, []
 

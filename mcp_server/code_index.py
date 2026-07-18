@@ -20,6 +20,7 @@ importable and testable without the optional ``mcp`` extra installed.
 from __future__ import annotations
 
 import ast
+import contextlib
 from pathlib import Path
 
 # Directories never worth indexing: environments, caches, VCS, throwaway probe scripts.
@@ -48,10 +49,8 @@ def _sig(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
         params = "..."
     ret = ""
     if node.returns is not None:
-        try:
+        with contextlib.suppress(Exception):
             ret = f" -> {ast.unparse(node.returns)}"
-        except Exception:  # noqa: BLE001
-            pass
     return f"({params}){ret}"
 
 

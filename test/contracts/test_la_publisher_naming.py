@@ -40,19 +40,10 @@ pytestmark = pytest.mark.sql
 
 _FACT = Path("data/gold/parquet/procurement_payments_fact.parquet")
 
-# The 8 councils currently emitting the official long form instead of the canonical short
-# form. REMOVE entries as they are renormalised; do NOT add without a deliberate decision —
-# a new entry here means another council's spend has fallen out of the crosswalk.
-KNOWN_LA_NAME_DRIFT: set[str] = {
-    "Carlow County Council",
-    "Cavan County Council",
-    "Dublin City Council",
-    "Dún Laoghaire-Rathdown County Council",
-    "Kerry County Council",
-    "Louth County Council",
-    "Roscommon County Council",
-    "Tipperary County Council",
-}
+# EMPTY since 2026-07-18 — the 8 long-form council names were renormalised upstream, so
+# the vocabulary now holds with no exceptions. Do NOT add without a deliberate decision —
+# a new entry here means a council's spend has fallen out of the crosswalk.
+KNOWN_LA_NAME_DRIFT: set[str] = set()
 
 
 @pytest.fixture(scope="module")

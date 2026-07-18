@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW td_vote_year_summary AS
+CREATE OR REPLACE VIEW v_td_vote_year_summary AS
 WITH base AS (
     SELECT
         unique_member_code,

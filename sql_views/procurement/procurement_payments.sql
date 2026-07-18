@@ -26,6 +26,15 @@ SELECT
     realisation_tier,
     vat_status,
     value_safe_to_sum,
+    -- THE sum-safe money columns. Every aggregate over this feed must SUM one of
+    -- these (never raw amount_eur): NULL unless the row is value_safe_to_sum AND
+    -- in that tier, so SUM() implements the never-sum rule by construction. The
+    -- same FILTER fragment used to be hand-copied at 5 call sites in
+    -- queries/procurement.py — one drifted copy would misreport € publicly.
+    CASE WHEN value_safe_to_sum AND realisation_tier = 'SPENT' THEN amount_eur END
+                                              AS amount_spent_safe_eur,
+    CASE WHEN value_safe_to_sum AND realisation_tier = 'COMMITTED' THEN amount_eur END
+                                              AS amount_committed_safe_eur,
     description,
     po_number,
     -- Per-line PAYMENT STATUS where the body published one (some councils/depts carry a

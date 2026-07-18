@@ -14,13 +14,13 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import appointments as _q
 
 
 @st.cache_resource
 def get_appointments_conn() -> duckdb.DuckDBPyConnection:
-    return connect_with_views(["appointments_*.sql"], swallow_errors=True)
+    return domain_conn("appointments")
 
 
 @st.cache_data(ttl=300)

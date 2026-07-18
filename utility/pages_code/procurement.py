@@ -178,6 +178,7 @@ from data_access.procurement_data import (
     fetch_eu_tam_state_aid_result,
     fetch_incumbency_for_supplier_result,
     fetch_incumbency_top_result,
+    fetch_la_budget_divisions_result,
     fetch_la_budget_vs_actual_result,
     fetch_lobbying_overlap_result,
     fetch_awards_by_year_result,
@@ -1278,7 +1279,115 @@ def _self_funded_note(pct, division: str) -> str:
     return f"{p:.0f}% funded by its own charges & grants — the rest by you (rates, LPT, State grant)"
 
 
-def _render_council_running_lane(council: str, active_tier: str, *, po_max_year: int | None) -> int | None:
+def _render_budget_vs_outturn(council: str) -> None:
+    """Plan vs outturn for the latest joined year — the ADOPTED budget beside the audited
+    outturn per division. Moved verbatim out of the RUNNING lane so the Your Council money
+    flow can render it inside its VOTED lane instead; behaviour on this page is unchanged.
+    Side-by-side ONLY — the delta is view-computed context, never an overspend verdict."""
+    bva = fetch_la_budget_vs_actual_result(council)
+    if not bva.ok or bva.data.empty:
+        return
+    bva_latest = int(bva.data["year"].max())
+    bva_rows = bva.data[bva.data["year"] == bva_latest]
+    st.caption(f"Adopted budget vs audited outturn by service, {bva_latest} — compared, never added")
+    line_html = []
+    for r in bva_rows.itertuples():
+        pct = getattr(r, "outturn_vs_budget_pct", None)
+        chip = (
+            f'<span style="background:#eceae4;color:#41403a;border-radius:3px;padding:0 .45rem;'
+            f'font-size:.72rem;font-variant-numeric:tabular-nums">{float(pct):+g}%</span>'
+            if _truthy(pct)
+            else ""
+        )
+        line_html.append(
+            '<div style="display:flex;justify-content:space-between;gap:.6rem;margin:.14rem 0">'
+            f"<span>{_esc(r.division)}</span>"
+            f'<span style="white-space:nowrap;font-variant-numeric:tabular-nums">'
+            f"{_eur(r.budget_expenditure_eur)} planned → <strong>{_eur(r.afs_gross_expenditure_eur)}</strong>"
+            f" spent {chip}</span></div>"
+        )
+    st.html(
+        '<div class="pr-afs-trace">'
+        + "".join(line_html)
+        + '<div class="pr-afs-trace-cap">“Planned” is the budget the elected councillors adopted '
+        "before the year began (a reserved function); “spent” is the audited outturn. Different "
+        "bases — a plan and an actual — shown side by side and never summed; small gaps either "
+        "way are normal, not verdicts.</div></div>"
+    )
+
+
+def _render_council_budget_lane(council: str, *, councillors_href: str | None = None) -> int | None:
+    """LANE 0 — VOTED (the adopted budget). The plan the elected councillors voted before the
+    year began — adopting the budget is one of their few reserved functions, which is why this
+    lane leads the Your Council money flow: it is where the money story starts, and the one
+    stage the people you elect actually control.
+
+    ⚠️ BUDGETED grain (a plan, not spend) — never summed with the audited accounts or the
+    purchase-order euros in the lanes below. All figures arrive pre-computed from
+    v_procurement_la_budget_divisions; bar width is display scaling within this lane only.
+    Returns the latest adopted-budget year, or None when the fact has no rows for this council
+    (all 31 councils are in the DHLGH publication, so None normally means a load failure)."""
+    res = fetch_la_budget_divisions_result(council)
+    if not res.ok or res.data.empty:
+        return None
+    latest = int(res.data["year"].max())
+    rows = res.data[res.data["year"] == latest]
+    years = sorted({int(y) for y in res.data["year"].dropna()})
+    span = f"{years[0]}–{years[-1]}" if len(years) > 1 else str(latest)
+
+    st.html(
+        _lane_header(
+            "VOTED · adopted budget, a reserved function",
+            "The budget your councillors voted",
+            f"Before each year begins, the <strong>elected councillors</strong> of {_esc(council)} "
+            "vote to adopt the council's budget — one of the few <strong>reserved functions</strong> "
+            f"they hold. This is the plan they adopted for <strong>{latest}</strong> (published "
+            f"{_esc(span)}): what the council intends to spend running each service. "
+            "A <strong>plan, not spend</strong> — the audited accounts below show what actually "
+            "happened, and the two are <strong>never added together</strong>.",
+        )
+    )
+    budgets = [float(r.expenditure_adopted_eur) for r in rows.itertuples() if _truthy(r.expenditure_adopted_eur)]
+    max_budget = max([b for b in budgets if b > 0], default=0.0)
+    st.caption(f"Adopted budget by service, {latest} — bar width = budgeted spend")
+    bar_rows = []
+    for r in rows.itertuples():
+        exp = getattr(r, "expenditure_adopted_eur", None)
+        inc = getattr(r, "income_adopted_eur", None)
+        bar_rows.append(
+            _afs_bar_row(
+                r.division,
+                exp if _truthy(exp) and float(exp) > 0 else 0,
+                max_budget,
+                fig_html=f"<strong>{_eur(exp)}</strong>",
+                note=f"{_eur(inc)} budgeted income" if _truthy(inc) and float(inc) > 0 else "",
+                accent="#6d5a8c",
+            )
+        )
+    st.html(f'<div class="pr-afsbars">{"".join(bar_rows)}</div>')
+    src = str(rows.iloc[0].get("source_url") or "")
+    foot_bits = []
+    if src:
+        foot_bits.append(
+            f'<a class="dt-source-link" href="{_esc(src)}" target="_blank" rel="noopener">'
+            f"DHLGH Local Authority Budgets {latest} →</a>"
+        )
+    if councillors_href:
+        foot_bits.append(
+            f'<a class="dt-source-link" href="{_esc(councillors_href)}" target="_self">'
+            "Adopted by the councillors you elect →</a>"
+        )
+    if foot_bits:
+        st.html(f'<div class="pr-prof-sub" style="margin:0.2rem 0 0.5rem">{" · ".join(foot_bits)}</div>')
+    # Plan vs audited outturn belongs to this lane in the money flow — the direct answer to
+    # "did what they voted happen?" (view-computed delta, never a verdict).
+    _render_budget_vs_outturn(council)
+    return latest
+
+
+def _render_council_running_lane(
+    council: str, active_tier: str, *, po_max_year: int | None, include_budget_vs_outturn: bool = True
+) -> int | None:
     """LANE 1 — RUNNING THE SERVICES (audited revenue account). Leads with NET COST by service
     (what the local taxpayer actually funds, the strongest civic figure), then the spend-over-time
     spine and the indicative named-supplier traceability bridge to the PAYING lane below.
@@ -1286,7 +1395,9 @@ def _render_council_running_lane(council: str, active_tier: str, *, po_max_year:
     ⚠️ BUDGET grain — a SIBLING fact, NEVER summed with the purchase-order euros. All figures are
     pre-aggregated/pre-ordered in the views; the page selects and renders, computing no metric.
     Returns the latest accounts year (so the BUILDING lane can align its coverage note), or None
-    when this council has no audited AFS in the fact yet."""
+    when this council has no audited AFS in the fact yet. ``include_budget_vs_outturn=False`` lets
+    a host that already rendered the VOTED (adopted-budget) lane — which carries the same
+    plan-vs-outturn block — suppress the duplicate here."""
     by_year = fetch_afs_total_by_year_result(council)
     if not by_year.ok or by_year.data.empty:
         return None
@@ -1375,35 +1486,8 @@ def _render_council_running_lane(council: str, active_tier: str, *, po_max_year:
     # PLAN vs OUTTURN — the ADOPTED budget (a fourth grain: a plan, from DHLGH's consolidated
     # publication) beside the audited outturn for the same divisions. Side-by-side ONLY — the
     # delta is view-computed context; a few % either way is normal, never an overspend verdict.
-    bva = fetch_la_budget_vs_actual_result(council)
-    if bva.ok and not bva.data.empty:
-        bva_latest = int(bva.data["year"].max())
-        bva_rows = bva.data[bva.data["year"] == bva_latest]
-        st.caption(f"Adopted budget vs audited outturn by service, {bva_latest} — compared, never added")
-        line_html = []
-        for r in bva_rows.itertuples():
-            pct = getattr(r, "outturn_vs_budget_pct", None)
-            chip = (
-                f'<span style="background:#eceae4;color:#41403a;border-radius:3px;padding:0 .45rem;'
-                f'font-size:.72rem;font-variant-numeric:tabular-nums">{float(pct):+g}%</span>'
-                if _truthy(pct)
-                else ""
-            )
-            line_html.append(
-                '<div style="display:flex;justify-content:space-between;gap:.6rem;margin:.14rem 0">'
-                f"<span>{_esc(r.division)}</span>"
-                f'<span style="white-space:nowrap;font-variant-numeric:tabular-nums">'
-                f"{_eur(r.budget_expenditure_eur)} planned → <strong>{_eur(r.afs_gross_expenditure_eur)}</strong>"
-                f" spent {chip}</span></div>"
-            )
-        st.html(
-            '<div class="pr-afs-trace">'
-            + "".join(line_html)
-            + '<div class="pr-afs-trace-cap">“Planned” is the budget the elected councillors adopted '
-            "before the year began (a reserved function); “spent” is the audited outturn. Different "
-            "bases — a plan and an actual — shown side by side and never summed; small gaps either "
-            "way are normal, not verdicts.</div></div>"
-        )
+    if include_budget_vs_outturn:
+        _render_budget_vs_outturn(council)
 
     # Traceability bridge to the PAYING lane — the latest year present in both accounts + active PO tier.
     cov = fetch_afs_vs_po_coverage_result(council)
@@ -1496,7 +1580,13 @@ def _render_council_building_lane(council: str, *, accounts_latest: int | None) 
 
 
 def _render_council_accounts_context(
-    council: str, active_tier: str, *, po_max_year: int | None = None, has_paying: bool = True
+    council: str,
+    active_tier: str,
+    *,
+    po_max_year: int | None = None,
+    has_paying: bool = True,
+    lead_with_budget: bool = False,
+    councillors_href: str | None = None,
 ) -> None:
     """The two AUDITED-ACCOUNTS lanes of a local-authority dossier, in civic reading order:
     RUNNING THE SERVICES (revenue net cost) then BUILDING (capital investment). Both are BUDGET
@@ -1508,8 +1598,17 @@ def _render_council_accounts_context(
     statement (e.g. Mayo / Wexford / Kildare publish their AFS only through an interactive viewer or
     a scanned image). When neither accounts lane is available we say so explicitly — otherwise the
     missing lanes read as 'this council doesn't run services', which is false. ``has_paying`` keeps
-    the note honest: it only points the reader 'down to the purchase orders' when that lane exists."""
-    ran = _render_council_running_lane(council, active_tier, po_max_year=po_max_year)
+    the note honest: it only points the reader 'down to the purchase orders' when that lane exists.
+
+    ``lead_with_budget=True`` (the Your Council money flow) opens with the VOTED lane — the
+    adopted budget the elected councillors voted, including the plan-vs-outturn block — and
+    suppresses that block's duplicate inside the RUNNING lane. Default False preserves this
+    page's original order exactly."""
+    if lead_with_budget:
+        _render_council_budget_lane(council, councillors_href=councillors_href)
+    ran = _render_council_running_lane(
+        council, active_tier, po_max_year=po_max_year, include_budget_vs_outturn=not lead_with_budget
+    )
     built = _render_council_building_lane(council, accounts_latest=ran)
     if ran is None and built is None:
         tail = " The purchase orders below are the only machine-readable spending we hold for it." if has_paying else ""
@@ -1529,6 +1628,8 @@ def _render_payments_publisher_profile(
     on_back=None,
     back_label: str = "← Back to procurement",
     show_back: bool = True,
+    money_flow: bool = False,
+    councillors_href: str | None = None,
 ) -> None:
     """Per-buyer dossier (the per-council profile): which tiers the body publishes, both totals
     shown side by side (never summed), and its top suppliers in the active tier. Councils mostly
@@ -1538,7 +1639,10 @@ def _render_payments_publisher_profile(
     reusing page — e.g. the Follow-the-money trail — can step back through its own breadcrumb
     instead. ``None`` preserves the exact original behaviour for the procurement / council pages.
     ``show_back=False`` suppresses the back button entirely — for embedding this dossier as a section
-    of a host page (the Your Council hub) that already provides its own back affordance."""
+    of a host page (the Your Council hub) that already provides its own back affordance.
+    ``money_flow=True`` renders a local authority's lanes in money-flow order — VOTED (adopted
+    budget) before the audited-accounts lanes — for the Your Council hub; ``councillors_href``
+    is the VOTED lane's cross-link to the roster of the councillors who adopted it."""
     if show_back and back_button(back_label, key="prpaypub"):
         (on_back or (lambda: _return_to_browse("paid")))()
 
@@ -1620,7 +1724,13 @@ def _render_payments_publisher_profile(
         if is_afs_only:
             # Audited-accounts-only council: render the Running + Building lanes, then say plainly
             # that no purchase-order list is published (the PAYING lane is absent, not empty).
-            _render_council_accounts_context(publisher_name, "COMMITTED", has_paying=False)
+            _render_council_accounts_context(
+                publisher_name,
+                "COMMITTED",
+                has_paying=False,
+                lead_with_budget=money_flow,
+                councillors_href=councillors_href,
+            )
             st.html(
                 '<div class="pr-caveat"><strong>Purchase orders:</strong> '
                 f"{_esc(publisher_name)} does not publish a machine-readable list of its purchase "
@@ -1648,7 +1758,13 @@ def _render_payments_publisher_profile(
     # BUDGET grain: siblings, never summed with each other or with the purchase-order euros below.
     # Pass the PO data's max year so the running lane can flag the AFS arrears lag.
     if is_la:
-        _render_council_accounts_context(publisher_name, active, po_max_year=_n(prow.get("max_year")))
+        _render_council_accounts_context(
+            publisher_name,
+            active,
+            po_max_year=_n(prow.get("max_year")),
+            lead_with_budget=money_flow,
+            councillors_href=councillors_href,
+        )
         # LANE 3 — PAYING: the named suppliers over €20,000. The narrowest, most granular slice of
         # council money (most spend never passes through a tendered PO), but the only one named to a
         # firm. A DIFFERENT grain again — never added to the audited-accounts lanes above.

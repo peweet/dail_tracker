@@ -33,10 +33,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.local_government_data import (
     fetch_chief_executive_result,
     fetch_chief_executives_result,
+    fetch_lgas_audit_result,
 )
-from data_access.procurement_data import fetch_council_summary_result
+from data_access.procurement_data import (
+    fetch_afs_total_by_year_result,
+    fetch_council_summary_result,
+    fetch_la_budget_divisions_result,
+)
 from data_access.your_councillors_data import fetch_coverage, fetch_roster_council
 from pages_code.local_government import (
+    _card_audit,
     _render_ce_hero,
     _render_choropleth,
     _render_performance,
@@ -44,11 +50,19 @@ from pages_code.local_government import (
 )
 from pages_code.procurement import (
     _council_summary_row,
+    _lane_header,
+    _render_council_budget_lane,
     _render_payment_lines,
     _render_payments_publisher_profile,
     _render_payments_supplier_profile,
 )
-from pages_code.your_councillors import _pcolour, _render_cathaoirleach, _render_standing_orders, _tab_agendas
+from pages_code.your_councillors import (
+    _pcolour,
+    _render_cathaoirleach,
+    _render_plan_overrides,
+    _render_standing_orders,
+    _tab_agendas,
+)
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -196,12 +210,15 @@ def _render_index() -> None:
         subsection_heading(prov)
         cards = []
         for la, r, s in sorted(rows, key=lambda t: (-_spend_scale(t[2]), t[0])):
-            ce = _h(str(getattr(r, "chief_executive", "") or "—"))
+            ce = _h(str(getattr(r, "chief_executive", "") or ""))
             title = _h(str(getattr(r, "head_title", "") or "Chief Executive"))
             cname = _h(str(getattr(r, "council_name", la) or la))
+            # Only ~23 of 31 councils publish a CE name — a repeated "Chief
+            # Executive: —" line reads as a data outage, so omit it when empty.
+            ce_html = f'<div class="con-card-meta">{title}: <strong>{ce}</strong></div>' if ce else ""
             inner = (
                 f'<div class="con-card-inner"><div class="con-card-name">{cname}</div>'
-                f'<div class="con-card-meta">{title}: <strong>{ce}</strong></div>'
+                f"{ce_html}"
                 f'<div class="con-card-sub">{_h(_spend_headline(s))}</div></div>'
             )
             cards.append(
@@ -222,12 +239,21 @@ def _section_who_runs_it(council: str) -> None:
         return
     _render_ce_hero(council, res.data.iloc[0])
     _render_power_explainer(council)
-    _render_performance(council)
+    # show_audit=False: the LGAS verdict renders as the AUDITED stage of the Spending section's
+    # money flow instead — one home per fact, and the auditor's words sit beside the accounts
+    # they audit rather than in a governance grid.
+    _render_performance(council, show_audit=False)
     st.caption(
         "Performance figures are each council's published whole-area numbers, shown beside the "
         "national benchmark — not apportioned, never summed across measures. Sources: NOAC "
-        "Performance Indicator Report · An Bord Pleanála · Dept of Housing Derelict Sites return."
+        "Performance Indicator Report · An Coimisiún Pleanála (formerly An Bord Pleanála) · "
+        "Dept of Housing Derelict Sites return."
     )
+    # The closing beat of the power story: elected members → what they control → when the
+    # plan they adopted was overruled (OPR → Ministerial Direction). Same renderer as the
+    # dedicated councillor page — both outcomes (overruled AND Minister declined) render,
+    # verbatim honesty rails included.
+    _render_plan_overrides(council)
 
 
 # How honest to be about each council's voting record — the gold coverage view's tier drives the line.
@@ -288,6 +314,12 @@ def _section_councillors(council: str) -> None:
         "(staff, contracts, planning permissions).",
         border_left_color="#3a6b7e",
     )
+    # Reciprocal edge to the money flow: the budget these members adopt opens the VOTED lane.
+    st.html(
+        f'<div class="pr-prof-sub" style="margin:-0.2rem 0 0.5rem"><a class="dt-source-link" '
+        f'href="?council={quote(council)}&yc=Spending" target="_self">'
+        "See the budget they adopted →</a></div>"
+    )
     roster = fetch_roster_council(council)
     if not roster.ok or roster.data is None or roster.data.empty:
         empty_state(
@@ -331,22 +363,164 @@ def _section_councillors(council: str) -> None:
     # Composed from the dedicated councillor page's render helpers so both pages stay in sync.
     _render_cathaoirleach()
     _render_standing_orders(council)
-    subsection_heading("Recent agendas")
+    subsection_heading("What the council is deciding")
     _tab_agendas(council)
 
 
-def _section_spending(council: str) -> None:
-    if _council_summary_row(council) is None:
-        empty_state(
-            "No published spending yet",
-            f"{council} doesn't publish a machine-readable purchase-order list or audited accounts we "
-            "can read yet, so there's nothing to show in this section — not that it has no spending.",
+# ── the money flow (Spending section) ─────────────────────────────────────────
+# Four stages of the same money, in the order it actually moves: the budget the elected
+# councillors VOTED → what the audited accounts say was SPENT → who was PAID OUT via
+# purchase orders → what the independent auditor said (AUDITED). The stage colours match
+# the lanes below (budget plum, revenue teal, PO brown, audit navy) so the strip doubles
+# as the legend. Arrows mean sequence, NEVER arithmetic — no stage reconciles with the
+# next (different grains, different years); the only sanctioned comparison is the
+# view-computed plan-vs-outturn block inside the VOTED lane.
+_FLOW_CSS = """
+<style>
+.yc-flow {
+  display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  gap: 0.45rem; align-items: stretch; margin: 0.35rem 0 0.15rem;
+}
+.yc-flow-stage {
+  display: flex; flex-direction: column; gap: 0.16rem; background: #fff;
+  border: 1px solid rgba(0,0,0,0.08); border-top: 3px solid var(--fs-accent, #16243a);
+  border-radius: 8px; padding: 0.55rem 0.7rem 0.6rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.yc-flow-kicker {
+  font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase;
+  font-weight: 700; color: var(--fs-accent, #16243a);
+}
+.yc-flow-fig { font-size: 1.05rem; font-weight: 700; color: #16243a; line-height: 1.15; }
+.yc-flow-sub { font-size: 0.72rem; color: var(--text-secondary, #555); line-height: 1.3; }
+.yc-flow-arrow { align-self: center; color: #9aa1ab; font-size: 1.05rem; padding: 0 0.05rem; }
+@media (max-width: 860px) {
+  .yc-flow { grid-template-columns: 1fr; }
+  .yc-flow-arrow { display: none; }
+}
+</style>
+"""
+
+
+def _flow_stage(kicker: str, figure: str, sub: str, accent: str) -> str:
+    return (
+        f'<div class="yc-flow-stage" style="--fs-accent:{accent}">'
+        f'<span class="yc-flow-kicker">{_h(kicker)}</span>'
+        f'<span class="yc-flow-fig">{_h(figure)}</span>'
+        f'<span class="yc-flow-sub">{_h(sub)}</span></div>'
+    )
+
+
+def _render_money_strip(council: str, summ) -> None:
+    """The four-stage orientation strip. Every figure is a single row selected from a registered
+    view (no page-side arithmetic); a stage with no data says so honestly rather than dropping
+    out, so the flow always reads end to end."""
+    bud = fetch_la_budget_divisions_result(council)
+    if bud.ok and bud.data is not None and not bud.data.empty:
+        voted = _flow_stage(
+            "Voted",
+            f"Budget {int(bud.data['year'].max())}",
+            "Adopted by your councillors — a reserved function",
+            "#6d5a8c",
         )
-        return
-    # The shared per-council dossier (RUNNING / BUILDING / PAYING lanes). show_back=False because the
-    # hub already renders one "← All councils" affordance above the section switcher (no double back).
-    # Supplier drill-downs inside it are handled by this page's leaf dispatch.
-    _render_payments_publisher_profile(council, "COMMITTED", show_back=False)
+    else:
+        voted = _flow_stage("Voted", "Budget", "Adopted each year by your elected councillors", "#6d5a8c")
+
+    afs = fetch_afs_total_by_year_result(council)
+    if afs.ok and afs.data is not None and not afs.data.empty:
+        latest_yr = int(afs.data["year"].max())
+        row = afs.data[afs.data["year"] == latest_yr].iloc[0]
+        spent = _flow_stage(
+            "Spent",
+            _eur(row.get("gross_expenditure_eur")),
+            f"Audited accounts, {latest_yr} — the whole operating spend",
+            "#3a6b7e",
+        )
+    else:
+        spent = _flow_stage("Spent", "—", "Audited accounts not machine-readable yet", "#3a6b7e")
+
+    if summ is not None and int(summ.get("n_paid") or 0) > 0:
+        paid = _flow_stage(
+            "Paid out", _eur(summ.get("paid_safe_eur")), "Payments over €20,000 — the named-supplier slice", "#9c5b2e"
+        )
+    elif summ is not None and int(summ.get("n_ordered") or 0) > 0:
+        paid = _flow_stage(
+            "Paid out",
+            _eur(summ.get("ordered_safe_eur")),
+            "Purchase orders over €20,000 — the named-supplier slice",
+            "#9c5b2e",
+        )
+    else:
+        paid = _flow_stage("Paid out", "—", "No machine-readable purchase orders published", "#9c5b2e")
+
+    aud = fetch_lgas_audit_result(council)
+    if aud.ok and aud.data is not None and not aud.data.empty:
+        audited = _flow_stage(
+            "Audited",
+            str(int(aud.data.iloc[0].get("year"))),
+            "Independent LGAS opinion — the auditor's own words",
+            "#16243a",
+        )
+    else:
+        audited = _flow_stage("Audited", "—", "No LGAS audit report on file yet", "#16243a")
+
+    arrow = '<span class="yc-flow-arrow" aria-hidden="true">→</span>'
+    st.html(_FLOW_CSS + f'<div class="yc-flow">{arrow.join([voted, spent, paid, audited])}</div>')
+    st.caption(
+        "Four stages of the same money — different measures taken at different moments, "
+        "shown side by side and never added together."
+    )
+
+
+def _render_audit_lane(council: str) -> None:
+    """The AUDITED stage — the money flow's closing beat. Reuses the satellite page's verbatim
+    LGAS card (opinion sentence + emphasis-of-matter flag straight from the report, no derived
+    score); _render_performance(show_audit=False) keeps this its only home on the hub."""
+    st.html(
+        _lane_header(
+            "AUDITED · Local Government Audit Service",
+            "What the auditor said",
+            f"Every year the <strong>Local Government Audit Service</strong> — independent of "
+            f"{_h(council)} — audits the accounts behind the figures above and publishes its "
+            "opinion. The auditor examines the accounts the Chief Executive administers; "
+            "councillors sign none of it. Their words below are quoted verbatim.",
+        )
+    )
+    card = _card_audit(council)
+    if card:
+        st.html(f'<div class="lg-perf-grid">{card}</div>')
+    else:
+        st.html(
+            '<div class="pr-caveat"><strong>Audit report:</strong> no Local Government Audit '
+            f"Service report is on file for {_h(council)} yet. Every council's accounts are "
+            "audited annually; the report will appear here once published and processed.</div>"
+        )
+
+
+def _section_spending(council: str) -> None:
+    summ = _council_summary_row(council)
+    _render_money_strip(council, summ)
+    councillors_href = f"?council={quote(council)}&yc={quote('Your councillors')}"
+    if summ is None:
+        # Neither a purchase-order list nor a readable AFS — but the VOTED stage still exists:
+        # the DHLGH consolidated budget publication covers all 31 councils, so the money flow
+        # starts for every council rather than dead-ending on an empty state.
+        _render_council_budget_lane(council, councillors_href=councillors_href)
+        st.html(
+            '<div class="pr-caveat"><strong>Accounts &amp; purchase orders:</strong> '
+            f"{_h(council)} doesn't publish a machine-readable purchase-order list or audited "
+            "accounts we can read yet, so the <em>Spent</em> and <em>Paid out</em> stages aren't "
+            "shown — not that it has no spending. The adopted budget above comes from the "
+            "national DHLGH publication, which covers every council.</div>"
+        )
+    else:
+        # The shared per-council dossier in money-flow order (VOTED → RUNNING → BUILDING → PAYING).
+        # show_back=False because the hub already renders one "← All councils" affordance above the
+        # section switcher. Supplier drill-downs inside it are handled by this page's leaf dispatch.
+        _render_payments_publisher_profile(
+            council, "COMMITTED", show_back=False, money_flow=True, councillors_href=councillors_href
+        )
+    _render_audit_lane(council)
 
 
 # ── at-a-glance triptych (the gist of all three concerns, before any switcher) ──

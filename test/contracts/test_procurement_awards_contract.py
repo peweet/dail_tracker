@@ -5,8 +5,9 @@ NEVER be summed against the payment fact. The fact is typed (the consolidation h
 already derived ``supplier_class`` / ``value_kind`` / ``value_safe_to_sum`` / a parsed
 ``value_eur`` on top of the raw eTenders export), so the drift we guard is:
 
-  * ``value_kind`` is closed to the two award kinds we model — a real contract award
-    vs. a framework/DPS ceiling (those two are the never-sum boundary);
+  * ``value_kind`` is closed to the award kinds the classifier is designed to emit
+    (``AWARD_VALUE_KIND`` in ``services.data_contracts`` — award vs. framework/DPS
+    ceiling vs. call-off; the ceiling/call-off kinds are the never-sum boundary);
   * ``supplier_class`` reuses the SAME closed vocabulary as the payment fact (imported
     from ``services.data_contracts`` so the two contracts can never drift apart);
   * the never-sum invariant: any row flagged ``value_safe_to_sum`` MUST carry a real,
@@ -30,11 +31,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from config import GOLD_PARQUET_DIR  # noqa: E402
-from services.data_contracts import SUPPLIER_CLASS  # noqa: E402  (single source of truth)
-
-# The two award value kinds. Distinct from the PAYMENT fact's VALUE_KIND
-# (payment_actual / po_committed) — a different grain with its own vocabulary.
-AWARD_VALUE_KIND: frozenset[str] = frozenset({"contract_award_value", "framework_or_dps_ceiling"})
+from services.data_contracts import (  # noqa: E402  (single source of truth)
+    AWARD_VALUE_KIND,
+    SUPPLIER_CLASS,
+    ContractViolation,
+    guard_award_fact,
+)
 
 
 def _s(data) -> pl.Series:
@@ -74,6 +76,16 @@ class ProcurementAwardsSchema(pa.DataFrameModel):
         if "value_safe_to_sum" not in df.columns or "value_eur" not in df.columns:
             return True
         bad = df.filter(pl.col("value_safe_to_sum") & (pl.col("value_eur").is_null() | (pl.col("value_eur") <= 0)))
+        return bad.height == 0
+
+    @pa.dataframe_check
+    def _safe_to_sum_implies_one_off_award(cls, data) -> bool:
+        # Only a one-off contract_award_value may be summed — a summable framework/DPS
+        # ceiling (repeated across N supplier rows) or call-off double-counts the money.
+        df = _df(data)
+        if "value_safe_to_sum" not in df.columns or "value_kind" not in df.columns:
+            return True
+        bad = df.filter(pl.col("value_safe_to_sum") & (pl.col("value_kind") != "contract_award_value"))
         return bad.height == 0
 
 
@@ -120,6 +132,44 @@ def test_awards_schema_rejects_summable_row_without_positive_value():
         ProcurementAwardsSchema.validate(bad)
 
 
+# --------------------------------------------------------------------------- runtime guard
+# guard_award_fact is the WRITE-TIME twin of this test-side schema: same vocab constants,
+# same invariants, but it runs inside the extractor and halts before gold is written.
+_GUARD_GOOD = pl.DataFrame(
+    {
+        "supplier": ["Acme Ltd", "Framework Co"],
+        "supplier_norm": ["acme", "framework co"],
+        "supplier_class": ["company", "company"],
+        "value_eur": [125000.0, 2_000_000.0],
+        "value_kind": ["contract_award_value", "framework_or_dps_ceiling"],
+        "value_safe_to_sum": [True, False],
+    }
+)
+
+
+def test_guard_accepts_current_shape(tmp_path):
+    report = guard_award_fact(_GUARD_GOOD, name="t_awards", hard=True, quarantine_dir=tmp_path)
+    assert report.ok
+
+
+def test_guard_halts_on_unknown_value_kind(tmp_path):
+    bad = _GUARD_GOOD.with_columns(pl.lit("mystery_value").alias("value_kind"))
+    with pytest.raises(ContractViolation):
+        guard_award_fact(bad, name="t_awards", hard=True, quarantine_dir=tmp_path)
+
+
+def test_guard_halts_on_summable_ceiling(tmp_path):
+    # value_safe_to_sum on a framework ceiling re-opens the multi-supplier double-count.
+    bad = _GUARD_GOOD.with_columns(pl.lit(True).alias("value_safe_to_sum"))
+    with pytest.raises(ContractViolation):
+        guard_award_fact(bad, name="t_awards", hard=True, quarantine_dir=tmp_path)
+
+
+def test_guard_halts_on_dropped_derived_column(tmp_path):
+    with pytest.raises(ContractViolation):
+        guard_award_fact(_GUARD_GOOD.drop("value_safe_to_sum"), name="t_awards", hard=True, quarantine_dir=tmp_path)
+
+
 # --------------------------------------------------------------------------- integration
 @pytest.mark.sql
 def test_procurement_awards_satisfies_contract():
@@ -127,3 +177,14 @@ def test_procurement_awards_satisfies_contract():
     if not path.exists():
         pytest.skip(f"{path} not found — run the procurement pipeline first")
     ProcurementAwardsSchema.validate(pl.read_parquet(path))
+
+
+@pytest.mark.sql
+def test_runtime_guard_passes_on_real_gold(tmp_path):
+    # The write-time guard must be anchored to CURRENT gold — a guard that false-halts
+    # a clean pipeline run is worse than no guard (it gets disabled).
+    path = GOLD_PARQUET_DIR / "procurement_awards.parquet"
+    if not path.exists():
+        pytest.skip(f"{path} not found — run the procurement pipeline first")
+    report = guard_award_fact(pl.read_parquet(path), name="procurement_awards_anchor", hard=True, quarantine_dir=tmp_path)
+    assert report.ok

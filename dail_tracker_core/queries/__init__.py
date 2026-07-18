@@ -43,10 +43,34 @@ def run_query(
     """
     lg = log or _log
     try:
-        return QueryResult.success(conn.execute(sql, params or []).df())
+        # Cursor per call: the conn is a process-wide @st.cache_resource singleton,
+        # and concurrent sessions interleaving execute()/df() on the same connection
+        # corrupt each other's pending result (None, or the other query's frame).
+        # A cursor shares the catalog (registered views) but owns its result state.
+        with conn.cursor() as cur:
+            frame = cur.execute(sql, params or []).df()
+        if frame is None:
+            lg.warning("%s query returned no result frame", label)
+            return QueryResult.unavailable(f"{label} query returned no result frame")
+        return QueryResult.success(frame)
     except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
         # WARNING, not exception(): a missing optional view is a handled "source
         # unavailable" state, not a crash — a full traceback per failure would be
         # noise. The exception text is kept inline for the server-side trail.
         lg.warning("%s query failed: %s", label, exc)
         return QueryResult.unavailable(f"{label} query failed: {exc}")
+
+
+def make_runner(label: str, log: logging.Logger):
+    """The per-domain ``_run`` shim, made once.
+
+    Every ``queries/<domain>.py`` used to carry an identical two-line ``_run``
+    copy binding its label + module logger (25 verbatim copies — audit
+    2026-07-17). Modules now do ``_run = make_runner("domain", _log)``.
+    ``member_overview`` keeps its own variant (it adds a ``conn is None`` guard).
+    """
+
+    def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
+        return run_query(conn, sql, params, label=label, log=log)
+
+    return _run

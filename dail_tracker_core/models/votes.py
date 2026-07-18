@@ -14,3 +14,5 @@ class DivisionDossier(BaseModel):
     party_breakdown: list[dict[str, Any]] = Field(default_factory=list)
     members: list[dict[str, Any]] = Field(default_factory=list)
     sources: dict[str, Any] | None = None
+    # Present only when a section's source was down (outage ≠ empty).
+    unavailable_sections: list[dict[str, str]] | None = None

@@ -27,35 +27,28 @@ import logging
 
 import duckdb
 
-from dail_tracker_core.queries import run_query
+from dail_tracker_core.queries import make_runner
 from dail_tracker_core.results import QueryResult
 
 _log = logging.getLogger(__name__)
 
-# Members file a return row for EVERY category, most of them a nil "No interests
-# declared". So a category-presence test over-counts wildly (≈half of Directorships
-# rows are nil). This guard — the same one v_member_interests_index uses — keeps
-# only rows with a real declared interest.
-_NONEMPTY = (
-    "interest_text IS NOT NULL AND TRIM(interest_text) <> '' AND LOWER(TRIM(interest_text)) <> 'no interests declared'"
-)
-
-# Map the public ``interest`` enum to the SQL predicate over one interests row.
-# landlord / property are real pipeline-derived booleans; director / shareholder
-# are read off interest_category (the dedicated flags are still hardcoded FALSE
-# placeholders, TODO_PIPELINE_VIEW_REQUIRED) and so MUST carry the nil-text guard.
-_INTEREST_SQL = {
-    "landlord": "landlord_flag",
-    "property": "property_flag",
-    "director": f"(interest_category = 'Directorships' AND {_NONEMPTY})",
-    "shareholder": f"(interest_category = 'Shares' AND {_NONEMPTY})",
+# Map the public ``interest`` enum to a column of v_member_interests_flags — the
+# classification predicates themselves (incl. the nil-"No interests declared"
+# guard and the director/shareholder TODO_PIPELINE_VIEW_REQUIRED caveat) live in
+# that view (sql_views/member/member_zz_interests_flags.sql), not here, so the
+# votes×interests join and the interests index can never drift apart. Values are
+# ALLOW-LISTED column identifiers — a raw string can never reach the SQL.
+_INTEREST_COL = {
+    "landlord": "is_landlord",
+    "property": "is_property_owner",
+    "director": "is_director",
+    "shareholder": "is_shareholder",
 }
 
 _MATCH_LIMIT = 2000
 
 
-def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
-    return run_query(conn, sql, params, label="cross_ref", log=_log)
+_run = make_runner("cross_ref", _log)
 
 
 def division_interest_breakdown(conn: duckdb.DuckDBPyConnection, vote_id: str) -> QueryResult:
@@ -65,12 +58,11 @@ def division_interest_breakdown(conn: duckdb.DuckDBPyConnection, vote_id: str) -
     sql = (
         "WITH intr AS ("
         "  SELECT member_id,"
-        f"    BOOL_OR({_INTEREST_SQL['landlord']})    AS is_landlord,"
-        f"    BOOL_OR({_INTEREST_SQL['property']})    AS is_property_owner,"
-        f"    BOOL_OR({_INTEREST_SQL['director']})    AS is_director,"
-        f"    BOOL_OR({_INTEREST_SQL['shareholder']}) AS is_shareholder"
-        "  FROM v_member_interests_detail"
-        "  WHERE member_id IS NOT NULL"
+        "    BOOL_OR(is_landlord)    AS is_landlord,"
+        "    BOOL_OR(is_property_owner) AS is_property_owner,"
+        "    BOOL_OR(is_director)    AS is_director,"
+        "    BOOL_OR(is_shareholder) AS is_shareholder"
+        "  FROM v_member_interests_flags"
         "  GROUP BY member_id"
         ") "
         "SELECT m.vote_type,"
@@ -103,9 +95,9 @@ def voting_vs_interests(
     Returns one row per (member, matching division), with ``held_in_vote_year`` true
     when the interest was declared in the same calendar year as the vote.
     """
-    expr = _INTEREST_SQL.get(interest)
-    if expr is None:
-        return QueryResult.unavailable(f"unknown interest '{interest}' — use one of: {', '.join(_INTEREST_SQL)}")
+    col = _INTEREST_COL.get(interest)
+    if col is None:
+        return QueryResult.unavailable(f"unknown interest '{interest}' — use one of: {', '.join(_INTEREST_COL)}")
 
     clauses = ["v.house = ?", "v.member_name IS NOT NULL", "v.vote_type = ?"]
     params: list = [house, vote_type]
@@ -128,10 +120,8 @@ def voting_vs_interests(
         f"  WHERE {where}"
         "), "
         "holders AS ("
-        f"  SELECT member_id, declaration_year, BOOL_OR({expr}) AS holds"
-        "  FROM v_member_interests_detail"
-        "  WHERE member_id IS NOT NULL"
-        "  GROUP BY member_id, declaration_year"
+        f"  SELECT member_id, declaration_year, {col} AS holds"
+        "  FROM v_member_interests_flags"
         "), "
         "ever AS ("
         "  SELECT member_id, BOOL_OR(holds) AS holds_ever FROM holders GROUP BY member_id"
