@@ -99,7 +99,7 @@ scrape = [
 # Cloud `uv sync`. Run the API with `uv sync --extra api` then `uvicorn api.main:app`.
 api = [
     "fastapi>=0.115,<1",
-    "uvicorn[standard]>=0.30",
+    "uvicorn[standard]>=0.51.0",
     "pydantic>=2.0,<3",  # dail_tracker_core.models.* (BillDossier/DivisionDossier/MemberDossier) import it directly; api/routers/* are the only consumers. Declared explicitly here rather than relying on fastapi to pull it transitively.
 ]
 
