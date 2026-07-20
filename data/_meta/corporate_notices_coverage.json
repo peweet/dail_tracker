@@ -1,37 +1,42 @@
 {
-  "as_of": "2026-07-16T19:34:45",
+  "as_of": "2026-07-20T11:53:32",
   "source": "data\\silver\\iris_oifigiuil\\iris_notice_events_clean.csv",
-  "rows_in_scope_before_exclusion": 51560,
+  "rows_in_scope_before_exclusion": 51628,
   "rows_excluded_personal_insolvency": 353,
   "rows_excluded_limited_partnership": 58,
-  "rows_in_final_parquet": 51149,
+  "rows_in_final_parquet": 51217,
   "category_counts": {
-    "corporate_insolvency": 44529,
-    "corporate_notice": 5606,
-    "investment_vehicle_register_notice": 656,
+    "corporate_insolvency": 44581,
+    "corporate_notice": 5617,
+    "investment_vehicle_register_notice": 661,
     "corporate_rescue": 358
   },
   "subtype_counts": {
-    "members_voluntary_liquidation": 17531,
-    "voluntary_liquidation_unspecified": 10122,
-    "creditors_voluntary_liquidation": 6267,
-    "receivership": 6044,
-    "companies_act_notice": 5606,
-    "liquidation_unspecified": 3878,
-    "court_winding_up": 687,
-    "icav_voluntary_strike_off": 656,
+    "members_voluntary_liquidation": 17553,
+    "voluntary_liquidation_unspecified": 10133,
+    "creditors_voluntary_liquidation": 6275,
+    "receivership": 6048,
+    "companies_act_notice": 5617,
+    "liquidation_unspecified": 3882,
+    "court_winding_up": 690,
+    "icav_voluntary_strike_off": 661,
     "examinership": 226,
     "scarp_process_adviser": 132
   },
+  "solvency_signal_counts": {
+    "unknown": 20651,
+    "solvent": 17553,
+    "insolvent": 13013
+  },
   "receivership_brand_tagging": {
-    "receivership_notices_total": 6063,
+    "receivership_notices_total": 6067,
     "receivership_notices_with_known_brand": 1844,
     "coverage_pct": 30.4,
     "honest_note": "Of receivership notices, only a minority name a known major loan-book buyer or Irish bank. The rest are appointed by smaller institutions or under private debentures where no major fund is named, OR by brands not yet in data/_meta/loan_book_fund_aliases.csv."
   },
   "entity_name_quality": {
-    "null_or_empty": 8,
-    "junk_pattern_count": 11952
+    "null_or_empty": 13054,
+    "junk_pattern_count": 61
   },
   "personal_insolvency_exclusion_rule": "notice_category == 'bankruptcy' (excluded upstream) PLUS personal-bankruptcy text patterns: A BANKRUPT, ADJUDICATED BANKRUPT, BANKRUPT IN MAIN PROCEEDINGS, PERSONAL INSOLVENCY, DEBT SETTLEMENT ARRANGEMENT, DEBT RELIEF NOTICE, PROTECTIVE CERTIFICATE."
 }

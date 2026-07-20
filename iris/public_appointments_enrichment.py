@@ -212,9 +212,17 @@ def looks_like_name(s: str) -> bool:
         return False
     if re.search(r"\d", s):  # names carry no digits — kills date/term/record lines
         return False
+    # Sentence fragments led by an article/preposition are not names ("the
+    # participation by Córas Iompair Éireann", "to the Irish Sports" — both
+    # shipped to the UI before the 2026-07-20 fix). Lowercase name particles
+    # (de, van, ní, ó…) are NOT in this list, so "de Búrca" still passes.
+    if re.match(r"(?i)(?:the|a|an|to|of|on|and|with|for|by|in|as|at|or)\s", s):
+        return False
     if _NAME_STOP.search(s):
         return False
-    if "(" in s:  # role/translation parentheticals, e.g. "(Judge of the Circuit Court)"
+    # role/translation parentheticals ("(Judge of the Circuit Court)") and
+    # defined-term tails ('Arrangement")') aren't names.
+    if any(ch in s for ch in '()"'):
         return False
     if not any(len(w) >= 3 for w in re.findall(r"[A-Za-zÁÉÍÓÚáéíóú]+", s)):
         return False  # rejects bare post-nominals/abbreviations like "AS", "TD"
@@ -259,7 +267,7 @@ def _clean_name_line(s: str) -> str:
     s = s.lstrip("•*-– ").strip()
     if s.endswith(":"):  # header lines ("Maynooth University:") aren't names
         return ""
-    return s.strip(" .,")
+    return s.strip(" .,-–")  # trailing hyphens are term-separator debris ("Tim Duggan -")
 
 
 def _name_from_line(s: str) -> str | None:

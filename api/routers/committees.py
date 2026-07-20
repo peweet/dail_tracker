@@ -6,7 +6,7 @@ import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.deps import get_cursor
-from dail_tracker_core import dossiers
+from dail_tracker_core import dossiers, serialize
 
 router = APIRouter(tags=["committees"])
 
@@ -16,7 +16,9 @@ def list_committees(
     chamber: str = Query("Dáil", description="Dáil or Seanad"),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    return {"chamber": chamber, "committees": dossiers.list_committees(cur, chamber=chamber)}
+    # Standard list envelope (was a bespoke {chamber, committees} wrapper).
+    rows = dossiers.list_committees(cur, chamber=chamber)
+    return serialize.envelope(rows, total=len(rows), meta={"chamber": chamber})
 
 
 @router.get(

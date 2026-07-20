@@ -19,6 +19,10 @@ from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import corporate as _q
 from dail_tracker_core.results import QueryResult
 
+# Re-exported for the page layer: the shared "this is gazette boilerplate, not
+# a company name" signature (single home: services/iris_boilerplate.py).
+from services.iris_boilerplate import NOTICE_NAME_JUNK_RE  # noqa: F401
+
 
 @st.cache_resource
 def get_corporate_conn() -> duckdb.DuckDBPyConnection:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.deps import get_cursor
+from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
 from dail_tracker_core.models.legislation import BillDossier
 
@@ -18,14 +18,13 @@ def list_bills(
     title_search: str | None = Query(None, description="case-insensitive substring on bill_title"),
     start_date: str | None = Query(None, description="introduced_date >= (YYYY-MM-DD)"),
     end_date: str | None = Query(None, description="introduced_date <= (YYYY-MM-DD)"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
     records, total, truncated = dossiers.list_bills(
-        cur, status=status, title_search=title_search, start_date=start_date, end_date=end_date, skip=skip, limit=limit
+        cur, status=status, title_search=title_search, start_date=start_date, end_date=end_date, skip=page.skip, limit=page.limit
     )
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
 @router.get(
@@ -49,11 +48,10 @@ def list_statutory_instruments(
     operation: str | None = Query(None, description="e.g. 'made', 'revoked'"),
     department: str | None = Query(None, description="si_department_label"),
     eu_only: bool = Query(False, description="EU-derived instruments only"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
     records, total, truncated = dossiers.list_statutory_instruments(
-        cur, year=year, operation=operation, department=department, eu_only=eu_only, skip=skip, limit=limit
+        cur, year=year, operation=operation, department=department, eu_only=eu_only, skip=page.skip, limit=page.limit
     )
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)

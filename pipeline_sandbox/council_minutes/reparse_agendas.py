@@ -56,6 +56,12 @@ LOUTH_DOCS = [
     ("2025-11-17", "county-council-monthly-meeting-17-11-2025-agenda-only.pdf"),
 ]
 
+# Wicklow's native-text PDFs are MINUTES documents, not agendas: the fixed parser extracts
+# minutes prose (staff-attendance rosters surfaced as "items" on the 2026-07-18 run — reverted
+# from the .bak). Their existing truncated items stay until a minutes-aware parse exists;
+# re-running this script must not touch them again.
+SKIP_COUNCILS = {"Wicklow"}
+
 # Signal that the OLD parse truncated items mid-sentence (the [^\n]{5,95} single-line bug):
 # an item ending on a dangling function word. Rows without this signal keep their items —
 # several councils were parsed by bespoke scripts whose output is already clean.
@@ -80,6 +86,12 @@ def native_text(pdf_bytes: bytes) -> str | None:
 
 def main() -> int:
     dry = "--dry-run" in sys.argv
+    # --force-council "<name>": re-parse that council's PDF rows even when the dangling-word
+    # truncation signal misses (e.g. Galway County's ALL-CAPS items end on nouns the word
+    # list can't catch, but the same docs re-parse cleanly).
+    force_council = None
+    if "--force-council" in sys.argv:
+        force_council = sys.argv[sys.argv.index("--force-council") + 1]
     rows = [json.loads(line) for line in MH.read_text(encoding="utf-8").splitlines() if line.strip()]
     stats: Counter[str] = Counter()
     changed_examples: list[tuple[str, str, str]] = []
@@ -87,12 +99,15 @@ def main() -> int:
     for r in rows:
         if r.get("council") == "Louth":
             continue  # handled from the local agenda-only PDFs below
+        if r.get("council") in SKIP_COUNCILS:
+            stats["skip_minutes_prose"] += 1
+            continue
         url = str(r.get("source_url") or "")
         old = r.get("agenda_items") or []
         if ".pdf" not in url.lower():
             stats["skip_not_pdf"] += 1  # ModernGov HTML rows etc. — already-clean harvesters
             continue
-        if old and not looks_truncated(old):
+        if old and not looks_truncated(old) and r.get("council") != force_council:
             stats["skip_looks_clean"] += 1  # bespoke-parser output — leave untouched
             continue
         pdf = fetch_bytes(url, headers=polite_headers(), timeout=60)
@@ -144,7 +159,8 @@ def main() -> int:
         return 0
 
     bak = MH.with_suffix(f".jsonl.bak-{time.strftime('%Y%m%d')}")
-    shutil.copy2(MH, bak)
+    if not bak.exists():  # never clobber the day's original pre-run archive on a re-run
+        shutil.copy2(MH, bak)
     MH.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
     print(f"\nwrote {MH.name} ({len(rows)} rows); backup at {bak.name}")
 

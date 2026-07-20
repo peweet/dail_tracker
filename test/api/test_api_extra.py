@@ -98,11 +98,13 @@ def test_lobbying_overlap_caveat_and_no_double_count(client):
 
 
 def test_committees_list_and_item(client):
+    # Standard list envelope since 2026-07-18 (was a bespoke {chamber, committees}).
     body = client.get("/v1/committees", params={"chamber": "Dáil"}).json()
-    assert body["chamber"] == "Dáil"
-    if not body["committees"]:
+    assert body["head"]["chamber"] == "Dáil"
+    assert "generated_at" in body["head"]
+    if not body["results"]:
         pytest.skip("no committee data")
-    name = body["committees"][0]["committee"]
+    name = body["results"][0]["committee"]
     item = client.get(f"/v1/committees/{name}", params={"chamber": "Dáil"}).json()
     assert isinstance(item["detail"], dict)
     assert isinstance(item["party_seats"], list)

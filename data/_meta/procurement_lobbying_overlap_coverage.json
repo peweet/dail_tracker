@@ -5,7 +5,7 @@
   "client_matches": 128,
   "procurement_suppliers_matched_against": 10017,
   "match_method": "exact normalised-name (name_norm_expr) on company-class, non-truncated suppliers",
-  "procurement_retrieved_utc": "2026-07-07",
+  "procurement_retrieved_utc": "2026-07-20",
   "sources": {
     "procurement": "see data/_meta/procurement_coverage.json (Office of Government Procurement, CC-BY 4.0)",
     "lobbying": {

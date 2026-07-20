@@ -101,7 +101,11 @@ def envelope(
     ``dail_tracker_core.caveats``) so a list response carries the same qualifier the
     composed dossiers do; ``meta`` merges any extra scope keys (e.g. the resolved
     ``year``/``house`` for a list that was filtered to a default) into ``head``.
+    ``generated_at`` is stamped automatically (UTC ISO) when not supplied, so every
+    enveloped response is self-dating.
     """
+    if generated_at is None:
+        generated_at = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
     head: dict[str, Any] = {}
     if limit is not None:
         head["limit"] = limit
@@ -112,8 +116,7 @@ def envelope(
     head["truncated"] = truncated
     if mart_version is not None:
         head["mart_version"] = mart_version
-    if generated_at is not None:
-        head["generated_at"] = generated_at
+    head["generated_at"] = generated_at
     if meta:
         head.update(meta)
     if caveat is not None:

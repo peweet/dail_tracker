@@ -3,10 +3,10 @@
   "award_notices": 43255,
   "award_supplier_rows": 62763,
   "supplier_class_counts": {
-    "foreign_company": 911,
     "company": 44879,
-    "public_body": 289,
-    "sole_trader_or_individual": 16684
+    "sole_trader_or_individual": 16684,
+    "foreign_company": 911,
+    "public_body": 289
   },
   "distinct_suppliers": 15805,
   "company_class_suppliers": 9992,
@@ -20,7 +20,7 @@
   "value_shared_across_suppliers_rows": 23018,
   "large_award_review_rows_ge_50m": 2452,
   "value_safe_to_sum_rows": 16404,
-  "value_safe_to_sum_total_eur": 15637076173.911098,
+  "value_safe_to_sum_total_eur": 15637076173.9111,
   "value_naive_sum_eur_DO_NOT_USE": 649727728023.4104,
   "source": {
     "dataset": "Contract Notices Published on eTenders",
@@ -32,6 +32,6 @@
     "license_url": "https://creativecommons.org/licenses/by/4.0/",
     "attribution": "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0."
   },
-  "retrieved_utc": "2026-07-07",
+  "retrieved_utc": "2026-07-20",
   "caveat": "A contract award is a fact, not evidence of influence or wrongdoing. Sole-trader/individual supplier names are quarantined (personal data). name_truncated rows have a leading capital dropped in the OGP source and cannot be reconstructed safely; they are flagged and excluded from CRO matching. VALUE IS NOT SPEND: 'Awarded Value' is the estimated/awarded contract value; framework & DPS notices carry notional multi-year CEILINGS and multi-supplier frameworks repeat one ceiling across every supplier row. Only sum value_safe_to_sum, and even then label it 'awarded value, not actual expenditure'."
 }

@@ -140,6 +140,7 @@ dev = [
     "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
     "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
     "ast-grep-cli>=0.44",     # structural code search — find real call-sites/usages before a signature change or convention audit (grep can't tell a call from a comment); NOT a grep replacement, see cheap-code-scanning memory
+    "deptry>=0.20",           # undeclared/transitive dependency audit — a bare `uv sync` installs ONLY core, so an app-path import that's merely transitive is a latent Cloud crash. Config + rationale for every ignore in [tool.deptry].
 ]
 
 # ── Script entry points ──────────────────────────────────────────────────────
@@ -217,7 +218,17 @@ ignore = [
 # FastAPI's dependency/parameter markers are call-in-default by design — the
 # idiomatic pattern across api/routers/*. Allowlist them so B008 doesn't fire on
 # every endpoint signature.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Header", "fastapi.Body"]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Body",
+    # Our parameterized pagination dependency factory (api/deps.py) — same
+    # call-in-default idiom as Depends itself.
+    "api.deps.pagination",
+    "pagination",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["utility", "shared"]
@@ -225,6 +236,71 @@ known-first-party = ["utility", "shared"]
 [tool.ruff.lint.per-file-ignores]
 # sys.path.insert before local imports is required in Streamlit page files
 "utility/pages_code/*.py" = ["E402", "I001"]
+
+# ── deptry (undeclared-dependency audit) ─────────────────────────────────────
+# Why it earns a slot: a bare `uv sync` installs ONLY the core runtime, so any
+# app-path module that imports a package which is merely TRANSITIVE is a latent
+# Cloud ImportError waiting on an upstream dep drop. deptry caught exactly that
+# (pydantic, imported directly by dail_tracker_core.models.*, declared nowhere,
+# present only because fastapi dragged it in — now explicit in the api extra).
+# Run:  uv run deptry .
+#
+# EVERY ignore below is justified. Do not add one to silence a finding you have
+# not explained — an unexplained ignore turns this tool into decoration.
+[tool.deptry]
+extend_exclude = ["pipeline_sandbox", "experimental", "tmp", "audit_screenshots"]
+# Standalone repo scripts imported by module name (extractors/ siblings run via
+# subprocess from pipeline.py, plus utility/ UI modules). They are first-party
+# files, not PyPI packages — deptry can't tell because they aren't a package.
+known_first_party = [
+    "_invariants", "_publisher_regime", "accommodation_spend", "afs_amalgamated_extract",
+    "check_gold_quality", "company", "cro_corporate_xref_enrichment",
+    "cro_financial_statements_extract", "data_access", "derelict_sites_levy_extract",
+    "enrichment_promote_to_gold", "epa_promote_to_gold", "extract", "follow_the_money",
+    "freshness_heartbeat", "ipas_sources", "judiciary", "judiciary_bench_extract",
+    "la_afs_extract", "la_budgets_extract", "legal_diary_extract",
+    "lgas_audit_reports_extract", "ministerial_briefs_extract",
+    "noac_collection_rates_extract", "noac_indicators_long_extract",
+    "noac_scorecard_extract", "noac_scorecard_history_extract",
+    "opr_plan_directions_extract", "pages_code", "per_member_search", "procurement",
+    "procurement_etenders_extract", "procurement_hse_tusla_parser",
+    "procurement_la_payments_extract", "procurement_la_seed",
+    "procurement_payments_consolidate", "procurement_public_body_extract",
+    "procurement_publishers_seed", "public_appointments", "public_payments",
+    "sample_extract_procurement_pdf", "shared_css", "si_legislation_directory_extract",
+    "si_lrc_classlist_extract", "sipo_candidate_expenses_aggregate",
+    "sipo_candidate_expenses_extract", "sipo_expense_items_paddle_etl",
+    "sipo_expenses_paddle_etl", "sipo_promote_to_gold", "stateboards_roster_extract",
+    "statutory_instruments", "test_silver_layer", "ui",
+]
+
+[tool.deptry.per_rule_ignores]
+# DEP001 — imported but not declared, DELIBERATELY:
+#   camelot: runs in an ISOLATED venv ($AFS_CAMELOT_VENV, subprocess-invoked from
+#   la_afs_extract.py:64-72). Kept OUT of this venv on purpose — it avoids the
+#   opencv/cv2 clash that would break SIPO OCR, and is best-effort (absent venv →
+#   those councils skip, the fitz fact still ships). NEVER add it to an extra.
+DEP001 = ["camelot"]
+# DEP002 — declared but "unused": all three are correct declarations deptry can't see.
+#   uvicorn/ocrmypdf are CLI-invoked (`uvicorn api.main:app`), never imported;
+#   dail-tracker is the `all` extra's self-reference.
+#   flatten-json: real consumer is pipeline_sandbox/historic_members/historic_member_pull.py,
+#   which extend_exclude skips — declared correctly, just invisible to the scan.
+# NOT ignored: `regex` — it has ZERO imports repo-wide (sandbox included) and its
+# declaration comment cites a member_interests.py that no longer exists. Left visible
+# as a genuine stale-dependency decision, not silenced.
+DEP002 = ["dail-tracker", "ocrmypdf", "uvicorn", "flatten-json"]
+# DEP003 — imported directly but only transitive. Ignored ONLY where guaranteed or
+# deliberate:
+#   paddleocr: GPU-only, install is manual/isolated by design (crashes local CPU box).
+#   dateutil:  guaranteed present — pandas (a core dep) requires python-dateutil.
+#   httpx:     lazily imported inside tools/siting_loadtest.py precisely to keep that
+#              module import-dependency-free; not a runtime path.
+# NOT ignored (genuine open items, left visible on purpose): pypdf, esridump.
+DEP003 = ["paddleocr", "dateutil", "httpx"]
+# DEP004 — dev deps imported in test/. Correct: this repo's test root is `test/`
+# (singular), which deptry does not treat as a dev context by default.
+DEP004 = ["hypothesis", "pandera", "pytest", "responses"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
