@@ -13,6 +13,12 @@
 --   corporate_insolvency / corporate_notice / corporate_rescue /
 --   investment_vehicle_register_notice.
 --
+-- ⚠ notice_category is a SCOPE bucket, NOT a finding. Counting
+-- notice_category='corporate_insolvency' as "insolvencies" overstates by ~3.4x:
+-- measured 2026-07-18, of its 44,581 rows only 13,013 (29.2%) are verifiably
+-- insolvent, 17,553 (39.4%) are SOLVENT members' voluntary liquidations and
+-- 14,015 (31.4%) are unspecified. Use solvency_signal for any such statement.
+--
 -- brand_mentions + parent_fund_mentions are list columns tagged from the
 -- curated data/_meta/loan_book_fund_aliases.csv (~25 starter entries).
 -- receiver_firms lists curated professional firms named in raw_text. The
@@ -36,6 +42,13 @@ SELECT
     issue_number,
     notice_category,
     notice_subtype,
+    -- solvency_signal ∈ {solvent, insolvent, unknown} — READ THIS, NOT notice_category,
+    -- for any user-facing solvency statement. 'corporate_insolvency' is a SCOPE bucket:
+    -- 39.4% of its rows are members' voluntary liquidations, which are solvent by statute
+    -- (Declaration of Solvency, ss.207/579/580 Companies Act 2014). Derived per-subtype in
+    -- iris/corporate_notices_enrichment.py::SOLVENCY_BY_SUBTYPE; 'unknown' is a real answer
+    -- (the *_unspecified families don't state solvency) and must not be collapsed to a binary.
+    solvency_signal,
     entity_name,
     display_title,
     title,

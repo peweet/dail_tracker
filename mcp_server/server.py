@@ -1000,7 +1000,11 @@ def corporate_distress_notices(query: str = "", subtype: str = "", year: int = 0
 
     ⚠️ A wind-up/receivership notice is a FACT about a company's legal status on a date — not a judgment on
     any director or a verdict of wrongdoing. Members' Voluntary Liquidation is a SOLVENT wind-up (routine
-    fund/company lifecycle), NOT distress — don't read it as failure."""
+    fund/company lifecycle), NOT distress — don't read it as failure.
+
+    Every row carries `solvency_signal` ∈ {solvent, insolvent, unknown} — the machine-readable form of the
+    warning above. FILTER ON IT rather than on the tool name or notice_category: 'unknown' is a real answer
+    (the *_unspecified wind-up families do not state solvency) and must not be reported as insolvency."""
     qr = corp.corporate_notices(_cur())
     if not qr.ok:
         return {"error": qr.unavailable_reason}

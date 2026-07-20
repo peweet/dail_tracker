@@ -36,6 +36,7 @@ import polars as pl
 
 from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR
 from paths import PROJECT_ROOT as _ROOT
+from services.iris_boilerplate import NOTICE_NAME_JUNK_RE
 from services.parquet_io import save_parquet
 
 sys.path.insert(0, str(_ROOT))
@@ -52,6 +53,61 @@ CORPORATE_CATEGORIES = [
     "corporate_rescue",
     "investment_vehicle_register_notice",
 ]
+
+# --------------------------------------------------------------------------- solvency
+# ``notice_category == 'corporate_insolvency'`` is a SCOPE bucket, not a finding: measured
+# 2026-07-18, 17,553 of its 44,581 rows (39.4%) are members' voluntary liquidations, which
+# are SOLVENT by statute. Saying "insolvency" of those inverts a legal distinction, so this
+# column carries the honest per-subtype signal and anything user-facing must read it rather
+# than the category.
+#
+# An MVL requires a directors' Declaration of Solvency (Form E1-SAP/E1-41, ss.207/579/580
+# Companies Act 2014) certifying debts will be paid IN FULL within 12 months, countersigned
+# by a statutory auditor stating the declaration "is not unreasonable"; if that declaration
+# is not properly made the winding-up automatically BECOMES a creditors' voluntary winding-up.
+# The Act itself therefore uses MVL/CVL as the solvent/insolvent boundary.
+#   https://cro.ie/termination-restoration/company/winding-up/declaration-form/
+#   https://cro.ie/termination-restoration/company/winding-up/members/
+#
+# UNKNOWN is deliberate and load-bearing: the two `*_unspecified` families are 14,015 rows
+# (31.4%) whose solvency the gazette wording genuinely does not state. Forcing them into a
+# binary would manufacture a finding we cannot support.
+SOLVENCY_SOLVENT = "solvent"
+SOLVENCY_INSOLVENT = "insolvent"
+SOLVENCY_UNKNOWN = "unknown"
+
+SOLVENCY_BY_SUBTYPE: dict[str, str] = {
+    # Solvent — a members' voluntary liquidation is certified solvent (see above).
+    "members_voluntary_liquidation": SOLVENCY_SOLVENT,
+    # Insolvent — creditor-driven or court-driven processes.
+    "creditors_voluntary_liquidation": SOLVENCY_INSOLVENT,
+    "court_winding_up": SOLVENCY_INSOLVENT,
+    "receivership": SOLVENCY_INSOLVENT,
+    # Unknown — the wording does not distinguish members'/creditors'.
+    "voluntary_liquidation_unspecified": SOLVENCY_UNKNOWN,
+    "liquidation_unspecified": SOLVENCY_UNKNOWN,
+    # Rescue processes are NOT insolvency findings: a company routinely survives
+    # examinership/SCARP, so neither asserts insolvency as an outcome.
+    "examinership": SOLVENCY_UNKNOWN,
+    "scarp_process_adviser": SOLVENCY_UNKNOWN,
+    # Register/administrative notices carry no solvency meaning at all.
+    "companies_act_notice": SOLVENCY_UNKNOWN,
+    "icav_voluntary_strike_off": SOLVENCY_UNKNOWN,
+}
+
+
+def solvency_signal_expr(col: str = "notice_subtype") -> pl.Expr:
+    """Map ``notice_subtype`` -> {solvent, insolvent, unknown}; unmapped/new subtype -> unknown.
+
+    Fail-OPEN to ``unknown`` on purpose: a subtype we have never seen must never be
+    asserted as insolvent. The contract test pins the known mappings so a silent
+    reclassification fails the build rather than shipping a wrong finding.
+    """
+    return (
+        pl.col(col)
+        .replace_strict(SOLVENCY_BY_SUBTYPE, default=SOLVENCY_UNKNOWN, return_dtype=pl.Utf8)
+        .alias("solvency_signal")
+    )
 
 # Personal-insolvency wording that must be excluded even when it leaks into a
 # corporate category (~277 such rows observed across the corpus).
@@ -145,6 +201,8 @@ def enrich(df: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
             pl.Series("brand_mentions", brands_col, dtype=pl.List(pl.Utf8)),
             pl.Series("parent_fund_mentions", parents_col, dtype=pl.List(pl.Utf8)),
             pl.Series("fund_type_mentions", types_col, dtype=pl.List(pl.Utf8)),
+            # Per-subtype solvency, the honest signal the category cannot give.
+            solvency_signal_expr(),
         ]
     )
 
@@ -165,6 +223,9 @@ def enrich(df: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
         "rows_in_final_parquet": out.height,
         "category_counts": dict(out["notice_category"].value_counts(sort=True).iter_rows()),
         "subtype_counts": dict(out["notice_subtype"].value_counts(sort=True).head(20).iter_rows()),
+        # The split the category name obscures: how much of "corporate_insolvency" is
+        # actually solvent. Reported every run so a drift in the mix is visible.
+        "solvency_signal_counts": dict(out["solvency_signal"].value_counts(sort=True).iter_rows()),
         "receivership_brand_tagging": {
             "receivership_notices_total": n_recv,
             "receivership_notices_with_known_brand": n_recv_tagged,
@@ -182,10 +243,7 @@ def enrich(df: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
             ),
             "junk_pattern_count": int(
                 out.filter(
-                    pl.col("entity_name")
-                    .cast(pl.Utf8)
-                    .str.to_uppercase()
-                    .str.contains(r"NOTICE IS HEREBY|ABOVE NAMED|IN THE MATTER|COMPANIES ACT|ICAV ACT|COLLECTIVE ASSET")
+                    pl.col("entity_name").cast(pl.Utf8).str.to_uppercase().str.contains(NOTICE_NAME_JUNK_RE)
                 ).height
             ),
         },

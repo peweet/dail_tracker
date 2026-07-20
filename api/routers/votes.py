@@ -5,7 +5,7 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.deps import get_cursor
+from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
 from dail_tracker_core.models.votes import DivisionDossier
 
@@ -18,14 +18,13 @@ def list_votes(
     date_from: str | None = Query(None, description="vote_date >= (YYYY-MM-DD)"),
     date_to: str | None = Query(None, description="vote_date <= (YYYY-MM-DD)"),
     outcome: str | None = Query(None, description="e.g. 'Carried', 'Lost'"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
     records, total, truncated = dossiers.list_votes(
-        cur, date_from=date_from, date_to=date_to, outcome=outcome, house=house, skip=skip, limit=limit
+        cur, date_from=date_from, date_to=date_to, outcome=outcome, house=house, skip=page.skip, limit=page.limit
     )
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
 @router.get(

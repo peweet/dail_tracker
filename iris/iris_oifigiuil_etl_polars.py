@@ -1329,9 +1329,19 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         r"ICAV|UNLIMITED COMPANY|CLG|COMPANY LIMITED BY GUARANTEE)\b[^\n]*$"
     )
     bad_pat = (
-        r"(?im)COMPANIES ACT|GOVERNMENT PUBLICATIONS|SOLICITOR|LIQUIDATOR|DUBLIN|"
+        # Boilerplate openers/definitional lines that CONTAIN a company-form
+        # keyword ("NOTICE IS HEREBY GIVEN that X Limited…", '(the "Company")…')
+        # — sentence lines, not name lines. Validated against the full corpus
+        # 2026-07-20 (offline diff in scratchpad/validate_entity_extraction.py).
+        r"(?im)NOTICE IS\b|^NOTICE OF\b|PURSUANT TO|ABOVE.NAMED|^\s*\(\s*(?:the\b|an?\b|\x22)|\bWILL BE\b|"
+        r"STRUCK.OFF|STRIKING.OFF|STRIKE.OFF|\bTHE ICAV\b|VESTED IN|BE WOUND UP|ORDERED THAT|^UNLESS\b|"
+        r"COMPANIES ACT|GOVERNMENT PUBLICATIONS|SOLICITOR|LIQUIDATOR|DUBLIN|"
         r"IN THE MATTER|VOLUNTARY LIQUIDATION|WINDING|ICAV ACT|COLLECTIVE ASSET|\bACT\s+(?:19|20)\d\d\b|"
         r"^\s*(?:COMPANY LIMITED BY GUARANTEE|DESIGNATED ACTIVITY COMPANY|PUBLIC LIMITED COMPANY|UNLIMITED COMPANY)\s*$|"
+        # Bare company-form continuation lines that survive un-wrapping (e.g. a
+        # name wrapped as "X CONSTRUCTION\nLIMITED" whose join failed) carry no
+        # name — 459 gold rows were literally "LIMITED" before the 2026-07-20 fix.
+        r"^\s*(?:LIMITED|LTD\.?|PLC|DAC|ICAV|CLG)\s*$|"
         # Known Irish insolvency / liquidator firms — these are signature
         # blocks at the end of MVL/CVL notices, not the company being wound up.
         # Adding here catches the recurring "PKF O'Connor, Leddy & Holmes Limited,"
@@ -1340,11 +1350,50 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         r"DELOITTE|GRANT THORNTON|MAZARS|\bRBK\b|KAVANAGH FENNELL|MCSTAY LUBY|ROBINSON RYAN|"
         r"DAVID VAN DESSEL|COSGROVE GAYNARD|HLB SHEEHAN|HLB MCKEOGH|RUSSELL BRENNAN|GRINTHAL"
     )
-    _matter_clean = pl.col("raw_text").str.extract(matter_pat, 1).str.replace_all(r"\s+", " ").str.strip_chars(" .,;:")
+    # Un-wrap PDF line breaks that split a company name mid-phrase: a line that
+    # consists ONLY of a company-form token is the tail of the name on the line
+    # above ("JJF CONSTRUCTION\nLIMITED" -> "JJF CONSTRUCTION LIMITED"). Applied
+    # to a temp extraction column only — stored raw_text is unchanged. Rust
+    # regex has no lookarounds, so the form line is captured and re-emitted.
+    _unwrap_pat = (
+        r"(?im)\n((?:LIMITED|LTD\.?|DAC|PLC|ICAV|CLG|COMPANY LIMITED BY GUARANTEE|"
+        r"DESIGNATED ACTIVITY COMPANY|PUBLIC LIMITED COMPANY|UNLIMITED COMPANY)[ \t]*)$"
+    )
+    _ent_src = pl.col("raw_text").str.replace_all(_unwrap_pat, " $1")
+    _matter_clean = _ent_src.str.extract(matter_pat, 1).str.replace_all(r"\s+", " ").str.strip_chars(" .,;:")
+    # Third candidate: the line immediately preceding an "(In Receivership)" /
+    # "(In Liquidation)"-style parenthetical is the entity name even when it
+    # carries no company-form suffix ("LISMARD DEVELOPMENTS", "LANDINGS 2
+    # PROPCO S.À R.L."). Names start uppercase — the [a-z] guard kills stray
+    # sentence tails ("proceedings").
+    _recv_clean = _ent_src.str.extract(r"(?im)^([^\n]{3,90})\n\(IN\b", 1).str.strip_chars(" .,;:")
+    _recv_name = (
+        pl.when(
+            _recv_clean.str.len_chars().is_between(3, 90)
+            & ~_recv_clean.str.contains(bad_pat)
+            & ~_recv_clean.str.contains(r"^[a-z]")
+        )
+        .then(_recv_clean)
+        .otherwise(pl.lit(None, dtype=pl.String))
+    )
     # Drop statute-only / boilerplate matter captures (the double-opener
     # "IN THE MATTER OF THE COMPANIES ACT 2014 / AND / IN THE MATTER OF X LTD"
     # grabs the Act first) so entity_name falls through to the company-form line.
     _matter_bad = r"(?i)COMPANIES ACT|ICAV ACT|COLLECTIVE ASSET|\bACT\s+(?:19|20)\d\d|IN THE MATTER|NOTICE IS HEREBY"
+    # Fourth candidate: court winding-up orders phrase the name inline —
+    # "it was ordered that <NAME> be wound up". DOTALL so a mid-name wrap heals;
+    # the raw sentence line itself is rejected from _entity_candidate by the
+    # BE WOUND UP / ORDERED THAT tokens in bad_pat above.
+    _order_clean = (
+        _ent_src.str.extract(r"(?is)\bordered that\s+(.+?)\s+be wound up", 1)
+        .str.replace_all(r"\s+", " ")
+        .str.strip_chars(" .,;:")
+    )
+    _order_name = (
+        pl.when(_order_clean.str.len_chars().is_between(3, 90) & ~_order_clean.str.contains(_matter_bad))
+        .then(_order_clean)
+        .otherwise(pl.lit(None, dtype=pl.String))
+    )
     df = (
         df.with_columns(
             _matter_name=pl.when(
@@ -1353,12 +1402,13 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
             .then(_matter_clean)
             .otherwise(pl.lit(None, dtype=pl.String)),
             _entity_candidate=(
-                pl.col("raw_text")
-                .str.extract_all(entity_pat)
+                _ent_src.str.extract_all(entity_pat)
                 .list.eval(pl.element().filter(~pl.element().str.contains(bad_pat)))
                 .list.eval(pl.element().str.strip_chars())
                 .list.first()
             ),
+            _recv_name=_recv_name,
+            _order_name=_order_name,
         )
         .with_columns(
             entity_name=(
@@ -1366,12 +1416,26 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
                 .then(pl.col("title"))
                 .when(personal_insolvency)
                 .then(pl.lit(None, dtype=pl.String))
+                # Corporate categories: no `title` fallback. title is the first
+                # 4 lines "|"-joined, i.e. boilerplate by construction — falling
+                # back to it put "IN THE MATTER OF | THE COMPANIES ACT 2014"-type
+                # blobs into ~23% of gold entity names (2026-07-18 measurement).
+                # Null is honest: the UI renders "name not extracted" for it.
                 .when(company_cat)
-                .then(pl.coalesce([pl.col("_matter_name"), pl.col("_entity_candidate"), pl.col("title")]))
+                .then(
+                    pl.coalesce(
+                        [
+                            pl.col("_matter_name"),
+                            pl.col("_order_name"),
+                            pl.col("_entity_candidate"),
+                            pl.col("_recv_name"),
+                        ]
+                    )
+                )
                 .otherwise(pl.coalesce([pl.col("_entity_candidate"), pl.col("title")]))
             )
         )
-        .drop(["_matter_name", "_entity_candidate"])
+        .drop(["_matter_name", "_entity_candidate", "_recv_name", "_order_name"])
     )
 
     # person_title_detected — full extracted titles, deduplicated, "; "-joined.

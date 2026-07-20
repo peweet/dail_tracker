@@ -3,7 +3,7 @@
 
 # doc/ index
 
-56 docs · ~311.0k tokens total · 51 LIVE · 3 superseded/stale · 0 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+57 docs · ~318.3k tokens total · 51 LIVE · 3 superseded/stale · 1 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -24,7 +24,7 @@
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.5k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DATA_DISTRIBUTION_PLAN.md](DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 1.1k | 2026-06-13 | the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2 |
-| [DUCKDB_ENGINEERING_PLAN.md](DUCKDB_ENGINEERING_PLAN.md) | infra | 3.5k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |
+| [DUCKDB_ENGINEERING_PLAN.md](DUCKDB_ENGINEERING_PLAN.md) | infra | 3.8k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |
 | [HYBRID_REFRESH_PLAN.md](HYBRID_REFRESH_PLAN.md) | infra | 3.4k | 2026-07-08 | designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |
@@ -46,7 +46,7 @@
 | [PROCUREMENT_MASTER.md](PROCUREMENT_MASTER.md) | procurement | 5.0k | 2026-06-28 | making any procurement-page change — authoritative money-grain rules and verified headline figures |
 | [PROCUREMENT_NUGGETS.md](PROCUREMENT_NUGGETS.md) | procurement | 2.8k | 2026-06-11 | looking for validated derived-signal ideas for the procurement module, ranked by story value x coverage x cost |
 | [PROCUREMENT_VALUE_REGISTER.md](PROCUREMENT_VALUE_REGISTER.md) | procurement | 2.3k | 2026-07-08 | checking current verification status (CONFIRMED-LIVE/UNVERIFIED/STALE) before quoting a procurement/payments money figure |
-| [SOURCE_CONFIDENCE_SYSTEM.md](SOURCE_CONFIDENCE_SYSTEM.md) | procurement | 9.0k | 2026-06-28 | designing confidence badges, trust grades, or caveat wording across mixed-provenance procurement/BI data |
+| [SOURCE_CONFIDENCE_SYSTEM.md](SOURCE_CONFIDENCE_SYSTEM.md) | procurement | 9.5k | 2026-06-28 | designing confidence badges, trust grades, or caveat wording across mixed-provenance procurement/BI data |
 | [STANDARDS_PAGE_IDEA.md](STANDARDS_PAGE_IDEA.md) | procurement | 6.0k | 2026-06-14 | scoping the supplier-credentials/standards-register page idea before building the ETL for it |
 | [TED_ENRICHMENT.md](TED_ENRICHMENT.md) | procurement | 5.1k | 2026-06-08 | checking what TED enrichment already exists before proposing new TED ingestion/enrichment work |
 | [TENDER_ALERT_SYSTEM_DESIGN.md](TENDER_ALERT_SYSTEM_DESIGN.md) | procurement | 10.0k | 2026-06-28 | building the tender-alert email / bid-intelligence notification system (Phase 5, owner-gated) |
@@ -70,4 +70,11 @@
 | [DISCLOSED_PO_INTEGRATION_PLAN.md](DISCLOSED_PO_INTEGRATION_PLAN.md) | procurement | 11.0k | 2026-07-17 | historical only — this design SHIPPED; the live ingest is extractors/disclosed_bq_po_extract.py + disclosed_bq_po_newbodies_extract.py |
 | [ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md](ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md) | procurement | 3.0k | 2026-07-17 | historical only — the "no code written yet" note is stale; entity_xref shipped (view + extractors/entity_xref_build.py + dail_tracker_core/dossiers.py) |
 
-<!-- generated 2026-07-18 -->
+## Unclassified (no front-matter yet)
+> Backlog: add the 7-line front-matter block (tier/status/domain/updated/supersedes/read_when/key) so these move into the tables above.
+
+| doc | domain | ~tok | updated | read when |
+|---|---|---:|---|---|
+| [COMMUNICATION_STYLE.md](COMMUNICATION_STYLE.md) | — | 6.5k | — |  |
+
+<!-- generated 2026-07-20 -->
