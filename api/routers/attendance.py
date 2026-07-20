@@ -11,7 +11,7 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, Query
 
-from api.deps import get_cursor
+from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers
 
 router = APIRouter(tags=["attendance"])
@@ -29,39 +29,35 @@ def attendance_years(
 def attendance_turnout(
     year: int | None = Query(None, description="defaults to the latest reporting year"),
     house: str = Query("Dáil", description="Dáil or Seanad"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    return dossiers.attendance_turnout(cur, year=year, house=house, skip=skip, limit=limit)
+    return dossiers.attendance_turnout(cur, year=year, house=house, skip=page.skip, limit=page.limit)
 
 
 @router.get("/attendance/absences", summary="Longest physical-absence runs for a year")
 def attendance_absences(
     year: int | None = Query(None, description="defaults to the latest reporting year"),
     house: str = Query("Dáil", description="Dáil or Seanad"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    return dossiers.attendance_absences(cur, year=year, house=house, skip=skip, limit=limit)
+    return dossiers.attendance_absences(cur, year=year, house=house, skip=page.skip, limit=page.limit)
 
 
 @router.get("/attendance/taa-compliance", summary="Members below the statutory 120-day TAA threshold")
 def attendance_taa(
     year: int | None = Query(None, description="defaults to the latest reporting year"),
     house: str = Query("Dáil", description="Dáil or Seanad"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    return dossiers.attendance_taa_compliance(cur, year=year, house=house, skip=skip, limit=limit)
+    return dossiers.attendance_taa_compliance(cur, year=year, house=house, skip=page.skip, limit=page.limit)
 
 
 @router.get("/attendance/missing-members", summary="Roster members with no attendance record")
 def attendance_missing(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    page: Page = Depends(pagination(default=100)),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    return dossiers.attendance_missing_members(cur, skip=skip, limit=limit)
+    return dossiers.attendance_missing_members(cur, skip=page.skip, limit=page.limit)

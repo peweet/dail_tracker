@@ -1,24 +1,24 @@
 {
   "publishers_attempted": 43,
-  "publishers_with_rows": 40,
-  "rows_extracted": 114992,
-  "rows_deduped_within_file": 946,
-  "rows_public_display": 92530,
-  "rows_review_personal_data": 22462,
-  "rows_quarantined": 22462,
+  "publishers_with_rows": 38,
+  "rows_extracted": 84496,
+  "rows_deduped_within_file": 935,
+  "rows_public_display": 66887,
+  "rows_review_personal_data": 17609,
+  "rows_quarantined": 17609,
   "supplier_class_counts": {
-    "company": 83101,
-    "sole_trader_or_individual": 22462,
-    "foreign_company": 687,
+    "company": 57511,
+    "sole_trader_or_individual": 17609,
+    "foreign_company": 682,
     "unknown": 4778,
-    "public_body": 3964
+    "public_body": 3916
   },
   "amount_semantics_counts": {
-    "payment_actual": 78496,
-    "po_committed": 36496
+    "payment_actual": 48104,
+    "po_committed": 36392
   },
-  "value_safe_to_sum_rows": 105771,
-  "value_safe_to_sum_total_eur": 21535268938.109314,
+  "value_safe_to_sum_rows": 75323,
+  "value_safe_to_sum_total_eur": 15617994811.40931,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -456,11 +456,11 @@
       "id": "dept_finance",
       "name": "Department of Finance",
       "tier": "A",
-      "files_seen": 11,
-      "files_parsed": 11,
+      "files_seen": 0,
+      "files_parsed": 0,
       "files_skipped": 0,
-      "files_with_rows": 9,
-      "rows": 104,
+      "files_with_rows": 0,
+      "rows": 0,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -468,11 +468,11 @@
       "id": "dept_children",
       "name": "Department of Children, Disability and Equality",
       "tier": "A",
-      "files_seen": 32,
-      "files_parsed": 20,
+      "files_seen": 0,
+      "files_parsed": 0,
       "files_skipped": 0,
-      "files_with_rows": 20,
-      "rows": 30392,
+      "files_with_rows": 0,
+      "rows": 0,
       "amount_semantics": "payment_actual",
       "privacy_risk": "medium"
     },
@@ -540,6 +540,6 @@
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-07-18T05:37:21+00:00",
+  "generated_at": "2026-07-20T10:52:41+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

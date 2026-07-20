@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-07-11T07:21:04Z",
-  "as_of_utc_date": "2026-07-11",
+  "generated_at": "2026-07-20T10:59:17Z",
+  "as_of_utc_date": "2026-07-20",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
   "stale_datasets": [],
   "datasets": {
     "members": {
       "measure": "fetch_mtime",
       "source": "data/bronze/members/members.json",
-      "latest_fetch_at": "2026-07-11T06:27:03Z",
+      "latest_fetch_at": "2026-07-20T10:11:57Z",
       "age_days": 0,
       "stale_after_days": 14,
       "status": "ok"
@@ -16,8 +16,8 @@
       "measure": "record_date",
       "source": "data/gold/parquet/current_dail_vote_history.parquet",
       "status": "ok",
-      "latest_record_date": "2026-07-08",
-      "fetched_at": "2026-07-11T06:31:38Z",
+      "latest_record_date": "2026-07-15",
+      "fetched_at": "2026-07-20T10:13:16Z",
       "fetch_age_days": 0,
       "stale_after_days": 14
     },
@@ -25,8 +25,8 @@
       "measure": "record_date",
       "source": "data/silver/parquet/questions.parquet",
       "status": "ok",
-      "latest_record_date": "2026-07-09",
-      "fetched_at": "2026-07-11T06:30:41Z",
+      "latest_record_date": "2026-07-16",
+      "fetched_at": "2026-07-20T10:13:00Z",
       "fetch_age_days": 0,
       "stale_after_days": 14
     },
@@ -36,7 +36,7 @@
       "status": "ok",
       "latest_period_end_date": "2026-05-01",
       "period_label": "Q2 2026",
-      "age_days": 71,
+      "age_days": 80,
       "stale_after_days": null
     },
     "iris": {
@@ -47,32 +47,32 @@
         "data/gold/parquet/statutory_instruments.parquet"
       ],
       "status": "ok",
-      "latest_record_date": "2026-07-10",
-      "age_days": 1,
+      "latest_record_date": "2026-07-17",
+      "age_days": 3,
       "stale_after_days": 14
     },
     "corporate": {
       "measure": "record_date",
       "source": "data/gold/parquet/corporate_notices.parquet",
       "status": "ok",
-      "latest_record_date": "2026-07-10",
-      "age_days": 1,
+      "latest_record_date": "2026-07-17",
+      "age_days": 3,
       "stale_after_days": 14
     },
     "stateboards": {
       "measure": "record_date",
       "source": "data/gold/parquet/stateboards_roster.parquet",
       "status": "ok",
-      "latest_record_date": "2026-07-01",
-      "age_days": 10,
+      "latest_record_date": "2026-07-20",
+      "age_days": 0,
       "stale_after_days": 120
     },
     "statutory_instruments": {
       "measure": "record_date",
       "source": "data/gold/parquet/statutory_instruments.parquet",
       "status": "ok",
-      "latest_record_date": "2026-07-10",
-      "age_days": 1,
+      "latest_record_date": "2026-07-17",
+      "age_days": 3,
       "stale_after_days": 21
     },
     "procurement": {
@@ -80,7 +80,7 @@
       "source": "data/gold/parquet/procurement_awards.parquet",
       "status": "ok",
       "latest_record_date": "2026-03-31",
-      "fetched_at": "2026-07-11T06:51:07Z",
+      "fetched_at": "2026-07-20T10:30:03Z",
       "fetch_age_days": 0,
       "stale_after_days": 120
     },
@@ -88,7 +88,7 @@
       "measure": "fetch_mtime",
       "source": "doc/source_pdfs/SSHA_2025_FINAL.pdf",
       "latest_fetch_at": "2026-05-29T10:05:17Z",
-      "age_days": 43,
+      "age_days": 52,
       "stale_after_days": 400,
       "status": "ok"
     },
@@ -96,7 +96,7 @@
       "measure": "fetch_mtime",
       "source": "doc/source_pdfs/NOAC_LA_PerfInd_2024.pdf",
       "latest_fetch_at": "2026-05-30T19:27:06Z",
-      "age_days": 42,
+      "age_days": 51,
       "stale_after_days": 400,
       "status": "ok"
     },
@@ -104,7 +104,7 @@
       "measure": "fetch_mtime",
       "source": "doc/source_pdfs/2024_Derelict_Sites_Statistics.xlsx",
       "latest_fetch_at": "2026-06-20T07:51:24Z",
-      "age_days": 21,
+      "age_days": 30,
       "stale_after_days": 400,
       "status": "ok"
     }

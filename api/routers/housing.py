@@ -10,7 +10,7 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, Query
 
-from api.deps import get_cursor
+from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers
 
 router = APIRouter(tags=["housing"])
@@ -19,11 +19,10 @@ router = APIRouter(tags=["housing"])
 @router.get("/housing/waiting-list", summary="Social-housing waiting-list league table by area")
 def housing_waiting_list(
     grain: str = Query("county", description="'county' | 'la' | 'national'"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    return dossiers.housing_waiting_list(cur, grain=grain, skip=skip, limit=limit)
+    return dossiers.housing_waiting_list(cur, grain=grain, skip=page.skip, limit=page.limit)
 
 
 @router.get("/housing/supply", summary="National supply & affordability headline + completions trend")

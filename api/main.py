@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api import __version__
 from api.routers import (
@@ -74,7 +75,19 @@ app = FastAPI(
 async def _source_unavailable(_request: Request, exc: SourceUnavailable) -> JSONResponse:
     # A REQUIRED view/parquet could not be queried. 503 — never let an outage
     # masquerade as 404/"no data" (the distinction QueryResult exists to keep).
-    return JSONResponse(status_code=503, content={"detail": str(exc)})
+    return JSONResponse(status_code=503, content={"detail": str(exc), "kind": "unavailable"})
+
+
+# Machine-readable error kinds: clients branch on `kind`, never on parsing the
+# detail string (the string-match disease the votes router once had). Applied
+# centrally so the ~45 endpoints' HTTPException raises need no edits.
+_ERROR_KINDS = {400: "bad_request", 404: "not_found", 422: "bad_request", 503: "unavailable"}
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    kind = _ERROR_KINDS.get(exc.status_code, "error")
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "kind": kind})
 
 app.include_router(health.router, prefix="/v1")
 app.include_router(catalog.router, prefix="/v1")

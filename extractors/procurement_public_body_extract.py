@@ -33,70 +33,75 @@ Run:
   ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py --only ie_hse --max-files 2
 
 
+
 # ── SECTION MAP ── ─────────────────────────────────────────
-# ⚠️  DO NOT READ WHOLE — ~34,660 tokens (2,967 lines after this header).
+# ⚠️  DO NOT READ WHOLE — ~34,169 tokens (2,932 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
-#     189-356    regexes
-#     357-363    CONFIG
-#     364-401    cfg
-#     402-449    Tier A: clean tabular / high-confidence PDF
-#     450-528    Cheap wins 2026-06-08: gov.ie / enterprise.gov.ie department
-#     529-594    Tier F: government departments (gov.ie collections) — discov
-#     595-600    Tier B: OWNED BY A SEPARATE CONTEXT (procurement_hse_tusla_p
-#     601-726    Tier C: needed a corrected listing URL or a parser fix
-#     727-870    Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_MASTER.m
-#     871-917    Tier E: regulators / cultural bodies (discovery sweep 2 — co
-#     918-1000   Batch A 2026-06-19: clean candidates from the seed (procurem
-#    1001-1023   Batch B 2026-06-20: PROBE-FIRST (test parse quality before p
-#    1024-1024   fetch
-#    1025-1036   _curl
-#    1037-1054   fetch_bytes
-#    1055-1059   fetch_text
-#    1060-1082   fetch_to_bronze
-#    1083-1083   harvest
-#    1084-1170   harvest_files
-#    1171-1171   readers
-#    1172-1187   to_eur
-#    1188-1202   clean_supplier
-#    1203-1212   quarter_from_name
-#    1213-1221   period_from_url
-#    1222-1222   PDF (header-anchored)
-#    1223-1233   find_header
-#    1234-1247   header_columns
-#    1248-1261   assign_role
-#    1262-1273   row_to_cols
-#    1274-1303   refine_roles
-#    1304-1342   read_pdf
-#    1343-1357   reading-order PDF (DCEDIY / dept_children)
-#    1358-1449   read_reading_order
-#    1450-1558   read_courts
-#    1559-1566   _dd_supplier_first
-#    1567-1623   read_defence
-#    1624-1637   Revenue Commissioners reading-order reader. Each record is t
-#    1638-1683   read_revenue
-#    1684-1693   Tailte Éireann reading-order reader. Same shape as the Court
-#    1694-1768   read_tailte
-#    1769-1788   DPER / OGCIO reading-order reader. Two layout families under
-#    1789-1864   read_dper
-#    1865-1874   Dept of Culture reading-order reader. NO reference/PO column
-#    1875-1936   read_culture
-#    1937-2081   read_housing
-#    2082-2142   read_pdf_reading_order_fallback
-#    2143-2143   XLSX / XLS / CSV
-#    2144-2164   _tabular_from_raw
-#    2165-2172   read_xlsx
-#    2173-2180   read_xls
-#    2181-2214   read_csv
-#    2215-2262   detect_roles_tab
-#    2263-2263   extract
-#    2264-2536   emit_rows
-#    2537-2607   dedup_source_repeats
-#    2608-2629   canonicalise_supplier_raw
-#    2630-2648   flag_unidentifiable_suppliers
-#    2649-2721   classify_and_flag
-#    2722-2722   main
-#    2723-2967   main
+#     194-361    regexes
+#     362-368    CONFIG
+#     369-406    cfg
+#     407-454    Tier A: clean tabular / high-confidence PDF
+#     455-533    Cheap wins 2026-06-08: gov.ie / enterprise.gov.ie department
+#     534-599    Tier F: government departments (gov.ie collections) — discov
+#     600-605    Tier B: OWNED BY A SEPARATE CONTEXT (procurement_hse_tusla_p
+#     606-731    Tier C: needed a corrected listing URL or a parser fix
+#     732-875    Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_MASTER.m
+#     876-922    Tier E: regulators / cultural bodies (discovery sweep 2 — co
+#     923-1005   Batch A 2026-06-19: clean candidates from the seed (procurem
+#    1006-1028   Batch B 2026-06-20: PROBE-FIRST (test parse quality before p
+#    1029-1029   fetch
+#    1030-1041   _curl
+#    1042-1059   fetch_bytes
+#    1060-1064   fetch_text
+#    1065-1087   fetch_to_bronze
+#    1088-1088   harvest
+#    1089-1175   harvest_files
+#    1176-1176   readers
+#    1177-1192   to_eur
+#    1193-1207   clean_supplier
+#    1208-1217   quarter_from_name
+#    1218-1226   period_from_url
+#    1227-1227   PDF (header-anchored)
+#    1228-1238   find_header
+#    1239-1252   header_columns
+#    1253-1266   assign_role
+#    1267-1278   row_to_cols
+#    1279-1308   refine_roles
+#    1309-1347   read_pdf
+#    1348-1362   reading-order PDF (DCEDIY / dept_children)
+#    1363-1454   read_reading_order
+#    1455-1563   read_courts
+#    1564-1571   _dd_supplier_first
+#    1572-1628   read_defence
+#    1629-1642   Revenue Commissioners reading-order reader. Each record is t
+#    1643-1688   read_revenue
+#    1689-1698   Tailte Éireann reading-order reader. Same shape as the Court
+#    1699-1773   read_tailte
+#    1774-1793   DPER / OGCIO reading-order reader. Two layout families under
+#    1794-1869   read_dper
+#    1870-1879   Dept of Culture reading-order reader. NO reference/PO column
+#    1880-1941   read_culture
+#    1942-2086   read_housing
+#    2087-2147   read_pdf_reading_order_fallback
+#    2148-2148   XLSX / XLS / CSV
+#    2149-2169   _tabular_from_raw
+#    2170-2177   read_xlsx
+#    2178-2185   read_xls
+#    2186-2219   read_csv
+#    2220-2267   detect_roles_tab
+#    2268-2268   extract
+#    2269-2292   _confidence
+#    2293-2346   _emit_generic_pdf
+#    2347-2378   _emit_tabular
+#    2379-2401   _repair_and_flag
+#    2402-2501   emit_rows
+#    2502-2572   dedup_source_repeats
+#    2573-2594   canonicalise_supplier_raw
+#    2595-2613   flag_unidentifiable_suppliers
+#    2614-2686   classify_and_flag
+#    2687-2687   main
+#    2688-2932   main
 # ── END SECTION MAP ── ─────────────────────────────────
 """
 
@@ -2261,6 +2266,139 @@ def detect_roles_tab(header, rows):
 
 
 # ============================================================================ extract
+def _confidence(good: int) -> str:
+    return "high" if good > 20 else ("medium" if good > 3 else "low")
+
+
+# Wiring spec per bespoke reading-order reader. Every one of these branches differs ONLY in:
+# which read_* parses the bytes, which record keys feed description/po_number/paid_flag, where
+# the page number comes from, and whether a PER-ROW payment date overrides the file-URL period
+# ("iso" = YYYY-MM-DD, "dmy" = DD/MM/YYYY with URL fallback on a malformed cell). That wiring is
+# data, not code: adding a publisher layout = its read_* function (with a unit test) + one entry
+# here, not another elif branch. Readers are named (not referenced) so they resolve at call time
+# — same late binding the old elif chain had, and what lets tests monkeypatch them.
+_RO_SPECS: dict[str, dict] = {
+    "reading_order": {"fn": "read_reading_order", "desc": "desc", "po": "ref", "paid": None, "page": "page", "date": "iso"},
+    "reading_order_courts": {"fn": "read_courts", "desc": "desc", "po": "ref", "paid": "paid"},
+    "reading_order_revenue": {"fn": "read_revenue", "desc": "desc", "po": "ref", "paid": "paid"},
+    "reading_order_culture": {"fn": "read_culture", "desc": "desc", "po": None, "paid": None},
+    "reading_order_dper": {"fn": "read_dper", "desc": "desc", "po": "ref", "paid": "paid"},
+    "reading_order_tailte": {"fn": "read_tailte", "desc": "desc", "po": "ref", "paid": "paid"},
+    "reading_order_housing": {"fn": "read_housing", "desc": "desc", "po": None, "paid": None, "date": "dmy"},
+    "reading_order_fallback": {"fn": "read_pdf_reading_order_fallback", "desc": "desc", "po": "ref", "paid": None},
+    "reading_order_defence": {"fn": "read_defence", "desc": "category", "po": "ref", "paid": None},
+}
+
+
+def _emit_generic_pdf(base, b, max_pages) -> tuple[list[dict], str, bool, dict | None]:
+    """Generic PDF chain: word-geometry read -> amount-anchored reading-order fallback ->
+    unparsed. Returns (rows, confidence, caveat_detected, unparsed_stat_or_None)."""
+    info = read_pdf(b, max_pages)
+    caveat_detected = bool(CAVEAT_RE.search(info["page0"]) or CAVEAT_RE.search(info["header_label"]))
+    geom_ok = info["digital"] and info["cols"] and "amount" in info["roles"]
+    rows_out: list[dict] = []
+    if geom_ok:
+        sup_i = info["roles"].get("supplier")
+        amt_i = info["roles"]["amount"]
+        desc_i, po_i, paid_i = (info["roles"].get(k) for k in ("description", "po", "paid"))
+        for srn, (page, rec) in enumerate(info["rows"]):
+            amt = to_eur(rec[amt_i]) if amt_i < len(rec) else None
+            if amt is None:
+                continue
+            sup = clean_supplier(rec[sup_i]) if sup_i is not None and sup_i < len(rec) else None
+            desc = rec[desc_i] if desc_i is not None and desc_i < len(rec) else None
+            # Drop total/category/title-masquerade rows. The page banner ("... Payments greater
+            # than €20,000") splits across cells — "greater than" into the description, the
+            # "€20,000" into the amount column — so no single cell holds the whole phrase. Test
+            # TITLE_ROW against the JOINED row (bucket order re-adjoins "greater than … 20,000").
+            rowtext = " ".join(str(x) for x in rec if x)
+            if (sup and CATEGORY_WORD.search(sup)) or TITLE_ROW.search(rowtext):
+                continue
+            rows_out.append(
+                base(
+                    srn,
+                    page,
+                    sup,
+                    amt,
+                    desc,
+                    clean_supplier(rec[po_i]) if po_i is not None and po_i < len(rec) else None,
+                    rec[paid_i] if paid_i is not None and paid_i < len(rec) else None,
+                )
+            )
+    if not rows_out:
+        # The word-geometry reader found no usable rows (no column grid / amount header wrapped).
+        # Try the amount-anchored reading-order fallback. This runs ONLY here, so a publisher
+        # whose files already parse via geometry is never touched (no regression).
+        rows_out = [
+            base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], None)
+            for srn, r in enumerate(read_pdf_reading_order_fallback(b, max_pages))
+        ]
+    if not rows_out:
+        return [], "low", caveat_detected, {
+            "status": "unparsed",
+            "reason": "scanned/no-header/no-amount",
+            "rows": 0,
+            "confidence": "low",
+            "pages": info.get("pages"),
+        }
+    return rows_out, _confidence(len(rows_out)), caveat_detected, None
+
+
+def _emit_tabular(base, b, fmt) -> tuple[list[dict], str, bool, dict | None]:
+    """xlsx/xls/csv chain. Returns (rows, confidence, caveat_detected, unparsed_stat_or_None)."""
+    reader = {"xlsx": read_xlsx, "xls": read_xls, "csv": read_csv}[fmt]
+    header, rows, full = reader(b)
+    caveat_detected = bool(CAVEAT_RE.search(full) or any(CAVEAT_RE.search(h or "") for h in header))
+    roles = detect_roles_tab(header, rows)
+    sup_i, amt_i = roles["supplier"], roles["amount"]
+    if amt_i is None:
+        return [], "low", caveat_detected, {"status": "unparsed", "reason": "no-amount-col", "rows": 0, "confidence": "low"}
+    desc_i, po_i, paid_i = roles["description"], roles["po"], roles["paid"]
+    rows_out: list[dict] = []
+    for srn, r in enumerate(rows):
+        amt = to_eur(r[amt_i]) if amt_i < len(r) else None
+        if amt is None:
+            continue
+        sup = clean_supplier(r[sup_i]) if sup_i is not None and sup_i < len(r) else None
+        if sup and CATEGORY_WORD.search(sup):
+            continue
+        rows_out.append(
+            base(
+                srn,
+                None,
+                sup,
+                amt,
+                r[desc_i] if desc_i is not None and desc_i < len(r) else None,
+                clean_supplier(r[po_i]) if po_i is not None and po_i < len(r) else None,
+                r[paid_i] if paid_i is not None and paid_i < len(r) else None,
+            )
+        )
+    return rows_out, _confidence(len(rows_out)), caveat_detected, None
+
+
+def _repair_and_flag(rows_out: list[dict], conf: str, caveat_detected: bool) -> None:
+    """Post-processing applied to every emitted row, in place."""
+    for r in rows_out:
+        r["extraction_status"] = "extracted"
+        r["extraction_confidence"] = conf
+        r["caveat_text_detected"] = caveat_detected
+        # Blank-supplier repair: a mis-mapped column can leave supplier_raw empty while the
+        # company name sits in po_number ("AN POST", "AIRNAV IRELAND"). Promote it back IF it
+        # looks like a multi-word name and carries no big number (which would mean it is a
+        # category-total line, e.g. ESB Networks "Meter Reading Services 3,823,410").
+        sup = (r.get("supplier_raw") or "").strip()
+        po = (r.get("po_number") or "").strip()
+        if not sup and po and NAME_LIKE.search(po) and not NUMERIC_NOISE.search(po):
+            r["supplier_raw"] = po
+            r["po_number"] = None
+            sup = po
+        # Anything still missing a supplier is NOT a clean supplier-level row (category totals,
+        # blank cells) — downgrade so it is filterable and never ranked as a real supplier.
+        if not sup:
+            r["extraction_confidence"] = "low"
+            r["caveat_text_detected"] = True
+
+
 def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
     """Parse one file -> gold-schema row dicts + a small per-file stat block."""
     fhash = hashlib.sha256(b).hexdigest()[:16]
@@ -2294,225 +2432,52 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             "source_caveat": cf["caveat"] or None,
         }
 
-    if fmt == "pdf" and cf.get("reader") == "reading_order":
-        # bespoke line-pair reader with a PER-ROW payment date → derive period/year/quarter per
-        # row (the file URL is a GUID with no period). ref → po_number.
-        recs = read_reading_order(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            yr = int(r["date"][:4])
-            q = (int(r["date"][5:7]) - 1) // 3 + 1
-            sup = clean_supplier(r["supplier"])
-            rows_out.append(
-                base(
-                    srn, r["page"], sup, r["amount"], r["desc"], r["ref"], None, period=f"{yr}-Q{q}", year=yr, quarter=q
-                )
-            )
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
-
-    elif fmt == "pdf" and cf.get("reader") == "reading_order_courts":
-        # Courts Service "PO analysis report" reading-order reader (period from the file URL).
-        # ref → po_number; supplier names are recovered intact and period-total rows are skipped.
-        recs = read_courts(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            sup = clean_supplier(r["supplier"])
-            rows_out.append(base(srn, 1, sup, r["amount"], r["desc"], r["ref"], r["paid"]))
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
-
-    elif fmt == "pdf" and cf.get("reader") == "reading_order_revenue":
-        # Revenue Commissioners reading-order reader (period from the file URL). ref -> po_number.
-        recs = read_revenue(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], r["paid"]))
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
-
-    elif fmt == "pdf" and cf.get("reader") == "reading_order_culture":
-        # Dept of Culture reading-order reader (no PO column; period from the file URL).
-        recs = read_culture(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], None, None))
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
-
-    elif fmt == "pdf" and cf.get("reader") == "reading_order_dper":
-        # DPER/OGCIO reading-order reader (period from the file URL). ref -> po_number.
-        recs = read_dper(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], r["paid"]))
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
-
-    elif fmt == "pdf" and cf.get("reader") == "reading_order_tailte":
-        # Tailte Éireann reading-order reader (period from the file URL). ref -> po_number.
-        recs = read_tailte(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], r["paid"]))
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
-
-    elif fmt == "pdf" and cf.get("reader") == "reading_order_housing":
-        # DHLGH payments-over-€20k PDFs (≥5 sub-layouts, data-derived columns). No PO column;
-        # per-row Payment Date (DD/MM/YYYY) → period/year/quarter (the file URL slug is unreliable).
-        recs = read_housing(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            dd = r["date"]
-            try:
-                yr = int(dd[6:10])
-                q = (int(dd[3:5]) - 1) // 3 + 1
+    reader_key = cf.get("reader")
+    if fmt == "pdf" and reader_key in _RO_SPECS:
+        # Bespoke reading-order readers — one wiring spec each (_RO_SPECS above documents the
+        # per-publisher quirks that used to live in nine near-identical elif branches).
+        spec = _RO_SPECS[reader_key]
+        for srn, r in enumerate(globals()[spec["fn"]](b, max_pages)):
+            per, yr, q = period, year, quarter
+            if spec.get("date") == "iso":
+                yr = int(r["date"][:4])
+                q = (int(r["date"][5:7]) - 1) // 3 + 1
                 per = f"{yr}-Q{q}"
-            except (ValueError, IndexError):
-                per, yr, q = period, year, quarter
+            elif spec.get("date") == "dmy":
+                dd = r["date"]
+                try:
+                    yr = int(dd[6:10])
+                    q = (int(dd[3:5]) - 1) // 3 + 1
+                    per = f"{yr}-Q{q}"
+                except (ValueError, IndexError):
+                    per, yr, q = period, year, quarter
             rows_out.append(
                 base(
                     srn,
-                    1,
+                    r[spec["page"]] if spec.get("page") else 1,
                     clean_supplier(r["supplier"]),
                     r["amount"],
-                    r["desc"],
-                    None,
-                    None,
+                    r[spec["desc"]],
+                    r[spec["po"]] if spec["po"] else None,
+                    r[spec["paid"]] if spec["paid"] else None,
                     period=per,
                     year=yr,
                     quarter=q,
                 )
             )
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
-
-    elif fmt == "pdf" and cf.get("reader") == "reading_order_fallback":
-        # Publishers whose PDFs are ALWAYS field-per-line (LMETB): the word-geometry reader finds
-        # FALSE columns on the OCR-garbled quarters and emits numeric garbage, so skip it and use
-        # the reading-order fallback directly. Its garble guard returns [] for the unreadable
-        # column-split quarters (→ unparsed, not noise); the clean quarters parse at ~98%.
-        recs = read_pdf_reading_order_fallback(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], None))
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
-
-    elif fmt == "pdf" and cf.get("reader") == "reading_order_defence":
-        # Department of Defence "PO over €20k" reading-order reader (period from the file URL).
-        # ref → po_number; the CATEGORY (procurement unit) → description; suppliers recovered intact.
-        recs = read_defence(b, max_pages)
-        good = 0
-        for srn, r in enumerate(recs):
-            sup = clean_supplier(r["supplier"])
-            rows_out.append(base(srn, 1, sup, r["amount"], r["category"], r["ref"], None))
-            good += 1
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+        conf = _confidence(len(rows_out))
 
     elif fmt == "pdf":
-        info = read_pdf(b, max_pages)
-        caveat_detected = bool(CAVEAT_RE.search(info["page0"]) or CAVEAT_RE.search(info["header_label"]))
-        geom_ok = info["digital"] and info["cols"] and "amount" in info["roles"]
-        good = 0
-        if geom_ok:
-            sup_i = info["roles"].get("supplier")
-            amt_i = info["roles"]["amount"]
-            desc_i, po_i, paid_i = (info["roles"].get(k) for k in ("description", "po", "paid"))
-            for srn, (page, rec) in enumerate(info["rows"]):
-                amt = to_eur(rec[amt_i]) if amt_i < len(rec) else None
-                if amt is None:
-                    continue
-                sup = clean_supplier(rec[sup_i]) if sup_i is not None and sup_i < len(rec) else None
-                desc = rec[desc_i] if desc_i is not None and desc_i < len(rec) else None
-                # Drop total/category/title-masquerade rows. The page banner ("... Payments greater
-                # than €20,000") splits across cells — "greater than" into the description, the
-                # "€20,000" into the amount column — so no single cell holds the whole phrase. Test
-                # TITLE_ROW against the JOINED row (bucket order re-adjoins "greater than … 20,000").
-                rowtext = " ".join(str(x) for x in rec if x)
-                if (sup and CATEGORY_WORD.search(sup)) or TITLE_ROW.search(rowtext):
-                    continue
-                good += 1
-                rows_out.append(
-                    base(
-                        srn,
-                        page,
-                        sup,
-                        amt,
-                        desc,
-                        clean_supplier(rec[po_i]) if po_i is not None and po_i < len(rec) else None,
-                        rec[paid_i] if paid_i is not None and paid_i < len(rec) else None,
-                    )
-                )
-        if good == 0:
-            # The word-geometry reader found no usable rows (no column grid / amount header wrapped).
-            # Try the amount-anchored reading-order fallback. This runs ONLY here, so a publisher
-            # whose files already parse via geometry is never touched (no regression).
-            rows_out = []
-            for srn, r in enumerate(read_pdf_reading_order_fallback(b, max_pages)):
-                rows_out.append(base(srn, 1, clean_supplier(r["supplier"]), r["amount"], r["desc"], r["ref"], None))
-                good += 1
-        if good == 0:
-            return [], {
-                "status": "unparsed",
-                "reason": "scanned/no-header/no-amount",
-                "rows": 0,
-                "confidence": "low",
-                "pages": info.get("pages"),
-            }
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+        rows_out, conf, caveat_detected, unparsed = _emit_generic_pdf(base, b, max_pages)
+        if unparsed:
+            return [], unparsed
 
     else:  # xlsx / xls / csv
-        reader = {"xlsx": read_xlsx, "xls": read_xls, "csv": read_csv}[fmt]
-        header, rows, full = reader(b)
-        caveat_detected = bool(CAVEAT_RE.search(full) or any(CAVEAT_RE.search(h or "") for h in header))
-        roles = detect_roles_tab(header, rows)
-        sup_i, amt_i = roles["supplier"], roles["amount"]
-        if amt_i is None:
-            return [], {"status": "unparsed", "reason": "no-amount-col", "rows": 0, "confidence": "low"}
-        desc_i, po_i, paid_i = roles["description"], roles["po"], roles["paid"]
-        good = 0
-        for srn, r in enumerate(rows):
-            amt = to_eur(r[amt_i]) if amt_i < len(r) else None
-            if amt is None:
-                continue
-            sup = clean_supplier(r[sup_i]) if sup_i is not None and sup_i < len(r) else None
-            if sup and CATEGORY_WORD.search(sup):
-                continue
-            good += 1
-            rows_out.append(
-                base(
-                    srn,
-                    None,
-                    sup,
-                    amt,
-                    r[desc_i] if desc_i is not None and desc_i < len(r) else None,
-                    clean_supplier(r[po_i]) if po_i is not None and po_i < len(r) else None,
-                    r[paid_i] if paid_i is not None and paid_i < len(r) else None,
-                )
-            )
-        conf = "high" if good > 20 else ("medium" if good > 3 else "low")
+        rows_out, conf, caveat_detected, unparsed = _emit_tabular(base, b, fmt)
+        if unparsed:
+            return [], unparsed
 
-    for r in rows_out:
-        r["extraction_status"] = "extracted"
-        r["extraction_confidence"] = conf
-        r["caveat_text_detected"] = caveat_detected
-        # Blank-supplier repair: a mis-mapped column can leave supplier_raw empty while the
-        # company name sits in po_number ("AN POST", "AIRNAV IRELAND"). Promote it back IF it
-        # looks like a multi-word name and carries no big number (which would mean it is a
-        # category-total line, e.g. ESB Networks "Meter Reading Services 3,823,410").
-        sup = (r.get("supplier_raw") or "").strip()
-        po = (r.get("po_number") or "").strip()
-        if not sup and po and NAME_LIKE.search(po) and not NUMERIC_NOISE.search(po):
-            r["supplier_raw"] = po
-            r["po_number"] = None
-            sup = po
-        # Anything still missing a supplier is NOT a clean supplier-level row (category totals,
-        # blank cells) — downgrade so it is filterable and never ranked as a real supplier.
-        if not sup:
-            r["extraction_confidence"] = "low"
-            r["caveat_text_detected"] = True
+    _repair_and_flag(rows_out, conf, caveat_detected)
     return rows_out, {"status": "ok" if rows_out else "empty", "rows": len(rows_out), "confidence": conf}
 
 

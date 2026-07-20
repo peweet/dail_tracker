@@ -51,9 +51,28 @@ shipped, and the two deliberate deviations from the plan text below:
   core: a SQL LEFT-JOIN view would LOSE the documented supply-only degradation
   (an absent SSHA view kills a referencing view at registration; the Python path
   degrades gracefully). Single-site, not duplicated — below the consolidation bar.
-- **Phase 4 remains open** (envelope/pagination/Pydantic width are product
-  decisions); the `read_only`-is-convention-only posture is now documented in
-  `api_conn`'s docstring.
+- **Phase 4 — SHIPPED 2026-07-20** (contract decisions resolved + implemented):
+  - **The envelope is the LIST contract**: every paginated record-collection
+    returns `{head, results}`; `head.generated_at` (UTC ISO) is stamped
+    automatically by `serialize.envelope`; committees' bespoke wrapper migrated.
+    COMPOSED analytical responses (summary + breakdown shapes) deliberately keep
+    their structures — flattening them into a list envelope would destroy
+    information; their caveats stay in-shape.
+  - **One pagination convention**: `api.deps.pagination(default=50, cap=500)`
+    dependency; 18 endpoints across 10 routers migrated; deviations (e.g.
+    member questions/speeches `default=200, cap=2000`) are declared at the call
+    site and visible in OpenAPI. `pagination` allow-listed for bugbear B008 in
+    pyproject (same call-in-default idiom as `Depends`).
+  - **Typed error kinds**: one Starlette-level handler maps every HTTPException
+    to `{detail, kind}` (`not_found` / `bad_request` / `unavailable` / `error`);
+    `SourceUnavailable` carries `kind: "unavailable"`. Clients branch on the
+    field, never on parsing detail strings. Zero per-router edits.
+  - **Pydantic posture = option (b)**: `models/envelope.py` `ListEnvelope`/`Head`
+    (rows stay view-driven `list[dict]`); full per-resource models deferred until
+    a resource gains an external consumer (suppliers/buyers first).
+  - Contract locked by `test/api/test_api_contract.py`. Deployment-era items
+    (API keys, rate limits, usage logging, ETag/caching) stay parked at the
+    deployment boundary per the uncoupling plan.
 
 Audit date 2026-07-17. Evidence: four file:line-cited subagent surveys (queries,
 data_access, api, everything-else), the `view_deps` SQL-AST graph

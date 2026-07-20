@@ -84,6 +84,29 @@ def test_corporate_notices_flags_vocab_and_year(conn):
     inv.no_sentinels(conn, r, "entity_name")
 
 
+def test_corporate_notices_entity_name_junk_ratchet(conn):
+    """Canary for the 2026-07-20 extraction fix: entity_name is either a real name or NULL.
+
+    Before the fix the extractor fell back to the pipe-joined title, so ~23% of gold
+    entity names were gazette boilerplate — measured, known, and never surfaced. The
+    ratchet: boilerplate-shaped NON-NULL names stay rare (residual long tail was 135
+    rows = 0.26% at fix time), and the null share stays in a sane band (nulls are the
+    honest "not extracted" state, but >40% means the extraction regexes broke).
+    """
+    from services.iris_boilerplate import NOTICE_NAME_JUNK_RE
+
+    r = _rel("corporate_notices_enriched")
+    total, nn_junk, nulls = conn.execute(
+        f"""SELECT count(*),
+                   sum(CASE WHEN entity_name IS NOT NULL
+                            AND regexp_matches(upper(entity_name), '{NOTICE_NAME_JUNK_RE}') THEN 1 ELSE 0 END),
+                   sum(CASE WHEN entity_name IS NULL OR trim(entity_name)='' THEN 1 ELSE 0 END)
+            FROM {r}"""
+    ).fetchone()
+    assert nn_junk / total < 0.02, f"{nn_junk}/{total} non-null entity names are boilerplate — extractor regressed"
+    assert nulls / total < 0.40, f"{nulls}/{total} entity names null — extraction may have collapsed"
+
+
 # ── PSA allowance payments (Dáil + Seanad) — the members' expenses money lane ───────────
 # payment_kind vocabulary is the classifier's designed output (payments/payments_full_psa_etl.py
 # docstring); the (0, 100k] amount window is that ETL's own validity rule — rows outside it

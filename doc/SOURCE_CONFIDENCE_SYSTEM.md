@@ -380,10 +380,31 @@ the `data_confidence` contract block; an email/report wording module.
 
 ## 11. Implementation plan
 
-**Phase 0 — Vocabulary lock (no UI).** Extend `services/data_contracts.py`: add the four closed
-enums; widen `VALUE_KIND` to the union; add a pure `derive_trust_tier(record) -> 'A'|'B'|'C'|'D'`
-and `grain_label(value_kind) -> (verb, family, color)`. Ship the §12 tests first. *Owner sign-off
-on labels/thresholds before this lands (§13).*
+**Phase 0 — Vocabulary lock (no UI). LANDED 2026-07-20** (owner sign-off given). In
+`services/data_contracts.py`: the closed enums (`SOURCE_TYPE`, `EXTRACTION_METHOD`,
+`MATCH_METHOD`, `PIPELINE_STATUS`, `FRESHNESS_STATUS`, `CAVEAT_SEVERITY`) + `MATCH_METHOD_ALIASES`
+for the stored CRO dialect; the §3 component ceilings as swappable module dicts (§13 says
+parameterise, not hard-code); pure `assess_trust()` / `derive_trust_tier(record) -> 'A'|'B'|'C'|'D'`;
+and `ENVELOPE_RULES`, folded into BOTH `PAYMENT_FACT_RULES` and `AWARD_FACT_RULES` so the shipped
+gates enforce it — inert while the columns are absent, automatic once Phase 1 lands. T3 ships as
+`test/contracts/test_trust_tier.py`. **This module is now the single definition of the 4 bands** —
+`.claude/rules/evidence.md` applies the same scale to claims/reviews.
+
+**§3 vocabulary correction — `match_method` gains `failed`.** A falsification spike (2026-07-20)
+found that §3-as-written grades a FAILED join as **Verified**: the doc expresses "attempted and
+found nothing" as `none`-with-`match_confidence`-0, so whenever that nullable number is NULL the
+record reads as "no join attempted" and is not capped. The stored dialect's `no_match` already
+carries the distinction, so `failed` is now a first-class `MATCH_METHOD` value (ceiling D) and
+`no_match` aliases to it; `none` keeps its footnote-1 meaning of *not attempted* (does not cap).
+**Rule: the categorical value decides the ceiling — a nullable confidence number may only refine
+the ambiguous `none` case, never be the sole evidence that a join succeeded.**
+
+Two Phase-0 items deliberately NOT done, both needing an owner call:
+- *Widening `VALUE_KIND` to the union* — the shipped code keeps `VALUE_KIND` (payment grain) and
+  `AWARD_VALUE_KIND` (award grain) as separate closed enums precisely so an award kind cannot pass
+  the payment-fact contract. Widening to a union would weaken that never-sum guard, so it is left
+  alone pending a decision.
+- *`grain_label()`* — money-grain badge wording is reserved to the owner under §13.
 
 **Phase 1 — Backfill the envelope on gold facts (additive).** Map `amount_semantics → value_kind`;
 add `source_type`, `extraction_method`, `pipeline_status` columns (derive from `parser_name` +

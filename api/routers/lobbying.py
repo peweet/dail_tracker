@@ -5,7 +5,7 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.deps import get_cursor
+from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
 
 router = APIRouter(tags=["lobbying"])
@@ -15,24 +15,22 @@ router = APIRouter(tags=["lobbying"])
 def list_organisations(
     name: str | None = Query(None, description="case-insensitive substring on organisation name"),
     exclude_state_adjacent: bool = Query(False, description="drop HSE/hospital-type public bodies"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
     records, total, truncated = dossiers.list_lobbying_orgs(
-        cur, name=name, exclude_state_adjacent=exclude_state_adjacent, skip=skip, limit=limit
+        cur, name=name, exclude_state_adjacent=exclude_state_adjacent, skip=page.skip, limit=page.limit
     )
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
 @router.get("/lobbying/revolving-door", summary="Former office-holders now lobbying (DPO register)")
 def list_revolving_door(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    records, total, truncated = dossiers.list_revolving_door(cur, skip=skip, limit=limit)
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    records, total, truncated = dossiers.list_revolving_door(cur, skip=page.skip, limit=page.limit)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
 @router.get(

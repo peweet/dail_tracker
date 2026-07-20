@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -96,6 +97,38 @@ AWARD_VALUE_KIND: frozenset[str] = frozenset(
     {"contract_award_value", "framework_or_dps_ceiling", "framework_call_off"}
 )
 
+# --- confidence-envelope vocabulary (doc/SOURCE_CONFIDENCE_SYSTEM.md §3) -------------
+# The columns these govern do not exist on the facts yet (Phase 1 backfills them). They are
+# defined HERE, with the rest of the vocabulary, so ENVELOPE_RULES below can be folded into
+# the shipped gates now — a rule whose column is absent is skipped, so this is inert today
+# and starts enforcing the moment the columns land, with no further wiring.
+SOURCE_TYPE: frozenset[str] = frozenset(
+    {"official_api", "official_portal", "official_document", "third_party", "derived"}
+)
+EXTRACTION_METHOD: frozenset[str] = frozenset(
+    {"official_api", "official_csv_xlsx", "pdf_extracted", "ocr_extracted", "manual_drop", "derived"}
+)
+# "none" and "failed" are DELIBERATELY distinct and the difference is load-bearing: "none"
+# means no cross-reference was ever attempted (a single-source record — must NOT cap the
+# grade, §3 footnote 1), "failed" means one was attempted and found nothing (real negative
+# evidence — MUST cap it). §3's vocabulary expresses the failed case as "none-with-
+# confidence-0", which silently grades a FAILED join as Verified whenever the confidence
+# column is null. The stored dialect's `no_match` already carries the distinction, so it is
+# promoted to a first-class value here rather than being inferred from a nullable number.
+MATCH_METHOD: frozenset[str] = frozenset({"exact", "strong", "fuzzy", "weak", "failed", "none"})
+PIPELINE_STATUS: frozenset[str] = frozenset({"live", "sandbox", "experimental", "quarantined"})
+FRESHNESS_STATUS: frozenset[str] = frozenset({"ok", "stale"})
+CAVEAT_SEVERITY: frozenset[str] = frozenset({"none", "note", "blocking"})
+
+# The stored CRO-match dialect -> the canonical vocabulary. exact_ambiguous maps to "weak"
+# on purpose: 400 ambiguous matches must stop masquerading as firm ones (§3, and the
+# procurement roadmap's flagship fix). Extend this map rather than widening MATCH_METHOD.
+MATCH_METHOD_ALIASES: dict[str, str] = {
+    "exact_unique": "exact",
+    "exact_ambiguous": "weak",
+    "no_match": "failed",  # attempted and found nothing — NOT the same as "not attempted"
+}
+
 # The derived columns every award-grain fact must carry (the raw eTenders export columns
 # on top are source-shaped and may drift; these are ours). A missing one means the
 # consolidation dropped a derivation — downstream views and the CRO match break.
@@ -146,6 +179,18 @@ class ColumnRule:
     max_offending_frac: float = 1.0
 
 
+# Confidence-envelope columns. Folded into BOTH grain contracts below rather than left as a
+# standalone tuple: a rule nobody passes is a rule nobody enforces. Inert today (every one of
+# these columns is absent, and enforce_contract skips a rule whose column is missing), so this
+# adds no behaviour now and starts gating automatically when Phase 1 backfills them.
+ENVELOPE_RULES: tuple[ColumnRule, ...] = (
+    ColumnRule("source_type", SOURCE_TYPE, "hard"),
+    ColumnRule("extraction_method", EXTRACTION_METHOD, "hard"),
+    ColumnRule("pipeline_status", PIPELINE_STATUS, "hard"),
+    ColumnRule("freshness_status", FRESHNESS_STATUS, "hard"),
+    ColumnRule("caveat_severity", CAVEAT_SEVERITY, "hard"),
+)
+
 # The contract for a procurement payment-grain fact (silver source facts and the gold
 # consolidation alike). Order is cosmetic; reasons are reported per column.
 PAYMENT_FACT_RULES: tuple[ColumnRule, ...] = (
@@ -160,7 +205,7 @@ PAYMENT_FACT_RULES: tuple[ColumnRule, ...] = (
     # Known-dirty: ~6% of gold rows already carry a leaked amount/description here.
     # Quarantine every run for investigation; only halt if it jumps past 12%.
     ColumnRule("paid_flag", PAID_FLAG_CLEAN, "quarantine", case_insensitive=True, max_offending_frac=0.12),
-)
+) + ENVELOPE_RULES
 
 
 # Vocab rules for the award-grain fact. value_eur nullability is NOT ruled here — ~3.6k
@@ -168,7 +213,7 @@ PAYMENT_FACT_RULES: tuple[ColumnRule, ...] = (
 AWARD_FACT_RULES: tuple[ColumnRule, ...] = (
     ColumnRule("value_kind", AWARD_VALUE_KIND, "hard"),
     ColumnRule("supplier_class", SUPPLIER_CLASS, "hard"),
-)
+) + ENVELOPE_RULES
 
 
 class ContractViolation(RuntimeError):
@@ -523,6 +568,148 @@ def guard_award_fact(
     if hard:
         report.raise_if_failed()
     return report
+
+
+# --------------------------------------------------------------------------- trust tier
+# Phase 0 of doc/SOURCE_CONFIDENCE_SYSTEM.md (§3 composite grade, §11 plan).
+#
+# ONE 4-band confidence vocabulary for the whole project. The same four names grade a
+# *record* here and a *claim* in .claude/rules/evidence.md, so a UI badge, an audit finding
+# and a sentence in an answer all mean the same thing. Never introduce a second scale.
+#
+# Trust is bounded by the WEAKEST LINK: every component maps to a tier *ceiling* and the
+# record's grade is the min() across them. An official-API value reached by an ambiguous
+# name match is only as trustworthy as that match — this is the anti-overclaim guard.
+#
+# Per §13 the labels and the component thresholds are an OWNER decision, so they live in
+# swappable module-level dicts (never buried in branches) and the unknown-metadata floor is
+# an argument. The values below are the §3 documented defaults.
+
+TRUST_TIERS: tuple[str, ...] = ("A", "B", "C", "D")
+TRUST_TIER_LABEL: dict[str, str] = {
+    "A": "Verified",
+    "B": "Reported",
+    "C": "Extracted",
+    "D": "Indicative",
+}
+# Rank used for the min() collapse. Higher == stronger.
+_TRUST_RANK: dict[str, int] = {"A": 3, "B": 2, "C": 1, "D": 0}
+
+# Component ceilings — the §3 table, verbatim. Owner-tunable (§13).
+CEILING_EXTRACTION_METHOD: dict[str, str] = {
+    "official_api": "A",
+    "official_csv_xlsx": "A",
+    "pdf_extracted": "B",
+    "ocr_extracted": "C",
+    "manual_drop": "D",
+    "derived": "D",
+}
+CEILING_MATCH_METHOD: dict[str, str] = {
+    "exact": "A",
+    "strong": "B",
+    "fuzzy": "C",
+    "weak": "D",
+    "failed": "D",
+}
+CEILING_PIPELINE_STATUS: dict[str, str] = {
+    "live": "A",
+    "sandbox": "D",
+    "experimental": "D",
+    "quarantined": "D",  # never reaches a report at all (§9 rule 4); capped for completeness
+}
+CEILING_FRESHNESS_STATUS: dict[str, str] = {"ok": "A", "stale": "D"}
+CEILING_CAVEAT_SEVERITY: dict[str, str] = {"none": "A", "note": "C", "blocking": "D"}
+
+
+@dataclass(frozen=True)
+class TrustAssessment:
+    """A record's headline trust grade plus *why* it landed there.
+
+    ``binding`` names the component(s) sitting at the minimum — the explain-this-figure
+    popover (§7) needs the reason, not just the badge, and a grade whose reason is not
+    reportable is exactly the unfalsifiable claim this system exists to prevent.
+    """
+
+    tier: str
+    label: str
+    components: dict[str, str]
+    binding: tuple[str, ...]
+
+
+def _norm(value: object) -> str | None:
+    """Lower/strip a component value; None for null or blank."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    return text or None
+
+
+def _match_ceiling(record: Mapping[str, object], unknown_ceiling: str) -> str:
+    """Match ceiling, honouring the §3 footnote-1 distinction.
+
+    ``none``/absent means *no cross-reference was attempted* (a single-source record) and must
+    NOT cap the grade. A cross-reference that was attempted and FAILED is real negative evidence
+    and caps at D — expressed either as ``failed`` (the canonical value, which the stored
+    ``no_match`` aliases to) or as §3's ``none`` carrying ``match_confidence == 0``.
+
+    Relying on the confidence number alone is not safe: a ``no_match`` row whose confidence is
+    NULL would otherwise grade Verified, which is the exact overclaim this module exists to
+    prevent. The categorical value decides; the number only refines the ambiguous ``none`` case.
+    """
+    raw = _norm(record.get("match_method"))
+    if raw is None:
+        return "A"  # no join attempted — does not cap
+    key = MATCH_METHOD_ALIASES.get(raw, raw)
+    if key == "none":
+        conf = record.get("match_confidence")
+        if conf is None:
+            return "A"
+        try:
+            return "D" if float(conf) <= 0 else "A"
+        except (TypeError, ValueError):
+            return unknown_ceiling
+    return CEILING_MATCH_METHOD.get(key, unknown_ceiling)
+
+
+def assess_trust(record: Mapping[str, object], *, unknown_ceiling: str = "D") -> TrustAssessment:
+    """Grade one record on the 4-band scale by weakest-link min() over its components.
+
+    ``unknown_ceiling`` is the floor for a component whose value is missing or out-of-vocab.
+    It defaults to ``"D"`` (Indicative) on purpose: unknown provenance is NOT evidence of a
+    good source, and defaulting the other way would let un-backfilled rows grade Verified —
+    the precise overclaim §3 is built to stop. Pass ``"A"`` only for a frame you have already
+    established carries the full envelope.
+    """
+    if unknown_ceiling not in _TRUST_RANK:
+        raise ValueError(f"unknown_ceiling must be one of {TRUST_TIERS}, got {unknown_ceiling!r}")
+
+    components: dict[str, str] = {
+        "extraction_method": CEILING_EXTRACTION_METHOD.get(
+            _norm(record.get("extraction_method")) or "", unknown_ceiling
+        ),
+        "match_method": _match_ceiling(record, unknown_ceiling),
+        "pipeline_status": CEILING_PIPELINE_STATUS.get(
+            _norm(record.get("pipeline_status")) or "", unknown_ceiling
+        ),
+        "freshness_status": CEILING_FRESHNESS_STATUS.get(
+            _norm(record.get("freshness_status")) or "", unknown_ceiling
+        ),
+        "caveat_severity": CEILING_CAVEAT_SEVERITY.get(
+            _norm(record.get("caveat_severity")) or "", unknown_ceiling
+        ),
+    }
+    worst = min(_TRUST_RANK[t] for t in components.values())
+    tier = next(t for t in TRUST_TIERS if _TRUST_RANK[t] == worst)
+    binding = tuple(sorted(c for c, t in components.items() if _TRUST_RANK[t] == worst))
+    return TrustAssessment(tier=tier, label=TRUST_TIER_LABEL[tier], components=components, binding=binding)
+
+
+def derive_trust_tier(record: Mapping[str, object], *, unknown_ceiling: str = "D") -> str:
+    """The §11 Phase-0 entry point: a record's headline grade as ``'A'|'B'|'C'|'D'``.
+
+    Thin wrapper over :func:`assess_trust` for callers that only need the badge letter.
+    """
+    return assess_trust(record, unknown_ceiling=unknown_ceiling).tier
 
 
 # --------------------------------------------------------------------------- plausibility

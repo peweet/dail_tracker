@@ -13,7 +13,7 @@ import os
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.deps import get_cursor
+from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
 from dail_tracker_core.queries import procurement as _q
 from services.deflator import list_indices
@@ -42,12 +42,11 @@ def _require_experimental() -> None:
 def list_suppliers(
     year: int | None = Query(None, description="Scope to one calendar year; omit for all-time"),
     order_by: str = Query("awards", description="'awards' (contract count) or 'value' (sum-safe €)"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=500),
+    page: Page = Depends(pagination(default=20)),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    records, total, truncated = dossiers.list_suppliers(cur, year=year, order_by=order_by, skip=skip, limit=limit)
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    records, total, truncated = dossiers.list_suppliers(cur, year=year, order_by=order_by, skip=page.skip, limit=page.limit)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
 @router.get(
@@ -101,12 +100,11 @@ def lobbying_overlap(
     summary="Award activity by contracting authority (buyer) — counts + sum-safe value (CEILINGS)",
 )
 def authorities(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(25, ge=1, le=500),
+    page: Page = Depends(pagination(default=25)),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    records, total, truncated = dossiers.list_procurement_authorities(cur, skip=skip, limit=limit)
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    records, total, truncated = dossiers.list_procurement_authorities(cur, skip=page.skip, limit=page.limit)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
 @router.get(
@@ -114,12 +112,11 @@ def authorities(
     summary="Award activity by CPV code (what was bought) — counts + sum-safe value (CEILINGS)",
 )
 def cpv(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(25, ge=1, le=500),
+    page: Page = Depends(pagination(default=25)),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    records, total, truncated = dossiers.list_procurement_cpv(cur, skip=skip, limit=limit)
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    records, total, truncated = dossiers.list_procurement_cpv(cur, skip=page.skip, limit=page.limit)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
 @router.get(
@@ -128,12 +125,11 @@ def cpv(
 )
 def open_tenders(
     only_open: bool = Query(True, description="Keep only notices still open for bids"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(40, ge=1, le=500),
+    page: Page = Depends(pagination(default=40)),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    records, total, truncated = dossiers.list_open_tenders(cur, only_open=only_open, skip=skip, limit=limit)
-    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+    records, total, truncated = dossiers.list_open_tenders(cur, only_open=only_open, skip=page.skip, limit=page.limit)
+    return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
 # ── EXPERIMENTAL real-terms (inflation-adjusted) endpoints (gated) ────────────────────────────
