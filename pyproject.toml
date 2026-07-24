@@ -142,6 +142,9 @@ dev = [
     "ast-grep-cli>=0.44",     # structural code search — find real call-sites/usages before a signature change or convention audit (grep can't tell a call from a comment); NOT a grep replacement, see cheap-code-scanning memory
     "deptry>=0.20",           # undeclared/transitive dependency audit — a bare `uv sync` installs ONLY core, so an app-path import that's merely transitive is a latent Cloud crash. Config + rationale for every ignore in [tool.deptry].
 ]
+evals = [
+    "claude-agent-sdk>=0.2.126",
+]
 
 # ── Script entry points ──────────────────────────────────────────────────────
 # After `pip install -e .` you can run these directly from the command line:
