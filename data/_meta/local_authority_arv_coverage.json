@@ -1,0 +1,11 @@
+{
+  "source": "https://assets.gov.ie/static/documents/09fe3ad4/2026_Annual_Rates_on_Valuation.xlsx",
+  "cached_file": "2026_Annual_Rates_on_Valuation.xlsx",
+  "rows": 310,
+  "local_authorities": 31,
+  "year_min": 2017,
+  "year_max": 2026,
+  "grain": "la x year (long); arv = annual rate on valuation multiplier",
+  "basis_break": "pre_revaluation_basis=true rows are the OLD rate basis (values ~50-80 vs ~0.2); never chart the two bases as one series",
+  "note": "rates bill = NAV x ARV; NAV per premises awaits the Tailte GetProperties API serving data again"
+}
