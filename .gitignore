@@ -588,6 +588,9 @@ _LOCAL_*
 _REMOTE_*
 ._*
 
+# Second git-dir holding the private siting history (overlay repo on this worktree)
+.git-siting/
+
 # === Siting/planning engine — kept out of the public repo (2026-07-24) ===
 # The siting constraint engine, county rulebook corpus, layer registry, assistant
 # pages and their tests/prototypes are developed privately from here on. This block
