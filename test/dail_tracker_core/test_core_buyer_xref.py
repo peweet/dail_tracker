@@ -84,3 +84,21 @@ def test_defunct_council_name_does_not_hijack_modern_entity(rows):
     r = resolve_buyer("Limerick City Council")
     if r is not None:
         assert r["buyer_id"] == "ie_la_limerick"
+
+
+# ── buyer_index + build_buyer_dossier fail-closed contract ───────────────────
+def test_buyer_index_shape_and_sorted():
+    from dail_tracker_core.buyer_xref import buyer_index
+
+    idx = buyer_index()
+    assert idx, "crosswalk index is empty"
+    assert all(set(r) == {"buyer_id", "display_name", "buyer_type"} for r in idx)
+    assert [r["display_name"] for r in idx] == sorted(r["display_name"] for r in idx)
+
+
+def test_build_buyer_dossier_unknown_returns_none():
+    """Fail-closed: an unresolved body returns None BEFORE any query runs (conn untouched),
+    so the /body page shows an honest "not found" note rather than a fuzzy-guessed dossier."""
+    from dail_tracker_core.dossiers import build_buyer_dossier
+
+    assert build_buyer_dossier(None, "definitely-not-a-real-body-xyz") is None

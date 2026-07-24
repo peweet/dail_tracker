@@ -26,8 +26,17 @@ Two link methods (each row tagged ``match_method``):
     date constraint is what disambiguates rural sites with a refusal followed by a later grant
     (spatial-only is only 86%). Recovers all 31 councils; Cork County lands at 26.4% (≈ the national rate).
 
+SECOND OUTPUT — the case SPINE (planning_acp_cases.parquet), added 2026-07-20. The ACP fetch already
+pulls every case polygon and computes a centroid for the spatial fallback, then throws the coordinates
+away; the outcomes silver is a JOIN PRODUCT (only cases matched to a council application) and cannot
+answer "which appeals are near this point". The spine persists the register as-is — every case, matched
+or not, with its representative point — so the siting brief can show nearby appeal context. Kept a
+SEPARATE table on purpose: merging it into the outcomes fact would make an unmatched case look like a
+case with no appeal outcome (the `0 = not-matched != absent` trap in reference_join_map).
+
 Inputs:  ACP Cases_2016_Onwards FeatureServer layer 3 (PC02); planning_applications_silver.parquet (PC01)
 Output:  data/silver/parquet/planning_appeal_outcomes.parquet
+         data/silver/parquet/planning_acp_cases.parquet   (the case spine)
          data/_meta/planning_appeal_outcomes_coverage.json
 """
 
@@ -50,10 +59,17 @@ LOG = logging.getLogger("planning_appeal_outcomes")
 ROOT = Path(__file__).resolve().parents[1]
 SILVER = ROOT / "data/silver/parquet/planning_applications_silver.parquet"
 OUT = ROOT / "data/silver/parquet/planning_appeal_outcomes.parquet"
+OUT_SPINE = ROOT / "data/silver/parquet/planning_acp_cases.parquet"
 OUT_COV = ROOT / "data/_meta/planning_appeal_outcomes_coverage.json"
 ACP = "https://services-eu1.arcgis.com/o56BSnENmD5mYs3j/arcgis/rest/services/Cases_2016_Onwards/FeatureServer/3/query"
 
 _SIX = re.compile(r"\d{6}")
+# Cases still before the Board carry a DECISION of "Case is due to be decided by <date>" — 1,383 of
+# the register's 1,580 distinct DECISION strings on 2026-07-20. They are NOT outcomes; _norm_abp maps
+# them to OTHER, which would pool them with withdrawn/invalid. The spine marks them `live` instead.
+_LIVE = re.compile(r"^\s*case is due to be decided", re.I)
+# metres per degree at ~53°N — a spread/size measure only (never a distance the user is shown).
+_M_PER_DEG_LAT, _M_PER_DEG_LON = 111_320.0, 67_000.0
 _SPATIAL_DEG = 0.0006  # ~55 m at 53°N — nearest-application search radius for the fallback
 _GRID = 0.001  # grid-cell size for the spatial index (must be >= _SPATIAL_DEG)
 
@@ -79,6 +95,33 @@ def _centroid(geom: dict | None) -> tuple[float | None, float | None]:
     if not pts:
         return None, None
     return sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+
+
+def _ring_area(geom: dict | None) -> float:
+    """Absolute shoelace area of a feature's rings, in degrees² — a RELATIVE size measure used only
+    to pick the representative polygon of a multi-polygon case. Never shown, never a real area."""
+    if not geom:
+        return 0.0
+    total = 0.0
+    for ring in geom.get("rings") or []:
+        s = 0.0
+        for i in range(len(ring) - 1):
+            s += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+        total += abs(s) / 2
+    return total
+
+
+def _case_status(decision: str | None, decided_ms) -> str:
+    """`decided` = the register records a concluded outcome; `live` = it does not.
+
+    `live` covers two populations that a reader does not need to tell apart, because neither has an
+    outcome to report: cases genuinely still before the Board (no DECIDED_ON at all), and 38 stale
+    rows whose DECISION still reads "Case is due to be decided by <date>" while DECIDED_ON holds a
+    target date long past (lodged 2019-20, targets 2020-04-27 to 2025-07-23, none in the future —
+    verified 2026-07-20). For those the date is an OBJECTIVE, not a decision, which is why
+    _build_spine nulls decided_date whenever the status is `live`.
+    """
+    return "live" if decided_ms is None or _LIVE.match(decision or "") else "decided"
 
 
 def _council_decision(d: str | None) -> str:
@@ -119,7 +162,10 @@ def _fetch_acp() -> pl.DataFrame:
             ACP,
             params={
                 "where": "1=1",
-                "outFields": "ABPCASEID,DECISION,PLANINGATY,CATEGORY,DECIDED_ON,LODGEDON",
+                # DEVDESC/DEVADDRESS/LINKABPWEB/UPDATED_ON are for the case spine only (site context +
+                # the provenance link). The register is case-grained and carries NO applicant name.
+                "outFields": "ABPCASEID,DECISION,PLANINGATY,CATEGORY,DECIDED_ON,LODGEDON,"
+                "DEVDESC,DEVADDRESS,LINKABPWEB,UPDATED_ON",
                 "returnGeometry": "true",  # case-site polygon — centroid feeds the spatial fallback
                 "outSR": 4326,
                 "resultOffset": off,
@@ -133,16 +179,90 @@ def _fetch_acp() -> pl.DataFrame:
             break
         for x in f:
             lon, lat = _centroid(x.get("geometry"))
-            rows.append({**x["attributes"], "lon": lon, "lat": lat})
+            rows.append({**x["attributes"], "lon": lon, "lat": lat, "area": _ring_area(x.get("geometry"))})
         off += len(f)
         if len(f) < 2000:
             break
     df = pl.DataFrame(rows)
     return df.with_columns(
+        # WHITESPACE strip only — NEVER digit-strip. 546 of the 26,254 register IDs carry a letter
+        # prefix (RL/LV/FS/SU/RP/QD/VV/…), and digit-stripping collapses distinct cases onto one key
+        # (DV0005, QD0005, VV0005 and ZE0005 all become "0005"). Verified 2026-07-20.
         pl.col("ABPCASEID").cast(pl.Utf8).str.strip_chars().alias("abp_case"),
         pl.col("DECISION").map_elements(_norm_abp, return_dtype=pl.Utf8).alias("abp_decision"),
         pl.col("LODGEDON").map_elements(_ms_to_date, return_dtype=pl.Date).alias("lodged_date"),
         pl.col("PLANINGATY").map_elements(_auth_key, return_dtype=pl.Utf8).alias("auth_key"),
+    )
+
+
+def _build_spine(acp: pl.DataFrame) -> pl.DataFrame:
+    """The ACP case register as a spine: ONE row per case, with a representative point.
+
+    Dedupe (33 cases / 37 surplus features on 2026-07-20): a case may be published as several
+    polygons. We take the LARGEST polygon's centroid as the representative point rather than
+    averaging them — averaging a multi-site case invents a location where nothing was proposed
+    (case 245660's two polygons lie 102.7 km apart; 6 cases exceed 1 km). `n_polygons` and
+    `site_spread_m` carry that fact forward so a consumer can caveat instead of being misled.
+
+    Deliberately NOT applied to the outcomes join above: deduping there would change the promoted
+    overturn metric, which is a separate decision from persisting the register.
+    """
+    ranked = acp.sort("area", descending=True)  # group_by().first() then takes the largest polygon
+    spine = ranked.group_by("abp_case").agg(
+        pl.len().alias("n_polygons"),
+        pl.col("lon").first(),
+        pl.col("lat").first(),
+        # bbox diagonal of this case's centroids — 0 for single-polygon cases
+        ((pl.col("lat").max() - pl.col("lat").min()) * _M_PER_DEG_LAT).alias("_dy"),
+        ((pl.col("lon").max() - pl.col("lon").min()) * _M_PER_DEG_LON).alias("_dx"),
+        pl.col("CATEGORY").first().alias("category"),
+        pl.col("DECISION").first().alias("decision_raw"),
+        pl.col("abp_decision").first(),
+        pl.col("PLANINGATY").first().alias("planning_authority"),
+        pl.col("DECIDED_ON").first(),
+        pl.col("lodged_date").first(),
+        pl.col("DEVDESC").first().alias("dev_desc"),
+        pl.col("DEVADDRESS").first().alias("dev_address"),
+        pl.col("LINKABPWEB").first().alias("case_url"),
+        pl.col("UPDATED_ON").first(),
+    )
+    return (
+        spine.with_columns(
+            ((pl.col("_dx") ** 2 + pl.col("_dy") ** 2).sqrt()).round(0).alias("site_spread_m"),
+            pl.struct("decision_raw", "DECIDED_ON")
+            .map_elements(lambda s: _case_status(s["decision_raw"], s["DECIDED_ON"]), return_dtype=pl.Utf8)
+            .alias("status"),
+            pl.col("DECIDED_ON").map_elements(_ms_to_date, return_dtype=pl.Date).alias("decided_date"),
+            pl.col("DECIDED_ON").map_elements(_ms_to_date, return_dtype=pl.Date).alias("target_date"),
+            pl.col("UPDATED_ON").map_elements(_ms_to_date, return_dtype=pl.Date).alias("updated_date"),
+        )
+        .with_columns(
+            # decided_date must mean ONE thing: the date the Board concluded the case. For a `live`
+            # row the register's DECIDED_ON is a target, so publishing it here would let a target
+            # date be read (and sorted, and cited) as an outcome date. Kept as target_date instead.
+            pl.when(pl.col("status") == "live").then(None).otherwise(pl.col("decided_date")).alias("decided_date"),
+            pl.when(pl.col("status") == "live").then(pl.col("target_date")).otherwise(None).alias("target_date"),
+        )
+        .select(
+            "abp_case",
+            "lon",
+            "lat",
+            "status",
+            "category",
+            "abp_decision",
+            "decision_raw",
+            "planning_authority",
+            "decided_date",
+            "target_date",
+            "lodged_date",
+            "dev_desc",
+            "dev_address",
+            "case_url",
+            "n_polygons",
+            "site_spread_m",
+            "updated_date",
+        )
+        .sort("abp_case")
     )
 
 
@@ -260,6 +380,23 @@ def main() -> None:
         *(acp.filter(pl.col("abp_decision") == v).height for v in ("GRANT", "REFUSE", "OTHER")),
     )
 
+    # SPINE — every case with a representative point, independent of whether it joins to a council
+    # application. Written before the join so a council-side failure can't cost us the register.
+    spine = _build_spine(acp)
+    n_live = spine.filter(pl.col("status") == "live").height
+    n_multi = spine.filter(pl.col("n_polygons") > 1).height
+    # Floor: the register is 26,254 features / 26,217 cases (2026-07-20) and only grows. A truncated
+    # pagination run must not overwrite the spine with a partial register.
+    save_parquet(spine, OUT_SPINE, min_rows=20_000)
+    LOG.info(
+        "ACP case spine: %d cases (%d live / %d decided; %d multi-polygon) -> %s",
+        spine.height,
+        n_live,
+        spine.height - n_live,
+        n_multi,
+        OUT_SPINE,
+    )
+
     apps_all = pl.read_parquet(SILVER).select(
         "ApplicationNumber", "PlanningAuthority", "decision_normalised", "AppealRefNumber", "DecisionDate", "lon", "lat"
     )
@@ -339,6 +476,13 @@ def main() -> None:
         "ABPCASEID. Fallback (match_method=spatial_temporal): nearest same-authority application "
         "(ACP centroid <=55m) whose decision pre-dates the appeal; validated 98.4% vs Kerry ground truth.",
         "acp_cases": acp.height,
+        "spine_cases": spine.height,
+        "spine_live": n_live,
+        "spine_decided": spine.height - n_live,
+        "spine_multi_polygon": n_multi,
+        "spine_note": "planning_acp_cases.parquet — one row per ACP case (register spine, matched or "
+        "not). Representative point = largest polygon's centroid; multi-site cases carry n_polygons "
+        "+ site_spread_m. status='live' cases are still before the Board and have NO outcome.",
         "appeals_joined": int(primary.height + fallback.height),
         "matches_appeal_ref": int(by_method.get("appeal_ref", 0)),
         "matches_spatial_temporal": int(by_method.get("spatial_temporal", 0)),

@@ -188,6 +188,41 @@ def _page_entry_missing_dt_page(source: str, path: Path) -> list[str]:
     return out
 
 
+# ── R8: rule-file self-hygiene ────────────────────────────────────────────────
+# The always-loaded instruction files must not use the borrowed-abstraction
+# vocabulary that .claude/rules/communication.md bans — "token multipliers" sat in
+# CLAUDE.md for months and shipped the counter-example alongside the rule until a
+# manual audit caught it (2026-07-20). Zero-tolerance (empty baseline): these files
+# are small and hand-edited, so there is nothing to grandfather. communication.md
+# and evidence.md are exempt — they QUOTE the banned phrases in order to ban them.
+RE_RULE_JARGON = re.compile(
+    r"token multiplier|has implications for|the tension here is|\butilize\b|\bleverage\b"
+    r"|\boperationali[sz]e\b|\bcommence\b|it's worth noting|it is worth noting",
+    re.IGNORECASE,
+)
+RULE_JARGON_EXEMPT = {"communication.md", "evidence.md"}
+
+
+def _rule_file_jargon() -> list[str]:
+    out: list[str] = []
+    targets = [ROOT / "CLAUDE.md"] + sorted((ROOT / ".claude" / "rules").glob("*.md"))
+    for md in targets:
+        if not md.exists() or md.name in RULE_JARGON_EXEMPT:
+            continue
+        in_fence = False
+        for lineno, line in enumerate(md.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            if line.lstrip().startswith("```"):
+                in_fence = not in_fence
+                continue
+            if in_fence or line.lstrip().startswith("|"):  # code + tables may quote
+                continue
+            m = RE_RULE_JARGON.search(line)
+            if m:
+                rel = md.relative_to(ROOT).as_posix()
+                out.append(f"{rel}:{lineno}: “{m.group(0)}” — use the plain word (communication.md rule 3)")
+    return out
+
+
 def main() -> int:
     violations: list[str] = []
     stale_baseline: list[str] = []
@@ -211,6 +246,8 @@ def main() -> int:
                 f"`{m.group(0).strip()}` re-defines a ui.format canonical; import it instead"
             )
         violations.extend(f"[missing-dt-page] utility/pages_code/{v}" for v in _page_entry_missing_dt_page(source, py))
+
+    violations.extend(f"[rule-file-jargon] {v}" for v in _rule_file_jargon())
 
     for note in stale_baseline:
         print(f"NOTE  {note}")

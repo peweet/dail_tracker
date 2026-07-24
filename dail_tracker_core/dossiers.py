@@ -20,6 +20,7 @@ import duckdb
 import pandas as pd
 
 from dail_tracker_core import caveats, serialize
+from dail_tracker_core.buyer_xref import buyer_core, resolve_buyer
 from dail_tracker_core.queries import appointments as appt
 from dail_tracker_core.queries import attendance as att
 from dail_tracker_core.queries import charities as char
@@ -479,6 +480,90 @@ def build_organisation_dossier(conn: duckdb.DuckDBPyConnection, supplier_norm: s
         },
         "caveat": caveats.ENTITY_COOCCURRENCE,
     }
+
+
+def build_buyer_dossier(conn: duckdb.DuckDBPyConnection, query: str) -> dict[str, Any] | None:
+    """Composed buyer / public-body dossier — the buyer-side mirror of
+    ``build_supplier_dossier``, and the reciprocal that lets a supplier↔body loop close.
+
+    Resolves ``query`` (any register name or buyer_id) to ONE curated identity via the
+    ``buyer_xref`` crosswalk, then fans it into its two money lanes: AWARDS (AWARDED
+    ceiling, eTenders) and PAYMENTS (ORDERED / PAID). The lanes are DISTINCT grains and
+    are NEVER summed — each carries its own verb-led total (see ``caveats.MONEY_GRAINS``).
+
+    ``None`` when the body is not in the crosswalk: the page then shows an honest "not in
+    the crosswalk" note rather than a fuzzy guess (mis-attributing one body's spend to
+    another is how a brief becomes defamatory). All 90 crosswalk rows are ``curated_exact``,
+    so both register names are trustworthy; ``match_tier`` still rides along for the badge
+    and for the day a lower-tier row is added.
+    """
+    b = resolve_buyer(query)
+    if b is None:
+        return None
+    reg = b["registers"]
+
+    awards_summary = None
+    recent_awards: list[dict[str, Any]] = []
+    if reg["etenders"]:
+        adf = proc.authority_summary(conn, limit=None).data
+        amatch = adf.loc[adf["contracting_authority"] == reg["etenders"]] if not adf.empty else adf
+        awards_summary = serialize.first_record(amatch) if not amatch.empty else None
+        recent_awards = serialize.to_records(proc.awards_for_authority(conn, reg["etenders"]).data)[:25]
+
+    payments_summary = None
+    top_paid: list[dict[str, Any]] = []
+    active_tier = "COMMITTED"
+    pay_name = _payments_view_name(conn, reg["payments"])
+    if pay_name:
+        pdf = proc.payments_publisher_profile(conn, pay_name).data
+        payments_summary = serialize.first_record(pdf) if not pdf.empty else None
+        if payments_summary is not None:
+            # Councils publish purchase ORDERS (COMMITTED), central bodies often actual
+            # payments (SPENT); the two are never summed, so the top-suppliers list follows
+            # whichever tier this body actually populates (the larger of the two totals).
+            paid = float(payments_summary.get("paid_safe_eur") or 0.0)
+            ordered = float(payments_summary.get("ordered_safe_eur") or 0.0)
+            active_tier = "SPENT" if paid > ordered else "COMMITTED"
+            top_paid = serialize.to_records(
+                proc.payments_for_publisher(conn, pay_name, tier=active_tier, limit=25).data
+            )
+
+    if awards_summary is None and payments_summary is None and not recent_awards and not top_paid:
+        return None
+
+    return {
+        "identity": {
+            "buyer_id": b["buyer_id"],
+            "display_name": b["display_name"],
+            "buyer_type": b["buyer_type"],
+            "match_tier": b["match_tier"],
+            "registers": reg,
+            "notes": b["notes"],
+        },
+        "awards": {"summary": awards_summary, "recent": recent_awards},
+        "payments": {"summary": payments_summary, "top_suppliers": top_paid, "active_tier": active_tier},
+        "caveat": caveats.MONEY_GRAINS,
+    }
+
+
+def _payments_view_name(conn: duckdb.DuckDBPyConnection, stored: str | None) -> str | None:
+    """Map the crosswalk's payments name to the payments VIEW's actual ``publisher_name``.
+
+    The crosswalk stores the long council form ("Dublin City Council") but the payments view
+    carries the short form ("Dublin City"), so an exact join silently drops the whole payments
+    lane — the Dublin-split bug (14/88 crosswalk payments names miss the view, ~10 are this
+    council name-form gap). Match on the SAME conservative ``buyer_core`` key the resolver
+    already trusts (city/county preserved, so Cork City ≠ Cork County). ``None`` when no view
+    publisher shares the key — the body genuinely has no payments lane, shown as an honest gap.
+    Not a fuzzy guess: exact-on-normalised, the identical rule that keys the crosswalk itself."""
+    if not stored:
+        return None
+    names = conn.execute("SELECT DISTINCT publisher_name FROM v_procurement_payments").df()["publisher_name"]
+    names = [n for n in names if n]
+    if stored in names:
+        return stored
+    want = buyer_core(stored)
+    return next((n for n in names if buyer_core(n) == want), None)
 
 
 # Co-occurrence caveat — mirrors data/_meta/procurement_lobbying_overlap_coverage.json.

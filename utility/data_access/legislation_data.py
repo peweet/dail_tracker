@@ -63,6 +63,14 @@ def fetch_all_statuses() -> list[str]:
     return df["bill_status"].tolist() if not df.empty else []
 
 
+@st.cache_data(ttl=300)
+def fetch_introduced_years() -> list[int]:
+    """Distinct Bill-introduction years, newest first — options for the shared
+    year_selector on the index page."""
+    df = _q.distinct_introduced_years(get_legislation_conn()).data
+    return [int(y) for y in df["yr"].tolist()] if not df.empty else []
+
+
 # ── Detail ─────────────────────────────────────────────────────────────────────
 
 

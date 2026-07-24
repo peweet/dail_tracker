@@ -33,20 +33,13 @@ def _extract_path(payload: dict) -> str:
     return ""
 
 
-def _tool_name(payload: dict) -> str:
-    return str(payload.get("tool_name") or payload.get("toolName") or "")
-
-
 def main() -> int:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
     except Exception:
         return 0
-    name = _tool_name(payload).lower()
-    if name and name not in ("edit", "write", "multiedit", "notebookedit", "applypatch", "createfile"):
-        # Unknown edit-like tools still pass the path check below, so only skip
-        # clearly non-edit tools when a name is present.
-        pass
+    # No tool-name filter: the path check below is the real gate (VS Code ignores
+    # matchers anyway, and an earlier name-based skip here was dead code).
     path = _extract_path(payload)
     if not path:
         return 0

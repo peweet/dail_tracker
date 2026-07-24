@@ -283,6 +283,10 @@ pipeline.log
 *.log
 # Cookieless page-view counter — runtime, ephemeral, grows per page load.
 logs/page_views.jsonl
+# Per-session token/turn telemetry from the SessionEnd hook — per-machine, append-only.
+logs/session_token_ledger.jsonl
+# Derived FTS5 content index behind search_project — rebuilt incrementally on demand.
+.cache/
 
 # === Archived docs — local-only history, not tracked ===
 # doc/archive/ holds superseded plans/audits/briefs kept for local reference only.
@@ -405,6 +409,10 @@ data/silver/sipo_candidate/
 !data/silver/parquet/la_afs_divisions.parquet
 # per-LA AFS CAPITAL fact (la_afs_capital_extract.py) — sibling of the revenue fact, same reason
 !data/silver/parquet/la_afs_capital_divisions.parquet
+# per-LA AFS BALANCE-SHEET fact (la_afs_balancesheet_extract.py) — financial-position STOCKS (incl loans payable)
+!data/silver/parquet/la_afs_balance_sheet.parquet
+# per-LA AFS NOTE 7 loan-movement fact (la_afs_loanmovement_extract.py) — borrow/repay FLOW, reconcile-gated
+!data/silver/parquet/la_afs_loan_movement.parquet
 # ADOPTED budgets fact (la_budgets_extract.py) — BUDGETED grain, all 31 councils from the DHLGH
 # consolidated publication; read by v_procurement_la_budget_* views; commit for the same
 # survive-machine-failure / Cloud-readable reason as the AFS facts
@@ -417,6 +425,11 @@ data/silver/sipo_candidate/
 # planning card AND the national council choropleth (v_la_map_layers). Cloud boots from a clean
 # clone with no ETL, so without this the planning JOIN throws and the whole map silently vanishes.
 !data/silver/parquet/planning_appeal_outcomes.parquet
+# ACP case spine (same extractor) — one row per An Coimisiún Pleanála case WITH its representative
+# point, which the outcomes fact above drops. Read by dail_tracker_core/siting/precedents.py for the
+# "nearby appeal history" section of the siting brief. ~1.5 MB; committed for the same reason as its
+# sibling — Cloud boots from a clean clone with no ETL, and without it the section silently vanishes.
+!data/silver/parquet/planning_acp_cases.parquet
 # Silver facts the deployed app's runtime SQL views read DIRECTLY and query live in
 # DuckDB (registered via dail_tracker_core/db.py register_views + connections.py).
 # Without these a fresh Cloud clone hard-crashes the Lobbying / Interests / Committees
@@ -556,6 +569,11 @@ planning_rules/**/raw/
 # planning_rules corpus seed registry (curated tracking of datasets to ingest) — track it
 !planning_rules/_corpus_registry/*.csv
 
+# planning_rules application_files _text/ — OCR/extracted page-text dumps per application.
+# These are large regenerable extractions (one commit added 225 files / ~340k lines) and
+# don't belong in git — keep the parent application_files dir tracked, ignore the _text dumps.
+planning_rules/application_files/**/_text/
+
 # === editor swap + mergetool scratch files (never commit) ===
 # vim/IDE swap files and 3-way merge leftovers (vimdiff/mergetool writes
 # _BASE_/_LOCAL_/_REMOTE_/_BACKUP_ copies). These got committed once during a
@@ -569,3 +587,33 @@ _BASE_*
 _LOCAL_*
 _REMOTE_*
 ._*
+
+# === Siting/planning engine — kept out of the public repo (2026-07-24) ===
+# The siting constraint engine, county rulebook corpus, layer registry, assistant
+# pages and their tests/prototypes are developed privately from here on. This block
+# must stay LAST: it overrides the earlier planning_rules/ and planning_acp_cases
+# negations (last match wins). The civic planning STATS lane (appeal outcomes,
+# decision profiles, overturn view, Iris/CPO probes) stays tracked.
+planning_rules/
+dail_tracker_core/siting/
+test/siting/
+utility/data_access/siting_assistant.py
+utility/data_access/siting_data.py
+utility/pages_code/siting_assistant.py
+utility/pages_code/siting_check.py
+extractors/planning_layers_ingest.py
+extractors/planning_layers_freshness.py
+extractors/planning_acp_precedents.py
+tools/siting_loadtest.py
+tools/build_point_scoped_layers.py
+test/tools/test_siting_loadtest.py
+test/utility/test_siting_maps_parse.py
+pipeline_sandbox/siting_*.py
+pipeline_sandbox/new_sources/siting_engine_calibration.py
+pipeline_sandbox/planning_layers_wfs.py
+pipeline_sandbox/planning_scale_gated_triggers.py
+pipeline_sandbox/planning_areaofsite_normalise.py
+pipeline_sandbox/planning_osm_roads.py
+pipeline_sandbox/planning_osm_roads_geofabrik.py
+doc/PLAN_ACP_GEOMETRY_AND_PRECEDENT.md
+data/silver/parquet/planning_acp_cases.parquet

@@ -12,10 +12,17 @@ if it silently broke, would put a WRONG or UNSAFE figure in front of the public:
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import duckdb
 import pytest
 
 from dail_tracker_core.db import register_views
+
+_OUTLINES_JSON = (
+    Path(__file__).resolve().parents[2] / "data" / "_meta" / "local_authority_outlines.json"
+)
 
 pytestmark = pytest.mark.sql
 
@@ -107,6 +114,28 @@ def test_la_profile_reconciles_to_the_published_total(conn):
     ).fetchone()
     assert n_la == 31, f"expected 31 local authorities, got {n_la}"
     assert total == 32702, f"LA counts sum to {total}, not the source's Grand Total 32,702"
+
+
+def test_ipas_la_map_key_covers_all_outlines(conn):
+    """Every one of the 31 LAs must resolve to a real SVG-outline polygon, or the
+    'Where people are housed' choropleth silently drops that county to a no-data fill
+    while its bar still shows a rate — the map would then contradict the league table."""
+    rows = conn.execute(
+        "SELECT local_authority, map_key FROM v_ipas_la_profile"
+    ).fetchall()
+    unmapped = [la for la, key in rows if not key]
+    assert not unmapped, f"LAs with no choropleth map_key: {unmapped}"
+
+    keys = {key for _, key in rows}
+    assert len(keys) == 31, f"expected 31 distinct map_keys, got {len(keys)}"
+
+    outline_keys = set(
+        json.loads(_OUTLINES_JSON.read_text(encoding="utf-8"))
+        .get("local_authorities", {})
+        .keys()
+    )
+    missing = keys - outline_keys
+    assert not missing, f"map_keys with no matching outline polygon: {sorted(missing)}"
 
 
 def test_per_capita_is_never_imputed(conn):

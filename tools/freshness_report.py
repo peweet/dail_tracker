@@ -44,11 +44,15 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+from tools.cadence_constants import FRESHNESS_MAX_AGE_DAYS  # noqa: E402 — one home
+
 _FRESHNESS_JSON = _PROJECT_ROOT / "data" / "_meta" / "freshness.json"
 
-# Default "the pipeline should have run by now" budget: the manual refresh
-# cadence (~weekly) plus buffer. Tune via --max-age-days or FRESHNESS_MAX_AGE_DAYS.
-_DEFAULT_MAX_AGE_DAYS = 14
+# The "pipeline should have run by now" budget (see cadence_constants). Tune via
+# --max-age-days or FRESHNESS_MAX_AGE_DAYS.
+_DEFAULT_MAX_AGE_DAYS = FRESHNESS_MAX_AGE_DAYS
 
 
 def _parse_iso_date(value: str | None) -> date | None:

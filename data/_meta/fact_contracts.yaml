@@ -59,6 +59,18 @@ la_afs_capital_divisions:
   never_sum_with: awarded|payments|budget
   purpose: "Audited council CAPITAL accounts — distinct from revenue; never sum the two"
 
+la_afs_balance_sheet:
+  grain: "one row per (council,year,item)"
+  money_grain: balance_sheet_stock
+  never_sum_with: awarded|payments|budget|accounts
+  purpose: "AFS Balance Sheet line items (assets/debtors/creditors/loans_payable) — STOCKS/positions, never sum with any spend flow or across years; loans_payable is one item"
+
+la_afs_loan_movement:
+  grain: "one row per (council,year,item)"
+  money_grain: loan_movement
+  never_sum_with: awarded|payments|budget|accounts
+  purpose: "AFS Note 7 loan movement — opening/closing STOCKS + borrow/repay FLOWS (reconcile-gated); never sum a flow with a stock or with spend"
+
 afs_amalgamated_divisions:
   grain: "one row per (year,division) national"
   money_grain: accounts

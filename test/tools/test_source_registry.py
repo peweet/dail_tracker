@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.build_source_registry import (  # noqa: E402
     _RECORD_KEYS,
     adapt_afs,
+    adapt_api_canaries,
     adapt_hse_tusla,
     adapt_la,
     adapt_manual,
@@ -136,6 +137,16 @@ def test_manual_adapter_carries_glob_and_threshold():
     assert rec["input_pattern"] == "data/bronze/cro/companies_*.csv"
     assert rec["stale_after_days"] == 45
     assert rec["pollable"] is False
+
+
+def test_api_canary_adapter_emits_one_pollable_record_per_name():
+    recs = adapt_api_canaries(["ted", "wikidata", "new_feed"])
+    assert [r["source_id"] for r in recs] == ["api_canary:ted", "api_canary:wikidata", "api_canary:new_feed"]
+    assert all(r["check_type"] == "api_canary" and r["pollable"] for r in recs)
+    # an unmapped name degrades to itself rather than breaking
+    assert recs[-1]["name"] == "new_feed"
+    # schema stays uniform with every other record
+    assert all(_has_schema(r) for r in recs)
 
 
 def test_build_records_live_configs_are_importable_and_unique():

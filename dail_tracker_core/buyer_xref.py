@@ -76,6 +76,17 @@ def _load() -> tuple[dict[str, str], dict[str, dict[str, str]]]:
     return _CACHE
 
 
+def buyer_index() -> list[dict[str, str]]:
+    """Every curated body (identity only), sorted by display name — the /body landing index.
+    The dossier fetches each body's money lanes on demand; this is just the browse list."""
+    _, by_id = _load()
+    out = [
+        {"buyer_id": r["buyer_id"], "display_name": r["display_name"], "buyer_type": r["buyer_type"]}
+        for r in by_id.values()
+    ]
+    return sorted(out, key=lambda r: r["display_name"])
+
+
 def resolve_buyer(query: object) -> dict[str, Any] | None:
     """Resolve any register string / buyer_id to the curated identity, else ``None``.
 

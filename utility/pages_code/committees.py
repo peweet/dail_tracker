@@ -233,9 +233,46 @@ def _stage_register(
 
     # ── Committee row cards (NOT a dataframe) ─────────────────────────
     evidence_heading("Committees")
+    # Two captions the register needs, both stating something ONCE that the
+    # cards would otherwise repeat or leave unexplained (2026-07-20 clutter pass):
+    #  - status: cards badge only non-active states now, so name the default here;
+    #  - Joint/Select: near-identical NAMES made these read as duplicated rows.
+    #    They are different bodies — a Select committee is Dáil-only, a Joint one
+    #    adds Seanad members (verified in the register: Joint Disability Matters
+    #    17 members incl. 5 senators vs Select 12 with none). Say so once rather
+    #    than leaving the reader to guess at a "duplicate".
+    notes = []
+    if (st.session_state.get("reg_status") or "All statuses") != "Active":
+        notes.append("Committees are active unless a card is marked *Ended*.")
+    notes.append(
+        f"Where a subject appears twice, the two committees are different bodies: a "
+        f"**Select** committee is {member_label} only, a **Joint** committee is the same "
+        f"subject sitting with the other House as well. Member counts here are "
+        f"{member_label} on this committee — a Joint committee's members from the other "
+        f"House are listed under that chamber."
+    )
+    st.caption(" ".join(notes))
     REG_PAGE_SIZE = 25
     page_idx = paginate(len(summary), key_prefix="reg", page_size=REG_PAGE_SIZE)
     page_summary = summary.iloc[page_idx * REG_PAGE_SIZE : (page_idx + 1) * REG_PAGE_SIZE]
+
+    # ONE shared party-colour key (2026-07-21 clutter pass), replacing the
+    # per-card text legend the stripe used to carry on all 25 cards. Built from
+    # the parties actually present on this page, ordered by total seats so the
+    # biggest parties lead. Cards keep the stacked bar + per-segment hover.
+    seat_totals: dict[str, int] = {}  # logic_firewall: display_only
+    for _seats in page_summary["party_seats"]:
+        for _p, _c in _seats or []:
+            if _c and int(_c) > 0:
+                seat_totals[str(_p)] = seat_totals.get(str(_p), 0) + int(_c)
+    if seat_totals:
+        _key = "".join(
+            f'<span class="cmt-legend-item"><span class="cmt-legend-dot" '
+            f'style="background:{party_colour(p)}"></span>{_h(p)}</span>'
+            for p, _ in sorted(seat_totals.items(), key=lambda kv: (-kv[1], kv[0]))
+        )
+        st.html(f'<div class="cmt-legend">{_key}</div>')
+
     cards_html: list[str] = []
     for i, row in page_summary.iterrows():
         committee_name = str(row["committee"])

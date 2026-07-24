@@ -110,6 +110,16 @@ KNOWN_OPTIONAL: frozenset[str] = frozenset(
     }
 )
 
+# Parquet read at runtime by PYTHON core modules rather than by a SQL view. The view scan below
+# cannot see these, so without an entry here they fall through to `dead` ("untrack candidate") and
+# drop out of the shipped runtime set — the page that reads them then silently empties on Cloud,
+# which is exactly the failure the planning_appeal_outcomes .gitignore note describes.
+# Keep this list SHORT: a SQL view is still the preferred way to expose a fact.
+CORE_RUNTIME_READS: dict[str, str] = {
+    "data/silver/parquet/planning_acp_cases.parquet": "dail_tracker_core/siting/precedents.py "
+    "(nearby appeal history on the siting-check page)",
+}
+
 # Hand-curated ETL-input files kept deliberately for reproducibility — never read at runtime.
 # Seeded from doc/DATA_DISTRIBUTION_PLAN.md §"Candidate non-runtime": the per-source silver
 # payment-facts folded into gold procurement_payments_fact by the consolidate chain, plus the gold
@@ -184,6 +194,10 @@ def runtime_reads() -> tuple[dict[str, list[str]], list[str]]:
                 continue  # an export whose source lives outside data/ (none today) is not our concern
     except Exception as exc:  # noqa: BLE001 — never let an api-import hiccup silently drop the catalog
         _log.warning("could not import api.routers.exports EXPORTS (%s); export-served parquet not counted", exc)
+
+    # Parquet read by python core rather than by a view — invisible to the scan above.
+    for rel, reader in CORE_RUNTIME_READS.items():
+        _add(rel, f"core: {reader}")
 
     return readers, sorted(unresolved)
 

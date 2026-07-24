@@ -10,6 +10,10 @@ key: RECORD|LIVE|procurement
 
 # Competitor Analysis — Data Investigation & Enrichment Report
 
+> **Naming note:** "competitor" here = *which firms compete with a contractor* (a feature
+> built from our data). For *market rivals to our app* (Tussell, mySociety, FiscalNote) see
+> [COMPETITOR_LANDSCAPE.md](COMPETITOR_LANDSCAPE.md) — a different doc, do not conflate.
+
 **Scope:** can the Dáil Tracker procurement data support "who do I compete against, and which
 buyers are they strongest with?" for a contractor — using awards, TED, public-body payments and
 CRO matches. Use case: an electrical / M&E / construction contractor.

@@ -13,6 +13,7 @@ from ui.components import (
     back_button,
     clickable_card_link,
     empty_state,
+    evidence_heading,
     field_label,
     filter_bar,
     hide_sidebar,
@@ -186,9 +187,10 @@ def _td_pick_card_html(row: dict) -> str:
 def _render_td_picker(house: str = "Dáil") -> None:
     """Editorial 'Find a member' landing page with curated suggestion cards."""
     term = "Senator" if house == "Seanad" else "TD"
+    # Section heading under the page hero (2026-07-20 clutter pass), not a
+    # competing <h1>. The dek keeps its custom styling.
+    evidence_heading(f"Find a {term}")
     st.html(
-        '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
-        f'<h1 class="dt-hero">Find a {_h(term)}</h1>'
         '<p class="td-pick-dek">'
         f"Search for a {_h(term)} above, or jump straight in: here are recent "
         "votes on housing, health and other crucial legislation."
@@ -314,7 +316,9 @@ def _card_list_fragment(date_from, date_to, outcome_filter, house: str = "Dáil"
 
 def _render_mode_a(date_from, date_to, outcome_filter, house: str = "Dáil") -> None:
     term = "Senator" if house == "Seanad" else "TD"
-    st.html(f'<p class="dt-kicker">Dáil Tracker · Voting Record</p><h1 class="dt-hero">{_h(house)} Divisions</h1>')
+    # Section heading, not a second <h1>: the page hero (votes_page) now carries
+    # the identity, this names the current view under it (2026-07-20 clutter pass).
+    evidence_heading(f"{house} divisions")
     _card_list_fragment(date_from, date_to, outcome_filter, house)
 
     # P2-9: surface the provenance headline above the expander so the
@@ -446,10 +450,24 @@ def votes_page() -> None:
     if st.session_state["v_view"] in _legacy_view:
         st.session_state["v_view"] = _legacy_view[st.session_state["v_view"]]
 
+    # ── Page identity FIRST (2026-07-20 clutter pass) ───────────────────────────
+    # The page title used to render INSIDE _render_mode_a, i.e. BELOW the chamber
+    # toggle and the View/Outcome/Party filter bar — the only page on the site
+    # whose filters preceded its own title. A house-independent hero now leads
+    # the page (same order as every other page: title, then scope toggle, then
+    # filters); the per-mode headings below became section headings. Suppressed
+    # on the vote-detail drill (Mode C), which has its own back-button header.
+    if not sel_vote_id:
+        st.html(
+            '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
+            '<h1 class="dt-hero">Voting record</h1>'
+        )
+
     # ── Controls (was the sidebar) ──────────────────────────────────────────────
     # Sidebar→filter-bar migration: the View switch + filters move into a
-    # main-panel bar. The View toggle drives mode routing, so it sits above the
-    # per-mode hero; identity is carried by the top-nav tab + each mode's hero.
+    # main-panel bar. The View toggle drives mode routing; it now sits below the
+    # page hero above, with each mode carrying a section heading rather than a
+    # competing <h1>.
     hide_sidebar()
 
     # Chamber scope — Dáil (default) or Seanad. Divisions, member search and the
@@ -485,7 +503,9 @@ def votes_page() -> None:
 
     if prev_view == "Divisions":
         party_names = fetch_party_names(house)
-        with filter_bar([2, 2, 3, 5] if party_names else [2, 2, 8]) as cols:
+        # View column widened 2→3 (2026-07-20): gives the Divisions/Members
+        # segmented toggle room to stay on one line (paired with the nowrap CSS).
+        with filter_bar([3, 2, 3, 4] if party_names else [3, 2, 7]) as cols:
             with cols[0]:
                 field_label("View")
                 view_sel = st.segmented_control(
@@ -516,7 +536,7 @@ def votes_page() -> None:
                 sel_party = "" if party_sel == "All parties" else party_sel
     else:  # Members view — search a single member
         member_names = fetch_member_names(sel_party, house)
-        with filter_bar([2, 4, 6]) as cols:
+        with filter_bar([3, 4, 5]) as cols:  # View col 2→3 (2026-07-20), see above
             with cols[0]:
                 field_label("View")
                 view_sel = st.segmented_control(

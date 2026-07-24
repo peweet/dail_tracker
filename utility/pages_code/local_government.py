@@ -207,14 +207,28 @@ def _paths_bbox(paths: dict, names: set[str]) -> tuple[float, float, float, floa
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland", *, link_key: str = "la") -> str:
+def _choropleth_html(
+    quintile_by_name: dict,
+    alt: str,
+    zoom: str = "Ireland",
+    *,
+    link_key: str = "la",
+    fill_by_name: dict | None = None,
+    clickable: bool = True,
+) -> str:
     """All 31 authorities filled by quintile, as a FIXED-SIZE <img> data-URI with a
     clickable <map> overlay (each → ?<link_key>= soft-nav). When ``zoom`` names a region the
     SVG viewBox is cropped to that region's bounds and the image re-scaled to fill,
     enlarging otherwise-unclickable city targets. '' if no map geometry.
 
     ``link_key`` is the query param each area links to — "la" for this page's own dossier
-    (the default), "council" when the Your Council hub reuses the same map."""
+    (the default), "council" when the Your Council hub reuses the same map.
+
+    ``fill_by_name`` overrides the fill: a {authority → CSS colour} map used verbatim
+    (a name missing/None falls to the no-data colour). Callers that must honour a
+    non-quintile palette — e.g. the IPAS map painted in the C&AG's own Figure-10.2 bands —
+    pass this instead of relying on ``quintile_by_name``. ``clickable=False`` drops the
+    <map>/<area> overlay for a purely illustrative map with no per-authority drilldown."""
     outlines = fetch_la_outlines()
     paths = outlines.get("local_authorities", {})
     if not paths:
@@ -244,17 +258,20 @@ def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland", *,
     # click instead of resolving to the surrounding county).
     items = []  # (poly_area, path_html, area_html | None)
     for name, d in paths.items():
-        q = quintile_by_name.get(name)
-        try:
-            fill = _CHORO_PALETTE[int(q) - 1] if q is not None and 1 <= int(q) <= 5 else _CHORO_NODATA
-        except (TypeError, ValueError):
-            fill = _CHORO_NODATA
+        if fill_by_name is not None:
+            fill = fill_by_name.get(name) or _CHORO_NODATA
+        else:
+            q = quintile_by_name.get(name)
+            try:
+                fill = _CHORO_PALETTE[int(q) - 1] if q is not None and 1 <= int(q) <= 5 else _CHORO_NODATA
+            except (TypeError, ValueError):
+                fill = _CHORO_NODATA
         path_html = f'<path d="{d}" fill="{fill}" stroke="#fbf8f2" stroke-width="1.2"/>'
         subs = _path_subpaths(d)
         best = max(subs, key=_poly_area) if subs else None
         size = _poly_area(best) if best else 0.0
         area_html = None
-        if best:
+        if clickable and best:
             bxs = [x for x, _ in best]
             bys = [y for _, y in best]
             if not (max(bxs) < cx0 or min(bxs) > cx1 or max(bys) < cy0 or min(bys) > cy1):
@@ -270,11 +287,13 @@ def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland", *,
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{cx0:.1f} {cy0:.1f} {cw:.1f} {ch:.1f}">{"".join(body)}</svg>'
     )
     b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    usemap = ' usemap="#lg-choro-map"' if clickable and areas else ""
+    overlay = f'<map name="lg-choro-map">{"".join(areas)}</map>' if clickable and areas else ""
     return (
-        f'<img class="con-choropleth" width="{px_w}" height="{px_h}" '
-        f'usemap="#lg-choro-map" src="data:image/svg+xml;base64,{b64}" '
+        f'<img class="con-choropleth" width="{px_w}" height="{px_h}"'
+        f'{usemap} src="data:image/svg+xml;base64,{b64}" '
         f'alt="{_h(alt)}" loading="lazy">'
-        f'<map name="lg-choro-map">{"".join(areas)}</map>'
+        f"{overlay}"
     )
 
 

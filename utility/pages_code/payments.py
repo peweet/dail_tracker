@@ -97,7 +97,7 @@ def _clean_taa_label(raw: str) -> tuple[str, bool]:
     return clean, is_unmapped
 
 
-def _pay_card_html(row: pd.Series) -> str:
+def _pay_card_html(row: pd.Series, *, norm_count: int | None = None) -> str:
     """Member name card for the payments ranked list.
 
     Data ships names "Last, First" (sortable but unidiomatic) and TAA labels
@@ -105,6 +105,12 @@ def _pay_card_html(row: pd.Series) -> str:
     metadata). Both are normalised here for display. Unmapped bands carry a
     small caveat glyph + tooltip so the uncertainty is visible without dev
     jargon; mapped bands stay clean.
+
+    ``norm_count`` is the payment count shared by most members in the rendered
+    cohort. The "N payments" pill is omitted when this row matches it: nearly
+    every member has the same count, so the pill printed an identical value on
+    all 20 cards and carried no information (2026-07-20 clutter pass). A row
+    that DEVIATES still shows its pill — that is the case worth seeing.
     """
     name = _flip_name(str(row.get("member_name", "—")))
     pos = str(row.get("position", "Deputy"))
@@ -121,10 +127,10 @@ def _pay_card_html(row: pd.Series) -> str:
         if taa_unmapped
         else ""
     )
-    pills = (
-        f'<span class="{taa_pill_cls}">{taa}{taa_caveat}</span>'
-        f'<span class="pay-count-pill-accent">{count} payments</span>'
+    count_pill = (
+        "" if (norm_count is not None and count == norm_count) else f'<span class="pay-count-pill-accent">{count} payments</span>'
     )
+    pills = f'<span class="{taa_pill_cls}">{taa}{taa_caveat}</span>{count_pill}'
     badge = (
         f'<div class="pay-total-badge">'
         f'<span class="pay-total-badge-num">{total_str}</span>'
@@ -286,7 +292,15 @@ def _render_primary(year_options: list[str], summary: pd.Series, house: str, ter
         ]
     )
 
-    st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} {terms.lower()}")
+    # The count shared by most members in this cohort. Cards matching it drop
+    # their "N payments" pill (see _pay_card_html); the norm is stated once in
+    # the caption instead of repeated on every card.
+    _counts = ranking["payment_count"].dropna()  # logic_firewall: display_only
+    norm_count = int(_counts.mode().iloc[0]) if not _counts.empty else None  # logic_firewall: display_only
+    norm_note = (
+        f" · {norm_count} payments each unless a card says otherwise" if norm_count is not None else ""
+    )
+    st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} {terms.lower()}{norm_note}")
 
     top_10 = ranking.head(10)
     next_10 = ranking.iloc[10:20]
@@ -306,13 +320,13 @@ def _render_primary(year_options: list[str], summary: pd.Series, house: str, ter
                     cards.append(
                         clickable_card_link(
                             href=member_profile_url(code, section="payments"),
-                            inner_html=_pay_card_html(row),
+                            inner_html=_pay_card_html(row, norm_count=norm_count),
                             aria_label=f"View {_flip_name(name)}'s payments profile",
                         )
                     )
                 else:
                     # Member not in v_member_registry — render unwrapped.
-                    cards.append(_pay_card_html(row))
+                    cards.append(_pay_card_html(row, norm_count=norm_count))
             # Guard the empty column: the ranking is split into top-10 / next-10
             # columns, and st.html("") raises StreamlitAPIException. A cohort of
             # ≤10 (sparse year / small chamber) leaves the second column empty.

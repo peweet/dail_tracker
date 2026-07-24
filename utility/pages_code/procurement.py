@@ -148,6 +148,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.freshness_data import freshness_line
 from data_access.procurement_data import (
+    awards_register_norms,
+    resolve_buyer_identity,
     fetch_afs_by_division_result,
     fetch_afs_capital_by_division_result,
     fetch_afs_capital_by_year_result,
@@ -222,7 +224,13 @@ from data_access.procurement_data import (
     fetch_ted_tenders_stats_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
-from ui.entity_links import authority_profile_url, company_profile_url, council_accountability_url, entity_cta_html
+from ui.entity_links import (
+    authority_profile_url,
+    body_profile_url,
+    company_profile_url,
+    council_accountability_url,
+    entity_cta_html,
+)
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -1709,6 +1717,15 @@ def _render_payments_publisher_profile(
         f'<div class="pr-prof-sub">{_esc(" · ".join(sub_parts))}</div>'
         f"{accountability_html}</div>"
     )
+    # Cross-link to the unified /body dossier — it adds the CONTRACT-AWARDS lane this
+    # payments/AFS profile doesn't carry. GATED on the crosswalk so only the ~90 known
+    # bodies link (never a "not found" dead end).
+    if resolve_buyer_identity(publisher_name):
+        st.html(
+            '<div style="margin:-0.1rem 0 0.7rem">'
+            + entity_cta_html(body_profile_url(publisher_name), "View this body's full dossier — awards + payments →")
+            + "</div>"
+        )
     # Both lifecycle tiers side by side — distinct stages of public money, NEVER summed.
     if prow is not None:
         tier_pills = []
@@ -1899,6 +1916,21 @@ def _render_payments_supplier_profile(
     if pills:
         st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
 
+    # Forward edge into the firm's canonical /company dossier (awards, lobbying, CRO) —
+    # the reciprocal that lets a payments walk (Follow the Money / council spend) reach the
+    # whole-firm footprint. GATED: /company resolves only for suppliers on the awards
+    # register, so a payments-only firm gets NO link rather than a "Company not found"
+    # dead end (the nav-graph never-a-false-hand-off rule; mirrors the leaf below).
+    if supplier_norm in awards_register_norms():
+        st.html(
+            '<div style="margin:-0.1rem 0 0.75rem">'
+            + entity_cta_html(
+                company_profile_url(str(supplier_norm)),
+                "View full company dossier — awards, lobbying & CRO →",
+            )
+            + "</div>"
+        )
+
     if not tiers_present:
         empty_state("No payments found", "This firm has no sum-safe payment records.")
         st.html(_PAY_FOOT_HTML)
@@ -2061,11 +2093,13 @@ def _render_payment_lines(
         f'<div class="pr-prof-sub">{sub}</div></div>'
     )
 
-    # Forward edge: this leaf is company-class only, so always offer the firm's
-    # canonical /company dossier (awards, lobbying, CRO). Closes the council /
-    # follow-the-money → supplier → ledger → company path (the line items here are
-    # one body × one firm; the dossier is the firm's whole public-money footprint).
-    if supplier_norm:
+    # Forward edge: offer the firm's canonical /company dossier (awards, lobbying, CRO),
+    # closing the council / follow-the-money → supplier → ledger → company path (the line
+    # items here are one body × one firm; the dossier is the firm's whole footprint).
+    # GATED on the awards register: /company shows "Company not found" for a payments-only
+    # firm, so an unregistered supplier gets NO link rather than a dead end. (Was ungated —
+    # a false hand-off for the ~86% of paid suppliers that never won a public contract.)
+    if supplier_norm in awards_register_norms():
         st.html(
             '<div style="margin:-0.2rem 0 0.85rem">'
             + entity_cta_html(
@@ -3676,6 +3710,16 @@ def _render_authority_profile(authority: str) -> None:
         f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{_value_pill(row.get("awarded_value_safe_eur"))}</div>'
     )
 
+    # Forward edge into the body's canonical /body dossier (awards + payments unified).
+    # GATED: only the ~90 crosswalk bodies resolve, so an authority not in it gets NO link
+    # rather than a "not found" dead end (never a false hand-off).
+    if resolve_buyer_identity(authority):
+        st.html(
+            '<div style="margin:-0.1rem 0 0.85rem">'
+            + entity_cta_html(body_profile_url(authority), "View this body's full dossier — awards + payments →")
+            + "</div>"
+        )
+
     awards = fetch_awards_for_authority(authority)
     if awards is None or awards.empty:
         empty_state("No itemised awards", "This authority is in the ranking but no award rows were returned.")
@@ -4103,13 +4147,18 @@ def _page_lede(stats) -> None:
     finding_lede(sentences)
 
 
-def _data_completeness_note() -> None:
-    """Collapsed "How complete is this data?" honesty note. Static, sourced editorial prose
-    (no live metric — the firewall keeps computation in the view layer); the coverage figures
-    are documented point-in-time estimates from the 2026-06-08 coverage analysis, stated with
-    their caveats so a reader never mistakes this corpus for the whole of public spending."""
-    with st.expander("How complete is this data?"):
-        st.markdown(
+def _data_completeness_body() -> None:
+    """The "how complete is this data?" honesty note, WITHOUT its own expander.
+
+    Static, sourced editorial prose (no live metric — the firewall keeps computation in
+    the view layer); the coverage figures are documented point-in-time estimates from the
+    2026-06-08 coverage analysis, stated with their caveats so a reader never mistakes
+    this corpus for the whole of public spending. The caller nests it inside the single
+    "About this data" expander (2026-07-20 clutter pass) — it used to open its own, one
+    of three collapsed grey bars stacked between the hero and the section picker.
+    """
+    st.markdown("**How complete is this data?**")
+    st.markdown(
             "**Short answer: this is what public bodies publish — not the whole picture.** "
             "Treat every total here as a *floor* (at least this much, from the records we can see), "
             "never an audited figure.\n\n"
@@ -4133,7 +4182,7 @@ def _data_completeness_note() -> None:
         )
 
 
-def _lifecycle_strip() -> None:
+def _lifecycle_body() -> None:
     """ "How public money moves" — names the four realisation tiers (PLANNED → AWARDED →
     COMMITTED → SPENT) the page's sections already embody, so a reader sees one contract's
     life rather than four unrelated lists.
@@ -4165,19 +4214,21 @@ def _lifecycle_strip() -> None:
             f'<span class="pr-lc-note">{_esc(note)}</span>'
             "</div>"
         )
-    with st.expander("How public money moves"):
-        st.html(
-            '<div class="pr-lc">'
-            '<div class="pr-lc-head">'
-            "Four stages of one contract's life — each shown in its own section below, and never "
-            "added together (they sit in different registers with no shared key).</div>"
-            f'<div class="pr-lc-track">{"".join(cells)}</div>'
-            '<div class="pr-lc-sibling"><strong>Measured separately — audited accounts (AFS).</strong> '
-            "A council's budget by service division, on a different basis entirely. It lives in each "
-            "council's dossier under <em>Who actually gets paid?</em> and is never added to the stages above."
-            "</div>"
-            "</div>"
-        )
+    # No expander of its own: the caller nests this inside the single "About this
+    # data" expander (2026-07-20 clutter pass).
+    st.markdown("**How public money moves**")
+    st.html(
+        '<div class="pr-lc">'
+        '<div class="pr-lc-head">'
+        "Four stages of one contract's life — each shown in its own section below, and never "
+        "added together (they sit in different registers with no shared key).</div>"
+        f'<div class="pr-lc-track">{"".join(cells)}</div>'
+        '<div class="pr-lc-sibling"><strong>Measured separately — audited accounts (AFS).</strong> '
+        "A council's budget by service division, on a different basis entirely. It lives in each "
+        "council's dossier under <em>Who actually gets paid?</em> and is never added to the stages above."
+        "</div>"
+        "</div>"
+    )
 
 
 _BIDSIG_CSS = """
@@ -4474,9 +4525,12 @@ def procurement_page() -> None:
         "of influence or wrongdoing.</div>"
     )
     _page_lede(stats)
-    # Glossary tucked into a collapsed expander (declutter 2026-06-08) — there for first-time
-    # readers, but no longer a permanent block between the hero and the rankings.
-    with st.expander("What these terms mean"):
+    # ONE explainer door (2026-07-20 clutter pass). Terms, coverage honesty and the
+    # money-lifecycle model each used to open their own collapsed expander, so three
+    # grey bars stacked between the hero and the section picker and read as page
+    # furniture. Same three texts, same order, one bar — a reader who wants the
+    # background opens it once; a reader who wants the registers scrolls past one row.
+    with st.expander("About this data — terms, coverage, and how public money moves"):
         glossary_strip(
             [
                 ("Award value", "the contract value at the point of award — not money actually paid out"),
@@ -4485,18 +4539,16 @@ def procurement_page() -> None:
                 ("CRO", "Companies Registration Office — a matched company registration number"),
             ]
         )
-
-    _data_completeness_note()
+        st.divider()
+        _data_completeness_body()
+        st.divider()
+        # Names the four realisation tiers the sections below embody, so the section bar
+        # reads as "stages of one contract's life", not four disconnected lists.
+        _lifecycle_body()
 
     if _n(stats.get("n_suppliers")) == 0:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
         return
-
-    # Lifecycle explainer (collapsed): names the four realisation tiers the sections below
-    # embody, so the section bar reads as "stages of one contract's life", not four
-    # disconnected lists. Non-clickable on purpose — it used to duplicate the section bar as a
-    # second, bolder set of ?tab= links; the section bar is now the page's one navigation.
-    _lifecycle_strip()
 
     # Four top-level sections, phrased as the questions a reader actually brings
     # (doc/archive/APP_REDESIGN_SWEEP_2026_06_10.md §1 + doc/archive/PROCUREMENT_UI_BRIEF.md: registers →

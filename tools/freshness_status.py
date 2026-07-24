@@ -34,6 +34,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from tools.cadence_constants import GRACE  # noqa: E402 — one home for the grace factor
+
 HEARTBEAT_DIR = PROJECT_ROOT / "data" / "_meta" / "heartbeats"
 
 # Every refresh lane we expect to beat. ``cadence_hours`` is the expected interval;
@@ -79,9 +83,7 @@ LANES: dict[str, dict] = {
     },
 }
 
-# A beat is only LATE once it exceeds cadence * GRACE — absorbs a run that fires a
-# few hours behind schedule (laptop asleep, Actions queue) without false alarms.
-GRACE = 2.0
+# GRACE is imported from tools.cadence_constants (one home; see the import above).
 
 
 def _parse_iso(s: str) -> datetime:

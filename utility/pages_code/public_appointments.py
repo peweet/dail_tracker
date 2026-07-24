@@ -1409,8 +1409,11 @@ def _render_notices_tab(df: pd.DataFrame) -> None:
         search=st.session_state.get("pa_search"),
     )
 
-    # CSV export for journalists, secondary placement (above the feed
-    # rather than buried at the bottom).
+    _render_feed(filtered)
+
+    # CSV export for journalists, BELOW the feed (2026-07-20 clutter pass):
+    # above the list it was the first thing the eye landed on, ahead of the
+    # appointments themselves. Same placement as the Bills page.
     if not filtered.empty:
         csv_cols = [
             "issue_date",
@@ -1431,8 +1434,6 @@ def _render_notices_tab(df: pd.DataFrame) -> None:
             filename="dail_tracker_public_appointments.csv",
             key="pa_csv_download",
         )
-
-    _render_feed(filtered)
 
     # ── Provenance ────────────────────────────────────────────────────────
     provenance_expander(

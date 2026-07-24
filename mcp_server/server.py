@@ -198,7 +198,7 @@ from dail_tracker_core.queries import publicfinance as pf  # noqa: E402
 from dail_tracker_core.queries import sipo  # noqa: E402
 from dail_tracker_core.queries import votes as vot  # noqa: E402
 from dail_tracker_core.results import SourceUnavailable  # noqa: E402
-from mcp_server import code_index, qs_valuation, sql_index, ted_conduit  # noqa: E402
+from mcp_server import code_index, fts_index, qs_valuation, sql_index, ted_conduit  # noqa: E402
 
 mcp = FastMCP("dail-tracker")
 
@@ -1369,6 +1369,34 @@ def describe_dataset(name: str) -> dict:
 _PROJECT_INDEX: list[dict] | None = None
 _WORD = re.compile(r"[a-z0-9_]+")
 
+# Content FTS refresh throttle: an mtime walk is cheap but not free — at most one
+# refresh per _FTS_REFRESH_SECS per process. The memory dir slug follows Claude's
+# path-mangling convention (every [:\\/_] becomes '-'); if the dir doesn't exist
+# the index simply runs without memory files.
+_FTS_LAST = 0.0
+_FTS_REFRESH_SECS = 120
+
+
+def _memory_dir() -> Path | None:
+    slug = re.sub(r"[:\\/_]", "-", str(REPO))
+    p = Path.home() / ".claude" / "projects" / slug / "memory"
+    return p if p.is_dir() else None
+
+
+def _fts_ready() -> bool:
+    """Refresh the content index if stale; never let index trouble break the tool."""
+    global _FTS_LAST
+    import time as _t
+
+    if _t.monotonic() - _FTS_LAST < _FTS_REFRESH_SECS:
+        return True
+    try:
+        fts_index.refresh(REPO, _memory_dir())
+        _FTS_LAST = _t.monotonic()
+        return True
+    except Exception:
+        return False
+
 
 def _tokens(s: str) -> list[str]:
     return _WORD.findall((s or "").lower())
@@ -1469,7 +1497,9 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     question → this tool; specific view/module → the per-kind tool. Optional `kind`
     filter: 'dataset' | 'doc' | 'sql_view' | 'code'. It indexes METADATA only — never
     parquet rows or source bodies — so it is cheap and safe. Use it as the first move on
-    any "which dataset/view/doc/module covers …?" question, before Grep/Glob."""
+    any "which dataset/view/doc/module covers …?" question, before Grep/Glob.
+    v2: the reply may also carry `content_spans` — BM25-ranked AST/heading CHUNKS with
+    path + line span + snippet, so you Read only that span instead of the whole file."""
     q_tokens = _tokens(query)
     if not q_tokens:
         return {"error": "empty query"}
@@ -1509,9 +1539,25 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     top = scored[: max(1, min(limit, 50))]
     for r in top:
         r.pop("_s", None)
-    if not top:
+
+    # Content tier (v2): BM25 over AST/heading chunks — returns path + LINE SPAN +
+    # snippet so the follow-up is Read(path, offset, limit) of just that span, not a
+    # whole-file read. Fails soft: metadata results stand alone if the index is out.
+    spans: list[dict] = []
+    if _fts_ready():
+        with contextlib.suppress(Exception):
+            fts_kind = {"code": "code-chunk", "doc": "doc-section", "sql_view": "sql-view", "memory": "memory"}.get(
+                next(iter(want), ""), ""
+            )
+            spans = fts_index.search(REPO, query, limit=6, kind=fts_kind)
+
+    if not top and not spans:
         return {"query": query, "count": 0, "results": [], "hint": "no metadata match — try a broader term or Grep the source tree"}
-    return {"query": query, "count": len(top), "results": top}
+    out = {"query": query, "count": len(top), "results": top}
+    if spans:
+        out["content_spans"] = spans
+        out["span_hint"] = "content_spans give path+line span — Read(path, offset=start, limit=span_len) instead of the whole file"
+    return out
 
 
 @mcp.tool(annotations=_RO)
@@ -1524,6 +1570,84 @@ def code_outline(path: str, limit: int = 200) -> dict:
     module → code_outline(path) to find the def → Read(path, offset, limit) ONLY that
     span. Source is parsed with stdlib ast — never executed, bodies never returned."""
     return code_index.outline(REPO, path, limit=limit)
+
+
+@mcp.tool(annotations=_RO)
+def py_deps(path: str) -> dict:
+    """The Python analog of view_deps: repo-INTERNAL import edges for one module —
+    what it imports and, more importantly, every repo module that imports IT. Call
+    this BEFORE moving/renaming/deleting a .py file; `imported_by` is the blast
+    radius (empty + not an entrypoint is dead-code evidence, not proof). Accepts a
+    repo-relative path ('services/parquet_io.py') or dotted module
+    ('services.parquet_io'). Edges come from stdlib-ast parsing at index time —
+    deterministic for static imports, blind to dynamic/importlib ones."""
+    rel = path.replace("\\", "/").strip("/")
+    if not rel.endswith(".py"):
+        cand = rel.replace(".", "/")
+        rel = f"{cand}.py" if (REPO / f"{cand}.py").is_file() else f"{cand}/__init__.py"
+    if not (REPO / rel).is_file():
+        return {"error": f"no such module: {path}"}
+    if not _fts_ready():
+        return {"error": "index unavailable — try again"}
+    out = fts_index.deps(REPO, rel)
+    out["counts"] = {"imports": len(out["imports"]), "imported_by": len(out["imported_by"])}
+    return out
+
+
+@mcp.tool(annotations=_RO)
+def json_peek(path: str, expr: str = "", limit: int = 20) -> dict:
+    """Navigate a repo JSON/JSONL file WITHOUT reading it whole (fact_cards.json is
+    ~269KB — a whole-file Read is a context bomb and is hook-blocked). `expr` is a dot
+    path with [n] list indexing, e.g. 'layers[0].url' or 'judicial_legal_diary_cases.columns'.
+    Empty expr shows the top-level shape. Dicts return their keys + value types (values
+    only when scalar); lists return length + the first `limit` items, each truncated.
+    Output is hard-capped at ~2000 chars."""
+    import json as _json
+
+    p = (REPO / path).resolve()
+    if not str(p).startswith(str(REPO)) or p.suffix.lower() not in (".json", ".jsonl", ".geojson"):
+        return {"error": "path must be a repo-relative .json/.jsonl/.geojson file"}
+    if not p.is_file():
+        return {"error": f"not found: {path}"}
+    try:
+        if p.suffix.lower() == ".jsonl":
+            with p.open(encoding="utf-8") as fh:
+                obj = [_json.loads(ln) for _, ln in zip(range(max(1, limit)), fh)]
+        else:
+            obj = _json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001 — surface the parse error, never crash the server
+        return {"error": f"parse failed: {e}"}
+
+    # walk the dot-path
+    for part in [x for x in re.split(r"\.(?![^\[]*\])", expr) if x]:
+        m = re.match(r"([^\[]*)((\[\d+\])*)$", part)
+        key, idxs = (m.group(1), re.findall(r"\[(\d+)\]", m.group(2))) if m else (part, [])
+        try:
+            if key:
+                obj = obj[key]
+            for i in idxs:
+                obj = obj[int(i)]
+        except (KeyError, IndexError, TypeError):
+            keys = list(obj.keys())[:30] if isinstance(obj, dict) else f"list[{len(obj)}]" if isinstance(obj, list) else type(obj).__name__
+            return {"error": f"'{part}' not found", "available": keys}
+
+    def shape(o, depth=0):
+        if isinstance(o, dict):
+            if depth >= 1:
+                return f"dict[{len(o)}]"
+            return {k: shape(v, depth + 1) for k, v in list(o.items())[: max(1, limit)]}
+        if isinstance(o, list):
+            if depth >= 1:
+                return f"list[{len(o)}]"
+            return {"len": len(o), "items": [shape(x, depth + 1) for x in o[: max(1, limit)]]}
+        s = str(o)
+        return s if len(s) <= 120 else s[:120] + "…"
+
+    out = {"path": path, "expr": expr or "(root)", "value": shape(obj)}
+    if len(_json.dumps(out, default=str)) > 2400:
+        out["value"] = shape(obj, depth=1) if not isinstance(obj, (str, int, float, bool)) else out["value"]
+        out["note"] = "truncated to shape summary — narrow the expr"
+    return out
 
 
 @mcp.tool(annotations=_RO)
@@ -1710,11 +1834,11 @@ def siting_check(
     try:
         from dail_tracker_core.siting import brief as _brief
         from dail_tracker_core.siting import engine as _engine
-        from dail_tracker_core.siting.layers import LayerStore
+        from dail_tracker_core.siting.layers import make_store
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
         return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
 
-    store = LayerStore()
+    store = make_store()
     available = sorted(store.available())
     if not available:
         return {"error": "no planning-designation layers are ingested — siting check cannot run here"}

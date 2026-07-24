@@ -198,6 +198,7 @@ _NAME_STOP = re.compile(
     r"signed|dated|\beffect\b|office|chief|general\b|"
     r"regulations|\bnotice\b|appointment|members|\bstate\b|tribunal|commission|authority|agency|"
     r"persons|follows|university|institute|\bcollege\b|authorisation|instrument|behalf|"
+    r"schedules?\b|participation|approval|"
     r"january|february|march|april|\bmay\b|june|july|august|september|october|november|december|"
     r"eanáir|feabhra|márta|aibreán|bealtaine|meitheamh|iúil|lúnasa|fómhair|samhain|nollaig"
 )
@@ -227,7 +228,11 @@ def looks_like_name(s: str) -> bool:
     if not any(len(w) >= 3 for w in re.findall(r"[A-Za-zÁÉÍÓÚáéíóú]+", s)):
         return False  # rejects bare post-nominals/abbreviations like "AS", "TD"
     words = s.split()
-    if not (1 <= len(words) <= 6):
+    # >=2: the gazette always prints full names ("Seán Gillane"); a lone
+    # capitalised word is a sentence noun that slipped every other guard
+    # ("Schedules", "Within" — seen on the CIÉ participation-approval notice,
+    # which names no appointee at all).
+    if not (2 <= len(words) <= 6):
         return False
     caps = sum(1 for w in words if w[:1].isupper())
     return caps >= 1 and bool(re.search(r"[A-Za-zÁÉÍÓÚ]", s))

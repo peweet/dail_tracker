@@ -2366,7 +2366,11 @@ def corporate_page() -> None:
         type_label=_TYPE_GROUPS[type_idx][0],
     )
 
-    # CSV export
+    fund_active = (st.session_state.get("corp_fund_filter") or "All") != "All"
+    _render_feed(filtered, group_by_year=fund_active)
+
+    # CSV export, BELOW the feed (2026-07-20 clutter pass): above the list it
+    # was the loudest element on the page, ahead of the notices themselves.
     if not filtered.empty:
         csv_cols = [
             "issue_date",
@@ -2395,9 +2399,6 @@ def corporate_page() -> None:
             filename="dail_tracker_corporate_notices.csv",
             key="corp_csv_download",
         )
-
-    fund_active = (st.session_state.get("corp_fund_filter") or "All") != "All"
-    _render_feed(filtered, group_by_year=fund_active)
 
     # ── Provenance ────────────────────────────────────────────────────────
     provenance_expander(

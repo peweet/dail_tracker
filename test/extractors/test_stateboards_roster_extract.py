@@ -8,9 +8,11 @@ Run:  pytest test/extractors/test_stateboards_roster_extract.py -v
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 import polars as pl
+import pytest
 
 from extractors.stateboards_roster_extract import (
     _cache_slug,
@@ -151,6 +153,30 @@ def test_apply_curated_without_csv_is_shape_stable():
     assert gold.height == 2
     assert gold["wikidata_qid"].is_null().all()
     assert "wikidata_curation_note" in gold.columns
+
+
+def test_apply_curated_warns_on_orphaned_curation(caplog):
+    # a curated identity whose name has no roster seat is silently dropped by the
+    # LEFT join — the warn makes that wasted curation visible.
+    orphaned = pl.concat([
+        _CURATED,
+        _CURATED.with_columns(member_name=pl.lit("Ghost Person"), wikidata_qid=pl.lit("Q9")),
+    ])
+    with caplog.at_level(logging.WARNING):
+        gold = apply_curated(_ROSTER, orphaned)
+    assert "Ghost Person" in caplog.text
+    assert "no roster seat" in caplog.text
+    # the orphan is NOT invented into the roster; gold stays roster-shaped
+    assert gold.height == 2
+    assert "Ghost Person" not in gold["member_name"].to_list()
+
+
+def test_apply_curated_raises_on_duplicate_curated_name():
+    # two curated rows for one name would fan out the roster row — validate='m:1'
+    # must raise instead of silently duplicating a seat.
+    dup = pl.concat([_CURATED, _CURATED])
+    with pytest.raises(Exception, match="(?i)join|unique|validat"):
+        apply_curated(_ROSTER, dup)
 
 
 def test_cache_slug_stable_and_safe():

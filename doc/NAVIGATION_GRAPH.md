@@ -11,8 +11,12 @@ key: CONTEXT|LIVE|ui
 # Navigation Graph — composability map & defect register
 
 *Living map of how the app's pages link to one another as an entity graph.*
-Last verified empirically: 2026-06-20 (live DOM on a fresh server; see
-`audit_screenshots/_nav_graph_test.py`).
+Last verified empirically: 2026-07-21 — all claimed edges re-confirmed on live
+DOM, **0 mismatches** (`audit_screenshots/_nav_graph_edges.py`). The prior
+2026-06-20 register was also machine-checked; the 07-21 pass corrected the
+harness itself (see "Test method" below) and added a static ratchet
+(`tools/check_nav_graph.py`, in the fast suite) that flags any NEW contextual
+cul-de-sac at commit time.
 
 ## Why this exists
 
@@ -51,13 +55,21 @@ reframes everything:
 | Division / vote | `/rankings-votes?vote=` | `division_url` | ✅ |
 | Bill | `/rankings-legislation?bill=` | `bill_detail_url` | ✅ |
 | Statutory Instrument | `/rankings-statutory-instruments?si=` | `si_detail_url` | ✅ |
-| **Public body / authority / publisher / council** | — | — | ❌ **NO canonical node** (3 fragmented in-page drills) |
+| **Public body / authority / publisher / council** | `/body?buyer=` | `body_profile_url` | ✅ canonical (shipped 2026-07-23; the 3 drills funnel here, gated on the buyer_xref crosswalk) |
 | Lobbying organisation | — | `?lp3_org=` in-page only | ❌ island |
 | Judge / court | `?judge=` / `?court=` in-page only | — | island |
 | Party · constituency · department · policy area · state board | — | — | island (likely honest leaves) |
 
-The structural gap: the money graph's **seller** side has a canonical node
-(`/company`); the **buyer** side does not. See the deep dive below.
+**Update 2026-07-23 — the buyer node shipped.** The structural gap below (seller has
+`/company`, buyer had nothing) is now closed: `/body?buyer=` is the buyer-side mirror,
+resolving any register name via the `buyer_xref` crosswalk and showing the AWARDS and
+PAYMENTS lanes as distinct never-summed grains. The three fragmented drills (procurement
+`?authority=`, public_payments `?publisher=`, council_spending `?council=`) now carry a
+gated "View this body's full dossier" hand-off to it. MVP scope: awards + payments lanes +
+top suppliers (each linking back to `/company`, closing supplier↔body). Deferred: the
+authority×CPV panel, competition/incumbency/live-tender/budget/NOAC enrichment, and a
+canonical fix of the crosswalk's council name-form rows (the dossier tolerates them via
+`buyer_core` normalisation). The deep dive below is kept as the original diagnosis.
 
 ## Defect register (verified 2026-06-20)
 
@@ -135,15 +147,29 @@ the server idle-reaps on this box, so spawn detached via WMI
 `Win32_Process.Create` and re-poll `/_stcore/health`. Note `localhost`
 resolves to IPv6 here — use `127.0.0.1`.
 
-- `audit_screenshots/_nav_graph_test.py` — the four core claims (A baseline edge
-  fires, B/C false dead-ends, D return edge).
-- `audit_screenshots/_nav_graph_probe2.py` — characterise back-links (nav chrome
-  vs contextual); URL-drill Public Payments.
-- `audit_screenshots/_nav_graph_probe3.py` — confirm a payments supplier
-  resolves to a real `/company` dossier (proves the target exists).
-- `audit_screenshots/_nav_graph_verify.py` — re-test #1 and #2 after the fixes.
+- `audit_screenshots/_nav_graph_edges.py` — **the single live-DOM verifier**
+  (2026-07-21). Drives each claimed edge on its CORRECT detail state and asserts
+  present/absent. It subsumes the six exploratory 06-20 probes (four-claims test,
+  chrome-vs-contextual model validation v1/v2, back-link characterisation, post-fix
+  re-tests), now archived under `audit_screenshots/_archive/_nav_graph_*.py` — the
+  model narrative they proved lives in "The two edge classes" above.
 
-Convention going forward: score edges by *does the entity travel?* and add a
-lint that flags a known entity column (`bill_id`, `supplier_normalised`,
-`unique_member_code`, `vote_id`, `si_id`) rendered in a card without a matching
-`entity_links` helper — to stop regressions.
+⚠️ **Two harness traps the 07-21 re-verification exposed — both were false
+"mismatches", not app regressions.** State-indexing is subtler than "hit the detail
+page": some edges are *further* gated, and a blind first-candidate seed lands on an
+ineligible entity.
+1. The `member → bill` edge lives behind the `?section=legislation` router
+   (`member_overview.py:_section_legislation`) — the default overview never shows it,
+   so drive `?section=legislation`. And a member with no bills in their own section
+   (e.g. seeded off an old bill's sponsor) is a legitimate absent → iterate sponsors.
+2. The `public-payments → company` CTA is **registry-gated** (`public_payments.py:523`,
+   `supplier_norm in _awards_register_norms()`): most paid suppliers are payments-only
+   and get *no* link, by design (never a false hand-off). Seed suppliers from the
+   Procurement landing (awards-registered) or the edge reads as broken when it isn't.
+
+Convention going forward: score edges by *does the entity travel?*. The static ratchet
+`tools/check_nav_graph.py` (fast suite, `test/tools/test_nav_graph.py`) flags any known
+entity column (`bill_id`, `supplier_normalised`, `unique_member_code`, `vote_id`,
+`si_id`, `contracting_authority`) rendered without a matching `entity_links` helper.
+Detection is AST-level so comments/docstrings don't false-positive; a page that IS an
+entity's canonical destination is exempt; accepted drops are grandfathered in BASELINE.

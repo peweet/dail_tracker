@@ -1414,7 +1414,10 @@ def _render_browse(conn) -> None:
     # Resolve the current page slice via the reusable paginate() helper.
     # The pagination_controls() call below renders the chip row + caption
     # underneath the grid using the same key_prefix / page_size.
-    MO_PAGE_SIZE = 12
+    # 24, the site-wide list convention (2026-07-20 clutter pass). At 12 this
+    # grid needed 15 pages for 176 TDs while two-thirds of the viewport sat
+    # empty below the cards.
+    MO_PAGE_SIZE = 24
     pager_key = "mo_browse"
     page_idx = paginate(showing, key_prefix=pager_key, page_size=MO_PAGE_SIZE)
     visible = filtered.iloc[page_idx * MO_PAGE_SIZE : (page_idx + 1) * MO_PAGE_SIZE]

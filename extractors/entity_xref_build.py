@@ -8,8 +8,19 @@ yielded ~0) is bridged HERE without touching the four source extractors.
 
 Anchor = the procurement-supplier universe (keyed on ``supplier_norm``) — the same key
 the company dossier page (utility/pages_code/company.py, /company?supplier=) is entered
-on. For each supplier it LEFT-joins, on the canonical key, its cross-register presence:
+on. **Since 2026-07-18 that universe is AWARD suppliers UNION PAYMENT suppliers**; v1 was
+award-only, which made the spine blind to companies that are paid but never named as an
+award winner (JV / PPP-bundle / operating-subsidiary vehicles). For each supplier it
+LEFT-joins, on the canonical key, its cross-register presence:
 CRO identity, lobbying footprint, corporate-notice count, charity status, EPA licence.
+
+⚠️ ``awarded_value_safe_eur`` and ``paid_value_safe_eur`` are DIFFERENT MONEY GRAINS
+(contracted vs disbursed). Carry both, show both, NEVER sum them — see ``_anchor()``.
+
+⚠️ This is ENTITY resolution, not GROUP resolution. Distinct legal entities of one
+corporate group (``BAM CIVIL`` / ``BAM BUILDING`` / ``WILLS BAM JV`` …) stay SEPARATE
+rows: they are different names for different legal persons, so the canonical name key
+cannot merge them — that needs a parent/subsidiary hierarchy CRO does not publish.
 That is exactly the fusion the company page tries to show today but under-matches,
 because its corporate panel joins on CRO ``company_num`` only (misses notices that never
 got a CRO number but whose name matches a known supplier).
@@ -60,6 +71,7 @@ from shared.name_norm import name_norm_expr  # noqa: E402
 
 GOLD = ROOT / "data/gold/parquet"
 AWARDS = GOLD / "procurement_awards.parquet"
+PAYMENTS = GOLD / "procurement_payments_fact.parquet"
 CRO_MATCH = GOLD / "procurement_supplier_cro_match.parquet"
 OVERLAP = GOLD / "procurement_lobbying_overlap.parquet"
 CORP = GOLD / "corporate_notices.parquet"
@@ -75,18 +87,84 @@ def hr(t: str) -> None:
     print(f"\n{'=' * 70}\n{t}\n{'=' * 70}")
 
 
-def _suppliers() -> pl.DataFrame:
-    """The anchor universe: one row per company-class, non-truncated supplier_norm."""
+def _award_suppliers() -> pl.DataFrame:
+    """Award-side anchor: one row per company-class, non-truncated supplier_norm."""
     aw = pl.read_parquet(AWARDS)
     return (
         aw.filter((pl.col("supplier_class") == "company") & ~pl.col("name_truncated"))
         .filter(pl.col("supplier_norm").str.len_chars() >= MIN_LEN)
         .group_by("supplier_norm")
         .agg(
-            pl.col("supplier").mode().first().alias("display_name"),
+            pl.col("supplier").mode().first().alias("display_name_award"),
             pl.len().alias("procurement_award_rows"),
             pl.col("value_eur").filter(pl.col("value_safe_to_sum")).sum().alias("awarded_value_safe_eur"),
         )
+    )
+
+
+def _payment_suppliers() -> pl.DataFrame:
+    """Payment-side anchor: one row per company-class payment supplier.
+
+    Added 2026-07-18. The v1 spine anchored on AWARDS ONLY, which made it blind to any
+    company that is paid but never appears as a named award winner — the majority case for
+    JV / PPP-bundle / operating-subsidiary vehicles. Measured before this change: BAM's spine
+    row showed €115.9m awarded and €0 paid, while €942.7m of actual BAM payments sat in seven
+    entities (BAM CIVIL, BAM BUILDING, WILLS BAM JV, BAM SCHOOLS BUNDLE THREE, BAM COURTS
+    BUNDLE, BAM GLASGIVEN JV, BAM) that were ABSENT from the spine entirely.
+
+    PRIVACY: filtered to ``supplier_class == 'company'``, which is what keeps natural persons
+    out of a public cross-register spine (the award side excludes them the same way). Verified
+    2026-07-18: every company-class payment row carries ``privacy_status='ok'`` and
+    ``public_display=true``, so this filter alone satisfies the privacy rail — 6,042
+    sole-trader/individual, 1,345 public-body and 820 id-code names stay out by construction.
+
+    NOTE the asymmetry with the award side: the payments fact has NO ``name_truncated`` flag,
+    so truncated payment names cannot be excluded the way award names are. The MIN_LEN floor
+    is the only guard here; treat payment-only display names as less clean.
+    """
+    return (
+        pl.read_parquet(
+            PAYMENTS,
+            columns=["supplier_normalised", "supplier_raw", "supplier_class", "amount_eur", "value_safe_to_sum"],
+        )
+        .filter(pl.col("supplier_class") == "company")
+        .filter(pl.col("supplier_normalised").is_not_null())
+        .filter(pl.col("supplier_normalised").str.len_chars() >= MIN_LEN)
+        .group_by("supplier_normalised")
+        .agg(
+            pl.col("supplier_raw").mode().first().alias("display_name_payment"),
+            pl.len().alias("payment_rows"),
+            pl.col("amount_eur").filter(pl.col("value_safe_to_sum")).sum().alias("paid_value_safe_eur"),
+        )
+        .rename({"supplier_normalised": "supplier_norm"})
+    )
+
+
+def _anchor() -> pl.DataFrame:
+    """The anchor universe = award suppliers ∪ payment suppliers (both company-class).
+
+    ⚠️ THREE-GRAIN RULE: ``awarded_value_safe_eur`` (what was CONTRACTED) and
+    ``paid_value_safe_eur`` (what was PAID OUT) are DIFFERENT MONEY GRAINS and must NEVER be
+    summed or added together — see [[reference_data_map]]. They are carried side by side so a
+    consumer can show both, never one total. A supplier legitimately has one without the other:
+    an award with no payment record, or payments under a vehicle that never won a named award.
+    """
+    aw = _award_suppliers()
+    pay = _payment_suppliers()
+    return (
+        aw.join(pay, on="supplier_norm", how="full", coalesce=True)
+        .with_columns(
+            pl.col("procurement_award_rows").fill_null(0),
+            pl.col("payment_rows").fill_null(0),
+        )
+        .with_columns(
+            in_awards=pl.col("procurement_award_rows") > 0,
+            in_payments=pl.col("payment_rows") > 0,
+            # Prefer the award-side display name (cleaner: truncation-filtered) and fall
+            # back to the payment-side raw name for payment-only entities.
+            display_name=pl.coalesce("display_name_award", "display_name_payment"),
+        )
+        .drop("display_name_award", "display_name_payment")
     )
 
 
@@ -136,9 +214,13 @@ def _epa() -> pl.DataFrame:
 
 
 def main() -> None:
-    sup = _suppliers()
+    sup = _anchor()
     hr("PROCUREMENT SUPPLIER ANCHOR (company-class, matchable)")
     print(f"distinct suppliers: {sup.height:,}")
+    print(
+        f"  award-side: {int(sup['in_awards'].sum()):,} | payment-side: {int(sup['in_payments'].sum()):,} | "
+        f"both: {int((sup['in_awards'] & sup['in_payments']).sum()):,}"
+    )
 
     xref = (
         sup.join(_cro(), on="supplier_norm", how="left")
@@ -171,8 +253,14 @@ def main() -> None:
             "display_name",
             "company_num",
             "has_cro",
+            "in_awards",
+            "in_payments",
             "procurement_award_rows",
+            # ⚠️ NEVER add these two together — awarded (contracted) and paid (disbursed)
+            # are different money grains. See _anchor() and [[reference_data_map]].
             "awarded_value_safe_eur",
+            "payment_rows",
+            "paid_value_safe_eur",
             "on_lobbying_register",
             "lobby_returns",
             "has_corporate_notice",
@@ -181,7 +269,13 @@ def main() -> None:
             "has_epa_licence",
             "cross_register_count",
         )
-        .sort(["cross_register_count", "awarded_value_safe_eur"], descending=True, nulls_last=True)
+        # Rank by cross-register reach, then by the larger of the two money grains — a
+        # max(), NOT a sum: adding awarded to paid would breach the three-grain rule.
+        .sort(
+            ["cross_register_count", "awarded_value_safe_eur", "paid_value_safe_eur"],
+            descending=True,
+            nulls_last=True,
+        )
     )
 
     # Row floor: the anchor is thousands of suppliers; a tiny frame means a broken input.
@@ -192,19 +286,28 @@ def main() -> None:
         json.dumps(
             {
                 "supplier_entities": xref.height,
+                "in_awards": int(xref["in_awards"].sum()),
+                "in_payments": int(xref["in_payments"].sum()),
+                "in_both": int((xref["in_awards"] & xref["in_payments"]).sum()),
                 "with_cro": int(xref["has_cro"].sum()),
                 "on_lobbying_register": int(xref["on_lobbying_register"].sum()),
                 "with_corporate_notice": int(xref["has_corporate_notice"].sum()),
                 "is_charity": int(xref["is_charity"].sum()),
                 "has_epa_licence": int(xref["has_epa_licence"].sum()),
                 "on_2plus_extra_registers": n_multi,
-                "anchor": "procurement supplier universe (supplier_norm), company-class + non-truncated",
+                "anchor": "procurement supplier universe (supplier_norm), company-class: AWARD suppliers "
+                "(non-truncated) UNION PAYMENT suppliers. Extended from award-only 2026-07-18.",
                 "match_method": "exact CANONICAL normalised-name (shared/name_norm.name_norm_expr) + CRO company_num",
+                "never_sum": "awarded_value_safe_eur and paid_value_safe_eur are DIFFERENT MONEY GRAINS "
+                "(contracted vs disbursed) — show side by side, NEVER add together.",
                 "caveat": "Co-occurrence by ENTITY only — the SAME organisation appears on several public "
                 "registers. NOT evidence one caused another; there is no key linking a specific lobby or "
                 "meeting to a specific contract. Exact normalised-name / CRO matching UNDERCOUNTS (subsidiary "
                 "and trading-name variants missed) and short generic names can collide — counts are floors, "
-                "not verdicts. Sole traders / individuals excluded upstream.",
+                "not verdicts. Sole traders / individuals excluded upstream. Distinct legal entities, JVs and "
+                "PPP vehicles of the same corporate GROUP remain SEPARATE rows — name normalisation cannot "
+                "merge them (that needs a parent/subsidiary hierarchy CRO does not publish), so a group's "
+                "true total is spread across rows.",
             },
             indent=2,
         ),

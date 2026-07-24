@@ -36,6 +36,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 from manifest import (
@@ -44,6 +45,7 @@ from manifest import (
     record_step_started,
     run_finished_at,
 )
+from services.logging_cloud import cloud_mode, log_event
 from services.logging_setup import setup_logging
 from services.run_paths import ENV_RUN_ID, make_run_id, run_dir, step_log_path
 
@@ -122,6 +124,13 @@ CHAINS: list[tuple[str, str]] = [
     # spend-by-service-division fact (BUDGET/SPENT-tier macro context). Standalone —
     # self-fetches + caches PDFs to bronze, no deps, headless-safe.
     ("afs", "extractors/afs_amalgamated_extract.py"),
+    # per-LA AFS balance sheet + Note-7 loan movement -> silver financial-POSITION facts
+    # (STOCKS + borrow/repay flow). Pure READ-ONLY transforms over the bronze AFS PDF cache
+    # (data/bronze/pdfs/la_afs, populated out-of-band by the per-LA AFS revenue refresh,
+    # extractors/la_afs_extract.py — same as the capital sibling); NO network, headless-safe.
+    # NOAC carries no balance-sheet series, so this is the only source of council debt/assets.
+    ("afs_balance_sheet", "extractors/la_afs_balancesheet_extract.py"),
+    ("afs_loan_movement", "extractors/la_afs_loanmovement_extract.py"),
     # cbi runs last: its corporate-notices xref joins gold corporate_notices
     # (produced by iris) against the CBI register extract. Skips re-download
     # when the source PDFs are cached, so routine runs are extract+xref only.
@@ -295,6 +304,9 @@ CHAINS: list[tuple[str, str]] = [
     # reachability when DAIL_CHECK_LINKS=1). Monitoring only — always exits 0 (a
     # separate --strict run gates CI). Pure read — never mutates pipeline data.
     ("source_health", "tools/build_source_health.py"),
+    # (source traffic-light — cadence + health-duration — is folded into
+    # tools/migration/check_source_cadence.py, run as a canary once its cadence
+    # ledger is curated; it is NOT a pipeline chain while it stays transitional.)
     # output_regressions runs last: the COMPLETENESS guard (vs freshness's recency).
     # Compares the just-built gold against data/_meta/output_baseline.json and writes
     # output_regressions.json flagging silent row-thinning / emptied tables / removed
@@ -543,20 +555,43 @@ def _run_chain(
     log_path = step_log_path(run_id, ordinal, name)
     record_step_started(run_id, ordinal, name, script, log_path)
 
+    def _trace(status: str, exit_code: int | None, started: float) -> None:
+        # One structured span per step — the streamable form of what the manifest
+        # already records to disk. Cloud-only: a local run has the per-step files,
+        # so emitting here too would be the "useless data" the trace is meant to avoid.
+        if not cloud_mode():
+            return
+        log_event(
+            "pipeline_step",
+            logger="pipeline",
+            level=logging.WARNING if status == "failed" else logging.INFO,
+            step=name,
+            ordinal=ordinal,
+            total=total,
+            status=status,
+            exit_code=exit_code,
+            duration_ms=round((time.perf_counter() - started) * 1000, 1),
+        )
+
+    started = time.perf_counter()
     try:
         exit_code, summary, timed_out = _run_subprocess(run_id, name, script, log_path)
         if timed_out:
             err = f"timed out after {_chain_timeout(name)}s"
             logging.error("Pipeline chain %s failed: %s", name, err)
+            _trace("failed", exit_code, started)
             return "failed", exit_code, summary, err
         if exit_code != 0:
             err = f"exit code {exit_code}"
             logging.error("Pipeline chain %s failed: %s", name, err)
+            _trace("failed", exit_code, started)
             return "failed", exit_code, summary, err
         logging.info("Pipeline chain finished: %s", name)
+        _trace("ok", exit_code, started)
         return "ok", exit_code, summary, None
     except Exception as e:  # noqa: BLE001 — orchestrator must isolate every failure mode
         logging.error("Pipeline chain %s failed: %s", name, e)
+        _trace("failed", None, started)
         return "failed", None, None, str(e)
 
 

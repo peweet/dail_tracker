@@ -49,21 +49,26 @@ from ui.components import (
     clickable_card_link,
     dt_page,
     empty_state,
+    field_label,
     glossary_strip,
     hero_banner,
     info_card,
     subsection_heading,
+    year_selector,
 )
 from ui.format import eur, fmt_int
 
+# The "Coverage" entry was removed 2026-07-20 (clutter pass): the same
+# self-curated / non-exhaustive / quarterly-in-arrears sentence was stated
+# THREE times on one screen — header badges, this strip, and the
+# "Source & limits" provenance block — twice of them near word-for-word.
+# A caveat repeated three times stops being read. The compact badge carries
+# it above the fold; _provenance() carries the full statement, which is where
+# limits belong. These two entries are term definitions, not caveats.
 _GLOSSARY = [
     (
         "Meeting",
         "An external engagement a minister logged in their own published diary — every one is shown, sourced to the original document.",
-    ),
-    (
-        "Coverage",
-        "Diaries are self-curated, non-exhaustive and published quarterly-in-arrears. What's here is what departments published; an absence is not proof a meeting didn't happen.",
     ),
     (
         "No inference",
@@ -170,9 +175,25 @@ _RENDER_CAP = 3000
 def _period_controls(meetings: pd.DataFrame) -> tuple[str, str]:
     d = pd.to_datetime(meetings["entry_date"], errors="coerce")
     years = sorted(d.dt.year.dropna().astype(int).unique().tolist(), reverse=True)
-    c1, c2 = st.columns(2)
-    year = c1.selectbox("Year", [_ALL_YEARS, *(str(y) for y in years)], key="diary_year")
-    month = c2.selectbox("Month", [_ALL_MONTHS, *_MONTHS], key="diary_month", disabled=(year == _ALL_YEARS))
+    # Year is the shared pill control now (2026-07-20 year-grammar migration):
+    # year_selector is the app's single year filter — pills everywhere, never a
+    # dropdown. include_all → an "All years" pill that returns None. The result
+    # is converted back to the _ALL_YEARS / str(year) form the period filters
+    # already speak, so the downstream logic is untouched. Month stays a
+    # dependent selectbox — it's a sub-facet with no site-wide equivalent, and
+    # only shows once a year is picked (a month means nothing across all years).
+    field_label("Year")
+    year_i = year_selector([str(y) for y in years], key="diary_year", include_all=True)
+    year = _ALL_YEARS if year_i is None else str(year_i)
+    if year == _ALL_YEARS:
+        month = _ALL_MONTHS
+    else:
+        _c, _ = st.columns([1, 2])
+        with _c:
+            field_label("Month")
+            month = st.selectbox(
+                "Month", [_ALL_MONTHS, *_MONTHS], key="diary_month", label_visibility="collapsed"
+            )
     return year, month
 
 

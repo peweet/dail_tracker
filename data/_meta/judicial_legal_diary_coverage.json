@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-07-20T10:28:15.450926+00:00",
+  "generated_at": "2026-07-23T22:27:42.464599+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -143,33 +143,54 @@
       "sha256": "9471f7967ebfbb37",
       "sessions": 141,
       "cases": 1483
+    },
+    {
+      "file": "2026-07-21.docx",
+      "diary_date": "2026-07-21",
+      "sha256": "87ee6e3128aa1ba7",
+      "sessions": 134,
+      "cases": 1106
+    },
+    {
+      "file": "2026-07-22.docx",
+      "diary_date": "2026-07-22",
+      "sha256": "4201a26fcd35cb6d",
+      "sessions": 71,
+      "cases": 534
+    },
+    {
+      "file": "2026-07-24.docx",
+      "diary_date": "2026-07-24",
+      "sha256": "013d032351ee2193",
+      "sessions": 82,
+      "cases": 499
     }
   ],
-  "n_days": 20,
-  "tier_a_sessions": 1933,
-  "tier_b_counts": 1108,
-  "case_lines_parsed": 13892,
-  "cases_dropped_protected": 2172,
-  "cases_kept_anonymised": 11707,
+  "n_days": 23,
+  "tier_a_sessions": 2220,
+  "tier_b_counts": 1292,
+  "case_lines_parsed": 16031,
+  "cases_dropped_protected": 2723,
+  "cases_kept_anonymised": 13292,
   "drop_reasons": {
-    "asylum": 1204,
-    "minor": 378,
-    "child and family": 374,
-    "family law": 148,
+    "asylum": 1696,
+    "minor": 422,
+    "child and family": 379,
+    "family law": 151,
     "adoption": 18,
+    "guardian": 17,
     "custody": 16,
-    "guardian": 13,
     "ward of court": 13,
+    "in camera": 5,
     "childcare": 3,
     "tusla": 2,
-    "in camera": 2,
     "special education": 1
   },
   "plaintiff_kinds": {
-    "individual": 7429,
-    "state-prosecutor": 2225,
-    "organisation": 1885,
-    "state-body": 168
+    "individual": 8428,
+    "state-prosecutor": 2605,
+    "organisation": 2070,
+    "state-body": 189
   },
   "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."
 }

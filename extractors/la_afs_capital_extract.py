@@ -309,6 +309,49 @@ def _income_col(totrow: list, exp_c: int = 1, open_c: int = 0) -> int | None:
     return min(cands, key=lambda c: abs(totrow[c] - exp_total))
 
 
+def _funding_split(vals: list, inc_c: int | None) -> tuple[float | None, float | None, float | None]:
+    """(grants_lpt, non_mortgage_loans, other_income) for one division row, else (None,)*3.
+
+    The statutory capital appendix orders the income sources between Expenditure (c1) and
+    Total Income::
+
+        Balance@1/1 | EXPENDITURE | Grants and LPT | Non-Mortgage Loans* | Other |
+        Total Income | Transfer from Revenue | Transfer to Revenue | Internal Transfers |
+        Balance@31/12
+
+    WHY THIS MATTERS: grant-funded and debt-funded capital are different stories. Dropping
+    these columns (as this extractor did until 2026-07-18) hides WHICH — e.g. Galway City 2022
+    Miscellaneous Services spent €44,715,840 with NIL grants and a €45,500,000 non-mortgage
+    loan, while its Housing division the same year was grant-funded. A loan-funded spike is a
+    discretionary council borrowing decision; a grant-funded one is usually a national scheme.
+
+    ⚠️ The PARSED column count VARIES: a column empty in every row forms no x-cluster, so
+    galway_city/2022 p37 yields 10 columns while south_dublin/2024 p41 and donegal/2023 p52
+    yield 9 (their "Other" collapsed). With only two components present it is genuinely
+    AMBIGUOUS which of Grants/Loans/Other went missing, and mis-labelling €92m of borrowing as
+    "other income" (or vice versa) would be a serious false statement about a council. So:
+
+      * exactly THREE components between Expenditure and Total Income -> assign by the
+        statutory order above, but only if they reconcile to that row's Total Income;
+      * anything else -> all three None, an honest "not extracted".
+
+    Header-position matching was tried and rejected: the labels are left-aligned above
+    right-aligned figures, so nearest-column matching drifts by one once a column collapses.
+    """
+    if inc_c is None or len(vals) <= inc_c:
+        return None, None, None
+    income = vals[inc_c]
+    if income is None:
+        return None, None, None
+    components = vals[2:inc_c]
+    if len(components) != 3:
+        return None, None, None  # ambiguous layout — never guess which source is missing
+    parts = [p for p in components if p is not None]
+    if not parts or abs(sum(parts) - income) >= RECON_TOL:
+        return None, None, None
+    return components[0], components[1], components[2]
+
+
 def ingest(slug: str, cf: dict) -> tuple[list[dict], dict]:
     """Parse EVERY cached AFS for this council → multi-year capital-by-division series (the
     capital twin of the revenue multi-year lift). Each year is reconcile-gated independently;
@@ -374,7 +417,10 @@ def _ingest_one(path: Path, slug: str, cf: dict) -> tuple[list[dict], dict]:
     exp_total = totrow[1]
     inc_total = totrow[inc_c] if inc_c is not None else None
     rows = []
+    n_funded = 0
     for div, vals in mat.items():
+        grants, loans, other_inc = _funding_split(vals, inc_c)
+        n_funded += grants is not None or loans is not None or other_inc is not None
         rows.append(
             {
                 "council": cf["council"],
@@ -385,6 +431,11 @@ def _ingest_one(path: Path, slug: str, cf: dict) -> tuple[list[dict], dict]:
                 "division": div,
                 "capital_expenditure": vals[1],
                 "capital_income": vals[inc_c] if inc_c is not None else None,
+                # Funding split of capital_income — reconcile-gated, None when not identified.
+                # NEVER sum these with capital_expenditure: they are the income side.
+                "grants_lpt": grants,
+                "non_mortgage_loans": loans,
+                "other_income": other_inc,
                 "opening_balance": vals[0],
                 "closing_balance": vals[last],
                 "source_file_url": cf["landing"][0],
@@ -409,6 +460,10 @@ def _ingest_one(path: Path, slug: str, cf: dict) -> tuple[list[dict], dict]:
         printed_total=round(exp_total, 0) if exp_total else None,
         income_total=round(inc_total, 0) if inc_total else None,
         reconciled=abs(div_sum - (exp_total or 0)) < RECON_TOL,
+        # How many division rows yielded a reconciled grants/loans/other split. A low ratio
+        # means this PDF's column layout differed — the rows are still valid, the funding
+        # detail is simply not extracted (None), never guessed.
+        divisions_with_funding_split=n_funded,
     )
     return rows, stat
 
@@ -478,6 +533,12 @@ def merge_camelot(done_slugs: set[str]) -> tuple[list[dict], list[dict]]:
                     "division": r["division"],
                     "capital_expenditure": r["capital_expenditure"],
                     "capital_income": r.get("capital_income"),
+                    # The camelot fallback recovers only expenditure/income for these
+                    # layout-mismatch councils — no funding split. Explicit None keeps the
+                    # schema identical to the word-geom path (honest "not extracted").
+                    "grants_lpt": None,
+                    "non_mortgage_loans": None,
+                    "other_income": None,
                     "opening_balance": None,
                     "closing_balance": None,
                     "source_file_url": cf["landing"][0],

@@ -2,6 +2,7 @@ import streamlit as st
 from pages_code.accommodation_spend import accommodation_spend_page
 from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
+from pages_code.body import body_page
 from pages_code.company import company_page
 from pages_code.constituency import constituency_page
 from pages_code.corporate import corporate_page
@@ -35,6 +36,7 @@ from ui.spa_links import install_spa_links
 # register a stub instead of letting one failed import crash the whole app. It is the DIRECT-engine
 # page (calls dail_tracker_core.siting.engine via data_access.siting_data — no LLM, no MCP).
 try:
+    from pages_code.siting_assistant import siting_assistant_page
     from pages_code.siting_check import siting_check_page
 except ImportError as _err:  # pragma: no cover - env-dependent
     _siting_import_error = str(_err)
@@ -44,6 +46,14 @@ except ImportError as _err:  # pragma: no cover - env-dependent
         st.info(
             "Siting Check runs a geospatial engine over local designation layers; it is "
             "available in the local / development build only and not enabled here."
+        )
+        st.caption(f"(unavailable here: {_siting_import_error})")
+
+    def siting_assistant_page() -> None:
+        st.title("Siting Assistant")
+        st.info(
+            "The Siting Assistant runs the same geospatial engine plus a local language model; "
+            "it is available in the local / development build only and not enabled here."
         )
         st.caption(f"(unavailable here: {_siting_import_error})")
 
@@ -293,6 +303,16 @@ pg = st.navigation(
                 icon=":material/domain:",
                 url_path="company",
             ),
+            # Public-body (buyer) dossier: the buyer-side mirror of /company. Unifies the
+            # three fragmented buyer drills (procurement ?authority=, public_payments
+            # ?publisher=, council_spending ?council=) so a body's awards + payments sit on
+            # one page. Reached from those drills; also browsable here.
+            st.Page(
+                body_page,
+                title="Public bodies",
+                icon=":material/account_balance:",
+                url_path="body",
+            ),
         ],
         "Law & Records": [
             st.Page(
@@ -335,8 +355,20 @@ pg = st.navigation(
                 url_path="rankings-appointments",
             ),
         ],
-        # "Planning" section (Siting Check) temporarily removed from the nav.
-        # The siting_check_page import above is retained so re-adding is a one-block change.
+        "Planning": [
+            st.Page(
+                siting_assistant_page,
+                title="Siting Assistant (POC)",
+                icon=":material/forum:",
+                url_path="planning-siting-assistant",
+            ),
+            st.Page(
+                siting_check_page,
+                title="Siting Check (experimental)",
+                icon=":material/travel_explore:",
+                url_path="planning-siting-check",
+            ),
+        ],
         "Glossary": [
             st.Page(glossary_page, title="Glossary", icon=":material/menu_book:", url_path="glossary"),
         ],

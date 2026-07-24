@@ -163,3 +163,80 @@ def afs_national_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
         "SELECT year, gross_expenditure_eur, income_eur, net_expenditure_eur, n_divisions"
         " FROM v_procurement_afs_national_by_year ORDER BY year",
     )
+
+
+# ── Balance-sheet financial POSITION (a STOCK grain) — NEVER summed with the spend facts above ──
+# Loans Payable, assets, creditors — a debt/position at 31 Dec, not a flow. NOAC publishes none of
+# this, so the AFS Balance Sheet is the only source. A stock is never added to a year's spending,
+# nor summed across years for a council (that double-counts a carried balance).
+def afs_loans_payable_by_year(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's Loans Payable (borrowing outstanding @31 Dec) per year — the debt-trend
+    spine. A STOCK: render the series, never sum it across years or with any spend euro."""
+    return _run(
+        conn,
+        "SELECT year, loans_payable_eur, source_file_url, source_page_number"
+        " FROM v_procurement_afs_loans_payable WHERE council = ? ORDER BY year",
+        [council],
+    )
+
+
+def afs_debt_standing(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's LATEST-year Loans Payable set against the national field: its euro figure,
+    its rank (1 = most-indebted), the number of councils ranked, and the national median — so the
+    page renders 'borrowing €Xm, Nth of M highest' with no computation. Each council contributes
+    its own latest filed year only; a stock is never summed across councils, only ranked."""
+    return _run(
+        conn,
+        "WITH latest AS ("
+        "  SELECT council, arg_max(loans_payable_eur, year) AS loans_payable_eur,"
+        "         max(year) AS year FROM v_procurement_afs_loans_payable GROUP BY council"
+        "), ranked AS ("
+        "  SELECT council, year, loans_payable_eur,"
+        "         rank() OVER (ORDER BY loans_payable_eur DESC) AS debt_rank,"
+        "         count(*) OVER () AS n_councils,"
+        "         median(loans_payable_eur) OVER () AS national_median_eur"
+        "  FROM latest"
+        ") SELECT year, loans_payable_eur, debt_rank, n_councils, national_median_eur"
+        " FROM ranked WHERE council = ?",
+        [council],
+    )
+
+
+def afs_loan_movement_by_year(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's Note-7 loan movement per year, pivoted: opening, NEW borrowings, principal
+    repayments, early redemptions, closing. Every year shown is reconcile-gated at extract
+    (opening + flows == closing). Borrowings is the 'ramping debt?' signal; repayments/redemptions
+    are negative outflows. Mixed grain — never sum a flow row with an opening/closing stock."""
+    return _run(
+        conn,
+        "SELECT year,"
+        " max(value_eur) FILTER (WHERE item='opening_balance')        AS opening_eur,"
+        " max(value_eur) FILTER (WHERE item='borrowings')             AS borrowings_eur,"
+        " max(value_eur) FILTER (WHERE item='repayment_of_principal') AS repayment_eur,"
+        " max(value_eur) FILTER (WHERE item='early_redemptions')      AS early_redemptions_eur,"
+        " max(value_eur) FILTER (WHERE item='closing_balance')        AS closing_eur"
+        " FROM v_procurement_afs_loan_movement WHERE council = ? GROUP BY year ORDER BY year",
+        [council],
+    )
+
+
+def afs_financial_position(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's LATEST-year Balance Sheet headline position, pivoted to one row: fixed assets
+    (Σ components), long-term debtors, current assets (Σ), creditors & accruals (owed to suppliers),
+    loans payable, net current assets — plus the source page. Every value is a STOCK at 31 Dec;
+    the page displays them side by side and never sums across items or years."""
+    return _run(
+        conn,
+        "WITH latest AS (SELECT max(year) AS y FROM v_procurement_afs_balance_sheet WHERE council = ?)"
+        " SELECT year,"
+        " sum(value_eur) FILTER (WHERE section='fixed_assets')                 AS fixed_assets_eur,"
+        " sum(value_eur) FILTER (WHERE item='long_term_debtors')               AS long_term_debtors_eur,"
+        " sum(value_eur) FILTER (WHERE section='current_assets')               AS current_assets_eur,"
+        " sum(value_eur) FILTER (WHERE item='creditors_accruals')              AS creditors_accruals_eur,"
+        " sum(value_eur) FILTER (WHERE item='loans_payable')                   AS loans_payable_eur,"
+        " sum(value_eur) FILTER (WHERE item='net_current_assets')              AS net_current_assets_eur,"
+        " any_value(source_file_url) AS source_file_url, any_value(source_page_number) AS source_page_number"
+        " FROM v_procurement_afs_balance_sheet"
+        " WHERE council = ? AND year = (SELECT y FROM latest) GROUP BY year",
+        [council, council],
+    )

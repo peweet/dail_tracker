@@ -56,6 +56,7 @@ from data_access.public_payments_data import (
 # avoid colliding with this page's payments-side fetch of the same name.
 from data_access.procurement_data import (
     fetch_supplier_summary_result as fetch_awards_supplier_summary_result,
+    resolve_buyer_identity,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
@@ -72,7 +73,7 @@ from ui.components import (
     render_national_finance_context,
     text_search_mask,
 )
-from ui.entity_links import company_profile_url, entity_cta_html, source_link_html
+from ui.entity_links import body_profile_url, company_profile_url, entity_cta_html, source_link_html
 from ui.format import coalesce, esc, eur, to_int
 
 # Shared council audited-accounts (AFS by-division) context block. Cross-page
@@ -94,7 +95,11 @@ from pages_code.follow_the_money import (
     _render_search as render_trail_search,
 )
 
-_TOP = 60  # ranked cards per browse tab (views are pre-ordered DESC)
+_TOP = 60  # upper bound a browse tab will ever render (views are pre-ordered DESC)
+# Cards shown before the "show all" toggle — the site-wide list convention
+# (2026-07-20 clutter pass). 60 in one go was an undifferentiated wall whose
+# last screenful was small bodies nobody scrolled to.
+_LEAD = 24
 _PUB_PAGE = 24  # publisher cards per page (multiple of 3 for the grid)
 _LINE_PAGE = 25  # payment-line rows per page on a drill-down
 _Q_PAGE = 8  # quarter sections per page on the supplier drill-down
@@ -156,7 +161,13 @@ def _section_switcher() -> str:
     """Consume ``?pp=`` (the same consumable-param pattern as Your Council's ``?yc=``:
     the entry cards above and external deep links set it, we translate it into the
     switcher's session state and delete it so the widget keeps control afterwards),
-    then render the section control and return the active section key."""
+    then render the section control and return the active section key.
+
+    The control renders ONLY when a non-default section is open (2026-07-20 clutter
+    pass). On the default Browse view its three options duplicated the two go-deeper
+    cards sitting ~100px above it — the same destinations offered twice. Inside Trace
+    or Accommodation it is the way back, so there it stays.
+    """
     want = _section_from_param(st.query_params.get("pp"))
     if want:
         rev = {v: k for k, v in _PP_SECTIONS.items()}
@@ -164,6 +175,8 @@ def _section_switcher() -> str:
         del st.query_params["pp"]
     if "pp_section" not in st.session_state:
         st.session_state["pp_section"] = "Browse the register"
+    if _PP_SECTIONS.get(st.session_state["pp_section"]) == "browse":
+        return "browse"
     choice = st.segmented_control(
         "Section", list(_PP_SECTIONS), key="pp_section", label_visibility="collapsed"
     )
@@ -267,8 +280,15 @@ def _render_publishers() -> None:
         f"{len(df):,} publishers ranked by {by}. Value is purchase-order commitments ('ordered') "
         "or actual payments ('paid') — shown per body, never blended. Click a body for its lines."
     )
+    # Show ALL publishers on expand (2026-07-21 fix): the button said "Show all
+    # 60" while the caption above said "82 publishers ranked" — the _TOP=60 cap
+    # meant 22 bodies were unreachable and the two counts disagreed on screen.
+    # The publisher set is small (~82 cards), so no cap is needed here.
+    ranked = df
+    show_all = st.session_state.get("pp_pub_show_all", False)
+    visible = ranked if show_all else ranked.head(_LEAD)
     cards = []
-    for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
+    for i, r in enumerate(visible.itertuples(), start=1):
         span = f"{_n(r.first_year)}–{_n(r.last_year)}" if _n(r.first_year) else "—"
         meta = (
             f"{_lines_word(_n(r.n_lines))} · {_n(r.n_suppliers):,} supplier"
@@ -287,6 +307,12 @@ def _render_publishers() -> None:
             )
         )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    if not show_all and len(ranked) > _LEAD:
+        if st.button(
+            f"Show all {len(ranked)} public bodies", key="pp_pub_show_all_btn", type="tertiary"
+        ):
+            st.session_state["pp_pub_show_all"] = True
+            st.rerun()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -453,6 +479,16 @@ def _render_publisher_profile(publisher_id: str) -> None:
         dek=f"{len(df):,} purchase-order / payment lines over €20,000. "
         f"{safe_total} in sum-safe value (excludes transfers to other public bodies).",
     )
+
+    # Cross-link to the unified /body dossier (adds the contract-AWARDS lane this
+    # payments view doesn't carry). GATED on the crosswalk: only known bodies link.
+    pub_name = str(_coalesce(df.iloc[0].get("publisher_name")) or publisher_id)
+    if resolve_buyer_identity(pub_name):
+        st.html(
+            '<div style="margin:-0.1rem 0 0.85rem">'
+            + entity_cta_html(body_profile_url(pub_name), "View this body's full dossier — awards + payments →")
+            + "</div>"
+        )
 
     # Council dossiers gain the audited-accounts breakdown — where the
     # council's whole operating spend goes, by service division (Housing,
@@ -882,18 +918,6 @@ def public_payments_page() -> None:
     if section == "accom":
         render_accommodation_body(embedded=True)
         return
-    # National-scale anchor from the (previously orphaned) gov-finance series — a denominator
-    # to eyeball these figures against, explicitly NOT a share they sum into (different bases).
-    render_national_finance_context(note="The published payments below are one slice of this, not the whole.")
-    glossary_strip(
-        [
-            ("Ordered", "a purchase-order commitment — money the body committed to spend, not yet paid"),
-            ("Paid", "an actual payment made — money that left the body"),
-            ("Sum-safe value", "only the rows safe to total: excludes transfers to other public bodies"),
-            ("Over €20,000", "the publication threshold set by Circular 07/2012"),
-        ]
-    )
-
     if _n(stats.get("n_publishers")) == 0:
         empty_state("No payment records", "The views are loaded but returned no rows.")
         return
@@ -902,8 +926,17 @@ def public_payments_page() -> None:
     if yrs.ok and not yrs.data.empty:
         years = [_n(y) for y in yrs.data["year"].tolist() if _n(y)]
         if years:
-            st.caption(f"Covering {min(years)}–{max(years)}. Rankings are all-time; click any row for its lines.")
+            # Coverage span only. The "ranked by … click a body for its lines"
+            # half used to sit here AND in every tab's own caption a few hundred
+            # pixels below — same instruction twice (2026-07-20 clutter pass).
+            st.caption(f"Covering {min(years)}–{max(years)}. Rankings are all-time.")
 
+    # CONTENT FIRST (2026-07-20 clutter pass). The national-scale band and the
+    # four-term definitions strip used to sit here, between the entry cards and
+    # the tabs, pushing the first ranked body ~1,350px down the page. Both are
+    # context for the rankings, so they now follow them: the reader meets the
+    # register first and the framing second, where it answers a question they
+    # have actually formed. Neither is hidden — same page, same wording.
     tabs = st.tabs(["Public bodies", "Suppliers", "What the money buys"])
     with tabs[0]:
         _render_publishers()
@@ -911,5 +944,17 @@ def public_payments_page() -> None:
         _render_suppliers()
     with tabs[2]:
         _render_categories()
+
+    glossary_strip(
+        [
+            ("Ordered", "a purchase-order commitment — money the body committed to spend, not yet paid"),
+            ("Paid", "an actual payment made — money that left the body"),
+            ("Sum-safe value", "only the rows safe to total: excludes transfers to other public bodies"),
+            ("Over €20,000", "the publication threshold set by Circular 07/2012"),
+        ]
+    )
+    # National-scale anchor from the (previously orphaned) gov-finance series — a denominator
+    # to eyeball these figures against, explicitly NOT a share they sum into (different bases).
+    render_national_finance_context(note="The published payments above are one slice of this, not the whole.")
 
     _provenance_footer()
