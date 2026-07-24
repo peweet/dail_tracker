@@ -82,6 +82,17 @@ def distinct_statuses(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
+def distinct_introduced_years(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Distinct calendar years a Bill was introduced, newest first — the options
+    for the index page's shared year_selector (2026-07-20 year-grammar migration,
+    replacing a free date-range input). Derived from introduced_date in the view."""
+    return _run(
+        conn,
+        "SELECT DISTINCT year(introduced_date) AS yr FROM v_legislation_index"
+        " WHERE introduced_date IS NOT NULL ORDER BY yr DESC",
+    )
+
+
 # ── Bill detail / amendments / timeline / sources / PDFs / debates ────────────
 
 

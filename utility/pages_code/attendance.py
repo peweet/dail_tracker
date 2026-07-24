@@ -57,6 +57,7 @@ from data_access.attendance_data import (
 )
 
 _LIST_SIZE = 20
+_ABSENCE_LEAD = 8  # notable-absence rows shown before "show all" (2026-07-21)
 
 _CAVEAT = (
     "This page measures **recorded votes**, not the Travel & Accommodation "
@@ -159,7 +160,12 @@ def _absence_row(row: pd.Series) -> str:
         span = f"{start.strftime('%d %b')} → {end.strftime('%d %b %Y')}"
     cal = int(row.get("run_calendar_days") or 0)
     has_reason = bool(str(row.get("source_url", "") or ""))
-    reason_html = _news_chip(row) if has_reason else '<span class="part-noexpl">No public explanation found</span>'
+    # Only the POSITIVE case renders. "No public explanation found" was printed
+    # on 18 of 20 rows — the rule, not the exception, so it read as boilerplate
+    # texture rather than information (2026-07-20 clutter pass). The section
+    # caption states the default once; a row with a linked explanation still
+    # shows its chip, which is the row worth noticing.
+    reason_html = _news_chip(row) if has_reason else ""
     inner = (
         f'<div class="part-absence-row">'
         f'<div class="part-absence-id">'
@@ -188,11 +194,21 @@ def _render_absences(df: pd.DataFrame, *, chamber: str) -> None:
         "The longest unbroken run of plenary sitting days a member was **not recorded "
         "present** at Leinster House at all — physical absence from the official "
         "attendance record, not a missed vote (a member can be in the building yet sit "
-        "out a vote). Recess-proof. A reported reason is linked; otherwise it reads "
-        "*no public explanation found* — a statement about the record, not a judgement."
+        "out a vote). Recess-proof. Where a reason was reported publicly it is linked "
+        "on the row; **most rows carry no link because no explanation was published** — "
+        "a statement about the record, not a judgement."
     )
-    rows = [_absence_row(r) for _, r in df.head(_LIST_SIZE).iterrows()]
-    st.html("\n".join(rows))
+    # Lead with a real handful (2026-07-21): the caption calls this "the handful
+    # whose record stands out", but the list showed 20 of ~120+ members — the
+    # word and the length disagreed. Show the top 8 longest runs, with the rest a
+    # click away, so "handful" is honest and the full set stays reachable.
+    show_all = st.session_state.get("part_absence_show_all", False)
+    view = df if show_all else df.head(_ABSENCE_LEAD)
+    st.html("\n".join(_absence_row(r) for _, r in view.iterrows()))
+    if not show_all and len(df) > _ABSENCE_LEAD:
+        if st.button(f"Show all {len(df)} members with a stretch", key="part_absence_show_all_btn", type="tertiary"):
+            st.session_state["part_absence_show_all"] = True
+            st.rerun()
     export_button(
         df[["member_name", "party_name", "longest_run_sitting_days", "run_calendar_days", "run_start", "run_end"]],
         label=f"Export absences · {len(df)} members",
@@ -315,9 +331,9 @@ def attendance_page() -> None:
     hero_banner(kicker="CHAMBER PARTICIPATION", title="Showing up")
     st.caption(
         "Being in the building isn't the same as taking part. This page measures "
-        "**recorded votes**, not the allowance sign-in. Attendance isn't a "
-        "league table — absences have many legitimate reasons — so look up a member "
-        "below, or read the few patterns worth a closer look."
+        "**recorded votes**, not the allowance sign-in — so look up a member, or read "
+        "the few patterns worth a closer look. It isn't a league table; absences have "
+        "many legitimate reasons."
     )
 
     house = (
@@ -334,14 +350,18 @@ def attendance_page() -> None:
     term, terms = ("Senator", "Senators") if is_seanad else ("TD", "TDs")
     chamber_l = house
 
-    glossary_strip(
-        [
-            (term, "Seanadóir, a member of the Seanad" if is_seanad else "Teachta Dála, a member of the Dáil"),
-            ("Division", "a recorded vote in the chamber"),
-            ("Pairing", "a government–opposition arrangement to offset an absence — invisible in this data"),
-            ("TAA", "Travel & Accommodation Allowance, paid on attending ≥120 days"),
-        ]
-    )
+    # Terms in an expander (2026-07-20 clutter pass): definitions were a
+    # permanent 4-term strip between the toggle and the year picker — reference
+    # a first-time reader wants once, not a block everyone scrolls past forever.
+    with st.expander("What the terms mean"):
+        glossary_strip(
+            [
+                (term, "Seanadóir, a member of the Seanad" if is_seanad else "Teachta Dála, a member of the Dáil"),
+                ("Division", "a recorded vote in the chamber"),
+                ("Pairing", "a government–opposition arrangement to offset an absence — invisible in this data"),
+                ("TAA", "Travel & Accommodation Allowance, paid on attending ≥120 days"),
+            ]
+        )
 
     years = _fetch_years(house)
     if not years:
@@ -384,10 +404,9 @@ def attendance_page() -> None:
     # ── Notable patterns (editorial outliers, NOT a ranking of everyone) ────────
     st.divider()
     st.markdown("#### Patterns worth a closer look")
-    st.caption(
-        "Not a league table — just the handful of members whose record stands out, "
-        "with a sourced explanation linked wherever one has been reported."
-    )
+    # Caption trimmed (2026-07-20 clutter pass): the "not a league table" framing
+    # is already in the page intro; no need to restate it a third time here.
+    st.caption("The handful of members whose record stands out, with a sourced explanation where one was reported.")
 
     _render_absences(_fetch_absences(selected_year, house), chamber=chamber_l)
     _render_divergence(_fetch_divergence(selected_year, house))

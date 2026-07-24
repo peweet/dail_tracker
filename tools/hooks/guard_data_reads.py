@@ -38,7 +38,12 @@ SANDBOX_HEAVY = ("pipeline_sandbox/",)  # with /samples/ or /corpus/
 # ~269KB (~67k tokens) — a third of a context window in one call. Verified 2026-07-20.
 BLOCKED_META = ("data/_meta/fact_cards.json",)
 # Any file this large is a context bomb unless the read is explicitly bounded.
-LARGE_FILE_BYTES = 200_000
+# Was 200_000 (sized for data files). Transcript audit 2026-07-23 (120 sessions):
+# Read = 52.1% of all tool-result payload and 44% of Reads were whole-file — the
+# flood is big CODE files, not just data. 64 KB ~ 16k tokens: big enough to spare
+# normal modules, small enough to catch the >1,500-line section-mapped files that
+# CLAUDE.md already says to read via their SECTION MAP + offset/limit.
+LARGE_FILE_BYTES = 64_000
 
 
 def _extract_path(payload: dict) -> str:

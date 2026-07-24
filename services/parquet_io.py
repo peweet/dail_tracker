@@ -15,8 +15,8 @@ for two reasons:
    the previous ``dest`` is left untouched and the partial temp is removed.
 
 2. **One place for the compression convention** (feedback_parquet_write_convention):
-   zstd / level 3 / statistics on every writer, applied here instead of being
-   re-typed (and occasionally forgotten) at 70+ call sites.
+   zstd / level 3 / statistics / row-group sizing on every writer, applied here
+   instead of being re-typed (and occasionally forgotten) at 70+ call sites.
 
 Auto-detects Polars vs pandas so callers can't pick the wrong writer. Pass kwargs
 to override any default (e.g. ``save_parquet(df, p, compression_level=9)``).
@@ -43,8 +43,17 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Project parquet convention, split by engine because the kwarg names differ.
-_POLARS_DEFAULTS = {"compression": "zstd", "compression_level": 3, "statistics": True}
-_PANDAS_DEFAULTS = {"index": False, "compression": "zstd", "compression_level": 3}
+# row_group_size caps rows per group so large facts land as several groups instead
+# of one: a single row group forces single-threaded scans and makes the per-group
+# min/max statistics unskippable (there is only one range). Both engines accept the
+# kwarg (pandas forwards it to pyarrow). Frames under the cap yield one group as
+# before, so small files are unchanged. 128k rows ≈ a few groups on the large facts
+# (speeches ~575k → 5, questions ~277k → 3), enough to feed the cores without the
+# metadata/compression cost of many tiny groups. Measured 2.2–2.9× on the real
+# member-speech-summary aggregation via duckdb; file size unchanged.
+_ROW_GROUP_SIZE = 128_000
+_POLARS_DEFAULTS = {"compression": "zstd", "compression_level": 3, "statistics": True, "row_group_size": _ROW_GROUP_SIZE}
+_PANDAS_DEFAULTS = {"index": False, "compression": "zstd", "compression_level": 3, "row_group_size": _ROW_GROUP_SIZE}
 
 # Escape hatch for the min_rows floor: a genuine bootstrap / intentionally scoped
 # small write sets DAIL_SKIP_ROW_FLOOR=1, mirroring cro_poller's --force.

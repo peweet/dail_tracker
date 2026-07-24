@@ -457,7 +457,14 @@ def _isif_row_html(r) -> str:
     desc = _esc(getattr(r, "description", None) or "")
     if len(desc) > 150:
         desc = desc[:147] + "…"
-    amt_html = f'<span class="mf-isif-amt">{amt}</span>' if amt else ""
+    # Explicit "not published" when no amount (2026-07-21): several ISIF rows
+    # carry no stated figure, so a blank slot read as a rendering gap in the
+    # amount column. A muted label discloses the absence honestly instead.
+    amt_html = (
+        f'<span class="mf-isif-amt">{amt}</span>'
+        if amt
+        else '<span class="mf-isif-amt mf-isif-amt-none">amount not published</span>'
+    )
     return (
         '<div class="mf-isif-row">'
         f'<div class="mf-isif-head"><span class="mf-isif-name">{name}</span>{amt_html}'

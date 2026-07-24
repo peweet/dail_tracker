@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.build_source_health import (  # noqa: E402
+    check_api_canary,
     check_file_age,
     run,
 )
@@ -100,6 +101,36 @@ def test_online_sources_skipped_when_links_disabled(tmp_path):
     assert all(h["status"] == "skipped" for h in payload["sources"])
     assert payload["summary"]["sources_skipped"] == 2
     assert payload["summary"]["sources_failed"] == 0
+
+
+def _canary_rec(name="ted"):
+    return {"source_id": f"api_canary:{name}", "group": "api_canary",
+            "check_type": "api_canary", "pollable": True}
+
+
+def test_api_canary_ok_maps_to_ok():
+    canaries = {"ted": lambda: {"ok": True, "detail": "search OK", "http_status": 200, "rows": 1}}
+    h = check_api_canary(_canary_rec("ted"), canaries=canaries)
+    assert h["status"] == "ok"
+    assert h["rows"] == 1
+
+
+def test_api_canary_failure_maps_to_failed():
+    canaries = {"ted": lambda: {"ok": False, "detail": "HTTP 503", "http_status": 503}}
+    h = check_api_canary(_canary_rec("ted"), canaries=canaries)
+    assert h["status"] == "failed"
+    assert "503" in h["detail"]
+
+
+def test_api_canary_unregistered_name_is_skipped():
+    h = check_api_canary(_canary_rec("ghost"), canaries={"ted": lambda: {"ok": True, "detail": ""}})
+    assert h["status"] == "skipped"
+
+
+def test_api_canary_skipped_offline_via_run(tmp_path):
+    payload = run(records=[_canary_rec("ted")], check_links=False, root=tmp_path, now=NOW)
+    assert payload["sources"][0]["status"] == "skipped"
+    assert payload["summary"]["sources_skipped"] == 1
 
 
 def test_run_summary_counts_and_stale(tmp_path):

@@ -127,6 +127,29 @@ def check_link(rec: dict, timeout: float = 20.0) -> dict:
         return _health(rec, FAILED, f"{type(e).__name__}: {e}")
 
 
+def check_api_canary(rec: dict, canaries: dict | None = None) -> dict:
+    """Run the shape-asserting canary for a feed/API source (network). Reuses the
+    canary functions in pdf_infra/pdf_endpoint_check.py — no duplicated request
+    logic. ``canaries`` is injectable for tests; defaults to the live registry of
+    canaries. Imported lazily so the offline path needs no requests/idna."""
+    name = rec["source_id"].split(":", 1)[-1]
+    if canaries is None:
+        try:
+            from pdf_infra.pdf_endpoint_check import API_CANARIES
+
+            canaries = dict(API_CANARIES)
+        except Exception as e:  # noqa: BLE001 — no canary module ⇒ no signal, not a failure
+            return _health(rec, SKIPPED, f"canary import failed: {type(e).__name__}: {e}")
+    fn = canaries.get(name)
+    if fn is None:
+        return _health(rec, SKIPPED, f"no canary registered for {name}")
+    result = fn()
+    meta = {"http_status": result.get("http_status"), "rows": result.get("rows")}
+    if result.get("ok"):
+        return _health(rec, OK, result.get("detail", "canary OK"), **meta)
+    return _health(rec, FAILED, result.get("detail", "canary failed"), **meta)
+
+
 def _summary(health: list[dict]) -> dict:
     by = {OK: 0, WARNING: 0, FAILED: 0, SKIPPED: 0}
     for h in health:
@@ -166,7 +189,12 @@ def run(
             else:
                 why = "link check disabled" if not check_links else "not pollable"
                 health.append(_health(rec, SKIPPED, why))
-        else:  # api_canary etc. — not implemented yet
+        elif ct == "api_canary":
+            if check_links and rec.get("pollable", False):
+                health.append(check_api_canary(rec))
+            else:
+                health.append(_health(rec, SKIPPED, "link check disabled"))
+        else:
             health.append(_health(rec, SKIPPED, f"no checker for {ct}"))
 
     health.sort(key=lambda h: h["source_id"])

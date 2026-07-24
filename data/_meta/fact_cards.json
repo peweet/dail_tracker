@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-07-20T10:59:20+00:00",
+  "generated_utc": "2026-07-21T06:06:46+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
-  "count": 200,
+  "count": 203,
   "facts": {
     "afs_amalgamated_divisions": {
       "file": "data/silver/parquet/afs_amalgamated_divisions.parquet",
@@ -1932,7 +1932,7 @@
         2011,
         2026
       ],
-      "size_bytes": 3185936
+      "size_bytes": 3111865
     },
     "dceidy_ipas_legacy_spend": {
       "file": "data/gold/parquet/dceidy_ipas_legacy_spend.parquet",
@@ -4046,7 +4046,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 11707,
+      "rows": 12762,
       "columns": [
         "diary_date",
         "court",
@@ -4084,12 +4084,12 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_legal_diary_cases.sql, judiciary/judiciary_plaintiff_league.sql"
       ],
-      "size_bytes": 147339
+      "size_bytes": 153934
     },
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 1108,
+      "rows": 1207,
       "columns": [
         "diary_date",
         "court",
@@ -4111,7 +4111,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 7514
+      "size_bytes": 7718
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -4200,7 +4200,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 1933,
+      "rows": 2067,
       "columns": [
         "diary_date",
         "court",
@@ -4226,7 +4226,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 15081
+      "size_bytes": 15674
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -4487,6 +4487,52 @@
       ],
       "size_bytes": 6112
     },
+    "la_afs_balance_sheet": {
+      "file": "data/silver/parquet/la_afs_balance_sheet.parquet",
+      "layer": "silver",
+      "rows": 2531,
+      "columns": [
+        "council",
+        "slug",
+        "entity",
+        "region",
+        "year",
+        "section",
+        "item",
+        "value_eur",
+        "is_statement_year",
+        "statement_year",
+        "source_file_url",
+        "source_page_number",
+        "parse_method",
+        "value_kind",
+        "scope",
+        "source"
+      ],
+      "column_types": {
+        "council": "String",
+        "slug": "String",
+        "entity": "String",
+        "region": "String",
+        "year": "Int64",
+        "section": "String",
+        "item": "String",
+        "value_eur": "Float64",
+        "is_statement_year": "Boolean",
+        "statement_year": "Int64",
+        "source_file_url": "String",
+        "source_page_number": "Int64",
+        "parse_method": "String",
+        "value_kind": "String",
+        "scope": "String",
+        "source": "String"
+      },
+      "size_bytes": 20566,
+      "grain": "one row per (council,year,item)",
+      "money_grain": "balance_sheet_stock",
+      "never_sum_with": "awarded|payments|budget|accounts",
+      "purpose": "AFS Balance Sheet line items (assets/debtors/creditors/loans_payable) \u2014 STOCKS/positions, never sum with any spend flow or across years; loans_payable is one item"
+    },
     "la_afs_capital_divisions": {
       "file": "data/silver/parquet/la_afs_capital_divisions.parquet",
       "layer": "silver",
@@ -4500,6 +4546,9 @@
         "division",
         "capital_expenditure",
         "capital_income",
+        "grants_lpt",
+        "non_mortgage_loans",
+        "other_income",
         "opening_balance",
         "closing_balance",
         "source_file_url",
@@ -4523,6 +4572,9 @@
         "division": "String",
         "capital_expenditure": "Float64",
         "capital_income": "Float64",
+        "grants_lpt": "Float64",
+        "non_mortgage_loans": "Float64",
+        "other_income": "Float64",
         "opening_balance": "Float64",
         "closing_balance": "Float64",
         "source_file_url": "String",
@@ -4540,7 +4592,7 @@
       "read_by": [
         "read by procurement/procurement_afs_capital_by_division.sql, procurement/procurement_afs_capital_by_year.sql, procurement/procurement_council_summary.sql"
       ],
-      "size_bytes": 27183,
+      "size_bytes": 32005,
       "grain": "one row per (council,year,division)",
       "money_grain": "accounts",
       "never_sum_with": "awarded|payments|budget",
@@ -4600,6 +4652,52 @@
       "money_grain": "accounts",
       "never_sum_with": "awarded|payments|budget",
       "purpose": "Audited council revenue accounts (outturn) by service division"
+    },
+    "la_afs_loan_movement": {
+      "file": "data/silver/parquet/la_afs_loan_movement.parquet",
+      "layer": "silver",
+      "rows": 683,
+      "columns": [
+        "council",
+        "slug",
+        "entity",
+        "region",
+        "year",
+        "item",
+        "value_eur",
+        "is_flow",
+        "is_statement_year",
+        "statement_year",
+        "source_file_url",
+        "source_page_number",
+        "parse_method",
+        "value_kind",
+        "scope",
+        "source"
+      ],
+      "column_types": {
+        "council": "String",
+        "slug": "String",
+        "entity": "String",
+        "region": "String",
+        "year": "Int64",
+        "item": "String",
+        "value_eur": "Float64",
+        "is_flow": "Boolean",
+        "is_statement_year": "Boolean",
+        "statement_year": "Int64",
+        "source_file_url": "String",
+        "source_page_number": "Int64",
+        "parse_method": "String",
+        "value_kind": "String",
+        "scope": "String",
+        "source": "String"
+      },
+      "size_bytes": 12340,
+      "grain": "one row per (council,year,item)",
+      "money_grain": "loan_movement",
+      "never_sum_with": "awarded|payments|budget|accounts",
+      "purpose": "AFS Note 7 loan movement \u2014 opening/closing STOCKS + borrow/repay FLOWS (reconcile-gated); never sum a flow with a stock or with spend"
     },
     "la_budget_divisions": {
       "file": "data/silver/parquet/la_budget_divisions.parquet",
@@ -5920,6 +6018,57 @@
       ],
       "size_bytes": 4879
     },
+    "planning_acp_cases": {
+      "file": "data/silver/parquet/planning_acp_cases.parquet",
+      "layer": "silver",
+      "rows": 26217,
+      "columns": [
+        "abp_case",
+        "lon",
+        "lat",
+        "status",
+        "category",
+        "abp_decision",
+        "decision_raw",
+        "planning_authority",
+        "decided_date",
+        "target_date",
+        "lodged_date",
+        "dev_desc",
+        "dev_address",
+        "case_url",
+        "n_polygons",
+        "site_spread_m",
+        "updated_date"
+      ],
+      "column_types": {
+        "abp_case": "String",
+        "lon": "Float64",
+        "lat": "Float64",
+        "status": "String",
+        "category": "String",
+        "abp_decision": "String",
+        "decision_raw": "String",
+        "planning_authority": "String",
+        "decided_date": "Date",
+        "target_date": "Date",
+        "lodged_date": "Date",
+        "dev_desc": "String",
+        "dev_address": "String",
+        "case_url": "String",
+        "n_polygons": "UInt32",
+        "site_spread_m": "Float64",
+        "updated_date": "Date"
+      },
+      "year_span": [
+        2016,
+        2026
+      ],
+      "read_by": [
+        "read by core: dail_tracker_core/siting/precedents.py (nearby appeal history on the siting-check page)"
+      ],
+      "size_bytes": 1942290
+    },
     "planning_appeal_outcomes": {
       "file": "data/silver/parquet/planning_appeal_outcomes.parquet",
       "layer": "silver",
@@ -6540,7 +6689,7 @@
       "read_by": [
         "read by appointments/appointments_public_appointments.sql"
       ],
-      "size_bytes": 91016
+      "size_bytes": 90838
     },
     "public_payments_fact": {
       "file": "data/silver/parquet/public_payments_fact.parquet",
@@ -6662,7 +6811,7 @@
       "read_by": [
         "read by member/member_debate_sections.sql, member/member_question_focus_shift.sql, member/member_question_profile.sql\u2026"
       ],
-      "size_bytes": 19824306
+      "size_bytes": 19698750
     },
     "related_docs": {
       "file": "data/silver/parquet/related_docs.parquet",
@@ -7670,7 +7819,7 @@
         2016,
         2026
       ],
-      "size_bytes": 210812144
+      "size_bytes": 211880187
     },
     "speeches_fact": {
       "file": "data/gold/parquet/speeches_fact.parquet",
@@ -7723,7 +7872,7 @@
       "read_by": [
         "read by debates/speech_base.sql {SPEECH_FACT_PARQUET_PATH}"
       ],
-      "size_bytes": 24247282
+      "size_bytes": 24139658
     },
     "speeches_fact_full": {
       "file": "data/gold/parquet/speeches_fact_full.parquet",
@@ -7773,7 +7922,7 @@
         "constituency": "String",
         "year": "Int32"
       },
-      "size_bytes": 213022616
+      "size_bytes": 214093954
     },
     "sponsors": {
       "file": "data/silver/parquet/sponsors.parquet",
@@ -8356,14 +8505,18 @@
     "supplier_entity_xref": {
       "file": "data/gold/parquet/supplier_entity_xref.parquet",
       "layer": "gold",
-      "rows": 10017,
+      "rows": 28357,
       "columns": [
         "supplier_norm",
         "display_name",
         "company_num",
         "has_cro",
+        "in_awards",
+        "in_payments",
         "procurement_award_rows",
         "awarded_value_safe_eur",
+        "payment_rows",
+        "paid_value_safe_eur",
         "on_lobbying_register",
         "lobby_returns",
         "has_corporate_notice",
@@ -8377,8 +8530,12 @@
         "display_name": "String",
         "company_num": "Int64",
         "has_cro": "Boolean",
+        "in_awards": "Boolean",
+        "in_payments": "Boolean",
         "procurement_award_rows": "UInt32",
         "awarded_value_safe_eur": "Float64",
+        "payment_rows": "UInt32",
+        "paid_value_safe_eur": "Float64",
         "on_lobbying_register": "Boolean",
         "lobby_returns": "UInt32",
         "has_corporate_notice": "Boolean",
@@ -8390,7 +8547,7 @@
       "read_by": [
         "read by procurement/procurement_supplier_entity_xref.sql"
       ],
-      "size_bytes": 263936
+      "size_bytes": 765808
     },
     "td_attendance_fact_table": {
       "file": "data/silver/parquet/td_attendance_fact_table.parquet",

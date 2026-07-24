@@ -339,7 +339,19 @@ def apply_curated(roster: pl.DataFrame, curated: pl.DataFrame | None) -> pl.Data
         cur = curated.rename({"curation_note": "wikidata_curation_note"}).select("member_name", *_CURATED_COLS)
         # CSV blanks (e.g. no employer on the Wikidata item) -> proper nulls.
         cur = cur.with_columns(pl.when(pl.col(c) == "").then(None).otherwise(pl.col(c)).alias(c) for c in _CURATED_COLS)
-        gold = roster.join(cur, on="member_name", how="left")
+        # A curated name with no roster seat is silently dropped by the LEFT join,
+        # so hand-curation is wasted with no signal. Surface it. (Found via a
+        # match-rate probe: e.g. a National Gallery artist seat gone from the roster.)
+        orphans = cur.join(roster.select("member_name"), on="member_name", how="anti")
+        if orphans.height:
+            logger.warning(
+                "stateboards: %d curated identit%s match no roster seat (dropped): %s",
+                orphans.height, "y" if orphans.height == 1 else "ies",
+                ", ".join(orphans["member_name"].to_list()),
+            )
+        # validate='m:1': a seat matches at most one curated row. Raises loudly if a
+        # duplicate member_name enters the CSV instead of fanning out roster rows.
+        gold = roster.join(cur, on="member_name", how="left", validate="m:1")
     else:
         gold = roster.with_columns(pl.lit(None, dtype=pl.Utf8).alias(c) for c in _CURATED_COLS)
     return gold.sort(["department", "body", "member_name"])

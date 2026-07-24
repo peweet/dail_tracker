@@ -27,6 +27,8 @@ import pandas as pd
 import streamlit as st
 
 from dail_tracker_core.connections import domain_conn
+from dail_tracker_core.buyer_xref import buyer_index, resolve_buyer
+from dail_tracker_core.dossiers import build_buyer_dossier
 from dail_tracker_core.queries import entity as _ent
 from dail_tracker_core.queries import procurement as _q
 from dail_tracker_core.results import QueryResult
@@ -155,6 +157,50 @@ def fetch_supplier_summary_result(
     limit: int | None = None, order_by: str = "awards", year: int | None = None
 ) -> QueryResult:
     return _q.supplier_summary(get_procurement_conn(), limit=limit, order_by=order_by, year=year)
+
+
+@st.cache_data(ttl=600)
+def resolve_buyer_identity(name: str) -> dict | None:
+    """Resolve a register name (contracting authority / payments publisher / council) to the
+    curated buyer identity, or ``None``. Gate a ``/body`` hand-off on a truthy result so only
+    bodies in the crosswalk get a link — most authorities aren't in it, and an ungated link
+    would dead-end on "not found" (the same never-a-false-hand-off rule as the /company gate)."""
+    return resolve_buyer(name)
+
+
+@st.cache_data(ttl=600)
+def fetch_buyer_index() -> list[dict]:
+    """Every curated public body (identity only) for the /body landing browse list.
+    Reads the buyer_xref crosswalk; the money lanes are fetched per-body on demand."""
+    return buyer_index()
+
+
+@st.cache_data(ttl=300)
+def fetch_buyer_dossier(query: str) -> dict | None:
+    """Composed buyer / public-body dossier for the ``/body`` page: the awards lane
+    (AWARDED ceiling) and payments lane (ORDERED / PAID) for one body, resolved across
+    registers via the ``buyer_xref`` crosswalk and NEVER summed. ``None`` when the body
+    isn't in the crosswalk (the page shows an honest "not found" note). Composition +
+    grain rules live in ``dossiers.build_buyer_dossier``; the page renders, computes nothing."""
+    return build_buyer_dossier(get_procurement_conn(), query)
+
+
+@st.cache_data(ttl=300)
+def awards_register_norms() -> frozenset[str]:
+    """The set of ``supplier_norm`` keys that resolve to a real ``/company`` dossier.
+
+    ``/company`` is built from the procurement/awards register — ``company.py::_dossier``
+    gates on ``fetch_supplier_summary_result`` and shows "Company not found" for a
+    ``supplier_norm`` that isn't in it. So any cross-page ``/company`` hand-off must be
+    gated on membership here, or a payments-only supplier (the majority) gets a link into
+    a dead end — the nav-graph "never a false hand-off" rule
+    ([[feedback_entity_links_seamless_navigation]]). Fails CLOSED: an unavailable fetch
+    yields an empty set (no links), never a broken page. Canonical gate; mirrors the older
+    private ``public_payments._awards_register_norms`` (kept there behind its tested seam)."""
+    res = fetch_supplier_summary_result(limit=None)
+    if not res.ok or res.data.empty or "supplier_norm" not in res.data.columns:
+        return frozenset()
+    return frozenset(str(v) for v in res.data["supplier_norm"].dropna().tolist())
 
 
 @st.cache_data(ttl=300)
@@ -350,6 +396,31 @@ def fetch_afs_capital_by_year_result(council: str) -> QueryResult:
 def fetch_afs_capital_by_division_result(council: str, year: int) -> QueryResult:
     """One council-year's capital investment by service division (the build/acquire breakdown)."""
     return _q.afs_capital_by_division(get_procurement_conn(), council, year)
+
+
+# ── AFS balance sheet — financial POSITION (a STOCK grain; never summed with the spend facts) ──
+@st.cache_data(ttl=600)
+def fetch_afs_debt_standing_result(council: str) -> QueryResult:
+    """One council's latest Loans Payable + its national rank + median — the debt headline."""
+    return _q.afs_debt_standing(get_procurement_conn(), council)
+
+
+@st.cache_data(ttl=600)
+def fetch_afs_loans_payable_by_year_result(council: str) -> QueryResult:
+    """One council's borrowing-outstanding trend (a STOCK; never summed across years)."""
+    return _q.afs_loans_payable_by_year(get_procurement_conn(), council)
+
+
+@st.cache_data(ttl=600)
+def fetch_afs_loan_movement_by_year_result(council: str) -> QueryResult:
+    """One council's Note-7 loan movement per year (opening / borrow / repay / closing)."""
+    return _q.afs_loan_movement_by_year(get_procurement_conn(), council)
+
+
+@st.cache_data(ttl=600)
+def fetch_afs_financial_position_result(council: str) -> QueryResult:
+    """One council's latest balance-sheet position (assets / debtors / creditors / loans)."""
+    return _q.afs_financial_position(get_procurement_conn(), council)
 
 
 # ── National amalgamated AFS (all-31-LA audited service spend) ─────────────────

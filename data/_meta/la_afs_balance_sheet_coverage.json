@@ -1,0 +1,580 @@
+{
+  "councils_attempted": 31,
+  "councils_with_rows": 30,
+  "rows": 2531,
+  "distinct_items": [
+    "bank_investments",
+    "cash_at_bank",
+    "cash_in_transit",
+    "creditors_accruals",
+    "fa_community",
+    "fa_infrastructural",
+    "fa_non_operational",
+    "fa_operational",
+    "loans_payable",
+    "long_term_debtors",
+    "net_current_assets",
+    "refundable_deposits",
+    "stocks",
+    "trade_debtors_prepayments",
+    "work_in_progress"
+  ],
+  "by_council": [
+    {
+      "council": "South Dublin",
+      "slug": "south_dublin",
+      "status": "ok",
+      "year": 2025,
+      "page": 1,
+      "n_years": 10,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 7,
+      "loans_payable_latest": 7.0
+    },
+    {
+      "council": "Cork City",
+      "slug": "cork_city",
+      "status": "ok",
+      "year": 2024,
+      "page": 26,
+      "n_years": 8,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 14,
+      "loans_payable_latest": 134989184.0
+    },
+    {
+      "council": "Cork County",
+      "slug": "cork_county",
+      "status": "ok",
+      "year": 2024,
+      "page": 21,
+      "n_years": 6,
+      "years": [
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 278068457.0
+    },
+    {
+      "council": "Westmeath",
+      "slug": "westmeath",
+      "status": "ok",
+      "year": 2025,
+      "page": 15,
+      "n_years": 10,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 14,
+      "loans_payable_latest": 53697727.0
+    },
+    {
+      "council": "Galway City",
+      "slug": "galway_city",
+      "status": "ok",
+      "year": 2025,
+      "page": 14,
+      "n_years": 6,
+      "years": [
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 95485071.0
+    },
+    {
+      "council": "Galway County",
+      "slug": "galway_county",
+      "status": "ok",
+      "year": 2024,
+      "page": 15,
+      "n_years": 9,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 13,
+      "loans_payable_latest": 35796348.0
+    },
+    {
+      "council": "Meath",
+      "slug": "meath",
+      "status": "ok",
+      "year": 2024,
+      "page": 17,
+      "n_years": 9,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 13,
+      "loans_payable_latest": 80048329.0
+    },
+    {
+      "council": "Donegal",
+      "slug": "donegal",
+      "status": "ok",
+      "year": 2024,
+      "page": 28,
+      "n_years": 7,
+      "years": [
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 95721952.0
+    },
+    {
+      "council": "Tipperary",
+      "slug": "tipperary",
+      "status": "ok",
+      "year": 2024,
+      "page": 12,
+      "n_years": 9,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 65031845.0
+    },
+    {
+      "council": "Wicklow",
+      "slug": "wicklow",
+      "status": "ok",
+      "year": 2023,
+      "page": 18,
+      "n_years": 6,
+      "years": [
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023
+      ],
+      "n_items": 13,
+      "loans_payable_latest": 58332924.0
+    },
+    {
+      "council": "Monaghan",
+      "slug": "monaghan",
+      "status": "ok",
+      "year": 2024,
+      "page": 12,
+      "n_years": 9,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 19060036.0
+    },
+    {
+      "council": "Kildare",
+      "slug": "kildare",
+      "status": "ok",
+      "year": 2025,
+      "page": 13,
+      "n_years": 3,
+      "years": [
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 11,
+      "loans_payable_latest": 63973084.0
+    },
+    {
+      "council": "Sligo",
+      "slug": "sligo",
+      "status": "ok",
+      "year": 2025,
+      "page": 14,
+      "n_years": 6,
+      "years": [
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 58006857.0
+    },
+    {
+      "council": "Clare",
+      "slug": "clare",
+      "status": "ok",
+      "year": 2024,
+      "page": 29,
+      "n_years": 6,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2023,
+        2024
+      ],
+      "n_items": 13,
+      "loans_payable_latest": 94583669.0
+    },
+    {
+      "council": "Fingal",
+      "slug": "fingal",
+      "status": "ok",
+      "year": 2024,
+      "page": 16,
+      "n_years": 9,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 13,
+      "loans_payable_latest": 276935966.0
+    },
+    {
+      "council": "Dun Laoghaire-Rathdown",
+      "slug": "dlr",
+      "status": "ok",
+      "year": 2024,
+      "page": 12,
+      "n_years": 6,
+      "years": [
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 13,
+      "loans_payable_latest": 86058015.0
+    },
+    {
+      "council": "Kilkenny",
+      "slug": "kilkenny",
+      "status": "ok",
+      "year": 2023,
+      "page": 13,
+      "n_years": 2,
+      "years": [
+        2022,
+        2023
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 47754501.0
+    },
+    {
+      "council": "Louth",
+      "slug": "louth",
+      "status": "ok",
+      "year": 2017,
+      "page": 29,
+      "n_years": 2,
+      "years": [
+        2016,
+        2017
+      ],
+      "n_items": 14,
+      "loans_payable_latest": 147826980.0
+    },
+    {
+      "council": "Wexford",
+      "slug": "wexford",
+      "status": "no-balance-sheet-page"
+    },
+    {
+      "council": "Waterford",
+      "slug": "waterford",
+      "status": "ok",
+      "year": 2025,
+      "page": 14,
+      "n_years": 2,
+      "years": [
+        2024,
+        2025
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 83438984.0
+    },
+    {
+      "council": "Limerick",
+      "slug": "limerick",
+      "status": "ok",
+      "year": 2025,
+      "page": 14,
+      "n_years": 10,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 148967307.0
+    },
+    {
+      "council": "Offaly",
+      "slug": "offaly",
+      "status": "ok",
+      "year": 2025,
+      "page": 12,
+      "n_years": 5,
+      "years": [
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 33611188.0
+    },
+    {
+      "council": "Longford",
+      "slug": "longford",
+      "status": "ok",
+      "year": 2025,
+      "page": 14,
+      "n_years": 4,
+      "years": [
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 35820582.0
+    },
+    {
+      "council": "Kerry",
+      "slug": "kerry",
+      "status": "ok",
+      "year": 2024,
+      "page": 21,
+      "n_years": 6,
+      "years": [
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 13,
+      "loans_payable_latest": 56029498.0
+    },
+    {
+      "council": "Leitrim",
+      "slug": "leitrim",
+      "status": "ok",
+      "year": 2024,
+      "page": 12,
+      "n_years": 3,
+      "years": [
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 14,
+      "loans_payable_latest": 20866459.0
+    },
+    {
+      "council": "Laois",
+      "slug": "laois",
+      "status": "ok",
+      "year": 2025,
+      "page": 15,
+      "n_years": 2,
+      "years": [
+        2024,
+        2025
+      ],
+      "n_items": 13,
+      "loans_payable_latest": 70755576.0
+    },
+    {
+      "council": "Dublin City",
+      "slug": "dublin_city",
+      "status": "ok",
+      "year": 2025,
+      "page": 23,
+      "n_years": 8,
+      "years": [
+        2016,
+        2017,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 590412164.0
+    },
+    {
+      "council": "Cavan",
+      "slug": "cavan",
+      "status": "ok",
+      "year": 2022,
+      "page": 11,
+      "n_years": 4,
+      "years": [
+        2019,
+        2020,
+        2021,
+        2022
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 15202017.0
+    },
+    {
+      "council": "Roscommon",
+      "slug": "roscommon",
+      "status": "ok",
+      "year": 2024,
+      "page": 18,
+      "n_years": 9,
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_items": 14,
+      "loans_payable_latest": 28190629.0
+    },
+    {
+      "council": "Carlow",
+      "slug": "carlow",
+      "status": "ok",
+      "year": 2022,
+      "page": 17,
+      "n_years": 4,
+      "years": [
+        2019,
+        2020,
+        2021,
+        2022
+      ],
+      "n_items": 14,
+      "loans_payable_latest": 34330967.0
+    },
+    {
+      "council": "Mayo",
+      "slug": "mayo",
+      "status": "ok",
+      "year": 2023,
+      "page": 16,
+      "n_years": 7,
+      "years": [
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023
+      ],
+      "n_items": 15,
+      "loans_payable_latest": 109639339.0
+    }
+  ],
+  "value_kind": "balance_sheet_stock",
+  "scope": "per-LA audited AFS Balance Sheet — financial position line items (long) at 31 December",
+  "generated_at": "2026-07-21T05:54:05.249254+00:00",
+  "caveat": "STOCK grain — positions at a point in time, NOT flows. NEVER sum or reconcile with any AFS expenditure (la_afs_divisions / la_afs_capital_divisions), procurement-awarded, payments or budget euros, and NEVER sum one item across years for one council (double-counts a carried balance). Read directly from the printed Balance Sheet (no reconcile gate). One value per (council, year, item); the prior-year comparative column is kept only where no statement-year read exists for that year. Sub-total lines are not captured — sum the labelled components (e.g. fixed assets = the fa_* items)."
+}

@@ -18,6 +18,7 @@ from data_access.legislation_data import (
     fetch_bill_detail,
     fetch_bill_pdfs,
     fetch_bill_timeline,
+    fetch_introduced_years,
     fetch_legislation_index_filtered,
     fetch_most_contested_bills,
     fetch_pre2014_act_detail,
@@ -238,6 +239,12 @@ def _render_legislation_index(
     cards: list[str] = []
     for _, row in visible_df.iterrows():
         status = row.get("bill_status", "—") or "—"
+        # Badge the EXCEPTION, not the default (2026-07-21 clutter pass). The
+        # page is "Bills Before the Oireachtas", the list sorts newest-first, and
+        # recent bills are all "Current" — so a CURRENT badge on every page-1 card
+        # marked nothing. Lapsed / Enacted / Defeated / Withdrawn DO distinguish a
+        # bill's fate, so those still badge; an un-badged card is current.
+        show_badge = status.strip().lower() != "current"
         status_cls = _status_badge_class(status)
         date_str = _fmt_date(row.get("introduced_date"))
         title = row.get("bill_title", "—") or "—"
@@ -257,10 +264,11 @@ def _render_legislation_index(
             aria_label="Open this bill on oireachtas.ie",
         )
 
+        badge_html = f'<span class="{status_cls}">{html.escape(status)}</span>' if show_badge else "<span></span>"
         card_html = (
             f'<div class="leg-bill-card">'
             f'<div class="leg-bill-card-header">'
-            f'<span class="{status_cls}">{html.escape(status)}</span>'
+            f"{badge_html}"
             f'<span class="leg-bill-card-date">{html.escape(date_str)}</span>'
             f"</div>"
             f'<div class="leg-bill-card-title" title="{html.escape(title)}">{html.escape(title)}</div>'
@@ -981,14 +989,16 @@ def legislation_page() -> None:
     )
 
     # ── Filter bar (was the sidebar) ───────────────────────────────────────────
+    # Year is the shared pill control now (2026-07-20 year-grammar migration):
+    # a free two-ended date-range picker was the only calendar filter on the site
+    # that wasn't year_selector. A picked year maps to that year's introduced_date
+    # range (Jan 1–Dec 31); "All years" → no filter. Same query, same params.
+    intro_years = fetch_introduced_years()
     with filter_bar([4, 3, 5]) as cols:
         with cols[0]:
-            field_label("Introduced between")
-            date_val = st.date_input(
-                "Introduced between",
-                value=(),
-                label_visibility="collapsed",
-                key="leg_date_range",
+            field_label("Introduced")
+            year_val = year_selector(
+                [str(y) for y in intro_years], key="leg_year", include_all=True
             )
         with cols[1]:
             field_label("Status")
@@ -1010,8 +1020,8 @@ def legislation_page() -> None:
 
     start_date: str | None = None
     end_date: str | None = None
-    if isinstance(date_val, (list, tuple)) and len(date_val) == 2:
-        start_date, end_date = str(date_val[0]), str(date_val[1])
+    if year_val is not None:
+        start_date, end_date = f"{year_val}-01-01", f"{year_val}-12-31"
     status_param = status_sel if status_sel != "All" else None
     search_param = title_search.strip() or None
 

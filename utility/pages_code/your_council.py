@@ -36,6 +36,10 @@ from data_access.local_government_data import (
     fetch_lgas_audit_result,
 )
 from data_access.procurement_data import (
+    fetch_afs_debt_standing_result,
+    fetch_afs_financial_position_result,
+    fetch_afs_loan_movement_by_year_result,
+    fetch_afs_loans_payable_by_year_result,
     fetch_afs_total_by_year_result,
     fetch_council_summary_result,
     fetch_la_budget_divisions_result,
@@ -472,6 +476,112 @@ def _render_money_strip(council: str, summ) -> None:
     )
 
 
+_DEBT_CSS = """
+<style>
+.yc-debt { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45rem; margin: 0.35rem 0 0.5rem; }
+.yc-debt-card {
+  display: flex; flex-direction: column; gap: 0.16rem; background: #fff;
+  border: 1px solid rgba(0,0,0,0.08); border-top: 3px solid #7a3550;
+  border-radius: 8px; padding: 0.55rem 0.7rem 0.6rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.yc-debt-kicker { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: #7a3550; }
+.yc-debt-fig { font-size: 1.15rem; font-weight: 700; color: #16243a; line-height: 1.15; }
+.yc-debt-sub { font-size: 0.72rem; color: var(--text-secondary, #555); line-height: 1.3; }
+.yc-debt-trend { display: flex; align-items: flex-end; gap: 3px; height: 46px; margin: 0.2rem 0 0.15rem; }
+.yc-debt-bar { flex: 1; background: linear-gradient(180deg, #a24c6b, #7a3550); border-radius: 2px 2px 0 0; min-height: 3px; }
+.yc-debt-trend-labels { display: flex; justify-content: space-between; font-size: 0.66rem; color: #888; }
+@media (max-width: 860px) { .yc-debt { grid-template-columns: 1fr 1fr; } }
+</style>
+"""
+
+
+def _ordinal(n: int) -> str:
+    suf = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suf}"
+
+
+def _debt_card(kicker: str, figure: str, sub: str) -> str:
+    return (
+        f'<div class="yc-debt-card"><span class="yc-debt-kicker">{_h(kicker)}</span>'
+        f'<span class="yc-debt-fig">{_h(figure)}</span>'
+        f'<span class="yc-debt-sub">{_h(sub)}</span></div>'
+    )
+
+
+def _render_debt_lane(council: str) -> None:
+    """OWES lane — the council's financial POSITION from the audited AFS balance sheet: borrowing
+    outstanding (with its national rank), new borrowing this year, supplier creditors, and the
+    asset base. A STOCK grain — shown beside the spend flow, NEVER added to it. Councils whose
+    balance sheet isn't machine-readable (e.g. scanned-only) simply don't render this lane."""
+    standing = fetch_afs_debt_standing_result(council)
+    if not standing.ok or standing.data is None or standing.data.empty:
+        return
+    s = standing.data.iloc[0]
+    pos_r = fetch_afs_financial_position_result(council)
+    pos = pos_r.data.iloc[0] if pos_r.ok and pos_r.data is not None and not pos_r.data.empty else None
+    move_r = fetch_afs_loan_movement_by_year_result(council)
+    trend_r = fetch_afs_loans_payable_by_year_result(council)
+
+    year = int(s.get("year"))
+    rank, n = int(s.get("debt_rank")), int(s.get("n_councils"))
+    st.html(
+        _lane_header(
+            "OWES · Balance sheet",
+            "What your council owes and owns",
+            f"The audited <strong>balance sheet</strong> in {_h(council)}'s Annual Financial "
+            "Statement records its financial position at year end — money borrowed, money owed "
+            "to suppliers, and the value of what it owns. These are <em>balances</em>, a distinct "
+            "measure from the spending above: never added to it.",
+        )
+    )
+
+    cards = [
+        _debt_card(
+            "Borrowing outstanding",
+            _eur(s.get("loans_payable_eur")),
+            f"{_ordinal(rank)} highest of {n} councils · national median {_eur(s.get('national_median_eur'))} ({year})",
+        )
+    ]
+    if move_r.ok and move_r.data is not None and not move_r.data.empty:
+        m = move_r.data.iloc[-1]
+        borrowed = m.get("borrowings_eur")
+        if borrowed and float(borrowed) > 0:
+            cards.append(_debt_card("New borrowing", _eur(borrowed), f"raised in {int(m.get('year'))} — Note 7"))
+        else:
+            cards.append(_debt_card("New borrowing", "—", f"none raised in {int(m.get('year'))} — repaying down"))
+    if pos is not None:
+        cards.append(_debt_card("Owed to suppliers", _eur(pos.get("creditors_accruals_eur")), "creditors & accruals"))
+        cards.append(_debt_card("What it owns", _eur(pos.get("fixed_assets_eur")), "fixed assets at book value"))
+
+    st.html(_DEBT_CSS + f'<div class="yc-debt">{"".join(cards[:4])}</div>')
+
+    # Debt trend — loans payable by year, as scaled bars (display-only presentation of the series).
+    if trend_r.ok and trend_r.data is not None and len(trend_r.data) >= 2:
+        td = trend_r.data
+        vals = list(td["loans_payable_eur"])  # logic_firewall: display_only
+        hi = max(v for v in vals if v) or 1  # logic_firewall: display_only
+        bars = "".join(
+            f'<div class="yc-debt-bar" style="height:{max(3, round(100 * (v or 0) / hi))}%" '
+            f'title="{int(td.iloc[i]["year"])}: {_eur(v)}"></div>'
+            for i, v in enumerate(vals)
+        )
+        st.html(
+            f'<div class="yc-debt-trend">{bars}</div>'
+            f'<div class="yc-debt-trend-labels"><span>{int(td.iloc[0]["year"])}</span>'
+            f'<span>Borrowing outstanding, year end</span><span>{int(td.iloc[-1]["year"])}</span></div>'
+        )
+
+    src = pos.get("source_file_url") if pos is not None else None
+    page = pos.get("source_page_number") if pos is not None else None
+    if src:
+        pg = f" (p{int(page)})" if page else ""
+        st.html(
+            f'<div class="yc-debt-sub" style="margin-top:0.3rem">Source: audited Annual Financial '
+            f'Statement balance sheet{_h(pg)} — <a href="{_h(str(src))}" target="_blank" '
+            f'rel="noopener">{_h(council)} finance publications</a>.</div>'
+        )
+
+
 def _render_audit_lane(council: str) -> None:
     """The AUDITED stage — the money flow's closing beat. Reuses the satellite page's verbatim
     LGAS card (opinion sentence + emphasis-of-matter flag straight from the report, no derived
@@ -520,6 +630,9 @@ def _section_spending(council: str) -> None:
         _render_payments_publisher_profile(
             council, "COMMITTED", show_back=False, money_flow=True, councillors_href=councillors_href
         )
+    # The OWES lane (balance-sheet position) self-guards on missing data, so it runs for every
+    # council — including those with no PO list but a readable AFS — and simply no-ops otherwise.
+    _render_debt_lane(council)
     _render_audit_lane(council)
 
 

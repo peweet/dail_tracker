@@ -41,6 +41,18 @@ _FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 
 def setup_logging(run_id: str | None = None) -> None:
+    # Cloud mode: emit structured JSON to stdout instead of per-run FILES, and
+    # promote run_id from a directory name to a log FIELD so a collector can group
+    # every process's lines by it. Opt-in via env; the laptop keeps files + text.
+    # Delegated so all 132 getLogger() callers get it for free — they log to root,
+    # and root is what this reconfigures.
+    from services.logging_cloud import bind_context, cloud_mode, configure_logging
+
+    if cloud_mode():
+        configure_logging(service="pipeline")
+        bind_context(run_id=run_id or os.environ.get(ENV_RUN_ID))
+        return
+
     root_logger = logging.getLogger()
 
     if root_logger.handlers:
@@ -89,7 +101,18 @@ def setup_standalone_logging(name: str, level: int = logging.INFO) -> None:
     When the script is invoked as a pipeline step (DAIL_PIPELINE_RUN_ID set),
     the file handler is skipped — the orchestrator already captures stdout/stderr
     into logs/runs/<run_id>/steps/. Idempotent: a second call is a no-op.
+
+    Cloud mode (env opt-in) routes to structured JSON on stdout instead, stamping
+    the script `name` as the service and the inherited run_id as a field so a
+    standalone ETL job is as filterable in a log explorer as it is on disk here.
     """
+    from services.logging_cloud import bind_context, cloud_mode, configure_logging
+
+    if cloud_mode():
+        configure_logging(service=name, level=logging.getLevelName(level))
+        bind_context(run_id=os.environ.get(ENV_RUN_ID), step=name)
+        return
+
     root_logger = logging.getLogger()
     if root_logger.handlers:
         return

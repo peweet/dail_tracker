@@ -174,6 +174,9 @@ def _render_by_year(df) -> None:
     )
 
 
+_PROV_LEAD = 15  # provider rows shown before "show all" (2026-07-21)
+
+
 def _render_providers(df) -> None:
     evidence_heading("Who the money goes to")
     st.html(
@@ -181,6 +184,10 @@ def _render_providers(df) -> None:
         "spend across the covered years. Names are as published; some single operators "
         "still appear under more than one spelling, so treat the order as indicative.</p>"
     )
+    # Lead slice + "show all" (2026-07-21 clutter pass): the full ranking was a
+    # ~35-row table dump. The top 15 carry the story; the tail is one click away.
+    show_all = st.session_state.get("accom_prov_show_all", False)
+    view = df if show_all else df.head(_PROV_LEAD)
     rows = [
         [
             prov,
@@ -190,12 +197,12 @@ def _render_providers(df) -> None:
             f"{int(a)}–{int(b)}" if a != b else f"{int(a)}",
         ]
         for prov, tot, ip, uk, a, b in zip(
-            df["provider"],
-            df["total_eur"],
-            df["ip_eur"],
-            df["ukraine_eur"],
-            df["first_year"],
-            df["last_year"],
+            view["provider"],
+            view["total_eur"],
+            view["ip_eur"],
+            view["ukraine_eur"],
+            view["first_year"],
+            view["last_year"],
             strict=False,
         )
     ]
@@ -206,6 +213,10 @@ def _render_providers(df) -> None:
             numeric_cols=(1, 2, 3),
         )
     )
+    if not show_all and len(df) > _PROV_LEAD:
+        if st.button(f"Show all {len(df)} providers", key="accom_prov_show_all_btn", type="tertiary"):
+            st.session_state["accom_prov_show_all"] = True
+            st.rerun()
 
 
 def _render_money_tab() -> None:
@@ -242,12 +253,18 @@ def _render_where_tab() -> None:
     total = int(df["ip_applicants"].sum())
     snap = str(df["snapshot_date"].iloc[0]) if "snapshot_date" in df.columns else ""
 
-    evidence_heading("Where people are housed")
+    # Walking-figure silhouette beside the heading — the same muted outline the "person"
+    # tab uses; humanises the distribution without othering (no stock photography).
     st.html(
-        '<p class="con-section-note">People seeking international protection in State-provided '
-        "accommodation, by <strong>local authority</strong>, as a share of each area's population. "
-        "The rate — applicants per 1,000 residents — is the measure the Comptroller &amp; Auditor "
-        "General's own map uses; the colour band is the auditor's. Population is Census 2022.</p>"
+        '<div style="display:flex;align-items:center;gap:1rem;margin:0.2rem 0 0.4rem">'
+        f"{_SILHOUETTE}"
+        '<div><h2 class="section-heading" style="margin:0">Where people are housed</h2>'
+        '<p class="con-section-note" style="margin:0.15rem 0 0">People seeking international '
+        "protection in State-provided accommodation, by <strong>local authority</strong>, as a "
+        "share of each area's population. The rate — applicants per 1,000 residents — is the "
+        "measure the Comptroller &amp; Auditor General's own map uses; the colour band is the "
+        "auditor's. Population is Census 2022.</p></div>"
+        "</div>"
     )
     per_capita = df[df["ip_per_1000_population"].notna()]
     if not per_capita.empty:
@@ -263,7 +280,40 @@ def _render_where_tab() -> None:
             ]
         )
 
-    # Ranked horizontal bars, coloured by the C&AG band — a choropleth read as a league table.
+    # The band legend, shared by the map and the bars below (both read the C&AG's own bands).
+    band_legend = "".join(
+        f'<span style="display:inline-flex;align-items:center;gap:0.3rem;margin-right:0.8rem">'
+        f'<span style="width:0.8rem;height:0.8rem;border-radius:2px;background:{_BAND_COLOUR[b]};'
+        f'display:inline-block"></span>{b}</span>'
+        for b in _BAND_ORDER
+    )
+
+    # The actual choropleth — the same 31-authority SVG the council map draws, but filled
+    # with the C&AG's Figure 10.2 bands (not council quintiles). Non-clickable: this tab has
+    # no per-LA drilldown, so the map is illustrative and the bars below are the detail.
+    from pages_code.local_government import _choropleth_html  # presentation helper, no logic
+
+    fill_by_band = {
+        str(r["map_key"]): _BAND_COLOUR[str(r["cag_band"])]
+        for _, r in df.iterrows()
+        if pd.notna(r.get("map_key")) and str(r.get("cag_band")) in _BAND_COLOUR
+    }
+    map_html = _choropleth_html(
+        {},
+        alt="Map of the 31 local authorities shaded by international-protection applicants per 1,000 residents",
+        fill_by_name=fill_by_band,
+        clickable=False,
+    )
+    if map_html:
+        st.html(
+            '<div class="con-choro" style="cursor:default"><style>.con-choro .con-choropleth'
+            "{cursor:default}</style>"
+            f"{map_html}"
+            f'<div style="font-size:0.76rem;color:#5b6b73">Applicants per 1,000 residents · '
+            f"band (C&amp;AG Fig 10.2): {band_legend}</div></div>"
+        )
+
+    # Ranked horizontal bars, coloured by the C&AG band — the map read as a league table.
     rate_max = float(per_capita["ip_per_1000_population"].max()) if not per_capita.empty else 1.0
     bars: list[str] = []
     for _, r in df.iterrows():
@@ -287,16 +337,8 @@ def _render_where_tab() -> None:
             f"{int(r['ip_applicants']):,}</div>"
             "</div>"
         )
-    legend = "".join(
-        f'<span style="display:inline-flex;align-items:center;gap:0.3rem;margin-right:0.8rem">'
-        f'<span style="width:0.8rem;height:0.8rem;border-radius:2px;background:{_BAND_COLOUR[b]};'
-        f'display:inline-block"></span>{b}</span>'
-        for b in _BAND_ORDER
-    )
     st.html(
-        f'<div style="margin:0.3rem 0 0.4rem">{"".join(bars)}</div>'
-        f'<div style="font-size:0.76rem;color:#5b6b73;margin-bottom:0.5rem">'
-        f"Applicants per 1,000 residents · band (C&amp;AG Fig 10.2): {legend}</div>"
+        f'<div style="margin:0.3rem 0 0.5rem">{"".join(bars)}</div>'
     )
 
     unknown = df[df["ip_per_1000_population"].isna()]

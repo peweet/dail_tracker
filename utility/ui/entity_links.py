@@ -81,6 +81,11 @@ PAGES: dict[str, str] = {
     # /company is the supplier dossier (entity-first flagship, now a visible
     # "Companies" tab) — the canonical URL for one firm's public-money footprint.
     "company": "company",
+    # /body is the canonical public-body (buyer) dossier — the buyer-side mirror of
+    # /company. Keyed by ?buyer=<buyer_id or any register name>; resolves via the
+    # buyer_xref crosswalk. Unifies the three fragmented buyer drills (procurement
+    # ?authority=, public_payments ?publisher=, council_spending ?council=).
+    "body": "body",
     # /local-government is the "Who runs your county" dossier — one council's
     # appointed Chief Executive + published accountability indicators, keyed by
     # ?la=<local_authority>. The constituency dossier links serving councils here.
@@ -166,6 +171,20 @@ def authority_profile_url(authority: str) -> str:
     ``authority`` is the raw ``contracting_authority`` string the award views carry.
     """
     return f"/{PAGES['procurement']}?authority={_q(authority)}"
+
+
+def body_profile_url(buyer: str) -> str:
+    """Canonical public-body (buyer) dossier URL: /body?buyer=<buyer>.
+
+    The buyer-side mirror of ``company_profile_url`` — the reciprocal that closes the
+    supplier↔body loop. ``buyer`` may be a ``buyer_id`` (e.g. ``ie_la_dublin_city``) OR any
+    register name the crosswalk indexes (``contracting_authority``, payments ``publisher``,
+    ``council``); ``buyer_xref.resolve_buyer`` maps them all to one identity. Use this from the
+    three fragmented buyer drills (procurement ?authority=, public_payments ?publisher=,
+    council_spending ?council=) so a buyer travels to its unified dossier instead of dropping
+    the reader on a generic list. Resolves fail-closed — an unknown buyer shows a "not found"
+    note on /body, never a fuzzy guess."""
+    return f"/{PAGES['body']}?buyer={_q(buyer)}"
 
 
 def council_accountability_url(local_authority: str) -> str:

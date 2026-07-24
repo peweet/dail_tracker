@@ -557,6 +557,6 @@
   "realisation_tier": "SPENT",
   "value_kind": "capital_expenditure_actual",
   "scope": "per-LA audited AFS Capital Account, expenditure by service division",
-  "generated_at": "2026-07-11T11:22:19.924507+00:00",
+  "generated_at": "2026-07-20T17:40:38.181644+00:00",
   "caveat": "Capital (build/acquire) expenditure by division \u2014 a DISTINCT grain from the revenue I&E net-expenditure fact (la_afs_divisions). NEVER union or reconcile the two. Capital income is overwhelmingly DHLGH/central grants. Sum only within a (council, year)."
 }

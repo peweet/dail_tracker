@@ -5,6 +5,8 @@ ted_ie_awards,one row per TED award notice,ted,awarded|payments|budget,"EU TED c
 la_budget_divisions,one row per (council,year,division),budget,awarded|payments|accounts,"ADOPTED council budgets (a PLAN) — the 4th money grain, never union with actuals"
 la_afs_divisions,one row per (council,year,division),accounts,awarded|payments|budget,"Audited council revenue accounts (outturn) by service division"
 la_afs_capital_divisions,one row per (council,year,division),accounts,awarded|payments|budget,"Audited council CAPITAL accounts — distinct from revenue; never sum the two"
+la_afs_balance_sheet,one row per (council,year,item),balance_sheet_stock,awarded|payments|budget|accounts,"AFS Balance Sheet line items (assets/debtors/creditors/loans) — STOCKS/positions, never sum with any spend flow or across years; loans_payable is one item"
+la_afs_loan_movement,one row per (council,year,item),loan_movement,awarded|payments|budget|accounts,"AFS Note 7 loan movement — opening/closing STOCKS + borrow/repay FLOWS (reconcile-gated); never sum flow with stock or with spend"
 afs_amalgamated_divisions,one row per (year,division) national,accounts,awarded|payments|budget,"National amalgamated council accounts (all 31 summed) — never mix with per-LA AFS"
 public_payments_fact,one row per public-body payment line,payments,awarded|budget|ted,"Central/semi-state body payments — same PAYMENTS grain as procurement_payments_fact"
 payments_full_psa,one row per PSA payment line,payments,awarded|budget|ted,"Full public-service-agreement payments"

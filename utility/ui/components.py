@@ -1278,8 +1278,14 @@ def committee_row_html(
     sits next to the fit-content card.
     """
     rank_html = f'<div class="cmt-row-rank">#{int(rank)}</div>' if rank is not None else ""
+    # Only NON-active statuses render (2026-07-20 clutter pass). "ACTIVE" was
+    # printed on all 25 register cards — the default state, so the badge marked
+    # nothing. "Ended"/"Unknown" is the exception a reader needs to see, and an
+    # unbadged card now reads as active.
     status_cls = "cmt-row-status-active" if status == "Active" else "cmt-row-status-ended"
-    status_html = f'<span class="cmt-row-status {status_cls}">{_h(status)}</span>' if status else ""
+    status_html = (
+        f'<span class="cmt-row-status {status_cls}">{_h(status)}</span>' if status and status != "Active" else ""
+    )
     meta_parts: list[str] = []
     if chair:
         chair_meta = f"Chair: <strong>{_h(chair)}</strong>"
@@ -1291,7 +1297,11 @@ def committee_row_html(
     if members:
         meta_parts.append(f"<strong>{int(members)}</strong> member{'s' if members != 1 else ''}")
     meta_html = f'<div class="cmt-row-meta">{" · ".join(meta_parts)}</div>' if meta_parts else ""
-    stripe_html = party_stripe_html(party_seats, show_legend=True) if party_seats else ""
+    # No per-card legend (2026-07-21 clutter pass): the dot-and-count legend
+    # listed every party on all 25 register cards — a text wall duplicating the
+    # stacked bar right above it. The bar keeps per-segment hover titles, and the
+    # register renders ONE shared colour key above the grid (committees.py).
+    stripe_html = party_stripe_html(party_seats, show_legend=False) if party_seats else ""
     # P2-5 audit fix: previously each register card carried its own
     # "Oireachtas.ie ↗" link — five identical accent-coloured external
     # links per page created a vertical column of click-bait that

@@ -3,7 +3,7 @@
 
 # doc/ index
 
-57 docs · ~318.3k tokens total · 51 LIVE · 3 superseded/stale · 1 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+66 docs · ~347.1k tokens total · 51 LIVE · 3 superseded/stale · 10 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -40,7 +40,7 @@
 | [PUBLIC_PAYMENTS_FACT_SCHEMA.md](PUBLIC_PAYMENTS_FACT_SCHEMA.md) | money | 7.2k | 2026-06-04 | designing/building the unified procurement+payments gold model or the value_kind/realisation_tier taxonomy |
 | [BID_INTELLIGENCE_PACK_ENGINE.md](BID_INTELLIGENCE_PACK_ENGINE.md) | procurement | 3.8k | 2026-06-29 | building or evaluating the bid-intelligence pack engine (auto-assembled market-research pack for a matched tender) |
 | [BUYER_DOSSIER_DESIGN.md](BUYER_DOSSIER_DESIGN.md) | procurement | 10.4k | 2026-07-13 | building or extending the buyer/public-body procurement dossier feature |
-| [PROCUREMENT_COMPETITOR_ANALYSIS.md](PROCUREMENT_COMPETITOR_ANALYSIS.md) | procurement | 8.5k | 2026-07-10 | assessing whether/how supplier-side competitor analysis (co-occurrence, trade tagger, CRO anchor) can be built or extended |
+| [PROCUREMENT_COMPETITOR_ANALYSIS.md](PROCUREMENT_COMPETITOR_ANALYSIS.md) | procurement | 8.6k | 2026-07-10 | assessing whether/how supplier-side competitor analysis (co-occurrence, trade tagger, CRO anchor) can be built or extended |
 | [PROCUREMENT_INFLATION_BENCHMARKING_DESIGN.md](PROCUREMENT_INFLATION_BENCHMARKING_DESIGN.md) | procurement | 9.0k | 2026-07-07 | touching inflation-adjusted procurement benchmarking (real-terms views, CPI/deflator index registry, gated UI/API) |
 | [PROCUREMENT_INTELLIGENCE_ROADMAP.md](PROCUREMENT_INTELLIGENCE_ROADMAP.md) | procurement | 7.3k | 2026-06-28 | prioritizing the next procurement-intelligence surfacing feature to build (Phase 0-5) |
 | [PROCUREMENT_MASTER.md](PROCUREMENT_MASTER.md) | procurement | 5.0k | 2026-06-28 | making any procurement-page change — authoritative money-grain rules and verified headline figures |
@@ -75,6 +75,15 @@
 
 | doc | domain | ~tok | updated | read when |
 |---|---|---:|---|---|
-| [COMMUNICATION_STYLE.md](COMMUNICATION_STYLE.md) | — | 6.5k | — |  |
+| [CLASS_CONTRACT.md](CLASS_CONTRACT.md) | — | 0.9k | — |  |
+| [CLOUD_READINESS.md](CLOUD_READINESS.md) | — | 1.5k | — |  |
+| [COMMUNICATION_STYLE.md](COMMUNICATION_STYLE.md) | — | 6.7k | — |  |
+| [COMPETITOR_LANDSCAPE.md](COMPETITOR_LANDSCAPE.md) | — | 3.6k | — |  |
+| [FRAMEWORK_DECOUPLING_PLAN.md](FRAMEWORK_DECOUPLING_PLAN.md) | — | 6.9k | — |  |
+| [JOURNALIST_MCP_PLAN.md](JOURNALIST_MCP_PLAN.md) | — | 5.1k | — |  |
+| [OBSERVABILITY.md](OBSERVABILITY.md) | — | 1.7k | — |  |
+| [PLAN_ACP_GEOMETRY_AND_PRECEDENT.md](PLAN_ACP_GEOMETRY_AND_PRECEDENT.md) | — | 5.0k | — |  |
+| [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.4k | — |  |
+| [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-07-20 -->
+<!-- generated 2026-07-21 -->

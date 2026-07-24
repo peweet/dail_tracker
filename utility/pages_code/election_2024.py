@@ -319,19 +319,38 @@ def _render_overview() -> None:
         f'<span class="lk"><span class="dot" style="background:{_C_CAND}"></span>Candidates'
         "&#39; own spend</span></div>"
     )
+    # Caveat ABOVE the grid (2026-07-21 fix): it used to sit after all ~20 party
+    # cards, so a reader interpreted every bar — as if the three within a card
+    # were comparable, and “—” as zero — before the footnote corrected them. The
+    # rule that changes how you read the bars must precede the bars.
+    st.caption(
+        "How to read the bars: each is scaled within its own stream, so a party's three bars "
+        "are NOT comparable to each other — only to the same-coloured bar on other parties. "
+        "The streams are different records and are never added together. “—” means no return "
+        "was filed in that stream, which is not the same as zero."
+    )
     mx = {
         "in": _safe_max(pf["donated_in_eur"]),
         "agent": _safe_max(pf["agent_spend_eur"]),
         "cand": _safe_max(pf["candidate_spend_eur"]),
     }
-    cards = "".join(_party_finance_card(r, mx) for _, r in pf.iterrows())
+    # Partition off parties with NO return in any stream (2026-07-21 clutter
+    # pass): they rendered as full-size cards showing three "—" bars — zero
+    # information taking a card each and padding the grid. A party with even one
+    # real figure still gets a card. The empties collapse to one honest line so
+    # the absence is disclosed, not silently dropped. display_only.
+    def _pos(col: str) -> pd.Series:
+        return pd.to_numeric(pf[col], errors="coerce").fillna(0) > 0
+
+    _has_any = _pos("donated_in_eur") | _pos("agent_spend_eur") | _pos("candidate_spend_eur")
+    pf_shown, pf_none = pf[_has_any], pf[~_has_any]
+    cards = "".join(_party_finance_card(r, mx) for _, r in pf_shown.iterrows())
     st.html(f'<div class="don-grid">{cards}</div>')
-    st.caption(
-        "Bars are scaled within each stream, so a party's three bars are NOT comparable "
-        "to each other — only to the same-coloured bar on other parties. Streams are "
-        "different records and are never added together. “—” means no return in that "
-        "stream, never zero."
-    )
+    if not pf_none.empty:
+        _n_none = len(pf_none)
+        _names = ", ".join(sorted(str(p) for p in pf_none["party"]))
+        _party_word = "party" if _n_none == 1 else "parties"
+        st.caption(f"**{_n_none} {_party_word} filed no return in any stream:** {_names}.")
 
 
 # ── Donations tab + drill ─────────────────────────────────────────────────────────

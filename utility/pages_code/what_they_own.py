@@ -103,7 +103,9 @@ def _own_card_html(row, *, show_rank: bool) -> str:
 
 
 def _render_leaderboard(df: pd.DataFrame, *, show_rank: bool) -> None:
-    page_size = 12
+    # 24, the site-wide list convention (2026-07-20 clutter pass). At 12 this
+    # ranking needed ~30 pages to walk the full register.
+    page_size = 24
     page_key = "wto_page"
     cur = int(st.session_state.get(page_key, 1))
     total_pages = max(1, (len(df) + page_size - 1) // page_size)
@@ -208,59 +210,71 @@ def what_they_own_page() -> None:
         )
         return
 
-    # ── Member jump (search + notable chips) → canonical profile ────────────────
     opts = fetch_interests_filter_options(house)
-    chosen = main_member_jump(
-        opts["members"],
-        key_prefix="wto_member",
-        label="Find a TD or senator",
-        placeholder="Type a name…",
-    )
-    if chosen:
-        _redirect_to_profile(chosen)
 
-    notable = NOTABLE_TDS if house == "Dáil" else NOTABLE_SENATORS
-    if notable and render_notable_chips(notable, opts["members"], "chip_wto", "wto_selected", cols=6):
-        picked = st.session_state.pop("wto_selected", None)
-        if picked:
-            _redirect_to_profile(picked)
-        st.rerun()
-    if st.session_state.get("wto_selected"):
-        member_moved_callout(
-            st.session_state["wto_selected"],
-            section="interests",
-            section_label="the member's declarations",
-            state_keys=("wto_selected",),
+    # ── Member jump (search + notable chips) → canonical profile ────────────────
+    # Collapsed into one expander (2026-07-20 clutter pass). This is a "go
+    # straight to one person" shortcut — a different job from browsing the
+    # ranked register below. As two always-open clusters (a search box + a
+    # six-across chip grid) it was half of the five control blocks the reader
+    # had to pass before the first ranked card. It opens if a chip was just
+    # clicked, so the "member moved" callout stays visible.
+    _jump_open = bool(st.session_state.get("wto_selected"))
+    with st.expander("Look up a specific member →", expanded=_jump_open):
+        chosen = main_member_jump(
+            opts["members"],
+            key_prefix="wto_member",
+            label="Find a TD or senator",
+            placeholder="Type a name…",
         )
+        if chosen:
+            _redirect_to_profile(chosen)
 
-    # ── Ownership category filter (display-only) ────────────────────────────────
-    category = (
-        st.segmented_control(
-            "What they own",
-            list(_CATEGORIES),
-            default="Everyone",
-            key="wto_category",
-            label_visibility="collapsed",
-        )
-        or "Everyone"
-    )
+        notable = NOTABLE_TDS if house == "Dáil" else NOTABLE_SENATORS
+        if notable and render_notable_chips(notable, opts["members"], "chip_wto", "wto_selected", cols=6):
+            picked = st.session_state.pop("wto_selected", None)
+            if picked:
+                _redirect_to_profile(picked)
+            st.rerun()
+        if st.session_state.get("wto_selected"):
+            member_moved_callout(
+                st.session_state["wto_selected"],
+                section="interests",
+                section_label="the member's declarations",
+                state_keys=("wto_selected",),
+            )
 
-    # ── Historic year picker ────────────────────────────────────────────────────
+    # ── List filters: ownership category + historic year, on one row ────────────
+    # Adjacent (2026-07-20 clutter pass): both scope the ranked list, so they
+    # read as one filter bar instead of two clusters split by the member-jump.
     # "Most recent on file" shows each member at their latest declaration year
-    # (the all-time snapshot view). Picking a year shows that year's register —
+    # (the all-time snapshot); picking a year shows that year's register,
     # surfacing whoever sat then, including members who have since left.
     _LATEST = "Most recent on file"
     years = [int(y) for y in opts.get("years", [])]
-    year_choice = (
-        st.selectbox(
-            "Declaration year",
-            [_LATEST, *[str(y) for y in years]],
-            index=0,
-            key="wto_year",
-            label_visibility="collapsed",
+    cat_col, yr_col = st.columns([3, 1])
+    with cat_col:
+        category = (
+            st.segmented_control(
+                "What they own",
+                list(_CATEGORIES),
+                default="Everyone",
+                key="wto_category",
+                label_visibility="collapsed",
+            )
+            or "Everyone"
         )
-        or _LATEST
-    )
+    with yr_col:
+        year_choice = (
+            st.selectbox(
+                "Declaration year",
+                [_LATEST, *[str(y) for y in years]],
+                index=0,
+                key="wto_year",
+                label_visibility="collapsed",
+            )
+            or _LATEST
+        )
     selected_year: int | None = None if year_choice == _LATEST else int(year_choice)
 
     # Make the coverage explicit and self-correcting for BOTH houses: derive the

@@ -131,5 +131,26 @@
     "bytes": 208541,
     "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary July 20th.docx",
     "revisions": 1
+  },
+  "2026-07-21": {
+    "sha256": "87ee6e3128aa1ba723438f613c0005a389f20947a5f5f4e223be6bc1bc607a4f",
+    "filename": "2026-07-21.docx",
+    "bytes": 143164,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary July 21st.docx",
+    "revisions": 1
+  },
+  "2026-07-22": {
+    "sha256": "4201a26fcd35cb6db678ca78180b4319624c97b690e0ea5f3d2e5988618f1931",
+    "filename": "2026-07-22.docx",
+    "bytes": 129820,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary July 22nd.docx",
+    "revisions": 1
+  },
+  "2026-07-24": {
+    "sha256": "013d032351ee2193d17bf0cd4f2825257269a3cd135be9e463d967db229feada",
+    "filename": "2026-07-24.docx",
+    "bytes": 132831,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary July 24th.docx",
+    "revisions": 1
   }
 }

@@ -156,7 +156,10 @@ def load_spend(cro_map: pl.DataFrame) -> pl.DataFrame:
     clean = (
         clean.with_columns(name_norm_expr("supplier_raw").alias("_ovr_key"))
         .filter(~pl.col("_ovr_key").is_in(list(pub_keys)))
-        .join(ovr, on="_ovr_key", how="left")
+        # validate='m:1': the overrides CSV is unique on payee_norm by hand only —
+        # nothing in code enforces it. Raise if a duplicate key is ever added,
+        # instead of silently fanning out spend rows. (Verified unique 2026-07-23.)
+        .join(ovr, on="_ovr_key", how="left", validate="m:1")
         .with_columns(pl.coalesce(["company_num", "_ovr_num"]).alias("company_num"))
         .drop(["_ovr_key", "_ovr_num"])
     )

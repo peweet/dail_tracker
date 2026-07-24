@@ -400,6 +400,41 @@ def adapt_stateboards(index_url: str) -> list[dict]:
     ]
 
 
+def adapt_api_canaries(canary_names: list[str]) -> list[dict]:
+    """Feed/API sources that can't be HEAD-checked (POST-only / query-parameterised),
+    each validated by a shape-asserting *canary* in pdf_infra/pdf_endpoint_check.py.
+
+    The canary functions and their list (``API_CANARIES``) are the single source of
+    truth; this registers them so the 5 feeds flow through the same
+    registry -> health -> cadence path as every other source, instead of living as a
+    hardcoded island only the nightly endpoint job knew about. Display names are
+    metadata keyed by the canonical canary name; an unmapped name degrades to itself,
+    so adding a 6th canary never breaks this."""
+    display = {
+        "oireachtas_api": "Oireachtas API (api.oireachtas.ie)",
+        "lobbying": "Lobbying Register API (api.lobbying.ie)",
+        "ted": "TED EU notices search API",
+        "etenders": "eTenders open data (data.gov.ie CKAN)",
+        "wikidata": "Wikidata SPARQL",
+    }
+    return [
+        _record(
+            source_id=f"api_canary:{name}",
+            group="api_canary",
+            owner_module="pdf_endpoint_check",
+            name=display.get(name, name),
+            check_type="api_canary",
+            grain="api_response",
+            status="automated",
+            pollable=True,
+            parser_wired=True,
+            refresh_mode="automated",
+            caveat="live feed; checked by a shape-asserting canary in pdf_infra/pdf_endpoint_check.py",
+        )
+        for name in canary_names
+    ]
+
+
 # Manual-source specs (no code config exists; the plan defines these) -----------
 MANUAL_SOURCES = [
     {
@@ -502,10 +537,16 @@ def build_records() -> list[dict]:
 
         return adapt_stateboards(INDEX_URL)
 
+    def _api_canaries():
+        from pdf_infra.pdf_endpoint_check import API_CANARIES
+
+        return adapt_api_canaries([name for name, _fn in API_CANARIES])
+
     _try("file_sources:cro", _cro)
     _try("file_sources:cro_fs", _cro_fs)
     _try("file_sources:manual", lambda: adapt_manual(MANUAL_SOURCES))
     _try("stateboards", _stateboards)
+    _try("api_canary", _api_canaries)
 
     records.sort(key=lambda r: r["source_id"])
     return records

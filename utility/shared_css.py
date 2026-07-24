@@ -631,6 +631,16 @@ def inject_css() -> None:
         [class*="st-key-reg_status"] [data-testid="stButtonGroup"] {
             flex-wrap: nowrap !important;
         }
+        /* Votes View toggle (2026-07-20): "Divisions"/"Members" wrapped into
+           two stacked pills that read as separate buttons, not one segmented
+           control. Root cause (found via computed layout): the INNER flex div
+           inside stButtonGroup keeps flex-wrap:wrap, and the two options total
+           ~192px in the ~189px column, so "Members" wrapped below. Force nowrap
+           on that inner div (flex-shrink absorbs the 3px). Scoped to the
+           v_view_widget key so other segmented controls keep default wrapping. */
+        [class*="st-key-v_view_widget"] [data-testid="stButtonGroup"] > div {
+            flex-wrap: nowrap !important;
+        }
 
         /* ── Back buttons (rendered via components.back_button) ────────
            Stands out against the beige page bg via dark-navy fill +
@@ -724,20 +734,30 @@ def inject_css() -> None:
             color: #ffffff !important;
         }
 
-        /* ── Download button ─────────────────────── */
+        /* ── Download button ─────────────────────────────────────────────
+           QUIET BY DESIGN (2026-07-20 clutter pass). This was solid black +
+           uppercase, which made "DOWNLOAD 51,217 NOTICES (CSV)" the loudest
+           element on several pages — louder than the records it exports.
+           Exporting is never the primary action on a civic page, so it now
+           reads as a secondary control: outlined, sentence-case, muted ink.
+           It darkens on hover so it's still obviously clickable. */
         .stDownloadButton > button {
-            background: var(--text-primary) !important;
-            color: var(--bg) !important;
-            border: none !important;
+            background: transparent !important;
+            color: var(--text-meta) !important;
+            border: 1px solid rgba(0,0,0,0.18) !important;
             border-radius: 2px !important;
             font-family: 'Epilogue', sans-serif !important;
-            font-size: 0.78rem !important;
-            font-weight: 600 !important;
-            letter-spacing: 0.05em !important;
-            text-transform: uppercase !important;
-            padding: 0.4rem 1rem !important;
+            font-size: 0.76rem !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.01em !important;
+            text-transform: none !important;
+            padding: 0.3rem 0.8rem !important;
         }
-        .stDownloadButton > button:hover { opacity: 0.82 !important; }
+        .stDownloadButton > button:hover {
+            color: var(--text-primary) !important;
+            border-color: rgba(0,0,0,0.38) !important;
+            background: rgba(0,0,0,0.02) !important;
+        }
 
         /* ── Radio ───────────────────────────────── */
         div[data-testid="stRadio"] > label {
@@ -4975,11 +4995,17 @@ def inject_css() -> None:
         }
 
         /* ── Committee Register (cmt-*) ──────────────────────────────────── */
+        /* Full container width (2026-07-20 clutter pass). This was
+           inline-flex + fit-content, so every card sized to its own title —
+           25 cards produced 25 different widths and a torn right edge down a
+           half-empty page. The sole producer (committee_row_html) now renders
+           into one st.html list with no adjacent button column, so nothing
+           needs the shrink-to-fit box any more. */
         .cmt-row {
-            display: inline-flex;
+            display: flex;
             align-items: stretch;
             gap: 0;
-            width: fit-content;
+            width: 100%;
             max-width: 100%;
             background: #ffffff;
             border: 1px solid var(--border);
@@ -4988,6 +5014,10 @@ def inject_css() -> None:
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             padding: 0;
             overflow: hidden;
+            /* Own the vertical rhythm: as inline-flex boxes the cards were
+               separated by the source newlines between them, which no longer
+               applies now they are block-level. */
+            margin-bottom: 0.45rem;
         }
         /* P2-2 audit fix: the rank-chip column carried a peach tint that
            read as a "selected first card" affordance even though no
@@ -5098,6 +5128,27 @@ def inject_css() -> None:
             vertical-align: middle;
         }
         .cmt-stripe-legend strong { color: var(--text-secondary); font-weight: 700; }
+
+        /* One shared party-colour key above the register grid (2026-07-21):
+           replaces the per-card dot-and-count legend that repeated on all 25
+           cards. Colour + name only — counts live on each card's stacked bar. */
+        .cmt-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 0.9rem;
+            margin: 0.1rem 0 0.7rem;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            color: var(--text-meta);
+        }
+        .cmt-legend-item { display: inline-flex; align-items: center; }
+        .cmt-legend-dot {
+            display: inline-block;
+            width: 0.6rem;
+            height: 0.6rem;
+            border-radius: 2px;
+            margin-right: 0.32rem;
+        }
 
         /* Collapse the Streamlit columns row that holds <card> + <→> so the
            button sits adjacent to the fit-content card, not at the far right. */
@@ -5892,6 +5943,7 @@ def inject_css() -> None:
         .mf-isif-head { display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap; }
         .mf-isif-name { font-weight: 700; color: var(--ink-strong); }
         .mf-isif-amt { font-weight: 700; color: #2f7d5b; font-variant-numeric: tabular-nums; }
+        .mf-isif-amt-none { font-weight: 400; font-style: italic; color: var(--text-meta); }
         .mf-isif-yr { font-size: 0.78rem; color: var(--text-meta); margin-left: auto; }
         .mf-isif-desc { font-size: 0.8rem; color: var(--ink-700); line-height: 1.4; margin-top: 0.15rem; }
         .pr-cap { font-size: 0.86rem; color: var(--ink-700); line-height: 1.5; margin: 0.2rem 0 0.6rem; max-width: 60rem; }
