@@ -8,10 +8,11 @@ no admission that it wasn't checked. Those are the claims that survive into UI c
 audits.
 
 Deliberately narrow. Only ONE category blocks. Jargon (Rule 3) and sentence length
-(Rule 4) warn, because a linter aggressive enough to force a rewrite on style would
-teach the agent to write evasively around the checker rather than plainly -- worse than
-the problem, and harder to notice. See feedback_guardrail_determinism_tiers in memory:
-determinism is inverse to consequence.
+(Rule 4) are LOGGED SILENTLY to logs/style_lint_log.jsonl (demoted from per-reply
+advisory 2026-07-25) and surfaced as a weekly digest by session_context.py — a
+linter aggressive enough to force a rewrite on style teaches the agent to write
+evasively around the checker rather than plainly. See
+feedback_guardrail_determinism_tiers in memory: determinism is inverse to consequence.
 
 The escape hatch IS compliance. A figure is discharged by citing a file, linking a repo
 path, tagging a band ("[Indicative -- no query run]"), showing the query, or writing
@@ -228,12 +229,27 @@ def main() -> int:
         return 2
 
     if warns:
-        note = "Style (advisory, not blocking): " + "; ".join(warns)
-        out = {
-            "additionalContext": note,
-            "hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": note},
-        }
-        sys.stdout.write(json.dumps(out))
+        # DEMOTED 2026-07-25 from per-reply advisory to a silent weekly log.
+        # Grounds: Guardrails-Beat-Guidance (arXiv:2604.11088) — prescriptive style
+        # directives are the rule class where measured harm concentrates, and the
+        # per-reply nudge forced rewrite turns (5 in one session on 07-25) that cost
+        # more than the prose they fixed. The provenance BLOCK above is untouched —
+        # that one prevents this project's costliest failure mode. The log is
+        # surfaced as a one-line digest at SessionStart at most once per week
+        # (session_context._style_digest_note).
+        try:
+            import datetime
+            log = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__)))), "logs", "style_lint_log.jsonl")
+            os.makedirs(os.path.dirname(log), exist_ok=True)
+            with open(log, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({
+                    "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+                    "session": session_id[:12],
+                    "warns": warns,
+                }, ensure_ascii=False) + "\n")
+        except Exception:
+            pass  # telemetry only — never surface, never break the turn
     return 0
 
 

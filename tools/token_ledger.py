@@ -33,7 +33,7 @@ def scan():
         out = fresh_in = cache_read = 0
         turns = 0
         tool_counts = defaultdict(int)
-        mem_writes = 0
+        mem_writes = mcp = 0
         first_prompt = ""
         markers = []
         with open(path, encoding="utf-8") as fh:
@@ -67,6 +67,8 @@ def scan():
                                 name = b.get("name", "")
                                 if name in EXPLORE_TOOLS:
                                     tool_counts[name] += 1
+                                if name.startswith("mcp__dail-tracker__"):
+                                    mcp += 1
                                 if name in ("Write", "Edit"):
                                     p = (b.get("input") or {}).get("file_path", "")
                                     if "/memory/" in p.replace("\\", "/") or "MEMORY.md" in p:
@@ -80,7 +82,7 @@ def scan():
         explore = sum(tool_counts.values())
         rows.append({
             "sid": sid, "out": out, "fresh_in": fresh_in, "cache_read": cache_read,
-            "turns": turns, "explore": explore, "mem_writes": mem_writes,
+            "turns": turns, "explore": explore, "mcp": mcp, "mem_writes": mem_writes,
             "prompt": first_prompt, "markers": markers[:3],
         })
         for mk in markers:

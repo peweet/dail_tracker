@@ -84,6 +84,8 @@ siting = [
     "rasterio>=1.3",
     "pyyaml>=6.0",
     "polars>=1.39,!=1.41.0",
+    "python-docx>=1.1",  # .docx report export (dail_tracker_core/siting/report.py render_docx)
+    "esridump>=1.13",    # ArcGIS layer scrape (extractors/planning_layers_ingest.py) — was undeclared; uv sync pruned it 2026-07-25
 ]
 
 # Headless-browser scraping for JS-rendered sources that curl/RSS can't reach:
@@ -108,6 +110,7 @@ api = [
 # `uv sync --extra mcp` then `./.venv/Scripts/python.exe mcp_server/server.py`.
 mcp = [
     "mcp>=1.20,<2",
+    "sqlglot>=25",     # column-level SQL lineage for the column_deps tool — view_deps (DuckDB AST) only sees view→view edges, not which views break on a COLUMN rename
 ]
 
 # Everything installable as an EXTRA — a full optional-runtime local setup.
@@ -141,6 +144,7 @@ dev = [
     "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
     "ast-grep-cli>=0.44",     # structural code search — find real call-sites/usages before a signature change or convention audit (grep can't tell a call from a comment); NOT a grep replacement, see cheap-code-scanning memory
     "deptry>=0.20",           # undeclared/transitive dependency audit — a bare `uv sync` installs ONLY core, so an app-path import that's merely transitive is a latent Cloud crash. Config + rationale for every ignore in [tool.deptry].
+    "pytest-testmon>=2.1",    # OPT-IN test selection (`pytest --testmon`) during iterative fixing; never the default command — its DB invalidates on wide refactors and silently degrades to a full run
 ]
 evals = [
     "claude-agent-sdk>=0.2.126",
@@ -299,7 +303,8 @@ DEP002 = ["dail-tracker", "ocrmypdf", "uvicorn", "flatten-json"]
 #   dateutil:  guaranteed present — pandas (a core dep) requires python-dateutil.
 #   httpx:     lazily imported inside tools/siting_loadtest.py precisely to keep that
 #              module import-dependency-free; not a runtime path.
-# NOT ignored (genuine open items, left visible on purpose): pypdf, esridump.
+# NOT ignored (genuine open items, left visible on purpose): pypdf.
+# (esridump resolved 2026-07-25 — declared in the siting extra.)
 DEP003 = ["paddleocr", "dateutil", "httpx"]
 # DEP004 — dev deps imported in test/. Correct: this repo's test root is `test/`
 # (singular), which deptry does not treat as a dev context by default.
