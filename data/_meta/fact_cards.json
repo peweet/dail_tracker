@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-07-21T06:06:46+00:00",
+  "generated_utc": "2026-07-25T07:57:38+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
-  "count": 203,
+  "count": 204,
   "facts": {
     "afs_amalgamated_divisions": {
       "file": "data/silver/parquet/afs_amalgamated_divisions.parquet",
@@ -100,7 +100,7 @@
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_org_intensity.sql, lobbying/lobbying_summary.sql"
       ],
-      "size_bytes": 389586
+      "size_bytes": 389664
     },
     "bill_amendments": {
       "file": "data/silver/parquet/bill_amendments.parquet",
@@ -449,7 +449,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 1570327
+      "size_bytes": 1569638
     },
     "committee_activity_summary": {
       "file": "data/gold/parquet/committee_activity_summary.parquet",
@@ -472,7 +472,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 4534
+      "size_bytes": 4577
     },
     "committee_meetings": {
       "file": "data/gold/parquet/committee_meetings.parquet",
@@ -593,7 +593,7 @@
     "corporate_notices": {
       "file": "data/gold/parquet/corporate_notices.parquet",
       "layer": "gold",
-      "rows": 51217,
+      "rows": 51243,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -633,7 +633,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 8154924
+      "size_bytes": 8153974
     },
     "corporate_notices_enriched": {
       "file": "data/gold/parquet/corporate_notices_enriched.parquet",
@@ -2007,7 +2007,7 @@
     "debate_summary": {
       "file": "data/gold/parquet/debate_summary.parquet",
       "layer": "gold",
-      "rows": 899,
+      "rows": 902,
       "columns": [
         "debate_title",
         "divisions",
@@ -2035,7 +2035,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 27888
+      "size_bytes": 27963
     },
     "debates": {
       "file": "data/silver/parquet/debates.parquet",
@@ -2097,7 +2097,7 @@
     "delivery_method_mix": {
       "file": "data/gold/parquet/delivery_method_mix.parquet",
       "layer": "gold",
-      "rows": 9821,
+      "rows": 9822,
       "columns": [
         "lobbyist_name",
         "delivery",
@@ -2111,7 +2111,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 58230
+      "size_bytes": 58229
     },
     "dept_readingorder_payments_fact": {
       "file": "data/silver/parquet/dept_readingorder_payments_fact.parquet",
@@ -2408,7 +2408,7 @@
     "distinct_orgs_per_politician": {
       "file": "data/gold/parquet/distinct_orgs_per_politician.parquet",
       "layer": "gold",
-      "rows": 6255,
+      "rows": 6253,
       "columns": [
         "full_name",
         "chamber",
@@ -2428,7 +2428,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 64994
+      "size_bytes": 65068
     },
     "ec_constituency_pop_2022": {
       "file": "data/gold/parquet/ec_constituency_pop_2022.parquet",
@@ -3459,7 +3459,7 @@
     "grassroots_campaigns": {
       "file": "data/gold/parquet/grassroots_campaigns.parquet",
       "layer": "gold",
-      "rows": 455,
+      "rows": 454,
       "columns": [
         "lobbyist_name",
         "grassroots_returns_count"
@@ -3471,7 +3471,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 8296
+      "size_bytes": 8275
     },
     "historic_members_dail": {
       "file": "data/silver/parquet/historic_members_dail.parquet",
@@ -4046,7 +4046,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 12762,
+      "rows": 14551,
       "columns": [
         "diary_date",
         "court",
@@ -4084,12 +4084,12 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_legal_diary_cases.sql, judiciary/judiciary_plaintiff_league.sql"
       ],
-      "size_bytes": 153934
+      "size_bytes": 169342
     },
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 1207,
+      "rows": 1374,
       "columns": [
         "diary_date",
         "court",
@@ -4111,7 +4111,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 7718
+      "size_bytes": 8247
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -4200,7 +4200,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 2067,
+      "rows": 2377,
       "columns": [
         "diary_date",
         "court",
@@ -4226,7 +4226,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 15674
+      "size_bytes": 17159
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -4430,7 +4430,7 @@
     "judiciary_diary_judge_map": {
       "file": "data/gold/parquet/judiciary_diary_judge_map.parquet",
       "layer": "gold",
-      "rows": 8901,
+      "rows": 8902,
       "columns": [
         "judge",
         "court",
@@ -4450,7 +4450,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_judge_sittings.sql"
       ],
-      "size_bytes": 57441
+      "size_bytes": 57440
     },
     "judiciary_nominations": {
       "file": "data/gold/parquet/judiciary_nominations.parquet",
@@ -4527,6 +4527,9 @@
         "scope": "String",
         "source": "String"
       },
+      "read_by": [
+        "read by procurement/procurement_afs_balance_sheet.sql, procurement/procurement_afs_loans_payable.sql"
+      ],
       "size_bytes": 20566,
       "grain": "one row per (council,year,item)",
       "money_grain": "balance_sheet_stock",
@@ -4693,6 +4696,9 @@
         "scope": "String",
         "source": "String"
       },
+      "read_by": [
+        "read by procurement/procurement_afs_loan_movement.sql"
+      ],
       "size_bytes": 12340,
       "grain": "one row per (council,year,item)",
       "money_grain": "loan_movement",
@@ -4871,7 +4877,7 @@
       "read_by": [
         "read by lobbying/lobbying_return_documents.sql"
       ],
-      "size_bytes": 29372
+      "size_bytes": 29374
     },
     "lobbyist_persistence": {
       "file": "data/gold/parquet/lobbyist_persistence.parquet",
@@ -4900,7 +4906,25 @@
       "read_by": [
         "read by lobbying/lobbying_experimental_org_index_enriched.sql, lobbying/lobbying_org_index.sql, lobbying/lobbying_persistence.sql"
       ],
-      "size_bytes": 43277
+      "size_bytes": 43336
+    },
+    "local_authority_arv": {
+      "file": "data/silver/parquet/local_authority_arv.parquet",
+      "layer": "silver",
+      "rows": 310,
+      "columns": [
+        "la",
+        "year",
+        "arv",
+        "pre_revaluation_basis"
+      ],
+      "column_types": {
+        "la": "String",
+        "year": "Int32",
+        "arv": "Float64",
+        "pre_revaluation_basis": "Boolean"
+      },
+      "size_bytes": 3108
     },
     "member_contact_details": {
       "file": "data/silver/parquet/member_contact_details.parquet",
@@ -4999,7 +5023,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 8448
+      "size_bytes": 8460
     },
     "member_interests_supplements": {
       "file": "data/silver/parquet/member_interests_supplements.parquet",
@@ -5238,7 +5262,7 @@
     "most_lobbied_politicians": {
       "file": "data/gold/parquet/most_lobbied_politicians.parquet",
       "layer": "gold",
-      "rows": 5754,
+      "rows": 5753,
       "columns": [
         "unique_member_code",
         "full_name",
@@ -5258,7 +5282,7 @@
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_summary.sql"
       ],
-      "size_bytes": 59980
+      "size_bytes": 59894
     },
     "most_recent_stage_event_dates": {
       "file": "data/silver/parquet/most_recent_stage_event_dates.parquet",
@@ -5932,7 +5956,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 2119
+      "size_bytes": 2111
     },
     "payments_full_psa": {
       "file": "data/gold/parquet/payments_full_psa.parquet",
@@ -5975,7 +5999,7 @@
       "read_by": [
         "read by payments/payments_base.sql"
       ],
-      "size_bytes": 119548,
+      "size_bytes": 119766,
       "grain": "one row per PSA payment line",
       "money_grain": "payments",
       "never_sum_with": "awarded|budget|ted",
@@ -6016,7 +6040,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 4879
+      "size_bytes": 4882
     },
     "planning_acp_cases": {
       "file": "data/silver/parquet/planning_acp_cases.parquet",
@@ -6369,12 +6393,12 @@
       "read_by": [
         "read by lobbying/lobbying_policy_area_summary.sql, lobbying/lobbying_summary.sql"
       ],
-      "size_bytes": 2025
+      "size_bytes": 2021
     },
     "politician_policy_exposure": {
       "file": "data/gold/parquet/politician_policy_exposure.parquet",
       "layer": "gold",
-      "rows": 51714,
+      "rows": 51711,
       "columns": [
         "full_name",
         "chamber",
@@ -6392,7 +6416,7 @@
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_policy_area_summary.sql, lobbying/lobbying_policy_exposure.sql"
       ],
-      "size_bytes": 153653
+      "size_bytes": 153832
     },
     "procurement_awards": {
       "file": "data/gold/parquet/procurement_awards.parquet",
@@ -6903,7 +6927,7 @@
       "read_by": [
         "read by lobbying/lobbying_revolving_door.sql"
       ],
-      "size_bytes": 17930
+      "size_bytes": 17901
     },
     "scsi_tpi_deflator": {
       "file": "data/gold/parquet/scsi_tpi_deflator.parquet",
@@ -7230,7 +7254,7 @@
     "si_current_state": {
       "file": "data/gold/parquet/si_current_state.parquet",
       "layer": "gold",
-      "rows": 6845,
+      "rows": 9892,
       "columns": [
         "si_id",
         "si_year",
@@ -7264,12 +7288,12 @@
       "read_by": [
         "read by legislation/legislation_si_amendments.sql, legislation/legislation_si_current_state.sql"
       ],
-      "size_bytes": 175310
+      "size_bytes": 234161
     },
     "si_lrc_enrichment_summary": {
       "file": "data/gold/parquet/si_lrc_enrichment_summary.parquet",
       "layer": "gold",
-      "rows": 7716,
+      "rows": 7718,
       "columns": [
         "si_year",
         "si_number",
@@ -7317,7 +7341,7 @@
       "read_by": [
         "read by legislation/legislation_si_lrc_enrichment.sql"
       ],
-      "size_bytes": 256169
+      "size_bytes": 256203
     },
     "sipo_campaign_spend_by_category": {
       "file": "data/gold/parquet/sipo_campaign_spend_by_category.parquet",
@@ -8444,7 +8468,7 @@
     "statutory_instruments": {
       "file": "data/gold/parquet/statutory_instruments.parquet",
       "layer": "gold",
-      "rows": 7716,
+      "rows": 7718,
       "columns": [
         "si_id",
         "si_year",
@@ -8500,7 +8524,7 @@
       "read_by": [
         "read by legislation/legislation_si_amendments.sql, legislation/legislation_si_index.sql"
       ],
-      "size_bytes": 320560
+      "size_bytes": 320714
     },
     "supplier_entity_xref": {
       "file": "data/gold/parquet/supplier_entity_xref.parquet",
@@ -8604,7 +8628,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 7588
+      "size_bytes": 7551
     },
     "ted_ie_awards": {
       "file": "data/silver/parquet/ted_ie_awards.parquet",
@@ -8903,7 +8927,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 29248
+      "size_bytes": 29232
     },
     "top_lobbyist_organisations": {
       "file": "data/gold/parquet/top_lobbyist_organisations.parquet",
@@ -8934,7 +8958,7 @@
       "read_by": [
         "read by lobbying/lobbying_experimental_org_index_enriched.sql, lobbying/lobbying_org_index.sql, lobbying/lobbying_summary.sql"
       ],
-      "size_bytes": 130690
+      "size_bytes": 130783
     },
     "versions": {
       "file": "data/silver/parquet/versions.parquet",

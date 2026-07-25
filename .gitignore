@@ -622,4 +622,7 @@ doc/PLAN_ACP_GEOMETRY_AND_PRECEDENT.md
 data/silver/parquet/planning_acp_cases.parquet
 # site-report product (Phase 1, 2026-07-24): generator CLI + local report output dir
 tools/siting_report.py
+# gate dry-run harness (2026-07-25): renders 6 benchmark cases end-to-end and asserts the
+# marker matrix — run after ANY engine/catalogue/brief/report change
+tools/siting_report_dryrun.py
 siting_reports/

@@ -128,6 +128,21 @@ def main() -> None:
     for k, v in sorted(agg.items(), key=lambda kv: -kv[1]):
         print(f"  {v:>5,}  {k}{'  *' if k in STEER else ''}")
 
+    # The pruning view: registered tools that have NEVER been called. Evidence for
+    # merge/retire decisions — but only meaningful over a window where the server
+    # could actually connect (broken 07-17→07-25; see the workspacefolder memory).
+    try:
+        import re as _re
+        src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "mcp_server", "server.py"), encoding="utf-8").read()
+        registered = set(_re.findall(r"@mcp\.tool[^\n]*\)\s*\ndef (\w+)", src))
+        unused = sorted(registered - set(agg))
+        print(f"\n=== registered but never called: {len(unused)}/{len(registered)} ===")
+        for i in range(0, len(unused), 5):
+            print("  " + ", ".join(unused[i:i + 5]))
+    except Exception as exc:  # a pruning hint must never break the adoption report
+        print(f"(never-called section unavailable: {type(exc).__name__})")
+
 
 if __name__ == "__main__":
     main()

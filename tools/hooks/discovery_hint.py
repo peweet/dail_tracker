@@ -55,10 +55,29 @@ def _load_rows() -> list[dict]:
     return rows
 
 
+_STOPWORDS = frozenset(
+    "the a an and or not for with from this that these those into over under about "
+    "what which where when how why can could should would will just also very more "
+    "before after never always check first look data using use used".split()
+)
+
+
+def _content_tokens(text: str) -> set[str]:
+    """Distinctive lowercase tokens (>=5 chars, non-stopword), hyphens split, truncated
+    to a 6-char prefix so plural/inflection drift still overlaps (supplier/suppliers)."""
+    return {t[:6] for t in re.findall(r"[a-z_]{5,}", text.lower()) if t not in _STOPWORDS}
+
+
 def _match(prompt_lc: str, row: dict) -> int:
     """Score = distinct triggers present in the prompt (word-boundary match).
 
     Returns 0 unless the match is confident: >=2 triggers, or 1 multi-word trigger.
+    Tightened 2026-07-25 after off-topic injections (2/2 irrelevant hints on a
+    harness question): the WEAKEST passing evidence — exactly 2 single-word
+    triggers — must now also share >=1 distinctive content token between the
+    prompt and the discovery text itself. Stronger evidence (3+ triggers, or any
+    multi-word trigger) passes exactly as before, so true-positive recall on
+    specific prompts is unchanged.
     """
     hits = []
     for t in row.get("trigger", []):
@@ -67,10 +86,13 @@ def _match(prompt_lc: str, row: dict) -> int:
             continue
         if re.search(r"\b" + re.escape(t) + r"\b", prompt_lc):
             hits.append(t)
-    if len(hits) >= 2:
+    if len(hits) >= 3 or (hits and any(" " in h for h in hits)):
         return len(hits)
-    if len(hits) == 1 and " " in hits[0]:
-        return 1
+    if len(hits) == 2:
+        overlap = _content_tokens(prompt_lc) & (
+            _content_tokens(str(row.get("discovery", ""))) - _content_tokens(" ".join(hits))
+        )
+        return 2 if overlap else 0
     return 0
 
 

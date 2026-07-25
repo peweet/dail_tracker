@@ -198,7 +198,7 @@ from dail_tracker_core.queries import publicfinance as pf  # noqa: E402
 from dail_tracker_core.queries import sipo  # noqa: E402
 from dail_tracker_core.queries import votes as vot  # noqa: E402
 from dail_tracker_core.results import SourceUnavailable  # noqa: E402
-from mcp_server import code_index, fts_index, qs_valuation, sql_index, ted_conduit  # noqa: E402
+from mcp_server import code_index, fts_index, qs_valuation, sql_index, ted_conduit, text_fts  # noqa: E402
 
 mcp = FastMCP("dail-tracker")
 
@@ -1667,6 +1667,39 @@ def view_deps(view: str = "") -> dict:
 
 
 @mcp.tool(annotations=_RO)
+def search_speeches(query: str, year: int = 0, limit: int = 10) -> dict:
+    """WHO said WHAT about a topic, corpus-wide: BM25-ranked (porter-stemmed) search
+    over every Dáil/Seanad floor contribution — 'housing crisis' also ranks 'crisis
+    in housing', which the ILIKE substring filters cannot. Use for topic/relevance
+    questions across ALL members; use member_speeches for one TD's complete feed.
+    First call after a data refresh rebuilds the derived index (one-off, seconds)."""
+    return text_fts.search("speeches", query, _cur(), REPO, year=year, limit=limit)
+
+
+@mcp.tool(annotations=_RO)
+def search_questions(query: str, year: int = 0, limit: int = 10) -> dict:
+    """Corpus-wide BM25-ranked search over ALL parliamentary questions (tabled PQs) —
+    the relevance-search counterpart of search_speeches. Use for 'who has been asking
+    about X, and of which ministry' questions across ALL members; use
+    get_member_questions for one TD's complete feed. First call after a data refresh
+    rebuilds the derived index (one-off, seconds)."""
+    return text_fts.search("questions", query, _cur(), REPO, year=year, limit=limit)
+
+
+@mcp.tool(annotations=_RO)
+def column_deps(view: str, column: str) -> dict:
+    """Column-level blast radius: every view that breaks (or silently changes) if
+    `view.column` is RENAMED — the question view_deps can't answer (it sees only
+    view→view edges). Traces the column transitively through the dependency graph
+    with sqlglot (duckdb dialect), following aliases (`SELECT col AS x` → dependents
+    are checked for `x`) and SELECT *. Each hit reports mode: 'ast' = parsed column
+    reference (trust it); 'regex' = the body didn't parse, hit is a word-boundary
+    pattern match ONLY — verify by reading that view before acting. Use BEFORE any
+    column rename in sql_views/ or a silver/gold schema change."""
+    return sql_index.column_deps(REPO, view, column)
+
+
+@mcp.tool(annotations=_RO)
 def source_fetch_failures() -> dict:
     """Which procurement source sites failed to download on the last extractor runs, and
     what data is at stake — the research brief for finding ALTERNATIVE sources. Per failure:
@@ -1882,10 +1915,80 @@ def siting_check(
         "rfi_note": b.rfi_note,
         "not_assessed": list(b.not_assessed),
         "available_layers": available,
+        # Pre-planning context (2026-07-25, Dexcom benchmark): the register's own history around
+        # this point and the decision-process baseline for comparable files. Both are COUNTS over
+        # a named cohort — history, never a forecast — and both degrade to an explicit
+        # unavailable/reason rather than a silent zero.
+        "nearby_history": _siting_nearby_history(lon, lat, dt),
+        "process_context": _siting_process_context(result, dt),
         "disclaimer": b.disclaimer,
         "caveat": "planning-risk TRIAGE, never a grant/refuse verdict; an empty list is not proof the "
         "site is developable, and a point outside ingested layer coverage has NO data (not 'no issue')",
     }
+
+
+def _siting_nearby_history(lon: float, lat: float, dev_type: str) -> dict:
+    """First-instance council decisions near the point (applications register, 1 km default)."""
+    try:
+        from dail_tracker_core.siting import applications as _apps
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "reason": f"applications module unavailable: {exc}"}
+    n = _apps.nearby_applications(lon, lat, dev_type)
+    out = {
+        "available": n.available,
+        "reason": n.unavailable_reason,
+        "radius_m": n.radius_m,
+        "summary": n.summary,
+    }
+    if n.available:
+        out.update(
+            total=n.total,
+            decided=n.decided,
+            granted=n.granted,
+            refused=n.refused,
+            withdrawn_invalid_undecided=n.withdrawn + n.invalid + n.undecided,
+            as_of=n.as_of.isoformat() if n.as_of else "",
+            sample=[
+                {
+                    "decision_year": a.decision_date.year if a.decision_date else None,
+                    "distance_m": a.distance_m,
+                    "decision": a.decision_normalised,
+                    "type": a.application_type,
+                    "description": a.dev_desc,
+                    "url": a.url,
+                }
+                for a in n.nearest
+            ],
+        )
+    return out
+
+
+def _siting_process_context(result, dev_type: str) -> dict:
+    """Decision-latency / RFI / appeal baseline for comparable files in this authority."""
+    try:
+        from dail_tracker_core.siting import process_stats as _proc
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "reason": f"process_stats module unavailable: {exc}"}
+    council = getattr(result, "council", None)
+    # the raw PlanningAuthority string is the register's own vocabulary — the exact join key
+    authority = (getattr(council, "authority", "") or getattr(council, "council_name", "") or "")
+    ctx = _proc.decision_context(authority, dev_type)
+    out = {"available": ctx.available, "reason": ctx.reason, "summary": ctx.summary}
+    if ctx.available:
+        out.update(
+            authority=ctx.authority,
+            scope=ctx.scope,
+            cohort=ctx.cohort,
+            cohort_note=ctx.cohort_note,
+            since=ctx.since,
+            n_decided=ctx.n_decided,
+            median_days=ctx.median_days,
+            p80_days=ctx.p80_days,
+            rfi_rate_pct=round(ctx.rfi_rate_pct, 1),
+            appeal_rate_pct=round(ctx.appeal_rate_pct, 1),
+            grant_rate_pct=round(ctx.grant_rate_pct, 1),
+        )
+    return out
 
 
 # ── Cross-register watchlist + organisation dossier (entity-crosswalk spine) ─────

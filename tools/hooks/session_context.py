@@ -65,24 +65,44 @@ def _heartbeat_note() -> str:
 
 
 def _mcp_note() -> str:
-    """MCP health proxy. A hook can't see Claude Code's connection registry, so this
-    checks what it CAN check deterministically: .mcp.json parses and points at a real
-    server file, and every mcp_server/*.py compiles. Connection state itself is only
-    visible to the agent (ToolSearch finding mcp__dail-tracker__* tools) — the note
-    says so rather than guessing. Added after a session where the server code was fine
-    but the MCP was silently disconnected and nothing surfaced it.
+    """MCP health: config lint + code compile + a real stdio connect probe.
+
+    Hardened 2026-07-25 after `${workspaceFolder}` in .mcp.json (VS Code syntax Claude
+    Code never expands) left the server unable to connect for 8 days while this note
+    said "config+code OK" — the old check validated config and code but never a
+    connection. Checks in order of determinism:
+      1. .mcp.json parses, holds NO unexpanded ${...} placeholder, and each server's
+         command/first-arg path resolves to a real file (relative paths resolve
+         against the repo root, matching Claude Code's behaviour);
+      2. every mcp_server/*.py compiles;
+      3. unless DAIL_SKIP_MCP_PROBE=1, a real handshake: spawn the server and exchange
+         an MCP `initialize` over stdio — the only proof it can actually start.
     """
     try:
         cfg = REPO / ".mcp.json"
         if not cfg.exists():
             return "MCP: .mcp.json MISSING — dail-tracker tools unavailable"
+        raw = cfg.read_text(encoding="utf-8")
         try:
-            json.loads(cfg.read_text(encoding="utf-8"))
+            servers = json.loads(raw).get("mcpServers", {})
         except Exception:
             return "MCP: .mcp.json UNPARSEABLE — fix it, then /mcp"
-        server = REPO / "mcp_server" / "server.py"
-        if not server.exists():
-            return "MCP: mcp_server/server.py MISSING"
+        if "${" in raw:
+            return ("MCP: .mcp.json holds an unexpanded ${...} placeholder — Claude Code "
+                    "only expands env vars, so the server CANNOT connect; use relative or "
+                    "absolute paths")
+        cmd_path = args = None
+        for spec in servers.values():
+            cmd = str(spec.get("command", ""))
+            args = [str(a) for a in spec.get("args", [])]
+            cmd_path = Path(cmd) if Path(cmd).is_absolute() else REPO / cmd
+            if not cmd_path.is_file():
+                return f"MCP: command path NOT FOUND ({cmd}) — server cannot start"
+            for a in args:
+                if a.endswith(".py"):
+                    ap = Path(a) if Path(a).is_absolute() else REPO / a
+                    if not ap.is_file():
+                        return f"MCP: server script NOT FOUND ({a})"
         import py_compile
 
         for p in sorted((REPO / "mcp_server").glob("*.py")):
@@ -90,7 +110,66 @@ def _mcp_note() -> str:
                 py_compile.compile(str(p), doraise=True)
             except Exception as exc:  # noqa: BLE001 — name the file, keep the session alive
                 return f"MCP: server code BROKEN ({p.name}: {type(exc).__name__}) — /mcp will fail"
-        return "MCP: config+code OK (if tools are missing, reconnect via /mcp)"
+        import os
+
+        if os.environ.get("DAIL_SKIP_MCP_PROBE") == "1" or cmd_path is None:
+            return "MCP: config+code OK (probe skipped; if tools are missing, /mcp)"
+        return _mcp_connect_probe(cmd_path, args or [])
+    except Exception:
+        return ""
+
+
+def _mcp_connect_probe(cmd_path: Path, args: list[str]) -> str:
+    """Spawn the configured server and exchange an MCP initialize (newline-delimited
+    JSON-RPC over stdio). ~0.5-2 s; 6 s hard timeout; fails open to a WARN note, never
+    an exception — a status line must not break a session."""
+    try:
+        init = json.dumps({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                       "clientInfo": {"name": "session-context-probe", "version": "0"}},
+        }) + "\n"
+        proc = subprocess.Popen(
+            [str(cmd_path), *args], cwd=str(REPO),
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, encoding="utf-8",
+        )
+        try:
+            out, _ = proc.communicate(input=init, timeout=6)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+        if out and '"serverInfo"' in out:
+            return "MCP: server handshake OK (connect via /mcp if tools are missing)"
+        return "MCP: server spawned but handshake FAILED — run `claude mcp list` to diagnose"
+    except subprocess.TimeoutExpired:
+        return "MCP: connect probe TIMED OUT — server may hang on start; `claude mcp list`"
+    except Exception:
+        return "MCP: connect probe errored — `claude mcp list` to diagnose"
+
+
+def _adoption_tripwire() -> str:
+    """Trend guard on the ledger's mcp column (rows exist from 2026-07-25): if the
+    last 3 substantive sessions (>=20 turns) all logged ZERO dail-tracker calls, say
+    so — one dead session is noise, three is a broken reflex or a broken server."""
+    try:
+        path = REPO / "logs" / "session_token_ledger.jsonl"
+        if not path.exists():
+            return ""
+        rows = []
+        for line in path.read_text(encoding="utf-8").splitlines()[-60:]:
+            try:
+                o = json.loads(line)
+            except Exception:
+                continue
+            if o.get("turns", 0) >= 20 and "mcp" in o:
+                rows.append(o)
+        last = rows[-3:]
+        if len(last) == 3 and all(not r.get("mcp") for r in last):
+            return ("adoption tripwire: last 3 substantive sessions logged 0 MCP calls — "
+                    "the server connects now; route data questions via describe_dataset/"
+                    "search_project")
+        return ""
     except Exception:
         return ""
 
@@ -170,6 +249,43 @@ def _mcp_adoption_note(current_id: str = "") -> str:
         return ""
 
 
+def _style_digest_note() -> str:
+    """Weekly one-liner from the silent style log (style_lint.py demoted its per-reply
+    warnings 2026-07-25). Emits at most once per 7 days, then advances the marker."""
+    try:
+        log = REPO / "logs" / "style_lint_log.jsonl"
+        state = REPO / "logs" / "style_lint_digest_state.json"
+        if not log.exists():
+            return ""
+        import time
+        now = time.time()
+        last = 0.0
+        try:
+            last = float(json.loads(state.read_text(encoding="utf-8")).get("last", 0))
+        except Exception:
+            pass
+        if now - last < 7 * 86400:
+            return ""
+        from collections import Counter
+        kinds: Counter[str] = Counter()
+        rows = 0
+        for line in log.read_text(encoding="utf-8").splitlines():
+            try:
+                o = json.loads(line)
+            except Exception:
+                continue
+            rows += 1
+            for w in o.get("warns", []):
+                kinds["jargon" if str(w).startswith("jargon") else "long-sentence"] += 1
+        if not rows:
+            return ""
+        state.write_text(json.dumps({"last": now}), encoding="utf-8")
+        parts = ", ".join(f"{v} {k}" for k, v in kinds.most_common())
+        return f"style digest (weekly): {rows} flagged replies — {parts}; log: logs/style_lint_log.jsonl"
+    except Exception:
+        return ""
+
+
 class contextlib_suppress:
     def __enter__(self):
         return self
@@ -202,7 +318,8 @@ def _current_session_id() -> str:
 def main() -> int:
     current_id = _current_session_id()
     parts = [f"branch: {_git_branch()}"]
-    for note in (_doc_index_note(), _heartbeat_note(), _mcp_note(), _discoveries_note(), _mcp_adoption_note(current_id)):
+    for note in (_doc_index_note(), _heartbeat_note(), _mcp_note(), _discoveries_note(),
+                 _mcp_adoption_note(current_id), _adoption_tripwire(), _style_digest_note()):
         if note:
             parts.append(note)
     ctx = "Project status — " + " · ".join(parts) + (

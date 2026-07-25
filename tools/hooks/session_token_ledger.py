@@ -43,7 +43,7 @@ def _text_of(block) -> str:
 
 def _scan_one(path: Path) -> dict:
     """Aggregate a single transcript. Mirrors token_ledger.scan()'s per-file logic."""
-    out = fresh_in = cache_read = turns = explore = mem_writes = 0
+    out = fresh_in = cache_read = turns = explore = mem_writes = mcp = 0
     first_prompt = ""
     with path.open(encoding="utf-8") as fh:
         for line in fh:
@@ -76,13 +76,15 @@ def _scan_one(path: Path) -> dict:
                             name = b.get("name", "")
                             if name in EXPLORE_TOOLS:
                                 explore += 1
+                            if name.startswith("mcp__dail-tracker__"):
+                                mcp += 1
                             if name in ("Write", "Edit"):
                                 p = (b.get("input") or {}).get("file_path", "")
                                 if "/memory/" in p.replace("\\", "/") or "MEMORY.md" in p:
                                     mem_writes += 1
     return {
         "out": out, "fresh_in": fresh_in, "cache_read": cache_read,
-        "turns": turns, "explore": explore, "mem_writes": mem_writes,
+        "turns": turns, "explore": explore, "mcp": mcp, "mem_writes": mem_writes,
         "prompt": first_prompt,
     }
 

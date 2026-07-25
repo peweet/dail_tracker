@@ -110,37 +110,59 @@ def test_provenance_is_paragraph_scoped():
     assert run(msg).returncode == 2
 
 
-# --- advisory warnings ----------------------------------------------------
+# --- style checks: DEMOTED 2026-07-25 to a silent log ----------------------
+# Per-reply advisory JSON was removed (Guardrails-Beat-Guidance: prescriptive
+# style directives are the harmful rule class; the nudges forced rewrite turns).
+# New contract: exit 0, EMPTY stdout, one row appended to logs/style_lint_log.jsonl.
 
-def test_jargon_warns_but_never_blocks():
-    r = run("This surfaces the tension here is worth noting and we should utilize it." + PAD)
+LOG = Path(__file__).resolve().parents[2] / "logs" / "style_lint_log.jsonl"
+
+
+def _my_log_rows(session_id: str) -> list[dict]:
+    if not LOG.exists():
+        return []
+    rows = []
+    for line in LOG.read_text(encoding="utf-8").splitlines()[-50:]:
+        try:
+            o = json.loads(line)
+        except Exception:
+            continue
+        if o.get("session") == session_id[:12]:
+            rows.append(o)
+    return rows
+
+
+def test_jargon_logs_silently_and_never_blocks():
+    sid = "jarg" + uuid.uuid4().hex
+    r = run("This surfaces the tension here is worth noting and we should utilize it." + PAD,
+            session_id=sid)
     assert r.returncode == 0
-    assert "advisory" in r.stdout.lower()
-    assert "jargon" in r.stdout.lower()
+    assert r.stdout.strip() == "", "demoted: no per-reply advisory on stdout"
+    rows = _my_log_rows(sid)
+    assert rows, "warning row should be appended to the silent log"
+    assert any("jargon" in w for w in rows[-1]["warns"])
 
 
-def test_long_sentence_warns():
+def test_long_sentence_logs_silently():
+    sid = "long" + uuid.uuid4().hex
     long = " ".join(["word"] * 60) + "."
-    r = run(long + PAD)
+    r = run(long + PAD, session_id=sid)
     assert r.returncode == 0
-    assert "sentence" in r.stdout.lower()
+    assert r.stdout.strip() == ""
+    rows = _my_log_rows(sid)
+    assert rows and any("sentence" in w for w in rows[-1]["warns"])
 
 
-def test_warning_payload_has_both_shapes():
-    r = run("We should utilize this approach and it is worth noting the result." + PAD)
-    assert r.returncode == 0
-    out = json.loads(r.stdout)
-    assert "additionalContext" in out
-    assert out["hookSpecificOutput"]["hookEventName"] == "Stop"
-
-
-def test_warnings_are_capped():
-    """MAX_WARNINGS = 3. Count inside additionalContext -- the payload repeats it twice."""
+def test_logged_warnings_are_capped():
+    """MAX_WARNINGS = 3 still applies to the logged row."""
+    sid = "capd" + uuid.uuid4().hex
     noisy = "We utilize and leverage, simply, obviously, basically, essentially, very." + PAD
-    r = run(noisy)
+    r = run(noisy, session_id=sid)
     assert r.returncode == 0
-    note = json.loads(r.stdout)["additionalContext"]
-    assert note.count("jargon:") == 3
+    rows = _my_log_rows(sid)
+    assert rows
+    jargon_rows = [w for w in rows[-1]["warns"] if w.startswith("jargon")]
+    assert len(jargon_rows) == 3
 
 
 # --- loop guard and fail-open --------------------------------------------

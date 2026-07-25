@@ -333,6 +333,8 @@ _CHAIN_BLURBS: dict[str, str] = {
     "payments": "Parliamentary Standard Allowance: PSA ETL + member enrichment",
     "attendance": "plenary attendance PDF extraction",
     "seanad": "Seanad parity: votes + payments + attendance + gold (reuses Dáil parsers)",
+    "afs_balance_sheet": "LA AFS Statement of Financial Position: full balance-sheet facts per council",
+    "afs_loan_movement": "LA AFS Note 7 loan movement (reconcile-gated against the balance sheet)",
     "member_contact": "scrape oireachtas.ie profile pages -> silver member_contact_details (Member Overview)",
     "interests": "Register of Members' Interests PDF extraction",
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",

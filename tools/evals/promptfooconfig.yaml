@@ -1,0 +1,56 @@
+# Promptfoo regression gate over the SDK bench harnesses (2026-07-25).
+#
+# Wraps the three probe scripts as exec providers and asserts on their printed
+# summaries/scores. Each eval run SPENDS REAL API MONEY (~$0.60 routing, ~$1.50
+# per bench arm at 2026-07 prices [Reported — measured probe costs in
+# project_efficiency_build_2026_07_25]) — run after harness/CLAUDE.md changes,
+# not in CI on every commit.
+#
+# Run:  promptfoo eval -c tools/evals/promptfooconfig.yaml
+# View: promptfoo view
+#
+# Note: probes must run from the repo root and can be blocked by the Claude Code
+# auto-mode classifier when launched from inside an agent session — run from a
+# plain terminal.
+
+description: "Dáil Tracker harness regression: routing + package + counterfactual benches"
+
+providers:
+  - id: exec:routing
+    config:
+      command: .venv/Scripts/python tools/evals/routing_probe.py
+
+  - id: exec:package-newtools
+    config:
+      command: .venv/Scripts/python tools/evals/package_bench.py newtools
+
+  - id: exec:harness-on
+    config:
+      command: .venv/Scripts/python tools/evals/harness_bench.py on
+
+prompts:
+  - "{{task}}"   # probes ignore stdin; tasks are baked into each script
+
+tests:
+  - description: "CLAUDE.md routing steers navigation-first (3/3 probes)"
+    vars: { task: routing }
+    providers: [exec:routing]
+    assert:
+      - type: contains
+        value: "SUMMARY: 3/3"
+
+  - description: "New tools keep beating baseline paths (no task scores 0)"
+    vars: { task: package }
+    providers: [exec:package-newtools]
+    assert:
+      - type: not-contains
+        value: '"score": 0.0'
+
+  - description: "Full-stack arm answers all 5 counterfactual tasks correctly"
+    vars: { task: harness }
+    providers: [exec:harness-on]
+    assert:
+      - type: not-contains
+        value: '"score": 0.0'
+      - type: not-contains
+        value: '"error"'
