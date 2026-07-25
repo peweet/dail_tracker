@@ -1856,6 +1856,14 @@ def siting_check(
     return {
         "site": b.site,
         "headline": b.headline,
+        # land-plausibility gate: non-empty not_evaluated = the issue walk did NOT run (pin in
+        # the sea / a lake / on a carriageway or runway / inside a curated out-of-scope
+        # landmark). Every other list is then empty because it was NOT EVALUATED — never
+        # read that as "no constraints".
+        "not_evaluated": b.not_evaluated,
+        "plausibility_checks_not_run": (
+            list(result.plausibility.unchecked) if result.plausibility is not None else []
+        ),
         "excluded": b.excluded,
         "exclusions": [
             {"designation": e.designation, "site_name": e.site_name, "layer": e.layer, "mitigation": e.mitigation}

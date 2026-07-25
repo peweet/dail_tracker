@@ -620,3 +620,6 @@ pipeline_sandbox/planning_osm_roads.py
 pipeline_sandbox/planning_osm_roads_geofabrik.py
 doc/PLAN_ACP_GEOMETRY_AND_PRECEDENT.md
 data/silver/parquet/planning_acp_cases.parquet
+# site-report product (Phase 1, 2026-07-24): generator CLI + local report output dir
+tools/siting_report.py
+siting_reports/

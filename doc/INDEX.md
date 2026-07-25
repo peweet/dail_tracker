@@ -3,7 +3,7 @@
 
 # doc/ index
 
-66 docs · ~347.1k tokens total · 51 LIVE · 3 superseded/stale · 10 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+66 docs · ~347.6k tokens total · 51 LIVE · 3 superseded/stale · 10 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -59,7 +59,7 @@
 | [PUBLICINFORMATION_PARTNERSHIP.md](PUBLICINFORMATION_PARTNERSHIP.md) | sources | 7.4k | 2026-06-22 | judging whether to pursue a data partnership with publicinformation.ie (gingertechie) — the single self-contained doc to share externally |
 | [ROADMAP_SOURCES.md](ROADMAP_SOURCES.md) | sources | 3.1k | 2026-07-17 | scoping a candidate new ingestion source before claiming it's built, or prioritising the ingestion backlog |
 | [SOURCES.md](SOURCES.md) | sources | 6.2k | 2026-07-17 | checking whether a data source is actually implemented/API-exposed before claiming it exists or is built |
-| [NAVIGATION_GRAPH.md](NAVIGATION_GRAPH.md) | ui | 2.2k | 2026-06-20 | before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel) |
+| [NAVIGATION_GRAPH.md](NAVIGATION_GRAPH.md) | ui | 2.7k | 2026-06-20 | before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel) |
 
 ## Superseded / stale
 > Kept for history and inbound references. Do not rely on their bodies.
@@ -86,4 +86,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.4k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-07-21 -->
+<!-- generated 2026-07-24 -->

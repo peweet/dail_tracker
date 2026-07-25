@@ -25,13 +25,26 @@ PROBES = [
 ]
 
 
+PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
+
+
 async def run_probe(name: str, prompt: str) -> dict:
     opts = ClaudeAgentOptions(
         model="claude-sonnet-5",
         max_turns=8,
-        cwd=r"C:\Users\pglyn\PycharmProjects\dail_extractor",
+        cwd=PROJ,
         setting_sources=["project"],
         permission_mode="bypassPermissions",
+        # The SDK does not load the project's .mcp.json (and its
+        # ${workspaceFolder} placeholders), so the server must be wired
+        # explicitly or every probe measures tool-absence, not steering.
+        mcp_servers={
+            "dail-tracker": {
+                "command": PROJ + r"\.venv\Scripts\python.exe",
+                "args": [PROJ + r"\mcp_server\server.py"],
+                "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+            }
+        },
     )
     calls = []
     cost = None
