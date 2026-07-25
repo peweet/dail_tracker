@@ -250,6 +250,45 @@ def polite_headers(*, browser: bool = False, extra: dict[str, str] | None = None
     return headers
 
 
+def post_bytes(
+    url: str,
+    data: dict[str, str],
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: int = 90,
+    validate: Callable[[bytes], bool] | None = None,
+) -> bytes | None:
+    """Best-effort form POST: bytes or None, never raises (fetch_bytes' sibling contract).
+
+    For APIs that reject long GET query strings or non-browser GETs but accept a form POST —
+    Overpass is the canonical case (its main instance 406s a bare GET yet serves the same
+    query as `data=` POST). Same polite-headers default and retry ladder as fetch_bytes; no
+    curl leg (a POST body through subprocess quoting is where encodings go to die — callers
+    needing that resilience should batch/retry at their own level).
+    """
+    headers = headers if headers is not None else polite_headers()
+    body: bytes | None = None
+    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+        try:
+            response = session.post(url, data=data, headers=headers, timeout=timeout, allow_redirects=True)
+            if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
+                _sleep_backoff(attempt)
+                continue
+            response.raise_for_status()
+            body = response.content
+            break
+        except _RETRYABLE_EXC:
+            if attempt < RETRY_MAX_ATTEMPTS:
+                _sleep_backoff(attempt)
+                continue
+            break
+        except Exception:
+            break
+    if body and (validate is None or validate(body)):
+        return body
+    return None
+
+
 def _curl_bytes(url: str, user_agent: str, timeout: int) -> bytes | None:
     """Last-resort fetch via the curl binary. -k tolerates council cert quirks
     (Meath/Sligo fail Python's TLS stack but answer curl fine — NOT a server
