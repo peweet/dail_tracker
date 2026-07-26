@@ -94,3 +94,12 @@
 {"ts": "2026-07-26T14:37:19", "session": "9759afdf-092", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "jargon: \"very\" (rule 3 -- use the plain word)", "46-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-07-26T14:40:32", "session": "9759afdf-092", "warns": ["74-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-07-26T14:45:20", "session": "bf070e14-979", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "51-word sentence (rule 4 -- one idea per sentence)", "75-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-07-26T18:49:47", "session": "jargea0ac2b5", "warns": ["jargon: \"surfaces\" (rule 3 -- use the plain word)", "jargon: \"the tension here is\" (rule 3 -- use the plain word)", "jargon: \"utilize\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-07-26T18:49:47", "session": "long3e560e0d", "warns": ["60-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-07-26T18:49:47", "session": "capd06058722", "warns": ["jargon: \"utilize\" (rule 3 -- use the plain word)", "jargon: \"leverage\" (rule 3 -- use the plain word)", "jargon: \"simply\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-07-26T18:49:55", "session": "d28649cf-d90", "warns": ["46-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-07-26T18:52:29", "session": "34d7d866-67c", "warns": ["47-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-07-26T18:53:37", "session": "3a6a1789-c46", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "46-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-07-26T18:53:42", "session": "bf070e14-979", "warns": ["48-word sentence (rule 4 -- one idea per sentence)", "49-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-07-26T18:55:58", "session": "d28649cf-d90", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "87-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-07-26T18:58:07", "session": "34d7d866-67c", "warns": ["54-word sentence (rule 4 -- one idea per sentence)"]}
