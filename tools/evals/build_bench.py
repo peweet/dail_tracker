@@ -7,10 +7,15 @@ git worktree so no arm ever touches the real repo. Scoring is mechanical
 judge model.
 
 Arms:
-  on    — worktree KEEPS its .git pointer (memory injects via git identity —
-          that's part of the harness) + setting_sources=["project"] + MCP wired.
-  clean — .git pointer DELETED (verified clean room, see
-          project_harness_ab_benchmark_2026_07_25) + no settings, no MCP.
+  on     — worktree KEEPS its .git pointer (memory injects via git identity —
+           that's part of the harness) + setting_sources=["project"] + MCP wired.
+  clean  — .git pointer DELETED (verified clean room, see
+           project_harness_ab_benchmark_2026_07_25) + no settings, no MCP.
+  hybrid — clean room + a NAVIGATOR-QUALITY BRIEF instead of the bare task:
+           files, constraints, acceptance check baked into the prompt. Models
+           the navigator/builder split with true lean execution (only possible
+           on the SDK path — interactive subagents receive the FULL harness
+           regardless, verified by introspection 2026-07-26).
 
 Both arms get the main venv on PATH (the worktree has no .venv — tooling
 parity, not a harness feature). Worktrees check out HEAD, so tasks target
@@ -82,11 +87,22 @@ def score_feature(wt: str) -> tuple[float, str]:
     notes.append(f"json_flag_works={ok_json}")
     new_tests = [f for f in os.listdir(os.path.join(wt, "test", "tools"))
                  if "discover" in f and f.startswith("test_")]
-    r2 = sh([PY, "-m", "pytest", "-q", "test/tools", "--no-header"], cwd=wt, timeout=600)
+    # test_fact_cards / test_runtime_manifest fail AT HEAD independent of the agent
+    # (their fixes are in the uncommitted 07-25 batch) — excluding them keeps the
+    # suite-green component earnable and symmetric across arms
+    r2 = sh([PY, "-m", "pytest", "-q", "test/tools", "--no-header",
+             "--ignore=test/tools/test_fact_cards.py",
+             "--ignore=test/tools/test_runtime_manifest.py",
+             # baseline JSON is NOT git-tracked (verified 2026-07-26) so this fails in
+             # every HEAD worktree independent of the agent — a ship-gap, not a signal
+             "--ignore=test/tools/test_source_fidelity_gate.py"], cwd=wt, timeout=600)
     suite_green = r2.returncode == 0
     score += 0.25 if (new_tests and suite_green) else 0.0
     score += 0.25 if suite_green else 0.0
     notes.append(f"own_test_added={bool(new_tests)} tools_suite_green={suite_green}")
+    if not suite_green:  # name the failures so a red cell is diagnosable post-teardown
+        fails = [ln for ln in (r2.stdout or "").splitlines() if ln.startswith("FAILED")][:4]
+        notes.append("fails=" + ("; ".join(fails) if fails else (r2.stdout or "")[-200:]))
     return score, " ".join(notes)
 
 
@@ -108,6 +124,37 @@ def score_sqlview(wt: str) -> tuple[float, str]:
     score = (0.4 * parses) + (0.3 * deps_exist) + (0.3 * (not risks))
     return round(score, 2), f"parses_ast={parses} deps_exist={deps_exist} order_risks={len(risks)}"
 
+
+# Navigator-quality briefs: what the full-harness main thread would hand a lean
+# builder — files, hard constraints, acceptance check. No solution content.
+BRIEFS = {
+    "bugfix": (
+        "BRIEF — bug fix.\n"
+        "Failing tests: test/tools/test_style_lint.py (the discharge/'unverified' cases).\n"
+        "The code under test: tools/hooks/style_lint.py — the bug is in the hook, not the tests.\n"
+        "Constraint: do not modify the test file.\n"
+        "Acceptance: `python -m pytest -q test/tools/test_style_lint.py` fully green. Run it before finishing."
+    ),
+    "feature": (
+        "BRIEF — small feature.\n"
+        "File: tools/discoveries.py (a CLI over tools/discoveries.jsonl; existing flags --domain/--list/--add).\n"
+        "Change: add a --json flag — matching rows print as one JSON object per line; no flag = behaviour unchanged.\n"
+        "Add a test in test/tools/ (e.g. test_discoveries_json.py) exercising the flag via subprocess.\n"
+        "Acceptance: `python tools/discoveries.py --json planning` emits valid JSON lines and exits 0; "
+        "`python -m pytest -q test/tools --ignore=test/tools/test_fact_cards.py "
+        "--ignore=test/tools/test_runtime_manifest.py --ignore=test/tools/test_source_fidelity_gate.py` green. Run both."
+    ),
+    "sqlview": (
+        "BRIEF — new SQL view.\n"
+        "Create sql_views/payments/payments_party_year.sql defining v_payments_party_year: total Travel & "
+        "Accommodation payments per party per year, reading FROM v_payments_base (columns include party_name, "
+        "payment_year, amount_num, house).\n"
+        "Constraint: sql_views registration is sorted-glob per directory — a view's filename must sort AFTER its "
+        "same-directory dependencies; payments_party_year.sql sorts after payments_base.sql, so reading "
+        "v_payments_base is safe; do NOT read views whose filenames sort after yours.\n"
+        "Acceptance: the body parses via DuckDB (`SELECT json_serialize_sql('<body>')` has no error). Verify it."
+    ),
+}
 
 TASKS = {
     "bugfix": {
@@ -161,6 +208,7 @@ def drop_worktree(wt: str) -> None:
 async def run_task(task: str, variant: str) -> dict:
     spec = TASKS[task]
     on = variant == "on"
+    prompt = BRIEFS[task] if variant == "hybrid" else spec["prompt"]
     wt = make_worktree(f"{task}_{variant}", clean=not on)
     try:
         if spec["plant"]:
@@ -184,7 +232,7 @@ async def run_task(task: str, variant: str) -> dict:
         cost = None
         err = None
         try:
-            async for msg in query(prompt=spec["prompt"], options=opts):
+            async for msg in query(prompt=prompt, options=opts):
                 if isinstance(msg, AssistantMessage):
                     for b in msg.content:
                         if isinstance(b, ToolUseBlock):
@@ -209,7 +257,7 @@ async def main():
     import sys
 
     args = [a.lower() for a in sys.argv[1:]]
-    variants = [v for v in ("on", "clean") if v in args] or ["on", "clean"]
+    variants = [v for v in ("on", "clean", "hybrid") if v in args] or ["on", "clean", "hybrid"]
     tasks = [t for t in TASKS if t in args] or list(TASKS)
     for variant in variants:
         for task in tasks:
