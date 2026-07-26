@@ -6,13 +6,19 @@
 -- unpivoted office_N_* wide columns. Used by:
 --   - Stage 2b TD profile ("Government offices" section)
 --   - register-page govt-offices badge
+--
+-- unique_member_code is resolved via the shared v_lobbying_base_member_codes
+-- normalised-name lookup (LEFT JOIN — an unmatched name yields '', not absent).
 
 CREATE OR REPLACE VIEW v_committee_office_holders AS
 SELECT
-    chamber,
-    name,
-    party,
-    office,
-    start,
-    "end"
-FROM read_parquet('data/silver/committees/office_holders.parquet');
+    o.chamber,
+    o.name,
+    o.party,
+    o.office,
+    o.start,
+    o."end",
+    COALESCE(mc.unique_member_code, '') AS unique_member_code
+FROM read_parquet('data/silver/committees/office_holders.parquet') o
+LEFT JOIN v_lobbying_base_member_codes mc
+       ON LOWER(strip_accents(TRIM(o.name))) = mc.norm_name;

@@ -295,8 +295,15 @@ DOMAIN_REGISTRATIONS: dict[str, list[tuple[list[str], bool]]] = {
     "appointments": [(["appointments_*.sql"], True)],
     "attendance": [(["attendance_*.sql"], True)],
     # Membership register is the page's core (loud); meeting-history evidence
-    # reads optional gold (soft).
-    "committees": [(["committees_*.sql"], False), (["committee_evidence_*.sql"], True)],
+    # reads optional gold (soft). committees_*.sql views LEFT JOIN
+    # v_lobbying_base_member_codes (the shared normalised member-name -> code
+    # resolver) for unique_member_code, so the base view must register first —
+    # this connection registers committees_*.sql explicitly (not via a
+    # lobbying_*.sql glob), so the base view has to be listed here too.
+    "committees": [
+        (["lobbying_base_member_codes.sql", "committees_*.sql"], False),
+        (["committee_evidence_*.sql"], True),
+    ],
     "corporate": [(["corporate_*.sql"], True)],
     # Detail registers before the zz_ index that JOINs it; supplements are soft.
     "interests": [

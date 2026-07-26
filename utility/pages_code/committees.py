@@ -852,8 +852,6 @@ def _provenance(chamber: str) -> None:
             **Still to come.**
             - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_sources` — a link to the
               committee's official terms-of-reference document.
-            - `TODO_PIPELINE_VIEW_REQUIRED: unique_member_code` on the committee views,
-              to link each member straight to their profile.
             """
         )
 

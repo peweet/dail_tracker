@@ -613,13 +613,23 @@ test/tools/test_siting_loadtest.py
 test/utility/test_siting_maps_parse.py
 pipeline_sandbox/siting_*.py
 pipeline_sandbox/new_sources/siting_engine_calibration.py
+pipeline_sandbox/new_sources/siting_engine_backtest.py
+pipeline_sandbox/new_sources/siting_engine_regression.py
+pipeline_sandbox/new_sources/siting_fp_labeling_sample.py
 pipeline_sandbox/planning_layers_wfs.py
 pipeline_sandbox/planning_scale_gated_triggers.py
 pipeline_sandbox/planning_areaofsite_normalise.py
+pipeline_sandbox/planning_plausibility_layers.py
 pipeline_sandbox/planning_osm_roads.py
 pipeline_sandbox/planning_osm_roads_geofabrik.py
+pipeline_sandbox/planning_osm_extras_geofabrik.py
+# siting plausibility-gate + designation layer data (curated landmarks, OSM/ArcGIS caches)
+data/silver/parquet/planning_layers/
 doc/PLAN_ACP_GEOMETRY_AND_PRECEDENT.md
 data/silver/parquet/planning_acp_cases.parquet
+# precedent FTS over the inspector-report corpus (2026-07-26, Rahard) — engine IP; the
+# public server.py keeps only its degrade-to-error stub
+mcp_server/precedent_fts.py
 # site-report product (Phase 1, 2026-07-24): generator CLI + local report output dir
 tools/siting_report.py
 # gate dry-run harness (2026-07-25): renders 6 benchmark cases end-to-end and asserts the
