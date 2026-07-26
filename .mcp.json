@@ -3,7 +3,14 @@
     "dail-tracker": {
       "command": ".venv/Scripts/python.exe",
       "args": ["mcp_server/server.py"],
-      "env": { "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8" }
+      "env": {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+        "OPENBLAS_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1"
+      }
     }
   }
 }

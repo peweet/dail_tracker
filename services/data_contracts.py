@@ -665,7 +665,9 @@ def _match_ceiling(record: Mapping[str, object], unknown_ceiling: str) -> str:
         if conf is None:
             return "A"
         try:
-            return "D" if float(conf) <= 0 else "A"
+            # The record is Mapping[str, object]; a non-numeric value raises and is caught
+            # below, which is the intended handling for an out-of-vocab confidence.
+            return "D" if float(conf) <= 0 else "A"  # type: ignore[arg-type]
         except (TypeError, ValueError):
             return unknown_ceiling
     return CEILING_MATCH_METHOD.get(key, unknown_ceiling)

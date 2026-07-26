@@ -96,7 +96,9 @@ def list_members(
     # stubs, so .iloc / .str below type-check without casts.
     if dail:
         codes_df = moq.member_codes_for_dail(conn, dail).require()
-        codes = set(codes_df["unique_member_code"].tolist()) if not codes_df.empty else set()
+        # A list, not a set: isin() accepts either at runtime, but only a Sequence
+        # type-checks against the pandas stubs.
+        codes: list[str] = list(codes_df["unique_member_code"]) if not codes_df.empty else []
         df = df.loc[df["unique_member_code"].isin(codes)]
     if house:
         df = df.loc[df["house"] == house]

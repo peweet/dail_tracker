@@ -30,6 +30,12 @@ CLI:
 
 from __future__ import annotations
 
+# isort: off
+# Caps the BLAS thread count before numpy/pandas load anywhere downstream — a chain
+# subprocess inherits this env. Ordering is the contract; see services/runtime_env.py.
+import services.runtime_env  # noqa: F401
+# isort: on
+
 import argparse
 import logging
 import os

@@ -11,9 +11,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import polars as pl
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.check_output_regressions import find_regressions
+from tools.check_output_regressions import emit_current, find_regressions, tracked_names
 
 
 def _b(rows, cols):
@@ -77,3 +79,28 @@ def test_new_output_without_baseline_is_ignored():
     base = {"a.parquet": _b(100, ["x"])}
     cur = {"a.parquet": _b(100, ["x"]), "brand_new.parquet": _b(5, ["q"])}
     assert find_regressions(cur, base) == []
+
+
+def test_emit_current_skips_untracked_outputs(tmp_path):
+    """A gitignored gold parquet must never enter the baseline.
+
+    It exists on a developer box and is absent from a fresh CI checkout, so baselining it
+    turns the gate red in CI on a file CI was never given — while passing locally, where
+    the failure is invisible. This happened with speeches_fact_full.parquet (2026-07-26).
+    """
+    tracked = pl.DataFrame({"x": [1, 2]})
+    tracked.write_parquet(tmp_path / "tracked.parquet")
+    tracked.write_parquet(tmp_path / "gitignored.parquet")
+
+    out = emit_current(gold_dir=tmp_path, tracked={"tracked.parquet"})
+    assert set(out) == {"tracked.parquet"}
+
+    # tracked=None (git unavailable) keeps the old behaviour: check everything on disk.
+    assert set(emit_current(gold_dir=tmp_path)) == {"tracked.parquet", "gitignored.parquet"}
+
+
+def test_tracked_names_finds_committed_gold():
+    """The real repo query must answer, and must see the gold CI asserts is present."""
+    names = tracked_names()
+    assert names, "git ls-files returned nothing for data/gold"
+    assert "current_dail_vote_history.parquet" in names
