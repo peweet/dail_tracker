@@ -1491,7 +1491,10 @@ _REGISTRATION_GROUPS = [
     ("appointments", ["appointments_*.sql"], {}),
     ("attendance", ["attendance_*.sql"], {}),
     ("charity", ["charity_*.sql"], {}),  # api_conn glob; only one charity file is loaded via lobbying
-    ("committees", ["committees_*.sql"], {}),
+    # committees_*.sql views LEFT JOIN v_lobbying_base_member_codes for
+    # unique_member_code, so it must load first — mirrors the DOMAIN_REGISTRATIONS
+    # "committees" phase in dail_tracker_core/connections.py.
+    ("committees", ["lobbying_base_member_codes.sql", "committees_*.sql"], {}),
     # committee_evidence: meeting-history view loaded by get_committee_evidence_conn
     # (swallow_errors=True so a missing gold layer renders an empty timeline, not an
     # error) — register it loud here to catch schema/cast drift.
@@ -1555,21 +1558,33 @@ def test_view_group_registers(group_id, patterns, subs):
 
 @pytest.mark.sql
 def test_v_committee_assignments_executes():
-    _skip_missing(*_src("data/silver/committees/committee_assignments.parquet"))
+    _skip_missing(
+        *_src("data/silver/committees/committee_assignments.parquet", "data/silver/parquet/flattened_members.parquet")
+    )
     con = _con()
+    # v_committee_assignments LEFT JOINs v_lobbying_base_member_codes for
+    # unique_member_code — must load first.
+    con.execute(_load("lobbying_base_member_codes.sql"))
     con.execute(_load("committees_assignments.sql"))
     result = _result(con, "v_committee_assignments")
-    _assert_cols(result, "chamber", "name", "party", "committee", "role", "is_chair", "start", "end")
+    _assert_cols(
+        result, "chamber", "name", "party", "committee", "role", "is_chair", "start", "end", "unique_member_code"
+    )
     assert len(result) > 0
 
 
 @pytest.mark.sql
 def test_v_committee_office_holders_executes():
-    _skip_missing(*_src("data/silver/committees/office_holders.parquet"))
+    _skip_missing(
+        *_src("data/silver/committees/office_holders.parquet", "data/silver/parquet/flattened_members.parquet")
+    )
     con = _con()
+    # v_committee_office_holders LEFT JOINs v_lobbying_base_member_codes for
+    # unique_member_code — must load first.
+    con.execute(_load("lobbying_base_member_codes.sql"))
     con.execute(_load("committees_offices.sql"))
     result = _result(con, "v_committee_office_holders")
-    _assert_cols(result, "chamber", "name", "party", "office", "start", "end")
+    _assert_cols(result, "chamber", "name", "party", "office", "start", "end", "unique_member_code")
     assert len(result) > 0
 
 
@@ -1577,19 +1592,31 @@ def test_v_committee_office_holders_executes():
 def test_v_committee_member_detail_executes():
     """Reads v_committee_assignments — load assignments first. party_seats_json
     is the column the composition stacked-bar card parses."""
-    _skip_missing(*_src("data/silver/committees/committee_assignments.parquet"))
+    _skip_missing(
+        *_src("data/silver/committees/committee_assignments.parquet", "data/silver/parquet/flattened_members.parquet")
+    )
     con = _con()
+    # v_committee_assignments and v_committee_member_detail both LEFT JOIN
+    # v_lobbying_base_member_codes — must load first.
+    con.execute(_load("lobbying_base_member_codes.sql"))
     con.execute(_load("committees_assignments.sql"))
     con.execute(_load("committees_zz_member_detail.sql"))
     result = _result(con, "v_committee_member_detail")
-    _assert_cols(result, "chamber", "committee", "members", "parties", "chair_name", "party_seats_json")
+    _assert_cols(
+        result, "chamber", "committee", "members", "parties", "chair_name", "party_seats_json", "unique_member_code"
+    )
     assert len(result) > 0
 
 
 @pytest.mark.sql
 def test_v_committee_party_seats_executes():
-    _skip_missing(*_src("data/silver/committees/committee_assignments.parquet"))
+    _skip_missing(
+        *_src("data/silver/committees/committee_assignments.parquet", "data/silver/parquet/flattened_members.parquet")
+    )
     con = _con()
+    # v_committee_assignments LEFT JOINs v_lobbying_base_member_codes for
+    # unique_member_code — must load first.
+    con.execute(_load("lobbying_base_member_codes.sql"))
     con.execute(_load("committees_assignments.sql"))
     con.execute(_load("committees_zz_party_seats.sql"))
     result = _result(con, "v_committee_party_seats")

@@ -1687,6 +1687,60 @@ def search_questions(query: str, year: int = 0, limit: int = 10) -> dict:
 
 
 @mcp.tool(annotations=_RO)
+def siting_decision_documents(ref: str, authority_slug: str = "galway_county_council", fetch_reasons: bool = True) -> dict:
+    """A planning file's SCANNED DECISION DOCUMENTS from the council's online viewer — and, with
+    fetch_reasons, the VERBATIM refusal-reason schedule extracted from the Notification of
+    Decision. Ends the inference gap: when a nearby refusal matters (see nearby_history's
+    notable_refusals), quote the council's own reasons instead of guessing from layers.
+    NETWORK tool (fetches the council viewer live). Coverage: all 22 adapter-registered
+    eplanning councils LIST their scanned file (accepts register names or slugs — 'Mayo County
+    Council' works); verbatim-reasons EXTRACTION is Galway County only (native-text PDFs; the
+    iDocs councils serve DjVu behind a postback and say so in `notes`). An unsupported council
+    returns an honest unavailable_reason, never an empty success. Surfaces decision docs only —
+    the scanned file also holds third-party submissions, so never use this as a people-search."""
+    try:
+        from dail_tracker_core.siting import decision_docs as _dd
+    except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed (public clone)
+        return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
+
+    r = _dd.fetch_refusal_reasons(authority_slug, ref) if fetch_reasons else _dd.list_documents(authority_slug, ref)
+    out = {
+        "available": r.available,
+        "authority_slug": r.authority_slug,
+        "ref": r.ref,
+        "source_url": r.source_url,
+        "reason": r.unavailable_reason,
+        "notes": list(r.notes),
+        "documents": [
+            {"title": d.title, "date": d.doc_date, "url": d.url}
+            for d in r.docs
+            if not any(k in d.title.lower() for k in ("submission",))  # decision-side docs only
+        ],
+    }
+    if r.reasons_text:
+        out["refusal_reasons_verbatim"] = r.reasons_text
+        out["reasons_source"] = r.reasons_source
+    return out
+
+
+@mcp.tool(annotations=_RO)
+def search_planning_precedents(query: str, authority: str = "", decision: str = "", limit: int = 10) -> dict:
+    """How have PLANNING ISSUES been decided before: BM25-ranked search over the full text of
+    ~14k ABP/ACP inspector reports, each hit carrying the case's authority, Board decision,
+    date and case URL. Use for precedent questions ('private road right of way refusals in
+    Galway', 'karst percolation refusal', 'quarry blasting conditions') — the corpus-wide
+    counterpart of the siting engine's per-node curated precedents. `authority` substring-filters
+    the planning authority; `decision` filters GRANT/REFUSE/OTHER. TOPIC search ONLY — inspector
+    reports name third parties, so never use this to search for a person. Sandbox-hosted corpus:
+    on a machine without it the tool says so. First call builds the index (one-off, ~a minute)."""
+    try:
+        from mcp_server import precedent_fts
+    except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed (public clone)
+        return {"error": f"planning-precedent search unavailable (optional 'siting' extra not installed): {exc}"}
+    return precedent_fts.search(query, REPO, authority=authority, decision=decision, limit=limit)
+
+
+@mcp.tool(annotations=_RO)
 def column_deps(view: str, column: str) -> dict:
     """Column-level blast radius: every view that breaks (or silently changes) if
     `view.column` is RENAMED — the question view_deps can't answer (it sees only
@@ -1948,6 +2002,20 @@ def _siting_nearby_history(lon: float, lat: float, dev_type: str) -> dict:
             refused=n.refused,
             withdrawn_invalid_undecided=n.withdrawn + n.invalid + n.undecided,
             as_of=n.as_of.isoformat() if n.as_of else "",
+            # Promoted recent same-type refusals ≤250 m / ≤3 y — the records not to miss; a
+            # fi_requested=False refusal was decided on first assessment (nothing FI could fix).
+            notable_refusals=[
+                {
+                    "application_number": r.application_number,
+                    "distance_m": r.distance_m,
+                    "decision_date": r.decision_date.isoformat() if r.decision_date else None,
+                    "fi_requested": r.fi_requested,
+                    "description": r.dev_desc,
+                    "url": r.url,
+                    "action": "obtain this file's stated refusal reasons before designing",
+                }
+                for r in n.notable_refusals
+            ],
             sample=[
                 {
                     "decision_year": a.decision_date.year if a.decision_date else None,

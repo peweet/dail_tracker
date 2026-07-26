@@ -12,6 +12,10 @@
 --
 -- Depends on v_committee_assignments — file name uses the 'zz_' prefix so it
 -- registers after committees_assignments.sql (alphabetical glob order).
+--
+-- chair unique_member_code is resolved via the shared
+-- v_lobbying_base_member_codes normalised-name lookup (LEFT JOIN — an
+-- unmatched or absent chair yields '', not absent).
 
 CREATE OR REPLACE VIEW v_committee_member_detail AS
 WITH base AS (
@@ -74,6 +78,7 @@ SELECT
     a.url,
     COALESCE(c.chair_name,  '')                AS chair_name,
     COALESCE(c.chair_party, '')                AS chair_party,
+    COALESCE(mc.unique_member_code, '')        AS unique_member_code,
     -- DuckDB renders nested STRUCTs as a JSON-ish string when cast to VARCHAR;
     -- to_json() gives a guaranteed JSON array of {party, seats} dicts that the
     -- page can json.loads() on the consumer side.
@@ -83,4 +88,6 @@ LEFT JOIN chairs c
        ON a.chamber = c.chamber AND a.committee = c.committee
 LEFT JOIN party_seats_collected ps
        ON a.chamber = ps.chamber AND a.committee = ps.committee
+LEFT JOIN v_lobbying_base_member_codes mc
+       ON LOWER(strip_accents(TRIM(c.chair_name))) = mc.norm_name
 ORDER BY a.chamber, a.status ASC, a.members DESC;
