@@ -77,7 +77,7 @@ plotly==6.7.0
     # via dail-tracker
 protobuf==7.35.0
     # via streamlit
-pyarrow==24.0.0
+pyarrow==25.0.0
     # via
     #   dail-tracker
     #   streamlit
