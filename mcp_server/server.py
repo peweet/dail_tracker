@@ -174,6 +174,12 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
+# isort: off
+# BLAS thread cap — must run before dail_tracker_core pulls in pandas/numpy, or the
+# reservation is already made and the setting is a no-op (services/runtime_env.py).
+import services.runtime_env  # noqa: E402,F401
+# isort: on
+
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
 

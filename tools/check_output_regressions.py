@@ -25,6 +25,7 @@ Pattern mirrors check_freshness / build_source_health:
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -40,12 +41,36 @@ REPORT_PATH = PROJECT_ROOT / "data" / "_meta" / "output_regressions.json"
 DEFAULT_TOLERANCE = 0.5  # a >50% row loss is a regression; tune with --tolerance
 
 
-def emit_current(gold_dir: Path = GOLD_PARQUET_DIR) -> dict[str, dict]:
+def tracked_names(gold_dir: Path = GOLD_PARQUET_DIR) -> set[str] | None:
+    """Gold parquet filenames that git tracks, or ``None`` if git cannot answer.
+
+    The guard runs in two places that see different trees: a developer box, where every
+    gold parquet exists on disk, and a fresh CI checkout, which only has what git tracks.
+    An output that is deliberately gitignored (too large to commit) is therefore MISSING
+    in CI and present locally — the guard goes red on a file CI was never given, and the
+    failure is invisible to whoever runs it locally. Scoping both sides of the comparison
+    to tracked files makes the two environments agree.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "--", str(gold_dir)],
+            cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    return {Path(line).name for line in out.stdout.splitlines() if line.endswith(".parquet")}
+
+
+def emit_current(gold_dir: Path = GOLD_PARQUET_DIR, tracked: set[str] | None = None) -> dict[str, dict]:
     """{parquet_name: {rows, columns}} for every committed gold parquet.
 
     A bad file is recorded with an ``error`` marker rather than crashing the guard."""
     out: dict[str, dict] = {}
     for p in sorted(gold_dir.glob("*.parquet")):
+        if tracked is not None and p.name not in tracked:
+            continue
         try:
             lf = pl.scan_parquet(p)
             rows = int(lf.select(pl.len()).collect().item())
@@ -113,7 +138,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--print", action="store_true", dest="echo", help="echo the report JSON to stdout")
     args = ap.parse_args(argv)
 
-    current = emit_current()
+    tracked = tracked_names()
+    if tracked is None:
+        print("output regression guard: git unavailable - checking every gold parquet on disk.")
+    current = emit_current(tracked=tracked)
 
     if args.update_baseline:
         _write(BASELINE_PATH, {"outputs": current})
@@ -121,6 +149,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     baseline = (_load(BASELINE_PATH) or {}).get("outputs", {})
+    if tracked is not None:
+        untracked = sorted(set(baseline) - tracked)
+        if untracked:
+            # Never silent: a dropped output is a real reduction in what the gate covers.
+            print(f"output regression guard: skipping {len(untracked)} baselined but untracked output(s): {', '.join(untracked)}")
+            baseline = {k: v for k, v in baseline.items() if k in tracked}
     if not baseline:
         print(
             f"output regression guard: NO baseline at {BASELINE_PATH} - run --update-baseline once to "
