@@ -568,7 +568,7 @@ def _render_debt_lane(council: str) -> None:
         st.html(
             f'<div class="yc-debt-trend">{bars}</div>'
             f'<div class="yc-debt-trend-labels"><span>{int(td.iloc[0]["year"])}</span>'
-            f'<span>Borrowing outstanding, year end</span><span>{int(td.iloc[-1]["year"])}</span></div>'
+            f"<span>Borrowing outstanding, year end</span><span>{int(td.iloc[-1]['year'])}</span></div>"
         )
 
     src = pos.get("source_file_url") if pos is not None else None

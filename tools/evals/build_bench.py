@@ -25,15 +25,19 @@ Run: .venv/Scripts/python tools/evals/build_bench.py [on|clean] [task...]
 Cost: roughly $0.5-1.5 per task per arm at sonnet prices [Indicative — read-task
 probes measured $0.13-0.44; build tasks run more turns].
 """
+
 import json
 import os
-import re
 import shutil
 import subprocess
 
 import anyio
 from claude_agent_sdk import (
-    query, ClaudeAgentOptions, AssistantMessage, ToolUseBlock, ResultMessage,
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    ToolUseBlock,
+    query,
 )
 
 PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
@@ -43,32 +47,40 @@ WT_BASE = r"C:\tmp\dail_build_bench"
 
 
 def sh(args: list[str], cwd: str = PROJ, timeout: int = 300) -> subprocess.CompletedProcess:
-    env = dict(os.environ, PATH=VENV + ";" + os.environ.get("PATH", ""),
-               PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
-    return subprocess.run(args, cwd=cwd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=timeout, env=env)
+    env = dict(os.environ, PATH=VENV + ";" + os.environ.get("PATH", ""), PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+    return subprocess.run(
+        args, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, env=env
+    )
 
 
 # ── tasks ────────────────────────────────────────────────────────────────────
+
 
 def plant_style_lint_bug(wt: str) -> None:
     """Break the 'unverified' discharge in the hook — makes exactly the
     test_discharged_figure_passes[unverified...] cases fail."""
     p = os.path.join(wt, "tools", "hooks", "style_lint.py")
-    src = open(p, encoding="utf-8").read()
+    with open(p, encoding="utf-8") as fh:
+        src = fh.read()
     assert r"\bunverified\b" in src, "plant target missing at HEAD"
-    open(p, "w", encoding="utf-8").write(src.replace(r"\bunverified\b", r"\bunverifiedzq\b", 1))
+    with open(p, "w", encoding="utf-8") as fh:
+        fh.write(src.replace(r"\bunverified\b", r"\bunverifiedzq\b", 1))
 
 
 def score_bugfix(wt: str) -> tuple[float, str]:
     """Planted-bug fix: the style-lint test file must pass AND be untouched."""
-    before = open(os.path.join(wt, "test", "tools", "test_style_lint.py"), encoding="utf-8").read()
+    target = os.path.join(wt, "test", "tools", "test_style_lint.py")
+    with open(target, encoding="utf-8") as fh:
+        before = fh.read()
     r = sh([PY, "-m", "pytest", "-q", "test/tools/test_style_lint.py", "--no-header"], cwd=wt)
     tests_green = r.returncode == 0
-    after = open(os.path.join(wt, "test", "tools", "test_style_lint.py"), encoding="utf-8").read()
+    with open(target, encoding="utf-8") as fh:
+        after = fh.read()
     untouched = before == after
-    return (1.0 if tests_green and untouched else 0.5 if tests_green else 0.0,
-            f"tests_green={tests_green} test_file_untouched={untouched}")
+    return (
+        1.0 if tests_green and untouched else 0.5 if tests_green else 0.0,
+        f"tests_green={tests_green} test_file_untouched={untouched}",
+    )
 
 
 def score_feature(wt: str) -> tuple[float, str]:
@@ -85,17 +97,27 @@ def score_feature(wt: str) -> tuple[float, str]:
             ok_json = False
     score += 0.5 if ok_json else 0.0
     notes.append(f"json_flag_works={ok_json}")
-    new_tests = [f for f in os.listdir(os.path.join(wt, "test", "tools"))
-                 if "discover" in f and f.startswith("test_")]
+    new_tests = [f for f in os.listdir(os.path.join(wt, "test", "tools")) if "discover" in f and f.startswith("test_")]
     # test_fact_cards / test_runtime_manifest fail AT HEAD independent of the agent
     # (their fixes are in the uncommitted 07-25 batch) — excluding them keeps the
     # suite-green component earnable and symmetric across arms
-    r2 = sh([PY, "-m", "pytest", "-q", "test/tools", "--no-header",
-             "--ignore=test/tools/test_fact_cards.py",
-             "--ignore=test/tools/test_runtime_manifest.py",
-             # baseline JSON is NOT git-tracked (verified 2026-07-26) so this fails in
-             # every HEAD worktree independent of the agent — a ship-gap, not a signal
-             "--ignore=test/tools/test_source_fidelity_gate.py"], cwd=wt, timeout=600)
+    r2 = sh(
+        [
+            PY,
+            "-m",
+            "pytest",
+            "-q",
+            "test/tools",
+            "--no-header",
+            "--ignore=test/tools/test_fact_cards.py",
+            "--ignore=test/tools/test_runtime_manifest.py",
+            # baseline JSON is NOT git-tracked (verified 2026-07-26) so this fails in
+            # every HEAD worktree independent of the agent — a ship-gap, not a signal
+            "--ignore=test/tools/test_source_fidelity_gate.py",
+        ],
+        cwd=wt,
+        timeout=600,
+    )
     suite_green = r2.returncode == 0
     score += 0.25 if (new_tests and suite_green) else 0.0
     score += 0.25 if suite_green else 0.0
@@ -110,17 +132,23 @@ def score_sqlview(wt: str) -> tuple[float, str]:
     """New view parses via the repo's own AST layer, reads real views, and does
     not create a sorted-glob registration-order risk."""
     import sys
+
     sys.path.insert(0, PROJ)
     from pathlib import Path
+
     from mcp_server import sql_index
+
     views = sql_index.build_graph(Path(wt))  # fresh graph over the WORKTREE
     v = views.get("v_payments_party_year")
     if v is None:
         return 0.0, "view not found"
     parses = v["mode"] == "ast"
     deps_exist = all(d in views for d in v["reads"]) and bool(v["reads"] or v["reads_parquet"])
-    risks = [x for x in sql_index.order_risks(views)
-             if x["view"] == "v_payments_party_year" or x["needs"] == "v_payments_party_year"]
+    risks = [
+        x
+        for x in sql_index.order_risks(views)
+        if x["view"] == "v_payments_party_year" or x["needs"] == "v_payments_party_year"
+    ]
     score = (0.4 * parses) + (0.3 * deps_exist) + (0.3 * (not risks))
     return round(score, 2), f"parses_ast={parses} deps_exist={deps_exist} order_risks={len(risks)}"
 
@@ -158,25 +186,31 @@ BRIEFS = {
 
 TASKS = {
     "bugfix": {
-        "prompt": ("The test file test/tools/test_style_lint.py has failing tests. Diagnose and "
-                   "fix the BUG in the hook it tests. Do not modify the test file itself. Run the "
-                   "tests to confirm they pass before finishing."),
+        "prompt": (
+            "The test file test/tools/test_style_lint.py has failing tests. Diagnose and "
+            "fix the BUG in the hook it tests. Do not modify the test file itself. Run the "
+            "tests to confirm they pass before finishing."
+        ),
         "plant": plant_style_lint_bug,
         "score": score_bugfix,
     },
     "feature": {
-        "prompt": ("Add a --json flag to tools/discoveries.py: when passed, matching rows print "
-                   "as one JSON object per line instead of the human format (no flag = unchanged "
-                   "behaviour). Add a test for the new flag in test/tools/. Follow this project's "
-                   "conventions. Run the tests before finishing."),
+        "prompt": (
+            "Add a --json flag to tools/discoveries.py: when passed, matching rows print "
+            "as one JSON object per line instead of the human format (no flag = unchanged "
+            "behaviour). Add a test for the new flag in test/tools/. Follow this project's "
+            "conventions. Run the tests before finishing."
+        ),
         "plant": None,
         "score": score_feature,
     },
     "sqlview": {
-        "prompt": ("Create a new registered SQL view v_payments_party_year in sql_views/payments/ "
-                   "giving total Travel & Accommodation payments per party per year (from the "
-                   "existing payments views/base). Respect this repo's view-registration "
-                   "conventions, including registration ORDER. Verify your SQL parses."),
+        "prompt": (
+            "Create a new registered SQL view v_payments_party_year in sql_views/payments/ "
+            "giving total Travel & Accommodation payments per party per year (from the "
+            "existing payments views/base). Respect this repo's view-registration "
+            "conventions, including registration ORDER. Verify your SQL parses."
+        ),
         "plant": None,
         "score": score_sqlview,
     },
@@ -184,6 +218,7 @@ TASKS = {
 
 
 # ── worktree lifecycle ───────────────────────────────────────────────────────
+
 
 def make_worktree(tag: str, clean: bool) -> str:
     wt = f"{WT_BASE}_{tag}"
@@ -204,6 +239,7 @@ def drop_worktree(wt: str) -> None:
 
 
 # ── runner ───────────────────────────────────────────────────────────────────
+
 
 async def run_task(task: str, variant: str) -> dict:
     spec = TASKS[task]
@@ -226,7 +262,9 @@ async def run_task(task: str, variant: str) -> dict:
                     "args": [PROJ + r"\mcp_server\server.py"],
                     "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
                 }
-            } if on else {},
+            }
+            if on
+            else {},
         )
         calls: list[str] = []
         cost = None
@@ -242,10 +280,15 @@ async def run_task(task: str, variant: str) -> dict:
         except Exception as e:
             err = f"{type(e).__name__}: {e}"
         score, detail = spec["score"](wt)
-        out = {"task": task, "variant": variant, "score": score, "detail": detail,
-               "tool_calls": len(calls),
-               "mcp_calls": sum(c.startswith("mcp__") for c in calls),
-               "cost_usd": round(cost, 4) if cost else None}
+        out = {
+            "task": task,
+            "variant": variant,
+            "score": score,
+            "detail": detail,
+            "tool_calls": len(calls),
+            "mcp_calls": sum(c.startswith("mcp__") for c in calls),
+            "cost_usd": round(cost, 4) if cost else None,
+        }
         if err:
             out["agent_error"] = err
         return out

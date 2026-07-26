@@ -31,7 +31,9 @@ _MOVE = Path("data/silver/parquet/la_afs_loan_movement.parquet")
 @pytest.fixture(scope="module")
 def conn():
     if not _BS.exists() or not _MOVE.exists():
-        pytest.skip("AFS balance-sheet facts not built (run extractors/la_afs_balancesheet_extract.py + la_afs_loanmovement_extract.py)")
+        pytest.skip(
+            "AFS balance-sheet facts not built (run extractors/la_afs_balancesheet_extract.py + la_afs_loanmovement_extract.py)"
+        )
     c = duckdb.connect()
     yield c
     c.close()

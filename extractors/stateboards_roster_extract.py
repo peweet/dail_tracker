@@ -346,7 +346,8 @@ def apply_curated(roster: pl.DataFrame, curated: pl.DataFrame | None) -> pl.Data
         if orphans.height:
             logger.warning(
                 "stateboards: %d curated identit%s match no roster seat (dropped): %s",
-                orphans.height, "y" if orphans.height == 1 else "ies",
+                orphans.height,
+                "y" if orphans.height == 1 else "ies",
                 ", ".join(orphans["member_name"].to_list()),
             )
         # validate='m:1': a seat matches at most one curated row. Raises loudly if a

@@ -32,7 +32,8 @@ from pathlib import Path
 import fitz
 import polars as pl
 
-from extractors._diary_minister import minister_from_filename, surname_key as _surname_key
+from extractors._diary_minister import minister_from_filename
+from extractors._diary_minister import surname_key as _surname_key
 from extractors.ministerial_diaries_extract import (
     OUT_DIR,
     _infer_default_year,

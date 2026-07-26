@@ -94,9 +94,7 @@ def test_or_fallback_when_and_misses(tmp_path):
 
 def test_import_edges_both_directions(tmp_path):
     repo = _mini_repo(tmp_path)
-    (repo / "app.py").write_text(
-        "from pkg.widgets import compute_widget_ratio\nimport os\n", encoding="utf-8"
-    )
+    (repo / "app.py").write_text("from pkg.widgets import compute_widget_ratio\nimport os\n", encoding="utf-8")
     (repo / "pkg" / "__init__.py").write_text("", encoding="utf-8")
     fts_index.refresh(repo)
 

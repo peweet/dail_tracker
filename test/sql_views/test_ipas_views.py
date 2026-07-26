@@ -20,9 +20,7 @@ import pytest
 
 from dail_tracker_core.db import register_views
 
-_OUTLINES_JSON = (
-    Path(__file__).resolve().parents[2] / "data" / "_meta" / "local_authority_outlines.json"
-)
+_OUTLINES_JSON = Path(__file__).resolve().parents[2] / "data" / "_meta" / "local_authority_outlines.json"
 
 pytestmark = pytest.mark.sql
 
@@ -54,18 +52,14 @@ def test_view_registers_and_has_rows(conn, view):
 def test_never_sum_invariant(conn, view):
     """The whole corpus is audit-report narrative grain. Not one row may be summable —
     these figures must never be added up or unioned with payments/awards/grants."""
-    bad = conn.execute(
-        f"SELECT count(*) FROM {view} WHERE value_safe_to_sum"
-    ).fetchone()[0]
+    bad = conn.execute(f"SELECT count(*) FROM {view} WHERE value_safe_to_sum").fetchone()[0]
     assert bad == 0, f"{view}: {bad} rows claim value_safe_to_sum=TRUE"
 
 
 def test_operators_are_identity_gated(conn):
     """Only operators whose name resolved EXACTLY across both the compliance and payment
     sides may be named. One wrong name is worse than ten omitted."""
-    rows = conn.execute(
-        "SELECT count(*) FROM v_ipas_operators WHERE match_confidence <> 'exact'"
-    ).fetchone()[0]
+    rows = conn.execute("SELECT count(*) FROM v_ipas_operators WHERE match_confidence <> 'exact'").fetchone()[0]
     assert rows == 0, "an unresolved operator would be named on the page"
 
 
@@ -73,8 +67,7 @@ def test_every_compliance_judgment_resolves_to_a_standard(conn):
     """A judgment rendered as a bare code ('Standard 4.3') is meaningless to a reader.
     The National Standards lookup must resolve all of them."""
     unresolved, total = conn.execute(
-        "SELECT count(*) FILTER (WHERE standard_statement IS NULL), count(*) "
-        "FROM v_ipas_centre_compliance"
+        "SELECT count(*) FILTER (WHERE standard_statement IS NULL), count(*) FROM v_ipas_centre_compliance"
     ).fetchone()
     assert total > 2000
     assert unresolved == 0, f"{unresolved}/{total} judgments have no standard text"
@@ -83,9 +76,7 @@ def test_every_compliance_judgment_resolves_to_a_standard(conn):
 def test_unknowns_are_preserved(conn):
     """Where the State does not publish a figure, we carry an explicit unknown. If these
     ever vanish, someone has started imputing — which would be fabrication."""
-    unknown = conn.execute(
-        "SELECT count(*) FROM v_ipas_facts WHERE is_unknown"
-    ).fetchone()[0]
+    unknown = conn.execute("SELECT count(*) FROM v_ipas_facts WHERE is_unknown").fetchone()[0]
     assert unknown > 400, "explicit unknowns disappeared from the fact store"
 
     # An unknown row must never carry a NUMERIC value — that would mean we published a
@@ -101,17 +92,14 @@ def test_unknowns_are_preserved(conn):
         "SELECT count(*) FROM v_ipas_facts WHERE is_unknown AND value_numeric IS NOT NULL"
     ).fetchone()[0]
     assert contradictory == 0, (
-        "a row is flagged unknown yet carries a numeric value — either the flag is wrong "
-        "or a figure was imputed"
+        "a row is flagged unknown yet carries a numeric value — either the flag is wrong or a figure was imputed"
     )
 
 
 def test_la_profile_reconciles_to_the_published_total(conn):
     """The 31 local-authority counts must still sum to the IPAS weekly report's own Grand
     Total (32,702 at the 2024-12-29 snapshot). If this drifts, the map is lying."""
-    n_la, total = conn.execute(
-        "SELECT count(*), sum(ip_applicants) FROM v_ipas_la_profile"
-    ).fetchone()
+    n_la, total = conn.execute("SELECT count(*), sum(ip_applicants) FROM v_ipas_la_profile").fetchone()
     assert n_la == 31, f"expected 31 local authorities, got {n_la}"
     assert total == 32702, f"LA counts sum to {total}, not the source's Grand Total 32,702"
 
@@ -120,20 +108,14 @@ def test_ipas_la_map_key_covers_all_outlines(conn):
     """Every one of the 31 LAs must resolve to a real SVG-outline polygon, or the
     'Where people are housed' choropleth silently drops that county to a no-data fill
     while its bar still shows a rate — the map would then contradict the league table."""
-    rows = conn.execute(
-        "SELECT local_authority, map_key FROM v_ipas_la_profile"
-    ).fetchall()
+    rows = conn.execute("SELECT local_authority, map_key FROM v_ipas_la_profile").fetchall()
     unmapped = [la for la, key in rows if not key]
     assert not unmapped, f"LAs with no choropleth map_key: {unmapped}"
 
     keys = {key for _, key in rows}
     assert len(keys) == 31, f"expected 31 distinct map_keys, got {len(keys)}"
 
-    outline_keys = set(
-        json.loads(_OUTLINES_JSON.read_text(encoding="utf-8"))
-        .get("local_authorities", {})
-        .keys()
-    )
+    outline_keys = set(json.loads(_OUTLINES_JSON.read_text(encoding="utf-8")).get("local_authorities", {}).keys())
     missing = keys - outline_keys
     assert not missing, f"map_keys with no matching outline polygon: {sorted(missing)}"
 
@@ -141,8 +123,7 @@ def test_ipas_la_map_key_covers_all_outlines(conn):
 def test_per_capita_is_never_imputed(conn):
     """Per-capita must be NULL where population could not be mapped — never guessed."""
     bad = conn.execute(
-        "SELECT count(*) FROM v_ipas_la_profile "
-        "WHERE population_2022 IS NULL AND ip_per_1000_population IS NOT NULL"
+        "SELECT count(*) FROM v_ipas_la_profile WHERE population_2022 IS NULL AND ip_per_1000_population IS NOT NULL"
     ).fetchone()[0]
     assert bad == 0, "a per-capita rate exists without a population — it was imputed"
 

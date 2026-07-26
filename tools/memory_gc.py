@@ -20,6 +20,7 @@ Usage:
   python tools/memory_gc.py --archive       # move orphan+stale files to archive/
   python tools/memory_gc.py --stale-days 90
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,26 +57,36 @@ def scan(stale_days: int) -> dict:
     names = set(cards)
     orphans = sorted(n for n in names if n not in linked)
     stale = sorted(
-        n for n, c in cards.items()
+        n
+        for n, c in cards.items()
         if c["age_d"] > stale_days and n not in hot_linked and not SAFETY_RE.search(c["body"])
     )
-    broken = sorted({
-        f"{n} -> [[{t}]]"
-        for n, c in cards.items()
-        for t in LINK_RE.findall(c["body"])
-        if t not in names and t not in {Path(ix).stem for ix in INDEXES}
-    })
+    broken = sorted(
+        {
+            f"{n} -> [[{t}]]"
+            for n, c in cards.items()
+            for t in LINK_RE.findall(c["body"])
+            if t not in names and t not in {Path(ix).stem for ix in INDEXES}
+        }
+    )
     corrected = sorted(n for n, c in cards.items() if CORRECTED_RE.search(c["body"]))
     # archive candidates: orphaned AND stale AND not safety/hot — the strictest cut
     candidates = sorted(set(orphans) & set(stale))
-    return {"total": len(cards), "orphans": orphans, "stale": stale, "broken_links": broken,
-            "corrected": corrected, "archive_candidates": candidates}
+    return {
+        "total": len(cards),
+        "orphans": orphans,
+        "stale": stale,
+        "broken_links": broken,
+        "corrected": corrected,
+        "archive_candidates": candidates,
+    }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--archive", action="store_true",
-                    help="move archive_candidates into memory/archive/ (never deletes)")
+    ap.add_argument(
+        "--archive", action="store_true", help="move archive_candidates into memory/archive/ (never deletes)"
+    )
     ap.add_argument("--stale-days", type=int, default=60)
     args = ap.parse_args()
 
@@ -104,7 +115,8 @@ def main() -> None:
             except OSError as exc:
                 print(f"  SKIP {n}: {exc}")
         (dest / "_archive_log.jsonl").open("a", encoding="utf-8").write(
-            json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "moved": moved}) + "\n")
+            json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "moved": moved}) + "\n"
+        )
         print(f"\narchived {len(moved)} card(s) to memory/archive/ — restore by moving back")
     elif args.archive:
         print("\nnothing meets the archive bar (orphaned AND stale AND non-safety)")

@@ -49,11 +49,20 @@ TEST_DIR = PROJECT_ROOT / "test"
 LEDGER = PROJECT_ROOT / "data" / "_meta" / "source_cadence.csv"
 
 FIELDS = [
-    "source_id", "name", "group", "registry", "cadence", "cadence_days",
-    "next_expected", "release_window", "poller", "runner", "test_packages",
-    "curated", "notes",
+    "source_id",
+    "name",
+    "group",
+    "registry",
+    "cadence",
+    "cadence_days",
+    "next_expected",
+    "release_window",
+    "poller",
+    "runner",
+    "test_packages",
+    "curated",
+    "notes",
 ]
-
 
 
 def _label_for_days(days: int) -> str:

@@ -125,6 +125,7 @@ class StaticContextFilter(logging.Filter):
 # typed fields, carried on the bound run_id. This is the "no useless data" seam —
 # callers emit an event only when something worth tracing happened, not per tick.
 
+
 def log_event(
     event: str,
     *,
@@ -188,13 +189,9 @@ class RedactionFilter(logging.Filter):
             record.msg = redact(record.msg)
         if record.args:
             if isinstance(record.args, dict):
-                record.args = {
-                    k: redact(v) if isinstance(v, str) else v for k, v in record.args.items()
-                }
+                record.args = {k: redact(v) if isinstance(v, str) else v for k, v in record.args.items()}
             elif isinstance(record.args, tuple):
-                record.args = tuple(
-                    redact(a) if isinstance(a, str) else a for a in record.args
-                )
+                record.args = tuple(redact(a) if isinstance(a, str) else a for a in record.args)
         return True
 
 
@@ -205,10 +202,31 @@ class RedactionFilter(logging.Filter):
 # LogRecord attributes that are structural, not payload. Anything else the caller
 # attached via `extra=` becomes a top-level JSON field.
 _RESERVED = {
-    "args", "asctime", "created", "exc_info", "exc_text", "filename", "funcName",
-    "levelname", "levelno", "lineno", "module", "msecs", "message", "msg", "name",
-    "pathname", "process", "processName", "relativeCreated", "stack_info",
-    "thread", "threadName", "taskName", "request_id", "service",
+    "args",
+    "asctime",
+    "created",
+    "exc_info",
+    "exc_text",
+    "filename",
+    "funcName",
+    "levelname",
+    "levelno",
+    "lineno",
+    "module",
+    "msecs",
+    "message",
+    "msg",
+    "name",
+    "pathname",
+    "process",
+    "processName",
+    "relativeCreated",
+    "stack_info",
+    "thread",
+    "threadName",
+    "taskName",
+    "request_id",
+    "service",
 }
 
 

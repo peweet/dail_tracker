@@ -37,9 +37,8 @@ Usage — a one-line import swap in each wrapper:
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable, TypeVar
-
-F = TypeVar("F", bound=Callable[..., Any])
+from collections.abc import Callable
+from typing import Any
 
 try:  # the live Streamlit app
     import streamlit as _st
@@ -50,7 +49,7 @@ except ModuleNotFoundError:  # tests / API-only runtime
     _HAS_STREAMLIT = False
 
 
-def _neutral_memo(func: F, *, max_entries: int | None = None) -> F:
+def _neutral_memo[F: Callable[..., Any]](func: F, *, max_entries: int | None = None) -> F:
     """lru_cache with a graceful pass-through on unhashable arguments.
 
     `st.cache_data` hashes common containers by value; `lru_cache` rejects
@@ -72,7 +71,7 @@ def _neutral_memo(func: F, *, max_entries: int | None = None) -> F:
     return wrapper  # type: ignore[return-value]
 
 
-def cache_data(
+def cache_data[F: Callable[..., Any]](
     func: F | None = None,
     *,
     ttl: Any = None,
@@ -87,9 +86,7 @@ def cache_data(
     present and are ignored by the neutral fallback.
     """
     if _HAS_STREAMLIT:
-        deco = _st.cache_data(
-            ttl=ttl, show_spinner=show_spinner, max_entries=max_entries, **kwargs
-        )
+        deco = _st.cache_data(ttl=ttl, show_spinner=show_spinner, max_entries=max_entries, **kwargs)
         return deco(func) if func is not None else deco
 
     def wrap(f: F) -> F:
@@ -98,7 +95,7 @@ def cache_data(
     return wrap(func) if func is not None else wrap
 
 
-def cache_resource(
+def cache_resource[F: Callable[..., Any]](
     func: F | None = None,
     *,
     show_spinner: Any = True,

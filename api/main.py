@@ -173,6 +173,7 @@ async def _http_error(_request: Request, exc: StarletteHTTPException) -> JSONRes
     kind = _ERROR_KINDS.get(exc.status_code, "error")
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "kind": kind})
 
+
 app.include_router(health.router, prefix="/v1")
 app.include_router(catalog.router, prefix="/v1")
 app.include_router(members.router, prefix="/v1")

@@ -1,6 +1,7 @@
 """Smoke test: can claude-agent-sdk drive a session on this machine?"""
+
 import anyio
-from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, TextBlock, ResultMessage
+from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, TextBlock, query
 
 
 async def main():

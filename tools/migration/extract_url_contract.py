@@ -39,8 +39,18 @@ DEFAULT_OUT = PROJECT_ROOT / "doc" / "URL_CONTRACT.md"
 
 # Attribute names on query_params that are dict METHODS, not parameter keys.
 QP_METHODS = {
-    "get", "update", "clear", "to_dict", "keys", "items", "values",
-    "pop", "setdefault", "from_dict", "get_all", "setlist",
+    "get",
+    "update",
+    "clear",
+    "to_dict",
+    "keys",
+    "items",
+    "values",
+    "pop",
+    "setdefault",
+    "from_dict",
+    "get_all",
+    "setlist",
 }
 
 LINK_RE = re.compile(r"[?&]([a-zA-Z_][a-zA-Z0-9_]*)=")
@@ -50,9 +60,7 @@ def is_query_params(node: ast.AST, aliases: set[str]) -> bool:
     """True for `st.query_params` or a local alias bound to it."""
     if isinstance(node, ast.Attribute) and node.attr == "query_params":
         return True
-    if isinstance(node, ast.Name) and node.id in aliases:
-        return True
-    return False
+    return isinstance(node, ast.Name) and node.id in aliases
 
 
 def collect_aliases(tree: ast.AST) -> set[str]:
@@ -108,9 +116,12 @@ def keys_in_module(path: Path) -> tuple[set[str], set[str]]:
 
         # "member" in st.query_params
         elif isinstance(node, ast.Compare) and len(node.comparators) == 1:
-            if is_query_params(node.comparators[0], aliases):
-                if isinstance(node.left, ast.Constant) and isinstance(node.left.value, str):
-                    keys.add(node.left.value)
+            if (
+                is_query_params(node.comparators[0], aliases)
+                and isinstance(node.left, ast.Constant)
+                and isinstance(node.left.value, str)
+            ):
+                keys.add(node.left.value)
 
         # link-building string constants: "...?member=" / "&page="
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -119,10 +130,7 @@ def keys_in_module(path: Path) -> tuple[set[str], set[str]]:
 
         # f-strings that build links: f"/?page={x}&member={y}"
         elif isinstance(node, ast.JoinedStr):
-            literal = "".join(
-                v.value for v in node.values
-                if isinstance(v, ast.Constant) and isinstance(v.value, str)
-            )
+            literal = "".join(v.value for v in node.values if isinstance(v, ast.Constant) and isinstance(v.value, str))
             if "?" in literal or "&" in literal:
                 link_keys.update(LINK_RE.findall(literal))
 
@@ -196,12 +204,16 @@ def build_report() -> str:
     w = out.append
 
     w("# URL contract — the deep-link spec\n")
-    w("> **GENERATED — do not hand-edit.** Regenerate with "
-      "`python tools/extract_url_contract.py -o doc/URL_CONTRACT.md`.\n")
+    w(
+        "> **GENERATED — do not hand-edit.** Regenerate with "
+        "`python tools/extract_url_contract.py -o doc/URL_CONTRACT.md`.\n"
+    )
     w("> Verify with `python tools/extract_url_contract.py --check` (fails on drift).\n")
-    w("This is the one part of the UI that outside parties depend on: bookmarks, shared links, "
-      "search results, and any future React router. Streamlit widgets and CSS can be "
-      "redesigned freely; **these strings cannot** without breaking links already in the wild.\n")
+    w(
+        "This is the one part of the UI that outside parties depend on: bookmarks, shared links, "
+        "search results, and any future React router. Streamlit widgets and CSS can be "
+        "redesigned freely; **these strings cannot** without breaking links already in the wild.\n"
+    )
 
     w(f"## Routes ({len(routes)})\n")
     w("| Route (`url_path`) | Title | Page module | app.py line |")
@@ -212,9 +224,11 @@ def build_report() -> str:
     w("")
 
     w(f"## Query parameters ({len(global_keys)} distinct)\n")
-    w("Every literal key read from or written to `st.query_params`, with the modules "
-      "that use it. A key used by more than one module is a **shared contract** — "
-      "changing it breaks every listed consumer.\n")
+    w(
+        "Every literal key read from or written to `st.query_params`, with the modules "
+        "that use it. A key used by more than one module is a **shared contract** — "
+        "changing it breaks every listed consumer.\n"
+    )
     w("| Parameter | Modules | Shared? |")
     w("|---|---|---|")
     for k in sorted(global_keys):
@@ -226,8 +240,10 @@ def build_report() -> str:
 
     if per_module_links:
         w("## Link emitters\n")
-        w("Modules that BUILD urls (as opposed to reading them). These are what put "
-          "links into the wild, so they define what must keep working.\n")
+        w(
+            "Modules that BUILD urls (as opposed to reading them). These are what put "
+            "links into the wild, so they define what must keep working.\n"
+        )
         w("| Module | Keys emitted |")
         w("|---|---|")
         for rel in sorted(per_module_links):
@@ -236,10 +252,12 @@ def build_report() -> str:
         w("")
 
     w("## Migration rule\n")
-    w("A React router must accept every route and parameter above **unchanged**. "
-      "New parameters may be added; existing ones may only be removed behind a "
-      "redirect that preserves the old link. Treat this table as the acceptance "
-      "test for routing parity.\n")
+    w(
+        "A React router must accept every route and parameter above **unchanged**. "
+        "New parameters may be added; existing ones may only be removed behind a "
+        "redirect that preserves the old link. Treat this table as the acceptance "
+        "test for routing parity.\n"
+    )
 
     return "\n".join(out)
 

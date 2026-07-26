@@ -212,9 +212,7 @@ def ingest(slug: str, cf: dict) -> tuple[list[dict], dict]:
         return [], stat
     rows = sorted(by_key.values(), key=lambda r: (r["year"], r["item"]))
     years = sorted({r["year"] for r in rows})
-    latest_borrow = next(
-        (r["value_eur"] for r in rows if r["item"] == "borrowings" and r["year"] == max(years)), 0.0
-    )
+    latest_borrow = next((r["value_eur"] for r in rows if r["item"] == "borrowings" and r["year"] == max(years)), 0.0)
     stat.update(
         status="ok",
         year=latest_stat["year"] if latest_stat else max(years),

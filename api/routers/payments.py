@@ -32,5 +32,7 @@ def list_payments_for_year(
     page: Page = Depends(pagination(default=20)),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    records, total, truncated = dossiers.list_payments_year_ranking(cur, year=year, house=house, skip=page.skip, limit=page.limit)
+    records, total, truncated = dossiers.list_payments_year_ranking(
+        cur, year=year, house=house, skip=page.skip, limit=page.limit
+    )
     return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)

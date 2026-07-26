@@ -13,9 +13,9 @@ than hidden.
     python tools/build_doc_index.py            # rewrite doc/INDEX.md
     python tools/build_doc_index.py --check     # exit 1 if INDEX.md is stale
 """
+
 from __future__ import annotations
 
-import io
 import re
 import sys
 from datetime import date
@@ -27,7 +27,7 @@ FM_KEYS = ("tier", "status", "domain", "updated", "read_when", "key", "supersede
 
 
 def read_text(p: Path) -> str:
-    return io.open(p, encoding="utf-8", errors="replace").read()
+    return open(p, encoding="utf-8", errors="replace").read()
 
 
 def parse_front_matter(text: str) -> dict[str, str]:
@@ -113,13 +113,10 @@ def render(rows: list[dict]) -> str:
         out.append("| doc | domain | ~tok | updated | read when |")
         out.append("|---|---|---:|---|---|")
         for r in sorted(group, key=lambda x: (x["domain"], x["name"])):
-            rw = r["read_when"] or (
-                f"→ {r['superseded_by']}" if r["superseded_by"] else ""
-            )
+            rw = r["read_when"] or (f"→ {r['superseded_by']}" if r["superseded_by"] else "")
             rw = rw.replace("|", "\\|")
             out.append(
-                f"| [{r['name']}]({r['name']}) | {r['domain'] or '—'} | "
-                f"{r['tok']}k | {r['updated'] or '—'} | {rw} |"
+                f"| [{r['name']}]({r['name']}) | {r['domain'] or '—'} | {r['tok']}k | {r['updated'] or '—'} | {rw} |"
             )
         out.append("")
 
@@ -146,14 +143,18 @@ def main() -> int:
     check = "--check" in sys.argv
     if check:
         current = read_text(INDEX) if INDEX.exists() else ""
+
         # ignore the trailing generated-date line when comparing
-        strip = lambda s: re.sub(r"<!-- generated .* -->", "", s).strip()
+        def strip(s: str) -> str:
+            return re.sub(r"<!-- generated .* -->", "", s).strip()
+
         if strip(current) != strip(content):
             print("doc/INDEX.md is STALE — run: python tools/build_doc_index.py")
             return 1
         print("doc/INDEX.md is up to date.")
         return 0
-    io.open(INDEX, "w", encoding="utf-8").write(content)
+    with open(INDEX, "w", encoding="utf-8") as fh:
+        fh.write(content)
     print(f"Wrote {INDEX} ({len(rows)} docs).")
     return 0
 

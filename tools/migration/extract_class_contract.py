@@ -116,8 +116,7 @@ def load_baseline() -> set[str]:
     if not BASELINE.exists():
         return set()
     return {
-        ln.strip() for ln in BASELINE.read_text(encoding="utf-8").splitlines()
-        if ln.strip() and not ln.startswith("#")
+        ln.strip() for ln in BASELINE.read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")
     }
 
 
@@ -154,9 +153,7 @@ def build_report(show_orphans: bool) -> str:
 
     # A dead selector whose stem matches a dynamic token is NOT dead — it is
     # reached through an f-string hole (e.g. .pill-active from f"pill-{state}").
-    reachable_dynamically = {
-        c for c in dead if any(c.startswith(stem) for stem in dynamic)
-    }
+    reachable_dynamically = {c for c in dead if any(c.startswith(stem) for stem in dynamic)}
     dead -= reachable_dynamically
 
     fam_emitted: dict[str, int] = defaultdict(int)
@@ -170,12 +167,16 @@ def build_report(show_orphans: bool) -> str:
     w = out.append
 
     w("# CSS class contract — the styling vocabulary\n")
-    w("> **GENERATED — do not hand-edit.** Regenerate with "
-      "`python tools/extract_class_contract.py -o doc/CLASS_CONTRACT.md`.\n")
+    w(
+        "> **GENERATED — do not hand-edit.** Regenerate with "
+        "`python tools/extract_class_contract.py -o doc/CLASS_CONTRACT.md`.\n"
+    )
     w("> Verify with `python tools/extract_class_contract.py --check`.\n")
-    w("Styling is preserved across a framework change if the new components emit these "
-      "class names against this stylesheet. That makes the vocabulary below a contract — "
-      "the same kind as [URL_CONTRACT.md](URL_CONTRACT.md), and equally unwritten until now.\n")
+    w(
+        "Styling is preserved across a framework change if the new components emit these "
+        "class names against this stylesheet. That makes the vocabulary below a contract — "
+        "the same kind as [URL_CONTRACT.md](URL_CONTRACT.md), and equally unwritten until now.\n"
+    )
 
     w("## Summary\n")
     w("| Measure | Count |")
@@ -207,24 +208,30 @@ def build_report(show_orphans: bool) -> str:
     if show_orphans:
         if unstyled:
             w("## Unstyled classes (emitted, no CSS rule)\n")
-            w("Each is markup rendering without the style it names. Either a typo, a "
-              "leftover, or a rule that was deleted from under it. **These are live "
-              "defects, not migration debt.**\n")
+            w(
+                "Each is markup rendering without the style it names. Either a typo, a "
+                "leftover, or a rule that was deleted from under it. **These are live "
+                "defects, not migration debt.**\n"
+            )
             for c in sorted(unstyled):
                 w(f"- `{c}`")
             w("")
         if dead:
             w("## Dead CSS (styled, never emitted)\n")
-            w("Selectors with no corresponding markup. Safe to delete; each one shrinks "
-              "the stylesheet a migration has to carry.\n")
+            w(
+                "Selectors with no corresponding markup. Safe to delete; each one shrinks "
+                "the stylesheet a migration has to carry.\n"
+            )
             for c in sorted(dead):
                 w(f"- `.{c}`")
             w("")
 
     w("## Migration rule\n")
-    w("Components may add classes freely. A class in the contract may only be renamed "
-      "if the CSS is renamed with it in the same change. Treat this table as the "
-      "acceptance test for visual parity: same names + same stylesheet = same design.\n")
+    w(
+        "Components may add classes freely. A class in the contract may only be renamed "
+        "if the CSS is renamed with it in the same change. Treat this table as the "
+        "acceptance test for visual parity: same names + same stylesheet = same design.\n"
+    )
 
     return "\n".join(out)
 
@@ -256,8 +263,10 @@ def main() -> int:
 
         baseline = load_baseline()
         new = [c for c in unstyled if c not in baseline]
-        print(f"Emitted classes: {len(emitted):,} | styled: {len(emitted & defined):,} | "
-              f"unstyled: {len(unstyled)} (baselined {len(unstyled) - len(new)})")
+        print(
+            f"Emitted classes: {len(emitted):,} | styled: {len(emitted & defined):,} | "
+            f"unstyled: {len(unstyled)} (baselined {len(unstyled) - len(new)})"
+        )
         if new:
             print(f"\nFAIL — {len(new)} newly unstyled class(es):", file=sys.stderr)
             for c in new:

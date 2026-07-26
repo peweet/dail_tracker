@@ -60,11 +60,37 @@ REGISTER = "https://www.opr.ie/recommendations-made-by-the-opr-to-the-minister/"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 CANON_31 = [
-    "Carlow", "Cavan", "Clare", "Cork City", "Cork County", "Donegal", "Dublin City",
-    "Dun Laoghaire-Rathdown", "Fingal", "Galway City", "Galway County", "Kerry", "Kildare",
-    "Kilkenny", "Laois", "Leitrim", "Limerick", "Longford", "Louth", "Mayo", "Meath",
-    "Monaghan", "Offaly", "Roscommon", "Sligo", "South Dublin", "Tipperary", "Waterford",
-    "Westmeath", "Wexford", "Wicklow",
+    "Carlow",
+    "Cavan",
+    "Clare",
+    "Cork City",
+    "Cork County",
+    "Donegal",
+    "Dublin City",
+    "Dun Laoghaire-Rathdown",
+    "Fingal",
+    "Galway City",
+    "Galway County",
+    "Kerry",
+    "Kildare",
+    "Kilkenny",
+    "Laois",
+    "Leitrim",
+    "Limerick",
+    "Longford",
+    "Louth",
+    "Mayo",
+    "Meath",
+    "Monaghan",
+    "Offaly",
+    "Roscommon",
+    "Sligo",
+    "South Dublin",
+    "Tipperary",
+    "Waterford",
+    "Westmeath",
+    "Wexford",
+    "Wicklow",
 ]
 # longest first so "Cork County"/"Galway City" can never be shadowed by a bare "Cork"/"Galway"
 _CANON_SORTED = sorted(CANON_31, key=len, reverse=True)
@@ -235,9 +261,7 @@ def parse(page: str) -> tuple[list[dict], list[str]]:
         # OUTCOME — mechanical, not editorial: the LATEST decisive document decides. A plan can
         # have a Direction on some parts and a decline on others (Sligo); latest-wins is the
         # honest read and keeps this reproducible.
-        decisive = sorted(
-            [d for d in docs if d["stage"] in DECISIVE], key=lambda d: (d["doc_date"], d["stage"])
-        )
+        decisive = sorted([d for d in docs if d["stage"] in DECISIVE], key=lambda d: (d["doc_date"], d["stage"]))
         if decisive:
             outcome = DECISIVE[decisive[-1]["stage"]]
         elif any(d["stage"] == "suspension_notice" for d in docs):

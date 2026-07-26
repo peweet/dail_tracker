@@ -376,9 +376,7 @@ def main() -> int:
     ref_top, ref_buckets, ref_scalars = _reference_topn_and_buckets(enriched)
     gold_top = appointers["parent"].head(FEATURED_TOP_N).to_list()
     assert gold_top == ref_top, f"top-N mismatch:\n gold={gold_top}\n ref ={ref_top}"
-    gold_buckets = dict(
-        appointers.group_by("type_bucket").agg(pl.col("n_notices").sum()).iter_rows()
-    )
+    gold_buckets = dict(appointers.group_by("type_bucket").agg(pl.col("n_notices").sum()).iter_rows())
     assert gold_buckets == ref_buckets, f"bucket mismatch:\n gold={gold_buckets}\n ref={ref_buckets}"
     n_recv_gold = int(enriched["is_receivership"].sum())
     n_tagged_gold = int((enriched["is_receivership"] & enriched["has_parent_mention"]).sum())

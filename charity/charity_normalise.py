@@ -111,7 +111,6 @@ def latest_bronze_xlsx() -> Path:
     return candidates[-1]
 
 
-
 REGISTER_RENAME = {
     "Registered Charity Number": "rcn",
     "Registered Charity Name": "registered_charity_name",

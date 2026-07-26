@@ -16,8 +16,10 @@ Requires the `fts` extension: DuckDB autoloads it on first use, downloading once
 per DuckDB version. Offline with no cached extension -> a clear {"error"}, never
 a crash.
 """
+
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 import duckdb
@@ -29,16 +31,22 @@ CORPORA = {
         "view": "v_member_speeches",
         "date_col": "speech_date",
         "text_col": "speech_text",
-        "cols": ("speech_date", "house", "business", "speaker_raw",
-                 "unique_member_code", "speech_text", "debate_url"),
+        "cols": ("speech_date", "house", "business", "speaker_raw", "unique_member_code", "speech_text", "debate_url"),
     },
     "questions": {
         "view": "v_member_questions",
         "date_col": "question_date",
         "text_col": "question_text",
-        "cols": ("question_date", "question_type", "ministry", "topic",
-                 "question_text", "question_ref", "oireachtas_url",
-                 "unique_member_code"),
+        "cols": (
+            "question_date",
+            "question_type",
+            "ministry",
+            "topic",
+            "question_text",
+            "question_ref",
+            "oireachtas_url",
+            "unique_member_code",
+        ),
     },
 }
 
@@ -73,24 +81,19 @@ def _build(kind: str, cur, repo: Path, fp: tuple[int, str]) -> None:
     cache = repo / CACHE_REL
     cache.parent.mkdir(parents=True, exist_ok=True)
     cols = ", ".join(spec["cols"])
-    try:
+    with contextlib.suppress(Exception):
         cur.execute("DETACH textfts")
-    except Exception:
-        pass
     cur.execute(f"ATTACH '{cache.as_posix()}' AS textfts")
     try:
         cur.execute(
-            f"CREATE OR REPLACE TABLE textfts.{kind} AS "
-            f"SELECT row_number() OVER () AS rid, {cols} FROM {spec['view']}"
+            f"CREATE OR REPLACE TABLE textfts.{kind} AS SELECT row_number() OVER () AS rid, {cols} FROM {spec['view']}"
         )
     finally:
         cur.execute("DETACH textfts")
     con = duckdb.connect(str(cache))
     try:
-        try:
+        with contextlib.suppress(Exception):  # first build — no index yet
             con.execute(f"PRAGMA drop_fts_index('{kind}')")
-        except Exception:
-            pass  # first build — no index yet
         # defaults: porter stemmer, english stopwords, lowercase — exactly what we want
         con.execute(f"PRAGMA create_fts_index('{kind}', 'rid', '{spec['text_col']}')")
         # meta is written ONLY after a successful index build — a fingerprint written
@@ -124,8 +127,10 @@ def search(kind: str, query: str, cur, repo: Path, year: int = 0, limit: int = 1
         _ensure(kind, cur, repo)
     except Exception as e:  # noqa: BLE001 — surface, never crash the server
         _CHECKED.pop(kind, None)
-        return {"error": f"corpus build failed ({type(e).__name__}: {e}) — "
-                         "first build needs the DuckDB fts extension (one-time download)"}
+        return {
+            "error": f"corpus build failed ({type(e).__name__}: {e}) — "
+            "first build needs the DuckDB fts extension (one-time download)"
+        }
     limit = max(1, min(int(limit), 50))
     where = ["score IS NOT NULL"]
     params: list = [query.strip()]
@@ -149,7 +154,7 @@ def search(kind: str, query: str, cur, repo: Path, year: int = 0, limit: int = 1
         return {"error": f"search failed ({type(e).__name__}: {e})"}
     out = []
     for r in rows:
-        rec = dict(zip(names, r))
+        rec = dict(zip(names, r, strict=False))
         rec.pop("rid", None)
         txt = str(rec.get(spec["text_col"]) or "")
         if len(txt) > _SNIPPET:
@@ -157,7 +162,12 @@ def search(kind: str, query: str, cur, repo: Path, year: int = 0, limit: int = 1
         rec["score"] = round(float(rec["score"]), 3)
         rec[spec["date_col"]] = str(rec[spec["date_col"]])
         out.append(rec)
-    return {"corpus": kind, "query": query, "hits": out, "count": len(out),
-            "ranking": "bm25 + porter stemming (this is relevance search, not the "
-                       "member feed — use member_speeches/get_member_questions for a "
-                       "TD's complete record)"}
+    return {
+        "corpus": kind,
+        "query": query,
+        "hits": out,
+        "count": len(out),
+        "ranking": "bm25 + porter stemming (this is relevance search, not the "
+        "member feed — use member_speeches/get_member_questions for a "
+        "TD's complete record)",
+    }

@@ -208,10 +208,16 @@ def test_accommodation_body_embedded_smoke(monkeypatch):
     import accommodation_spend as acc
 
     _silence_streamlit()
-    monkeypatch.setattr(acc, "fetch_accommodation_spend_by_year_result",
-                        lambda *a, **k: QueryResult.success(pd.DataFrame({"year": [2024]})))
-    monkeypatch.setattr(acc, "fetch_accommodation_spend_providers_result",
-                        lambda *a, **k: QueryResult.success(pd.DataFrame({"provider": ["X"]})))
+    monkeypatch.setattr(
+        acc,
+        "fetch_accommodation_spend_by_year_result",
+        lambda *a, **k: QueryResult.success(pd.DataFrame({"year": [2024]})),
+    )
+    monkeypatch.setattr(
+        acc,
+        "fetch_accommodation_spend_providers_result",
+        lambda *a, **k: QueryResult.success(pd.DataFrame({"provider": ["X"]})),
+    )
     monkeypatch.setattr(acc, "_render_by_year", lambda *a, **k: None)
     monkeypatch.setattr(acc, "_render_providers", lambda *a, **k: None)
     # The embed now renders the FULL four-tab dossier (money + the three accountability

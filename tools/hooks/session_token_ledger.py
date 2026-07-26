@@ -21,10 +21,10 @@ Design rules, shared with the other hooks in this dir:
 
 Input: the SessionEnd JSON on stdin (session_id, transcript_path, reason).
 """
+
 from __future__ import annotations
 
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -83,8 +83,13 @@ def _scan_one(path: Path) -> dict:
                                 if "/memory/" in p.replace("\\", "/") or "MEMORY.md" in p:
                                     mem_writes += 1
     return {
-        "out": out, "fresh_in": fresh_in, "cache_read": cache_read,
-        "turns": turns, "explore": explore, "mcp": mcp, "mem_writes": mem_writes,
+        "out": out,
+        "fresh_in": fresh_in,
+        "cache_read": cache_read,
+        "turns": turns,
+        "explore": explore,
+        "mcp": mcp,
+        "mem_writes": mem_writes,
         "prompt": first_prompt,
     }
 

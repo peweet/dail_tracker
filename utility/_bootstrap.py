@@ -12,6 +12,7 @@ to happen before any other import runs:
 It exists as its own module so ``app.py`` keeps a clean block of imports — inlining the
 ``sys.path`` code would make every import below it an E402.
 """
+
 from __future__ import annotations
 
 import sys

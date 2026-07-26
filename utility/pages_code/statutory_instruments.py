@@ -1206,8 +1206,9 @@ def _render_operationalising_circulars(row: pd.Series) -> None:
         # The stored title often repeats the number ("06/2021 Circular PL 06/2021 –
         # Takeaway…"); strip that leading self-reference so the cite isn't doubled.
         title = re.sub(r"^\s*\d{1,3}[/-]\d{2,4}\s+", "", title)
-        title = re.sub(r"^\s*Circular\s+(?:Letter\s+)?[A-Z()]{0,7}\s*\d{1,3}[/-]\d{2,4}\s*[–:\-]\s*",
-                       "", title, flags=re.I).strip()
+        title = re.sub(
+            r"^\s*Circular\s+(?:Letter\s+)?[A-Z()]{0,7}\s*\d{1,3}[/-]\d{2,4}\s*[–:\-]\s*", "", title, flags=re.I
+        ).strip()
         cite = f"Circular {no}" if not no.lower().startswith("circular") else no
         label = f"{cite} — {title}" if title else cite
         link = source_link_html(url, label) if url else html.escape(label)

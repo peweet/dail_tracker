@@ -12,12 +12,17 @@ Run: .venv/Scripts/python tools/evals/package_bench.py [baseline|newtools] [task
 Lesson from routing_probe baked in: the SDK loads no .mcp.json — mcp_servers is
 wired explicitly or every probe measures tool-absence.
 """
+
 import json
 import re
 
 import anyio
 from claude_agent_sdk import (
-    query, ClaudeAgentOptions, AssistantMessage, ToolUseBlock, ResultMessage,
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    ToolUseBlock,
+    query,
 )
 
 PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
@@ -30,25 +35,39 @@ NEW_TOOLS = [
 
 TASKS = {
     "column-lineage": {
-        "prompt": ("In this repo's sql_views layer: if the total_paid column exposed by the view "
-                   "v_payments_yearly_evolution were renamed, which OTHER registered views would "
-                   "break, directly or transitively? Reply ONLY with a JSON array of view names."),
+        "prompt": (
+            "In this repo's sql_views layer: if the total_paid column exposed by the view "
+            "v_payments_yearly_evolution were renamed, which OTHER registered views would "
+            "break, directly or transitively? Reply ONLY with a JSON array of view names."
+        ),
         "gt": {"v_payments_alltime_ranking", "v_payments_alltime_summary"},
         "kind": "exact_set",
     },
     "topic-speeches": {
-        "prompt": ("Using the dail-tracker data: which TDs have spoken most on the Dáil floor about "
-                   "defective concrete blocks / mica redress? Reply ONLY with a JSON array of up to "
-                   "5 speaker names, most prominent first."),
+        "prompt": (
+            "Using the dail-tracker data: which TDs have spoken most on the Dáil floor about "
+            "defective concrete blocks / mica redress? Reply ONLY with a JSON array of up to "
+            "5 speaker names, most prominent first."
+        ),
         # ILIKE reference top-8 (bench_gt.py 2026-07-25) — generous superset for precision
-        "gt": {"taoiseach", "thomas pringle", "pearse doherty", "richard boyd barrett",
-               "charles ward", "peadar tóibín", "pádraig mac lochlainn", "eoin ó broin"},
+        "gt": {
+            "taoiseach",
+            "thomas pringle",
+            "pearse doherty",
+            "richard boyd barrett",
+            "charles ward",
+            "peadar tóibín",
+            "pádraig mac lochlainn",
+            "eoin ó broin",
+        },
         "kind": "name_overlap",
     },
     "topic-questions": {
-        "prompt": ("Using the dail-tracker data: which TWO departments/ministries receive the most "
-                   "parliamentary questions about direct provision? Reply ONLY with a JSON array of "
-                   "the two ministry names."),
+        "prompt": (
+            "Using the dail-tracker data: which TWO departments/ministries receive the most "
+            "parliamentary questions about direct provision? Reply ONLY with a JSON array of "
+            "the two ministry names."
+        ),
         "gt": {"children", "justice"},
         "kind": "name_overlap",
     },
@@ -117,12 +136,15 @@ async def run_task(task: str, variant: str) -> dict:
         err = f"{type(e).__name__}: {e}"
     answer = parse_answer(text)
     out = {
-        "task": task, "variant": variant,
+        "task": task,
+        "variant": variant,
         "score": score(spec["kind"], spec["gt"], answer),
-        "tool_calls": len(calls), "mcp_calls": sum(c.startswith("mcp__") for c in calls),
+        "tool_calls": len(calls),
+        "mcp_calls": sum(c.startswith("mcp__") for c in calls),
         "new_tool_calls": sum(c in NEW_TOOLS for c in calls),
         "cost_usd": round(cost, 4) if cost else None,
-        "answer": answer, "sequence": calls,
+        "answer": answer,
+        "sequence": calls,
     }
     if err:
         out["error"] = err

@@ -471,7 +471,7 @@ def circular_si_crosswalk(si_year: int = 0, si_number: int = 0, limit: int = 50)
         "n_resolved": resolved,
         "pairs": rows[:limit],
         "note": "si_resolved=false means the circular cites an SI we don't hold "
-                "(our SI data starts 2016), not a broken link",
+        "(our SI data starts 2016), not a broken link",
     }
 
 
@@ -1472,7 +1472,13 @@ def _build_project_index() -> list[dict]:
                 rel = sql.relative_to(REPO).as_posix()
                 name = view_name or sql.stem
                 idx.append(
-                    {"kind": "sql_view", "name": name, "path": rel, "desc": desc, "haystack": f"{name} {sql.stem} {desc}"}
+                    {
+                        "kind": "sql_view",
+                        "name": name,
+                        "path": rel,
+                        "desc": desc,
+                        "haystack": f"{name} {sql.stem} {desc}",
+                    }
                 )
 
     # 4) Code — one entry per repo .py (module path + docstring first line + def/class
@@ -1492,7 +1498,7 @@ def _project_index() -> list[dict]:
 
 @mcp.tool(annotations=_RO)
 def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
-    """"Where does X live?" — ONE structured retrieval call over the repo's metadata
+    """ "Where does X live?" — ONE structured retrieval call over the repo's metadata
     layer, so you don't grep or read the tree to place a topic. Ranks matches across
     four surfaces: silver/gold DATASETS (fact-card name, purpose, grain, columns),
     DOCS (doc/INDEX.md title, domain, read-when), SQL VIEWS (the leading comment +
@@ -1537,9 +1543,7 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
             why.append(f"name matches {', '.join(sorted(set(hit_in_name)))}")
         if hit_in_desc:
             why.append(f"describes {', '.join(sorted(set(hit_in_desc)))}")
-        scored.append(
-            {"kind": e["kind"], "name": e["name"], "path": e["path"], "why": "; ".join(why), "_s": score}
-        )
+        scored.append({"kind": e["kind"], "name": e["name"], "path": e["path"], "why": "; ".join(why), "_s": score})
 
     scored.sort(key=lambda r: (-r["_s"], r["kind"], r["name"]))
     top = scored[: max(1, min(limit, 50))]
@@ -1558,11 +1562,18 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
             spans = fts_index.search(REPO, query, limit=6, kind=fts_kind)
 
     if not top and not spans:
-        return {"query": query, "count": 0, "results": [], "hint": "no metadata match — try a broader term or Grep the source tree"}
+        return {
+            "query": query,
+            "count": 0,
+            "results": [],
+            "hint": "no metadata match — try a broader term or Grep the source tree",
+        }
     out = {"query": query, "count": len(top), "results": top}
     if spans:
         out["content_spans"] = spans
-        out["span_hint"] = "content_spans give path+line span — Read(path, offset=start, limit=span_len) instead of the whole file"
+        out["span_hint"] = (
+            "content_spans give path+line span — Read(path, offset=start, limit=span_len) instead of the whole file"
+        )
     return out
 
 
@@ -1618,7 +1629,7 @@ def json_peek(path: str, expr: str = "", limit: int = 20) -> dict:
     try:
         if p.suffix.lower() == ".jsonl":
             with p.open(encoding="utf-8") as fh:
-                obj = [_json.loads(ln) for _, ln in zip(range(max(1, limit)), fh)]
+                obj = [_json.loads(ln) for _, ln in zip(range(max(1, limit)), fh, strict=False)]
         else:
             obj = _json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:  # noqa: BLE001 — surface the parse error, never crash the server
@@ -1634,7 +1645,13 @@ def json_peek(path: str, expr: str = "", limit: int = 20) -> dict:
             for i in idxs:
                 obj = obj[int(i)]
         except (KeyError, IndexError, TypeError):
-            keys = list(obj.keys())[:30] if isinstance(obj, dict) else f"list[{len(obj)}]" if isinstance(obj, list) else type(obj).__name__
+            keys = (
+                list(obj.keys())[:30]
+                if isinstance(obj, dict)
+                else f"list[{len(obj)}]"
+                if isinstance(obj, list)
+                else type(obj).__name__
+            )
             return {"error": f"'{part}' not found", "available": keys}
 
     def shape(o, depth=0):
@@ -1693,7 +1710,9 @@ def search_questions(query: str, year: int = 0, limit: int = 10) -> dict:
 
 
 @mcp.tool(annotations=_RO)
-def siting_decision_documents(ref: str, authority_slug: str = "galway_county_council", fetch_reasons: bool = True) -> dict:
+def siting_decision_documents(
+    ref: str, authority_slug: str = "galway_county_council", fetch_reasons: bool = True
+) -> dict:
     """A planning file's SCANNED DECISION DOCUMENTS from the council's online viewer — and, with
     fetch_reasons, the VERBATIM refusal-reason schedule extracted from the Notification of
     Decision. Ends the inference gap: when a nearby refusal matters (see nearby_history's
@@ -1954,9 +1973,7 @@ def siting_check(
         # landmark). Every other list is then empty because it was NOT EVALUATED — never
         # read that as "no constraints".
         "not_evaluated": b.not_evaluated,
-        "plausibility_checks_not_run": (
-            list(result.plausibility.unchecked) if result.plausibility is not None else []
-        ),
+        "plausibility_checks_not_run": (list(result.plausibility.unchecked) if result.plausibility is not None else []),
         "excluded": b.excluded,
         "exclusions": [
             {"designation": e.designation, "site_name": e.site_name, "layer": e.layer, "mitigation": e.mitigation}
@@ -2045,7 +2062,7 @@ def _siting_process_context(result, dev_type: str) -> dict:
         return {"available": False, "reason": f"process_stats module unavailable: {exc}"}
     council = getattr(result, "council", None)
     # the raw PlanningAuthority string is the register's own vocabulary — the exact join key
-    authority = (getattr(council, "authority", "") or getattr(council, "council_name", "") or "")
+    authority = getattr(council, "authority", "") or getattr(council, "council_name", "") or ""
     ctx = _proc.decision_context(authority, dev_type)
     out = {"available": ctx.available, "reason": ctx.reason, "summary": ctx.summary}
     if ctx.available:
@@ -2616,7 +2633,9 @@ def doc_index_resource() -> str:
     """doc/INDEX.md verbatim — the generated map of every doc (title, domain, size, read-when).
     Scan this instead of grepping doc/ or reading a doc whole to find out if it's relevant."""
     p = REPO / "doc" / "INDEX.md"
-    return p.read_text(encoding="utf-8") if p.exists() else "doc/INDEX.md absent — run `python tools/build_doc_index.py`"
+    return (
+        p.read_text(encoding="utf-8") if p.exists() else "doc/INDEX.md absent — run `python tools/build_doc_index.py`"
+    )
 
 
 @mcp.resource("doc://sandbox-map")

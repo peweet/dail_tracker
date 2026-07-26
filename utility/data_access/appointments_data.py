@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import duckdb
 import pandas as pd
-
 from data_access._cache import cache_data, cache_resource
+
 from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import appointments as _q
 

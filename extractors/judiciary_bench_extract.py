@@ -271,7 +271,8 @@ def build_bench(
 ) -> pl.DataFrame:
     ros = roster.with_columns(
         _keyed(roster["judge_name"].to_list(), aliases).alias("judge_key"),
-        pl.col("court").replace_strict(COURT_RANK, default=None, return_dtype=pl.Int64)
+        pl.col("court")
+        .replace_strict(COURT_RANK, default=None, return_dtype=pl.Int64)
         .fill_null(99)
         .alias("court_rank"),
     )
@@ -502,8 +503,7 @@ def build_courts_waiting(wt: pl.DataFrame) -> pl.DataFrame:
     ]
     if bad:
         raise ValueError(
-            "courts_waiting_context.csv no longer matches the extracted waiting-time rows "
-            f"(re-curate it): {bad}"
+            f"courts_waiting_context.csv no longer matches the extracted waiting-time rows (re-curate it): {bad}"
         )
     out = out.drop("match_prefix")
 

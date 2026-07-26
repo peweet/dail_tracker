@@ -164,8 +164,6 @@ sys.path.insert(0, str(Path(__file__).parents[2]))
 # utility/ APPENDED (not inserted at front) so the project-root config.py still
 # wins — utility/ has its own config.py that would shadow it.
 sys.path.append(str(Path(__file__).parents[2] / "utility"))
-from dail_tracker_core.db import register_views
-
 from config import (
     DATA_DIR,
     GOLD_PARQUET_DIR,
@@ -175,6 +173,7 @@ from config import (
     SILVER_DIR,
     SILVER_PARQUET_DIR,
 )
+from dail_tracker_core.db import register_views
 
 PROJECT_ROOT = Path(__file__).parents[2]
 SQL_VIEWS_DIR = PROJECT_ROOT / "sql_views"

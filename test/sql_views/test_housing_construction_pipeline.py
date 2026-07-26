@@ -29,9 +29,19 @@ from config import GOLD_PARQUET_DIR  # noqa: E402
 _GOLD = GOLD_PARQUET_DIR / "housing_construction_pipeline.parquet"
 
 _EXPECTED_COLS = {
-    "local_authority", "pipeline_units", "pipeline_schemes", "units_on_site",
-    "schemes_on_site", "units_completed", "report_period", "source_name",
-    "source_url", "fetched_at", "extraction_method", "privacy_tier", "value_safe_to_sum",
+    "local_authority",
+    "pipeline_units",
+    "pipeline_schemes",
+    "units_on_site",
+    "schemes_on_site",
+    "units_completed",
+    "report_period",
+    "source_name",
+    "source_url",
+    "fetched_at",
+    "extraction_method",
+    "privacy_tier",
+    "value_safe_to_sum",
 }
 
 

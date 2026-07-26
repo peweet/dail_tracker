@@ -16,6 +16,7 @@ mtime-incremental: unchanged files cost a stat, changed files are re-chunked, de
 files are purged. Callers should refresh() before search() — a stale index would
 return old line spans, which is worse than no index.
 """
+
 from __future__ import annotations
 
 import ast
@@ -28,8 +29,18 @@ from pathlib import Path
 
 # Directories never worth indexing (heavy, generated, or non-source).
 SKIP_DIRS = {
-    ".git", ".venv", "__pycache__", "node_modules", ".cache", ".idea", ".pytest_cache",
-    "data", "logs", "audit_screenshots", "doc_archive", "tmp",
+    ".git",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    ".cache",
+    ".idea",
+    ".pytest_cache",
+    "data",
+    "logs",
+    "audit_screenshots",
+    "doc_archive",
+    "tmp",
 }
 # A class longer than this is chunked per-method (cAST: keep chunks dense but whole).
 CLASS_SPLIT_LINES = 150
@@ -73,6 +84,7 @@ def _connect(repo: Path) -> sqlite3.Connection:
 
 # ── chunkers ─────────────────────────────────────────────────────────────────
 
+
 def _py_chunks(rel: str, text: str) -> list[tuple[str, str, str, str]]:
     """(header, body, span, kind) per top-level def/class; big classes per-method.
     Header carries the cAST-style scope line the retriever needs to use the hit."""
@@ -96,22 +108,38 @@ def _py_chunks(rel: str, text: str) -> list[tuple[str, str, str, str]]:
         default=len(lines) + 1,
     )
     if first_def > 1:
-        out.append((f"{rel} — module preamble. {doc1(tree)}", seg(1, first_def - 1), f"1-{first_def - 1}", "code-chunk"))
+        out.append(
+            (f"{rel} — module preamble. {doc1(tree)}", seg(1, first_def - 1), f"1-{first_def - 1}", "code-chunk")
+        )
 
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             end = getattr(node, "end_lineno", node.lineno)
-            out.append((f"{rel}::{node.name}(). {doc1(node)}", seg(node.lineno, end), f"{node.lineno}-{end}", "code-chunk"))
+            out.append(
+                (f"{rel}::{node.name}(). {doc1(node)}", seg(node.lineno, end), f"{node.lineno}-{end}", "code-chunk")
+            )
         elif isinstance(node, ast.ClassDef):
             end = getattr(node, "end_lineno", node.lineno)
             if end - node.lineno <= CLASS_SPLIT_LINES:
-                out.append((f"{rel}::class {node.name}. {doc1(node)}", seg(node.lineno, end), f"{node.lineno}-{end}", "code-chunk"))
+                out.append(
+                    (
+                        f"{rel}::class {node.name}. {doc1(node)}",
+                        seg(node.lineno, end),
+                        f"{node.lineno}-{end}",
+                        "code-chunk",
+                    )
+                )
             else:
                 for m in node.body:
                     if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         mend = getattr(m, "end_lineno", m.lineno)
                         out.append(
-                            (f"{rel}::class {node.name}.{m.name}(). {doc1(m)}", seg(m.lineno, mend), f"{m.lineno}-{mend}", "code-chunk")
+                            (
+                                f"{rel}::class {node.name}.{m.name}(). {doc1(m)}",
+                                seg(m.lineno, mend),
+                                f"{m.lineno}-{mend}",
+                                "code-chunk",
+                            )
                         )
     return out
 
@@ -124,7 +152,9 @@ def _md_chunks(rel: str, text: str) -> list[tuple[str, str, str, str]]:
     for i, ln in enumerate(lines, 1):
         m = _MD_HEADING.match(ln)
         if m and i > start:
-            out.append((f"{rel} § {title}", "\n".join(lines[start - 1 : i - 1])[:BODY_CAP], f"{start}-{i - 1}", "doc-section"))
+            out.append(
+                (f"{rel} § {title}", "\n".join(lines[start - 1 : i - 1])[:BODY_CAP], f"{start}-{i - 1}", "doc-section")
+            )
             start, title = i, m.group(1).strip()
         elif m:
             title = m.group(1).strip()
@@ -190,6 +220,7 @@ def _py_imports(rel: str, text: str, repo_paths: set[str]) -> set[str]:
 
 # ── source walk ──────────────────────────────────────────────────────────────
 
+
 def _sources(repo: Path, memory_dir: Path | None) -> dict[str, tuple[Path, str]]:
     """path-key -> (abs path, chunker kind). Skips heavy/generated trees."""
     src: dict[str, tuple[Path, str]] = {}
@@ -227,8 +258,10 @@ def refresh(repo: Path, memory_dir: Path | None = None) -> dict:
                 with contextlib.suppress(Exception):
                     text = p.read_text(encoding="utf-8", errors="replace")
                 chunks = (
-                    _py_chunks(rel, text) if kind == "py"
-                    else _md_chunks(rel, text) if kind in ("md", "memory")
+                    _py_chunks(rel, text)
+                    if kind == "py"
+                    else _md_chunks(rel, text)
+                    if kind in ("md", "memory")
                     else _whole(rel, text, "sql-view")
                 )
                 if kind == "memory":
@@ -252,7 +285,12 @@ def refresh(repo: Path, memory_dir: Path | None = None) -> dict:
             conn.execute("DELETE FROM files WHERE path = ?", (rel,))
             removed += 1
         conn.commit()
-        return {"indexed": changed, "removed": removed, "total_files": len(src), "ms": int((time.perf_counter() - t0) * 1000)}
+        return {
+            "indexed": changed,
+            "removed": removed,
+            "total_files": len(src),
+            "ms": int((time.perf_counter() - t0) * 1000),
+        }
     finally:
         conn.close()
 
@@ -278,6 +316,7 @@ def search(repo: Path, query: str, limit: int = 8, kind: str = "") -> list[dict]
         return []
     conn = _connect(repo)
     try:
+
         def run(match: str) -> list:
             sql = (
                 "SELECT header, path, span, kind, snippet(chunks, 1, '', '', ' … ', 14) "
@@ -297,8 +336,7 @@ def search(repo: Path, query: str, limit: int = 8, kind: str = "") -> list[dict]
         if not rows and len(terms) > 1:
             rows = run(" OR ".join(f'"{t}"' for t in terms))
         return [
-            {"kind": k, "name": h, "path": p, "span": s, "why": w.replace("\n", " ")[:200]}
-            for h, p, s, k, w in rows
+            {"kind": k, "name": h, "path": p, "span": s, "why": w.replace("\n", " ")[:200]} for h, p, s, k, w in rows
         ]
     finally:
         conn.close()

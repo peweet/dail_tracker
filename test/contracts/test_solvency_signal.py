@@ -109,8 +109,7 @@ def test_gold_never_marks_a_solvent_subtype_insolvent():
         pytest.skip(f"{_GOLD} not found — run the iris + corporate_receiver_enrich chain first")
     df = pl.read_parquet(_GOLD, columns=["notice_subtype", "solvency_signal"])
     bad = df.filter(
-        pl.col("notice_subtype").is_in(list(_MUST_NOT_BE_INSOLVENT))
-        & (pl.col("solvency_signal") == SOLVENCY_INSOLVENT)
+        pl.col("notice_subtype").is_in(list(_MUST_NOT_BE_INSOLVENT)) & (pl.col("solvency_signal") == SOLVENCY_INSOLVENT)
     )
     assert bad.height == 0, f"{bad.height} solvent-subtype rows marked insolvent: {bad.head(5).to_dicts()}"
 

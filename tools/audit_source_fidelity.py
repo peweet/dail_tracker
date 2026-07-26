@@ -66,9 +66,39 @@ _ARTEFACT_RE = re.compile(r"(^_|/_|manifest|_ckpt|checkpoint|index|coverage|fail
 
 # Words that carry no distinguishing meaning when matching a source field to a fact column.
 _STOP = {
-    "the", "a", "an", "of", "or", "and", "any", "who", "was", "were", "is", "are", "on", "in",
-    "for", "to", "by", "this", "that", "with", "activities", "activity", "details", "detail",
-    "name", "names", "value", "values", "date", "dates", "number", "no", "s",
+    "the",
+    "a",
+    "an",
+    "of",
+    "or",
+    "and",
+    "any",
+    "who",
+    "was",
+    "were",
+    "is",
+    "are",
+    "on",
+    "in",
+    "for",
+    "to",
+    "by",
+    "this",
+    "that",
+    "with",
+    "activities",
+    "activity",
+    "details",
+    "detail",
+    "name",
+    "names",
+    "value",
+    "values",
+    "date",
+    "dates",
+    "number",
+    "no",
+    "s",
 }
 
 
@@ -240,8 +270,12 @@ def main() -> int:
     ap.add_argument("--json", type=Path, help="write the full report here")
     ap.add_argument("--min-fields", type=int, default=3, help="ignore sources with fewer fields")
     ap.add_argument("--top", type=int, default=30, help="rows to print")
-    ap.add_argument("--write-baseline", action="store_true", help="snapshot the current dropped set as the accepted baseline")
-    ap.add_argument("--check", action="store_true", help="fail (exit 3) if a source now drops a field NOT in the baseline")
+    ap.add_argument(
+        "--write-baseline", action="store_true", help="snapshot the current dropped set as the accepted baseline"
+    )
+    ap.add_argument(
+        "--check", action="store_true", help="fail (exit 3) if a source now drops a field NOT in the baseline"
+    )
     args = ap.parse_args()
 
     print("reading persisted fact columns ...")
@@ -311,8 +345,10 @@ def main() -> int:
     if args.write_baseline:
         BASELINE.parent.mkdir(parents=True, exist_ok=True)
         BASELINE.write_text(json.dumps(current, indent=2, ensure_ascii=False, sort_keys=True), encoding="utf-8")
-        print(f"\nwrote baseline {BASELINE} ({sum(len(v) for v in current.values())} accepted drops "
-              f"across {len(current)} sources)")
+        print(
+            f"\nwrote baseline {BASELINE} ({sum(len(v) for v in current.values())} accepted drops "
+            f"across {len(current)} sources)"
+        )
         return 0
 
     if args.check:

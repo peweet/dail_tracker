@@ -15,6 +15,7 @@ Cross-tool notes (see doc/AGENT_CUSTOMIZATION_PLAN.md):
 
 Input: the tool-call JSON on stdin. We only care about the target file path.
 """
+
 from __future__ import annotations
 
 import json
@@ -75,9 +76,7 @@ def _is_blocked(path: str) -> bool:
         return True
     if any(s in p for s in SANDBOX_HEAVY) and ("/samples/" in p or "/corpus/" in p):
         return True
-    if any(m in p for m in BLOCKED_META):
-        return True
-    return False
+    return any(m in p for m in BLOCKED_META)
 
 
 def _oversized(path: str) -> int:

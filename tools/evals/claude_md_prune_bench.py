@@ -18,6 +18,7 @@ prune (low value); a drop = the cut content was load-bearing.
 
 Run: .venv/Scripts/python tools/evals/claude_md_prune_bench.py [full|trim]
 """
+
 import json
 import os
 import shutil
@@ -26,7 +27,11 @@ import sys
 
 import anyio
 from claude_agent_sdk import (
-    query, ClaudeAgentOptions, AssistantMessage, ToolUseBlock, ResultMessage,
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    ToolUseBlock,
+    query,
 )
 
 PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
@@ -34,10 +39,9 @@ PY = PROJ + r"\.venv\Scripts\python.exe"
 WT = r"C:\tmp\dail_prune_bench"
 
 sys.path.insert(0, os.path.join(PROJ, "tools", "evals"))
-from harness_bench import TASKS, score, parse_answer  # reuse tasks + scorers
+from harness_bench import TASKS, parse_answer, score  # noqa: E402 — after sys.path insert
 
-NAV = {"mcp__dail-tracker__describe_dataset", "mcp__dail-tracker__search_project",
-       "mcp__dail-tracker__list_datasets"}
+NAV = {"mcp__dail-tracker__describe_dataset", "mcp__dail-tracker__search_project", "mcp__dail-tracker__list_datasets"}
 RAW = {"Read", "Grep", "Glob"}
 
 # The editorial trim: load-bearing content only. Kept deliberately faithful to the
@@ -77,8 +81,9 @@ TRIMMED = """# CLAUDE.md — Dail Tracker
 
 
 def sh(args, timeout=600):
-    return subprocess.run(args, cwd=PROJ, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=timeout)
+    return subprocess.run(
+        args, cwd=PROJ, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout
+    )
 
 
 def make_wt(variant):
@@ -89,8 +94,7 @@ def make_wt(variant):
     if r.returncode != 0:
         raise RuntimeError(f"worktree add failed: {r.stderr[:300]}")
     # rules identical in both arms
-    shutil.copytree(os.path.join(PROJ, ".claude", "rules"),
-                    os.path.join(WT, ".claude", "rules"), dirs_exist_ok=True)
+    shutil.copytree(os.path.join(PROJ, ".claude", "rules"), os.path.join(WT, ".claude", "rules"), dirs_exist_ok=True)
     # the ONLY variable: CLAUDE.md content
     if variant == "full":
         shutil.copyfile(os.path.join(PROJ, "CLAUDE.md"), os.path.join(WT, "CLAUDE.md"))
@@ -113,11 +117,19 @@ STEER = [
 
 async def run_one(prompt, wt):
     opts = ClaudeAgentOptions(
-        model="claude-sonnet-5", max_turns=12, cwd=wt,
-        setting_sources=["project"], permission_mode="bypassPermissions",
+        model="claude-sonnet-5",
+        max_turns=12,
+        cwd=wt,
+        setting_sources=["project"],
+        permission_mode="bypassPermissions",
         env={"PATH": PROJ + r"\.venv\Scripts;" + os.environ.get("PATH", ""), "PYTHONUTF8": "1"},
-        mcp_servers={"dail-tracker": {"command": PY, "args": [PROJ + r"\mcp_server\server.py"],
-                                      "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}}},
+        mcp_servers={
+            "dail-tracker": {
+                "command": PY,
+                "args": [PROJ + r"\mcp_server\server.py"],
+                "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+            }
+        },
     )
     calls, cost, text = [], None, ""
     try:
@@ -149,19 +161,26 @@ async def main():
                 tot_cost += cost or 0
                 rows.append(f"{task}={s}")
             steer_ok = 0
-            for name, prompt in STEER:
+            for _name, prompt in STEER:
                 calls, cost, text = await run_one(prompt, WT)
                 first_nav = next((i for i, c in enumerate(calls) if c in NAV), None)
                 first_raw = next((i for i, c in enumerate(calls) if c in RAW), None)
                 ok = first_nav is not None and (first_raw is None or first_nav < first_raw)
                 steer_ok += int(ok)
                 tot_cost += cost or 0
-            print(json.dumps({
-                "variant": variant, "claude_md_chars": size,
-                "task_score": round(tot_score, 2), "task_detail": rows,
-                "steering_nav_first": f"{steer_ok}/{len(STEER)}",
-                "total_cost_usd": round(tot_cost, 4),
-            }), flush=True)
+            print(
+                json.dumps(
+                    {
+                        "variant": variant,
+                        "claude_md_chars": size,
+                        "task_score": round(tot_score, 2),
+                        "task_detail": rows,
+                        "steering_nav_first": f"{steer_ok}/{len(STEER)}",
+                        "total_cost_usd": round(tot_cost, 4),
+                    }
+                ),
+                flush=True,
+            )
         finally:
             drop_wt()
 

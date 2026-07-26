@@ -55,17 +55,45 @@ SITEMAP_INDEX = "https://www.gov.ie/sitemap.xml"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 CANON_31 = {
-    "Carlow", "Cavan", "Clare", "Cork City", "Cork County", "Donegal", "Dublin City",
-    "Dun Laoghaire-Rathdown", "Fingal", "Galway City", "Galway County", "Kerry", "Kildare",
-    "Kilkenny", "Laois", "Leitrim", "Limerick", "Longford", "Louth", "Mayo", "Meath",
-    "Monaghan", "Offaly", "Roscommon", "Sligo", "South Dublin", "Tipperary", "Waterford",
-    "Westmeath", "Wexford", "Wicklow",
+    "Carlow",
+    "Cavan",
+    "Clare",
+    "Cork City",
+    "Cork County",
+    "Donegal",
+    "Dublin City",
+    "Dun Laoghaire-Rathdown",
+    "Fingal",
+    "Galway City",
+    "Galway County",
+    "Kerry",
+    "Kildare",
+    "Kilkenny",
+    "Laois",
+    "Leitrim",
+    "Limerick",
+    "Longford",
+    "Louth",
+    "Mayo",
+    "Meath",
+    "Monaghan",
+    "Offaly",
+    "Roscommon",
+    "Sligo",
+    "South Dublin",
+    "Tipperary",
+    "Waterford",
+    "Westmeath",
+    "Wexford",
+    "Wicklow",
 }
 # compact (no spaces/hyphens, accent-folded, lowercase) → canonical; longest key first so
 # 'corkcity' can never be shadowed by a bare 'cork'
 _COMPACT = sorted(
-    ((re.sub(r"[^a-z]", "", unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode().lower()), c)
-     for c in CANON_31),
+    (
+        (re.sub(r"[^a-z]", "", unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode().lower()), c)
+        for c in CANON_31
+    ),
     key=lambda kv: -len(kv[0]),
 )
 
@@ -84,7 +112,9 @@ def fetch(url: str, retries: int = 3) -> bytes:
 
 
 def council_from_slug(slug: str) -> str | None:
-    compact = re.sub(r"[^a-z]", "", unicodedata.normalize("NFKD", unquote(slug)).encode("ascii", "ignore").decode().lower())
+    compact = re.sub(
+        r"[^a-z]", "", unicodedata.normalize("NFKD", unquote(slug)).encode("ascii", "ignore").decode().lower()
+    )
     for key, canon in _COMPACT:
         if compact.startswith(key):
             # 'corkcountycouncil…' must map to Cork County, not Cork City: startswith on the
@@ -140,7 +170,7 @@ def parse_report(p: Path) -> dict:
     op = ""
     m = _OPINION_HEAD.search(text)
     if m:  # older editions carry an 'Audit Opinion' SECTION — take it verbatim
-        rest = text[m.end():]
+        rest = text[m.end() :]
         nxt = _SECTION_HEAD.search(rest)
         op = rest[: nxt.start() if nxt else 1800].strip()[:1800]
     if not op:

@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.procurement_data import awards_register_norms, fetch_buyer_dossier, fetch_buyer_index
 from pages_code.procurement import _card, _paid_pill, _paid_verb, _value_pill
 from ui.components import back_button, clickable_card_link, dt_page, empty_state, hero_banner, text_search_mask
-from ui.entity_links import body_profile_url, company_profile_url, entity_cta_html
+from ui.entity_links import body_profile_url, company_profile_url
 from ui.format import esc as _esc
 from ui.format import eur, to_int as _n
 
@@ -108,7 +108,9 @@ def _render_payments_lane(payments: dict, awards_norms: frozenset[str]) -> None:
         pills.append(_paid_pill(ordered, "COMMITTED"))
     if _n(summary.get("n_paid_lines")):
         pills.append(_paid_pill(paid, "SPENT"))
-    meta = f"{n_sup:,} supplier{'s' if n_sup != 1 else ''} · {_n(summary.get('min_year'))}–{_n(summary.get('max_year'))}"
+    meta = (
+        f"{n_sup:,} supplier{'s' if n_sup != 1 else ''} · {_n(summary.get('min_year'))}–{_n(summary.get('max_year'))}"
+    )
     st.html(f'<div class="pr-grid">{_card("<span>Purchase orders &amp; payments</span>", meta, pills)}</div>')
     st.caption(f"Top suppliers by money {_paid_verb(tier)} (sum-safe within this body):")
     cards = []
@@ -157,11 +159,15 @@ def _landing() -> None:
     )
     index = fetch_buyer_index()
     if not index:
-        empty_state("No bodies available", "The buyer crosswalk couldn't be loaded — a source issue, not an empty result.")
+        empty_state(
+            "No bodies available", "The buyer crosswalk couldn't be loaded — a source issue, not an empty result."
+        )
         return
     q = st.text_input(
-        "Search public bodies", placeholder="Search a council, department or state body…",
-        key="body_search_q", label_visibility="collapsed",
+        "Search public bodies",
+        placeholder="Search a council, department or state body…",
+        key="body_search_q",
+        label_visibility="collapsed",
     )
     qs = (q or "").strip()
     rows = index
@@ -173,7 +179,9 @@ def _landing() -> None:
         if not rows:
             empty_state("No matches", "Try a shorter term — bodies are named as the awards register lists them.")
             return
-    st.caption(f"{len(rows):,} public bod{'ies' if len(rows) != 1 else 'y'} in the crosswalk. Open one to follow its money.")
+    st.caption(
+        f"{len(rows):,} public bod{'ies' if len(rows) != 1 else 'y'} in the crosswalk. Open one to follow its money."
+    )
     cards = []
     for r in rows[:120]:
         type_badge = _BUYER_TYPE_LABEL.get(r.get("buyer_type"), "Public body")

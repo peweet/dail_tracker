@@ -73,21 +73,46 @@ def test_empty_string():
 # appear: accents/fadas, connectors, legal suffixes, trading-as tails, digits,
 # punctuation, non-Latin, whitespace, empty.
 _CORPUS = [
-    "Acme Holdings Limited", "The Foo Company", "O'Brien & Sons, Ltd.",
-    "ACME LIMITED", "Acme Ltd", "Turner & Townsend", "Turner And Townsend",
-    "Black and Decker", "Café & Bar #1", "Tirlán Ltd", "TIRLAN", "Telefónica",
-    "Gaelchultúr Teoranta", "Óglaigh na hÉireann", "Bank of Ireland Group plc",
-    "PFH Technology Group", "Ernst & Young", "Deloitte Ireland LLP",
-    "Uisce Éireann", "An Post", "Bord Gáis Energy", "SSE Airtricity Ltd",
-    "Designated Activity Company", "X Unlimited Company", "Y CLG",
-    "  spaced   out   name  ", "123 Numbers Ltd", "ABC / DEF Ltd",
-    "Naomh Séamas Teoranta t/a St James", "MÜLLER & CO", "", "A",
+    "Acme Holdings Limited",
+    "The Foo Company",
+    "O'Brien & Sons, Ltd.",
+    "ACME LIMITED",
+    "Acme Ltd",
+    "Turner & Townsend",
+    "Turner And Townsend",
+    "Black and Decker",
+    "Café & Bar #1",
+    "Tirlán Ltd",
+    "TIRLAN",
+    "Telefónica",
+    "Gaelchultúr Teoranta",
+    "Óglaigh na hÉireann",
+    "Bank of Ireland Group plc",
+    "PFH Technology Group",
+    "Ernst & Young",
+    "Deloitte Ireland LLP",
+    "Uisce Éireann",
+    "An Post",
+    "Bord Gáis Energy",
+    "SSE Airtricity Ltd",
+    "Designated Activity Company",
+    "X Unlimited Company",
+    "Y CLG",
+    "  spaced   out   name  ",
+    "123 Numbers Ltd",
+    "ABC / DEF Ltd",
+    "Naomh Séamas Teoranta t/a St James",
+    "MÜLLER & CO",
+    "",
+    "A",
 ]
 
 
 def test_name_norm_str_matches_expr_across_corpus():
     for name in _CORPUS:
-        assert name_norm_str(name) == _norm(name), f"drift on {name!r}: str={name_norm_str(name)!r} expr={_norm(name)!r}"
+        assert name_norm_str(name) == _norm(name), (
+            f"drift on {name!r}: str={name_norm_str(name)!r} expr={_norm(name)!r}"
+        )
 
 
 def test_name_norm_str_none_is_empty():

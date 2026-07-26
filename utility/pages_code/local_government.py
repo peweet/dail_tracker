@@ -423,7 +423,7 @@ def _render_derelict_levy_ranking() -> None:
             f'<span style="position:absolute;left:0;top:0;bottom:0;width:{width:.0f}%;'
             f'background:#a5431c;border-radius:5px;"></span></span>'
             f'<span style="font-variant-numeric:tabular-nums;color:#5b6b73;font-size:0.85rem;">'
-            f'{pct_v:.0f}% collected · {_h(outstanding)} outstanding</span></a>'
+            f"{pct_v:.0f}% collected · {_h(outstanding)} outstanding</span></a>"
         )
     if bars:
         st.html('<div style="max-width:52rem;">' + "".join(bars) + "</div>")
@@ -432,7 +432,7 @@ def _render_derelict_levy_ranking() -> None:
         chips = " ".join(
             f'<a href="?la={quote(n)}" target="_self" style="text-decoration:none;">'
             f'<span style="display:inline-block;background:#fbeecb;border:1px solid #e6c87a;'
-            f'color:#7a5a00;border-radius:999px;padding:0.15rem 0.7rem;margin:0.15rem 0.2rem;'
+            f"color:#7a5a00;border-radius:999px;padding:0.15rem 0.7rem;margin:0.15rem 0.2rem;"
             f'font-size:0.82rem;font-weight:600;">{_h(str(n))}</span></a>'
             for n in nil_names
         )
@@ -641,18 +641,10 @@ def _card_audit(name: str) -> str:
     eom = bool(latest.get("has_emphasis_of_matter"))
     # emphasis-of-matter = the auditor is drawing readers' attention to something in the accounts;
     # state it factually, never as a verdict (no-inference rule)
-    flag = (
-        '<div class="lg-badge">⚑ Latest report carries an “Emphasis of Matter”</div>'
-        if eom
-        else ""
-    )
+    flag = '<div class="lg-badge">⚑ Latest report carries an “Emphasis of Matter”</div>' if eom else ""
     opinion = str(latest.get("audit_opinion_text") or "").strip()
     snippet = (opinion[:280].rsplit(" ", 1)[0] + "…") if len(opinion) > 280 else opinion
-    quote = (
-        f'<div class="lg-audit-quote">“{_h(snippet)}”</div>'
-        if snippet
-        else ""
-    )
+    quote = f'<div class="lg-audit-quote">“{_h(snippet)}”</div>' if snippet else ""
     rows = [
         _metric(str(yr), "Most recent audited year"),
         _metric(str(n_years), f"Audit reports published (2012–{yr})"),
@@ -819,10 +811,19 @@ def _render_performance(name: str, *, show_audit: bool = True) -> None:
     # treatment the Corporate page got. Every card is still one click away; nothing is dropped.
     # ``show_audit=False`` lets the Your Council hub keep the LGAS verdict out of this grid —
     # there it renders as the AUDITED stage of the money flow instead (moved, not duplicated).
-    lead = [c for c in (_card_housing(name), _card_services(name), _card_money_collected(name),
-                        _card_planning(name)) if c]
-    more = [c for c in (_card_council_money(name), _card_audit(name) if show_audit else "",
-                        _card_derelict(name), _card_how_run(name)) if c]
+    lead = [
+        c for c in (_card_housing(name), _card_services(name), _card_money_collected(name), _card_planning(name)) if c
+    ]
+    more = [
+        c
+        for c in (
+            _card_council_money(name),
+            _card_audit(name) if show_audit else "",
+            _card_derelict(name),
+            _card_how_run(name),
+        )
+        if c
+    ]
     if not lead:  # a council with only the secondary indicators still leads with something
         lead, more = more, []
 

@@ -19,6 +19,7 @@ _log = logging.getLogger(__name__)
 
 _run = make_runner("procurement", _log)
 
+
 # ── AFS (per-LA audited Annual Financial Statement) — the BUDGET/accounts grain ──────────
 # A SIBLING context fact for the local-authority dossier: the council's total audited revenue
 # spend by service division (the denominator the named-supplier PO/payment slice sits inside).

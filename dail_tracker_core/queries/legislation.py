@@ -268,8 +268,9 @@ def si_amendments_made(conn: duckdb.DuckDBPyConnection, si_year: int, si_number:
 
 
 # ── Circular ↔ SI crosswalk (the rule chain: instruction → law) ───────────────
-def circular_si_crosswalk(conn: duckdb.DuckDBPyConnection, si_year: int = 0, si_number: int = 0,
-                          resolved_only: bool = False) -> QueryResult:
+def circular_si_crosswalk(
+    conn: duckdb.DuckDBPyConnection, si_year: int = 0, si_number: int = 0, resolved_only: bool = False
+) -> QueryResult:
     """Government-circular → Statutory-Instrument citation pairs. With si_year+si_number:
     the circular(s) that operationalise ONE SI. Otherwise the whole crosswalk. The join
     to our SI holdings lives in v_circular_si_crosswalk; this only SELECTs and filters."""

@@ -20,6 +20,7 @@ is a semantic judgment, so never a block):
 Reads ONLY tools/discoveries.jsonl (~13 KB) — never token_ledger.py or transcripts,
 same heaviness rule as session_context.py's _discoveries_note.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,9 +32,9 @@ import tempfile
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA = os.path.join(REPO, "tools", "discoveries.jsonl")
 
-MAX_ROWS = 2          # per the design note: 1-2 rows max, or it becomes prompt noise
+MAX_ROWS = 2  # per the design note: 1-2 rows max, or it becomes prompt noise
 MIN_PROMPT_CHARS = 20  # below this it's "yes"/"ok"/a path — nothing to match on
-MAX_LINE_CHARS = 320   # cap a runaway one-liner rather than flood the prompt
+MAX_LINE_CHARS = 320  # cap a runaway one-liner rather than flood the prompt
 _BAND_RANK = {"high": 0, "med": 1, "low": 2}
 
 
@@ -56,9 +57,51 @@ def _load_rows() -> list[dict]:
 
 
 _STOPWORDS = frozenset(
-    "the a an and or not for with from this that these those into over under about "
-    "what which where when how why can could should would will just also very more "
-    "before after never always check first look data using use used".split()
+    [
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "not",
+        "for",
+        "with",
+        "from",
+        "this",
+        "that",
+        "these",
+        "those",
+        "into",
+        "over",
+        "under",
+        "about",
+        "what",
+        "which",
+        "where",
+        "when",
+        "how",
+        "why",
+        "can",
+        "could",
+        "should",
+        "would",
+        "will",
+        "just",
+        "also",
+        "very",
+        "more",
+        "before",
+        "after",
+        "never",
+        "always",
+        "check",
+        "first",
+        "look",
+        "data",
+        "using",
+        "use",
+        "used",
+    ]
 )
 
 
@@ -148,16 +191,17 @@ def main() -> int:
         one = str(r["discovery"])[:MAX_LINE_CHARS]
         mem = r.get("memory", "")
         lines.append(f"- {r['id']}: {one}" + (f" (detail: memory/{mem}.md)" if mem else ""))
-    ctx = (
-        "[discovery-index] Cached finding(s) matching this prompt — read before re-deriving:\n"
-        + "\n".join(lines)
+    ctx = "[discovery-index] Cached finding(s) matching this prompt — read before re-deriving:\n" + "\n".join(lines)
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "UserPromptSubmit",
+                    "additionalContext": ctx,
+                }
+            }
+        )
     )
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "UserPromptSubmit",
-            "additionalContext": ctx,
-        }
-    }))
     return 0
 
 

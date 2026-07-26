@@ -67,9 +67,7 @@ def test_page_imports_cleanly(page: str) -> None:
         f"import utility.pages_code.{page}"
     )
     env = {**os.environ, "PYTHONPATH": os.pathsep.join((str(PROJECT_ROOT), str(PROJECT_ROOT / "utility")))}
-    r = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120, check=False
-    )
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120, check=False)
     assert r.returncode == 0, f"page {page!r} failed to import:\n{r.stderr[-3000:]}"
 
 

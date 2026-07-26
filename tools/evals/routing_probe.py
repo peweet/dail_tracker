@@ -4,24 +4,40 @@ Two probes, each a question the CLAUDE.md routing table explicitly maps to a
 cheap MCP navigation tool. PASS = a navigation tool fires before any raw
 Read/Grep/Glob. This measures what the config CAUSES, not what past sessions did.
 """
-import anyio
+
 import json
+
+import anyio
 from claude_agent_sdk import (
-    query, ClaudeAgentOptions, AssistantMessage, ToolUseBlock, ResultMessage,
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    ToolUseBlock,
+    query,
 )
 
-NAV = {"mcp__dail-tracker__describe_dataset", "mcp__dail-tracker__search_project",
-       "mcp__dail-tracker__list_datasets", "mcp__dail-tracker__outline",
-       "mcp__dail-tracker__view_deps"}
+NAV = {
+    "mcp__dail-tracker__describe_dataset",
+    "mcp__dail-tracker__search_project",
+    "mcp__dail-tracker__list_datasets",
+    "mcp__dail-tracker__outline",
+    "mcp__dail-tracker__view_deps",
+}
 RAW = {"Read", "Grep", "Glob"}
 
 PROBES = [
-    ("data-shape", "What columns and grain does the procurement awarded dataset have? Just tell me, don't change anything."),
+    (
+        "data-shape",
+        "What columns and grain does the procurement awarded dataset have? Just tell me, don't change anything.",
+    ),
     ("where-lives", "Which dataset or view covers ministerial diaries? Just point me at it."),
     # Capability control: not a steering test — it ORDERS the tool call. If this
     # fails, the MCP tools are unavailable in headless runs and the probes above
     # measured environment, not steering.
-    ("capability", "Call the dail-tracker MCP tool describe_dataset for any procurement dataset and report one line of its output. If you cannot find or call that tool, reply exactly TOOL-UNAVAILABLE."),
+    (
+        "capability",
+        "Call the dail-tracker MCP tool describe_dataset for any procurement dataset and report one line of its output. If you cannot find or call that tool, reply exactly TOOL-UNAVAILABLE.",
+    ),
 ]
 
 
@@ -70,6 +86,7 @@ async def run_probe(name: str, prompt: str) -> dict:
 
 async def main():
     import sys
+
     wanted = sys.argv[1:]  # e.g. `routing_probe.py capability` runs one probe
     probes = [(n, p) for n, p in PROBES if not wanted or n in wanted]
     results = []

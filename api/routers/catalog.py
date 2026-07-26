@@ -247,7 +247,9 @@ def catalog(request: Request) -> dict:
     try:
         resources = []
         for r in _RESOURCES:
-            resources.append({**{k: v for k, v in r.items() if k != "count_view"}, "count": _count(cur, r["count_view"])})
+            resources.append(
+                {**{k: v for k, v in r.items() if k != "count_view"}, "count": _count(cur, r["count_view"])}
+            )
     finally:
         if cur is not None:
             cur.close()

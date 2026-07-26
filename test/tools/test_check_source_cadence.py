@@ -15,9 +15,13 @@ TODAY = date(2026, 7, 21)
 
 def _row(sid="s", cadence_days="7", curated="yes", next_expected="", **kw):
     return {
-        "source_id": sid, "cadence_days": cadence_days, "curated": curated,
-        "next_expected": next_expected, "cadence": kw.get("cadence", ""),
-        "poller": kw.get("poller", ""), "runner": kw.get("runner", ""),
+        "source_id": sid,
+        "cadence_days": cadence_days,
+        "curated": curated,
+        "next_expected": next_expected,
+        "cadence": kw.get("cadence", ""),
+        "poller": kw.get("poller", ""),
+        "runner": kw.get("runner", ""),
     }
 
 
@@ -30,6 +34,7 @@ def _status(rollup, sid="s"):
 
 
 # ---- cadence axis (unchanged behaviour) -----------------------------------
+
 
 def test_uncurated_is_review():
     r = _run([_row(curated="no")], {})
@@ -62,6 +67,7 @@ def test_unknown_when_no_freshness_signal():
 
 
 # ---- health-duration fold (the former ledger) -----------------------------
+
 
 def test_first_failure_is_broken_not_taken_down():
     r = _run([_row()], {"s": {"status": "failed"}}, prior_state={})
@@ -98,6 +104,7 @@ def test_health_failure_overrides_cadence_even_if_uncurated():
 
 
 # ---- rollup shape ---------------------------------------------------------
+
 
 def test_problem_sources_include_broken_and_taken_down():
     first = (TODAY - timedelta(days=30)).isoformat()

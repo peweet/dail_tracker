@@ -42,6 +42,7 @@ def mo_conn():
 @pytest.fixture(scope="module")
 def att_conn():
     import duckdb
+
     from dail_tracker_core.db import register_views
 
     conn = duckdb.connect()

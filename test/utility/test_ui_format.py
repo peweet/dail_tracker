@@ -90,7 +90,21 @@ def _old_lobbying_eur(v) -> str:  # lobbying_3.py
 
 
 # Positive sub-billion grid: the domain every old copy was written for.
-PARITY_GRID = [0.01, 1, 950, 999.4, 1_000, 1_500, 19_999, 345_000, 999_499, 1_000_000, 4_230_000, 85_000_000, 999_949_999]
+PARITY_GRID = [
+    0.01,
+    1,
+    950,
+    999.4,
+    1_000,
+    1_500,
+    19_999,
+    345_000,
+    999_499,
+    1_000_000,
+    4_230_000,
+    85_000_000,
+    999_949_999,
+]
 
 
 @pytest.mark.parametrize("v", PARITY_GRID)

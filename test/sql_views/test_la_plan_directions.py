@@ -53,7 +53,10 @@ def test_classify_decline_beats_draft_direction():
     # or a council the Minister REFUSED to overrule would be counted as overruled.
     o = "https://www.opr.ie/wp-content/uploads/2026/04/x.pdf"
     assert classify("Minister's Decision not to issue draft Direction Variation 5 Kilkenny", o) == "minister_declined"
-    assert classify("Minister's decision not to agree with recommendation to issue direction Sligo", o) == "minister_declined"
+    assert (
+        classify("Minister's decision not to agree with recommendation to issue direction Sligo", o)
+        == "minister_declined"
+    )
 
 
 def test_classify_suspension_notice():

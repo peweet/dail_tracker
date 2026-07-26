@@ -58,8 +58,14 @@ def test_shape_and_keys(fact):
 def test_verbatim_only_schema(fact):
     # the fact must never grow a score/verdict column — verbatim text + literal-heading flags only
     allowed = {
-        "council", "year", "report_page_url", "pages", "audit_opinion_text",
-        "has_emphasis_of_matter", "has_ce_response", "section_headings",
+        "council",
+        "year",
+        "report_page_url",
+        "pages",
+        "audit_opinion_text",
+        "has_emphasis_of_matter",
+        "has_ce_response",
+        "section_headings",
     }
     assert set(fact.columns) <= allowed
 

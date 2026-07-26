@@ -155,18 +155,20 @@ def evaluate(
         else:
             status = "OK"
 
-        rows.append({
-            "source_id": sid,
-            "cadence": r.get("cadence", ""),
-            "cadence_days": cadence_days,
-            "days_old": days_old,
-            "days_broken": days_broken,
-            "next_expected": r.get("next_expected", ""),
-            "poller": r.get("poller", ""),
-            "runner": r.get("runner", ""),
-            "curated": r.get("curated", ""),
-            "status": status,
-        })
+        rows.append(
+            {
+                "source_id": sid,
+                "cadence": r.get("cadence", ""),
+                "cadence_days": cadence_days,
+                "days_old": days_old,
+                "days_broken": days_broken,
+                "next_expected": r.get("next_expected", ""),
+                "poller": r.get("poller", ""),
+                "runner": r.get("runner", ""),
+                "curated": r.get("curated", ""),
+                "status": status,
+            }
+        )
 
     order = {s: i for i, s in enumerate(STATUS_ORDER)}
     rows.sort(key=lambda x: (order.get(x["status"], 9), x["source_id"]))

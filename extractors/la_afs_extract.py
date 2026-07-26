@@ -356,7 +356,9 @@ REGISTRY: list[dict] = [
         "slug": "carlow",
         "entity": "county",
         "region": "Leinster",
-        "landing": ["https://carlow.ie/information-technology/local-authority-publications/annual-financial-statement-publication"],
+        "landing": [
+            "https://carlow.ie/information-technology/local-authority-publications/annual-financial-statement-publication"
+        ],
         # Drupal media hrefs carry no .pdf extension or year — harvest can't see them; the
         # year labels live in the anchor text (verified 2026-07-11, all 'Audited').
         # '&afsyear=' pins title_year; Drupal ignores the extra query param.

@@ -116,16 +116,14 @@ def scan(path: Path) -> tuple[set[str], set[str]]:
 
 
 def main() -> int:
-    live: list[tuple[str, str, list[str]]] = []   # real (non-baseline) cul-de-sacs
-    stale_baseline: list[str] = []                 # baselined but now clean -> remove
+    live: list[tuple[str, str, list[str]]] = []  # real (non-baseline) cul-de-sacs
+    stale_baseline: list[str] = []  # baselined but now clean -> remove
     for f in sorted(PAGES.glob("*.py")):
         if f.name == "__init__.py":
             continue
         carried, cols = scan(f)
         own = CANONICAL_PAGE.get(f.name)
-        uncarried = sorted(
-            {ENTITY_COLS[c] for c in cols} - carried - ({own} if own else set())
-        )
+        uncarried = sorted({ENTITY_COLS[c] for c in cols} - carried - ({own} if own else set()))
         if not uncarried:
             if f.name in BASELINE:
                 stale_baseline.append(f.name)

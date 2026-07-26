@@ -56,24 +56,19 @@ def ipas_operators(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_ipas_operators")
 
 
-def ipas_centre_compliance(
-    conn: duckdb.DuckDBPyConnection, county: str | None = None
-) -> QueryResult:
+def ipas_centre_compliance(conn: duckdb.DuckDBPyConnection, county: str | None = None) -> QueryResult:
     """Per-centre, per-standard HIQA judgments with the standard's binding statement.
     Optionally filtered to one county (the map drill-down)."""
     if county:
         return _run(
             conn,
-            "SELECT * FROM v_ipas_centre_compliance WHERE county = ? "
-            "ORDER BY centre_name, standard_ref",
+            "SELECT * FROM v_ipas_centre_compliance WHERE county = ? ORDER BY centre_name, standard_ref",
             [county],
         )
     return _run(conn, "SELECT * FROM v_ipas_centre_compliance ORDER BY centre_name, standard_ref")
 
 
-def ipas_property_rates(
-    conn: duckdb.DuckDBPyConnection, county: str | None = None
-) -> QueryResult:
+def ipas_property_rates(conn: duckdb.DuckDBPyConnection, county: str | None = None) -> QueryResult:
     """What a bed actually costs per person per night (C&AG Annex 10A sample of 20).
     Rates the auditor recorded as 'Unclear' stay NULL — they are not imputed."""
     if county:

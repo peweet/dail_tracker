@@ -76,11 +76,7 @@ def test_sql_comment_does_not_produce_edge():
 
 
 def test_polars_join_detected_str_join_ignored():
-    src = (
-        "df = a.join(b, on='name_norm', how='left')\n"
-        "s = ','.join(parts)\n"
-        "p = os.path.join(root, 'x')\n"
-    )
+    src = "df = a.join(b, on='name_norm', how='left')\ns = ','.join(parts)\np = os.path.join(root, 'x')\n"
     sites = parse_python(src, "fixture.py")
     assert len(sites) == 1  # str.join / path.join carry no on=/how= kwarg
     assert sites[0]["grade"] == "CANON"
@@ -96,7 +92,7 @@ def test_polars_left_right_on_raw_name_is_asymmetric_inner():
     assert sites[0]["grade"] == "RAW"
     assert sites[0]["keys"] == ["full_name", "member_name"]
     assert sites[0]["asymmetric"] is True  # different names each side
-    assert sites[0]["how"] == "inner"      # silent row-drop on a fragile key
+    assert sites[0]["how"] == "inner"  # silent row-drop on a fragile key
 
 
 def test_polars_how_defaults_to_inner():
@@ -108,11 +104,8 @@ def test_polars_how_defaults_to_inner():
 
 
 def test_polars_validate_captured():
-    src = (
-        "guarded = a.join(b, on='rcn', validate='m:1')\n"
-        "unguarded = a.join(b, on='rcn')\n"
-    )
+    src = "guarded = a.join(b, on='rcn', validate='m:1')\nunguarded = a.join(b, on='rcn')\n"
     sites = parse_python(src, "fixture.py")
     by_line = {s["line"]: s for s in sites}
-    assert by_line[1]["validate"] == "m:1"   # guard declared
-    assert by_line[2]["validate"] is None     # no guard — silent fan-out risk
+    assert by_line[1]["validate"] == "m:1"  # guard declared
+    assert by_line[2]["validate"] is None  # no guard — silent fan-out risk

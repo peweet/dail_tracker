@@ -33,8 +33,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Directories that are never part of the shipped import graph.
 SKIP_DIRS = {
-    ".venv", ".git", "__pycache__", "node_modules", "data", "doc",
-    ".pytest_cache", ".ruff_cache", "htmlcov", ".mypy_cache",
+    ".venv",
+    ".git",
+    "__pycache__",
+    "node_modules",
+    "data",
+    "doc",
+    ".pytest_cache",
+    ".ruff_cache",
+    "htmlcov",
+    ".mypy_cache",
 }
 
 # Layers, most-specific first — a file is assigned to the first prefix it matches.
@@ -58,17 +66,76 @@ LAYERS: list[tuple[str, str]] = [
 # have no meaning outside a Streamlit runtime. Everything else (markdown/html/
 # write) is markup emission that a React component can reproduce.
 WIDGET_API = {
-    "button", "download_button", "checkbox", "radio", "selectbox", "multiselect",
-    "slider", "select_slider", "text_input", "number_input", "text_area",
-    "date_input", "time_input", "file_uploader", "color_picker", "form",
-    "form_submit_button", "toggle", "camera_input", "data_editor", "pills",
-    "segmented_control", "feedback", "chat_input", "chat_message",
+    "button",
+    "download_button",
+    "checkbox",
+    "radio",
+    "selectbox",
+    "multiselect",
+    "slider",
+    "select_slider",
+    "text_input",
+    "number_input",
+    "text_area",
+    "date_input",
+    "time_input",
+    "file_uploader",
+    "color_picker",
+    "form",
+    "form_submit_button",
+    "toggle",
+    "camera_input",
+    "data_editor",
+    "pills",
+    "segmented_control",
+    "feedback",
+    "chat_input",
+    "chat_message",
 }
 STATE_API = {"session_state", "query_params", "rerun", "stop", "switch_page", "navigation", "Page"}
 CACHE_API = {"cache_data", "cache_resource", "experimental_memo", "experimental_singleton"}
-LAYOUT_API = {"columns", "container", "expander", "tabs", "sidebar", "empty", "popover", "dialog", "status", "spinner", "form"}
-MARKUP_API = {"markdown", "html", "write", "caption", "text", "title", "header", "subheader", "divider", "code", "latex", "badge"}
-DATA_API = {"dataframe", "table", "metric", "json", "altair_chart", "plotly_chart", "line_chart", "bar_chart", "area_chart", "map", "pyplot", "vega_lite_chart", "graphviz_chart"}
+LAYOUT_API = {
+    "columns",
+    "container",
+    "expander",
+    "tabs",
+    "sidebar",
+    "empty",
+    "popover",
+    "dialog",
+    "status",
+    "spinner",
+    "form",
+}
+MARKUP_API = {
+    "markdown",
+    "html",
+    "write",
+    "caption",
+    "text",
+    "title",
+    "header",
+    "subheader",
+    "divider",
+    "code",
+    "latex",
+    "badge",
+}
+DATA_API = {
+    "dataframe",
+    "table",
+    "metric",
+    "json",
+    "altair_chart",
+    "plotly_chart",
+    "line_chart",
+    "bar_chart",
+    "area_chart",
+    "map",
+    "pyplot",
+    "vega_lite_chart",
+    "graphviz_chart",
+}
 
 
 def classify_symbol(attr: str) -> str:
@@ -98,7 +165,7 @@ class ModuleInfo:
     raw_imports: set[str] = field(default_factory=set)
     internal_edges: set[str] = field(default_factory=set)
     st_symbols: Counter = field(default_factory=Counter)
-    html_literals: int = 0          # string constants containing markup tags
+    html_literals: int = 0  # string constants containing markup tags
     reaches_streamlit_via: str | None = None
 
 
@@ -132,7 +199,28 @@ def looks_like_markup(value: str) -> bool:
     """A string constant that carries HTML — the portable part of the UI layer."""
     if "<" not in value or ">" not in value:
         return False
-    return any(tag in value for tag in ("<div", "<span", "<a ", "<p ", "<p>", "<section", "<table", "<ul", "<li", "<img", "<h1", "<h2", "<h3", "<h4", "<style", "<svg", "<button"))
+    return any(
+        tag in value
+        for tag in (
+            "<div",
+            "<span",
+            "<a ",
+            "<p ",
+            "<p>",
+            "<section",
+            "<table",
+            "<ul",
+            "<li",
+            "<img",
+            "<h1",
+            "<h2",
+            "<h3",
+            "<h4",
+            "<style",
+            "<svg",
+            "<button",
+        )
+    )
 
 
 def scan_module(path: Path) -> ModuleInfo | None:
@@ -165,13 +253,10 @@ def scan_module(path: Path) -> ModuleInfo | None:
             # st.<attr> — the actual framework surface
             if isinstance(node.value, ast.Name) and node.value.id == "st":
                 info.st_symbols[node.attr] += 1
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if looks_like_markup(node.value):
-                info.html_literals += 1
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and looks_like_markup(node.value):
+            info.html_literals += 1
 
-    info.imports_streamlit = any(
-        m == "streamlit" or m.startswith("streamlit.") for m in info.raw_imports
-    )
+    info.imports_streamlit = any(m == "streamlit" or m.startswith("streamlit.") for m in info.raw_imports)
     return info
 
 
@@ -252,16 +337,15 @@ def render_report(modules: dict[str, ModuleInfo], layer_filter: str | None) -> s
 
     # ---- 2. Core purity check -------------------------------------------------
     w("## 2. Core purity (must stay zero)\n")
-    tainted = [
-        m for m in modules.values()
-        if m.layer in {"core", "api", "services"} and m.reaches_streamlit_via
-    ]
+    tainted = [m for m in modules.values() if m.layer in {"core", "api", "services"} and m.reaches_streamlit_via]
     if tainted:
         for m in sorted(tainted, key=lambda x: x.rel):
             w(f"- **LEAK** `{m.rel}` -> {m.reaches_streamlit_via}")
     else:
-        w("No module in `dail_tracker_core/`, `api/` or `services/` reaches streamlit. "
-          "The portable core is genuinely portable.")
+        w(
+            "No module in `dail_tracker_core/`, `api/` or `services/` reaches streamlit. "
+            "The portable core is genuinely portable."
+        )
     w("")
 
     # ---- 3. The real Streamlit API surface ------------------------------------
@@ -298,8 +382,10 @@ def render_report(modules: dict[str, ModuleInfo], layer_filter: str | None) -> s
 
     # ---- 4. Per-module portability in the UI layer ----------------------------
     w("## 4. UI-layer portability (markup vs framework)\n")
-    w("`html_literals` = string constants containing real HTML tags. A module that is "
-      "mostly markup emission ports as a component spec; one that is mostly widgets is a rebuild.\n")
+    w(
+        "`html_literals` = string constants containing real HTML tags. A module that is "
+        "mostly markup emission ports as a component spec; one that is mostly widgets is a rebuild.\n"
+    )
     w("| Module | LOC | HTML literals | Widget calls | State calls | Verdict |")
     w("|---|---:|---:|---:|---:|---|")
     ui_layers = {"ui_component", "page"} if layer_filter is None else {layer_filter}
@@ -326,22 +412,28 @@ def render_report(modules: dict[str, ModuleInfo], layer_filter: str | None) -> s
         kinds = {classify_symbol(s) for s in m.st_symbols}
         if kinds <= {"cache"}:
             cache_only.append(m)
-    w(f"**(a) Streamlit used ONLY for caching — {len(cache_only)} modules.** "
-      "These need no rewrite; swap the decorator for a framework-neutral cache "
-      "(functools.lru_cache / cachetools) and they become portable as-is.\n")
+    w(
+        f"**(a) Streamlit used ONLY for caching — {len(cache_only)} modules.** "
+        "These need no rewrite; swap the decorator for a framework-neutral cache "
+        "(functools.lru_cache / cachetools) and they become portable as-is.\n"
+    )
     for m in sorted(cache_only, key=lambda x: x.rel)[:30]:
         w(f"- `{m.rel}` ({m.loc:,} LOC, {sum(m.st_symbols.values())} cache decorators)")
     w("")
 
     # (b) pure-markup modules
     pure_markup = [
-        m for m in modules.values()
-        if m.layer in {"ui_component", "page"} and m.html_literals >= 5
+        m
+        for m in modules.values()
+        if m.layer in {"ui_component", "page"}
+        and m.html_literals >= 5
         and not any(classify_symbol(s) == "widget" for s in m.st_symbols)
     ]
-    w(f"**(b) Markup-only UI modules — {len(pure_markup)}.** No widgets at all: "
-      "these are HTML generators wearing a Streamlit hat, and port to components "
-      "with the class names (and therefore the styling) intact.\n")
+    w(
+        f"**(b) Markup-only UI modules — {len(pure_markup)}.** No widgets at all: "
+        "these are HTML generators wearing a Streamlit hat, and port to components "
+        "with the class names (and therefore the styling) intact.\n"
+    )
     for m in sorted(pure_markup, key=lambda x: -x.loc)[:20]:
         w(f"- `{m.rel}` ({m.loc:,} LOC, {m.html_literals} HTML literals)")
     w("")
@@ -351,8 +443,10 @@ def render_report(modules: dict[str, ModuleInfo], layer_filter: str | None) -> s
         (m for m in modules.values() if any(classify_symbol(s) == "widget" for s in m.st_symbols)),
         key=lambda m: -sum(n for s, n in m.st_symbols.items() if classify_symbol(s) == "widget"),
     )
-    w(f"**(c) Genuine rebuild surface — {len(widget_heavy)} modules use widgets.** "
-      "Ranked by widget call sites; this is where migration effort actually lives.\n")
+    w(
+        f"**(c) Genuine rebuild surface — {len(widget_heavy)} modules use widgets.** "
+        "Ranked by widget call sites; this is where migration effort actually lives.\n"
+    )
     for m in widget_heavy[:15]:
         n = sum(v for s, v in m.st_symbols.items() if classify_symbol(s) == "widget")
         w(f"- `{m.rel}` — {n} widget calls, {m.loc:,} LOC")
@@ -425,14 +519,12 @@ def run_markup_ratchet(update: bool) -> int:
         return 0
 
     if not MARKUP_BASELINE.exists():
-        print(f"No markup baseline. Create it with --update-markup-baseline", file=sys.stderr)
+        print("No markup baseline. Create it with --update-markup-baseline", file=sys.stderr)
         return 1
 
     baseline: dict[str, int] = json.loads(MARKUP_BASELINE.read_text(encoding="utf-8"))
     base_total = sum(baseline.values())
-    regressions = [
-        (f, baseline.get(f, 0), n) for f, n in counts.items() if n > baseline.get(f, 0)
-    ]
+    regressions = [(f, baseline.get(f, 0), n) for f, n in counts.items() if n > baseline.get(f, 0)]
 
     print(f"Inline markup sites: {total} (baseline {base_total}, delta {total - base_total:+d})")
     improved = sum(1 for f, n in counts.items() if n < baseline.get(f, 0))
@@ -443,9 +535,11 @@ def run_markup_ratchet(update: bool) -> int:
         print(f"\nFAIL — {len(regressions)} file(s) grew inline markup:", file=sys.stderr)
         for f, was, now in sorted(regressions):
             print(f"  {f}: {was} -> {now} (+{now - was})", file=sys.stderr)
-        print("\nRoute new markup through a named function that RETURNS the html "
-              "string, then pass it to st.html(). That function is the component.",
-              file=sys.stderr)
+        print(
+            "\nRoute new markup through a named function that RETURNS the html "
+            "string, then pass it to st.html(). That function is the component.",
+            file=sys.stderr,
+        )
         return 1
 
     print("OK — no new anonymous markup.")

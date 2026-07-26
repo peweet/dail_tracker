@@ -63,8 +63,7 @@ def roll_call_councils(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     the page must never hardcode 'currently Carlow' now that the tier set grows)."""
     return _run(
         conn,
-        "SELECT local_authority FROM v_la_council_meeting_coverage "
-        "WHERE tier = 'roll_call' ORDER BY local_authority",
+        "SELECT local_authority FROM v_la_council_meeting_coverage WHERE tier = 'roll_call' ORDER BY local_authority",
     )
 
 

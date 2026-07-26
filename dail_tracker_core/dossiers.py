@@ -173,14 +173,21 @@ def build_member_dossier(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str
         "legislation_sponsored": serialize.to_records(
             _section(moq.legislation(conn, code), "legislation_sponsored", unavail)
         ),
-        "ministerial_roles": serialize.to_records(_section(moq.ministerial_roles(conn, code), "ministerial_roles", unavail)),
+        "ministerial_roles": serialize.to_records(
+            _section(moq.ministerial_roles(conn, code), "ministerial_roles", unavail)
+        ),
         "statutory_instruments_signed": serialize.to_records(
             _section(moq.si_signed(conn, code), "statutory_instruments_signed", unavail)
         ),
         "revolving_door": serialize.to_records(_section(moq.lobbying_rd(conn, code), "revolving_door", unavail)),
-        "questions_profile": serialize.first_record(_section(moq.question_profile(conn, code), "questions_profile", unavail)),
-        "speeches_profile": serialize.first_record(_section(moq.speech_summary(conn, code), "speeches_profile", unavail)),
-        "external_links": serialize.first_record(_section(moq.external_links(conn, code), "external_links", unavail)) or {},
+        "questions_profile": serialize.first_record(
+            _section(moq.question_profile(conn, code), "questions_profile", unavail)
+        ),
+        "speeches_profile": serialize.first_record(
+            _section(moq.speech_summary(conn, code), "speeches_profile", unavail)
+        ),
+        "external_links": serialize.first_record(_section(moq.external_links(conn, code), "external_links", unavail))
+        or {},
         "constituency_context": constituency_context,
     }
     if unavail:
@@ -230,7 +237,9 @@ def build_bill_dossier(conn: duckdb.DuckDBPyConnection, bill_id: str) -> dict[st
         "pdfs": serialize.to_records(_section(leg.bill_pdfs(conn, bill_id), "pdfs", unavail)),
         "debates": serialize.to_records(_section(leg.bill_debates(conn, bill_id), "debates", unavail)),
         "si_composition": serialize.to_records(_section(leg.si_composition(conn, bill_id), "si_composition", unavail)),
-        "statutory_instruments": serialize.to_records(_section(leg.si_by_bill(conn, bill_id), "statutory_instruments", unavail)),
+        "statutory_instruments": serialize.to_records(
+            _section(leg.si_by_bill(conn, bill_id), "statutory_instruments", unavail)
+        ),
     }
     if unavail:
         dossier["unavailable_sections"] = unavail
@@ -288,7 +297,9 @@ def build_division_dossier(conn: duckdb.DuckDBPyConnection, vote_id: str) -> dic
     unavail: list[dict[str, str]] = []
     dossier = {
         "division": serialize.first_record(one),
-        "party_breakdown": serialize.to_records(_section(vot.party_breakdown(conn, vote_id), "party_breakdown", unavail)),
+        "party_breakdown": serialize.to_records(
+            _section(vot.party_breakdown(conn, vote_id), "party_breakdown", unavail)
+        ),
         "members": serialize.to_records(_section(vot.division_members(conn, vote_id), "members", unavail)),
         "sources": serialize.first_record(_section(vot.sources(conn, vote_id), "sources", unavail)),
     }
@@ -1176,9 +1187,7 @@ def corporate_receivers(conn: duckdb.DuckDBPyConnection, *, limit: int = 25) -> 
     }
 
 
-def corporate_firm_notices(
-    conn: duckdb.DuckDBPyConnection, firm: str, *, limit: int = 50
-) -> dict[str, Any] | None:
+def corporate_firm_notices(conn: duckdb.DuckDBPyConnection, firm: str, *, limit: int = 50) -> dict[str, Any] | None:
     """Every notice naming ONE receiver / insolvency firm. Curated firms match on the
     precomputed receiver_firms tag column; a free-text firm falls back to a word-bounded
     regexp over the notice text (both run in DuckDB — see corp.firm_notices). Matching is

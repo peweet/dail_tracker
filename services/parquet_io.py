@@ -52,7 +52,12 @@ logger = logging.getLogger(__name__)
 # metadata/compression cost of many tiny groups. Measured 2.2–2.9× on the real
 # member-speech-summary aggregation via duckdb; file size unchanged.
 _ROW_GROUP_SIZE = 128_000
-_POLARS_DEFAULTS = {"compression": "zstd", "compression_level": 3, "statistics": True, "row_group_size": _ROW_GROUP_SIZE}
+_POLARS_DEFAULTS = {
+    "compression": "zstd",
+    "compression_level": 3,
+    "statistics": True,
+    "row_group_size": _ROW_GROUP_SIZE,
+}
 _PANDAS_DEFAULTS = {"index": False, "compression": "zstd", "compression_level": 3, "row_group_size": _ROW_GROUP_SIZE}
 
 # Escape hatch for the min_rows floor: a genuine bootstrap / intentionally scoped

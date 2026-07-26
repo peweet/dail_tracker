@@ -65,8 +65,7 @@ def test_limerick_three_register_fusion():
 
 def test_dublin_city_aliases_consistent():
     ids = {
-        q: (resolve_buyer(q) or {}).get("buyer_id")
-        for q in ("Dublin City Council", "Dublin City", "ie_la_dublin_city")
+        q: (resolve_buyer(q) or {}).get("buyer_id") for q in ("Dublin City Council", "Dublin City", "ie_la_dublin_city")
     }
     assert len(set(ids.values())) == 1 and None not in ids.values(), ids
 

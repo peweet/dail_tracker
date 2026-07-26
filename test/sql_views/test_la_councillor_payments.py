@@ -58,9 +58,7 @@ def test_no_title_prefixes_in_names(rows):
 
 def test_view_aggregates_and_matches_csv():
     duckdb = pytest.importorskip("duckdb")
-    sql = (ROOT / "sql_views" / "constituency" / "constituency_la_councillor_payments.sql").read_text(
-        encoding="utf-8"
-    )
+    sql = (ROOT / "sql_views" / "constituency" / "constituency_la_councillor_payments.sql").read_text(encoding="utf-8")
     conn = duckdb.connect()
     conn.execute(f"SET file_search_path='{ROOT.as_posix()}'")
     conn.execute(sql)

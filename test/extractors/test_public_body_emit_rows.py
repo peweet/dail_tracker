@@ -291,20 +291,14 @@ def test_csv_caveat_in_title_row_detected():
     # real gov.ie title rows pad to the column count with trailing commas; a bare
     # single-cell title makes polars infer a 1-column schema and drop the data
     b = _csv(
-        "Payments over 20000 - note: figures exclude VAT,\n"
-        "Supplier Name,Amount\n"
-        'ACME Consulting Ltd,"25,000.00"\n'
+        'Payments over 20000 - note: figures exclude VAT,\nSupplier Name,Amount\nACME Consulting Ltd,"25,000.00"\n'
     )
     rows, _ = m.emit_rows(_cf(), URL, b, "csv", None)
     assert rows and all(r["caveat_text_detected"] for r in rows)
 
 
 def test_csv_category_total_supplier_skipped():
-    b = _csv(
-        "Supplier Name,Amount\n"
-        'Grand Total,"999,999.00"\n'
-        'ACME Consulting Ltd,"25,000.00"\n'
-    )
+    b = _csv('Supplier Name,Amount\nGrand Total,"999,999.00"\nACME Consulting Ltd,"25,000.00"\n')
     rows, stat = m.emit_rows(_cf(), URL, b, "csv", None)
     assert stat["rows"] == 1
     assert rows[0]["supplier_raw"] == "ACME Consulting Ltd"

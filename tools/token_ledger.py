@@ -4,8 +4,14 @@ Measures what IS measurable (per-session token spend, exploration intensity) and
 extracts discovery-marker snippets as candidates for a compact discoveries dataset.
 Reads transcripts off disk; prints only aggregates so nothing floods a context window.
 """
+
 from __future__ import annotations
-import json, re, sys, glob, os
+
+import glob
+import json
+import os
+import re
+import sys
 from collections import defaultdict
 
 PROJ = os.path.expanduser("~/.claude/projects/c--Users-pglyn-PycharmProjects-dail-extractor")
@@ -20,10 +26,12 @@ MARKERS = re.compile(
     re.IGNORECASE,
 )
 
+
 def text_of(block):
     if isinstance(block, dict):
         return block.get("text", "") or ""
     return ""
+
 
 def scan():
     rows = []
@@ -80,30 +88,46 @@ def scan():
                                     e = min(len(t), m.end() + 90)
                                     markers.append(t[s:e].replace("\n", " ").strip())
         explore = sum(tool_counts.values())
-        rows.append({
-            "sid": sid, "out": out, "fresh_in": fresh_in, "cache_read": cache_read,
-            "turns": turns, "explore": explore, "mcp": mcp, "mem_writes": mem_writes,
-            "prompt": first_prompt, "markers": markers[:3],
-        })
+        rows.append(
+            {
+                "sid": sid,
+                "out": out,
+                "fresh_in": fresh_in,
+                "cache_read": cache_read,
+                "turns": turns,
+                "explore": explore,
+                "mcp": mcp,
+                "mem_writes": mem_writes,
+                "prompt": first_prompt,
+                "markers": markers[:3],
+            }
+        )
         for mk in markers:
             candidates.append((out, sid, mk))
     return rows
+
 
 def main():
     rows = scan()
     tot_out = sum(r["out"] for r in rows)
     tot_fresh = sum(r["fresh_in"] for r in rows)
     tot_read = sum(r["cache_read"] for r in rows)
-    print(f"SESSIONS={len(rows)}  total_output={tot_out:,}  total_fresh_input={tot_fresh:,}  total_cache_read={tot_read:,}")
-    print(f"avg_output/session={tot_out//max(1,len(rows)):,}\n")
+    print(
+        f"SESSIONS={len(rows)}  total_output={tot_out:,}  total_fresh_input={tot_fresh:,}  total_cache_read={tot_read:,}"
+    )
+    print(f"avg_output/session={tot_out // max(1, len(rows)):,}\n")
 
     print("=== TOP 20 SESSIONS BY OUTPUT TOKENS (generation cost) ===")
     for r in sorted(rows, key=lambda r: r["out"], reverse=True)[:20]:
-        print(f"{r['out']:>8,} out | {r['explore']:>3} explore | {r['turns']:>4}t | mem={r['mem_writes']} | {r['sid']} | {r['prompt'][:70]}")
+        print(
+            f"{r['out']:>8,} out | {r['explore']:>3} explore | {r['turns']:>4}t | mem={r['mem_writes']} | {r['sid']} | {r['prompt'][:70]}"
+        )
 
     print("\n=== TOP 15 BY EXPLORATION INTENSITY (Read/Grep/Bash/Agent calls) ===")
     for r in sorted(rows, key=lambda r: r["explore"], reverse=True)[:15]:
-        print(f"{r['explore']:>4} explore | {r['out']:>8,} out | mem={r['mem_writes']} | {r['sid']} | {r['prompt'][:60]}")
+        print(
+            f"{r['explore']:>4} explore | {r['out']:>8,} out | mem={r['mem_writes']} | {r['sid']} | {r['prompt'][:60]}"
+        )
 
     print("\n=== HIGH-COST SESSIONS THAT PRODUCED A MEMORY (discovery was captured) ===")
     capd = [r for r in rows if r["mem_writes"] > 0]
@@ -117,6 +141,7 @@ def main():
             print(f"[{r['sid']}] {r['prompt'][:50]}")
             for mk in r["markers"]:
                 print(f"    … {mk}")
+
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
