@@ -1,5 +1,14 @@
 {
   "tolerance": 0.15,
   "n_baseline": 2,
-  "regressions": []
+  "regressions": [
+    {
+      "coverage_file": "supplier_entity_xref_coverage.json",
+      "metric": "cro_match",
+      "kind": "MATCH_RATE_DROP",
+      "baseline_ratio": 0.6458,
+      "ratio": 0.2281,
+      "pct_of_baseline": 35.3
+    }
+  ]
 }

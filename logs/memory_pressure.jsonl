@@ -1,0 +1,14 @@
+{"ts": "2026-07-26T17:38:46+00:00", "kind": "session_start", "blocked": false, "free_mb": 1572, "total_mb": 16073, "load_pct": 90, "commit_free_mb": 13623, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:38:54+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 1641, "total_mb": 16073, "load_pct": 89, "commit_free_mb": 13847, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:39:08+00:00", "kind": "session_start", "blocked": false, "free_mb": 189, "total_mb": 16073, "load_pct": 98, "commit_free_mb": 11148, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:39:27+00:00", "kind": "session_start", "blocked": false, "free_mb": 534, "total_mb": 16073, "load_pct": 96, "commit_free_mb": 8879, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:39:36+00:00", "kind": "siting test suite (~5.4 GB measured 2026-07-26)", "blocked": true, "free_mb": 883, "total_mb": 16073, "load_pct": 94, "commit_free_mb": 8723, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:40:04+00:00", "kind": "siting test suite (~5.4 GB measured 2026-07-26)", "blocked": false, "free_mb": 1513, "total_mb": 16073, "load_pct": 90, "commit_free_mb": 9862, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:41:40+00:00", "kind": "full ETL pipeline (spawns per-chain subprocesses)", "blocked": false, "free_mb": 4676, "total_mb": 16073, "load_pct": 70, "commit_free_mb": 15077, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:41:50+00:00", "kind": "full ETL pipeline (spawns per-chain subprocesses)", "blocked": false, "free_mb": 4601, "total_mb": 16073, "load_pct": 71, "commit_free_mb": 15091, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:42:53+00:00", "kind": "session_start", "blocked": false, "free_mb": 4899, "total_mb": 16073, "load_pct": 69, "commit_free_mb": 16274, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:44:42+00:00", "kind": "session_start", "blocked": false, "free_mb": 4171, "total_mb": 16073, "load_pct": 74, "commit_free_mb": 17013, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:45:10+00:00", "kind": "Streamlit app (pandas + layer store)", "blocked": false, "free_mb": 4084, "total_mb": 16073, "load_pct": 74, "commit_free_mb": 17061, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:45:54+00:00", "kind": "siting test suite (~5.4 GB measured 2026-07-26)", "blocked": false, "free_mb": 4116, "total_mb": 16073, "load_pct": 74, "commit_free_mb": 17033, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:50:52+00:00", "kind": "Streamlit app (pandas + layer store)", "blocked": false, "free_mb": 6326, "total_mb": 16073, "load_pct": 60, "commit_free_mb": 16643, "commit_total_mb": 47333}
+{"ts": "2026-07-26T17:51:37+00:00", "kind": "full ETL pipeline (spawns per-chain subprocesses)", "blocked": false, "free_mb": 6055, "total_mb": 16073, "load_pct": 62, "commit_free_mb": 16460, "commit_total_mb": 47333}

@@ -293,6 +293,11 @@ logs/session_token_ledger.jsonl
 # Excluded from version control on request; the live docs in doc/ stay tracked.
 doc/archive/
 
+# === Private commercial/strategy docs — NEVER public (siting IP) ===
+# doc/private/ holds commercialisation reviews and business-strategy notes. A plain
+# `git add -A` would otherwise stage these into the public repo. Keep local only.
+doc/private/
+
 # Screenshots / temp images
 *.png
 *.jpg

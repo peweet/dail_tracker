@@ -5,19 +5,19 @@
       "output": "cro_xref_corporate_notices.parquet",
       "kind": "DUP_INCREASE",
       "baseline": 602,
-      "now": 802
+      "now": 820
     },
     {
       "output": "judicial_legal_diary_cases.parquet",
       "kind": "DUP_INCREASE",
       "baseline": 1493,
-      "now": 2458
+      "now": 3521
     },
     {
       "output": "judicial_legal_diary_counts.parquet",
       "kind": "DUP_INCREASE",
       "baseline": 74,
-      "now": 127
+      "now": 179
     },
     {
       "output": "si_current_state.parquet",
@@ -68,27 +68,27 @@
     "tables_with_dup_rows": {
       "cbi_xref_corporate_notices.parquet": {
         "dup_rows": 7,
-        "rows": 260
+        "rows": 271
       },
       "corporate_notices.parquet": {
-        "dup_rows": 1163,
-        "rows": 51149
+        "dup_rows": 1167,
+        "rows": 51243
       },
       "corporate_notices_enriched.parquet": {
-        "dup_rows": 1163,
-        "rows": 51149
+        "dup_rows": 1167,
+        "rows": 51217
       },
       "cro_xref_corporate_notices.parquet": {
-        "dup_rows": 802,
-        "rows": 27396
+        "dup_rows": 820,
+        "rows": 28089
       },
       "judicial_legal_diary_cases.parquet": {
-        "dup_rows": 2458,
-        "rows": 10110
+        "dup_rows": 3521,
+        "rows": 14551
       },
       "judicial_legal_diary_counts.parquet": {
-        "dup_rows": 127,
-        "rows": 981
+        "dup_rows": 179,
+        "rows": 1374
       },
       "judicial_legal_diary_openview_cases.parquet": {
         "dup_rows": 226120,
@@ -100,11 +100,11 @@
       },
       "public_appointments.parquet": {
         "dup_rows": 4,
-        "rows": 1152
+        "rows": 1155
       },
       "stateboards_roster.parquet": {
-        "dup_rows": 12,
-        "rows": 2050
+        "dup_rows": 8,
+        "rows": 2046
       }
     },
     "tables_with_encoding_artifacts": {
