@@ -93,9 +93,7 @@ PAID_FLAG_CLEAN: frozenset[str] = frozenset({"y", "n", "yes", "no", "paid", "unp
 # "framework_call_off" has 0 rows in current gold (anchored 2026-07-17 via the @sql
 # contract test) but is a legitimate branch — the guard halts only on a value OUTSIDE
 # this set, which by construction means the classifier changed without this contract.
-AWARD_VALUE_KIND: frozenset[str] = frozenset(
-    {"contract_award_value", "framework_or_dps_ceiling", "framework_call_off"}
-)
+AWARD_VALUE_KIND: frozenset[str] = frozenset({"contract_award_value", "framework_or_dps_ceiling", "framework_call_off"})
 
 # --- confidence-envelope vocabulary (doc/SOURCE_CONFIDENCE_SYSTEM.md §3) -------------
 # The columns these govern do not exist on the facts yet (Phase 1 backfills them). They are
@@ -690,15 +688,9 @@ def assess_trust(record: Mapping[str, object], *, unknown_ceiling: str = "D") ->
             _norm(record.get("extraction_method")) or "", unknown_ceiling
         ),
         "match_method": _match_ceiling(record, unknown_ceiling),
-        "pipeline_status": CEILING_PIPELINE_STATUS.get(
-            _norm(record.get("pipeline_status")) or "", unknown_ceiling
-        ),
-        "freshness_status": CEILING_FRESHNESS_STATUS.get(
-            _norm(record.get("freshness_status")) or "", unknown_ceiling
-        ),
-        "caveat_severity": CEILING_CAVEAT_SEVERITY.get(
-            _norm(record.get("caveat_severity")) or "", unknown_ceiling
-        ),
+        "pipeline_status": CEILING_PIPELINE_STATUS.get(_norm(record.get("pipeline_status")) or "", unknown_ceiling),
+        "freshness_status": CEILING_FRESHNESS_STATUS.get(_norm(record.get("freshness_status")) or "", unknown_ceiling),
+        "caveat_severity": CEILING_CAVEAT_SEVERITY.get(_norm(record.get("caveat_severity")) or "", unknown_ceiling),
     }
     worst = min(_TRUST_RANK[t] for t in components.values())
     tier = next(t for t in TRUST_TIERS if _TRUST_RANK[t] == worst)

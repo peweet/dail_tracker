@@ -191,9 +191,7 @@ def _period_controls(meetings: pd.DataFrame) -> tuple[str, str]:
         _c, _ = st.columns([1, 2])
         with _c:
             field_label("Month")
-            month = st.selectbox(
-                "Month", [_ALL_MONTHS, *_MONTHS], key="diary_month", label_visibility="collapsed"
-            )
+            month = st.selectbox("Month", [_ALL_MONTHS, *_MONTHS], key="diary_month", label_visibility="collapsed")
     return year, month
 
 
@@ -494,8 +492,14 @@ def ministerial_diaries_page() -> None:
 
     mode = st.segmented_control(
         "Browse",
-        ["Search meetings", "By department", "By minister", "By organisation",
-         "Access → contracts", "Department priorities"],
+        [
+            "Search meetings",
+            "By department",
+            "By minister",
+            "By organisation",
+            "Access → contracts",
+            "Department priorities",
+        ],
         default="Search meetings",
         key="diary_mode",
     )
@@ -548,9 +552,7 @@ def _render_access_to_contracts() -> None:
                 f'<span class="dt-diary-metric">{fmt_int(r.get("total_lobbying_returns"))} lobbying returns</span>'
             )
         matched = str(r.get("matched_supplier") or "")
-        match_note = (
-            f'<div class="dt-diary-eng-meta">matched to register name: {_h(matched)}</div>' if matched else ""
-        )
+        match_note = f'<div class="dt-diary-eng-meta">matched to register name: {_h(matched)}</div>' if matched else ""
         sector = str(r.get("sector") or "")
         inner = (
             f'<div class="dt-diary-card"><div class="dt-diary-main">'

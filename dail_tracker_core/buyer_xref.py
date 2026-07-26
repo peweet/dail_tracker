@@ -37,9 +37,28 @@ _NAME_COLS = (
 # Council are different buyers and must key apart. Short payment names ("Limerick")
 # resolve because every register variant of a row is indexed, not by token-stripping.
 _STOP = {
-    "council", "the", "of", "and", "plc", "clg", "ltd", "limited", "company", "by",
-    "guarantee", "comhairle", "contae", "cathrach", "an", "na", "agus", "incorporating",
-    "dac", "designated", "activity", "cuideachta",
+    "council",
+    "the",
+    "of",
+    "and",
+    "plc",
+    "clg",
+    "ltd",
+    "limited",
+    "company",
+    "by",
+    "guarantee",
+    "comhairle",
+    "contae",
+    "cathrach",
+    "an",
+    "na",
+    "agus",
+    "incorporating",
+    "dac",
+    "designated",
+    "activity",
+    "cuideachta",
 }
 
 

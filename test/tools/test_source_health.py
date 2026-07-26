@@ -104,8 +104,7 @@ def test_online_sources_skipped_when_links_disabled(tmp_path):
 
 
 def _canary_rec(name="ted"):
-    return {"source_id": f"api_canary:{name}", "group": "api_canary",
-            "check_type": "api_canary", "pollable": True}
+    return {"source_id": f"api_canary:{name}", "group": "api_canary", "check_type": "api_canary", "pollable": True}
 
 
 def test_api_canary_ok_maps_to_ok():

@@ -25,6 +25,7 @@ _log = logging.getLogger(__name__)
 
 _run = make_runner("procurement", _log)
 
+
 def supplier_summary(
     conn: duckdb.DuckDBPyConnection,
     *,

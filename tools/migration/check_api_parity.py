@@ -125,7 +125,7 @@ def main() -> int:
 
     by_module: dict[str, list[str]] = {}
     totals: dict[str, int] = {}
-    for m, n, _ in defined:
+    for m, _, _ in defined:
         totals[m] = totals.get(m, 0) + 1
     for m, n, _ in unexposed:
         by_module.setdefault(m, []).append(n)

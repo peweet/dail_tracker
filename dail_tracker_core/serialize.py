@@ -105,7 +105,7 @@ def envelope(
     enveloped response is self-dating.
     """
     if generated_at is None:
-        generated_at = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
+        generated_at = _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds")
     head: dict[str, Any] = {}
     if limit is not None:
         head["limit"] = limit

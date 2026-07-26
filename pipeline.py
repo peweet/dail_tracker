@@ -37,6 +37,7 @@ import services.runtime_env  # noqa: F401
 # isort: on
 
 import argparse
+import contextlib
 import logging
 import os
 import subprocess
@@ -445,15 +446,25 @@ def _chain_timeout(name: str) -> int | None:
 _CHAIN_EXTRA_ENV: dict[str, dict[str, str]] = {
     "planning_appeal_outcomes": {"POLARS_MAX_THREADS": "1"},  # ~126k-row national applications frame
     "procurement_consolidate": {"POLARS_MAX_THREADS": "1"},  # 401,624-row consolidated payments fact
-    "procurement": {"POLARS_MAX_THREADS": "1"},  # map_elements immediately after .explode() — same shape as the lobbying bug
+    "procurement": {
+        "POLARS_MAX_THREADS": "1"
+    },  # map_elements immediately after .explode() — same shape as the lobbying bug
     "la_payments": {"POLARS_MAX_THREADS": "1"},  # 99,412-row merged council payments
-    "public_body_payments": {"POLARS_MAX_THREADS": "1"},  # 89,285-row disclosures; classify_and_flag() also imported by hse_tusla_payments
-    "hse_tusla_payments": {"POLARS_MAX_THREADS": "1"},  # imports classify_and_flag() from procurement_public_body_extract.py, runs in its own process
+    "public_body_payments": {
+        "POLARS_MAX_THREADS": "1"
+    },  # 89,285-row disclosures; classify_and_flag() also imported by hse_tusla_payments
+    "hse_tusla_payments": {
+        "POLARS_MAX_THREADS": "1"
+    },  # imports classify_and_flag() from procurement_public_body_extract.py, runs in its own process
     "cro": {"POLARS_MAX_THREADS": "1"},  # up to 51,149-row corporate notices
     "cbi": {"POLARS_MAX_THREADS": "1"},  # historic Dáil+Seanad interests backfill + notices/lobbying joins
     "ted": {"POLARS_MAX_THREADS": "1"},  # ted_enrich.enrich_winner_rows(), ~13,954-row awards
-    "ministerial_diaries": {"POLARS_MAX_THREADS": "1"},  # diary_org_match/diary_lobbying_overlap/diary_promote_gold — inherited by their sub-subprocesses
-    "legal_diary_extract": {"POLARS_MAX_THREADS": "1"},  # raw_case -> parties() struct map_elements; bursty, up to low-tens-of-thousands rows on catch-up runs
+    "ministerial_diaries": {
+        "POLARS_MAX_THREADS": "1"
+    },  # diary_org_match/diary_lobbying_overlap/diary_promote_gold — inherited by their sub-subprocesses
+    "legal_diary_extract": {
+        "POLARS_MAX_THREADS": "1"
+    },  # raw_case -> parties() struct map_elements; bursty, up to low-tens-of-thousands rows on catch-up runs
 }
 
 
@@ -481,10 +492,8 @@ def _kill_process_tree(proc: subprocess.Popen) -> None:
         )
     else:
         proc.kill()
-    try:
+    with contextlib.suppress(subprocess.TimeoutExpired):
         proc.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        pass
 
 
 def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tuple[int | None, str | None, bool]:

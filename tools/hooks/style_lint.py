@@ -35,6 +35,7 @@ to keep the surface narrow. Tighten later by ratchet, not by widening the regex 
 Exit contract: 0 = allow (with optional warning JSON on stdout), 2 = block with the
 reason on stderr.
 """
+
 from __future__ import annotations
 
 import json
@@ -80,14 +81,40 @@ DISCHARGE_RE = re.compile(
 
 # Rule 3. Left column is what to say instead; these are the "not" forms.
 JARGON = (
-    "has implications for", "the tension here is", "is a token multiplier",
-    "operationalize", "operationalise", "utilize", "utilise", "leverage",
-    "commence", "consequently", "approximately", "facilitate",
-    "surfaces", "primitive", "topology", "interrogate",
-    "simply", "easily", "obviously", "essentially", "basically", "actually",
-    "very", "quite", "really", "please note", "at this time",
-    "it's worth noting", "it is worth noting", "it's important to note",
-    "powerful", "seamless", "a variety of", "in order to",
+    "has implications for",
+    "the tension here is",
+    "is a token multiplier",
+    "operationalize",
+    "operationalise",
+    "utilize",
+    "utilise",
+    "leverage",
+    "commence",
+    "consequently",
+    "approximately",
+    "facilitate",
+    "surfaces",
+    "primitive",
+    "topology",
+    "interrogate",
+    "simply",
+    "easily",
+    "obviously",
+    "essentially",
+    "basically",
+    "actually",
+    "very",
+    "quite",
+    "really",
+    "please note",
+    "at this time",
+    "it's worth noting",
+    "it is worth noting",
+    "it's important to note",
+    "powerful",
+    "seamless",
+    "a variety of",
+    "in order to",
 )
 JARGON_RE = re.compile(r"\b(" + "|".join(re.escape(w) for w in JARGON) + r")\b", re.IGNORECASE)
 
@@ -101,10 +128,7 @@ def _strip_noncheckable(text: str) -> str:
     text = re.sub(r"`[^`\n]*`", " ", text)
     text = re.sub(r"https?://\S+", " ", text)
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)  # keep link text, drop target
-    keep = [
-        ln for ln in text.splitlines()
-        if not ln.lstrip().startswith((">", "|"))
-    ]
+    keep = [ln for ln in text.splitlines() if not ln.lstrip().startswith((">", "|"))]
     return "\n".join(keep)
 
 
@@ -120,7 +144,7 @@ def _unprovenanced(message: str) -> list[str]:
             continue
         prose = _strip_noncheckable(para)
         for m in FIGURE_RE.finditer(prose):
-            tail = prose[m.end():m.end() + 40]
+            tail = prose[m.end() : m.end() + 40]
             if NOT_A_DATA_CLAIM.match(tail):
                 continue
             hits.append(m.group(0).strip())
@@ -198,11 +222,7 @@ def main() -> int:
     if payload.get("stop_hook_active") or payload.get("stopHookActive"):
         return 0  # this Stop was itself caused by a hook -- do not re-enter
 
-    message = (
-        payload.get("last_assistant_message")
-        or payload.get("lastAssistantMessage")
-        or ""
-    )
+    message = payload.get("last_assistant_message") or payload.get("lastAssistantMessage") or ""
     if not isinstance(message, str) or len(message) < 40:
         return 0
 
@@ -239,15 +259,25 @@ def main() -> int:
         # (session_context._style_digest_note).
         try:
             import datetime
-            log = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-                os.path.abspath(__file__)))), "logs", "style_lint_log.jsonl")
+
+            log = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                "logs",
+                "style_lint_log.jsonl",
+            )
             os.makedirs(os.path.dirname(log), exist_ok=True)
             with open(log, "a", encoding="utf-8") as fh:
-                fh.write(json.dumps({
-                    "ts": datetime.datetime.now().isoformat(timespec="seconds"),
-                    "session": session_id[:12],
-                    "warns": warns,
-                }, ensure_ascii=False) + "\n")
+                fh.write(
+                    json.dumps(
+                        {
+                            "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+                            "session": session_id[:12],
+                            "warns": warns,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
         except Exception:
             pass  # telemetry only — never surface, never break the turn
     return 0

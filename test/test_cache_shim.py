@@ -7,7 +7,6 @@ when Streamlit is absent (the API-only / test path).
 
 from __future__ import annotations
 
-import importlib
 import sys
 
 import pytest
@@ -34,7 +33,7 @@ def test_bare_and_called_forms_both_work():
     def bare_resource():
         return object()
 
-    assert bare() == bare()          # memoised: second call returns cached
+    assert bare() == bare()  # memoised: second call returns cached
     assert calls["n"] == 1
     assert called() == "ok"
     assert bare_resource() is bare_resource()  # singleton
@@ -58,8 +57,6 @@ def test_delegates_to_streamlit_when_present():
     """When streamlit imports, the shim must use st.cache_data, not the fallback."""
     if not _cache._HAS_STREAMLIT:
         pytest.skip("streamlit not installed in this environment")
-
-    import streamlit as st
 
     @_cache.cache_data(ttl=300)
     def f():

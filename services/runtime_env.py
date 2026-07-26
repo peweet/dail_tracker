@@ -26,6 +26,7 @@ server and a hook run no linear algebra at all), and a heavy scikit-learn job ca
 Nothing here prints. The MCP server speaks JSON-RPC over stdout; a stray write corrupts
 the stream.
 """
+
 from __future__ import annotations
 
 import os

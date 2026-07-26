@@ -52,4 +52,3 @@ _TED_ORDER = {
 # Never summed with eTenders/TED. One lifecycle tier at a time; only value_safe_to_sum sums,
 # never across vat_status. Suppliers named per published source (see the view headers).
 _PAYMENT_TIERS = {"SPENT": "SPENT", "COMMITTED": "COMMITTED"}  # whitelist (no raw string in SQL)
-

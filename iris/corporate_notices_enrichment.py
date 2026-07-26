@@ -109,6 +109,7 @@ def solvency_signal_expr(col: str = "notice_subtype") -> pl.Expr:
         .alias("solvency_signal")
     )
 
+
 # Personal-insolvency wording that must be excluded even when it leaks into a
 # corporate category (~277 such rows observed across the corpus).
 _PERSONAL_INSOL_RE = re.compile(

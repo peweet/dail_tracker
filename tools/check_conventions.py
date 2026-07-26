@@ -254,7 +254,9 @@ def main() -> int:
     if violations:
         for v in violations:
             print(f"FAIL  {v}")
-        print(f"\nFAIL — {len(violations)} convention violation(s). See tools/check_conventions.py header for the fixes.")
+        print(
+            f"\nFAIL — {len(violations)} convention violation(s). See tools/check_conventions.py header for the fixes."
+        )
         return 1
     print("OK — conventions hold (ratchet baselines unchanged).")
     return 0

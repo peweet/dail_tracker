@@ -2278,7 +2278,14 @@ def _confidence(good: int) -> str:
 # here, not another elif branch. Readers are named (not referenced) so they resolve at call time
 # — same late binding the old elif chain had, and what lets tests monkeypatch them.
 _RO_SPECS: dict[str, dict] = {
-    "reading_order": {"fn": "read_reading_order", "desc": "desc", "po": "ref", "paid": None, "page": "page", "date": "iso"},
+    "reading_order": {
+        "fn": "read_reading_order",
+        "desc": "desc",
+        "po": "ref",
+        "paid": None,
+        "page": "page",
+        "date": "iso",
+    },
     "reading_order_courts": {"fn": "read_courts", "desc": "desc", "po": "ref", "paid": "paid"},
     "reading_order_revenue": {"fn": "read_revenue", "desc": "desc", "po": "ref", "paid": "paid"},
     "reading_order_culture": {"fn": "read_culture", "desc": "desc", "po": None, "paid": None},
@@ -2334,13 +2341,18 @@ def _emit_generic_pdf(base, b, max_pages) -> tuple[list[dict], str, bool, dict |
             for srn, r in enumerate(read_pdf_reading_order_fallback(b, max_pages))
         ]
     if not rows_out:
-        return [], "low", caveat_detected, {
-            "status": "unparsed",
-            "reason": "scanned/no-header/no-amount",
-            "rows": 0,
-            "confidence": "low",
-            "pages": info.get("pages"),
-        }
+        return (
+            [],
+            "low",
+            caveat_detected,
+            {
+                "status": "unparsed",
+                "reason": "scanned/no-header/no-amount",
+                "rows": 0,
+                "confidence": "low",
+                "pages": info.get("pages"),
+            },
+        )
     return rows_out, _confidence(len(rows_out)), caveat_detected, None
 
 
@@ -2352,7 +2364,12 @@ def _emit_tabular(base, b, fmt) -> tuple[list[dict], str, bool, dict | None]:
     roles = detect_roles_tab(header, rows)
     sup_i, amt_i = roles["supplier"], roles["amount"]
     if amt_i is None:
-        return [], "low", caveat_detected, {"status": "unparsed", "reason": "no-amount-col", "rows": 0, "confidence": "low"}
+        return (
+            [],
+            "low",
+            caveat_detected,
+            {"status": "unparsed", "reason": "no-amount-col", "rows": 0, "confidence": "low"},
+        )
     desc_i, po_i, paid_i = roles["description"], roles["po"], roles["paid"]
     rows_out: list[dict] = []
     for srn, r in enumerate(rows):

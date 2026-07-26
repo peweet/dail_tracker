@@ -26,8 +26,8 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.buyer_xref import buyer_index, resolve_buyer
+from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.dossiers import build_buyer_dossier
 from dail_tracker_core.queries import entity as _ent
 from dail_tracker_core.queries import procurement as _q

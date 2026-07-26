@@ -20,6 +20,7 @@ _log = logging.getLogger(__name__)
 
 _run = make_runner("procurement", _log)
 
+
 def payments_real_by_year(conn: duckdb.DuckDBPyConnection, *, tier: str | None = None) -> QueryResult:
     """Annual public-spend totals, nominal vs real (the GOVERNMENT-CONSUMPTION deflator — the
     agency-standard index for public money, not CPI), from ``v_procurement_payments_real_by_year``.

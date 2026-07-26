@@ -45,7 +45,9 @@ def list_suppliers(
     page: Page = Depends(pagination(default=20)),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    records, total, truncated = dossiers.list_suppliers(cur, year=year, order_by=order_by, skip=page.skip, limit=page.limit)
+    records, total, truncated = dossiers.list_suppliers(
+        cur, year=year, order_by=order_by, skip=page.skip, limit=page.limit
+    )
     return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 

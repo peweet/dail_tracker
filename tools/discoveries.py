@@ -11,8 +11,12 @@ to MEMORY.md — this is the fast index, the memory slug holds the full detail +
 
 Rebuild the candidate ranking that feeds this file with:  python tools/token_ledger.py
 """
+
 from __future__ import annotations
-import json, sys, os
+
+import json
+import os
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "discoveries.jsonl")
@@ -34,10 +38,14 @@ def load():
 
 
 def _haystack(r) -> str:
-    return " ".join([
-        r.get("id", ""), r.get("domain", ""), r.get("discovery", ""),
-        " ".join(r.get("trigger", [])),
-    ]).lower()
+    return " ".join(
+        [
+            r.get("id", ""),
+            r.get("domain", ""),
+            r.get("discovery", ""),
+            " ".join(r.get("trigger", [])),
+        ]
+    ).lower()
 
 
 def find(terms):
@@ -54,9 +62,9 @@ def show(rows):
         band = r.get("cost_band", "?")
         anchor = r.get("cost_anchor_out")
         anchor_s = f" ~{anchor // 1000}k out" if anchor else ""
-        print(f"[{band}{anchor_s}] {r['id']}  ({r.get('domain','')})")
+        print(f"[{band}{anchor_s}] {r['id']}  ({r.get('domain', '')})")
         print(f"    {r['discovery']}")
-        print(f"    -> MEMORY.md: {r.get('memory','?')}\n")
+        print(f"    -> MEMORY.md: {r.get('memory', '?')}\n")
 
 
 def main(argv):
@@ -70,12 +78,19 @@ def main(argv):
         show([r for r in load() if r.get("domain") == argv[1]])
         return
     if argv[0] == "--add":
-        print(json.dumps({
-            "id": "kebab-slug", "domain": "feature", "trigger": ["kw1", "kw2"],
-            "discovery": "one line that avoids re-derivation",
-            "cost_band": "high|med|low", "cost_anchor_out": None,
-            "memory": "memory_slug_without_dot_md",
-        }))
+        print(
+            json.dumps(
+                {
+                    "id": "kebab-slug",
+                    "domain": "feature",
+                    "trigger": ["kw1", "kw2"],
+                    "discovery": "one line that avoids re-derivation",
+                    "cost_band": "high|med|low",
+                    "cost_anchor_out": None,
+                    "memory": "memory_slug_without_dot_md",
+                }
+            )
+        )
         return
     show(find(argv))
 

@@ -128,7 +128,9 @@ def _pay_card_html(row: pd.Series, *, norm_count: int | None = None) -> str:
         else ""
     )
     count_pill = (
-        "" if (norm_count is not None and count == norm_count) else f'<span class="pay-count-pill-accent">{count} payments</span>'
+        ""
+        if (norm_count is not None and count == norm_count)
+        else f'<span class="pay-count-pill-accent">{count} payments</span>'
     )
     pills = f'<span class="{taa_pill_cls}">{taa}{taa_caveat}</span>{count_pill}'
     badge = (
@@ -297,9 +299,7 @@ def _render_primary(year_options: list[str], summary: pd.Series, house: str, ter
     # the caption instead of repeated on every card.
     _counts = ranking["payment_count"].dropna()  # logic_firewall: display_only
     norm_count = int(_counts.mode().iloc[0]) if not _counts.empty else None  # logic_firewall: display_only
-    norm_note = (
-        f" · {norm_count} payments each unless a card says otherwise" if norm_count is not None else ""
-    )
+    norm_note = f" · {norm_count} payments each unless a card says otherwise" if norm_count is not None else ""
     st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} {terms.lower()}{norm_note}")
 
     top_10 = ranking.head(10)

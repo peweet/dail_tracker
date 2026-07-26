@@ -298,8 +298,7 @@ def _dossier(supplier_norm: str) -> None:
         st.html(
             '<div style="margin:-0.25rem 0 0.9rem">'
             + entity_cta_html(
-                f"/follow-the-money?flow_supplier_lines={urllib.parse.quote(supplier_norm)}"
-                f"&paid_tier={ledger_tier}",
+                f"/follow-the-money?flow_supplier_lines={urllib.parse.quote(supplier_norm)}&paid_tier={ledger_tier}",
                 "See the payment ledger behind this figure →",
             )
             + "</div>"

@@ -43,8 +43,7 @@ with contextlib.suppress(Exception):
 SANDBOX = Path("c:/tmp/dail_new_sources/silver")
 GOLD = ROOT / "data/gold/parquet"
 
-_PII_TOKENS = ("address", "national_id", "home", "dob", "birth", "pps", "phone", "email",
-               "resident_name", "eircode")
+_PII_TOKENS = ("address", "national_id", "home", "dob", "birth", "pps", "phone", "email", "resident_name", "eircode")
 
 
 def pii_columns(df: pl.DataFrame) -> list[str]:
@@ -83,8 +82,7 @@ def promote_facts() -> None:
     df = _src("ipas_facts")
     if df is None:
         return
-    _write(df, "ipas_facts", min_rows=4_000,
-           note="citation store; 23 categories; explicit unknowns preserved")
+    _write(df, "ipas_facts", min_rows=4_000, note="citation store; 23 categories; explicit unknowns preserved")
 
 
 def promote_operators() -> None:
@@ -94,12 +92,22 @@ def promote_operators() -> None:
         return
     pub = df.filter(pl.col("match_confidence") == "exact")
     out = pub.select(
-        "entity_key", "display_name", "centres", "judgments", "not_compliant",
-        "pct_not_compliant", "dcediy_ip_eur", "doj_eur", "match_confidence",
-        "caveat", "join_caveat", "value_safe_to_sum",
+        "entity_key",
+        "display_name",
+        "centres",
+        "judgments",
+        "not_compliant",
+        "pct_not_compliant",
+        "dcediy_ip_eur",
+        "doj_eur",
+        "match_confidence",
+        "caveat",
+        "join_caveat",
+        "value_safe_to_sum",
     )
-    _write(out, "ipas_operators", min_rows=15,
-           note="exact-match only; NEVER causal (compliance vs payment windows differ)")
+    _write(
+        out, "ipas_operators", min_rows=15, note="exact-match only; NEVER causal (compliance vs payment windows differ)"
+    )
 
 
 def promote_compliance() -> None:
@@ -107,51 +115,66 @@ def promote_compliance() -> None:
     df = _src("hiqa_centre_compliance")
     if df is None:
         return
-    keep = [c for c in ("centre_id", "centre_name", "county", "provider_name",
-                        "provider_name_canonical", "provider_key", "inspection_date",
-                        "standard_ref", "standard_title", "judgment", "judgment_conflict",
-                        "risk_rating", "source_url", "page", "confidence")
-            if c in df.columns]
-    _write(df.select(keep), "ipas_centre_compliance", min_rows=2_000,
-           note="2,668 judgments; judgment_conflict flags HIQA self-contradictions")
+    keep = [
+        c
+        for c in (
+            "centre_id",
+            "centre_name",
+            "county",
+            "provider_name",
+            "provider_name_canonical",
+            "provider_key",
+            "inspection_date",
+            "standard_ref",
+            "standard_title",
+            "judgment",
+            "judgment_conflict",
+            "risk_rating",
+            "source_url",
+            "page",
+            "confidence",
+        )
+        if c in df.columns
+    ]
+    _write(
+        df.select(keep),
+        "ipas_centre_compliance",
+        min_rows=2_000,
+        note="2,668 judgments; judgment_conflict flags HIQA self-contradictions",
+    )
 
 
 def promote_standards() -> None:
     df = _src("national_standards_lookup")
     if df is None:
         return
-    _write(df, "ipas_national_standards", min_rows=30,
-           note="joins 100% of the compliance judgments")
+    _write(df, "ipas_national_standards", min_rows=30, note="joins 100% of the compliance judgments")
 
 
 def promote_county() -> None:
     """Per-LA applicants (+ per-capita if the CSO population landed)."""
     pc = _src("ipas_la_percapita")
     if pc is not None:
-        _write(pc, "ipas_la_profile", min_rows=25,
-               note="31 LAs, IP applicants + per-1,000 population")
+        _write(pc, "ipas_la_profile", min_rows=25, note="31 LAs, IP applicants + per-1,000 population")
         return
     la = _src("ipas_by_local_authority")
     if la is None:
         return
-    _write(la, "ipas_la_profile", min_rows=25,
-           note="31 LAs, IP applicants (per-capita PENDING CSO population)")
+    _write(la, "ipas_la_profile", min_rows=25, note="31 LAs, IP applicants (per-capita PENDING CSO population)")
 
 
 def promote_rates() -> None:
     df = _src("ipas_sample_property_rates")
     if df is None:
         return
-    _write(df, "ipas_property_rates", min_rows=15,
-           note="C&AG Annex 10A: EUR 40-170 per person per night")
+    _write(df, "ipas_property_rates", min_rows=15, note="C&AG Annex 10A: EUR 40-170 per person per night")
 
 
 def promote_entitlements() -> None:
     df = _src("ipas_entitlements")
     if df is None:
         return
-    _write(df, "ipas_entitlements", min_rows=8,
-           note="entitlement vs reality; law quoted from SI 230/2018 as amended")
+    _write(df, "ipas_entitlements", min_rows=8, note="entitlement vs reality; law quoted from SI 230/2018 as amended")
 
 
 def main() -> None:
@@ -164,8 +187,7 @@ def main() -> None:
     promote_county()
     promote_rates()
     promote_entitlements()
-    print("done. Every row value_safe_to_sum=False — audit-narrative grain, never union "
-          "with payments/awards/grants.")
+    print("done. Every row value_safe_to_sum=False — audit-narrative grain, never union with payments/awards/grants.")
 
 
 if __name__ == "__main__":

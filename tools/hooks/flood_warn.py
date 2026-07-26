@@ -19,6 +19,7 @@ exists to remove.
 Cross-tool notes (same as guard_data_reads.py): self-filters on tool_name from
 the payload, tries snake_case and camelCase keys, fails open everywhere.
 """
+
 from __future__ import annotations
 
 import json
@@ -86,12 +87,16 @@ def main() -> int:
     if _already_nudged(session, tool):
         return 0
     msg = NUDGE[tool].format(tok=n // 4)
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PostToolUse",
-            "additionalContext": f"[context-efficiency] {msg}",
-        }
-    }))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    "additionalContext": f"[context-efficiency] {msg}",
+                }
+            }
+        )
+    )
     return 0
 
 

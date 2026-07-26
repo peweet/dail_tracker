@@ -198,6 +198,7 @@ def test_circular_si_crosswalk_single_si_filter(full_conn):
     if r.data.empty:
         pytest.skip("no crosswalk rows")
     row = r.data.iloc[0]
-    one = _result_or_skip(q.circular_si_crosswalk(full_conn, si_year=int(row["si_year"]),
-                                                  si_number=int(row["si_number"])))
+    one = _result_or_skip(
+        q.circular_si_crosswalk(full_conn, si_year=int(row["si_year"]), si_number=int(row["si_number"]))
+    )
     assert (one.data["si_id"] == row["si_id"]).all()

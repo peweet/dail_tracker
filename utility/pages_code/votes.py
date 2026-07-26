@@ -458,10 +458,7 @@ def votes_page() -> None:
     # filters); the per-mode headings below became section headings. Suppressed
     # on the vote-detail drill (Mode C), which has its own back-button header.
     if not sel_vote_id:
-        st.html(
-            '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
-            '<h1 class="dt-hero">Voting record</h1>'
-        )
+        st.html('<p class="dt-kicker">Dáil Tracker · Voting Record</p><h1 class="dt-hero">Voting record</h1>')
 
     # ── Controls (was the sidebar) ──────────────────────────────────────────────
     # Sidebar→filter-bar migration: the View switch + filters move into a

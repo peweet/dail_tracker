@@ -18,6 +18,7 @@ discoveries note refuses to run token_ledger).
 
 Usage: python tools/check_mcp_adoption.py
 """
+
 from __future__ import annotations
 
 import glob
@@ -64,7 +65,7 @@ def scan_transcript(path: str) -> dict:
                         raw[name] += 1
                     elif name.startswith(MCP_PREFIX):
                         mcp_total += 1
-                        short = name[len(MCP_PREFIX):]
+                        short = name[len(MCP_PREFIX) :]
                         by_tool[short] += 1
                         if short in STEER:
                             steer += 1
@@ -96,6 +97,7 @@ def _rate(n: int, turns: int) -> str:
 
 def main() -> None:
     import sys
+
     sys.stdout.reconfigure(encoding="utf-8")
     rows = scan_all()
     turns = sum(r["turns"] for r in rows)
@@ -104,8 +106,10 @@ def main() -> None:
     steer = sum(r["steer"] for r in rows)
     with_mcp = sum(1 for r in rows if r["mcp_total"])
 
-    print(f"sessions={len(rows)}  assistant_turns={turns:,}  sessions_with_any_mcp={with_mcp}"
-          f" ({100 * with_mcp / max(1, len(rows)):.0f}%)")
+    print(
+        f"sessions={len(rows)}  assistant_turns={turns:,}  sessions_with_any_mcp={with_mcp}"
+        f" ({100 * with_mcp / max(1, len(rows)):.0f}%)"
+    )
     print(f"RAW Read/Grep/Glob   {raw:,}")
     print(f"MCP all              {mcp:,}   {_rate(mcp, turns)}")
     print(f"MCP navigation subset {steer:,}   {_rate(steer, turns)}   <- the reflex the routing table wants")
@@ -133,13 +137,17 @@ def main() -> None:
     # could actually connect (broken 07-17→07-25; see the workspacefolder memory).
     try:
         import re as _re
-        src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                "mcp_server", "server.py"), encoding="utf-8").read()
+
+        with open(
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mcp_server", "server.py"),
+            encoding="utf-8",
+        ) as fh:
+            src = fh.read()
         registered = set(_re.findall(r"@mcp\.tool[^\n]*\)\s*\ndef (\w+)", src))
         unused = sorted(registered - set(agg))
         print(f"\n=== registered but never called: {len(unused)}/{len(registered)} ===")
         for i in range(0, len(unused), 5):
-            print("  " + ", ".join(unused[i:i + 5]))
+            print("  " + ", ".join(unused[i : i + 5]))
     except Exception as exc:  # a pruning hint must never break the adoption report
         print(f"(never-called section unavailable: {type(exc).__name__})")
 

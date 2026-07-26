@@ -31,8 +31,18 @@ def _jsonl(p: Path) -> list[dict]:
 
 
 _MONTHS = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 ]
 
 
@@ -64,7 +74,9 @@ def _mdate(fn: str) -> str:
     )
     if m:
         return f"{m.group(1)} {m.group(2).title()} {m.group(3)}"
-    m = re.search(r"(" + "|".join(mo[:3] for mo in _MONTHS) + r")[a-z]*[.\-\s_]?(20\d{2})", fn, re.I)  # April 2026 / apr2026
+    m = re.search(
+        r"(" + "|".join(mo[:3] for mo in _MONTHS) + r")[a-z]*[.\-\s_]?(20\d{2})", fn, re.I
+    )  # April 2026 / apr2026
     if m:
         full = next(mo for mo in _MONTHS if mo.lower().startswith(m.group(1).lower()))
         return f"{full} {m.group(2)}"

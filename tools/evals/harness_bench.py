@@ -16,12 +16,17 @@ Caveats: n=1 per cell; the ON arm pays its fixed context tax inside cost; whethe
 headless SDK sessions inject auto-memory is unverified — task E measures whether
 the ON stack ANSWERS correctly, not which layer supplies the answer.
 """
+
 import json
 import re
 
 import anyio
 from claude_agent_sdk import (
-    query, ClaudeAgentOptions, AssistantMessage, ToolUseBlock, ResultMessage,
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    ToolUseBlock,
+    query,
 )
 
 PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
@@ -33,47 +38,86 @@ PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
 WT = r"C:\tmp\dail_wt_bench"
 
 REAL_AWARD_COLUMNS = {
-    "tender id", "awarded suppliers", "contracting authority", "sum of awarded value (€)",
-    "notice published date/contract created date", "competition type", "parent agreement id",
-    "main cpv code", "main cpv code description", "tender/contract name", "spend category",
-    "contract type", "procedure", "contract duration (months)", "no of bids received",
-    "no of smes bids received", "no of awarded smes", "additional cpv codes on cft",
-    "ted notice link", "ted can link", "sl", "supplier_raw", "supplier", "name_repaired",
-    "name_truncated", "supplier_norm", "has_company_suffix", "foreign_form", "is_public_body",
-    "supplier_class", "value_eur", "is_framework_or_dps", "is_call_off",
-    "value_shared_across_suppliers", "value_kind", "is_large_award_review",
-    "value_safe_to_sum", "estimated_value_eur", "value_plausible",
+    "tender id",
+    "awarded suppliers",
+    "contracting authority",
+    "sum of awarded value (€)",
+    "notice published date/contract created date",
+    "competition type",
+    "parent agreement id",
+    "main cpv code",
+    "main cpv code description",
+    "tender/contract name",
+    "spend category",
+    "contract type",
+    "procedure",
+    "contract duration (months)",
+    "no of bids received",
+    "no of smes bids received",
+    "no of awarded smes",
+    "additional cpv codes on cft",
+    "ted notice link",
+    "ted can link",
+    "sl",
+    "supplier_raw",
+    "supplier",
+    "name_repaired",
+    "name_truncated",
+    "supplier_norm",
+    "has_company_suffix",
+    "foreign_form",
+    "is_public_body",
+    "supplier_class",
+    "value_eur",
+    "is_framework_or_dps",
+    "is_call_off",
+    "value_shared_across_suppliers",
+    "value_kind",
+    "is_large_award_review",
+    "value_safe_to_sum",
+    "estimated_value_eur",
+    "value_plausible",
 }
 
 TASKS = {
     "never-sum": {
-        "prompt": ("Working with this repo's data: a supplier appears in the procurement awards "
-                   "data with awarded contract totals, and also in the public payments data with "
-                   "amounts actually paid. For a supplier profile, is it methodologically sound to "
-                   "add the awarded total and the paid total into one combined figure? Reply ONLY "
-                   'with JSON: {"combined_figure_allowed": true|false, "reason": "<one sentence>"}'),
+        "prompt": (
+            "Working with this repo's data: a supplier appears in the procurement awards "
+            "data with awarded contract totals, and also in the public payments data with "
+            "amounts actually paid. For a supplier profile, is it methodologically sound to "
+            "add the awarded total and the paid total into one combined figure? Reply ONLY "
+            'with JSON: {"combined_figure_allowed": true|false, "reason": "<one sentence>"}'
+        ),
     },
     "data-shape": {
-        "prompt": ("For this repo's procurement awards dataset: what is its row grain, how many "
-                   "rows does it hold, and name five of its columns. Reply ONLY with JSON: "
-                   '{"grain": "...", "rows": <integer>, "columns": ["...", 5 names]}'),
+        "prompt": (
+            "For this repo's procurement awards dataset: what is its row grain, how many "
+            "rows does it hold, and name five of its columns. Reply ONLY with JSON: "
+            '{"grain": "...", "rows": <integer>, "columns": ["...", 5 names]}'
+        ),
     },
     "code-nav": {
-        "prompt": ("In this repo: which file and which function implement the shared atomic "
-                   "parquet write with the row-floor guard that all pipeline ETL must use? Reply "
-                   'ONLY with JSON: {"file": "<repo-relative path>", "function": "<name>"}'),
+        "prompt": (
+            "In this repo: which file and which function implement the shared atomic "
+            "parquet write with the row-floor guard that all pipeline ETL must use? Reply "
+            'ONLY with JSON: {"file": "<repo-relative path>", "function": "<name>"}'
+        ),
     },
     "conventions": {
-        "prompt": ("A new data extractor is being added to this repo. Per the project's "
-                   "conventions, which helper modules must it use for (1) HTTP fetching, "
-                   "(2) coverage logging, (3) parquet writing, and (4) extractor run "
-                   'orchestration? Reply ONLY with JSON: {"helpers": ["...four module names..."]}'),
+        "prompt": (
+            "A new data extractor is being added to this repo. Per the project's "
+            "conventions, which helper modules must it use for (1) HTTP fetching, "
+            "(2) coverage logging, (3) parquet writing, and (4) extractor run "
+            'orchestration? Reply ONLY with JSON: {"helpers": ["...four module names..."]}'
+        ),
     },
     "memory-xbrl": {
-        "prompt": ("This project extracts Irish local-authority annual financial statements by "
-                   "scraping PDFs. Is a public XBRL or other structured data feed available for "
-                   "these statements that the project should be consuming instead? Reply ONLY "
-                   'with JSON: {"structured_feed_available": true|false, "reason": "<one sentence>"}'),
+        "prompt": (
+            "This project extracts Irish local-authority annual financial statements by "
+            "scraping PDFs. Is a public XBRL or other structured data feed available for "
+            "these statements that the project should be consuming instead? Reply ONLY "
+            'with JSON: {"structured_feed_available": true|false, "reason": "<one sentence>"}'
+        ),
     },
 }
 
@@ -128,15 +172,18 @@ async def run_task(task: str, variant: str) -> dict:
         permission_mode="bypassPermissions",
         # offclean has no .venv in the worktree — put the real venv on PATH so
         # Bash `python` (duckdb etc.) works the same in both arms
-        env={"PATH": PROJ + r"\.venv\Scripts;" + os.environ.get("PATH", ""),
-             "PYTHONUTF8": "1"} if variant == "offclean" else {},
+        env={"PATH": PROJ + r"\.venv\Scripts;" + os.environ.get("PATH", ""), "PYTHONUTF8": "1"}
+        if variant == "offclean"
+        else {},
         mcp_servers={
             "dail-tracker": {
                 "command": PROJ + r"\.venv\Scripts\python.exe",
                 "args": [PROJ + r"\mcp_server\server.py"],
                 "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
             }
-        } if on else {},
+        }
+        if on
+        else {},
     )
     calls: list[str] = []
     cost = None
@@ -155,11 +202,14 @@ async def run_task(task: str, variant: str) -> dict:
         err = f"{type(e).__name__}: {e}"
     ans = parse_answer(text)
     out = {
-        "task": task, "variant": variant, "score": score(task, ans),
+        "task": task,
+        "variant": variant,
+        "score": score(task, ans),
         "tool_calls": len(calls),
         "mcp_calls": sum(c.startswith("mcp__") for c in calls),
         "cost_usd": round(cost, 4) if cost else None,
-        "answer": ans, "sequence": calls,
+        "answer": ans,
+        "sequence": calls,
     }
     if err:
         out["error"] = err

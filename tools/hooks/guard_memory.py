@@ -24,6 +24,7 @@ Escape hatch: set DAIL_SKIP_MEM_GUARD=1 when you genuinely mean to run it anyway
 Side effect: every heavy command is sampled into logs/memory_pressure.jsonl, which is
 what makes the accumulation visible next time instead of being re-derived from scratch.
 """
+
 from __future__ import annotations
 
 import ctypes
@@ -133,17 +134,15 @@ def main() -> int:
 
     mem = sample_memory()
     free = mem.get("free_mb")
-    blocked = (
-        free is not None
-        and free < FLOOR_MB
-        and os.environ.get("DAIL_SKIP_MEM_GUARD") != "1"
+    blocked = free is not None and free < FLOOR_MB and os.environ.get("DAIL_SKIP_MEM_GUARD") != "1"
+    record(
+        {
+            "ts": datetime.now(UTC).isoformat(timespec="seconds"),
+            "kind": why,
+            "blocked": blocked,
+            **mem,
+        }
     )
-    record({
-        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
-        "kind": why,
-        "blocked": blocked,
-        **mem,
-    })
     if not blocked:
         return 0
 

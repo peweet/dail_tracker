@@ -158,10 +158,12 @@ def test_apply_curated_without_csv_is_shape_stable():
 def test_apply_curated_warns_on_orphaned_curation(caplog):
     # a curated identity whose name has no roster seat is silently dropped by the
     # LEFT join — the warn makes that wasted curation visible.
-    orphaned = pl.concat([
-        _CURATED,
-        _CURATED.with_columns(member_name=pl.lit("Ghost Person"), wikidata_qid=pl.lit("Q9")),
-    ])
+    orphaned = pl.concat(
+        [
+            _CURATED,
+            _CURATED.with_columns(member_name=pl.lit("Ghost Person"), wikidata_qid=pl.lit("Q9")),
+        ]
+    )
     with caplog.at_level(logging.WARNING):
         gold = apply_curated(_ROSTER, orphaned)
     assert "Ghost Person" in caplog.text

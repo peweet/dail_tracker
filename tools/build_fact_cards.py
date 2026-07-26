@@ -166,9 +166,7 @@ def build() -> dict:
                     card["year_span"] = span
             q = quality.get(fname, {})
             if q:
-                card["dq"] = {
-                    k: q[k] for k in ("dup_rows", "all_null_cols", "sentinels") if q.get(k)
-                }
+                card["dq"] = {k: q[k] for k in ("dup_rows", "all_null_cols", "sentinels") if q.get(k)}
             if fname in readers:
                 card["read_by"] = readers[fname]
             card["size_bytes"] = p.stat().st_size
@@ -208,8 +206,7 @@ def main() -> int:
             problems.append(f"{len(missing)} parquet(s) without a card: {sorted(missing)[:8]}")
         if orphan:
             problems.append(
-                f"{len(orphan)} contract entr(ies) in fact_contracts.yaml name a fact "
-                f"with no parquet (drift): {orphan}"
+                f"{len(orphan)} contract entr(ies) in fact_contracts.yaml name a fact with no parquet (drift): {orphan}"
             )
         if problems:
             for p in problems:

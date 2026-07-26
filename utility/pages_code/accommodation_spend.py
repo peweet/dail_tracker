@@ -119,7 +119,7 @@ def _caveat(text_html: str) -> None:
     never-causal and coverage disclaimers so they are visible but not editorialising."""
     st.html(
         '<div style="border-left:3px solid #b9c3c7;background:#f4f6f7;padding:0.6rem 0.85rem;'
-        'margin:0.4rem 0 1rem;border-radius:0 4px 4px 0;font-size:0.86rem;color:#3f5259;'
+        "margin:0.4rem 0 1rem;border-radius:0 4px 4px 0;font-size:0.86rem;color:#3f5259;"
         f'line-height:1.5">{text_html}</div>'
     )
 
@@ -213,10 +213,13 @@ def _render_providers(df) -> None:
             numeric_cols=(1, 2, 3),
         )
     )
-    if not show_all and len(df) > _PROV_LEAD:
-        if st.button(f"Show all {len(df)} providers", key="accom_prov_show_all_btn", type="tertiary"):
-            st.session_state["accom_prov_show_all"] = True
-            st.rerun()
+    if (
+        not show_all
+        and len(df) > _PROV_LEAD
+        and st.button(f"Show all {len(df)} providers", key="accom_prov_show_all_btn", type="tertiary")
+    ):
+        st.session_state["accom_prov_show_all"] = True
+        st.rerun()
 
 
 def _render_money_tab() -> None:
@@ -337,9 +340,7 @@ def _render_where_tab() -> None:
             f"{int(r['ip_applicants']):,}</div>"
             "</div>"
         )
-    st.html(
-        f'<div style="margin:0.3rem 0 0.5rem">{"".join(bars)}</div>'
-    )
+    st.html(f'<div style="margin:0.3rem 0 0.5rem">{"".join(bars)}</div>')
 
     unknown = df[df["ip_per_1000_population"].isna()]
     if not unknown.empty:
@@ -389,7 +390,7 @@ def _render_operators_tab() -> None:
         pct = float(r["pct_not_compliant"])
         chip = (
             f'<span style="display:inline-block;min-width:3.2rem;text-align:center;padding:0.1rem 0.4rem;'
-            f'border-radius:3px;background:{_compliance_colour(pct)};color:#fff;font-size:0.8rem;'
+            f"border-radius:3px;background:{_compliance_colour(pct)};color:#fff;font-size:0.8rem;"
             f'font-variant-numeric:tabular-nums">{pct:.1f}%</span>'
         )
         dcediy = r.get("ip_paid_dcediy_eur")
@@ -429,9 +430,7 @@ def _render_operators_tab() -> None:
         counties = sorted({str(c) for c in comp.data["county"].dropna().tolist()})
         st.space(1)
         evidence_heading("Inspection findings by county")
-        pick = st.segmented_control(
-            "County", counties, key="ipas_county_pick", label_visibility="collapsed"
-        )
+        pick = st.segmented_control("County", counties, key="ipas_county_pick", label_visibility="collapsed")
         if pick:
             _render_county_detail(pick)
 
@@ -480,15 +479,19 @@ def _render_county_detail(county: str) -> None:
     rates = fetch_ipas_property_rates_result(county)
     if rates.ok and not rates.data.empty:
         rr = rates.data
-        st.html('<p class="con-section-note">What a bed cost in the C&amp;AG\'s sampled properties here '
-                "(per person, per night). Direct award means no competitive tender.</p>")
+        st.html(
+            '<p class="con-section-note">What a bed cost in the C&amp;AG\'s sampled properties here '
+            "(per person, per night). Direct award means no competitive tender.</p>"
+        )
         rows = [
             [
                 str(x.get("accommodation_type") or ""),
                 str(x.get("procurement_route") or ""),
-                (f"€{float(x['contracted_rate_eur_per_person_night']):.0f}"
-                 if x.get("rate_known") and pd.notna(x.get("contracted_rate_eur_per_person_night"))
-                 else "not disclosed"),
+                (
+                    f"€{float(x['contracted_rate_eur_per_person_night']):.0f}"
+                    if x.get("rate_known") and pd.notna(x.get("contracted_rate_eur_per_person_night"))
+                    else "not disclosed"
+                ),
             ]
             for _, x in rr.iterrows()
         ]

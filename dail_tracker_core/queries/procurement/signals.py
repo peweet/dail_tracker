@@ -19,6 +19,7 @@ _log = logging.getLogger(__name__)
 
 _run = make_runner("procurement", _log)
 
+
 def epa_compliance_for_supplier(conn: duckdb.DuckDBPyConnection, company_num: int) -> QueryResult:
     """One CRO company's EPA environmental-licence + enforcement record for the dossier panel,
     matched on CRO ``company_num``. Returns the single summary row, or empty if the firm holds no EPA

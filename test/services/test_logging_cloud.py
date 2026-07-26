@@ -276,9 +276,7 @@ def test_quieted_library_still_reports_warnings():
 def test_no_file_handler_is_installed():
     """Containers collect stdout; a file handler would vanish on restart."""
     lc.configure_logging(fmt="json")
-    assert not any(
-        isinstance(h, logging.FileHandler) for h in logging.getLogger().handlers
-    )
+    assert not any(isinstance(h, logging.FileHandler) for h in logging.getLogger().handlers)
 
 
 # ---------------------------------------------------------------------------

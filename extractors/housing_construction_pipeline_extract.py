@@ -18,11 +18,13 @@ Licence: housing.gov.ie open data (PSI re-use).
 Writes : data/gold/parquet/housing_construction_pipeline.parquet
 Run    : python -m extractors.housing_construction_pipeline_extract [--write]
 """
+
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -33,13 +35,11 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from extractors.noac_collection_rates_extract import canonical_la  # house LA normaliser
-from services.parquet_io import save_parquet
+from extractors.noac_collection_rates_extract import canonical_la  # noqa: E402 — after sys.path
+from services.parquet_io import save_parquet  # noqa: E402 — after sys.path
 
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except Exception:
-    pass
 
 _OUT = _ROOT / "data" / "gold" / "parquet" / "housing_construction_pipeline.parquet"
 
@@ -106,19 +106,23 @@ def build() -> pl.DataFrame:
     ).filter(pl.col("local_authority").is_not_null() & (pl.col("local_authority") != ""))
 
     active = ~pl.col("_completed")  # the pipeline = everything not yet completed
-    agg = work.group_by("local_authority").agg(
-        pl.col("_units").filter(active).sum().alias("pipeline_units"),
-        active.sum().alias("pipeline_schemes"),
-        pl.col("_units").filter(pl.col("_on_site")).sum().alias("units_on_site"),
-        pl.col("_on_site").sum().alias("schemes_on_site"),
-        pl.col("_units").filter(pl.col("_completed")).sum().alias("units_completed"),
-    ).sort("pipeline_units", descending=True)
+    agg = (
+        work.group_by("local_authority")
+        .agg(
+            pl.col("_units").filter(active).sum().alias("pipeline_units"),
+            active.sum().alias("pipeline_schemes"),
+            pl.col("_units").filter(pl.col("_on_site")).sum().alias("units_on_site"),
+            pl.col("_on_site").sum().alias("schemes_on_site"),
+            pl.col("_units").filter(pl.col("_completed")).sum().alias("units_completed"),
+        )
+        .sort("pipeline_units", descending=True)
+    )
 
     stamped = agg.with_columns(
         pl.lit(SOURCE_PERIOD).alias("report_period"),
         pl.lit(SOURCE_NAME).alias("source_name"),
         pl.lit(SOURCE_URL).alias("source_url"),
-        pl.lit(datetime.now(timezone.utc).isoformat()).alias("fetched_at"),
+        pl.lit(datetime.now(UTC).isoformat()).alias("fetched_at"),
         pl.lit("ckan_csv").alias("extraction_method"),
         pl.lit("public").alias("privacy_tier"),
         pl.lit(False).alias("value_safe_to_sum"),  # snapshot: recurs quarter to quarter
@@ -133,11 +137,14 @@ def main() -> None:
 
     df = build()
     n_la = df["local_authority"].n_unique()
-    print(f"Built construction pipeline: {df.height} rows, {n_la} LAs, "
-          f"{df['pipeline_units'].sum():,} pipeline units "
-          f"({df['units_on_site'].sum():,} on site), {df['pipeline_schemes'].sum():,} schemes")
-    print(df.select(["local_authority", "pipeline_schemes", "pipeline_units",
-                     "units_on_site", "units_completed"]).head(8))
+    print(
+        f"Built construction pipeline: {df.height} rows, {n_la} LAs, "
+        f"{df['pipeline_units'].sum():,} pipeline units "
+        f"({df['units_on_site'].sum():,} on site), {df['pipeline_schemes'].sum():,} schemes"
+    )
+    print(
+        df.select(["local_authority", "pipeline_schemes", "pipeline_units", "units_on_site", "units_completed"]).head(8)
+    )
     if n_la != EXPECTED_LA_COUNT:
         print(f"  [warn] expected {EXPECTED_LA_COUNT} LAs, got {n_la} — check canonicalisation")
 

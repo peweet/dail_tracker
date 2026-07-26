@@ -20,6 +20,7 @@ _log = logging.getLogger(__name__)
 
 _run = make_runner("procurement", _log)
 
+
 def ted_corpus_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """One-row TED corpus summary for the tab headline + the pan-EU toggle. The sum-safe
     value already EXCLUDES pan-EU outliers (those vast research-framework ceilings are never

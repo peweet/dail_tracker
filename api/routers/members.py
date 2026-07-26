@@ -22,7 +22,13 @@ def list_members(
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
     records, total, truncated = dossiers.list_members(
-        cur, house=house, party=party, constituency=constituency, fuzzy_name=fuzzy_name, skip=page.skip, limit=page.limit
+        cur,
+        house=house,
+        party=party,
+        constituency=constituency,
+        fuzzy_name=fuzzy_name,
+        skip=page.skip,
+        limit=page.limit,
     )
     members = [MemberSummary(**r).model_dump() for r in records]
     return serialize.envelope(members, limit=page.limit, offset=page.skip, total=total, truncated=truncated)

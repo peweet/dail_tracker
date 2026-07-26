@@ -9,8 +9,10 @@ Emits Claude-Code's structured additionalContext (nested + flat for VS Code
 compatibility). Always exits 0 and never raises — a status line must not be able
 to break a session.
 """
+
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import sys
@@ -23,7 +25,10 @@ def _git_branch() -> str:
     try:
         out = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=str(REPO), capture_output=True, text=True, timeout=5,
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         return out.stdout.strip() or "?"
     except Exception:
@@ -88,9 +93,11 @@ def _mcp_note() -> str:
         except Exception:
             return "MCP: .mcp.json UNPARSEABLE — fix it, then /mcp"
         if "${" in raw:
-            return ("MCP: .mcp.json holds an unexpanded ${...} placeholder — Claude Code "
-                    "only expands env vars, so the server CANNOT connect; use relative or "
-                    "absolute paths")
+            return (
+                "MCP: .mcp.json holds an unexpanded ${...} placeholder — Claude Code "
+                "only expands env vars, so the server CANNOT connect; use relative or "
+                "absolute paths"
+            )
         cmd_path = args = None
         for spec in servers.values():
             cmd = str(spec.get("command", ""))
@@ -124,15 +131,29 @@ def _mcp_connect_probe(cmd_path: Path, args: list[str]) -> str:
     JSON-RPC over stdio). ~0.5-2 s; 6 s hard timeout; fails open to a WARN note, never
     an exception — a status line must not break a session."""
     try:
-        init = json.dumps({
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": "2025-06-18", "capabilities": {},
-                       "clientInfo": {"name": "session-context-probe", "version": "0"}},
-        }) + "\n"
+        init = (
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2025-06-18",
+                        "capabilities": {},
+                        "clientInfo": {"name": "session-context-probe", "version": "0"},
+                    },
+                }
+            )
+            + "\n"
+        )
         proc = subprocess.Popen(
-            [str(cmd_path), *args], cwd=str(REPO),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            text=True, encoding="utf-8",
+            [str(cmd_path), *args],
+            cwd=str(REPO),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
         )
         try:
             out, _ = proc.communicate(input=init, timeout=6)
@@ -166,9 +187,11 @@ def _adoption_tripwire() -> str:
                 rows.append(o)
         last = rows[-3:]
         if len(last) == 3 and all(not r.get("mcp") for r in last):
-            return ("adoption tripwire: last 3 substantive sessions logged 0 MCP calls — "
-                    "the server connects now; route data questions via describe_dataset/"
-                    "search_project")
+            return (
+                "adoption tripwire: last 3 substantive sessions logged 0 MCP calls — "
+                "the server connects now; route data questions via describe_dataset/"
+                "search_project"
+            )
         return ""
     except Exception:
         return ""
@@ -239,8 +262,10 @@ def _mcp_adoption_note(current_id: str = "") -> str:
                 continue  # skip a just-started session (near-zero turns)
             nav, mcp, raw = r["steer"], r["mcp_total"], r["raw_total"]
             if raw >= 20 and nav == 0 and mcp == 0:
-                return (f"steering: last session {raw} Read/Grep/Glob, 0 MCP — for data "
-                        "shape/where-does-X-live, try describe_dataset/search_project first")
+                return (
+                    f"steering: last session {raw} Read/Grep/Glob, 0 MCP — for data "
+                    "shape/where-does-X-live, try describe_dataset/search_project first"
+                )
             if mcp or nav:
                 return f"steering: last session {mcp} MCP call(s) ({nav} navigation), {raw} raw reads"
             return ""  # low-activity session, nothing worth surfacing
@@ -258,15 +283,15 @@ def _style_digest_note() -> str:
         if not log.exists():
             return ""
         import time
+
         now = time.time()
         last = 0.0
-        try:
+        with contextlib.suppress(Exception):
             last = float(json.loads(state.read_text(encoding="utf-8")).get("last", 0))
-        except Exception:
-            pass
         if now - last < 7 * 86400:
             return ""
         from collections import Counter
+
         kinds: Counter[str] = Counter()
         rows = 0
         for line in log.read_text(encoding="utf-8").splitlines():
@@ -318,13 +343,24 @@ def _current_session_id() -> str:
 def main() -> int:
     current_id = _current_session_id()
     parts = [f"branch: {_git_branch()}"]
-    for note in (_doc_index_note(), _heartbeat_note(), _mcp_note(), _discoveries_note(),
-                 _mcp_adoption_note(current_id), _adoption_tripwire(), _style_digest_note()):
+    for note in (
+        _doc_index_note(),
+        _heartbeat_note(),
+        _mcp_note(),
+        _discoveries_note(),
+        _mcp_adoption_note(current_id),
+        _adoption_tripwire(),
+        _style_digest_note(),
+    ):
         if note:
             parts.append(note)
-    ctx = "Project status — " + " · ".join(parts) + (
-        ". Data lives behind the dail-tracker MCP (describe_dataset / list_datasets / "
-        "search_project) — don't scan parquet."
+    ctx = (
+        "Project status — "
+        + " · ".join(parts)
+        + (
+            ". Data lives behind the dail-tracker MCP (describe_dataset / list_datasets / "
+            "search_project) — don't scan parquet."
+        )
     )
     out = {
         "additionalContext": ctx,

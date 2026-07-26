@@ -177,9 +177,7 @@ def _section_switcher() -> str:
         st.session_state["pp_section"] = "Browse the register"
     if _PP_SECTIONS.get(st.session_state["pp_section"]) == "browse":
         return "browse"
-    choice = st.segmented_control(
-        "Section", list(_PP_SECTIONS), key="pp_section", label_visibility="collapsed"
-    )
+    choice = st.segmented_control("Section", list(_PP_SECTIONS), key="pp_section", label_visibility="collapsed")
     return _PP_SECTIONS.get(choice or "Browse the register", "browse")
 
 
@@ -307,12 +305,13 @@ def _render_publishers() -> None:
             )
         )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
-    if not show_all and len(ranked) > _LEAD:
-        if st.button(
-            f"Show all {len(ranked)} public bodies", key="pp_pub_show_all_btn", type="tertiary"
-        ):
-            st.session_state["pp_pub_show_all"] = True
-            st.rerun()
+    if (
+        not show_all
+        and len(ranked) > _LEAD
+        and st.button(f"Show all {len(ranked)} public bodies", key="pp_pub_show_all_btn", type="tertiary")
+    ):
+        st.session_state["pp_pub_show_all"] = True
+        st.rerun()
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ this is an early nudge, not a gate.
 Cross-tool: self-filters on the edited path (VS Code ignores matchers); reads the
 path under several key spellings; always exits 0.
 """
+
 from __future__ import annotations
 
 import json
@@ -51,7 +52,10 @@ def main() -> int:
     try:
         res = subprocess.run(
             [sys.executable, str(CHECKER), path],
-            cwd=str(REPO), capture_output=True, text=True, timeout=25,
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            timeout=25,
         )
     except Exception:
         return 0

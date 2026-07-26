@@ -186,5 +186,7 @@ def test_runtime_guard_passes_on_real_gold(tmp_path):
     path = GOLD_PARQUET_DIR / "procurement_awards.parquet"
     if not path.exists():
         pytest.skip(f"{path} not found — run the procurement pipeline first")
-    report = guard_award_fact(pl.read_parquet(path), name="procurement_awards_anchor", hard=True, quarantine_dir=tmp_path)
+    report = guard_award_fact(
+        pl.read_parquet(path), name="procurement_awards_anchor", hard=True, quarantine_dir=tmp_path
+    )
     assert report.ok

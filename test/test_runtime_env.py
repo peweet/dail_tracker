@@ -10,6 +10,7 @@ These tests fail if the cap stops being applied, or if an entry point grows an i
 drags numpy in *before* the cap runs (at which point the setting is silently a no-op —
 the failure mode that makes this worth a test rather than a comment).
 """
+
 from __future__ import annotations
 
 import json
@@ -54,7 +55,11 @@ def test_cap_applies_in_a_fresh_process():
         " 'numpy' in sys.modules)"
     )
     out = subprocess.run(
-        [sys.executable, "-c", code], cwd=str(REPO), capture_output=True, text=True, timeout=120,
+        [sys.executable, "-c", code],
+        cwd=str(REPO),
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     assert out.returncode == 0, out.stderr
     threads, in_time, numpy_loaded = out.stdout.split()
@@ -108,7 +113,10 @@ print(int(private_mb() - baseline))
 """
     capped = subprocess.run(
         [sys.executable, "-c", "import services.runtime_env\n" + probe],
-        cwd=str(REPO), capture_output=True, text=True, timeout=300,
+        cwd=str(REPO),
+        capture_output=True,
+        text=True,
+        timeout=300,
     )
     assert capped.returncode == 0, capped.stderr
     cost_mb = int(capped.stdout.strip().splitlines()[-1])
@@ -136,9 +144,7 @@ def test_entry_point_imports_runtime_env_before_anything_heavy(relpath, later_im
 def test_config_pins_thread_cap(relpath, expected):
     """Claude-spawned processes get the cap from env, not from an import."""
     cfg = json.loads((REPO / relpath).read_text(encoding="utf-8"))
-    env = (
-        cfg["mcpServers"]["dail-tracker"]["env"] if relpath == ".mcp.json" else cfg["env"]
-    )
+    env = cfg["mcpServers"]["dail-tracker"]["env"] if relpath == ".mcp.json" else cfg["env"]
     assert env.get("OPENBLAS_NUM_THREADS") == expected
     assert env.get("OMP_NUM_THREADS") == expected
 
@@ -148,17 +154,26 @@ def test_memory_guard_blocks_heavy_command_under_the_floor(monkeypatch):
     sys.path.insert(0, str(REPO / "tools" / "hooks"))
     import guard_memory  # type: ignore
 
-    monkeypatch.setattr(guard_memory, "sample_memory", lambda: {
-        "free_mb": 200, "total_mb": 16000, "load_pct": 98,
-        "commit_free_mb": 1000, "commit_total_mb": 46000,
-    })
+    monkeypatch.setattr(
+        guard_memory,
+        "sample_memory",
+        lambda: {
+            "free_mb": 200,
+            "total_mb": 16000,
+            "load_pct": 98,
+            "commit_free_mb": 1000,
+            "commit_total_mb": 46000,
+        },
+    )
     monkeypatch.setattr(guard_memory, "record", lambda entry: None)
     monkeypatch.delenv("DAIL_SKIP_MEM_GUARD", raising=False)
     monkeypatch.setattr(
         "sys.stdin",
-        type("S", (), {"read": staticmethod(lambda: json.dumps(
-            {"tool_input": {"command": "python -m pytest test/siting -q"}}
-        ))})(),
+        type(
+            "S",
+            (),
+            {"read": staticmethod(lambda: json.dumps({"tool_input": {"command": "python -m pytest test/siting -q"}}))},
+        )(),
     )
     assert guard_memory.main() == 2, "heavy command was allowed with 200 MB free"
 
@@ -171,8 +186,6 @@ def test_memory_guard_allows_ordinary_commands(monkeypatch):
     monkeypatch.setattr(guard_memory, "record", lambda entry: None)
     monkeypatch.setattr(
         "sys.stdin",
-        type("S", (), {"read": staticmethod(lambda: json.dumps(
-            {"tool_input": {"command": "git status"}}
-        ))})(),
+        type("S", (), {"read": staticmethod(lambda: json.dumps({"tool_input": {"command": "git status"}}))})(),
     )
     assert guard_memory.main() == 0, "an ordinary command must never be blocked"

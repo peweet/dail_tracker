@@ -85,11 +85,37 @@ DIV_CANON: list[tuple[str, str]] = [
 # The 31 canonical council names (must match la_afs_divisions / crosswalk spelling exactly —
 # plain-ASCII DLR, no 'County Council' suffixes).
 CANON_31 = {
-    "Carlow", "Cavan", "Clare", "Cork City", "Cork County", "Donegal", "Dublin City",
-    "Dun Laoghaire-Rathdown", "Fingal", "Galway City", "Galway County", "Kerry", "Kildare",
-    "Kilkenny", "Laois", "Leitrim", "Limerick", "Longford", "Louth", "Mayo", "Meath",
-    "Monaghan", "Offaly", "Roscommon", "Sligo", "South Dublin", "Tipperary", "Waterford",
-    "Westmeath", "Wexford", "Wicklow",
+    "Carlow",
+    "Cavan",
+    "Clare",
+    "Cork City",
+    "Cork County",
+    "Donegal",
+    "Dublin City",
+    "Dun Laoghaire-Rathdown",
+    "Fingal",
+    "Galway City",
+    "Galway County",
+    "Kerry",
+    "Kildare",
+    "Kilkenny",
+    "Laois",
+    "Leitrim",
+    "Limerick",
+    "Longford",
+    "Louth",
+    "Mayo",
+    "Meath",
+    "Monaghan",
+    "Offaly",
+    "Roscommon",
+    "Sligo",
+    "South Dublin",
+    "Tipperary",
+    "Waterford",
+    "Westmeath",
+    "Wexford",
+    "Wicklow",
 }
 
 NUM_RE = re.compile(r"^\(?-?\d[\d,]*\)?$")
@@ -119,7 +145,7 @@ def canon_council(name: str) -> str | None:
     for canon in _CANON_LOOKUP:
         cl = canon.lower().replace("-", " ")
         if low == cl or low.startswith(cl + " "):
-            rest = low[len(cl):].replace(".", " ").split()
+            rest = low[len(cl) :].replace(".", " ").split()
             if all(t in _SUFFIX_JUNK for t in rest):
                 return canon
     return None
@@ -146,7 +172,9 @@ def fetch(url: str, dest: Path) -> Path | None:
         with contextlib.suppress(Exception):
             p = subprocess.run(
                 ["curl", "-sS", "-k", "-L", "--max-time", "120", "-A", UA, url],
-                capture_output=True, timeout=150, check=False,
+                capture_output=True,
+                timeout=150,
+                check=False,
             )
             body = p.stdout
     if body[:4] != b"%PDF":
@@ -355,11 +383,7 @@ def parse_year(pdf: Path, year: int, url: str) -> tuple[list[dict], dict]:
         if (c, d) not in final and d not in div_total_ok and d not in subs_failed:
             final[(c, d)] = (exp, inc)
     # advisory: where BOTH exist and accumulation is complete, the two should agree
-    xchk = [
-        abs(acc[k][0] - div_total[k][0])
-        for k in div_total
-        if k in acc and k[1] not in subs_failed
-    ]
+    xchk = [abs(acc[k][0] - div_total[k][0]) for k in div_total if k in acc and k[1] not in subs_failed]
     stat["subservice_vs_total_max_delta_eur"] = round(max(xchk), 2) if xchk else None
     stat["divisions_failed"] = sorted(seen_divs - {d for _c, d in final})
     rows = [

@@ -35,7 +35,16 @@ pytestmark = pytest.mark.skipif(not all(f.exists() for f in FACTS), reason="coun
 
 # The 8 councils whose payment rows were orphaned by the long-name spelling before 2026-07-14.
 # All must now show a paying lane AND their audited-accounts lanes.
-FORMERLY_ORPHANED = ["Carlow", "Cavan", "Dublin City", "Dun Laoghaire-Rathdown", "Kerry", "Louth", "Roscommon", "Tipperary"]
+FORMERLY_ORPHANED = [
+    "Carlow",
+    "Cavan",
+    "Dublin City",
+    "Dun Laoghaire-Rathdown",
+    "Kerry",
+    "Louth",
+    "Roscommon",
+    "Tipperary",
+]
 
 
 @pytest.fixture(scope="module")

@@ -88,9 +88,7 @@ def _outline_tree(tree: ast.Module) -> list[dict]:
             entry: dict = {"kind": "class", "name": node.name, "span": f"{node.lineno}-{node.end_lineno}"}
             if doc := _doc1(node):
                 entry["doc"] = doc
-            methods = [
-                _def_entry(n) for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-            ]
+            methods = [_def_entry(n) for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
             if methods:
                 entry["methods"] = methods
             out.append(entry)
@@ -150,9 +148,7 @@ def outline(repo: Path, path: str, limit: int = 200) -> dict:
             if doc := _doc1(tree):
                 m["doc"] = doc
             modules.append(m)
-        subpackages = sorted(
-            d.name for d in target.iterdir() if d.is_dir() and (d / "__init__.py").exists()
-        )
+        subpackages = sorted(d.name for d in target.iterdir() if d.is_dir() and (d / "__init__.py").exists())
         out = {"path": path, "modules": modules, "subpackages": subpackages}
         if len(files) > 80:
             out["truncated"] = f"{len(files) - 80} more files — outline them directly"

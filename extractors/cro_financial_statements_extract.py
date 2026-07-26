@@ -182,8 +182,7 @@ def _coverage(df: pl.DataFrame, resources: list[dict], bronze_rows: dict[int, in
     return {
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "source": f"{CKAN_BASE}/dataset/{PACKAGE_ID}",
-        "note": "CRO financial-statements FILING INDEX (metadata only; PDFs paywalled). "
-        "See doc/SOURCES.md.",
+        "note": "CRO financial-statements FILING INDEX (metadata only; PDFs paywalled). See doc/SOURCES.md.",
         "resources": [
             {"year": r["year"], "last_modified": r["last_modified"], "bronze_rows": bronze_rows.get(r["year"])}
             for r in resources

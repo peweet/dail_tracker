@@ -67,14 +67,16 @@ def parse(src: Path) -> pl.DataFrame:
     # the header row must carry year columns — the sheet's TITLE row also starts with
     # "Local Authority", which is exactly how the first parse matched the wrong row
     header_i = next(
-        i for i, r in enumerate(rows)
-        if r and str(r[0] or "").strip().lower().startswith("local authority")
+        i
+        for i, r in enumerate(rows)
+        if r
+        and str(r[0] or "").strip().lower().startswith("local authority")
         and any(str(c or "").strip().isdigit() for c in r[1:])
     )
     header = rows[header_i]
     years = [(j, int(c)) for j, c in enumerate(header[1:], start=1) if str(c or "").strip().isdigit()]
     out: list[dict] = []
-    for r in rows[header_i + 1:]:
+    for r in rows[header_i + 1 :]:
         la = str(r[0] or "").strip()
         # footnote/blank rows end the table; a real LA row always prices at least one year
         if not la or la.lower().startswith(("note", "*", "source")):
@@ -92,8 +94,9 @@ def parse(src: Path) -> pl.DataFrame:
             # bases apply to DIFFERENT NAV scales and must never be plotted as one series —
             # flagged per row so the UI can split them.
             out.append({"la": la, "year": year, "arv": f, "pre_revaluation_basis": f > 10})
-    df = pl.DataFrame(out, schema={"la": pl.Utf8, "year": pl.Int32, "arv": pl.Float64,
-                                   "pre_revaluation_basis": pl.Boolean})
+    df = pl.DataFrame(
+        out, schema={"la": pl.Utf8, "year": pl.Int32, "arv": pl.Float64, "pre_revaluation_basis": pl.Boolean}
+    )
     n_las = df["la"].n_unique()
     if n_las < _ROW_FLOOR:
         raise SystemExit(f"only {n_las} local authorities parsed (< {_ROW_FLOOR}) — layout changed?")

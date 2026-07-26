@@ -231,7 +231,9 @@ def fetch_all(urls: list[str], max_workers: int = 5) -> tuple[list[dict], int, i
 # it identifies the project. browser=True is the escape hatch for WAFs that
 # block anything non-browser (Sligo) — prefer the honest UA where it works.
 RESEARCH_UA = "Mozilla/5.0 (dail-tracker research; contact: p.glynn18@gmail.com)"
-BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+)
 
 # some publishers emit hrefs with raw spaces — requests/curl reject them as malformed;
 # '%' stays in the safe set so already-encoded hrefs don't double-encode.

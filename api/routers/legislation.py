@@ -22,7 +22,13 @@ def list_bills(
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
     records, total, truncated = dossiers.list_bills(
-        cur, status=status, title_search=title_search, start_date=start_date, end_date=end_date, skip=page.skip, limit=page.limit
+        cur,
+        status=status,
+        title_search=title_search,
+        start_date=start_date,
+        end_date=end_date,
+        skip=page.skip,
+        limit=page.limit,
     )
     return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 

@@ -205,10 +205,13 @@ def _render_absences(df: pd.DataFrame, *, chamber: str) -> None:
     show_all = st.session_state.get("part_absence_show_all", False)
     view = df if show_all else df.head(_ABSENCE_LEAD)
     st.html("\n".join(_absence_row(r) for _, r in view.iterrows()))
-    if not show_all and len(df) > _ABSENCE_LEAD:
-        if st.button(f"Show all {len(df)} members with a stretch", key="part_absence_show_all_btn", type="tertiary"):
-            st.session_state["part_absence_show_all"] = True
-            st.rerun()
+    if (
+        not show_all
+        and len(df) > _ABSENCE_LEAD
+        and st.button(f"Show all {len(df)} members with a stretch", key="part_absence_show_all_btn", type="tertiary")
+    ):
+        st.session_state["part_absence_show_all"] = True
+        st.rerun()
     export_button(
         df[["member_name", "party_name", "longest_run_sitting_days", "run_calendar_days", "run_start", "run_end"]],
         label=f"Export absences · {len(df)} members",

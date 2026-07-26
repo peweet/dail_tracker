@@ -118,9 +118,7 @@ PSA_PAYMENT_KINDS = {"TAA", "PSA_DUBLIN", "PRA", "PRA_MIN", "PRA_FLAG_ONLY"}
 def test_psa_payments_kind_vocab_and_amount_window(conn, table):
     r = _rel(table)
     inv.in_vocab(conn, r, "payment_kind", PSA_PAYMENT_KINDS)
-    bad = conn.execute(
-        f"SELECT count(*) FROM {r} WHERE amount IS NULL OR amount <= 0 OR amount > 100000"
-    ).fetchone()[0]
+    bad = conn.execute(f"SELECT count(*) FROM {r} WHERE amount IS NULL OR amount <= 0 OR amount > 100000").fetchone()[0]
     assert bad == 0, f"{table}: {bad} rows outside the ETL's own (0, 100k] validity window"
     inv.no_sentinels(conn, r, "member_name")
 
@@ -177,6 +175,7 @@ def test_ipas_legacy_spend_money_and_stream(conn):
 # the table, inflating downstream counts/money. The uniqueness assertions ARE the contract.
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
+
 # ── procurement_supplier_cro_match — the supplier→CRO bridge (read by 3+ procurement views)
 # supplier_norm is the join key those views use; a duplicate would fan out every supplier row.
 def test_supplier_cro_match_key_unique_and_vocab(conn):
@@ -195,7 +194,9 @@ def test_supplier_cro_match_method_consistent_with_company_num(conn):
     # 'exact_unique' must carry one. A break here means a supplier joins to the wrong CRO
     # entity (or a real match is dropped) — the failure mode this bridge exists to prevent.
     r = _rel("procurement_supplier_cro_match")
-    leaked = conn.execute(f"SELECT count(*) FROM {r} WHERE match_method='no_match' AND company_num IS NOT NULL").fetchone()[0]
+    leaked = conn.execute(
+        f"SELECT count(*) FROM {r} WHERE match_method='no_match' AND company_num IS NOT NULL"
+    ).fetchone()[0]
     assert leaked == 0, f"{leaked} 'no_match' rows carry a company_num"
     missing = conn.execute(
         f"SELECT count(*) FROM {r} WHERE match_method='exact_unique' AND company_num IS NULL"
@@ -220,9 +221,7 @@ def test_attendance_by_td_year_grain_and_daycounts(conn):
 # (vote_id, member) is the grain; a duplicate would double-count a TD's vote in every turnout.
 def test_vote_history_grain_and_vocab(conn):
     r = _rel("current_dail_vote_history")
-    n, d = conn.execute(
-        f"SELECT count(*), count(DISTINCT (vote_id || '|' || unique_member_code)) FROM {r}"
-    ).fetchone()
+    n, d = conn.execute(f"SELECT count(*), count(DISTINCT (vote_id || '|' || unique_member_code)) FROM {r}").fetchone()
     assert n == d, f"current_dail_vote_history: (vote_id, member) not unique ({n} rows, {d} distinct)"
     inv.in_vocab(conn, r, "vote_type", {"Voted Yes", "Voted No", "Abstained"})
     inv.in_vocab(conn, r, "vote_outcome", {"Carried", "Lost", "_"})
@@ -235,15 +234,26 @@ def test_vote_history_grain_and_vocab(conn):
 def test_cro_xref_notice_vocab(conn):
     r = _rel("cro_xref_corporate_notices")
     inv.in_vocab(
-        conn, r, "notice_category",
+        conn,
+        r,
+        "notice_category",
         {"corporate_insolvency", "corporate_notice", "corporate_rescue", "investment_vehicle_register_notice"},
     )
     inv.in_vocab(conn, r, "status_pill_value", {"active", "dead", "in_distress", "other"})
     inv.in_vocab(
-        conn, r, "notice_subtype",
+        conn,
+        r,
+        "notice_subtype",
         {
-            "companies_act_notice", "court_winding_up", "creditors_voluntary_liquidation", "examinership",
-            "icav_voluntary_strike_off", "liquidation_unspecified", "members_voluntary_liquidation",
-            "receivership", "scarp_process_adviser", "voluntary_liquidation_unspecified",
+            "companies_act_notice",
+            "court_winding_up",
+            "creditors_voluntary_liquidation",
+            "examinership",
+            "icav_voluntary_strike_off",
+            "liquidation_unspecified",
+            "members_voluntary_liquidation",
+            "receivership",
+            "scarp_process_adviser",
+            "voluntary_liquidation_unspecified",
         },
     )

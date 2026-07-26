@@ -211,11 +211,13 @@ def _render_construction_pipeline() -> None:
     head = df.iloc[0]
     period = str(head.get("report_period") or "")
     st.html('<h3 class="hou-dim-title hou-chart-label">Where social homes are being built</h3>')
-    totals_strip([
-        (_int(head.get("national_pipeline_units")), f"homes in the pipeline ({period})"),
-        (_int(head.get("national_units_on_site")), "on site now"),
-        (_int(head.get("national_pipeline_schemes")), "active schemes"),
-    ])
+    totals_strip(
+        [
+            (_int(head.get("national_pipeline_units")), f"homes in the pipeline ({period})"),
+            (_int(head.get("national_units_on_site")), "on site now"),
+            (_int(head.get("national_pipeline_schemes")), "active schemes"),
+        ]
+    )
     rows_html = [
         [
             _h(str(r["local_authority"])),

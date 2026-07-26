@@ -4,6 +4,7 @@ Exercises the real stdin/exit-code contract via subprocess rather than importing
 because that contract -- exit 2 blocks, exit 0 allows, stdout carries advisory JSON -- is
 what Claude Code and VS Code actually consume.
 """
+
 from __future__ import annotations
 
 import json
@@ -38,6 +39,7 @@ PAD = " Some additional sentence so the message clears the length floor."
 
 # --- the blocking case ----------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "figure",
     ["€1.08bn", "€251m", "4,958", "1,083", "91%", "35.9 %", "$250,000"],
@@ -49,13 +51,14 @@ def test_blocks_unprovenanced_figure(figure):
 
 
 def test_block_reason_names_the_discharges():
-    r = run("Spending reached €1.08bn last year.{}".format(PAD))
+    r = run(f"Spending reached €1.08bn last year.{PAD}")
     assert r.returncode == 2
     for expected in ("citation", "band tag", "unverified"):
         assert expected in r.stderr
 
 
 # --- discharges -----------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "para",
@@ -134,8 +137,7 @@ def _my_log_rows(session_id: str) -> list[dict]:
 
 def test_jargon_logs_silently_and_never_blocks():
     sid = "jarg" + uuid.uuid4().hex
-    r = run("This surfaces the tension here is worth noting and we should utilize it." + PAD,
-            session_id=sid)
+    r = run("This surfaces the tension here is worth noting and we should utilize it." + PAD, session_id=sid)
     assert r.returncode == 0
     assert r.stdout.strip() == "", "demoted: no per-reply advisory on stdout"
     rows = _my_log_rows(sid)
@@ -167,6 +169,7 @@ def test_logged_warnings_are_capped():
 
 # --- loop guard and fail-open --------------------------------------------
 
+
 def test_blocks_at_most_once_per_turn():
     sid = "loopguard-" + uuid.uuid4().hex
     msg = "Spending reached €1.08bn last year." + PAD
@@ -185,7 +188,12 @@ def test_fails_open_on_bad_input(bad):
     env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
     r = subprocess.run(
         [sys.executable, str(HOOK)],
-        input=bad, capture_output=True, text=True, encoding="utf-8", env=env, timeout=30,
+        input=bad,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+        timeout=30,
     )
     assert r.returncode == 0
 
@@ -204,9 +212,7 @@ def test_currency_survives_a_non_utf8_console():
             "session_id": "utf8-" + uuid.uuid4().hex,
         }
     ).encode("utf-8")
-    r = subprocess.run(
-        [sys.executable, str(HOOK)], input=payload, capture_output=True, env=env, timeout=30
-    )
+    r = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, env=env, timeout=30)
     assert r.returncode == 2, r.stderr.decode("utf-8", "replace")
 
 

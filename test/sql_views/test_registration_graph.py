@@ -83,11 +83,7 @@ def _matches(filename: str, pattern: str) -> bool:
 
 def test_every_view_file_is_reachable():
     pats = set(_all_production_patterns())
-    orphans = [
-        f.relative_to(SQL_VIEWS_DIR).as_posix()
-        for f in _files()
-        if not any(_matches(f.name, p) for p in pats)
-    ]
+    orphans = [f.relative_to(SQL_VIEWS_DIR).as_posix() for f in _files() if not any(_matches(f.name, p) for p in pats)]
     assert not orphans, (
         "sql_views files matched by NO production registration pattern — they will "
         f"silently never load (swallow_errors hides it): {orphans}. Either name the "
@@ -108,8 +104,7 @@ def test_same_directory_order_holds():
         bad_globs = [p for p in glob_pats if _matches(consumer_file, p)]
         # (b) an explicit ordered list must carry dep before consumer
         ordered_ok = any(
-            dep_file in lst and consumer_file in lst and lst.index(dep_file) < lst.index(consumer_file)
-            for lst in lists
+            dep_file in lst and consumer_file in lst and lst.index(dep_file) < lst.index(consumer_file) for lst in lists
         )
         if bad_globs or not ordered_ok:
             failures.append({**risk, "matched_by_globs": bad_globs, "explicit_list_ok": ordered_ok})
@@ -141,9 +136,7 @@ def test_cross_directory_edges_satisfied_by_api_order():
                 continue  # same-dir edges covered above
             ci, di = first_unit.get(cf), first_unit.get(df)
             if ci is None or di is None or di > ci:
-                failures.append(
-                    {"view": name, "consumer_unit": ci, "needs": dep, "dep_unit": di, "files": (cf, df)}
-                )
+                failures.append({"view": name, "consumer_unit": ci, "needs": dep, "dep_unit": di, "files": (cf, df)})
     assert not failures, (
         "Cross-directory dependency registers AFTER its consumer in the api_conn unit "
         f"sequence (or never): {failures}. Reorder the units in connections.api_conn / "
@@ -155,10 +148,21 @@ def test_api_glob_derivation_covers_old_hand_list():
     """The DOMAIN_REGISTRATIONS-derived API glob list must register AT LEAST every
     file the pre-derivation hand list did (parity floor; additions are fine)."""
     old = [
-        "legislation_*.sql", "lobbying_*.sql", "charity_*.sql", "payments_*.sql",
-        "committees_*.sql", "procurement_*.sql", "member_interests_*.sql",
-        "member_zz_interests_*.sql", "vote_*.sql", "speech_*.sql", "sipo_*.sql",
-        "judiciary_*.sql", "appointments_*.sql", "ministerial_diary_*.sql", "corporate_*.sql",
+        "legislation_*.sql",
+        "lobbying_*.sql",
+        "charity_*.sql",
+        "payments_*.sql",
+        "committees_*.sql",
+        "procurement_*.sql",
+        "member_interests_*.sql",
+        "member_zz_interests_*.sql",
+        "vote_*.sql",
+        "speech_*.sql",
+        "sipo_*.sql",
+        "judiciary_*.sql",
+        "appointments_*.sql",
+        "ministerial_diary_*.sql",
+        "corporate_*.sql",
     ]
     new = C._api_domain_globs()
     files = _files()

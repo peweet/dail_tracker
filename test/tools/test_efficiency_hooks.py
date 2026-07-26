@@ -34,6 +34,7 @@ def _run(mod, payload: dict, monkeypatch) -> int:
 
 # ── flood_warn ───────────────────────────────────────────────────────────────
 
+
 def test_flood_warn_quiet_result_is_silent(monkeypatch, capsys):
     fw = _load("flood_warn")
     rc = _run(fw, {"tool_name": "Bash", "session_id": uuid.uuid4().hex, "tool_response": {"stdout": "ok"}}, monkeypatch)
@@ -63,6 +64,7 @@ def test_flood_warn_fails_open_on_garbage(monkeypatch, capsys):
 
 # ── guard_data_reads (64 KB whole-file threshold) ────────────────────────────
 
+
 def test_guard_blocks_unbounded_read_over_64k(tmp_path, monkeypatch, capsys):
     g = _load("guard_data_reads")
     big = tmp_path / "big_module.py"
@@ -88,6 +90,7 @@ def test_guard_still_blocks_parquet_even_bounded(monkeypatch, capsys):
 
 
 # ── session_token_ledger ─────────────────────────────────────────────────────
+
 
 def _transcript_line(**usage) -> str:
     return json.dumps({"type": "assistant", "message": {"usage": usage, "content": []}})

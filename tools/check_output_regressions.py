@@ -54,7 +54,10 @@ def tracked_names(gold_dir: Path = GOLD_PARQUET_DIR) -> set[str] | None:
     try:
         out = subprocess.run(
             ["git", "ls-files", "--", str(gold_dir)],
-            cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=60,
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -153,7 +156,9 @@ def main(argv: list[str] | None = None) -> int:
         untracked = sorted(set(baseline) - tracked)
         if untracked:
             # Never silent: a dropped output is a real reduction in what the gate covers.
-            print(f"output regression guard: skipping {len(untracked)} baselined but untracked output(s): {', '.join(untracked)}")
+            print(
+                f"output regression guard: skipping {len(untracked)} baselined but untracked output(s): {', '.join(untracked)}"
+            )
             baseline = {k: v for k, v in baseline.items() if k in tracked}
     if not baseline:
         print(

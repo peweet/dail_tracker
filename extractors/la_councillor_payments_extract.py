@@ -65,7 +65,11 @@ CATEGORY_RULES: list[tuple[str, str, str]] = [
     ("subistence", "travel_subsistence", "EUR"),  # DCC's own spelling
     ("subsistence", "travel_subsistence", "EUR"),
     ("petty cash", "petty_cash", "EUR"),
-    ("adjustment", "prior_year_adjustment", "EUR"),  # 'Vouched Expenses 2023 Adjustments' must not collide with vouched_expenses
+    (
+        "adjustment",
+        "prior_year_adjustment",
+        "EUR",
+    ),  # 'Vouched Expenses 2023 Adjustments' must not collide with vouched_expenses
     ("vouched expenses", "vouched_expenses", "EUR"),
     ("training", "training", "EUR"),
     ("conference", "conferences", "EUR"),
@@ -168,9 +172,7 @@ def ingest_sdcc(rows_out: list[dict], cov: list[dict]) -> None:
                             "source_url": url,
                         }
                     )
-        cov.append(
-            {"source": pkg, "status": "ok", "rows": len(rows_out) - n0, "unknown_categories": sorted(unknown)}
-        )
+        cov.append({"source": pkg, "status": "ok", "rows": len(rows_out) - n0, "unknown_categories": sorted(unknown)})
 
 
 def ingest_dcc(rows_out: list[dict], cov: list[dict]) -> None:
@@ -212,8 +214,12 @@ def ingest_dcc(rows_out: list[dict], cov: list[dict]) -> None:
                     }
                 )
         cov.append(
-            {"source": f"{DCC_PACKAGE}:{name}", "status": "ok", "rows": len(rows_out) - n0,
-             "unknown_categories": sorted(unknown)}
+            {
+                "source": f"{DCC_PACKAGE}:{name}",
+                "status": "ok",
+                "rows": len(rows_out) - n0,
+                "unknown_categories": sorted(unknown),
+            }
         )
 
 

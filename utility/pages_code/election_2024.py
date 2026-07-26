@@ -334,6 +334,7 @@ def _render_overview() -> None:
         "agent": _safe_max(pf["agent_spend_eur"]),
         "cand": _safe_max(pf["candidate_spend_eur"]),
     }
+
     # Partition off parties with NO return in any stream (2026-07-21 clutter
     # pass): they rendered as full-size cards showing three "—" bars — zero
     # information taking a card each and padding the grid. A party with even one

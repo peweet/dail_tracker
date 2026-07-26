@@ -41,7 +41,7 @@ def _statements(text: str) -> list[tuple[str, str, int]]:
     matches = list(_HEADER.finditer(text))
     for i, m in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        body = text[m.end():end].strip().rstrip(";").strip()
+        body = text[m.end() : end].strip().rstrip(";").strip()
         out.append((m.group(1), body, text[: m.start()].count("\n") + 1))
     return out
 
@@ -228,7 +228,8 @@ def _column_refs(body: str, source: str, column: str) -> dict | None:
             outputs.add(c.name)
     star = any(
         (s.args.get("table") or "").lower() in aliases if hasattr(s, "args") else False
-        for s in tree.find_all(exp.Column) if isinstance(s.this, exp.Star)
+        for s in tree.find_all(exp.Column)
+        if isinstance(s.this, exp.Star)
     ) or any(isinstance(e, exp.Star) for sel in tree.find_all(exp.Select) for e in sel.expressions)
     if star:
         outputs.add(column)
@@ -277,8 +278,7 @@ def column_deps(repo: Path, view: str, column: str) -> dict:
     bodies = _view_bodies(repo)
     exposed = _output_columns(bodies.get(view, ""))
     if exposed is not None and column.lower() not in exposed:
-        return {"error": f"{view} does not expose a column named '{column}'",
-                "exposes": sorted(exposed)[:40]}
+        return {"error": f"{view} does not expose a column named '{column}'", "exposes": sorted(exposed)[:40]}
     affected: list[dict] = []
     seen: set[tuple[str, str]] = set()
     frontier: list[tuple[str, str]] = [(view, column)]
@@ -295,19 +295,35 @@ def column_deps(repo: Path, view: str, column: str) -> dict:
             if res is None:  # sqlglot parse failed — flagged pattern-match fallback
                 hit = bool(re.search(r"\b" + re.escape(col) + r"\b", body, re.I))
                 if hit:
-                    affected.append({"view": dep_name, "file": meta["file"], "via": f"{src}.{col}",
-                                     "mode": "regex", "note": "pattern match only — verify by reading the view"})
+                    affected.append(
+                        {
+                            "view": dep_name,
+                            "file": meta["file"],
+                            "via": f"{src}.{col}",
+                            "mode": "regex",
+                            "note": "pattern match only — verify by reading the view",
+                        }
+                    )
                     frontier.append((dep_name, col))
                 continue
             if res["refs"] == 0 and not res["select_star"]:
                 continue
-            affected.append({"view": dep_name, "file": meta["file"], "via": f"{src}.{col}",
-                             "refs": res["refs"], "outputs_as": res["outputs"],
-                             "select_star": res["select_star"], "mode": "ast"})
+            affected.append(
+                {
+                    "view": dep_name,
+                    "file": meta["file"],
+                    "via": f"{src}.{col}",
+                    "refs": res["refs"],
+                    "outputs_as": res["outputs"],
+                    "select_star": res["select_star"],
+                    "mode": "ast",
+                }
+            )
             for out_name in res["outputs"] or ([col] if res["select_star"] else []):
                 frontier.append((dep_name, out_name))
     return {
-        "view": view, "column": column,
+        "view": view,
+        "column": column,
         "affected": sorted(affected, key=lambda a: a["view"]),
         "count": len(affected),
         "note": "mode='ast' = sqlglot-parsed reference; mode='regex' = unparsed body, pattern match only",

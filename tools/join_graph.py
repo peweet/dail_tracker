@@ -63,8 +63,12 @@ _ID_EXACT = {"rcn", "eircode", "abpcaseid", "cro_number", "company_num", "vote_i
 # closed-vocabulary name columns — a join on these is a controlled-set match, not
 # an open person/company name match. Keep this list explicit and small.
 _CONTROLLED = {
-    "council", "constituency", "constituency_name", "publisher_name",
-    "la_name", "local_authority",
+    "council",
+    "constituency",
+    "constituency_name",
+    "publisher_name",
+    "la_name",
+    "local_authority",
 }
 
 
@@ -97,8 +101,23 @@ _JOIN_ON = re.compile(
 )
 # an equijoin predicate a.col = b.col
 _EQUI = re.compile(r"([A-Za-z_]\w*)\.([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\.([A-Za-z_]\w*)")
-_CLAUSE_KW = {"select", "from", "where", "on", "and", "or", "left", "right",
-              "inner", "full", "cross", "join", "group", "order", "having"}
+_CLAUSE_KW = {
+    "select",
+    "from",
+    "where",
+    "on",
+    "and",
+    "or",
+    "left",
+    "right",
+    "inner",
+    "full",
+    "cross",
+    "join",
+    "group",
+    "order",
+    "having",
+}
 
 
 def _strip_sql(text: str) -> str:
@@ -138,12 +157,18 @@ def parse_sql(sql: str, rel: str) -> list[dict]:
             # both sides of an equijoin usually share a column name; grade the
             # worse of the two so a raw-name side is never hidden by an id side
             grade = min((grade_key(lc), grade_key(rc)), key=_GRADE_RANK.get)
-            edges.append({
-                "file": rel, "surface": "sql",
-                "left": left, "right": right,
-                "left_key": lc, "right_key": rc,
-                "grade": grade, "joined_table": jtable.split(".")[-1],
-            })
+            edges.append(
+                {
+                    "file": rel,
+                    "surface": "sql",
+                    "left": left,
+                    "right": right,
+                    "left_key": lc,
+                    "right_key": rc,
+                    "grade": grade,
+                    "joined_table": jtable.split(".")[-1],
+                }
+            )
     return edges
 
 
@@ -168,8 +193,7 @@ def _kw_key(call: ast.Call, name: str) -> list[str]:
         if kw.arg == name and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
             return [kw.value.value]
         if kw.arg == name and isinstance(kw.value, ast.List):
-            return [e.value for e in kw.value.elts
-                    if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+            return [e.value for e in kw.value.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
     return []
 
 
@@ -198,8 +222,7 @@ def parse_python(src: str, rel: str) -> list[dict]:
         left = _kw_key(node, "left_on")
         right = _kw_key(node, "right_on")
         keys = sorted(set(_kw_key(node, "on") + left + right))
-        grade = (min((grade_key(k) for k in keys), key=_GRADE_RANK.get)
-                 if keys else "OTHER")
+        grade = min((grade_key(k) for k in keys), key=_GRADE_RANK.get) if keys else "OTHER"
         # polars default is an inner join — a silent row-dropper. Worth surfacing
         # when the key is already fragile (RAW + inner = quiet miss AND row loss).
         how = _kw_const(node, "how") or "inner"
@@ -210,9 +233,18 @@ def parse_python(src: str, rel: str) -> list[dict]:
         # A join with no validate= silently multiplies rows if the key isn't
         # unique on the side you assumed — the costliest quiet join bug.
         validate = _kw_const(node, "validate")
-        sites.append({"file": rel, "surface": "polars", "line": node.lineno,
-                      "keys": keys, "grade": grade, "how": how,
-                      "asymmetric": asymmetric, "validate": validate})
+        sites.append(
+            {
+                "file": rel,
+                "surface": "polars",
+                "line": node.lineno,
+                "keys": keys,
+                "grade": grade,
+                "how": how,
+                "asymmetric": asymmetric,
+                "validate": validate,
+            }
+        )
     return sites
 
 
@@ -237,8 +269,8 @@ def main() -> int:
     edges = sql_edges()
     sites = polars_joins()
 
-    raw_sql = [e for e in edges if e["grade"] == "RAW"]      # informational
-    raw_poly = [s for s in sites if s["grade"] == "RAW"]     # actionable
+    raw_sql = [e for e in edges if e["grade"] == "RAW"]  # informational
+    raw_poly = [s for s in sites if s["grade"] == "RAW"]  # actionable
 
     if args.json:
         print(json.dumps({"sql": edges, "polars": sites}, indent=2))
@@ -260,10 +292,11 @@ def main() -> int:
     inner_raw = [s for s in raw_poly if s["how"] == "inner"]
     asym = [s for s in sites if s["asymmetric"]]
     no_validate = [s for s in sites if s["validate"] is None]
-    print(f"          {len(asym)} asymmetric (left_on != right_on); "
-          f"{len(inner_raw)} of the RAW joins are INNER (silent row-drop)")
-    print(f"          {len(no_validate)}/{len(sites)} declare NO validate= "
-          f"(no guard against silent row fan-out)")
+    print(
+        f"          {len(asym)} asymmetric (left_on != right_on); "
+        f"{len(inner_raw)} of the RAW joins are INNER (silent row-drop)"
+    )
+    print(f"          {len(no_validate)}/{len(sites)} declare NO validate= (no guard against silent row fan-out)")
 
     print("\n" + "-" * 78)
     print(f"ACTIONABLE — polars open-name joins (the layer that owns matching): {len(raw_poly)}")

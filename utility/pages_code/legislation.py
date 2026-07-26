@@ -997,9 +997,7 @@ def legislation_page() -> None:
     with filter_bar([4, 3, 5]) as cols:
         with cols[0]:
             field_label("Introduced")
-            year_val = year_selector(
-                [str(y) for y in intro_years], key="leg_year", include_all=True
-            )
+            year_val = year_selector([str(y) for y in intro_years], key="leg_year", include_all=True)
         with cols[1]:
             field_label("Status")
             statuses = fetch_all_statuses()
