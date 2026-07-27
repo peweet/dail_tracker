@@ -35,6 +35,17 @@ _REGEX_PARQUET = re.compile(r"read_parquet\(\s*'([^']+)'", re.I)
 _GRAPH: dict | None = None  # built once per process, like server._PROJECT_INDEX
 
 
+def reset_cache() -> None:
+    """Drop the parsed view graph and view bodies (MCP idle release).
+
+    Both rebuild on next use by re-parsing ``sql_views/`` — seconds of sqlglot work,
+    traded for the memory an idle server was holding.
+    """
+    global _GRAPH, _BODIES
+    _GRAPH = None
+    _BODIES = None
+
+
 def _statements(text: str) -> list[tuple[str, str, int]]:
     """(view_name, body, line_no) per CREATE VIEW in a file — several files hold >1 view."""
     out = []

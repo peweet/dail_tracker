@@ -51,6 +51,15 @@ CORPORA = {
 }
 
 _CHECKED: dict[str, bool] = {}  # fingerprint verified once per process per corpus
+
+
+def reset_cache() -> None:
+    """Forget which corpora were fingerprint-checked this process.
+
+    Called by the MCP server's idle release (``mcp_server/resource_policy.py``). Costs
+    one re-fingerprint per corpus on next use — it does NOT discard the on-disk index.
+    """
+    _CHECKED.clear()
 _SNIPPET = 280
 
 

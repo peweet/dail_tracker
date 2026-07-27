@@ -55,6 +55,9 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - run: uv run python tools/check_streamlit_logic_firewall.py
+      # Leak guard: block private siting IP / secrets from the public repo. Same
+      # script as the versioned .githooks/pre-push hook. See tools/check_no_private_ip.py.
+      - run: uv run python tools/check_no_private_ip.py
 
   typecheck:
     runs-on: ubuntu-latest

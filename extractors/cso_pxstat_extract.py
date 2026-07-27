@@ -92,6 +92,17 @@ TABLES = [
     "NA007",
     "NA008",
     "WPM39",
+    # Added 2026-07-27 — land value, for the siting line. TWO SEPARATE GRAINS; never compare
+    # them as one series and never present the gap between them as what permission is worth.
+    #   ARA02 = Agricultural Land Sales. Median/mean price per acre and per hectare, by NUTS3
+    #     region (9), land type (all / arable / permanent grassland), 2013-2024. Derived from
+    #     Revenue stamp-duty returns, so it is recorded consideration, not asking prices.
+    #     Supersedes ARA01, which stopped in 2015 and has only two regions.
+    #   RZLPA02 = Residentially Zoned Land Prices. Transactions, volume, value and median price
+    #     per hectare by county (35 areas), 2024 only so far. This is ZONED land — a different
+    #     market from agricultural land, and the one a site buyer is usually in.
+    "ARA02",
+    "RZLPA02",
 ]
 
 # Derived reference table built from CPA07 (not a raw PxStat dump).
@@ -128,6 +139,9 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
         "Province",
         "NUTS 3 Region",
         "NUTS 2 Region",
+        # RZLPA02 mixes counties and NUTS3 regions in one axis and labels it accordingly
+        # (added 2026-07-27; without it the table fails the extraction check on geo detection).
+        "County or NUTS 3 Region",
         "Local Electoral Area",
         "Electoral Divisions",
         "RPPI Region",

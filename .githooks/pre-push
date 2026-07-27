@@ -1,0 +1,21 @@
+#!/bin/sh
+# Versioned pre-push guard — blocks private siting IP / secrets from reaching the
+# public remote (github.com/peweet/dail_tracker). Rules live in
+# tools/check_no_private_ip.py; the CI job runs the same script.
+#
+# Enable on a fresh clone (one-time; core.hooksPath is local config, not cloned):
+#     git config core.hooksPath .githooks
+#
+# This only ever BLOCKS a push; it never modifies files. CI enforces the same
+# check independently, so a clone that skips the config is still covered there.
+
+for PY in .venv/Scripts/python.exe .venv/Scripts/python .venv/bin/python python3 python; do
+  command -v "$PY" >/dev/null 2>&1 && break
+done
+
+"$PY" tools/check_no_private_ip.py
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: private-IP guard blocked the push (see above)." >&2
+fi
+exit "$status"
