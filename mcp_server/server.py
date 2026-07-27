@@ -155,9 +155,11 @@ doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 from __future__ import annotations
 
 import contextlib
+import gc
 import json
 import re
 import sys
+import threading
 from pathlib import Path
 
 # Windows: force the stdio JSON-RPC stream to UTF-8 so Irish-language names
@@ -204,7 +206,15 @@ from dail_tracker_core.queries import publicfinance as pf  # noqa: E402
 from dail_tracker_core.queries import sipo  # noqa: E402
 from dail_tracker_core.queries import votes as vot  # noqa: E402
 from dail_tracker_core.results import SourceUnavailable  # noqa: E402
-from mcp_server import code_index, fts_index, qs_valuation, sql_index, ted_conduit, text_fts  # noqa: E402
+from mcp_server import (  # noqa: E402
+    code_index,
+    fts_index,
+    qs_valuation,
+    resource_policy,
+    sql_index,
+    ted_conduit,
+    text_fts,
+)
 
 mcp = FastMCP("dail-tracker")
 
@@ -218,6 +228,11 @@ _RO = ToolAnnotations(readOnlyHint=True)
 # first actual query pays the one-time build cost; every call after is fast.
 _CONN = None
 
+# Guards _CONN across the tool threads (FastMCP runs sync tool bodies in a threadpool)
+# and the idle-release watchdog. Reentrant because _release_if_idle inspects and swaps
+# under the same lock the builder holds.
+_CONN_LOCK = threading.RLock()
+
 # View sets api_conn() does NOT register (they have no FastAPI page yet): SIPO
 # political finance, the judiciary bench/courts, and public appointments. They
 # need no path substitutions — their views absolutize parquet internally — so an
@@ -229,11 +244,42 @@ _EXTRA_VIEW_GLOBS = ["sipo_*.sql", "judiciary_*.sql", "appointments_*.sql", "cor
 
 def _cur():
     global _CONN
-    if _CONN is None:
-        conn = api_conn()
-        register_views(conn, _EXTRA_VIEW_GLOBS, swallow_errors=True)
-        _CONN = conn
-    return _CONN.cursor()
+    with _CONN_LOCK:
+        if _CONN is None:
+            conn = api_conn()
+            # Cap memory/threads/spill BEFORE the ~77-view build, so even the build
+            # runs inside the budget (mcp_server/resource_policy.py explains why the
+            # DuckDB defaults are unsafe once per-session servers multiply).
+            resource_policy.apply_caps(conn)
+            register_views(conn, _EXTRA_VIEW_GLOBS, swallow_errors=True)
+            _CONN = conn
+        return _CONN.cursor()
+
+
+def _release_if_idle() -> bool:
+    """Close the union connection and drop index caches if nothing is in flight.
+
+    The watchdog decides *when to ask*; the idleness re-check happens HERE, under
+    _CONN_LOCK, so it cannot race a tool call that is mid-build. resource_policy's
+    activity counter is incremented before a tool body runs, so any live call makes
+    ``idle_for()`` return None and this is a no-op. The process never exits — the next
+    ``_cur()`` rebuilds lazily. Returns whether a connection was actually released.
+    """
+    global _CONN
+    with _CONN_LOCK:
+        if _CONN is None:
+            return False
+        idle = resource_policy.ACTIVITY.idle_for()
+        if idle is None or idle < resource_policy.idle_seconds():
+            return False
+        conn, _CONN = _CONN, None
+    # Outside the lock: _CONN is already None so no new cursor can come from `conn`,
+    # and the in-flight check above proved none is outstanding.
+    with contextlib.suppress(Exception):
+        conn.close()
+    resource_policy.drop_index_caches()
+    gc.collect()
+    return True
 
 
 def _rows(qr) -> list[dict] | dict:
@@ -2677,4 +2723,8 @@ def scope_check(topic: str) -> str:
 
 
 if __name__ == "__main__":
+    # Idle release is wired up only for a real server run, never on import: the test
+    # suite imports this module and must not inherit a background thread.
+    resource_policy.instrument(mcp)  # count tool calls so the watchdog can tell idle from busy
+    resource_policy.start_watchdog(_release_if_idle)
     mcp.run()  # stdio transport — Claude Desktop launches this as a subprocess
