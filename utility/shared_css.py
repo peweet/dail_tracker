@@ -42,6 +42,8 @@
 #   6063-6259  .con-*  corporate (46)  ⚠️ ALSO in pages_code/corporate.py:118-844
 #   6160-6163  .hou-*  housing (3)
 #   6170-6237  .lg-*   local government (21)
+#   6360+       .sup-*  support page + APP-LEVEL FOOTER (appended last on purpose —
+#               .sup-footer renders after pg.run() on every page)
 #   6297-6315  </style> · st.html site-banner
 #
 # ⚠️  PAGE-LOCAL CSS also exists — a rule may live there instead:
@@ -6356,6 +6358,198 @@ def inject_css() -> None:
         .cmt-meeting-witnesses { font-size: 0.82rem; color: var(--text-meta); line-height: 1.45; }
         .cmt-meeting-witnesses .cmt-w-label { font-weight: 600; color: var(--text-secondary); }
         .cmt-meeting-witnesses .cmt-w-none { font-style: italic; }
+
+        /* ── .sup-*  SUPPORT page + app-level footer (utility/pages_code/support.py,
+              builders in ui/components.py). Appended LAST on purpose: .sup-footer
+              renders after pg.run() on every page, so it must win any equal-specificity
+              collision with a page family above it. Defines no tokens of its own. */
+        .sup-wrap { max-width: 62rem; margin: 0 auto; }
+        /* One optical column: the hero's 4px stripe + 1.4rem gutter pushes its text
+           right, so every block below is inset by the same amount. */
+        .sup-costs, .sup-ask, .sup-help, .sup-honest { margin-left: calc(1.4rem + 4px); }
+
+        .sup-hero { border-left: 4px solid var(--accent); padding: 0.15rem 0 0.15rem 1.4rem;
+            margin: 0.4rem 0 2.2rem 0; }
+        .sup-hero h1 {
+            font-family: 'Zilla Slab', Georgia, serif; font-weight: 700; font-size: 2.45rem;
+            line-height: 1.12; letter-spacing: -0.012em; color: var(--text-primary);
+            margin: 0 0 0.55rem 0;
+        }
+        .sup-hero h1 em { font-style: normal; color: var(--accent); }
+        .sup-hero p {
+            font-family: 'Epilogue', sans-serif; font-size: 1.06rem; line-height: 1.6;
+            color: var(--text-secondary); margin: 0; max-width: 46rem;
+        }
+
+        .sup-costs {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+            border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+            margin-bottom: 2.2rem;
+        }
+        .sup-cost { padding: 1.15rem 1.4rem 1.2rem 0; }
+        .sup-cost + .sup-cost { border-left: 1px solid var(--border); padding-left: 1.4rem; }
+        .sup-cost-fig {
+            font-family: 'Zilla Slab', Georgia, serif; font-variant-numeric: tabular-nums;
+            font-weight: 700; font-size: 2.05rem; line-height: 1; color: var(--ink-strong);
+            display: block;
+        }
+        .sup-cost-lab {
+            font-family: 'Epilogue', sans-serif; font-size: 0.86rem; font-weight: 600;
+            color: var(--text-primary); display: block; margin-top: 0.42rem;
+        }
+        .sup-cost-sub {
+            font-family: 'Epilogue', sans-serif; font-size: 0.79rem; color: var(--ink-muted);
+            display: block; margin-top: 0.15rem;
+        }
+
+        .sup-ask {
+            background: var(--accent-subtle); border: 1px solid var(--accent-dim);
+            border-radius: 10px; padding: 1.7rem 1.8rem 1.8rem; margin-bottom: 2.2rem;
+        }
+        .sup-ask h2 {
+            font-family: 'Zilla Slab', Georgia, serif; font-weight: 600; font-size: 1.42rem;
+            color: var(--text-primary); margin: 0 0 0.5rem 0;
+        }
+        .sup-ask p {
+            font-family: 'Epilogue', sans-serif; font-size: 0.97rem; line-height: 1.62;
+            color: var(--text-secondary); margin: 0 0 1.3rem 0; max-width: 42rem;
+        }
+        /* Material Symbols ligature; the font is already loaded by the @import above.
+           Inherits `color`, unlike the ☕ emoji, which the OS paints in its own colours
+           and which reads as a smudge at button size. */
+        .sup-icon {
+            font-family: 'Material Symbols Outlined'; font-feature-settings: 'liga';
+            -webkit-font-feature-settings: 'liga'; font-size: 1.25rem; line-height: 1;
+            font-weight: 400;
+        }
+        .sup-btn {
+            display: inline-flex; align-items: center; gap: 0.6rem; background: var(--accent);
+            color: #fff !important; font-family: 'Epilogue', sans-serif; font-weight: 600;
+            font-size: 1.02rem; text-decoration: none !important; padding: 0.82rem 1.6rem;
+            border-radius: 8px; border: 1px solid transparent;
+            box-shadow: 0 1px 2px oklch(0% 0 0 / .10);
+            transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+        }
+        .sup-btn:hover {
+            background: var(--signal-bad-deep); box-shadow: 0 4px 14px oklch(0% 0 0 / .16);
+            transform: translateY(-1px); color: #fff !important;
+        }
+        /* The gap belongs to this row: Streamlit's markdown container styles <p>
+           margins with enough specificity to flatten a margin-top on the note. */
+        .sup-btn-row { margin: 0 0 1.15rem 0; }
+        .sup-btn-note {
+            font-family: 'Epilogue', sans-serif; font-size: 0.8rem; color: var(--text-meta);
+            margin: 0 !important; display: block;
+        }
+
+        .sup-help { margin-bottom: 2.4rem; }
+        .sup-help > h2 {
+            font-family: 'Zilla Slab', Georgia, serif; font-weight: 700; font-size: 1.62rem;
+            color: var(--text-primary); margin: 0 0 0.45rem 0;
+        }
+        .sup-help > p.sup-help-intro {
+            font-family: 'Epilogue', sans-serif; font-size: 0.97rem; line-height: 1.6;
+            color: var(--text-secondary); margin: 0 0 1.35rem 0; max-width: 44rem;
+        }
+        .sup-routes { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .sup-route {
+            border: 1px solid var(--border); border-left: 3px solid var(--accent);
+            border-radius: 8px; background: #ffffff; padding: 1.25rem 1.35rem 1.35rem;
+            display: flex; flex-direction: column;
+        }
+        .sup-route h3 {
+            font-family: 'Zilla Slab', Georgia, serif; font-weight: 600; font-size: 1.1rem;
+            color: var(--text-primary); margin: 0 0 0.4rem 0;
+        }
+        .sup-route p {
+            font-family: 'Epilogue', sans-serif; font-size: 0.89rem; line-height: 1.55;
+            color: var(--text-secondary); margin: 0 0 1.1rem 0; flex: 1 1 auto;
+        }
+        /* Ghost button: secondary to .sup-btn, which owns the filled accent.
+           Two filled buttons on one page would compete. */
+        .sup-btn-ghost {
+            display: inline-flex; align-items: center; gap: 0.5rem; align-self: flex-start;
+            font-family: 'Epilogue', sans-serif; font-weight: 600; font-size: 0.9rem;
+            color: var(--accent) !important; text-decoration: none !important;
+            padding: 0.55rem 1.05rem; border: 1px solid var(--accent-dim); border-radius: 7px;
+            background: var(--accent-subtle);
+            transition: border-color .12s ease, background .12s ease;
+        }
+        .sup-btn-ghost:hover {
+            border-color: var(--accent); background: var(--accent-dim);
+            color: var(--signal-bad-deep) !important;
+        }
+        /* Deliberately quieter than the two public routes — a public issue is better
+           for the project and better for the reader than a private email. */
+        .sup-private {
+            margin: 1rem 0 0 0; padding: 0.95rem 1.15rem;
+            border: 1px dashed var(--border-strong); border-radius: 8px;
+            font-family: 'Epilogue', sans-serif; font-size: 0.87rem; line-height: 1.58;
+            color: var(--text-secondary);
+        }
+        .sup-private strong { color: var(--text-primary); font-weight: 600; }
+        .sup-private a {
+            color: var(--accent); font-weight: 600; text-decoration: none;
+            border-bottom: 1px solid var(--accent-dim);
+        }
+        .sup-private a:hover { border-bottom-color: var(--accent); }
+
+        .sup-honest {
+            border: 1px solid var(--border); border-left: 3px solid var(--ink-muted);
+            border-radius: 8px; background: #ffffff; padding: 1.5rem 1.7rem 1.55rem;
+            margin-bottom: 2.4rem;
+        }
+        .sup-honest h2 {
+            font-family: 'Zilla Slab', Georgia, serif; font-weight: 600; font-size: 1.24rem;
+            color: var(--text-primary); margin: 0 0 1rem 0;
+        }
+        .sup-honest ul { margin: 0; padding: 0; list-style: none; }
+        .sup-honest li {
+            font-family: 'Epilogue', sans-serif; font-size: 0.95rem; line-height: 1.55;
+            color: var(--text-secondary); padding: 0 0 0 1.6rem; position: relative;
+            margin-bottom: 0.72rem;
+        }
+        .sup-honest li:last-child { margin-bottom: 0; }
+        .sup-honest li::before {
+            content: "\\2014"; position: absolute; left: 0; top: 0;
+            color: var(--accent); font-weight: 700;
+        }
+        .sup-honest li strong { color: var(--text-primary); font-weight: 600; }
+
+        /* App-level footer — rendered after pg.run() in utility/app.py, so it appears
+           on EVERY page. .sup-wrap keeps it on the same column as page content. */
+        .sup-footer {
+            border-top: 1px solid var(--border); margin: 3.2rem 0 0 0;
+            padding: 1.15rem 0 1.6rem 0; display: flex; flex-wrap: wrap;
+            align-items: baseline; gap: 0.55rem 1.5rem;
+            font-family: 'Epilogue', sans-serif; font-size: 0.83rem; color: var(--text-meta);
+        }
+        .sup-footer-name { font-weight: 600; color: var(--text-secondary); }
+        .sup-footer a {
+            color: var(--text-secondary); text-decoration: none;
+            border-bottom: 1px solid var(--border-strong);
+        }
+        .sup-footer a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+        .sup-footer-spacer { flex: 1 1 auto; }
+        .sup-footer-coffee {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: var(--accent) !important; font-weight: 600;
+            border-bottom: 1px solid var(--accent-dim) !important; white-space: nowrap;
+        }
+        .sup-footer-coffee:hover { border-bottom-color: var(--accent) !important; }
+
+        @media (max-width: 640px) {
+            .sup-hero h1 { font-size: 1.85rem; }
+            /* Reclaim the optical inset — 26px of gutter is worth more than
+               alignment on a 390px screen. */
+            .sup-costs, .sup-ask, .sup-help, .sup-honest { margin-left: 0; }
+            .sup-costs { grid-template-columns: 1fr; }
+            .sup-cost + .sup-cost {
+                border-left: none; border-top: 1px solid var(--border); padding-left: 0;
+            }
+            .sup-routes { grid-template-columns: 1fr; }
+            .sup-footer-spacer { display: none; }
+        }
 
         </style>
         """,
