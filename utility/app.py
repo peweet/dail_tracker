@@ -22,11 +22,13 @@ from pages_code.procurement import procurement_page
 from pages_code.public_appointments import public_appointments_page
 from pages_code.public_payments import public_payments_page
 from pages_code.statutory_instruments import statutory_instruments_page
+from pages_code.support import support_page
 from pages_code.votes import votes_page
 from pages_code.what_they_own import what_they_own_page
 from pages_code.your_council import your_council_page
 from pages_code.your_councillors import your_councillors_page
 from shared_css import inject_css
+from ui.components import site_footer_html
 from ui.page_analytics import log_page_view
 from ui.spa_links import install_spa_links
 
@@ -371,6 +373,16 @@ pg = st.navigation(
         ],
         "Glossary": [
             st.Page(glossary_page, title="Glossary", icon=":material/menu_book:", url_path="glossary"),
+            # Support — what the site costs to run, how to report a wrong figure, and
+            # (when DT_COFFEE_URL is set) the coffee ask. Filed under Glossary rather
+            # than given its own top-level nav section: a tip jar does not earn a slot
+            # beside the registers, and the bar is already at eight groups.
+            st.Page(
+                support_page,
+                title="Support",
+                icon=":material/local_cafe:",
+                url_path="support",
+            ),
         ],
     },
     position="top",
@@ -390,3 +402,8 @@ install_spa_links()
 # (never raises). See ui/page_analytics.py.
 log_page_view(pg.url_path)
 pg.run()
+# Site footer — the ONLY thing rendered after pg.run(). App level and outside
+# the per-page subtree, so it stays mounted across navigation for the same
+# reason inject_css() and install_spa_links() sit above. Static markup, no data
+# access; the "Support this site" link appears only when DT_COFFEE_URL is set.
+st.html(site_footer_html())

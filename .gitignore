@@ -559,6 +559,12 @@ data/bronze/**
 # generated bulk-export snapshots (privacy-filtered copies cut by api/routers/exports.py)
 data/_export_cache/
 
+# Re-downloadable upstream archives (GTFS feeds, bulk zips) fetched by extractors.
+# NEVER commit these: gtfs_all.zip alone is 165 MB and GitHub HARD-REJECTS any file
+# over 100 MB, so one such blob anywhere in the pushed history fails the whole push
+# and takes every other commit down with it. They are caches — refetch, don't store.
+data/_cache/
+
 # === planning_rules — per-authority Development Management Standards collection ===
 # Each council dir holds markdown extracts (tracked by default) + a _source.json
 # provenance file + a raw/ archive of the original HTML/PDF. The blanket *.json rule
@@ -641,3 +647,8 @@ tools/siting_report.py
 # marker matrix — run after ANY engine/catalogue/brief/report change
 tools/siting_report_dryrun.py
 siting_reports/
+# national sweep + its baseline (2026-07-30): a private-engine regression harness — it imports
+# dail_tracker_core.siting, so it cannot run from a public clone. These two were tracked publicly
+# by oversight and were the 2 paths tools/check_no_private_ip.py blocked on.
+tools/siting_national_sweep.py
+data/_meta/siting_national_sweep_baseline.json

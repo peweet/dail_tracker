@@ -114,6 +114,23 @@ def apply_caps(conn) -> dict[str, str]:
     return applied
 
 
+def capped_connect(database: str = ":memory:", *, read_only: bool = False):
+    """Open a DuckDB connection with this process's caps already applied.
+
+    Every connection counts, and the union connection is NOT the only one the server
+    opens — the FTS paths and the SQL-graph parser each open their own. Measured
+    2026-07-27 on a fixed workload, that distinction is the whole game: a BM25 search
+    over the speech corpus transiently commits ~1.4 GB, which is ~10x everything the
+    union connection does and was completely unaffected by capping the union alone.
+    Use this instead of ``duckdb.connect`` anywhere in ``mcp_server``.
+    """
+    import duckdb
+
+    conn = duckdb.connect(database, read_only=read_only)
+    apply_caps(conn)
+    return conn
+
+
 class _Activity:
     """Tool-call activity counter — the watchdog's safety interlock.
 
@@ -198,21 +215,29 @@ def drop_index_caches() -> None:
 def start_watchdog(
     release: Callable[[], bool],
     *,
-    poll_seconds: int = POLL_SECONDS,
+    poll_seconds: float = POLL_SECONDS,
+    stop: threading.Event | None = None,
 ) -> threading.Thread | None:
     """Poll for idleness and call ``release`` when the process has gone quiet.
 
     ``release`` re-checks idleness under the connection lock and returns whether it
     actually released — this thread only decides *when to ask*. Returns None when the
     watchdog is disabled (``DAIL_MCP_IDLE_SECONDS=0``).
+
+    ``stop`` lets a caller shut the loop down; the returned thread carries it as
+    ``.stop_event``. Tests MUST set it — a daemon thread left polling past the end of a
+    test run logs into an already-closed stderr at interpreter shutdown. Waiting on the
+    event rather than sleeping also makes that shutdown immediate instead of one poll
+    interval late.
     """
     if idle_seconds() <= 0:
         _log.info("MCP resource policy: idle release disabled")
         return None
 
+    stop_event = stop or threading.Event()
+
     def loop() -> None:
-        while True:
-            time.sleep(poll_seconds)
+        while not stop_event.wait(poll_seconds):
             try:
                 if release():
                     _log.info("MCP resource policy: released idle connection")
@@ -220,5 +245,6 @@ def start_watchdog(
                 _log.exception("MCP resource policy: idle release failed")
 
     thread = threading.Thread(target=loop, name="dail-mcp-idle-release", daemon=True)
+    thread.stop_event = stop_event  # type: ignore[attr-defined]
     thread.start()
     return thread

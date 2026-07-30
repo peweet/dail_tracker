@@ -30,6 +30,14 @@ ENTRY_POINTS = (
     ("pipeline.py", "manifest"),
     ("utility/_bootstrap.py", None),
     ("test/conftest.py", None),
+    # Added 2026-07-27. These are `python -m` entry points that import polars, and therefore
+    # numpy, so they pay the full BLAS reservation if the cap import drifts below them.
+    # Registering them here turns a silent regression into a failing test: `ruff --fix` moves a
+    # bare `import services.runtime_env` down into the third-party block, which is why each of
+    # these files fences it with `# isort: off` / `# isort: on` as pipeline.py does.
+    ("extractors/npws_datasheets_extract.py", "polars"),
+    ("extractors/ppr_sales_extract.py", "polars"),
+    ("extractors/census_saps_2022_fetch.py", "polars"),
 )
 
 #: Config files that pin the cap for processes spawned by Claude Code, which get env from

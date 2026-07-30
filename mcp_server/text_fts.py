@@ -22,7 +22,7 @@ from __future__ import annotations
 import contextlib
 from pathlib import Path
 
-import duckdb
+from mcp_server import resource_policy
 
 CACHE_REL = ".cache/text_fts.duckdb"
 
@@ -60,6 +60,8 @@ def reset_cache() -> None:
     one re-fingerprint per corpus on next use — it does NOT discard the on-disk index.
     """
     _CHECKED.clear()
+
+
 _SNIPPET = 280
 
 
@@ -72,7 +74,7 @@ def _fingerprint(cur, spec) -> tuple[int, str]:
 
 def _cache_fingerprint(cache: Path, kind: str) -> tuple[int, str] | None:
     try:
-        con = duckdb.connect(str(cache), read_only=True)
+        con = resource_policy.capped_connect(str(cache), read_only=True)
         try:
             row = con.execute("SELECT n, maxd FROM meta WHERE kind = ?", [kind]).fetchone()
         finally:
@@ -99,7 +101,7 @@ def _build(kind: str, cur, repo: Path, fp: tuple[int, str]) -> None:
         )
     finally:
         cur.execute("DETACH textfts")
-    con = duckdb.connect(str(cache))
+    con = resource_policy.capped_connect(str(cache))
     try:
         with contextlib.suppress(Exception):  # first build — no index yet
             con.execute(f"PRAGMA drop_fts_index('{kind}')")
@@ -148,7 +150,7 @@ def search(kind: str, query: str, cur, repo: Path, year: int = 0, limit: int = 1
         params.append(int(year))
     params.append(limit)
     try:
-        con = duckdb.connect(str(repo / CACHE_REL), read_only=True)
+        con = resource_policy.capped_connect(str(repo / CACHE_REL), read_only=True)
         try:
             con.execute("INSTALL fts; LOAD fts")  # match_bm25 macro needs the extension loaded
             rows = con.execute(

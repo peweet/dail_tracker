@@ -1,62 +1,37 @@
-# support_coffee — "buy me a coffee" surface (SANDBOX, UNWIRED)
+# support_coffee — SUPERSEDED, code removed 2026-07-27
 
-**Status: preview only. Nothing here touches the live site.**
+This was the sandbox prototype for the Support page and the site footer. It
+shipped into the app, so the prototype is gone and this note is what's left.
 
-Per `doc/SANDBOX_MAP.md`, "it's in sandbox" is no signal about whether code is
-live — so, explicitly, for this directory:
+**The real implementation:**
 
-| Check | State |
+| Concern | Lives in |
 |---|---|
-| Registered in `utility/app.py` `st.navigation()` | **No** |
-| Imported by anything under `utility/` | **No** |
-| Edits to `shared_css.py` / `ui/components.py` / `app.py` | **None** |
-| Reads any dataset, view or `data_access` module | **No** |
-| Backs a SQL view / promote script / test | **No** |
-| Safe to delete | **Yes** — nothing depends on it |
+| The three scale figures | `utility/data_access/support_data.py` |
+| HTML builders + footer | `utility/ui/components.py` (`support_*_html`, `site_footer_html`) |
+| Stylesheet | `utility/shared_css.py`, the `.sup-*` family (appended last) |
+| The page | `utility/pages_code/support.py` |
+| Wiring | `utility/app.py` — registered under Glossary; footer after `pg.run()` |
+| Tests | `test/utility/test_support_page.py` |
 
-It imports *from* `utility/` (read-only: `shared_css.inject_css`,
-`ui.components.hide_sidebar`) so the preview renders on the real tokens
-instead of a mock palette. Imports do not mutate the app.
+**Why the code was deleted rather than left here.** It had drifted into a
+second, worse copy of a shipped feature: `sc-` class names that no longer match
+the app's `.sup-*`, and — the reason this mattered — the Buy Me a Coffee URL and
+the contact alias as **hard-coded literals**. The shipped version reads both
+from environment variables (`DT_COFFEE_URL`, `DT_CONTACT_EMAIL`), both unset by
+default, so a fresh checkout publishes neither a payment link nor an email
+address. Keeping a copy that hard-codes them undoes that on the one axis that
+actually matters.
 
-## Preview it
+**Recovering it:** `git show e08515b` — the prototype as committed, including
+the standalone `demo_app.py` preview and the `local_app.py` harness that ran the
+real app with the page patched in without touching `utility/app.py`.
 
-```
-.venv/Scripts/python -m streamlit run pipeline_sandbox/support_coffee/demo_app.py --server.port 8599
-```
+Note that `coffee_ui.py` had uncommitted edits when it was removed, so that
+commit holds it *without* the "Spot something wrong?" section. Nothing is lost:
+that section shipped, and lives in `ui/components.py::support_help_html`.
 
-## Files
-
-- `coffee_ui.py` — scoped `sc-*` CSS + HTML builders (footer strip, hero, cost
-  strip, coffee button, honesty panel). Pure strings, no Streamlit.
-- `page_support.py` — the `/support` page body. Static copy only.
-- `demo_app.py` — the standalone preview app.
-
-## Blockers before any of this could ship
-
-1. **Every figure is an unsourced placeholder** (`PLACEHOLDER_COSTS` in
-   `coffee_ui.py`: `€XX`, `NNN`, `N.Nm`). Real hosting cost from an invoice,
-   real counts from a registered contract — or drop the strip. Provenance is
-   the user's domain; invented figures must never reach UI copy.
-2. **The Buy Me a Coffee slug does not exist.** `buymeacoffee.com/dailtracker`
-   is a guess in `COFFEE_URL`. Register the account (personal vs. company is an
-   open decision) before the URL goes anywhere shareable — moving it later
-   breaks every link anyone shared.
-3. **The honesty panel is the load-bearing part**, not decoration. A
-   transparency site that accepts money has to answer "who funds this"; the
-   "what your money does not buy" block is that answer. It ships with the
-   button or the button does not ship.
-
-## Design notes
-
-- **No third-party JavaScript.** The button is a plain
-  `<a target="_blank" rel="noopener">`, not Buy Me a Coffee's widget script.
-  Streamlit's DOMPurify pass strips `<script>` but preserves `target="_blank"`
-  (`utility/app.py:118-123`), so the anchor survives. This is what keeps the app
-  free of third-party cookies and consent banners.
-- **The footer links inward** to `/support?from=footer`, not straight out to
-  Buy Me a Coffee. The existing cookieless page-view log
-  (`utility/ui/page_analytics.py`) then counts interest with no new tracking and
-  no outbound-click JS — `install_spa_links` only intercepts `href^="?"`, so an
-  external link could not be measured without adding script.
-- **Class prefix `sc-`** so this stylesheet can never collide with a live
-  component if anyone imports the module.
+**Still open (not code):** the Buy Me a Coffee account is unregistered and the
+Proton alias does not exist. `dailtracker@proton.me` was a placeholder, never a
+real address. Until both env vars are set, the Support page renders its figures
+and both GitHub report routes, and asks for nothing.

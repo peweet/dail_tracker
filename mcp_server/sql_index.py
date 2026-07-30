@@ -28,6 +28,8 @@ from pathlib import Path
 
 import duckdb
 
+from mcp_server import resource_policy
+
 _HEADER = re.compile(r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)\s+AS\b", re.I)
 _REGEX_TABLES = re.compile(r"\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", re.I)
 _REGEX_PARQUET = re.compile(r"read_parquet\(\s*'([^']+)'", re.I)
@@ -94,7 +96,7 @@ def _parse_body(conn: duckdb.DuckDBPyConnection, body: str) -> tuple[set[str], l
 
 def build_graph(repo: Path) -> dict:
     """{view_name: {file, line, reads(view deps), reads_parquet, mode}} over sql_views/."""
-    conn = duckdb.connect()
+    conn = resource_policy.capped_connect()
     raw: list[tuple[str, str, int, Path]] = []
     for f in sorted((repo / "sql_views").rglob("*.sql")):
         try:
