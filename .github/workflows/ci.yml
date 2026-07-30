@@ -85,6 +85,11 @@ jobs:
       # extra + dev group add polars/PyMuPDF/pytest/…, so test_page_imports.py
       # (imports every Streamlit page) plus the pipeline/schema tests all run in CI.
       - run: uv sync --frozen --extra pipeline --group dev
+      # Expected-failure ledger (test/expected_failures.yaml): environment-dependent
+      # failures only — schema-validated here so an entry without a reason/evidence/
+      # resolution fails the PR. Applied entries are printed by test/conftest.py in
+      # the pytest terminal summary; a ledgered test that passes shows as STALE.
+      - run: uv run python tools/check_expected_failures.py
       # Skip markers that can't run in the default lane:
       #   integration / bronze — need committed pipeline output beyond gold.
       #   sql — runs in its own `sql-contracts` job below (against committed gold).

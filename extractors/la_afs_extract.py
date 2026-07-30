@@ -739,6 +739,7 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
     all_rows: list[dict] = []
     years_done: list[int] = []
     failed_files: list[dict] = []  # per-FILE fitz failures → the camelot per-year fail-set
+    documents: list[dict] = []  # per-FILE ledger, pass AND fail — coverage visibility
     last_status = "no-reconcile"
 
     def note_failure(sub: dict) -> None:
@@ -747,8 +748,15 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
         if sub.get("status") in ("no-reconcile", "no-IE-page") and sub.get("file"):
             failed_files.append({"file": sub["file"], "year_guess": sub.get("year")})
 
+    def note_doc(sub: dict) -> None:
+        # Every parsed file gets a coverage record, pass or fail — previously a failing
+        # document was visible only as a missing year, so layout drift read as "no data".
+        keys = ("file", "year", "status", "pages", "ie_page", "divisions", "reconciled")
+        documents.append({k: sub[k] for k in keys if k in sub})
+
     for picked in picks:
         rows, sub = _parse_one_afs(cf, picked)
+        note_doc(sub)
         last_status = sub.get("status", last_status)
         if rows:
             all_rows.extend(rows)
@@ -766,6 +774,7 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
         if int(p.stem) in picked_title_years:
             continue
         rows, sub = _parse_pdf(cf, p, None, int(p.stem))
+        note_doc(sub)
         last_status = sub.get("status", last_status)
         if rows:
             all_rows.extend(rows)
@@ -799,6 +808,8 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
     stat["n_years"] = len(set(years_done))
     if failed_files:
         stat["failed_files"] = failed_files
+    if documents:
+        stat["documents"] = documents
     return all_rows, stat
 
 
@@ -964,6 +975,11 @@ def main() -> None:
         "councils_fitz": n_fitz,
         "councils_camelot": n_cam,
         "rows": df.height,
+        # Per-DOCUMENT fitz-pass outcomes (see by_council[].documents for the per-file
+        # ledger). Fitz-scoped on purpose: a failing year can still land via camelot, so
+        # this ratio measures parse health of the primary parser, not final coverage.
+        "documents_total_fitz": sum(len(s.get("documents", [])) for s in stats),
+        "documents_reconciled_fitz": sum(1 for s in stats for d in s.get("documents", []) if d.get("reconciled")),
         "phase": 1,
         "coverage_by_council": manifest,  # all 31 LAs, available or flagged with a plain-English reason
         "unavailable_by_reason": {

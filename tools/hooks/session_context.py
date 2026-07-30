@@ -311,6 +311,41 @@ def _style_digest_note() -> str:
         return ""
 
 
+def _unvalidated_note() -> str:
+    """Backlog from customization_edit_marker.py: harness edits whose eval gate has
+    not re-run. Reads one small JSON; the gate itself runs from a plain terminal."""
+    try:
+        path = REPO / "tools" / "evals" / "validation_ledger.json"
+        if not path.exists():
+            return ""
+        ledger = json.loads(path.read_text(encoding="utf-8"))
+        n = sum(1 for e in ledger.values() if isinstance(e, dict) and e.get("status") == "UNVALIDATED")
+        if not n:
+            return ""
+        return f"{n} customization edit(s) UNVALIDATED — `python tools/evals/validate_customizations.py`"
+    except Exception:
+        return ""
+
+
+def _closeout_note() -> str:
+    """Substantive sessions (ledger rows) never closed out — pull, not push: one
+    count line here, the list lives in `python tools/session_closeout.py`."""
+    try:
+        import sys as _sys
+
+        tools = REPO / "tools"
+        if str(tools) not in _sys.path:
+            _sys.path.insert(0, str(tools))
+        from session_closeout import pending  # type: ignore
+
+        n = len(pending())
+        if not n:
+            return ""
+        return f"{n} session(s) awaiting closeout — `python tools/session_closeout.py`"
+    except Exception:
+        return ""
+
+
 class contextlib_suppress:
     def __enter__(self):
         return self
@@ -351,6 +386,8 @@ def main() -> int:
         _mcp_adoption_note(current_id),
         _adoption_tripwire(),
         _style_digest_note(),
+        _unvalidated_note(),
+        _closeout_note(),
     ):
         if note:
             parts.append(note)

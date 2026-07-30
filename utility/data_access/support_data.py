@@ -158,9 +158,9 @@ def _count_officials() -> tuple[int, int] | None:
             members = con.execute(
                 f"SELECT count(DISTINCT unique_member_code) FROM '{_MEMBER_TERMS.as_posix()}'"
             ).fetchone()[0]
-            judges = con.execute(
-                f"SELECT count(DISTINCT judge_name) FROM '{_JUDICIARY_BENCH.as_posix()}'"
-            ).fetchone()[0]
+            judges = con.execute(f"SELECT count(DISTINCT judge_name) FROM '{_JUDICIARY_BENCH.as_posix()}'").fetchone()[
+                0
+            ]
         finally:
             con.close()
     except Exception:
@@ -183,9 +183,7 @@ def load_support_stats() -> SupportStats | None:
         return None
 
     kept = {
-        name: int(card.get("rows") or 0)
-        for name, card in facts.items()
-        if _is_record_fact(name, card.get("layer", ""))
+        name: int(card.get("rows") or 0) for name, card in facts.items() if _is_record_fact(name, card.get("layer", ""))
     }
     if not kept:
         return None

@@ -83,9 +83,7 @@ DENY_EXACT: frozenset[str] = frozenset(
 )
 
 # ── Obvious secrets (defensive; these are usually gitignored already). ───────
-SECRET_BASENAMES: frozenset[str] = frozenset(
-    {".env", "secrets.toml", "id_rsa", "id_rsa.pub", "credentials.json"}
-)
+SECRET_BASENAMES: frozenset[str] = frozenset({".env", "secrets.toml", "id_rsa", "id_rsa.pub", "credentials.json"})
 SECRET_SUFFIXES: tuple[str, ...] = (".pem",)
 
 # ── CIVIC planning-stats lane — PUBLIC by deliberate decision. Never flag,
@@ -153,10 +151,7 @@ def find_offenders(paths: list[str]) -> list[tuple[str, str]]:
 
 
 def _git_paths(staged: bool) -> list[str]:
-    if staged:
-        cmd = ["git", "diff", "--cached", "--name-only", "--diff-filter=AM", "-z"]
-    else:
-        cmd = ["git", "ls-files", "-z"]
+    cmd = ["git", "diff", "--cached", "--name-only", "--diff-filter=AM", "-z"] if staged else ["git", "ls-files", "-z"]
     res = subprocess.run(cmd, cwd=_PROJECT_ROOT, capture_output=True, text=True, check=True)
     return [p for p in res.stdout.split("\0") if p]
 

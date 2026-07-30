@@ -30,20 +30,15 @@ import zipfile
 from pathlib import Path
 
 import polars as pl
-import requests
 
+from services.http_engine import fetch_bytes, polite_headers
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
 LOG = logging.getLogger("ppr_sales")
 
 OUT = Path(__file__).resolve().parents[1] / "data/silver/parquet"
-URL = (
-    "https://www.propertypriceregister.ie/website/npsra/ppr/npsra-ppr.nsf"
-    "/Downloads/PPR-ALL.zip/$FILE/PPR-ALL.zip"
-)
-# The register is served to browsers only; a bare python UA gets a challenge page.
-_UA = {"User-Agent": "Mozilla/5.0 (compatible; dail-tracker/1.0)"}
+URL = "https://www.propertypriceregister.ie/website/npsra/ppr/npsra-ppr.nsf/Downloads/PPR-ALL.zip/$FILE/PPR-ALL.zip"
 
 # ~700k sales 2010-2026. Floor well below that: a genuine month's growth passes, a truncated
 # or challenge-page harvest cannot overwrite a good file.
@@ -69,9 +64,13 @@ def _clean_price(col: pl.Expr) -> pl.Expr:
 
 
 def fetch() -> pl.DataFrame:
-    resp = requests.get(URL, headers=_UA, timeout=300)
-    resp.raise_for_status()
-    with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+    # The register is served to browsers only (a bare python UA gets a challenge page),
+    # and the challenge arrives as HTTP 200 HTML — the zip-magic validate treats it as a
+    # miss so it can never be parsed as a truncated harvest.
+    body = fetch_bytes(URL, headers=polite_headers(browser=True), timeout=300, validate=lambda b: b[:2] == b"PK")
+    if body is None:
+        raise RuntimeError("PPR download failed (challenge page or network)")
+    with zipfile.ZipFile(io.BytesIO(body)) as zf:
         names = [n for n in zf.namelist() if n.lower().endswith(".csv")]
         if not names:
             raise RuntimeError(f"no CSV in PPR zip: {zf.namelist()}")
@@ -101,9 +100,7 @@ def fetch() -> pl.DataFrame:
     if "price_eur" in df.columns:
         df = df.with_columns(_clean_price(pl.col("price_eur")).alias("price_eur"))
     if "sale_date" in df.columns:
-        df = df.with_columns(
-            pl.col("sale_date").str.strptime(pl.Date, "%d/%m/%Y", strict=False).alias("sale_date")
-        )
+        df = df.with_columns(pl.col("sale_date").str.strptime(pl.Date, "%d/%m/%Y", strict=False).alias("sale_date"))
     return df
 
 

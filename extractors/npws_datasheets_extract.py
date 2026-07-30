@@ -32,8 +32,8 @@ import zipfile
 from pathlib import Path
 
 import polars as pl
-import requests
 
+from services.http_engine import fetch_bytes
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -45,7 +45,6 @@ SOURCES: dict[str, str] = {
     "SAC": f"{_BASE}/SAC_datasheets_20231017.zip",
     "SPA": f"{_BASE}/SPA_datasheets_20231017.zip",
 }
-_UA = {"User-Agent": "dail-tracker/1.0 (+planning research)"}
 
 # Row floors: the SAC pull is 441 sites / 1,493 habitat rows / 347 species rows as of the
 # Oct-2023 edition. Floors sit well under those so a genuine NPWS revision passes, but a
@@ -56,10 +55,11 @@ _FLOOR_SITES = 500
 
 def _csvs(url: str) -> dict[str, pl.DataFrame]:
     """Download one datasheet zip and return {csv basename: frame}."""
-    resp = requests.get(url, headers=_UA, timeout=180)
-    resp.raise_for_status()
+    body = fetch_bytes(url, timeout=180, validate=lambda b: b[:2] == b"PK")
+    if body is None:
+        raise RuntimeError(f"NPWS datasheet download failed: {url}")
     frames: dict[str, pl.DataFrame] = {}
-    with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+    with zipfile.ZipFile(io.BytesIO(body)) as zf:
         for name in zf.namelist():
             if not name.lower().endswith(".csv"):
                 continue
