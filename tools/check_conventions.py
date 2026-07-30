@@ -188,6 +188,41 @@ def _page_entry_missing_dt_page(source: str, path: Path) -> list[str]:
     return out
 
 
+# ── R9: largest-file ratchet ─────────────────────────────────────────────────
+# doc/REFACTORING_TOKEN_ECONOMICS.md: an agent's cost to change a file scales
+# with the largest file it must read, and the saving from splitting only lands
+# when the big file physically shrinks. These are the seven candidates from
+# doc/REFACTORING_CANDIDATES.md at their 2026-07-30 baseline line counts.
+# Growth past the cap fails: either extract the addition into a module (see the
+# candidate plan) or, if the growth is deliberate, raise the cap in this table —
+# visibly, in a diff. When a candidate is refactored, ratchet its cap DOWN.
+LARGEST_FILE_CAPS = {
+    "utility/shared_css.py": 6572,
+    "utility/pages_code/procurement.py": 4665,
+    "utility/pages_code/member_overview.py": 2498,
+    "utility/ui/components.py": 2155,
+    "mcp_server/server.py": 2843,  # grew 2744→2843 during baselining (2026-07-30, parallel session)
+    "test/sql_views/test_sql_views.py": 3579,
+    "extractors/procurement_public_body_extract.py": 2948,
+}
+
+
+def _largest_file_ratchet() -> list[str]:
+    out: list[str] = []
+    for rel, cap in LARGEST_FILE_CAPS.items():
+        path = ROOT / rel
+        if not path.exists():  # split/renamed away — the ratchet's win condition
+            continue
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            loc = sum(1 for _ in fh)
+        if loc > cap:
+            out.append(
+                f"{rel}: {loc} lines > cap {cap} — extract the addition into a module "
+                f"(doc/REFACTORING_CANDIDATES.md) or raise the cap here deliberately"
+            )
+    return out
+
+
 # ── R8: rule-file self-hygiene ────────────────────────────────────────────────
 # The always-loaded instruction files must not use the borrowed-abstraction
 # vocabulary that .claude/rules/communication.md bans — "token multipliers" sat in
@@ -248,6 +283,7 @@ def main() -> int:
         violations.extend(f"[missing-dt-page] utility/pages_code/{v}" for v in _page_entry_missing_dt_page(source, py))
 
     violations.extend(f"[rule-file-jargon] {v}" for v in _rule_file_jargon())
+    violations.extend(f"[largest-file-ratchet] {v}" for v in _largest_file_ratchet())
 
     for note in stale_baseline:
         print(f"NOTE  {note}")

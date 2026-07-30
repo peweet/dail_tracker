@@ -2021,18 +2021,14 @@ def support_ask_html() -> str:
 
 
 def support_help_html() -> str:
-    """"Spot something wrong?" — two public routes plus a private fallback.
+    """ "Spot something wrong?" — two public routes plus a private fallback.
 
     Public issues lead deliberately. A correction filed in the open is
     auditable by anyone, which is the standard this site holds its own figures
     to; email is the exception, not the front door.
     """
-    correction = _issue_url(
-        labels="data-correction", title="Data correction: ", body=_CORRECTION_BODY
-    )
-    enhancement = _issue_url(
-        labels="enhancement", title="Suggestion: ", body=_ENHANCEMENT_BODY
-    )
+    correction = _issue_url(labels="data-correction", title="Data correction: ", body=_CORRECTION_BODY)
+    enhancement = _issue_url(labels="enhancement", title="Suggestion: ", body=_ENHANCEMENT_BODY)
     email = contact_email()
     private = ""
     if email:

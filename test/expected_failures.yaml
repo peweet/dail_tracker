@@ -1,0 +1,40 @@
+# Expected-failure ledger — ENVIRONMENT-dependent failures only.
+#
+# WHY THIS EXISTS
+#   Local runs and CI disagree both ways by construction: the private siting lane
+#   is untracked (invisible to CI), and some baselined outputs exist only in CI's
+#   committed tree or only locally. Without a ledger, an environment mismatch reads
+#   as a code defect and burns a session re-diagnosing it (red since 2026-07-13).
+#
+# WHAT MAY GO HERE
+#   A test or gate that fails for a KNOWN environment reason (missing lane, missing
+#   data, platform difference). Every entry needs a resolution condition — the
+#   change that retires it.
+# WHAT MUST NEVER GO HERE
+#   Content/data-drift failures (gold-quality, extraction match-rate). Those guards
+#   exist to be red until a human triages them — ledgering one masks real drift.
+#   Drift items go to memory/OPEN_QUESTIONS.md instead.
+#
+# MECHANICS
+#   pytest entries: test/conftest.py applies xfail(strict=False) when the current
+#     environment matches `scope` ("ci" = GITHUB_ACTIONS, "local" = this box,
+#     "both"). An entry whose test PASSES shows up as XPASS + a STALE warning in
+#     the terminal summary — retire it.
+#   job entries: documentation only, validated + printed by
+#     tools/check_expected_failures.py (run in CI and callable locally).
+
+pytest: []
+
+jobs:
+  - job: typecheck
+    scope: local
+    reason: >-
+      basedpyright reports 73 errors, all in dail_tracker_core/siting/* — the
+      private untracked lane CI never checks out. The CI typecheck job scope is
+      green; local red is the environment split, not a regression in tracked code.
+    evidence: "local basedpyright run 2026-07-30: 73 errors across 9 siting files, 0 outside siting"
+    added: "2026-07-30"
+    resolution: >-
+      Retire when the siting lane moves to its own private repo with its own
+      typecheck gate (see memory: project_siting_made_private_2026_07_24), or when
+      the siting type errors are fixed locally.

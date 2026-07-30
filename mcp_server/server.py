@@ -20,149 +20,155 @@ doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 
 
 
+
+
 # ── SECTION MAP ── ─────────────────────────────────────────
-# ⚠️  DO NOT READ WHOLE — ~33,593 tokens (2,745 lines after this header).
+# ⚠️  DO NOT READ WHOLE — ~34,840 tokens (2,844 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
-#     259-272    _cur
-#     273-298    _release_if_idle
-#     299-307    _rows
-#     308-314    _one
-#     315-318    Members
-#     319-330    search_members
-#     331-355    get_member_record
-#     356-359    Votes
-#     360-370    list_recent_votes
-#     371-380    get_division
-#     381-384    Cross-reference: votes × Register of Members' Interests
-#     385-395    division_interest_breakdown
-#     396-459    voting_vs_interests
-#     460-463    Legislation
-#     464-474    search_legislation
-#     475-485    get_bill
-#     486-507    search_statutory_instruments
-#     508-537    circular_si_crosswalk
-#     538-541    Payments / lobbying
-#     542-548    top_payments
-#     549-556    lobbying_organisations
-#     557-563    revolving_door
-#     564-567    Ministerial diaries — who ministers meet
-#     568-580    ministerial_diary_top_organisations
-#     581-593    ministerial_diary_organisation
-#     594-603    who_ministers_meet
-#     604-641    company_influence
-#     642-660    _spine_lobbying_lookup
-#     661-697    access_to_contracts
-#     698-715    procurement_lobbying_overlap
-#     716-719    Procurement
-#     720-729    search_suppliers
-#     730-737    get_supplier
-#     738-754    procurement_competition
-#     755-758    Committees
-#     759-765    list_committees
-#     766-771    get_committee
-#     772-775    Interests (Register of Members' Interests)
-#     776-783    get_member_interests
-#     784-787    Ministerial accountability
-#     788-794    who_was_minister
-#     795-798    Parliamentary questions
-#     799-822    get_member_questions
-#     823-826    Payments by year
-#     827-833    payments_by_year
-#     834-837    Member floor speeches
-#     838-864    member_speeches
-#     865-868    SIPO political finance (party donations + GE2024 election ex
-#     869-887    party_donations
-#     888-903    party_election_spend
-#     904-907    Judiciary (the bench + court-system health)
-#     908-924    judicial_appointments
-#     925-937    courts_health
-#     938-941    Public appointments (state boards)
-#     942-947    public_appointments
-#     948-972    Charity finances
-#     973-1018   _charity_sector_dq_flags
-#    1019-1048   charity_financials
-#    1049-1051   Corporate distress notices (Iris Oifigiúil — companies only,
-#    1052-1058   _trim_notice
-#    1059-1099   corporate_distress_notices
-#    1100-1125   corporate_repeat_distress
-#    1126-1129   Public-body payments (the realised-SPEND grain)
-#    1130-1148   public_body_payments
-#    1149-1152   Procurement — deeper cuts (authority / CPV / live tenders)
-#    1153-1160   procurement_by_authority
-#    1161-1167   procurement_by_cpv
-#    1168-1174   open_tenders
-#    1175-1178   Ministerial roll-up
-#    1179-1188   current_cabinet
-#    1189-1192   Lobbying — revolving-door individual profile
-#    1193-1208   dpo_lobbying_profile
-#    1209-1212   Corpus search: divisions by topic
-#    1213-1258   search_votes_by_topic
-#    1259-1262   Join map (the association guard — read BEFORE cross-referenc
-#    1263-1340   join_map
-#    1341-1344   Data coverage (scope guard for honest answers)
-#    1345-1369   data_coverage
-#    1370-1378   _load_fact_cards
-#    1379-1410   list_datasets
-#    1411-1428   describe_dataset
-#    1429-1445   search_project: one metadata-layer retrieval call instead of
-#    1446-1451   _memory_dir
-#    1452-1466   _fts_ready
-#    1467-1470   _tokens
-#    1471-1551   _build_project_index
-#    1552-1559   _project_index
-#    1560-1640   search_project
-#    1641-1652   code_outline
-#    1653-1674   py_deps
-#    1675-1736   json_peek
-#    1737-1752   view_deps
-#    1753-1762   search_speeches
-#    1763-1772   search_questions
-#    1773-1811   siting_decision_documents
-#    1812-1828   search_planning_precedents
-#    1829-1841   column_deps
-#    1842-1857   source_fetch_failures
-#    1858-1861   Procurement conduit (authoritative-source bridge + serve-vs-
-#    1862-1939   procurement_notice
-#    1940-1963   project_value_estimate
-#    1964-1966   Siting check (planning-constraint triage for a point — the c
-#    1967-1979   _brief_item
-#    1980-2066   siting_check
-#    2067-2116   _siting_nearby_history
-#    2117-2144   _siting_process_context
-#    2145-2148   Cross-register watchlist + organisation dossier (entity-cros
-#    2149-2172   cross_register_watchlist
-#    2173-2190   _org_name_key
-#    2191-2202   _org_registers
-#    2203-2251   _resolve_org_candidates
-#    2252-2319   organisation_dossier
-#    2320-2323   Local government (council accountability scorecard)
-#    2324-2367   derelict_levy_compliance
-#    2368-2414   council_scorecard
-#    2415-2418   AFS (local-authority audited accounts — the BUDGET grain)
-#    2419-2464   afs_coverage
-#    2465-2468   Housing money (national demand / supply / accommodation spen
-#    2469-2498   housing_money
-#    2499-2502   Attendance (division turnout + TAA compliance)
-#    2503-2544   attendance_ranking
-#    2545-2548   National public finance (CSO general-government)
-#    2549-2564   gov_finance_annual
-#    2565-2568   Prompts (audit templates surfaced as client slash-commands)
-#    2569-2580   audit_member
-#    2581-2590   trace_bill_sis
-#    2591-2601   procurement_lobbying_check
-#    2602-2614   audit_party_finance
-#    2615-2626   judicial_appointment_trace
-#    2627-2641   assess_procurement_award
-#    2642-2656   siting_brief
-#    2657-2663   coverage_resource
-#    2664-2676   fact_cards_resource
-#    2677-2683   fact_card_resource
-#    2684-2691   join_map_resource
-#    2692-2701   doc_index_resource
-#    2702-2709   doc_sandbox_map_resource
-#    2710-2726   data_question
-#    2727-2745   scope_check
+#     210-227    Lazy data stack
+#     228-290    _LazyModule
+#     291-329    _unavailable
+#     330-349    _cur
+#     350-375    _release_if_idle
+#     376-384    _rows
+#     385-391    _one
+#     392-395    Members
+#     396-407    search_members
+#     408-432    get_member_record
+#     433-436    Votes
+#     437-447    list_recent_votes
+#     448-457    get_division
+#     458-461    Cross-reference: votes × Register of Members' Interests
+#     462-472    division_interest_breakdown
+#     473-536    voting_vs_interests
+#     537-540    Legislation
+#     541-551    search_legislation
+#     552-562    get_bill
+#     563-584    search_statutory_instruments
+#     585-614    circular_si_crosswalk
+#     615-618    Payments / lobbying
+#     619-625    top_payments
+#     626-633    lobbying_organisations
+#     634-640    revolving_door
+#     641-644    Ministerial diaries — who ministers meet
+#     645-657    ministerial_diary_top_organisations
+#     658-670    ministerial_diary_organisation
+#     671-680    who_ministers_meet
+#     681-718    company_influence
+#     719-737    _spine_lobbying_lookup
+#     738-774    access_to_contracts
+#     775-792    procurement_lobbying_overlap
+#     793-796    Procurement
+#     797-806    search_suppliers
+#     807-814    get_supplier
+#     815-831    procurement_competition
+#     832-835    Committees
+#     836-842    list_committees
+#     843-848    get_committee
+#     849-852    Interests (Register of Members' Interests)
+#     853-860    get_member_interests
+#     861-864    Ministerial accountability
+#     865-871    who_was_minister
+#     872-875    Parliamentary questions
+#     876-900    get_member_questions
+#     901-921    member_question_count_by_year
+#     922-925    Payments by year
+#     926-932    payments_by_year
+#     933-936    Member floor speeches
+#     937-963    member_speeches
+#     964-967    SIPO political finance (party donations + GE2024 election ex
+#     968-986    party_donations
+#     987-1002   party_election_spend
+#    1003-1006   Judiciary (the bench + court-system health)
+#    1007-1023   judicial_appointments
+#    1024-1036   courts_health
+#    1037-1040   Public appointments (state boards)
+#    1041-1046   public_appointments
+#    1047-1071   Charity finances
+#    1072-1117   _charity_sector_dq_flags
+#    1118-1147   charity_financials
+#    1148-1150   Corporate distress notices (Iris Oifigiúil — companies only,
+#    1151-1157   _trim_notice
+#    1158-1198   corporate_distress_notices
+#    1199-1224   corporate_repeat_distress
+#    1225-1228   Public-body payments (the realised-SPEND grain)
+#    1229-1247   public_body_payments
+#    1248-1251   Procurement — deeper cuts (authority / CPV / live tenders)
+#    1252-1259   procurement_by_authority
+#    1260-1266   procurement_by_cpv
+#    1267-1273   open_tenders
+#    1274-1277   Ministerial roll-up
+#    1278-1287   current_cabinet
+#    1288-1291   Lobbying — revolving-door individual profile
+#    1292-1307   dpo_lobbying_profile
+#    1308-1311   Corpus search: divisions by topic
+#    1312-1357   search_votes_by_topic
+#    1358-1361   Join map (the association guard — read BEFORE cross-referenc
+#    1362-1439   join_map
+#    1440-1443   Data coverage (scope guard for honest answers)
+#    1444-1468   data_coverage
+#    1469-1477   _load_fact_cards
+#    1478-1509   list_datasets
+#    1510-1527   describe_dataset
+#    1528-1544   search_project: one metadata-layer retrieval call instead of
+#    1545-1550   _memory_dir
+#    1551-1565   _fts_ready
+#    1566-1569   _tokens
+#    1570-1650   _build_project_index
+#    1651-1658   _project_index
+#    1659-1739   search_project
+#    1740-1751   code_outline
+#    1752-1773   py_deps
+#    1774-1835   json_peek
+#    1836-1851   view_deps
+#    1852-1861   search_speeches
+#    1862-1871   search_questions
+#    1872-1910   siting_decision_documents
+#    1911-1927   search_planning_precedents
+#    1928-1940   column_deps
+#    1941-1956   source_fetch_failures
+#    1957-1960   Procurement conduit (authoritative-source bridge + serve-vs-
+#    1961-2038   procurement_notice
+#    2039-2062   project_value_estimate
+#    2063-2065   Siting check (planning-constraint triage for a point — the c
+#    2066-2078   _brief_item
+#    2079-2165   siting_check
+#    2166-2215   _siting_nearby_history
+#    2216-2243   _siting_process_context
+#    2244-2247   Cross-register watchlist + organisation dossier (entity-cros
+#    2248-2271   cross_register_watchlist
+#    2272-2289   _org_name_key
+#    2290-2301   _org_registers
+#    2302-2350   _resolve_org_candidates
+#    2351-2418   organisation_dossier
+#    2419-2422   Local government (council accountability scorecard)
+#    2423-2466   derelict_levy_compliance
+#    2467-2513   council_scorecard
+#    2514-2517   AFS (local-authority audited accounts — the BUDGET grain)
+#    2518-2563   afs_coverage
+#    2564-2567   Housing money (national demand / supply / accommodation spen
+#    2568-2597   housing_money
+#    2598-2601   Attendance (division turnout + TAA compliance)
+#    2602-2643   attendance_ranking
+#    2644-2647   National public finance (CSO general-government)
+#    2648-2663   gov_finance_annual
+#    2664-2667   Prompts (audit templates surfaced as client slash-commands)
+#    2668-2679   audit_member
+#    2680-2689   trace_bill_sis
+#    2690-2700   procurement_lobbying_check
+#    2701-2713   audit_party_finance
+#    2714-2725   judicial_appointment_trace
+#    2726-2740   assess_procurement_award
+#    2741-2755   siting_brief
+#    2756-2762   coverage_resource
+#    2763-2775   fact_cards_resource
+#    2776-2782   fact_card_resource
+#    2783-2790   join_map_resource
+#    2791-2800   doc_index_resource
+#    2801-2808   doc_sandbox_map_resource
+#    2809-2825   data_question
+#    2826-2844   scope_check
 # ── END SECTION MAP ── ─────────────────────────────────
 """
 
@@ -199,36 +205,101 @@ import services.runtime_env  # noqa: E402,F401
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
 
-from dail_tracker_core import caveats, dossiers, serialize  # noqa: E402
-from dail_tracker_core.connections import api_conn  # noqa: E402
-from dail_tracker_core.db import register_views  # noqa: E402
-from dail_tracker_core.queries import appointments as appt  # noqa: E402
-from dail_tracker_core.queries import attendance as att  # noqa: E402
-from dail_tracker_core.queries import charities as char  # noqa: E402
-from dail_tracker_core.queries import corporate as corp  # noqa: E402
-from dail_tracker_core.queries import entity as ent  # noqa: E402
-from dail_tracker_core.queries import housing as hsg  # noqa: E402
-from dail_tracker_core.queries import judiciary as jud  # noqa: E402
-from dail_tracker_core.queries import legislation as leg  # noqa: E402
-from dail_tracker_core.queries import lobbying as lb  # noqa: E402
-from dail_tracker_core.queries import local_government as lg  # noqa: E402
-from dail_tracker_core.queries import ministerial as min_  # noqa: E402
-from dail_tracker_core.queries import ministerial_diary as mdiary  # noqa: E402
-from dail_tracker_core.queries import procurement as proc  # noqa: E402
-from dail_tracker_core.queries import public_payments as pubpay  # noqa: E402
-from dail_tracker_core.queries import publicfinance as pf  # noqa: E402
-from dail_tracker_core.queries import sipo  # noqa: E402
-from dail_tracker_core.queries import votes as vot  # noqa: E402
-from dail_tracker_core.results import SourceUnavailable  # noqa: E402
-from mcp_server import (  # noqa: E402
-    code_index,
-    fts_index,
-    qs_valuation,
-    resource_policy,
-    sql_index,
-    ted_conduit,
-    text_fts,
-)
+from mcp_server import resource_policy  # noqa: E402
+
+# ── Lazy data stack ───────────────────────────────────────────────────────────
+# Measured 2026-07-27: importing these at module scope costs 98 MB, of which only
+# ~46 MB is needed to complete the handshake and answer list_tools. Under stdio the
+# client spawns one server per session whether or not a tool is ever called, and the
+# adoption tripwire has logged sessions making ZERO calls — so an eagerly-imported
+# server pays the full data stack to answer nothing. Deferring to first attribute
+# access moves pandas/duckdb/sqlglot onto the first real tool call.
+#
+# Why a proxy object and not PEP 562's module __getattr__: verified 2026-07-27 that a
+# module-level __getattr__ is NOT consulted for a LOAD_GLOBAL inside the module's own
+# functions (only for `module.attr` from outside), and every use here is a global
+# lookup inside a tool body. The proxy lives in globals(), so the lookup succeeds and
+# the import fires on the attribute access that follows.
+#
+# services.runtime_env stays eager above — the BLAS cap must be set before anything
+# pulls numpy in, and deferring the data stack only widens that margin.
+
+
+class _LazyModule:
+    """A stand-in that imports its module on first attribute access, then replaces
+    itself in the importing module's globals so later lookups pay nothing."""
+
+    __slots__ = ("_module", "_alias", "_name")
+
+    def __init__(self, name: str, alias: str) -> None:
+        object.__setattr__(self, "_name", name)
+        object.__setattr__(self, "_alias", alias)
+        object.__setattr__(self, "_module", None)
+
+    def _load(self):
+        mod = object.__getattribute__(self, "_module")
+        if mod is None:
+            import importlib
+
+            mod = importlib.import_module(object.__getattribute__(self, "_name"))
+            object.__setattr__(self, "_module", mod)
+            # Swap the proxy out: every later reference is a plain module lookup.
+            globals()[object.__getattribute__(self, "_alias")] = mod
+        return mod
+
+    def __getattr__(self, attr: str):
+        return getattr(self._load(), attr)
+
+    def __repr__(self) -> str:  # pragma: no cover — diagnostics only
+        name = object.__getattribute__(self, "_name")
+        loaded = object.__getattribute__(self, "_module") is not None
+        return f"<lazy module {name!r} {'loaded' if loaded else 'deferred'}>"
+
+
+# Bound one per line rather than through a helper that writes globals(): a loop would
+# leave every one of the ~127 use sites below as an undefined name to ruff and to any
+# type checker, which buries a real typo in a wall of false positives. These read as
+# ordinary module aliases, because that is what they become on first use.
+caveats = _LazyModule("dail_tracker_core.caveats", "caveats")
+dossiers = _LazyModule("dail_tracker_core.dossiers", "dossiers")
+serialize = _LazyModule("dail_tracker_core.serialize", "serialize")
+appt = _LazyModule("dail_tracker_core.queries.appointments", "appt")
+att = _LazyModule("dail_tracker_core.queries.attendance", "att")
+char = _LazyModule("dail_tracker_core.queries.charities", "char")
+corp = _LazyModule("dail_tracker_core.queries.corporate", "corp")
+ent = _LazyModule("dail_tracker_core.queries.entity", "ent")
+hsg = _LazyModule("dail_tracker_core.queries.housing", "hsg")
+jud = _LazyModule("dail_tracker_core.queries.judiciary", "jud")
+leg = _LazyModule("dail_tracker_core.queries.legislation", "leg")
+lb = _LazyModule("dail_tracker_core.queries.lobbying", "lb")
+lg = _LazyModule("dail_tracker_core.queries.local_government", "lg")
+min_ = _LazyModule("dail_tracker_core.queries.ministerial", "min_")
+mdiary = _LazyModule("dail_tracker_core.queries.ministerial_diary", "mdiary")
+proc = _LazyModule("dail_tracker_core.queries.procurement", "proc")
+pubpay = _LazyModule("dail_tracker_core.queries.public_payments", "pubpay")
+pf = _LazyModule("dail_tracker_core.queries.publicfinance", "pf")
+sipo = _LazyModule("dail_tracker_core.queries.sipo", "sipo")
+vot = _LazyModule("dail_tracker_core.queries.votes", "vot")
+code_index = _LazyModule("mcp_server.code_index", "code_index")
+fts_index = _LazyModule("mcp_server.fts_index", "fts_index")
+qs_valuation = _LazyModule("mcp_server.qs_valuation", "qs_valuation")
+sql_index = _LazyModule("mcp_server.sql_index", "sql_index")
+ted_conduit = _LazyModule("mcp_server.ted_conduit", "ted_conduit")
+text_fts = _LazyModule("mcp_server.text_fts", "text_fts")
+
+
+def _unavailable() -> type[BaseException]:
+    """The SourceUnavailable class, imported on demand.
+
+    An `except` clause needs a real exception class, which a lazy proxy cannot be — so
+    the seven handlers call this instead. By the time any of them can fire, the tool
+    body has already touched the data stack, so this resolves an import already in
+    ``sys.modules``.
+    """
+    from dail_tracker_core.results import SourceUnavailable
+
+    return SourceUnavailable
+
 
 mcp = FastMCP("dail-tracker")
 
@@ -260,6 +331,12 @@ def _cur():
     global _CONN
     with _CONN_LOCK:
         if _CONN is None:
+            # Imported here, not at module scope: this is the moment the server stops
+            # being idle, and the whole point of the lazy stack above is that a server
+            # which never reaches this line never pays for duckdb or the view builders.
+            from dail_tracker_core.connections import api_conn
+            from dail_tracker_core.db import register_views
+
             conn = api_conn()
             # Cap memory/threads/spill BEFORE the ~77-view build, so even the build
             # runs inside the budget (mcp_server/resource_policy.py explains why the
@@ -322,7 +399,7 @@ def search_members(query: str) -> list[dict]:
     the unique_member_code to get_member_record for the full dossier."""
     try:
         records, _total, _ = dossiers.list_members(_cur(), fuzzy_name=query, limit=10)
-    except SourceUnavailable as exc:
+    except _unavailable() as exc:
         return [{"error": str(exc)}]
     return records
 
@@ -343,7 +420,7 @@ def get_member_record(name_or_code: str) -> dict:
         records, total, _ = dossiers.list_members(cur, fuzzy_name=name_or_code, limit=10)
         if total == 1:
             return dossiers.build_member_dossier(_cur(), records[0]["unique_member_code"])
-    except SourceUnavailable as exc:
+    except _unavailable() as exc:
         return {"error": str(exc)}
     if total == 0:
         return {"error": f"no member matches '{name_or_code}'"}
@@ -362,7 +439,7 @@ def list_recent_votes(house: str = "Dáil", limit: int = 20) -> list[dict]:
     vote_id usable with get_division."""
     try:
         records, _total, _ = dossiers.list_votes(_cur(), house=house, limit=limit)
-    except SourceUnavailable as exc:
+    except _unavailable() as exc:
         return [{"error": str(exc)}]
     return records
 
@@ -373,7 +450,7 @@ def get_division(vote_id: str) -> dict:
     party breakdown, every member's individual vote, and source links."""
     try:
         d = dossiers.build_division_dossier(_cur(), vote_id)
-    except SourceUnavailable as exc:
+    except _unavailable() as exc:
         return {"error": str(exc)}
     return d or {"error": f"no division '{vote_id}'"}
 
@@ -466,7 +543,7 @@ def search_legislation(query: str = "", status: str = "", limit: int = 20) -> li
     summaries; pass a bill_id to get_bill for the full record."""
     try:
         records, _total, _ = dossiers.list_bills(_cur(), title_search=query or None, status=status or None, limit=limit)
-    except SourceUnavailable as exc:
+    except _unavailable() as exc:
         return [{"error": str(exc)}]
     return records
 
@@ -477,7 +554,7 @@ def get_bill(bill_id: str) -> dict:
     sources, PDFs, debates, and the statutory instruments made under it."""
     try:
         d = dossiers.build_bill_dossier(_cur(), bill_id)
-    except SourceUnavailable as exc:
+    except _unavailable() as exc:
         return {"error": str(exc)}
     return d or {"error": f"no bill '{bill_id}'"}
 
@@ -499,7 +576,7 @@ def search_statutory_instruments(
             eu_only=eu_only,
             limit=limit,
         )
-    except SourceUnavailable as exc:
+    except _unavailable() as exc:
         return [{"error": str(exc)}]
     return records
 
@@ -818,6 +895,28 @@ def get_member_questions(
         limit=limit,
     )
     return d or {"error": f"no member matches '{name_or_code}'"}
+
+
+@mcp.tool(annotations=_RO)
+def member_question_count_by_year(member_name: str) -> list[dict]:
+    """A member's parliamentary-question VOLUME per calendar year — the count behind
+    get_member_questions' feed, for 'how many questions has this TD tabled each year?'
+    without pulling the full question text. Reuses the same feed as get_member_questions
+    (dossiers.build_member_questions) and aggregates by the year of question_date in
+    Python, since the underlying feed is date-grained, not pre-aggregated. Accepts a
+    name or unique_member_code. Returns one row per year (year, question_count),
+    oldest first."""
+    d = dossiers.build_member_questions(_cur(), member_name, limit=10000)
+    if d is None:
+        return [{"error": f"no member matches '{member_name}'"}]
+    counts: dict[int, int] = {}
+    for q in d.get("questions", []):
+        date = q.get("question_date")
+        if not date:
+            continue
+        year = int(str(date)[:4])
+        counts[year] = counts.get(year, 0) + 1
+    return [{"year": year, "question_count": counts[year]} for year in sorted(counts)]
 
 
 # ── Payments by year ────────────────────────────────────────────────────────────

@@ -31,8 +31,8 @@ import logging
 from pathlib import Path
 
 import polars as pl
-import requests
 
+from services.http_engine import fetch_bytes
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -40,7 +40,6 @@ LOG = logging.getLogger("census_saps_2022")
 
 OUT = Path(__file__).resolve().parents[1] / "data/silver/parquet"
 _BASE = "https://www.cso.ie/en/media/csoie/census/census2022"
-_UA = {"User-Agent": "Mozilla/5.0 (compatible; dail-tracker/1.0)"}
 
 # level -> (filename, expected row count as published, row floor)
 FILES: dict[str, tuple[str, int, int]] = {
@@ -56,10 +55,11 @@ def fetch_level(level: str) -> pl.DataFrame:
     fname, expect, _ = FILES[level]
     url = f"{_BASE}/{fname}"
     LOG.info("[%s] %s", level, url)
-    resp = requests.get(url, headers=_UA, timeout=300)
-    resp.raise_for_status()
+    body = fetch_bytes(url, timeout=300)
+    if body is None:
+        raise RuntimeError(f"CSO SAPS download failed: {url}")
     # SAPS ships with a handful of non-UTF8 bytes in Irish placenames; lossy keeps every row.
-    df = pl.read_csv(resp.content, infer_schema_length=0, encoding="utf8-lossy")
+    df = pl.read_csv(body, infer_schema_length=0, encoding="utf8-lossy")
     if df.height != expect:
         LOG.warning("[%s] %d rows, published count was %d — CSO may have revised", level, df.height, expect)
     return df
