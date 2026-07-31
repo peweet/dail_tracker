@@ -13,6 +13,17 @@ Usage:
     .venv/Scripts/python tools/evals/cost_of_change_bench.py --smoke
     .venv/Scripts/python tools/evals/cost_of_change_bench.py --candidates C6
     .venv/Scripts/python tools/evals/cost_of_change_bench.py --candidates all
+
+Interpretation guardrails (2026-07-31, caching + reproducibility literature:
+arXiv:2601.06007, 2605.28840, 2506.09501):
+  * total_input_tokens is ~90% prompt-cache reads (measured 88.5-96.3% across the
+    C1-C7 rows) — a flat total across arms is expected, not a null result. Compare
+    cost_usd and the fresh classes (usage.input_tokens + cache_creation_input_tokens).
+  * One run per arm is Indicative only: output length has large run-to-run variance
+    at fixed config. Run with --runs 5 per arm, then decide with
+    tools/evals/bench_compare.py --candidate CN — it accepts a delta only when it
+    exceeds the within-arm spread and reports tool_sequence agreement (the stabler
+    comparator).
 """
 
 import sys
@@ -21,7 +32,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-import services.runtime_env  # noqa: E402, F401  (BLAS cap; first project import at every entry point)
+import services.runtime_env  # noqa: E402, F401  isort:skip  (BLAS cap; first project import at every entry point)
 
 import argparse  # noqa: E402
 import hashlib  # noqa: E402
@@ -29,7 +40,7 @@ import json  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
 import time  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
 
 import anyio  # noqa: E402
 from claude_agent_sdk import (  # noqa: E402
@@ -170,7 +181,7 @@ async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: b
         else None
     )
     row = {
-        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
         "candidate": cand,
         "model": model,
         "harness": {"setting_sources": [], "disallowed_tools": DISALLOWED_TOOLS},
@@ -214,6 +225,10 @@ async def main() -> None:
     ap.add_argument("--max-turns", type=int, default=60)
     ap.add_argument("--smoke", action="store_true", help="run plumbing check only")
     ap.add_argument("--keep-worktree", action="store_true")
+    ap.add_argument(
+        "--runs", type=int, default=1,
+        help="repeats per candidate (>=5 for a decidable A/B — see bench_compare.py)",
+    )
     args = ap.parse_args()
 
     if args.smoke:
@@ -230,31 +245,35 @@ async def main() -> None:
         ]
 
     LOG_PATH.parent.mkdir(exist_ok=True)
+    runs = max(1, args.runs)
     for cand, prompt in jobs:
-        max_turns = 6 if cand == "SMOKE" else args.max_turns
-        print(f"=== {cand} ({args.model}, max_turns={max_turns}) ===", flush=True)
-        row = await run_one(cand, prompt, args.model, max_turns, args.keep_worktree)
-        with LOG_PATH.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-        print(
-            json.dumps(
-                {
-                    k: row[k]
-                    for k in (
-                        "candidate",
-                        "total_input_tokens",
-                        "output_tokens",
-                        "selfreport_tokens_est",
-                        "num_turns",
-                        "wall_s",
-                        "cost_usd",
-                        "is_error",
-                        "error",
-                    )
-                }
-            ),
-            flush=True,
-        )
+        for run_idx in range(1, runs + 1):
+            max_turns = 6 if cand == "SMOKE" else args.max_turns
+            print(f"=== {cand} run {run_idx}/{runs} ({args.model}, max_turns={max_turns}) ===", flush=True)
+            row = await run_one(cand, prompt, args.model, max_turns, args.keep_worktree)
+            with LOG_PATH.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+            summary = {
+                k: row[k]
+                for k in (
+                    "candidate",
+                    "total_input_tokens",
+                    "output_tokens",
+                    "selfreport_tokens_est",
+                    "num_turns",
+                    "wall_s",
+                    "cost_usd",
+                    "is_error",
+                    "error",
+                )
+            }
+            u = row["usage"]
+            summary["input_classes"] = {
+                "fresh": u.get("input_tokens"),
+                "cache_write": u.get("cache_creation_input_tokens"),
+                "cache_read": u.get("cache_read_input_tokens"),
+            }
+            print(json.dumps(summary), flush=True)
 
 
 anyio.run(main)

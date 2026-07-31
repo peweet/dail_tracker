@@ -128,3 +128,81 @@ def test_ledger_skips_empty_transcript_and_missing_file(tmp_path, monkeypatch):
     assert _run(led, {"transcript_path": str(empty)}, monkeypatch) == 0
     assert _run(led, {"transcript_path": str(tmp_path / "nope.jsonl")}, monkeypatch) == 0
     assert not (tmp_path / "ledger.jsonl").exists(), "no assistant turns -> no row"
+
+
+# ── context_tripwire (200k/400k /clear nudge) ────────────────────────────────
+
+
+def _tripwire_transcript(tmp_path, cache_read: int):
+    t = tmp_path / "t.jsonl"
+    t.write_text(
+        "\n".join(
+            [
+                json.dumps({"type": "user", "message": {"content": "build the thing"}}),
+                _transcript_line(output_tokens=10, cache_read_input_tokens=cache_read),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return t
+
+
+def test_tripwire_silent_below_200k(tmp_path, monkeypatch, capsys):
+    tw = _load("context_tripwire")
+    t = _tripwire_transcript(tmp_path, 150_000)
+    rc = _run(tw, {"session_id": uuid.uuid4().hex, "transcript_path": str(t)}, monkeypatch)
+    assert rc == 0 and capsys.readouterr().out == ""
+
+
+def test_tripwire_fires_at_200k_once(tmp_path, monkeypatch, capsys):
+    tw = _load("context_tripwire")
+    sid = uuid.uuid4().hex
+    t = _tripwire_transcript(tmp_path, 250_000)
+
+    assert _run(tw, {"session_id": sid, "transcript_path": str(t)}, monkeypatch) == 0
+    ctx = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert "context-tripwire" in ctx and "/clear" in ctx
+
+    # same session, still in the 200k band -> marker exists -> silent
+    assert _run(tw, {"session_id": sid, "transcript_path": str(t)}, monkeypatch) == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_tripwire_escalates_to_400k_handoff(tmp_path, monkeypatch, capsys):
+    tw = _load("context_tripwire")
+    sid = uuid.uuid4().hex
+
+    # session that jumps straight past 400k gets the handoff nudge (level 1 never fired)
+    t = _tripwire_transcript(tmp_path, 450_000)
+    assert _run(tw, {"session_id": sid, "transcript_path": str(t)}, monkeypatch) == 0
+    ctx = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert "400k" in ctx and "closeout" in ctx
+
+    # after the 400k nudge the session stays silent
+    assert _run(tw, {"session_id": sid, "transcript_path": str(t)}, monkeypatch) == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_tripwire_reads_only_last_assistant_turn(tmp_path, monkeypatch, capsys):
+    tw = _load("context_tripwire")
+    t = tmp_path / "t.jsonl"
+    t.write_text(
+        "\n".join(
+            [
+                _transcript_line(output_tokens=10, cache_read_input_tokens=500_000),
+                _transcript_line(output_tokens=10, cache_read_input_tokens=90_000),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    # last turn is back under threshold (e.g. after a compaction) -> silent
+    rc = _run(tw, {"session_id": uuid.uuid4().hex, "transcript_path": str(t)}, monkeypatch)
+    assert rc == 0 and capsys.readouterr().out == ""
+
+
+def test_tripwire_fails_open(tmp_path, monkeypatch, capsys):
+    tw = _load("context_tripwire")
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json{{"))
+    assert tw.main() == 0
+    assert _run(tw, {"session_id": "s", "transcript_path": str(tmp_path / "nope.jsonl")}, monkeypatch) == 0
+    assert capsys.readouterr().out == ""
