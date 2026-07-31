@@ -95,10 +95,11 @@ additionally re-orients when the prompt's named flat file no longer exists. The 
 regressions are all changes of that shape; the one win is the one localizing change.
 
 Consequences, held honestly:
-- The C1/C3/C4 splits stay (byte-identical CSS, green suites, better for humans, targeted
-  greps, parallel editing, smaller diffs) — but their claimed token payoff is refuted for
-  additive registration-shaped changes at these file sizes. The deltas are cents per change
-  either way.
+- **DECISION 2026-07-31 (commit c42e78a): the C1/C3/C4 splits are REVERTED** — the wins
+  stay (C2, C6, and flat C7), the measured regressions do not. The split commits remain in
+  history (e855ae2) with byte-identity/test-identity verification if re-splitting is ever
+  wanted — the convention-over-manifest lever below is the pre-condition worth building
+  first, since it targets exactly what made these three regress.
 - Judge remaining candidates by their **typical change's shape**: C6 ("add a view test" →
   localizes into one family file) and C5 ("add an MCP tool" → a decorated function appended
   in one domain module, no separate manifest) look C2-shaped; C7 ("add a publisher" =
