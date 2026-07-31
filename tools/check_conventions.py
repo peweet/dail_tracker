@@ -224,6 +224,54 @@ def _largest_file_ratchet() -> list[str]:
     return out
 
 
+# ── R10: split-candidate gate watch ──────────────────────────────────────────
+# doc/REFACTORING_CANDIDATES.md §Scope (2026-07-31): a file qualifies for the
+# split-for-tokens program only at >=2,000 lines AND >=30 changes/6mo AND a
+# localizing common change — and it gets a cost-of-change bench baseline
+# (tools/evals/cost_of_change_bench.py) BEFORE anyone splits it. This watch
+# NOTES (advisory, never fails) any tracked source file that crosses the size
+# threshold and was not part of the 2026-07-31 assessment, so new crossers get
+# measured instead of refactored on faith. Churn is deliberately not computed
+# here (git-dependent, non-deterministic in CI) — the NOTE tells you to check.
+SPLIT_GATE_LINES = 2000
+# Assessed 2026-07-31 (already in LARGEST_FILE_CAPS, or excluded with cause in
+# the doc's Scope section). Directories whose whole class is excluded:
+SPLIT_GATE_EXCLUDED_DIRS = ("extractors/", "iris/", "pipeline_sandbox/", "test/")
+SPLIT_GATE_ASSESSED = {
+    "utility/pages_code/corporate.py",  # excluded: churn <15/6mo
+    "utility/pages_code/lobbying_3.py",  # excluded: churn <15/6mo
+}
+
+
+def _split_gate_watch() -> list[str]:
+    out: list[str] = []
+    import subprocess
+
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "*.py"], cwd=str(ROOT), capture_output=True, text=True, check=True
+        ).stdout.splitlines()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return out  # no git (e.g. a bare CI checkout step) — the watch is advisory anyway
+    for rel in tracked:
+        if rel.startswith(SPLIT_GATE_EXCLUDED_DIRS) or rel in SPLIT_GATE_ASSESSED:
+            continue
+        if rel in LARGEST_FILE_CAPS:
+            continue
+        path = ROOT / rel
+        if not path.exists():
+            continue
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            loc = sum(1 for _ in fh)
+        if loc >= SPLIT_GATE_LINES:
+            out.append(
+                f"{rel}: {loc} lines — crossed the split-gate size threshold since the "
+                f"2026-07-31 assessment. Check its churn; if >=30 changes/6mo, freeze a bench "
+                f"prompt and record a baseline BEFORE splitting (doc/REFACTORING_CANDIDATES.md §Scope)"
+            )
+    return out
+
+
 # ── R8: rule-file self-hygiene ────────────────────────────────────────────────
 # The always-loaded instruction files must not use the borrowed-abstraction
 # vocabulary that .claude/rules/communication.md bans — "token multipliers" sat in
@@ -290,6 +338,8 @@ def main() -> int:
 
     for note in stale_baseline:
         print(f"NOTE  {note}")
+    for note in _split_gate_watch():
+        print(f"NOTE  [split-gate] {note}")
     if violations:
         for v in violations:
             print(f"FAIL  {v}")
