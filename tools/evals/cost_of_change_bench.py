@@ -195,9 +195,15 @@ async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: b
     }
     primary = CANDIDATES.get(cand, (None, None))[1]
     if primary:
-        row["primary_file_loc"] = sum(
-            1 for _ in (REPO / primary).open(encoding="utf-8", errors="replace")
-        )
+        path = REPO / primary
+        if path.exists():
+            row["primary_file_loc"] = sum(1 for _ in path.open(encoding="utf-8", errors="replace"))
+        elif path.with_suffix("").is_dir():
+            # Refactored into a package: the leading metric becomes the largest module.
+            row["primary_file_loc"] = max(
+                sum(1 for _ in f.open(encoding="utf-8", errors="replace"))
+                for f in path.with_suffix("").glob("*.py")
+            )
     return row
 
 
