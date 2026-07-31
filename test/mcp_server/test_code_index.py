@@ -53,6 +53,32 @@ def test_outline_directory_mode():
     assert isinstance(mods["code_index.py"]["defs"][0], str)
 
 
+def test_outline_concise_mode_is_names_and_spans_only():
+    out = code_index.outline(REPO, "mcp_server/code_index.py", response_format="concise")
+    assert "error" not in out
+    assert all(isinstance(d, str) for d in out["defs"])
+    assert any(d.startswith("def outline ") for d in out["defs"])
+    assert "imports" not in out
+    import json
+
+    detailed = code_index.outline(REPO, "mcp_server/code_index.py")
+    assert len(json.dumps(out)) < len(json.dumps(detailed)) / 2
+
+
+def test_concise_defs_flattens_methods_with_class_prefix():
+    import ast
+
+    tree = ast.parse("class A:\n    def m(self):\n        pass\n\ndef top():\n    pass\n")
+    lines = code_index._concise_defs(code_index._outline_tree(tree))
+    assert lines[0].startswith("class A ")
+    assert any(ln.startswith("def A.m ") for ln in lines)
+    assert any(ln.startswith("def top ") for ln in lines)
+
+
+def test_outline_rejects_bad_response_format():
+    assert "error" in code_index.outline(REPO, "mcp_server/code_index.py", response_format="terse")
+
+
 def test_outline_rejects_escape_and_missing():
     assert "error" in code_index.outline(REPO, "../outside.py")
     assert "error" in code_index.outline(REPO, "no/such/file.py")

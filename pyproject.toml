@@ -115,6 +115,7 @@ api = [
 mcp = [
     "mcp>=1.20,<2",
     "sqlglot>=25",     # column-level SQL lineage for the column_deps tool — view_deps (DuckDB AST) only sees view→view edges, not which views break on a COLUMN rename
+    "jedi>=0.19",      # symbol-level Python references for the py_refs tool — py_deps (stdlib ast) only sees module→module import edges, not which LINES call a renamed def
 ]
 
 # Everything installable as an EXTRA — a full optional-runtime local setup.

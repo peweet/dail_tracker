@@ -9,6 +9,120 @@ guard, Dáil-only constituency context).
 
 This is the differentiator: no comparable parliamentary API serves a pre-composed
 dossier — they all make the client fan a person id across resources.
+
+# ── SECTION MAP ── ─────────────────────────────────────────
+# ⚠️  DO NOT READ WHOLE — ~18,454 tokens (1,658 lines after this header).
+#     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
+#
+#     165-177    _section
+#     178-186    _identity
+#     187-230    list_members
+#     231-311    build_member_dossier
+#     312-314    Legislation + statutory instruments (legislation_conn)
+#     315-320    _page
+#     321-336    list_bills
+#     337-362    build_bill_dossier
+#     363-386    list_statutory_instruments
+#     387-389    Votes
+#     390-405    list_votes
+#     406-424    build_division_dossier
+#     425-431    Cross-reference: votes × Register of Members' Interests
+#     432-445    build_division_interest_breakdown
+#     446-477    cross_reference_votes_interests
+#     478-480    Payments
+#     481-489    list_payments_ranking
+#     490-492    Lobbying
+#     493-506    list_lobbying_orgs
+#     507-516    list_revolving_door
+#     517-519    Member resolution (shared by member-scoped builders below)
+#     520-545    _resolve_member
+#     546-548    Procurement
+#     549-564    list_suppliers
+#     565-576    build_supplier_dossier
+#     577-611    build_organisation_dossier
+#     612-675    build_buyer_dossier
+#     676-707    _payments_view_name
+#     708-764    list_procurement_lobbying_overlap
+#     765-789    list_procurement_competition
+#     790-792    Committees
+#     793-797    list_committees
+#     798-811    get_committee
+#     812-814    Interests (Register of Members' Interests)
+#     815-827    build_member_interests
+#     828-830    Ministerial accountability
+#     831-852    who_was_minister
+#     853-855    Member questions feed
+#     856-883    build_member_questions
+#     884-886    Member speeches feed (floor contributions)
+#     887-924    build_member_speeches
+#     925-927    Payments by year
+#     928-938    list_payments_year_ranking
+#     939-944    SIPO political finance (donations + GE2024 election expenses
+#     945-963    party_donations
+#     964-983    party_election_spend
+#     984-993    SIPO per-candidate GE2024 election expenses (the granular OC
+#     994-1009   candidate_election_spend
+#    1010-1028   candidate_election_detail
+#    1029-1043   candidate_election_breakdown
+#    1044-1048   Judiciary (the bench + court-system health)
+#    1049-1061   judicial_appointments
+#    1062-1074   courts_health
+#    1075-1077   Public appointments (state boards)
+#    1078-1087   list_public_appointments
+#    1088-1092   Charity finances
+#    1093-1110   charity_financials
+#    1111-1116   Public-body payments (the realised-SPEND grain)
+#    1117-1136   public_body_payments
+#    1137-1140   Procurement — deeper cuts (authority / CPV / live tenders)
+#    1141-1150   list_procurement_authorities
+#    1151-1160   list_procurement_cpv
+#    1161-1172   list_open_tenders
+#    1173-1175   Ministerial roll-up (current cabinet)
+#    1176-1187   current_cabinet
+#    1188-1192   Lobbying — revolving-door individual (DPO) profile
+#    1193-1212   dpo_lobbying_profile
+#    1213-1215   Corpus search: divisions by topic
+#    1216-1239   search_votes_by_topic
+#    1240-1249   Corporate notices (Iris Oifigiúil — the State gazette)
+#    1250-1276   corporate_distress_notices
+#    1277-1286   corporate_repeat_distress
+#    1287-1303   corporate_receivers
+#    1304-1324   corporate_firm_notices
+#    1325-1341   corporate_firm_fund_counts
+#    1342-1351   corporate_brand_aliases
+#    1352-1361   corporate_isif_portfolio
+#    1362-1368   Ministerial diaries (who ministers meet)
+#    1369-1381   ministerial_diary_top_organisations
+#    1382-1399   ministerial_diary_organisation
+#    1400-1411   ministerial_diary_meetings
+#    1412-1414   Data coverage (scope guard)
+#    1415-1433   data_coverage
+#    1434-1439   Attendance (participation, absences, TAA compliance)
+#    1440-1444   _latest_attendance_year
+#    1445-1467   _attendance_year_list
+#    1468-1475   attendance_turnout
+#    1476-1483   attendance_absences
+#    1484-1491   attendance_taa_compliance
+#    1492-1500   attendance_missing_members
+#    1501-1506   attendance_years
+#    1507-1509   Housing (national social-housing demand + supply)
+#    1510-1520   housing_waiting_list
+#    1521-1530   housing_supply
+#    1531-1540   housing_accommodation_spend
+#    1541-1543   Public finance (CSO general-government series)
+#    1544-1550   government_finance
+#    1551-1555   Local government (council accountability)
+#    1556-1565   list_councils
+#    1566-1587   build_council_dossier
+#    1588-1596   council_noac_indicators
+#    1597-1599   Constituencies (per-constituency dossier)
+#    1600-1605   list_constituencies
+#    1606-1624   build_constituency_dossier
+#    1625-1627   Your councillors (elected local representatives)
+#    1628-1633   list_councillor_councils
+#    1634-1650   councillors_roster
+#    1651-1658   councillor_votes
+# ── END SECTION MAP ── ─────────────────────────────────
 """
 
 from __future__ import annotations

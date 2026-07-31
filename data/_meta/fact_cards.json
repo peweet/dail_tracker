@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-07-30T19:06:55+00:00",
+  "generated_utc": "2026-07-31T13:55:53+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
-  "count": 215,
+  "count": 217,
   "facts": {
     "afs_amalgamated_divisions": {
       "file": "data/silver/parquet/afs_amalgamated_divisions.parquet",
@@ -8837,6 +8837,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 11602
     },
     "cso_construction_materials_deflator": {
@@ -9647,6 +9650,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4958
     },
     "cso_vac14": {
@@ -9995,6 +10001,28 @@
         2026
       ],
       "size_bytes": 3111865
+    },
+    "dcc_road_schedule": {
+      "file": "data/silver/parquet/dcc_road_schedule.parquet",
+      "layer": "silver",
+      "rows": 11399,
+      "columns": [
+        "Road Name",
+        "Road Class",
+        "Route Number",
+        "Segment Code",
+        "District/LEA",
+        "Dublin City Council Administrative Area"
+      ],
+      "column_types": {
+        "Road Name": "String",
+        "Road Class": "String",
+        "Route Number": "String",
+        "Segment Code": "String",
+        "District/LEA": "String",
+        "Dublin City Council Administrative Area": "String"
+      },
+      "size_bytes": 92665
     },
     "dceidy_ipas_legacy_spend": {
       "file": "data/gold/parquet/dceidy_ipas_legacy_spend.parquet",
@@ -11648,6 +11676,34 @@
       ],
       "size_bytes": 6897
     },
+    "hsa_comah_register": {
+      "file": "data/silver/parquet/hsa_comah_register.parquet",
+      "layer": "silver",
+      "rows": 106,
+      "columns": [
+        "establishment",
+        "address",
+        "tier",
+        "region",
+        "epa_reg_cd",
+        "epa_name",
+        "match_score",
+        "lon",
+        "lat"
+      ],
+      "column_types": {
+        "establishment": "String",
+        "address": "String",
+        "tier": "String",
+        "region": "String",
+        "epa_reg_cd": "String",
+        "epa_name": "String",
+        "match_score": "Float64",
+        "lon": "Float64",
+        "lat": "Float64"
+      },
+      "size_bytes": 9623
+    },
     "hse_tusla_payments_fact": {
       "file": "data/silver/parquet/hse_tusla_payments_fact.parquet",
       "layer": "silver",
@@ -12108,7 +12164,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 14551,
+      "rows": 14839,
       "columns": [
         "diary_date",
         "court",
@@ -12146,12 +12202,12 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_legal_diary_cases.sql, judiciary/judiciary_plaintiff_league.sql"
       ],
-      "size_bytes": 169342
+      "size_bytes": 171690
     },
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 1374,
+      "rows": 1429,
       "columns": [
         "diary_date",
         "court",
@@ -12173,7 +12229,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 8229
+      "size_bytes": 8322
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -12262,7 +12318,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 2377,
+      "rows": 2465,
       "columns": [
         "diary_date",
         "court",
@@ -12288,7 +12344,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 17204
+      "size_bytes": 17451
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -12492,7 +12548,7 @@
     "judiciary_diary_judge_map": {
       "file": "data/gold/parquet/judiciary_diary_judge_map.parquet",
       "layer": "gold",
-      "rows": 8902,
+      "rows": 8903,
       "columns": [
         "judge",
         "court",

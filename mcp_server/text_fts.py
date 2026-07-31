@@ -32,6 +32,7 @@ CORPORA = {
         "date_col": "speech_date",
         "text_col": "speech_text",
         "cols": ("speech_date", "house", "business", "speaker_raw", "unique_member_code", "speech_text", "debate_url"),
+        "concise_cols": ("speech_date", "speaker_raw", "speech_text"),
     },
     "questions": {
         "view": "v_member_questions",
@@ -47,6 +48,7 @@ CORPORA = {
             "oireachtas_url",
             "unique_member_code",
         ),
+        "concise_cols": ("question_date", "ministry", "topic", "question_ref", "question_text"),
     },
 }
 
@@ -63,6 +65,26 @@ def reset_cache() -> None:
 
 
 _SNIPPET = 280
+_SNIPPET_CONCISE = 140  # concise mode: routing signal only — 'detailed' has the full 280
+
+
+def shape_hit(kind: str, rec: dict, response_format: str) -> dict:
+    """Shape one raw hit row for the response. Concise keeps the routing columns
+    (date, who, ref, score) and halves the snippet; detailed keeps every corpus
+    column and the provenance URL. Pure — unit-tested without data."""
+    spec = CORPORA[kind]
+    rec = dict(rec)
+    rec.pop("rid", None)
+    if response_format == "concise":
+        rec = {k: rec[k] for k in (*spec["concise_cols"], "score") if k in rec}
+    cap = _SNIPPET_CONCISE if response_format == "concise" else _SNIPPET
+    txt = str(rec.get(spec["text_col"]) or "")
+    if len(txt) > cap:
+        rec[spec["text_col"]] = txt[:cap] + "…"
+    rec["score"] = round(float(rec["score"]), 3)
+    if spec["date_col"] in rec:
+        rec[spec["date_col"]] = str(rec[spec["date_col"]])
+    return rec
 
 
 def _fingerprint(cur, spec) -> tuple[int, str]:
@@ -126,13 +148,17 @@ def _ensure(kind: str, cur, repo: Path) -> None:
     _CHECKED[kind] = True
 
 
-def search(kind: str, query: str, cur, repo: Path, year: int = 0, limit: int = 10) -> dict:
+def search(
+    kind: str, query: str, cur, repo: Path, year: int = 0, limit: int = 10, response_format: str = "concise"
+) -> dict:
     """BM25-ranked corpus hits. `cur` is a cursor on the union connection (used for
     the staleness fingerprint and, when stale, the rebuild)."""
     if kind not in CORPORA:
         return {"error": f"unknown corpus: {kind}"}
     if not query.strip():
         return {"error": "empty query"}
+    if response_format not in ("concise", "detailed"):
+        return {"error": f"response_format must be 'concise' or 'detailed', got {response_format!r}"}
     spec = CORPORA[kind]
     try:
         _ensure(kind, cur, repo)
@@ -163,17 +189,8 @@ def search(kind: str, query: str, cur, repo: Path, year: int = 0, limit: int = 1
             con.close()
     except Exception as e:  # noqa: BLE001
         return {"error": f"search failed ({type(e).__name__}: {e})"}
-    out = []
-    for r in rows:
-        rec = dict(zip(names, r, strict=False))
-        rec.pop("rid", None)
-        txt = str(rec.get(spec["text_col"]) or "")
-        if len(txt) > _SNIPPET:
-            rec[spec["text_col"]] = txt[:_SNIPPET] + "…"
-        rec["score"] = round(float(rec["score"]), 3)
-        rec[spec["date_col"]] = str(rec[spec["date_col"]])
-        out.append(rec)
-    return {
+    out = [shape_hit(kind, dict(zip(names, r, strict=False)), response_format) for r in rows]
+    res = {
         "corpus": kind,
         "query": query,
         "hits": out,
@@ -182,3 +199,37 @@ def search(kind: str, query: str, cur, repo: Path, year: int = 0, limit: int = 1
         "member feed — use member_speeches/get_member_questions for a "
         "TD's complete record)",
     }
+    if response_format == "concise":
+        res["note"] = "concise hits — response_format:'detailed' adds URLs, member codes and full snippets"
+    return res
+
+
+def shape_feed(d: dict | None, list_key: str, response_format: str, not_found: str) -> dict:
+    """Response shaping for the dossier feed tools (member_speeches /
+    get_member_questions): validates response_format, handles the no-match error,
+    and in concise mode truncates long string values to _SNIPPET_CONCISE chars and
+    drops URL/member-code fields (the member header keeps the code). Deliberately
+    schema-agnostic — row columns belong to dossiers/queries and may drift;
+    'detailed' returns the feed verbatim. Validation runs post-query by design:
+    a bad response_format wastes one feed query, which keeps every tool body to a
+    single call."""
+    if response_format not in ("concise", "detailed"):
+        return {"error": f"response_format must be 'concise' or 'detailed', got {response_format!r}"}
+    if not d:
+        return {"error": not_found}
+    if response_format == "detailed":
+        return d
+    rows = []
+    for r in d.get(list_key, []):
+        slim = {}
+        for k, v in r.items():
+            if k.endswith("_url") or k in ("unique_member_code", "member_code"):
+                continue
+            if isinstance(v, str) and len(v) > _SNIPPET_CONCISE:
+                v = v[:_SNIPPET_CONCISE] + "…"
+            slim[k] = v
+        rows.append(slim)
+    out = dict(d)
+    out[list_key] = rows
+    out["note"] = "concise rows — response_format:'detailed' returns full text and URL/provenance fields"
+    return out

@@ -125,9 +125,23 @@ def _resolve(repo: Path, path: str) -> Path | None:
     return target
 
 
-def outline(repo: Path, path: str, limit: int = 200) -> dict:
+def _concise_defs(defs: list[dict]) -> list[str]:
+    """'def outline 128-176' one-liners; methods flattened as 'def Class.method 12-20'.
+    The routing question ('which span do I Read?') needs name + span only — signatures,
+    docstrings and decorators are the detailed extras."""
+    out: list[str] = []
+    for d in defs:
+        out.append(f"{d['kind']} {d['name']} {d['span']}")
+        out.extend(f"{m['kind']} {d['name']}.{m['name']} {m['span']}" for m in d.get("methods", []))
+    return out
+
+
+def outline(repo: Path, path: str, limit: int = 200, response_format: str = "detailed") -> dict:
     """Outline one .py file, or a directory as a per-module summary. Returns {error} dicts
-    (never raises) so the MCP wrapper can pass the result straight through."""
+    (never raises) so the MCP wrapper can pass the result straight through.
+    response_format='concise' drops imports/signatures/docstrings — name + span only."""
+    if response_format not in ("concise", "detailed"):
+        return {"error": f"response_format must be 'concise' or 'detailed', got {response_format!r}"}
     target = _resolve(repo, path)
     if target is None:
         return {"error": f"path escapes the repository: {path}"}
@@ -162,12 +176,17 @@ def outline(repo: Path, path: str, limit: int = 200) -> dict:
     tree, n_lines = parsed
     defs = _outline_tree(tree)
     n_defs = sum(1 + len(d.get("methods", [])) for d in defs)
+    kept = defs[: max(1, limit)]
     out = {
         "path": target.relative_to(repo.resolve()).as_posix(),
         "lines": n_lines,
-        "imports": _imports(tree),
-        "defs": defs[: max(1, limit)],
     }
+    if response_format == "concise":
+        out["defs"] = _concise_defs(kept)
+        out["note"] = "name + span only — response_format:'detailed' adds imports, signatures, docstrings"
+    else:
+        out["imports"] = _imports(tree)
+        out["defs"] = kept
     if doc := _doc1(tree):
         out["doc"] = doc
     if len(defs) > limit:
