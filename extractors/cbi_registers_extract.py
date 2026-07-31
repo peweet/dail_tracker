@@ -338,7 +338,7 @@ def _norm_firm(name: str) -> str:
     the supplier / CRO universe. Drops any 't/a XYZ' trading-as tail first, then
     applies the house rule. Was a local LOWERCASE variant whose case + suffix-set
     divergence was the 'distress join = 0 across 38,335 suppliers' bug
-    (doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md §2)."""
+    (doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md §2)."""
     if not name:
         return ""
     # Drop "t/a XYZ" trading-as portions (everything after t/a) before the house rule.

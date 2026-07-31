@@ -35,7 +35,8 @@
 #     885-915    filter_bar
 #     916-973    breadcrumb
 #     974-984    pill
-#     985-1042   member_card_html
+#     985-1019   trend_chip
+#    1020-1077   member_card_html
 #    1043-1089   ranked_member_card
 #    1090-1142   rank_card_row
 #    1143-1148   party_colour
@@ -1000,6 +1001,41 @@ def pill(text: str, variant: str = "default", *, icon: str = "") -> str:
     """
     classes = PILL_VARIANTS.get(variant, PILL_VARIANTS["default"])
     body = f"{icon} {_h(text)}" if icon else _h(text)
+    return f'<span class="{classes}">{body}</span>'
+
+
+TREND_CHIP_VARIANTS: dict[str, str] = {
+    "up": "int-stat-pill",
+    "down": "int-stat-pill",
+    "flat": "int-stat-pill",
+}
+
+
+def trend_chip(label: str, delta: float) -> str:
+    """Inline label + delta chip with an up/down/neutral trend arrow <span>.
+
+    ▲ when delta > 0, ▼ when delta < 0, "–" (neutral) when delta == 0 — the
+    same ▲/▼ convention as the local_government national-benchmark marker
+    (``_bench()``): the arrow is a NEUTRAL position indicator, never
+    colour-coded good/bad, since a rising or falling number isn't
+    inherently positive or negative outside the caller's context. Reuses
+    ``.int-stat-pill`` (the canonical chip shape, same base ``pill()``
+    uses) and ``.lg-arrow-neutral`` (the existing neutral arrow colour) —
+    no new CSS classes.
+
+    variant lookup mirrors ``pill()``'s ``PILL_VARIANTS`` pattern even
+    though all three directions currently share one chip class, so a
+    future direction-specific style only needs a TREND_CHIP_VARIANTS edit.
+    """
+    if delta > 0:
+        direction, arrow = "up", "▲"
+    elif delta < 0:
+        direction, arrow = "down", "▼"
+    else:
+        direction, arrow = "flat", "–"
+    classes = TREND_CHIP_VARIANTS.get(direction, TREND_CHIP_VARIANTS["flat"])
+    value = f"{abs(delta):g}"
+    body = f'{_h(label)} <span class="lg-arrow-neutral">{arrow} {_h(value)}</span>'
     return f'<span class="{classes}">{body}</span>'
 
 

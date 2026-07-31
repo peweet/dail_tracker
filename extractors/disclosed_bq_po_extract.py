@@ -13,7 +13,7 @@ mislabels HSE), and reuse procurement_public_body_extract.classify_and_flag for 
 
 NOT YET IN SCOPE (Phases 2/3): the 141 genuinely-new bodies + 53 renames need a fail-closed
 entity->publisher_id registry and authoritative per-body amount_semantics first (the blank-PO
-heuristic is proven wrong). See doc/DISCLOSED_PO_INTEGRATION_PLAN.md + pipeline_sandbox/
+heuristic is proven wrong). See doc/archive/DISCLOSED_PO_INTEGRATION_PLAN.md + pipeline_sandbox/
 disclosed_po_spend/.
 
 SOURCE: a manual BigQuery drop at data/raw_bq/bq-results-*.csv (gitignored, ~62MB). This step is

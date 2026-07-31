@@ -39,7 +39,7 @@ check), `typecheck` (basedpyright), `test` (pytest, non-integration markers), an
 | — | **Type checking** (`typecheck` job, basedpyright + committed `.basedpyright/baseline.json`) | ✅ shipped — CI fails only on *new* type errors (see "Out of scope" note below, now superseded) |
 | 4a | Endpoint health check (`nightly.yml` → `pdf_endpoint_check.py`, weekly + issue-on-fail) | ✅ shipped |
 | 4b | Lobbying freshness check | ✅ shipped (`lobbying_freshness.yml`) |
-| 4d / 6 | Scheduled data refresh + canaries | ◑ partial — `freshness.yml`, `source_health.yml`, `pipeline_probe.yml`, `live_tenders_refresh.yml`, `money_flow_refresh.yml`, and the legal-diary OpenView refresh/health lanes all run on schedule (see `doc/CONTINUOUS_REFRESH.md`); a full unattended pipeline refresh is still partial |
+| 4d / 6 | Scheduled data refresh + canaries | ◑ partial — `freshness.yml`, `source_health.yml`, `pipeline_probe.yml`, `live_tenders_refresh.yml`, `money_flow_refresh.yml`, and the legal-diary OpenView refresh/health lanes all run on schedule (see `doc/archive/CONTINUOUS_REFRESH.md`); a full unattended pipeline refresh is still partial |
 
 **Markers reality:** `integration` / `bronze` need committed pipeline output, but
 `data/gold/` is gitignored — so they are **local-only** (run after a pipeline run;

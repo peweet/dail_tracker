@@ -214,7 +214,7 @@ CHAINS: list[tuple[str, str]] = [
     # INTO the hse_tusla source (keeping ie_hse single-source for the disjoint-publisher reconcile).
     # NO-OP-SAFE: absent raw drop -> exits 0, and the fold carry-forwards the disclosed HSE rows
     # already in gold. Runs BEFORE procurement_consolidate. (Phases 2/3 = 141 new bodies + 53
-    # renames are gated on a fail-closed registry + per-body semantics; see DISCLOSED_PO_INTEGRATION_PLAN.md.)
+    # renames are gated on a fail-closed registry + per-body semantics; see doc/archive/DISCLOSED_PO_INTEGRATION_PLAN.md.)
     ("disclosed_bq_po", "extractors/disclosed_bq_po_extract.py"),
     # disclosed_bq_po_newbodies: the SAME disclosed BigQuery extract, GENUINELY-NEW bodies lane
     # (registry data/_meta/procurement_disclosed_bodies.csv) -> silver disclosed_bq_po_newbodies_fact,

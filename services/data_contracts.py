@@ -671,6 +671,21 @@ def _match_ceiling(record: Mapping[str, object], unknown_ceiling: str) -> str:
     return CEILING_MATCH_METHOD.get(key, unknown_ceiling)
 
 
+def collapse_tiers(components: dict[str, str]) -> tuple[str, tuple[str, ...]]:
+    """Weakest-link min() over tier components — the one collapse rule for the whole project.
+
+    Returns ``(tier, binding)`` where ``binding`` names the component(s) sitting at the
+    minimum. Shared by `assess_trust` (data records) and any other caller grading something
+    else on the same 4-band scale (e.g. memory-card currency in `tools/memory_gc.py`) —
+    the vocabulary and the collapse must stay identical everywhere per the "one scale" rule
+    above, so this is the single place that decides the winner.
+    """
+    worst = min(_TRUST_RANK[t] for t in components.values())
+    tier = next(t for t in TRUST_TIERS if _TRUST_RANK[t] == worst)
+    binding = tuple(sorted(c for c, t in components.items() if _TRUST_RANK[t] == worst))
+    return tier, binding
+
+
 def assess_trust(record: Mapping[str, object], *, unknown_ceiling: str = "D") -> TrustAssessment:
     """Grade one record on the 4-band scale by weakest-link min() over its components.
 
@@ -692,9 +707,7 @@ def assess_trust(record: Mapping[str, object], *, unknown_ceiling: str = "D") ->
         "freshness_status": CEILING_FRESHNESS_STATUS.get(_norm(record.get("freshness_status")) or "", unknown_ceiling),
         "caveat_severity": CEILING_CAVEAT_SEVERITY.get(_norm(record.get("caveat_severity")) or "", unknown_ceiling),
     }
-    worst = min(_TRUST_RANK[t] for t in components.values())
-    tier = next(t for t in TRUST_TIERS if _TRUST_RANK[t] == worst)
-    binding = tuple(sorted(c for c, t in components.items() if _TRUST_RANK[t] == worst))
+    tier, binding = collapse_tiers(components)
     return TrustAssessment(tier=tier, label=TRUST_TIER_LABEL[tier], components=components, binding=binding)
 
 

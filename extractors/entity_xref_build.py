@@ -27,7 +27,7 @@ got a CRO number but whose name matches a known supplier).
 
 v1 scope is procurement-anchored (the page's universe). A fuller union spine (entities
 that appear on the corporate/lobbying registers but are NOT procurement suppliers) +
-ministerial-diary panel are the documented follow-ons (doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md).
+ministerial-diary panel are the documented follow-ons (doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md).
 
 FRAMING (project rule, feedback_no_inference_in_app): co-occurrence by ENTITY only. A
 company appearing on several registers is NOT evidence one caused another — there is no

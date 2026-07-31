@@ -8,7 +8,7 @@ exercise each tool against the real gold parquet through the server's own union
 connection and skip cleanly when the gold/view isn't present on the machine
 (same convention as test/dail_tracker_core/test_core_entity.py).
 
-organisation_dossier: the PR3 gate in doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md
+organisation_dossier: the PR3 gate in doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md
 was lifted by owner sign-off 2026-07-10 — the tool ships the stable name/company_num
 PR3 interface on the INTERIM v_supplier_entity_xref spine (the old pinning test that
 asserted it stays unregistered is replaced by the tests below).

@@ -41,6 +41,13 @@ call deadline. Two layers, and both are needed for different reasons.
 
 Every knob is an environment variable so a session can opt out without a code change
 (``DAIL_MCP_IDLE_SECONDS=0`` disables the watchdog entirely).
+
+Fourth policy, added 2026-07-31: adaptive tightening under live memory pressure.
+Policies 1 and 2 above are a fixed budget sized for the worst case; ``effective_
+memory_limit``/``effective_idle_seconds`` wrap them with a live free-RAM check
+(``free_ram_mb``) so a process spawned — or still running — while RAM is already
+tight claims less and lets go sooner, without changing the pure env-driven defaults
+the tests pin. See the "Adaptive tightening" section below for the thresholds.
 """
 
 from __future__ import annotations
@@ -48,6 +55,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import sys
 import tempfile
 import threading
 import time
@@ -109,6 +117,118 @@ def call_timeout() -> int:
     return max(0, _env_int("DAIL_MCP_CALL_TIMEOUT_SECONDS", DEFAULT_CALL_TIMEOUT_SECONDS))
 
 
+# ── Adaptive tightening under live memory pressure ─────────────────────────────
+# The caps above are a fixed budget sized for the worst case (many sessions open at
+# once). On a laptop that swings between "nothing else open" and "eleven sessions",
+# a fixed budget either wastes headroom when RAM is plentiful or isn't tight enough
+# when it's scarce. These wrap the configured values with a live free-RAM check so a
+# process spawned (or still running) under pressure claims less and lets go sooner —
+# without changing `idle_seconds()`/`memory_limit()` themselves, which stay pure and
+# env-driven because test_resource_policy.py asserts their defaults deterministically.
+#
+# The floor and the two tightened values are a reasoned heuristic, not a measurement
+# like the numbers above — retune PRESSURE_FLOOR_MB / PRESSURE_IDLE_SECONDS /
+# PRESSURE_MEMORY_LIMIT if a future session profiles this and finds a better fit.
+
+#: Below this much free physical RAM, tighten. Set above guard_memory.py's 1,500 MB
+#: hard-block floor (tools/hooks/guard_memory.py) so this backs off before that
+#: harder guard would refuse a heavy command outright.
+PRESSURE_FLOOR_MB = 3000
+PRESSURE_IDLE_SECONDS = 180
+PRESSURE_MEMORY_LIMIT = "512MB"
+
+
+def free_ram_mb() -> int | None:
+    """Free physical RAM in MB, or None off-Windows or on any failure.
+
+    Same GlobalMemoryStatusEx approach as tools/hooks/guard_memory.py's
+    ``sample_memory``, duplicated rather than imported — a hook script and a server
+    runtime module are different layers for what is one ctypes call.
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class _MemoryStatusEx(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", wintypes.DWORD),
+                ("dwMemoryLoad", wintypes.DWORD),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+
+        status = _MemoryStatusEx()
+        status.dwLength = ctypes.sizeof(_MemoryStatusEx)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return int(status.ullAvailPhys // (1024 * 1024))
+    except Exception:
+        return None
+
+
+def under_pressure() -> bool:
+    """True when this process's live free-RAM reading is below ``PRESSURE_FLOOR_MB``."""
+    free = free_ram_mb()
+    return free is not None and free < PRESSURE_FLOOR_MB
+
+
+def effective_memory_limit() -> str:
+    """``memory_limit()``, tightened to ``PRESSURE_MEMORY_LIMIT`` when RAM is tight.
+
+    An explicit ``DAIL_MCP_DUCKDB_MEMORY_LIMIT`` always wins — this only adjusts the
+    default, the same way runtime_env.py's BLAS caps let an explicit export win.
+    """
+    if os.environ.get("DAIL_MCP_DUCKDB_MEMORY_LIMIT", "").strip():
+        return memory_limit()
+    if under_pressure():
+        return PRESSURE_MEMORY_LIMIT
+    return memory_limit()
+
+
+def effective_idle_seconds() -> int:
+    """``idle_seconds()``, tightened to ``PRESSURE_IDLE_SECONDS`` when RAM is tight.
+
+    An explicit ``DAIL_MCP_IDLE_SECONDS`` (including ``0`` to disable) always wins.
+    Re-evaluated on every watchdog poll, so a process that starts with headroom and
+    later runs low (more sessions opened after it) starts releasing sooner without a
+    restart.
+    """
+    if os.environ.get("DAIL_MCP_IDLE_SECONDS", "").strip():
+        return idle_seconds()
+    configured = idle_seconds()
+    if configured and under_pressure():
+        return min(configured, PRESSURE_IDLE_SECONDS)
+    return configured
+
+
+def log_startup_pressure() -> None:
+    """Log once if this process is starting under the pressure floor.
+
+    Can't refuse to spawn — under stdio the client already launched the subprocess
+    before this runs, and the server must never self-exit (see module docstring).
+    This is the graceful substitute: a visible warning plus the tightened budget
+    ``effective_memory_limit``/``effective_idle_seconds`` already apply for the rest
+    of this process's life.
+    """
+    free = free_ram_mb()
+    if free is not None and free < PRESSURE_FLOOR_MB:
+        _log.warning(
+            "MCP resource policy: starting with %d MB free RAM (floor %d MB) — "
+            "running tightened (memory_limit=%s, idle_release=%ds) for this process's life",
+            free,
+            PRESSURE_FLOOR_MB,
+            PRESSURE_MEMORY_LIMIT,
+            PRESSURE_IDLE_SECONDS,
+        )
+
+
 def spill_dir() -> Path:
     """Absolute directory for DuckDB spill files, created if absent.
 
@@ -131,7 +251,7 @@ def apply_caps(conn) -> dict[str, str]:
     logs, rather than taking the server down on a dependency bump.
     """
     wanted = {
-        "memory_limit": memory_limit(),
+        "memory_limit": effective_memory_limit(),
         "threads": str(threads()),
         "temp_directory": spill_dir().as_posix(),
     }

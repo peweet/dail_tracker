@@ -162,7 +162,7 @@ GOV_FINANCE = (
 )
 
 # ── Organisation 360° dossier — cross-register entity co-occurrence ────────────
-# RESERVED for the planned organisation dossier (see doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md).
+# RESERVED for the planned organisation dossier (see doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md).
 # This is the app's highest false-causation surface (money + influence + distress co-located on
 # one entity), so the rail is mandatory. Same family as PROC_LOBBY / DIARY, generalised.
 ENTITY_COOCCURRENCE = (
