@@ -328,3 +328,5 @@
 {"ts": "2026-07-31T15:39:34+00:00", "kind": "siting test suite (~5.4 GB measured 2026-07-26)", "blocked": false, "free_mb": 5257, "total_mb": 16073, "load_pct": 67, "commit_free_mb": 16025, "commit_total_mb": 43182}
 {"ts": "2026-07-31T15:42:35+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 4451, "total_mb": 16073, "load_pct": 72, "commit_free_mb": 6368, "commit_total_mb": 44212}
 {"ts": "2026-07-31T15:43:28+00:00", "kind": "siting test suite (~5.4 GB measured 2026-07-26)", "blocked": false, "free_mb": 4169, "total_mb": 16073, "load_pct": 74, "commit_free_mb": 6230, "commit_total_mb": 44212}
+{"ts": "2026-07-31T15:51:52+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 3798, "total_mb": 16073, "load_pct": 76, "commit_free_mb": 20274, "commit_total_mb": 43187}
+{"ts": "2026-07-31T15:53:16+00:00", "kind": "siting test suite (~5.4 GB measured 2026-07-26)", "blocked": false, "free_mb": 4630, "total_mb": 16073, "load_pct": 71, "commit_free_mb": 20755, "commit_total_mb": 43187}
