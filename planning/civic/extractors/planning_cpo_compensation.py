@@ -24,8 +24,8 @@ townland/road, so this is an honest council-level cost layer; the planning featu
 location comes from the separate ArcGIS applications feed and joins to this at council level.
 
 Run:
-    python pipeline_sandbox/planning_cpo_compensation.py            # build
-    python pipeline_sandbox/planning_cpo_compensation.py --sample   # also print an anonymized sample
+    python planning/civic/extractors/planning_cpo_compensation.py            # build
+    python planning/civic/extractors/planning_cpo_compensation.py --sample   # also print an anonymized sample
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ from services.parquet_io import save_parquet
 
 LOG = logging.getLogger("planning_cpo_compensation")
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 SRC = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
 OUT_DIR = ROOT / "data/silver/parquet"
 OUT = OUT_DIR / "cpo_land_acquisition_by_area_year.parquet"

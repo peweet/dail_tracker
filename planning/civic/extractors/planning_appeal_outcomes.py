@@ -56,7 +56,7 @@ from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
 LOG = logging.getLogger("planning_appeal_outcomes")
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 SILVER = ROOT / "data/silver/parquet/planning_applications_silver.parquet"
 OUT = ROOT / "data/silver/parquet/planning_appeal_outcomes.parquet"
 OUT_SPINE = ROOT / "data/silver/parquet/planning_acp_cases.parquet"
@@ -70,8 +70,19 @@ _SIX = re.compile(r"\d{6}")
 _LIVE = re.compile(r"^\s*case is due to be decided", re.I)
 # metres per degree at ~53°N — a spread/size measure only (never a distance the user is shown).
 _M_PER_DEG_LAT, _M_PER_DEG_LON = 111_320.0, 67_000.0
-_SPATIAL_DEG = 0.0006  # ~55 m at 53°N — nearest-application search radius for the fallback
-_GRID = 0.001  # grid-cell size for the spatial index (must be >= _SPATIAL_DEG)
+_SPATIAL_DEG = 0.0006  # ~55 m at 53°N — primary radius (validated 98.4% vs Kerry ground truth)
+_SPATIAL_DEG_WIDE = 0.0015  # ~150 m — tried only if the primary radius finds no plausibly-dated
+# candidate. A large-scale scheme's ACP case-polygon centroid can sit further from the matching
+# application's own point coordinate than a one-off house's: ABP-322540 (Castlepark, Mallow, a
+# 469-unit LRD) was missed at the tight radius because its true application, 24/6036, sits ~89 m
+# from the ACP centroid — found 2026-08 when the fallback instead matched an unrelated 2007
+# permission on the same site (see _MAX_LOOKBACK_YEARS below).
+_GRID = 0.002  # grid-cell size for the spatial index (must be >= _SPATIAL_DEG_WIDE)
+_MAX_LOOKBACK_YEARS = 5  # a decision this much older than the appeal lodgement cannot plausibly be
+# the application under appeal — PDA 2000's default permission lifespan is 5 years. Without this
+# bound the fallback confidently matched ABP-322540 (lodged 2025) to a 2007 permission on the same
+# site 18 years earlier, because it was the only pre-dated candidate within the search radius —
+# found 2026-08 by an LRD cross-check. Unmatched beats mismatched: no plausible candidate -> no row.
 
 
 def _auth_key(name: str | None) -> str:
@@ -307,17 +318,24 @@ def _spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.
         key = (cols["auth_key"][i], round(cols["lat"][i] / _GRID), round(cols["lon"][i] / _GRID))
         grid.setdefault(key, []).append({c: cols[c][i] for c in cols})
 
+    def _best_within(cell_pool: list[dict], lat: float, lon: float, lodged: dt.date, radius: float) -> dict | None:
+        trimmed = [a for a in cell_pool if abs(a["lat"] - lat) <= radius and abs(a["lon"] - lon) <= radius]
+        cutoff = lodged - dt.timedelta(days=365 * _MAX_LOOKBACK_YEARS)
+        before = [a for a in trimmed if a["DecisionDate"] is not None and cutoff <= a["DecisionDate"] <= lodged]
+        return max(before, key=lambda a: a["DecisionDate"]) if before else None
+
     def nearest(ak: str, lat: float, lon: float, lodged: dt.date | None) -> dict | None:
         gl, go = round(lat / _GRID), round(lon / _GRID)
-        pool = [a for dl in (-1, 0, 1) for dd in (-1, 0, 1) for a in grid.get((ak, gl + dl, go + dd), [])]
-        pool = [a for a in pool if abs(a["lat"] - lat) <= _SPATIAL_DEG and abs(a["lon"] - lon) <= _SPATIAL_DEG]
-        if not pool:
+        cell_pool = [a for dl in (-1, 0, 1) for dd in (-1, 0, 1) for a in grid.get((ak, gl + dl, go + dd), [])]
+        if not cell_pool:
             return None
         if lodged is not None:
-            before = [a for a in pool if a["DecisionDate"] is not None and a["DecisionDate"] <= lodged]
-            if before:  # the application this appeal most plausibly concerns
-                return max(before, key=lambda a: a["DecisionDate"])
-        return min(pool, key=lambda a: (a["lat"] - lat) ** 2 + (a["lon"] - lon) ** 2)
+            # tight radius first (the validated rule) — only widen if it finds no plausible candidate.
+            return _best_within(cell_pool, lat, lon, lodged, _SPATIAL_DEG) or _best_within(
+                cell_pool, lat, lon, lodged, _SPATIAL_DEG_WIDE
+            )
+        pool = [a for a in cell_pool if abs(a["lat"] - lat) <= _SPATIAL_DEG and abs(a["lon"] - lon) <= _SPATIAL_DEG]
+        return min(pool, key=lambda a: (a["lat"] - lat) ** 2 + (a["lon"] - lon) ** 2) if pool else None
 
     out = []
     rc = {

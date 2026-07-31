@@ -29,7 +29,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXTRACTORS = ROOT / "extractors"
+# Two extractor roots since the civic planning lane moved under planning/ (consolidation plan §6):
+# a file leaving extractors/ must NOT silently leave the ratchet.
+EXTRACTOR_DIRS = (ROOT / "extractors", ROOT / "planning" / "civic" / "extractors")
 PAGES = ROOT / "utility" / "pages_code"
 
 # ── Rules over extractors/ ────────────────────────────────────────────────────
@@ -52,12 +54,9 @@ BASELINE_RAW_HTTP = {
     "ministerial_diaries_extract.py",
     "news_mentions_extract.py",
     "opr_plan_directions_extract.py",
-    "planning_acp_precedents.py",
     "planning_appeal_outcomes.py",
     "planning_applications_ingest.py",
     "planning_decision_profiles.py",
-    "planning_layers_freshness.py",
-    "planning_layers_ingest.py",
     "procurement_etenders_extract.py",
     "procurement_la_payments_extract.py",
     "sample_extract_procurement_pdf.py",
@@ -119,7 +118,6 @@ BASELINE_RAW_COVERAGE = {
     "planning_appeal_outcomes.py",
     "planning_cpo_compensation.py",
     "planning_decision_profiles.py",
-    "planning_layers_ingest.py",
     "procurement_award_spend_link.py",
     "procurement_dept_readingorder_parser.py",
     "procurement_etenders_extract.py",
@@ -313,11 +311,16 @@ def main() -> int:
 
     for rule, regex, baseline, fix in EXTRACTOR_RULES:
         offenders = set()
-        for py in sorted(EXTRACTORS.glob("*.py")):
-            if regex.search(py.read_text(encoding="utf-8", errors="replace")):
-                offenders.add(py.name)
+        offender_paths: dict[str, str] = {}
+        for exdir in EXTRACTOR_DIRS:
+            for py in sorted(exdir.glob("*.py")):
+                if py.name == "__init__.py":
+                    continue
+                if regex.search(py.read_text(encoding="utf-8", errors="replace")):
+                    offenders.add(py.name)
+                    offender_paths[py.name] = py.relative_to(ROOT).as_posix()
         for name in sorted(offenders - baseline):
-            violations.append(f"[{rule}] extractors/{name} — {fix}")
+            violations.append(f"[{rule}] {offender_paths[name]} — {fix}")
         for name in sorted(baseline - offenders):
             stale_baseline.append(f"[{rule}] {name} no longer offends — remove it from the baseline (ratchet down)")
 

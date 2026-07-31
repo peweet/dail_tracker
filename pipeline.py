@@ -295,7 +295,7 @@ CHAINS: list[tuple[str, str]] = [
     # error → pipeline isolates it) and JOINs the COMMITTED planning_applications_silver
     # (a static input — the national planning ingest is NOT yet a chain). min_rows floor
     # guards against a degraded ArcGIS pull thinning the silver.
-    ("planning_appeal_outcomes", "extractors/planning_appeal_outcomes.py"),
+    ("planning_appeal_outcomes", "planning/civic/extractors/planning_appeal_outcomes.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.

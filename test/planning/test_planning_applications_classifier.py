@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from extractors.planning_applications_ingest import (
+from planning.civic.extractors.planning_applications_ingest import (
     _CATEGORY_TO_NORMALISED,
     _decision_category,
     _decision_subtype,
