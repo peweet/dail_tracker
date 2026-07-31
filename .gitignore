@@ -652,3 +652,11 @@ siting_reports/
 # by oversight and were the 2 paths tools/check_no_private_ip.py blocked on.
 tools/siting_national_sweep.py
 data/_meta/siting_national_sweep_baseline.json
+
+# === THE CONSOLIDATION TARGET (2026-07-31) — see doc/private/PLAN_PLANNING_CONSOLIDATION.md ===
+# Every pattern above this line is a hand-maintained glob, and every siting leak on record came
+# from one that did not descend into a subdirectory. As the engine moves into planning/product/,
+# this single prefix replaces them: a directory prefix needs no negation and cannot miss a new
+# file. Added BEFORE the first file lands there, so nothing is ever briefly visible to `git add -A`.
+# planning/civic/ is the deliberately-PUBLIC sibling — never add it here.
+/planning/product/
