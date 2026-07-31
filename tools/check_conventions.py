@@ -198,7 +198,9 @@ def _page_entry_missing_dt_page(source: str, path: Path) -> list[str]:
 # visibly, in a diff. When a candidate is refactored, ratchet its cap DOWN.
 LARGEST_FILE_CAPS = {
     "utility/shared_css.py": 6572,
-    "utility/pages_code/procurement.py": 4665,
+    # procurement.py (4,665) split into pages_code/procurement/ 2026-07-31 (C2,
+    # doc/REFACTORING_CANDIDATES.md) — cap its largest resulting module instead.
+    "utility/pages_code/procurement/patterns.py": 737,
     "utility/pages_code/member_overview.py": 2498,
     "utility/ui/components.py": 2155,
     "mcp_server/server.py": 2843,  # grew 2744→2843 during baselining (2026-07-30, parallel session)
@@ -272,7 +274,9 @@ def main() -> int:
         for name in sorted(baseline - offenders):
             stale_baseline.append(f"[{rule}] {name} no longer offends — remove it from the baseline (ratchet down)")
 
-    for py in sorted(PAGES.glob("*.py")):
+    # rglob: page packages (e.g. pages_code/procurement/) keep their entry function
+    # and formatter hygiene in submodules — a flat glob would silently stop checking them.
+    for py in sorted(PAGES.rglob("*.py")):
         source = py.read_text(encoding="utf-8", errors="replace")
         for m in RE_RETIRED_FORMATTER.finditer(source):
             line = source[: m.start()].count("\n") + 1

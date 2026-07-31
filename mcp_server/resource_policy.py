@@ -32,11 +32,13 @@ Every knob is an environment variable so a session can opt out without a code ch
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import tempfile
 import threading
 import time
+import weakref
 from collections.abc import Callable
 from pathlib import Path
 
@@ -51,6 +53,17 @@ DEFAULT_MEMORY_LIMIT = "1GB"
 DEFAULT_THREADS = 4
 DEFAULT_IDLE_SECONDS = 900  # 15 min — longer than a pause in conversation, shorter than a lunch
 POLL_SECONDS = 30
+
+# A tool call that overruns this is aborted at the database. Measured 2026-07-27: normal
+# reads land under 10 s and the ~77-view build takes ~3 s, so 300 s is ~30x the slowest
+# ordinary call. The one legitimate long operation is a FIRST full-text corpus build —
+# text_fts measured ~4 s, but precedent_fts reads ~14k inspector reports and its own
+# docstring budgets ~5 minutes, so a machine building that corpus for the first time
+# should raise DAIL_MCP_CALL_TIMEOUT_SECONDS rather than have the build cut short.
+# An interrupted build is safe by construction: both modules write their freshness meta
+# only AFTER a successful index build, so a killed build rebuilds rather than serving
+# a half-made index.
+DEFAULT_CALL_TIMEOUT_SECONDS = 300
 
 
 def _env(name: str, default: str) -> str:
@@ -76,6 +89,11 @@ def threads() -> int:
 def idle_seconds() -> int:
     """Seconds of inactivity before the connection is released. 0 disables the watchdog."""
     return max(0, _env_int("DAIL_MCP_IDLE_SECONDS", DEFAULT_IDLE_SECONDS))
+
+
+def call_timeout() -> int:
+    """Seconds a single tool call may run before its queries are aborted. 0 disables."""
+    return max(0, _env_int("DAIL_MCP_CALL_TIMEOUT_SECONDS", DEFAULT_CALL_TIMEOUT_SECONDS))
 
 
 def spill_dir() -> Path:
@@ -128,32 +146,88 @@ def capped_connect(database: str = ":memory:", *, read_only: bool = False):
 
     conn = duckdb.connect(database, read_only=read_only)
     apply_caps(conn)
+    register_connection(conn)
     return conn
 
 
+# Every live connection, weakly held so a closed one drops out on its own. Needed
+# because a runaway query is not necessarily on the union connection — the FTS paths
+# and the SQL-graph parser each open their own, and an interrupt only reaches the
+# connection it is called on.
+_LIVE_CONNECTIONS: weakref.WeakSet = weakref.WeakSet()
+
+
+def register_connection(conn) -> None:
+    """Track a connection so ``interrupt_all`` can reach it.
+
+    ``capped_connect`` calls this itself; the union connection is built by
+    ``dail_tracker_core.connections.api_conn`` and is registered by the server.
+    """
+    try:
+        _LIVE_CONNECTIONS.add(conn)
+    except TypeError:  # pragma: no cover — a non-weakrefable stand-in in tests
+        pass
+
+
+def interrupt_all() -> int:
+    """Abort every in-flight query on every tracked connection. Returns how many were hit.
+
+    Verified 2026-07-27 that ``interrupt()`` aborts a running query from another thread
+    (the query raises ``InterruptException`` and the worker returns), which is what
+    makes a deadline meaningful: FastMCP runs sync tool bodies in a worker thread, so
+    cancelling the awaitable alone would leave the query burning memory to completion.
+
+    Blunt on purpose — it cancels every query on every connection, not just the
+    overrunning one. Under stdio there is a single client and calls are effectively
+    serial, so the collateral risk is low; it would need revisiting before any shared
+    multi-client daemon.
+    """
+    hit = 0
+    for conn in list(_LIVE_CONNECTIONS):
+        try:
+            conn.interrupt()
+            hit += 1
+        except Exception:  # noqa: BLE001 — a closed or busy connection must not stop the sweep
+            continue
+    return hit
+
+
 class _Activity:
-    """Tool-call activity counter — the watchdog's safety interlock.
+    """Tool-call activity tracker — the watchdog's safety interlock and its deadline clock.
 
     ``idle_for`` returns None while any call is in flight, which is what stops the
-    watchdog closing a connection out from under a running query.
+    watchdog closing a connection out from under a running query. ``longest_inflight``
+    is the other direction: how long the oldest running call has been going, which is
+    what the deadline sweep tests.
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._inflight = 0
         self._last = time.monotonic()
+        self._starts: dict[int, float] = {}
+        self._seq = 0
 
-    def __enter__(self) -> _Activity:
+    @contextlib.contextmanager
+    def track(self):
+        """Mark one call in flight for its duration.
+
+        A per-call token, not a bare counter: concurrent calls finish out of order, and
+        an ``__exit__`` that popped the oldest entry would let a fast call retire a slow
+        call's start time and hide the exact overrun this is here to catch.
+        """
         with self._lock:
+            self._seq += 1
+            token = self._seq
             self._inflight += 1
-            self._last = time.monotonic()
-        return self
-
-    def __exit__(self, *exc_info: object) -> bool:
-        with self._lock:
-            self._inflight -= 1
-            self._last = time.monotonic()
-        return False
+            self._starts[token] = self._last = time.monotonic()
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._inflight -= 1
+                self._starts.pop(token, None)
+                self._last = time.monotonic()
 
     @property
     def inflight(self) -> int:
@@ -166,6 +240,13 @@ class _Activity:
             if self._inflight > 0:
                 return None
             return time.monotonic() - self._last
+
+    def longest_inflight(self) -> float | None:
+        """Age of the oldest running call, or None when nothing is running."""
+        with self._lock:
+            if not self._starts:
+                return None
+            return time.monotonic() - min(self._starts.values())
 
 
 ACTIVITY = _Activity()
@@ -187,10 +268,38 @@ def instrument(mcp) -> bool:
         return False
 
     async def tracked(*args, **kwargs):
-        with ACTIVITY:
+        with ACTIVITY.track():
             return await inner(*args, **kwargs)
 
     manager.call_tool = tracked
+    return True
+
+
+def enforce_call_deadline() -> bool:
+    """Abort the in-flight queries if the oldest call has outrun ``call_timeout``.
+
+    Deliberately NOT an ``anyio.fail_after`` around the awaitable: FastMCP runs sync
+    tool bodies through ``to_thread``, and cancelling the awaitable would leave the
+    worker thread running the query to completion — the resource burn this exists to
+    stop. Interrupting at the database is what actually ends the work; the tool body
+    then raises ``InterruptException`` and the existing handler turns it into a normal
+    tool error, so the client gets a message instead of a silent stall.
+
+    Returns whether an interrupt was issued.
+    """
+    limit = call_timeout()
+    if limit <= 0:
+        return False
+    age = ACTIVITY.longest_inflight()
+    if age is None or age < limit:
+        return False
+    hit = interrupt_all()
+    _log.warning(
+        "MCP resource policy: tool call exceeded %ds (running %.0fs) — interrupted %d connection(s)",
+        limit,
+        age,
+        hit,
+    )
     return True
 
 
@@ -230,21 +339,31 @@ def start_watchdog(
     event rather than sleeping also makes that shutdown immediate instead of one poll
     interval late.
     """
-    if idle_seconds() <= 0:
-        _log.info("MCP resource policy: idle release disabled")
+    idle_on, deadline_on = idle_seconds() > 0, call_timeout() > 0
+    if not idle_on and not deadline_on:
+        _log.info("MCP resource policy: idle release and call deadline both disabled")
         return None
+
+    # The two duties are opposites — one fires only when nothing is running, the other
+    # only when something is — so they share a thread without contending.
+    if deadline_on:
+        # Poll often enough that the overshoot past the deadline is a fraction of it,
+        # not a second full poll interval.
+        poll_seconds = min(poll_seconds, max(5.0, call_timeout() / 10))
 
     stop_event = stop or threading.Event()
 
     def loop() -> None:
         while not stop_event.wait(poll_seconds):
             try:
-                if release():
+                if deadline_on:
+                    enforce_call_deadline()
+                if idle_on and release():
                     _log.info("MCP resource policy: released idle connection")
             except Exception:  # noqa: BLE001 — the watchdog must outlive any single failure
-                _log.exception("MCP resource policy: idle release failed")
+                _log.exception("MCP resource policy: watchdog sweep failed")
 
-    thread = threading.Thread(target=loop, name="dail-mcp-idle-release", daemon=True)
+    thread = threading.Thread(target=loop, name="dail-mcp-watchdog", daemon=True)
     thread.stop_event = stop_event  # type: ignore[attr-defined]
     thread.start()
     return thread
