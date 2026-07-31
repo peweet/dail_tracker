@@ -15,7 +15,7 @@ the canonical keys, the join graph, the measured yields, the structural blind sp
 never-join rules. Everything here is **measured from the data**, not asserted — figures dated
 2026-07-14; re-measure with `tools/`-style queries if the data has moved.
 
-Siblings: `doc/DATA_MAP.md` (maturity tiers + the 3-money-grain rule) · `doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md`
+Siblings: `doc/DATA_MAP.md` (maturity tiers + the 3-money-grain rule) · `doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md`
 (the dossier design — **note it still says "design-only"; the `organisation_dossier` tool is in fact LIVE**).
 
 ---

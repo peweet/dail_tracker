@@ -248,7 +248,7 @@ def read_sheet(path: Path, sheet: str) -> dict[str, list[Any]]:
 # name_norm_expr is imported from shared.name_norm (the canonical company-name key).
 # The local copy here OMITTED the NFD accent-fold, so "Tirlán" → "TIRL N" instead of
 # "TIRLAN" and charities never joined their CRO / supplier record on an accented name
-# (doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md §2). Using the shared rule fixes that and
+# (doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md §2). Using the shared rule fixes that and
 # also adds the missing 'AND' connector strip.
 
 

@@ -109,6 +109,46 @@ def test_env_int_falls_back_on_garbage(monkeypatch):
     assert resource_policy.idle_seconds() == resource_policy.DEFAULT_IDLE_SECONDS
 
 
+# ── adaptive tightening under live memory pressure ─────────────────────────────
+
+
+def test_effective_values_untightened_when_ram_is_plentiful(monkeypatch):
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.PRESSURE_FLOOR_MB + 1)
+    assert resource_policy.effective_memory_limit() == resource_policy.memory_limit()
+    assert resource_policy.effective_idle_seconds() == resource_policy.idle_seconds()
+
+
+def test_effective_values_tighten_under_pressure(monkeypatch):
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.PRESSURE_FLOOR_MB - 1)
+    assert resource_policy.effective_memory_limit() == resource_policy.PRESSURE_MEMORY_LIMIT
+    assert resource_policy.effective_idle_seconds() == resource_policy.PRESSURE_IDLE_SECONDS
+
+
+def test_explicit_env_wins_over_pressure(monkeypatch):
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.PRESSURE_FLOOR_MB - 1)
+    monkeypatch.setenv("DAIL_MCP_DUCKDB_MEMORY_LIMIT", "2GB")
+    monkeypatch.setenv("DAIL_MCP_IDLE_SECONDS", "9999")
+    assert resource_policy.effective_memory_limit() == "2GB"
+    assert resource_policy.effective_idle_seconds() == 9999
+
+
+def test_effective_idle_seconds_never_exceeds_configured(monkeypatch):
+    """Pressure only ever shortens the wait, never lengthens a tighter explicit default."""
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.PRESSURE_FLOOR_MB - 1)
+    monkeypatch.setenv("DAIL_MCP_IDLE_SECONDS", "")  # blank counts as unset -> falls through
+    assert resource_policy.effective_idle_seconds() <= resource_policy.idle_seconds()
+
+
+def test_under_pressure_none_when_free_ram_unreadable(monkeypatch):
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: None)
+    assert resource_policy.under_pressure() is False
+
+
+def test_free_ram_mb_off_windows_returns_none(monkeypatch):
+    monkeypatch.setattr(resource_policy.sys, "platform", "linux")
+    assert resource_policy.free_ram_mb() is None
+
+
 # ── activity accounting (the watchdog's safety interlock) ─────────────────────
 
 

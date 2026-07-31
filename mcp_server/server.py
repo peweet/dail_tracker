@@ -379,7 +379,7 @@ def _release_if_idle() -> bool:
         if _CONN is None:
             return False
         idle = resource_policy.ACTIVITY.idle_for()
-        if idle is None or idle < resource_policy.idle_seconds():
+        if idle is None or idle < resource_policy.effective_idle_seconds():
             return False
         conn, _CONN = _CONN, None
     # Outside the lock: _CONN is already None so no new cursor can come from `conn`,
@@ -2397,7 +2397,7 @@ def _resolve_org_candidates(cur, name: str, company_num: str) -> tuple[list[dict
 
 # PR3 SHIPPED EARLY on the INTERIM spine — owner sign-off 2026-07-10. The name /
 # company_num interface below is the STABLE PR3 contract from
-# doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md; resolution currently runs against the
+# doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md; resolution currently runs against the
 # supplier-anchored v_supplier_entity_xref. When the unified v_entity_xref spine lands
 # (PR0 normaliser unification + PR1), only the internals here and
 # dossiers.build_organisation_dossier swap — callers never pass supplier_norm.
@@ -2892,6 +2892,7 @@ def scope_check(topic: str) -> str:
 if __name__ == "__main__":
     # Idle release is wired up only for a real server run, never on import: the test
     # suite imports this module and must not inherit a background thread.
+    resource_policy.log_startup_pressure()  # warn once if RAM is already tight at spawn
     resource_policy.instrument(mcp)  # count tool calls so the watchdog can tell idle from busy
     resource_policy.start_watchdog(_release_if_idle)
     mcp.run()  # stdio transport — Claude Desktop launches this as a subprocess

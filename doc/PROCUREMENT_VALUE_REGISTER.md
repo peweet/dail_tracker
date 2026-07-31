@@ -83,7 +83,7 @@ Every entry carries a verification tag: **CONFIRMED-LIVE** (checked against mani
 
 ### 8. Supplier entity crosswalk — `supplier_entity_xref.parquet`
 - Runtime, one view.
-- **Value:** the spine asset for org-360 dossier + buyer dossier (`doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md`, `doc/BUYER_DOSSIER_DESIGN.md` — blocker is buyer-identity crosswalk, 4 new views)
+- **Value:** the spine asset for org-360 dossier + buyer dossier (`doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md`, `doc/BUYER_DOSSIER_DESIGN.md` — blocker is buyer-identity crosswalk, 4 new views)
 - **Tag / effort:** CONFIRMED-LIVE · moderate-build
 
 ### 9. TD / Senator payments — `payments_full_psa` + `seanad_payments_full_psa`

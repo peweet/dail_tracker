@@ -24,7 +24,7 @@ has been done**. The plan + probe are committed (`f0db97d`). Only drift: the cha
 `etenders_live_tenders` is now *both* a pipeline chain (line 181) and its own standalone publishing lane
 (`live_tenders_refresh.yml`) — a consolidation question (§7), not a blocker.
 
-Related: `doc/CONTINUOUS_REFRESH.md` (the existing lane), `doc/DATA_BACKUP.md` /
+Related: `doc/archive/CONTINUOUS_REFRESH.md` (the existing lane), `doc/DATA_BACKUP.md` /
 `doc/DISASTER_RECOVERY.md` (R2), `doc/DATA_DISTRIBUTION_PLAN.md` (the git-as-CDN retirement).
 
 ---
@@ -143,7 +143,7 @@ the manifest + per-publisher reconcile."
 
 - **Box-down** = stale manifest → cloud fails loud (P1.2). No silent weeks.
 - **Alert-fatigue fix:** today the gate can "abort + open an issue **each day**" while degraded
-  (`CONTINUOUS_REFRESH.md:59`) — day-40 real failure looks like day-1 noise. Distinguish "known-degraded"
+  (`doc/archive/CONTINUOUS_REFRESH.md:59`) — day-40 real failure looks like day-1 noise. Distinguish "known-degraded"
   from "new failure."
 - **Heartbeat coupling:** the freshness beat only records on `pipeline_exit == 0`
   (`money_flow_refresh.yml:107`), and `pipeline.py` exits 1 if *any* chain failed — so one intermittent

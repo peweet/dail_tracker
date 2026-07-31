@@ -16,7 +16,7 @@ name: Money-flow pipeline refresh (daily, R2-backed)
 #
 # ⚠️ RUNTIME IS UNMEASURED. The full pipeline's end-to-end time on a Linux runner is the
 # load-bearing unknown that deferred this (see .github/workflows/pipeline_probe.yml and
-# doc/CONTINUOUS_REFRESH.md). Run the probe ONCE (blank chains) to confirm it fits the
+# doc/archive/CONTINUOUS_REFRESH.md). Run the probe ONCE (blank chains) to confirm it fits the
 # timeout below and the 6 h GitHub job ceiling BEFORE relying on the schedule. Until R2
 # secrets are set, a scheduled run will restore nothing, likely thin some tables, and the
 # publish gate will (correctly) abort — safe, but it will open a failure issue each day, so

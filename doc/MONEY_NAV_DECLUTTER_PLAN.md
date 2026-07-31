@@ -538,6 +538,6 @@ place**. So Procurement keeps the *story* (a compact bridge) and defers the *bro
 ---
 
 *Cross-refs: doc/NAVIGATION_GRAPH.md · doc/archive/FOLLOW_THE_MONEY_IA_EXPLORATION.md ·
-doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md · memory `project_money_nav_declutter`,
+doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md · memory `project_money_nav_declutter`,
 `project_council_pages_consolidation`, `feedback_entity_links_seamless_navigation`,
 `project_follow_the_money_feature`, `project_navigation_graph_2026_06_20`.*

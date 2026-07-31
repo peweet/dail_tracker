@@ -7,7 +7,7 @@ Source: `data/raw_bq/bq-results-20260619-122315-1781871808837.csv` (582,119 rows
 ## Read first
 1. **`FINDINGS.md`** — is it trustworthy, what does it add, what are the semantics. (Verification workflow.)
 2. **`POTENTIAL.md`** — how rich / how far back / what can be determined + ranked feature & story leads. (Deep-dive workflow.)
-3. **`../../doc/DISCLOSED_PO_INTEGRATION_PLAN.md`** — how to merge it into silver→gold (design only; code-verified). (Integration workflow.)
+3. **`../../doc/archive/DISCLOSED_PO_INTEGRATION_PLAN.md`** — how to merge it into silver→gold (design only; code-verified). (Integration workflow.)
 
 ## Supporting analysis
 - `COVERAGE_FINDINGS.md`, `THEME_TRENDS_FINDINGS.md`, `cross_corpus_leverage.md` — narrative detail behind §2/§3 of POTENTIAL.md.

@@ -304,7 +304,7 @@ def _load_facts() -> pl.DataFrame:
         # source's DISJOINT publisher set, so the same publisher across two sources would
         # double-count (actual > expected → halt). The disclosed HSE periods are verified disjoint
         # from the PDF parse (2017-Q3..2020-Q2 + 2025-Q4 + 2026-Q1, absent from hse_tusla), so this
-        # is a pure period-backfill of the body we already publish. See doc/DISCLOSED_PO_INTEGRATION_PLAN.md.
+        # is a pure period-backfill of the body we already publish. See doc/archive/DISCLOSED_PO_INTEGRATION_PLAN.md.
         if fname == "hse_tusla_payments_fact.parquet":
             _sidecar = SILVER / "disclosed_bq_po_payments_fact.parquet"
             if _sidecar.exists():

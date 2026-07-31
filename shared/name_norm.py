@@ -65,7 +65,7 @@ def name_norm_expr(col: str) -> pl.Expr:
 # str→str equivalent, kept BYTE-IDENTICAL to name_norm_expr by
 # test/shared/test_name_norm.py (an equality sweep over a real corpus). Migrating
 # the divergent local normalisers onto this is the fix for the "distress join = 0"
-# bug (see doc/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md §2). Keep the two in lockstep:
+# bug (see doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md §2). Keep the two in lockstep:
 # any change to name_norm_expr must be mirrored here, and the test enforces it.
 _COMBINING_RE = re.compile(r"[̀-ͯ]")  # decomposed combining marks
 _PUNCT_RE = re.compile(r"[\.,&'\"]")

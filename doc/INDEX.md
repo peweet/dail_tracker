@@ -3,7 +3,7 @@
 
 # doc/ index
 
-69 docs · ~360.5k tokens total · 51 LIVE · 3 superseded/stale · 13 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+66 docs · ~345.0k tokens total · 51 LIVE · 0 superseded/stale · 13 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -60,15 +60,6 @@
 | [ROADMAP_SOURCES.md](ROADMAP_SOURCES.md) | sources | 3.1k | 2026-07-17 | scoping a candidate new ingestion source before claiming it's built, or prioritising the ingestion backlog |
 | [SOURCES.md](SOURCES.md) | sources | 6.2k | 2026-07-17 | checking whether a data source is actually implemented/API-exposed before claiming it exists or is built |
 | [NAVIGATION_GRAPH.md](NAVIGATION_GRAPH.md) | ui | 2.7k | 2026-06-20 | before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel) |
-
-## Superseded / stale
-> Kept for history and inbound references. Do not rely on their bodies.
-
-| doc | domain | ~tok | updated | read when |
-|---|---|---:|---|---|
-| [CONTINUOUS_REFRESH.md](CONTINUOUS_REFRESH.md) | infra | 1.5k | 2026-07-17 | historical only — the live refresh runbook is HYBRID_REFRESH_PLAN.md; the two-lane R2 design below is DEAD (see [[project_two_lane_reconciliation_flaw_2026_07_09]]) |
-| [DISCLOSED_PO_INTEGRATION_PLAN.md](DISCLOSED_PO_INTEGRATION_PLAN.md) | procurement | 11.0k | 2026-07-17 | historical only — this design SHIPPED; the live ingest is extractors/disclosed_bq_po_extract.py + disclosed_bq_po_newbodies_extract.py |
-| [ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md](ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md) | procurement | 3.0k | 2026-07-17 | historical only — the "no code written yet" note is stale; entity_xref shipped (view + extractors/entity_xref_build.py + dail_tracker_core/dossiers.py) |
 
 ## Unclassified (no front-matter yet)
 > Backlog: add the 7-line front-matter block (tier/status/domain/updated/supersedes/read_when/key) so these move into the tables above.
