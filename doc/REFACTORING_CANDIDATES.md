@@ -20,7 +20,7 @@ token cliff only arrived when the largest file physically shrank.
 | Rank | File | Lines | Changes | Interface to preserve |
 |---|---|---|---|---|
 | C1 | `utility/shared_css.py` | 6,572 | 96 | one symbol: `inject_css()` |
-| C2 | `utility/pages_code/procurement.py` | 4,665 | 65 | one symbol: `procurement_page()` |
+| C2 | `utility/pages_code/procurement.py` | 4,665 | 65 | `procurement_page()` + 27 internals (six importer pages) |
 | C3 | `utility/pages_code/member_overview.py` | 2,498 | 56 | one symbol: `member_overview_page()` |
 | C4 | `utility/ui/components.py` | 2,159 | 44 | ~50 symbols across 8 importing pages |
 | C5 | `mcp_server/server.py` | 2,744 | 30 | 70 MCP tool names + stdio entry point |
@@ -62,7 +62,58 @@ article's metric (what it read of the codebase, once).
 | C6 | add view test | 421,684 | 3,736 | 18,007 | 9 | 71 s | $0.45 |
 | C7 | add publisher reader | 1,421,454 | 17,346 | 24,125 | 21 | 207 s | $1.13 |
 
-### C2 after-measurement (2026-07-31, HEAD 27f4607 — split executed)
+### After-measurements — the result is SHAPE-DEPENDENT, not size-dependent
+
+Four candidates executed and re-measured (same frozen prompts, same model; C2 at 27f4607,
+C1/C3/C4 at e855ae2; one run per side except C1, which has two after-runs agreeing within
+~1% on billed input). All figures [Verified — rows in `logs/cost_of_change.jsonl`]:
+
+| Cand. | Read est. before → after | Billed input before → after | Cost | Turns |
+|---|---|---|---|---|
+| C2 procurement page | 25,925 → 9,925 (**−62%**) | 1,243,897 → 1,200,180 | $0.82 → $0.66 | 21 → 28 |
+| C1 shared_css | 6,625 → 25,087 / 34,655 (**+3-4×**) | 836,499 → ~1.73M (**+107%**) | $0.76 → $1.10 | 19 → 32 / 26 |
+| C3 member_overview | 7,550 → 17,150 (+127%) | 617,330 → 873,296 (+41%) | $0.45 → $0.55 | 16 → 17 |
+| C4 ui/components | 2,250 → 4,725 (+110%) | 553,793 → 874,213 (+58%) | $0.45 → $0.60 | 16 → 21 |
+| C6 sql view tests | 18,007 → 2,770 (**−85%**) | 421,684 → 391,023 | $0.45 → $0.31 | 9 → 15 |
+| C7 extractor | 24,125 → 28,625 (+19%) | 1,421,454 → 1,552,767 | $1.13 → $1.06 | 21 → 20 |
+
+C6/C7 (at c43f3e0) were run AFTER the shape-dependence doctrine below was written, as its
+falsifiable test — both landed as predicted: C6's "add a view test" localizes into one
+family file (read −85%, cost −31%, the strongest win measured); C7's "add a publisher"
+is registration-shaped (config + reader + wiring) and came out flat-to-mildly-worse.
+Score for the doctrine: 6 of 6 measurements consistent — two localizing changes are the
+two wins, four registration-shaped changes range from flat to strongly negative.
+
+**The doctrine this forces (superseding both the article's size claim and our own first
+refinement):** a split pays when the representative change **localizes into one module**
+(C2: a new drill-down profile lands in `profiles`/`page` — the agent read 62% less). A
+split **costs** when the change is **registration-shaped** — a new thing that must also be
+woven into the package's coordination surface (C1: new CSS fragment + the ordered manifest
+in `__init__`; C3: new section + the router + nav chips; C4: new component + the re-export
+list). There the package turns a single-file append into a multi-file task, and the agent
+additionally re-orients when the prompt's named flat file no longer exists. The three
+regressions are all changes of that shape; the one win is the one localizing change.
+
+Consequences, held honestly:
+- The C1/C3/C4 splits stay (byte-identical CSS, green suites, better for humans, targeted
+  greps, parallel editing, smaller diffs) — but their claimed token payoff is refuted for
+  additive registration-shaped changes at these file sizes. The deltas are cents per change
+  either way.
+- Judge remaining candidates by their **typical change's shape**: C6 ("add a view test" →
+  localizes into one family file) and C5 ("add an MCP tool" → a decorated function appended
+  in one domain module, no separate manifest) look C2-shaped; C7 ("add a publisher" =
+  config + reader + wiring) is registration-shaped and may regress — measure before
+  believing.
+- A real design lever exists for registration cost: **convention over manifest** (fragment
+  auto-discovery by naming order-prefix in `shared_css/__init__`, router tables derived
+  from module attributes) would remove the extra files a registration change must touch.
+  Not implemented — listed as the follow-up that would re-test the C1/C3/C4 shapes.
+- Caveat on the frozen prompts: they name the old flat-file paths, which after a split
+  mildly misdirects the agent. That staleness is part of what a real future session would
+  experience (docs and habits also go stale), so it stays — but a second frozen prompt set
+  (v2, path-free) would separate the two effects if wanted.
+
+#### C2 detail (2026-07-31, HEAD 27f4607 — split executed)
 
 Same frozen prompt, same model, one run each side [Verified — before/after rows in
 `logs/cost_of_change.jsonl`]:
