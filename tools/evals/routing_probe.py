@@ -87,7 +87,15 @@ async def run_probe(name: str, prompt: str) -> dict:
 async def main():
     import sys
 
-    wanted = sys.argv[1:]  # e.g. `routing_probe.py capability` runs one probe
+    # e.g. `routing_probe.py capability` runs one probe. Args that match no probe
+    # name are IGNORED (all probes run): promptfoo's exec provider always appends
+    # the prompt as a trailing argv, which filtered everything to 0/0 on
+    # 2026-07-31 — an unknown arg must not silently select nothing.
+    known = {n for n, _ in PROBES}
+    wanted = [a for a in sys.argv[1:] if a in known]
+    ignored = [a for a in sys.argv[1:] if a not in known]
+    if ignored:
+        print(f"NOTE: ignoring non-probe args {ignored!r}; probes: {sorted(known)}")
     probes = [(n, p) for n, p in PROBES if not wanted or n in wanted]
     results = []
     for name, prompt in probes:

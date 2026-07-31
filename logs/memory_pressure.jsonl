@@ -350,3 +350,5 @@
 {"ts": "2026-07-31T17:12:29+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 6365, "total_mb": 16073, "load_pct": 60, "commit_free_mb": 21225, "commit_total_mb": 43796}
 {"ts": "2026-07-31T17:12:39+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 6310, "total_mb": 16073, "load_pct": 60, "commit_free_mb": 21202, "commit_total_mb": 43796}
 {"ts": "2026-07-31T17:23:40+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 7399, "total_mb": 16073, "load_pct": 53, "commit_free_mb": 21163, "commit_total_mb": 43796}
+{"ts": "2026-07-31T17:45:37+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 5083, "total_mb": 16073, "load_pct": 68, "commit_free_mb": 19823, "commit_total_mb": 43796}
+{"ts": "2026-07-31T17:46:50+00:00", "kind": "full ETL pipeline (spawns per-chain subprocesses)", "blocked": false, "free_mb": 5330, "total_mb": 16073, "load_pct": 66, "commit_free_mb": 20689, "commit_total_mb": 43796}
