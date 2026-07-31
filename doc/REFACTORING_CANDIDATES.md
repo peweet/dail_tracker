@@ -62,6 +62,33 @@ article's metric (what it read of the codebase, once).
 | C6 | add view test | 421,684 | 3,736 | 18,007 | 9 | 71 s | $0.45 |
 | C7 | add publisher reader | 1,421,454 | 17,346 | 24,125 | 21 | 207 s | $1.13 |
 
+### C2 after-measurement (2026-07-31, HEAD 27f4607 — split executed)
+
+Same frozen prompt, same model, one run each side [Verified — before/after rows in
+`logs/cost_of_change.jsonl`]:
+
+| Metric | Before (flat 4,665-line file) | After (12-module package) | Change |
+|---|---|---|---|
+| Self-reported code read (tokens est.) | 25,925 | 9,925 | **−62%** |
+| Cost | $0.82 | $0.66 | −20% |
+| Wall | 131 s | 115 s | −12% |
+| Billed input (incl. per-turn cache re-reads) | 1,243,897 | 1,200,180 | −3.5% |
+| Output | 8,786 | 6,838 | (noise) |
+| Turns | 21 | 28 | +33% |
+| Largest file in the layer | 4,665 | 737 | −84% |
+
+**What this refines in the article's claim:** on the article's own metric — characters of
+code the agent actually read — the split reproduces the effect (−62%; the after-run agent
+read `profiles.py`, `page.py` and a 100-line slice of `_shared.py` instead of swallowing
+the monolith — visible in the row's `reads` list). But **billed** input tokens barely moved,
+because a multi-turn harness re-sends the whole context every turn: billed input ≈ resident
+context × turns, and the turn count *rose* 21→28 (more, smaller files → more Read/Grep
+round-trips). The economics still land — −20% dollars (cache reads are cheap per token) and
+−12% wall — but the honest statement is: **splitting cuts what the agent reads and what the
+change costs; it does not shrink per-turn context re-send, and it can add turns.** Caveat:
+one run per side; turn count is noisy. The remaining candidates should confirm or kill the
+pattern before it hardens into doctrine.
+
 Reading of the baselines (inference from the table above, decomposed):
 - Output is 1–2% of input everywhere — the article's read-dominance reproduces here.
 - Billed input tracks **turn count** more than file size (each turn re-sends the grown
