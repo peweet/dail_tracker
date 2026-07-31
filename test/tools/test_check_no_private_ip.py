@@ -25,8 +25,8 @@ _SPEC.loader.exec_module(guard)
 # ── 1. sensitive shapes must be flagged ──────────────────────────────────────
 FLAGGED = [
     "planning/product/core/engine.py",
-    "planning_rules/county_councils/mayo_county_council/dm_standards.md",
-    "test/siting/test_engine.py",
+    "planning/product/rules/county_councils/mayo_county_council/dm_standards.md",
+    "planning/product/test/test_engine.py",
     "doc/private/SITING_COMMERCIALISATION_REVIEW.md",
     "planning/product/mcp/precedent_fts.py",
     "planning/product/tools/build_point_scoped_layers.py",
@@ -53,8 +53,8 @@ ALLOWED = [
     "planning/civic/extractors/planning_cpo_compensation.py",
     "sql_views/constituency/constituency_la_planning_overturn.sql",
     "test/sql_views/test_la_planning_overturn.py",
-    "pipeline_sandbox/planning_partv_liability_probe.py",
-    "pipeline_sandbox/iris_planning_notices_audit.py",
+    "planning/civic/sandbox/planning_partv_liability_probe.py",
+    "planning/civic/sandbox/iris_planning_notices_audit.py",
     "doc/archive/PLANNING_DEVELOPMENT_CONTRIBUTIONS.md",
     "data/silver/parquet/planning_appeal_outcomes.parquet",
     # ordinary app / pipeline files
@@ -73,7 +73,8 @@ def test_public_paths_are_not_flagged() -> None:
 def test_find_offenders_returns_pairs() -> None:
     offenders = guard.find_offenders(["utility/app.py", "planning/product/core/engine.py"])
     assert offenders == [("planning/product/core/engine.py", offenders[0][1])]
-    assert "siting" in offenders[0][1].lower()
+    # the engine is caught by the planning/product/ directory prefix since the consolidation
+    assert "planning/product/" in offenders[0][1]
 
 
 # ── 3. the live tracked tree must be clean ───────────────────────────────────
