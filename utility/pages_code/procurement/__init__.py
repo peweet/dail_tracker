@@ -57,10 +57,10 @@ from ._shared import (  # noqa: F401
     _cro_pill,
     _eur,
     _lobby_pill,
-    _n,
     _truthy,
     _value_pill,
 )
+from ui.format import to_int as _n  # noqa: F401  (pruned from _shared; smoke test reads it)
 from .councils import (  # noqa: F401
     _council_summary_row,
     _lane_header,
