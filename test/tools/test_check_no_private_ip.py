@@ -24,12 +24,12 @@ _SPEC.loader.exec_module(guard)
 
 # ── 1. sensitive shapes must be flagged ──────────────────────────────────────
 FLAGGED = [
-    "dail_tracker_core/siting/engine.py",
+    "planning/product/core/engine.py",
     "planning_rules/county_councils/mayo_county_council/dm_standards.md",
     "test/siting/test_engine.py",
     "doc/private/SITING_COMMERCIALISATION_REVIEW.md",
-    "mcp_server/precedent_fts.py",
-    "tools/build_point_scoped_layers.py",
+    "planning/product/mcp/precedent_fts.py",
+    "planning/product/tools/build_point_scoped_layers.py",
     "utility/pages_code/siting_remote.py",
     "pipeline_sandbox/test_planning_siting_layers.py",
     "data/silver/parquet/planning_layers/curated_landmarks_resolve_cache.jsonl",
@@ -71,8 +71,8 @@ def test_public_paths_are_not_flagged() -> None:
 
 
 def test_find_offenders_returns_pairs() -> None:
-    offenders = guard.find_offenders(["utility/app.py", "dail_tracker_core/siting/engine.py"])
-    assert offenders == [("dail_tracker_core/siting/engine.py", offenders[0][1])]
+    offenders = guard.find_offenders(["utility/app.py", "planning/product/core/engine.py"])
+    assert offenders == [("planning/product/core/engine.py", offenders[0][1])]
     assert "siting" in offenders[0][1].lower()
 
 

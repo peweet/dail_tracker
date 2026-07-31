@@ -116,7 +116,7 @@ KNOWN_OPTIONAL: frozenset[str] = frozenset(
 # which is exactly the failure the planning_appeal_outcomes .gitignore note describes.
 # Keep this list SHORT: a SQL view is still the preferred way to expose a fact.
 CORE_RUNTIME_READS: dict[str, str] = {
-    "data/silver/parquet/planning_acp_cases.parquet": "dail_tracker_core/siting/precedents.py "
+    "data/silver/parquet/planning_acp_cases.parquet": "planning/product/core/precedents.py "
     "(nearby appeal history on the siting-check page)",
 }
 

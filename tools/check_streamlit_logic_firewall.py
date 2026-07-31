@@ -400,6 +400,10 @@ def _default_targets() -> list[Path]:
         _PROJECT_ROOT / "utility" / "pages_code",
         _PROJECT_ROOT / "utility" / "data_access",
         _PROJECT_ROOT / "utility" / "ui",
+        # Private siting product pages — absent from public checkouts (planning/product/
+        # is gitignored there), so this target is a no-op in CI and only checks anything
+        # on a local disk that also has the private overlay.
+        _PROJECT_ROOT / "planning" / "product" / "ui",
     ]
 
 

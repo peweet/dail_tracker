@@ -1,7 +1,7 @@
 """Tailte Éireann cadastral parcels (freehold) — the registered-title geometry for a point.
 
 WHY THIS IS NOT A PLANNING LAYER. Every file under data/silver/parquet/planning_layers/ is a
-CONSTRAINT: some rulebook node in dail_tracker_core/siting/engine.py fires on it. This one is an
+CONSTRAINT: some rulebook node in planning/product/core/engine.py fires on it. This one is an
 INPUT HELPER — no node queries it. It exists to turn a map click into a candidate site geometry,
 so the engine can be asked about a boundary instead of a dimensionless pin. It therefore lands in
 a sibling directory and must stay OUT of LayerStore.available(), or a boundary sweep would treat
@@ -64,7 +64,7 @@ SERVICE = (
     "/Cadastral_Parcels_Freehold/FeatureServer/12/query"
 )
 PAGE = 1000  # the service's maxRecordCount
-ROW_GROUP = 20_000  # matches tools/build_point_scoped_layers.py — prunable groups
+ROW_GROUP = 20_000  # matches planning/product/tools/build_point_scoped_layers.py — prunable groups
 # Published national total, cross-checked two ways on 2026-07-27 (returnCountOnly, and the
 # sum of the per-county groupBy). The floor is deliberately slack: a re-register can move it.
 EXPECTED_TOTAL = 3_086_691
@@ -148,7 +148,7 @@ def _outward_f32(vals: np.ndarray, *, toward_pos: bool) -> np.ndarray:
     ORDER IS THE CONTRACT: cast first, THEN nextafter in f32 space. Doing it the other way
     (nextafter in f64, then cast) is silently wrong — the cast rounds to nearest and shrinks
     the box on most rows, so a point inside a parcel gets filtered out before the exact
-    predicate runs. Same helper and same trap as tools/build_point_scoped_layers.py:66;
+    predicate runs. Same helper and same trap as planning/product/tools/build_point_scoped_layers.py:66;
     duplicated because tools/ is not an importable package.
     """
     f32 = vals.astype(np.float32)
@@ -175,7 +175,7 @@ def _to_table(rows: list[tuple]) -> pa.Table:
 
     Outward rounding is the correctness invariant the point-scoped store relies on: an f32
     bbox must be a SUPERSET of the true f64 bounds, so a window filter can only ever
-    over-select. See PointScopedLayerStore in dail_tracker_core/siting/layers.py.
+    over-select. See PointScopedLayerStore in planning/product/core/layers.py.
     """
     df = pl.DataFrame(rows, schema=["wkb", "sp_id", "county", "area_m2"], orient="row")
     bounds = shapely.bounds(shapely.from_wkb(df["wkb"].to_numpy()))
@@ -192,7 +192,7 @@ def _to_table(rows: list[tuple]) -> pa.Table:
     )
 
     # Verify the superset invariant on the SORTED frame, before anything reaches disk — the
-    # same refuse-to-write guard as tools/build_point_scoped_layers.py:102.
+    # same refuse-to-write guard as planning/product/tools/build_point_scoped_layers.py:102.
     sorted_bounds = shapely.bounds(shapely.from_wkb(df["wkb"].to_numpy()))
     ok = (
         (df["bbox_minx"].to_numpy() <= sorted_bounds[:, 0]).all()
