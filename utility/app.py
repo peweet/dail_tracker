@@ -36,7 +36,7 @@ from ui.spa_links import install_spa_links
 # layers that are NOT shipped to Streamlit Cloud (gitignored). Those deps live in the `siting`
 # extra, so a Cloud install may lack them. Import defensively: if the deps (or data) are absent,
 # register a stub instead of letting one failed import crash the whole app. It is the DIRECT-engine
-# page (calls dail_tracker_core.siting.engine via data_access.siting_data — no LLM, no MCP).
+# page (calls planning.product.core.engine via planning.product.ui.data_access.siting_data — no LLM, no MCP).
 try:
     from pages_code.siting_assistant import siting_assistant_page
     from pages_code.siting_check import siting_check_page

@@ -337,8 +337,8 @@ pythonpath = ["."]
 source = [
     "api", "attendance", "charity", "committees", "corporate", "dail_tracker_core",
     "debates", "extractors", "iris", "legislation", "lobbying", "mcp_server", "members",
-    "payments", "pdf_infra", "reference", "services", "shared", "tools", "utility",
-    "votes", "wikidata", "pipeline.py", "config.py", "manifest.py",
+    "payments", "pdf_infra", "planning", "reference", "services", "shared", "tools",
+    "utility", "votes", "wikidata", "pipeline.py", "config.py", "manifest.py",
 ]
 
 [tool.coverage.report]

@@ -45,14 +45,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # ── Directories whose entire subtree is private IP ───────────────────────────
 DENY_DIR_PREFIXES: tuple[str, ...] = (
-    # The consolidation target (2026-07-31). Added BEFORE anything moves here, so the
-    # guard covers planning/product/ from the first file that lands in it rather than
-    # from whenever someone remembers to update this list. planning/civic/ is the
-    # deliberately-public sibling and must never appear in this tuple.
+    # The consolidation (2026-07-31) moved the engine, rulebook and private tests here —
+    # one prefix instead of the ~30 hand-maintained globs that produced every leak recorded
+    # to date. planning/civic/ is the deliberately-public sibling and must never appear here.
     "planning/product/",
-    "dail_tracker_core/siting/",
-    "planning_rules/",
-    "test/siting/",
     "doc/private/",
     "siting_reports/",
     "data/silver/parquet/planning_layers/",
@@ -67,15 +63,15 @@ DENY_SUBSTRINGS: tuple[str, ...] = ("siting",)
 #    the "siting" substring (so they need naming explicitly). ────────────────
 DENY_EXACT: frozenset[str] = frozenset(
     {
-        "mcp_server/precedent_fts.py",
-        "tools/build_point_scoped_layers.py",
+        "planning/product/mcp/precedent_fts.py",
+        "planning/product/tools/build_point_scoped_layers.py",
         "doc/PLAN_ACP_GEOMETRY_AND_PRECEDENT.md",
         "doc/PLANNING_PERMISSION_SCOPING.md",
         "doc/archive/PLANNING_PERMISSION_SCOPING.md",
         "data/silver/parquet/planning_acp_cases.parquet",
-        "extractors/planning_layers_ingest.py",
-        "extractors/planning_layers_freshness.py",
-        "extractors/planning_acp_precedents.py",
+        "planning/product/ingest/planning_layers_ingest.py",
+        "planning/product/ingest/planning_layers_freshness.py",
+        "planning/product/ingest/planning_acp_precedents.py",
         "pipeline_sandbox/planning_layers_wfs.py",
         "pipeline_sandbox/planning_scale_gated_triggers.py",
         "pipeline_sandbox/planning_areaofsite_normalise.py",

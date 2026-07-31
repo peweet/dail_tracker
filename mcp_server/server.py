@@ -1930,7 +1930,7 @@ def siting_decision_documents(
     returns an honest unavailable_reason, never an empty success. Surfaces decision docs only —
     the scanned file also holds third-party submissions, so never use this as a people-search."""
     try:
-        from dail_tracker_core.siting import decision_docs as _dd
+        from planning.product.core import decision_docs as _dd
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed (public clone)
         return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
 
@@ -1965,7 +1965,7 @@ def search_planning_precedents(query: str, authority: str = "", decision: str = 
     reports name third parties, so never use this to search for a person. Sandbox-hosted corpus:
     on a machine without it the tool says so. First call builds the index (one-off, ~a minute)."""
     try:
-        from mcp_server import precedent_fts
+        from planning.product.mcp import precedent_fts
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed (public clone)
         return {"error": f"planning-precedent search unavailable (optional 'siting' extra not installed): {exc}"}
     return precedent_fts.search(query, REPO, authority=authority, decision=decision, limit=limit)
@@ -2156,9 +2156,9 @@ def siting_check(
     Galway/Cork/Dublin; elsewhere expect `not_assessed` entries. Risk language is 'likely', never
     'will'. Surface the `disclaimer`."""
     try:
-        from dail_tracker_core.siting import brief as _brief
-        from dail_tracker_core.siting import engine as _engine
-        from dail_tracker_core.siting.layers import make_store
+        from planning.product.core import brief as _brief
+        from planning.product.core import engine as _engine
+        from planning.product.core.layers import make_store
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
         return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
 
@@ -2220,7 +2220,7 @@ def siting_check(
 def _siting_nearby_history(lon: float, lat: float, dev_type: str) -> dict:
     """First-instance council decisions near the point (applications register, 1 km default)."""
     try:
-        from dail_tracker_core.siting import applications as _apps
+        from planning.product.core import applications as _apps
     except Exception as exc:  # noqa: BLE001
         return {"available": False, "reason": f"applications module unavailable: {exc}"}
     n = _apps.nearby_applications(lon, lat, dev_type)
@@ -2270,7 +2270,7 @@ def _siting_nearby_history(lon: float, lat: float, dev_type: str) -> dict:
 def _siting_process_context(result, dev_type: str) -> dict:
     """Decision-latency / RFI / appeal baseline for comparable files in this authority."""
     try:
-        from dail_tracker_core.siting import process_stats as _proc
+        from planning.product.core import process_stats as _proc
     except Exception as exc:  # noqa: BLE001
         return {"available": False, "reason": f"process_stats module unavailable: {exc}"}
     council = getattr(result, "council", None)
