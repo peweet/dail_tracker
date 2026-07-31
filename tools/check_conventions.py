@@ -203,7 +203,9 @@ LARGEST_FILE_CAPS = {
     "utility/pages_code/procurement/patterns.py": 737,
     "utility/pages_code/member_overview.py": 2498,
     "utility/ui/components.py": 2155,
-    "mcp_server/server.py": 2843,  # grew 2744→2843 during baselining (2026-07-30, parallel session)
+    # server.py: a parallel session is actively growing this file (2744→2847 across
+    # 2026-07-30/31); capped with headroom until that work lands, then ratchet down.
+    "mcp_server/server.py": 2900,
     "test/sql_views/test_sql_views.py": 3579,
     "extractors/procurement_public_body_extract.py": 2948,
 }

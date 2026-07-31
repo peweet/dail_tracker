@@ -42,6 +42,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+import streamlit as st  # noqa: F401  (bare-mode tests patch procurement.st.*)
+
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 
 from .page import procurement_page
@@ -51,8 +53,12 @@ from .page import procurement_page
 from ._shared import (  # noqa: F401
     _awards_word,
     _card,
+    _coalesce,
     _cro_pill,
+    _eur,
     _lobby_pill,
+    _n,
+    _truthy,
     _value_pill,
 )
 from .councils import (  # noqa: F401
@@ -70,7 +76,7 @@ from .pay_profiles import (  # noqa: F401
     _render_payments_publisher_profile,
     _render_payments_supplier_profile,
 )
-from .payments import _paid_pill, _paid_verb, _render_payments  # noqa: F401
+from .payments import _paid_pill, _paid_verb, _render_payments, _render_payments_bridge  # noqa: F401
 from .profiles import _supplier_awards_section  # noqa: F401
 from .ted import (  # noqa: F401
     _cro_pill_from,

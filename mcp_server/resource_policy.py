@@ -26,6 +26,19 @@ The server process itself NEVER exits on idle. Under stdio the client owns the
 lifecycle; a self-terminating server presents to the user as a dead MCP connection
 and an unexplained ``/mcp`` reconnect. Releasing state is the only legal spin-down.
 
+Third policy, added after a call hung for 1801 s during a load test on 27 July: a
+call deadline. Two layers, and both are needed for different reasons.
+
+  * Client side — ``"timeout": 360000`` in ``.mcp.json``. Claude Code's own per-server
+    wall-clock limit, whose default (``MCP_TOOL_TIMEOUT``) is about 28 HOURS, which is
+    why a stuck call simply hangs. This makes the client give up in six minutes.
+    ``.mcp.json`` is strict JSON and cannot hold a comment, so the reason lives here.
+  * Server side — ``enforce_call_deadline`` at 300 s, deliberately UNDER the client's
+    360 s. A client-side timeout alone stops the client waiting; it does NOT stop the
+    query, which keeps consuming memory to completion. Interrupting at the database is
+    what ends the work, and finishing first means the client receives a real error
+    message instead of a blind timeout.
+
 Every knob is an environment variable so a session can opt out without a code change
 (``DAIL_MCP_IDLE_SECONDS=0`` disables the watchdog entirely).
 """
@@ -156,12 +169,23 @@ def capped_connect(database: str = ":memory:", *, read_only: bool = False):
 # connection it is called on.
 _LIVE_CONNECTIONS: weakref.WeakSet = weakref.WeakSet()
 
+# Start time of the call the deadline last acted on, so one stuck call is interrupted
+# once rather than on every poll.
+_LAST_DEADLINE_EPISODE: float | None = None
+
 
 def register_connection(conn) -> None:
-    """Track a connection so ``interrupt_all`` can reach it.
+    """Track a connection (or cursor) so ``interrupt_all`` can reach it.
 
     ``capped_connect`` calls this itself; the union connection is built by
     ``dail_tracker_core.connections.api_conn`` and is registered by the server.
+
+    ⚠ CURSORS MUST BE REGISTERED TOO, and this is the trap that made the first version
+    of the deadline useless. Verified 2026-07-31: ``interrupt()`` on a parent connection
+    does NOT abort a query running on a cursor derived from it — the query ran to
+    completion through 34 consecutive interrupts — while interrupting the cursor itself
+    aborted in 2.0 s. Every tool in this server runs on ``_CONN.cursor()``, so
+    registering only the connection would interrupt the one object no query uses.
     """
     try:
         _LIVE_CONNECTIONS.add(conn)
@@ -243,10 +267,21 @@ class _Activity:
 
     def longest_inflight(self) -> float | None:
         """Age of the oldest running call, or None when nothing is running."""
+        oldest = self.oldest()
+        return None if oldest is None else oldest[1]
+
+    def oldest(self) -> tuple[float, float] | None:
+        """(start time, age) of the oldest running call, or None when idle.
+
+        The start time doubles as an episode id: it lets the deadline sweep tell "the
+        same overrunning call I already interrupted" from a new one, so a single stuck
+        call produces one interrupt and one log line rather than one per poll.
+        """
         with self._lock:
             if not self._starts:
                 return None
-            return time.monotonic() - min(self._starts.values())
+            start = min(self._starts.values())
+            return start, time.monotonic() - start
 
 
 ACTIVITY = _Activity()
@@ -287,12 +322,20 @@ def enforce_call_deadline() -> bool:
 
     Returns whether an interrupt was issued.
     """
+    global _LAST_DEADLINE_EPISODE
+
     limit = call_timeout()
     if limit <= 0:
         return False
-    age = ACTIVITY.longest_inflight()
-    if age is None or age < limit:
+    oldest = ACTIVITY.oldest()
+    if oldest is None:
         return False
+    start, age = oldest
+    if age < limit:
+        return False
+    if start == _LAST_DEADLINE_EPISODE:
+        return False  # already interrupted this call — do not re-fire every poll
+    _LAST_DEADLINE_EPISODE = start
     hit = interrupt_all()
     _log.warning(
         "MCP resource policy: tool call exceeded %ds (running %.0fs) — interrupted %d connection(s)",

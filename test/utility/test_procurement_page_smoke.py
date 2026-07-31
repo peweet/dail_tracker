@@ -30,6 +30,23 @@ import procurement  # noqa: E402
 
 from dail_tracker_core.results import QueryResult  # noqa: E402
 
+# The 2026-07 package split moved the fetcher bindings out of one flat module and
+# into submodules; patch a name wherever it is bound or the render path keeps the
+# real fetcher (page.py routes, browse.py ranks, pay_profiles.py renders, …).
+_PR_MODULES = [procurement] + [
+    getattr(procurement, m)
+    for m in ("page", "browse", "payments", "pay_profiles", "councils", "national", "ted", "tenders", "profiles", "patterns", "_shared")
+]
+
+
+def _patch_pr(monkeypatch, name, fn):
+    hit = False
+    for mod in _PR_MODULES:
+        if hasattr(mod, name):
+            monkeypatch.setattr(mod, name, fn)
+            hit = True
+    assert hit, f"no procurement module binds {name!r}"
+
 
 # ── pure formatters ───────────────────────────────────────────────────────────
 @pytest.mark.parametrize(
@@ -84,14 +101,14 @@ def _stats_frame(n_suppliers: int) -> QueryResult:
 def _patch(monkeypatch, *, supplier, stats=None, others_empty=True):
     empty = QueryResult.success(pd.DataFrame())
     n = len(supplier.data) if supplier.ok else 0
-    monkeypatch.setattr(
-        procurement, "fetch_coverage_stats_result", lambda *a, **k: stats if stats is not None else _stats_frame(n)
+    _patch_pr(
+        monkeypatch, "fetch_coverage_stats_result", lambda *a, **k: stats if stats is not None else _stats_frame(n)
     )
-    monkeypatch.setattr(procurement, "fetch_available_years", lambda *a, **k: [2025, 2024])
-    monkeypatch.setattr(procurement, "fetch_supplier_summary_result", lambda *a, **k: supplier)
+    _patch_pr(monkeypatch, "fetch_available_years", lambda *a, **k: [2025, 2024])
+    _patch_pr(monkeypatch, "fetch_supplier_summary_result", lambda *a, **k: supplier)
     if others_empty:
         for fn in ("fetch_authority_summary_result", "fetch_cpv_summary_result", "fetch_lobbying_overlap_result"):
-            monkeypatch.setattr(procurement, fn, lambda *a, **k: empty)
+            _patch_pr(monkeypatch, fn, lambda *a, **k: empty)
 
 
 def test_source_unavailable_returns_cleanly(monkeypatch):
