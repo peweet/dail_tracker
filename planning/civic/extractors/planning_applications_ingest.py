@@ -8,9 +8,9 @@ Implements the LOCKED plan in doc/archive/PLANNING_PERMISSION_SCOPING.md §8:
   -> parquet via services.parquet_io.save_parquet (atomic, zstd L3, statistics).
 
 Sandbox only until validated. SMOKE-TEST one council first:
-    python pipeline_sandbox/planning_applications_ingest.py --authority "Carlow County Council"
+    python planning/civic/extractors/planning_applications_ingest.py --authority "Carlow County Council"
 Full national sweep (~248 pages / ~495k rows):
-    python pipeline_sandbox/planning_applications_ingest.py
+    python planning/civic/extractors/planning_applications_ingest.py
 
 Gotchas baked in (project_planning_arcgis_validation / reference_geometry_validation_sources):
   - ITMEasting/ITMNorthing attribute columns are EMPTY -> coords come from geometry only.
@@ -35,7 +35,7 @@ LOG = logging.getLogger("planning_applications_ingest")
 
 L0 = "https://services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services/IrishPlanningApplications/FeatureServer/0"
 PAGE = 2000
-OUT = Path(__file__).resolve().parents[1] / "data/silver/parquet"
+OUT = Path(__file__).resolve().parents[3] / "data/silver/parquet"
 IRELAND_BBOX = (-11.0, 51.0, -5.0, 56.0)  # (min_lon, min_lat, max_lon, max_lat)
 
 # Columns to DROP: ArcGIS internals, empty ITM attrs (coords come from geometry),

@@ -38,7 +38,7 @@ from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
 LOG = logging.getLogger("planning_decision_profiles")
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 SILVER = ROOT / "data/silver/parquet/planning_applications_silver.parquet"
 OUT = ROOT / "data/silver/parquet/planning_decision_profiles.parquet"
 OUT_COV = ROOT / "data/_meta/planning_decision_profiles_coverage.json"

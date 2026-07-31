@@ -91,10 +91,10 @@ SECRET_SUFFIXES: tuple[str, ...] = (".pem",)
 #    even if a future rule broadens. (None of these contain "siting".) ────────
 ALLOWLIST: frozenset[str] = frozenset(
     {
-        "extractors/planning_appeal_outcomes.py",
-        "extractors/planning_applications_ingest.py",
-        "extractors/planning_cpo_compensation.py",
-        "extractors/planning_decision_profiles.py",
+        "planning/civic/extractors/planning_appeal_outcomes.py",
+        "planning/civic/extractors/planning_applications_ingest.py",
+        "planning/civic/extractors/planning_cpo_compensation.py",
+        "planning/civic/extractors/planning_decision_profiles.py",
         "sql_views/constituency/constituency_la_planning_overturn.sql",
         "test/sql_views/test_la_planning_overturn.py",
         "pipeline_sandbox/planning_partv_liability_probe.py",

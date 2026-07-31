@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 pl = pytest.importorskip("polars")
 
-from extractors.planning_cpo_compensation import _ACQ_MATCH, OUT, _acq_type, build  # noqa: E402
+from planning.civic.extractors.planning_cpo_compensation import _ACQ_MATCH, OUT, _acq_type, build  # noqa: E402
 
 _NAME_COLS = {"supplier", "supplier_raw", "supplier_normalised", "payee", "name"}
 
