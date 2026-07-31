@@ -26,7 +26,7 @@ from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 PARQUET = ROOT / "data" / "silver" / "parquet" / "planning_applications_silver.parquet"
 OUT_DIR = ROOT / "pipeline_sandbox" / "_planning_output"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
