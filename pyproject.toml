@@ -88,6 +88,8 @@ siting = [
     "weasyprint>=66",    # paged-media PDF (dail_tracker_core/siting/pdf.py) — needs GTK3 native libs:
                          # Windows = winget install tschoonj.GTKForWindows; Linux = apt install libpango-1.0-0
     "esridump>=1.13",    # ArcGIS layer scrape (extractors/planning_layers_ingest.py) — was undeclared; uv sync pruned it 2026-07-25
+    "pyproj>=3.6",       # CRS repair at INGEST only (dublin_city_rps: published GeoJSON is Irish Grid
+                         # mis-projected as ITM, 2026-07-30) — the runtime layer store stays shapely-only
 ]
 
 # Headless-browser scraping for JS-rendered sources that curl/RSS can't reach:

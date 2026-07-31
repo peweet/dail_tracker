@@ -50,7 +50,7 @@ def test_never_releases_while_a_call_is_in_flight(isolated_conn, monkeypatch):
     """The regression that would hurt: closing DuckDB under a running tool call."""
     conn, activity = isolated_conn
     monkeypatch.setenv("DAIL_MCP_IDLE_SECONDS", "0")  # maximally eager — still must not fire
-    with activity:
+    with activity.track():
         assert server._release_if_idle() is False
     assert conn.closed is False
     assert server._CONN is conn

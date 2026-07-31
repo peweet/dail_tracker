@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -113,7 +114,7 @@ def test_env_int_falls_back_on_garbage(monkeypatch):
 
 def test_idle_for_is_none_while_a_call_is_in_flight(fresh_activity):
     assert fresh_activity.idle_for() is not None
-    with fresh_activity:
+    with fresh_activity.track():
         assert fresh_activity.inflight == 1
         assert fresh_activity.idle_for() is None  # <- what stops a release mid-query
     assert fresh_activity.inflight == 0
@@ -123,7 +124,7 @@ def test_idle_for_is_none_while_a_call_is_in_flight(fresh_activity):
 def test_activity_counter_is_thread_safe(fresh_activity):
     def worker():
         for _ in range(200):
-            with fresh_activity:
+            with fresh_activity.track():
                 pass
 
     threads = [threading.Thread(target=worker) for _ in range(8)]
@@ -166,9 +167,131 @@ def test_instrument_reports_false_when_the_sdk_shape_changes():
 # ── watchdog wiring ──────────────────────────────────────────────────────────
 
 
-def test_watchdog_disabled_by_zero_idle_seconds(monkeypatch):
+def test_watchdog_runs_only_when_it_has_a_duty(monkeypatch):
+    """The thread serves two duties; it stands down only when BOTH are switched off."""
     monkeypatch.setenv("DAIL_MCP_IDLE_SECONDS", "0")
+    monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "0")
     assert resource_policy.start_watchdog(lambda: False) is None
+
+
+def test_watchdog_still_starts_for_the_deadline_alone(monkeypatch):
+    monkeypatch.setenv("DAIL_MCP_IDLE_SECONDS", "0")
+    monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "300")
+    stop = threading.Event()
+    thread = resource_policy.start_watchdog(lambda: False, stop=stop)
+    try:
+        assert thread is not None, "disabling idle release must not disable the deadline"
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+
+
+# ── call deadline ────────────────────────────────────────────────────────────
+
+
+def test_longest_inflight_tracks_the_oldest_call(fresh_activity):
+    assert fresh_activity.longest_inflight() is None
+    with fresh_activity.track():
+        first = fresh_activity.longest_inflight()
+        assert first is not None
+        with fresh_activity.track():
+            # A second, younger call must not reset the clock on the first.
+            assert fresh_activity.longest_inflight() >= first
+        assert fresh_activity.longest_inflight() >= first
+    assert fresh_activity.longest_inflight() is None
+
+
+def test_a_fast_call_does_not_retire_a_slow_calls_clock(fresh_activity):
+    """The bug a bare counter would hide: out-of-order completion losing the start time."""
+    outer = fresh_activity.track()
+    outer.__enter__()
+    try:
+        with fresh_activity.track():
+            pass  # a fast call starts and finishes inside the slow one
+        assert fresh_activity.inflight == 1
+        assert fresh_activity.longest_inflight() is not None
+    finally:
+        outer.__exit__(None, None, None)
+    assert fresh_activity.longest_inflight() is None
+
+
+def test_deadline_does_not_fire_below_the_limit(fresh_activity, monkeypatch):
+    monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "3600")
+    hits = []
+    monkeypatch.setattr(resource_policy, "interrupt_all", lambda: hits.append(1) or 1)
+    with fresh_activity.track():
+        assert resource_policy.enforce_call_deadline() is False
+    assert hits == []
+
+
+def test_deadline_does_not_fire_when_nothing_is_running(fresh_activity, monkeypatch):
+    monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "1")
+    monkeypatch.setattr(resource_policy, "interrupt_all", lambda: 1)
+    assert resource_policy.enforce_call_deadline() is False
+
+
+def test_deadline_interrupts_an_overrunning_call(fresh_activity, monkeypatch):
+    monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "1")
+    hits = []
+    monkeypatch.setattr(resource_policy, "interrupt_all", lambda: (hits.append(1), 2)[1])
+    with fresh_activity.track():
+        time.sleep(1.05)
+        assert resource_policy.enforce_call_deadline() is True
+    assert hits == [1]
+
+
+def test_deadline_can_be_switched_off(fresh_activity, monkeypatch):
+    monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "0")
+    monkeypatch.setattr(resource_policy, "interrupt_all", lambda: 1)
+    with fresh_activity.track():
+        time.sleep(0.05)
+        assert resource_policy.enforce_call_deadline() is False
+
+
+def test_interrupt_all_reaches_registered_connections_and_survives_bad_ones():
+    class Good:
+        def __init__(self):
+            self.hit = 0
+
+        def interrupt(self):
+            self.hit += 1
+
+    class Broken:
+        def interrupt(self):
+            raise RuntimeError("already closed")
+
+    good, broken = Good(), Broken()
+    resource_policy.register_connection(good)
+    resource_policy.register_connection(broken)
+    try:
+        hit = resource_policy.interrupt_all()
+        assert good.hit == 1, "a live connection must be interrupted"
+        assert hit >= 1, "a broken connection must not abort the sweep"
+    finally:
+        resource_policy._LIVE_CONNECTIONS.discard(good)
+        resource_policy._LIVE_CONNECTIONS.discard(broken)
+
+
+def test_a_real_duckdb_query_is_actually_abortable():
+    """The mechanism the whole deadline rests on: interrupt from another thread ends
+    the query, so the worker thread returns instead of running to completion."""
+    conn = duckdb.connect()
+    out = {}
+
+    def run():
+        try:
+            conn.execute("SELECT count(*) FROM range(20000000000) t(i) WHERE i % 97 = 3").fetchone()
+            out["r"] = "COMPLETED"
+        except Exception as exc:  # noqa: BLE001
+            out["r"] = type(exc).__name__
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    time.sleep(1.0)
+    conn.interrupt()
+    t.join(timeout=30)
+    assert not t.is_alive(), "interrupt did not end the query"
+    assert out["r"] == "InterruptException"
 
 
 def test_watchdog_survives_a_failing_release(monkeypatch):

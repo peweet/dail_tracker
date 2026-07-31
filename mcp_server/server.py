@@ -342,6 +342,10 @@ def _cur():
             # runs inside the budget (mcp_server/resource_policy.py explains why the
             # DuckDB defaults are unsafe once per-session servers multiply).
             resource_policy.apply_caps(conn)
+            # api_conn builds this one directly, so it misses capped_connect's
+            # registration — without this the call deadline could not interrupt the
+            # connection that most queries actually run on.
+            resource_policy.register_connection(conn)
             register_views(conn, _EXTRA_VIEW_GLOBS, swallow_errors=True)
             _CONN = conn
         return _CONN.cursor()
