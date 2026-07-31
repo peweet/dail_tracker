@@ -45,6 +45,11 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # ── Directories whose entire subtree is private IP ───────────────────────────
 DENY_DIR_PREFIXES: tuple[str, ...] = (
+    # The consolidation target (2026-07-31). Added BEFORE anything moves here, so the
+    # guard covers planning/product/ from the first file that lands in it rather than
+    # from whenever someone remembers to update this list. planning/civic/ is the
+    # deliberately-public sibling and must never appear in this tuple.
+    "planning/product/",
     "dail_tracker_core/siting/",
     "planning_rules/",
     "test/siting/",
