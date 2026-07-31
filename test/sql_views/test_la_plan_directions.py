@@ -18,9 +18,13 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "extractors"))
 
-from opr_plan_directions_extract import CANON_31, canon_council, classify, doc_date  # noqa: E402
+from planning.civic.extractors.opr_plan_directions_extract import (  # noqa: E402
+    CANON_31,
+    canon_council,
+    classify,
+    doc_date,
+)
 
 CSV_PATH = ROOT / "data" / "_meta" / "opr_plan_directions.csv"
 VALID_OUTCOMES = {"direction_issued", "minister_declined", "in_progress", "suspension_notice"}
