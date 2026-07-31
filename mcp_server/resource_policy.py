@@ -187,10 +187,9 @@ def register_connection(conn) -> None:
     aborted in 2.0 s. Every tool in this server runs on ``_CONN.cursor()``, so
     registering only the connection would interrupt the one object no query uses.
     """
-    try:
+    # TypeError: a non-weakrefable stand-in (some test doubles) — tracking is best-effort.
+    with contextlib.suppress(TypeError):
         _LIVE_CONNECTIONS.add(conn)
-    except TypeError:  # pragma: no cover — a non-weakrefable stand-in in tests
-        pass
 
 
 def interrupt_all() -> int:

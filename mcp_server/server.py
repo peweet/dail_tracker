@@ -22,153 +22,154 @@ doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 
 
 
+
 # ── SECTION MAP ── ─────────────────────────────────────────
-# ⚠️  DO NOT READ WHOLE — ~34,840 tokens (2,844 lines after this header).
+# ⚠️  DO NOT READ WHOLE — ~34,995 tokens (2,855 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
-#     210-227    Lazy data stack
-#     228-290    _LazyModule
-#     291-329    _unavailable
-#     330-349    _cur
-#     350-375    _release_if_idle
-#     376-384    _rows
-#     385-391    _one
-#     392-395    Members
-#     396-407    search_members
-#     408-432    get_member_record
-#     433-436    Votes
-#     437-447    list_recent_votes
-#     448-457    get_division
-#     458-461    Cross-reference: votes × Register of Members' Interests
-#     462-472    division_interest_breakdown
-#     473-536    voting_vs_interests
-#     537-540    Legislation
-#     541-551    search_legislation
-#     552-562    get_bill
-#     563-584    search_statutory_instruments
-#     585-614    circular_si_crosswalk
-#     615-618    Payments / lobbying
-#     619-625    top_payments
-#     626-633    lobbying_organisations
-#     634-640    revolving_door
-#     641-644    Ministerial diaries — who ministers meet
-#     645-657    ministerial_diary_top_organisations
-#     658-670    ministerial_diary_organisation
-#     671-680    who_ministers_meet
-#     681-718    company_influence
-#     719-737    _spine_lobbying_lookup
-#     738-774    access_to_contracts
-#     775-792    procurement_lobbying_overlap
-#     793-796    Procurement
-#     797-806    search_suppliers
-#     807-814    get_supplier
-#     815-831    procurement_competition
-#     832-835    Committees
-#     836-842    list_committees
-#     843-848    get_committee
-#     849-852    Interests (Register of Members' Interests)
-#     853-860    get_member_interests
-#     861-864    Ministerial accountability
-#     865-871    who_was_minister
-#     872-875    Parliamentary questions
-#     876-900    get_member_questions
-#     901-921    member_question_count_by_year
-#     922-925    Payments by year
-#     926-932    payments_by_year
-#     933-936    Member floor speeches
-#     937-963    member_speeches
-#     964-967    SIPO political finance (party donations + GE2024 election ex
-#     968-986    party_donations
-#     987-1002   party_election_spend
-#    1003-1006   Judiciary (the bench + court-system health)
-#    1007-1023   judicial_appointments
-#    1024-1036   courts_health
-#    1037-1040   Public appointments (state boards)
-#    1041-1046   public_appointments
-#    1047-1071   Charity finances
-#    1072-1117   _charity_sector_dq_flags
-#    1118-1147   charity_financials
-#    1148-1150   Corporate distress notices (Iris Oifigiúil — companies only,
-#    1151-1157   _trim_notice
-#    1158-1198   corporate_distress_notices
-#    1199-1224   corporate_repeat_distress
-#    1225-1228   Public-body payments (the realised-SPEND grain)
-#    1229-1247   public_body_payments
-#    1248-1251   Procurement — deeper cuts (authority / CPV / live tenders)
-#    1252-1259   procurement_by_authority
-#    1260-1266   procurement_by_cpv
-#    1267-1273   open_tenders
-#    1274-1277   Ministerial roll-up
-#    1278-1287   current_cabinet
-#    1288-1291   Lobbying — revolving-door individual profile
-#    1292-1307   dpo_lobbying_profile
-#    1308-1311   Corpus search: divisions by topic
-#    1312-1357   search_votes_by_topic
-#    1358-1361   Join map (the association guard — read BEFORE cross-referenc
-#    1362-1439   join_map
-#    1440-1443   Data coverage (scope guard for honest answers)
-#    1444-1468   data_coverage
-#    1469-1477   _load_fact_cards
-#    1478-1509   list_datasets
-#    1510-1527   describe_dataset
-#    1528-1544   search_project: one metadata-layer retrieval call instead of
-#    1545-1550   _memory_dir
-#    1551-1565   _fts_ready
-#    1566-1569   _tokens
-#    1570-1650   _build_project_index
-#    1651-1658   _project_index
-#    1659-1739   search_project
-#    1740-1751   code_outline
-#    1752-1773   py_deps
-#    1774-1835   json_peek
-#    1836-1851   view_deps
-#    1852-1861   search_speeches
-#    1862-1871   search_questions
-#    1872-1910   siting_decision_documents
-#    1911-1927   search_planning_precedents
-#    1928-1940   column_deps
-#    1941-1956   source_fetch_failures
-#    1957-1960   Procurement conduit (authoritative-source bridge + serve-vs-
-#    1961-2038   procurement_notice
-#    2039-2062   project_value_estimate
-#    2063-2065   Siting check (planning-constraint triage for a point — the c
-#    2066-2078   _brief_item
-#    2079-2165   siting_check
-#    2166-2215   _siting_nearby_history
-#    2216-2243   _siting_process_context
-#    2244-2247   Cross-register watchlist + organisation dossier (entity-cros
-#    2248-2271   cross_register_watchlist
-#    2272-2289   _org_name_key
-#    2290-2301   _org_registers
-#    2302-2350   _resolve_org_candidates
-#    2351-2418   organisation_dossier
-#    2419-2422   Local government (council accountability scorecard)
-#    2423-2466   derelict_levy_compliance
-#    2467-2513   council_scorecard
-#    2514-2517   AFS (local-authority audited accounts — the BUDGET grain)
-#    2518-2563   afs_coverage
-#    2564-2567   Housing money (national demand / supply / accommodation spen
-#    2568-2597   housing_money
-#    2598-2601   Attendance (division turnout + TAA compliance)
-#    2602-2643   attendance_ranking
-#    2644-2647   National public finance (CSO general-government)
-#    2648-2663   gov_finance_annual
-#    2664-2667   Prompts (audit templates surfaced as client slash-commands)
-#    2668-2679   audit_member
-#    2680-2689   trace_bill_sis
-#    2690-2700   procurement_lobbying_check
-#    2701-2713   audit_party_finance
-#    2714-2725   judicial_appointment_trace
-#    2726-2740   assess_procurement_award
-#    2741-2755   siting_brief
-#    2756-2762   coverage_resource
-#    2763-2775   fact_cards_resource
-#    2776-2782   fact_card_resource
-#    2783-2790   join_map_resource
-#    2791-2800   doc_index_resource
-#    2801-2808   doc_sandbox_map_resource
-#    2809-2825   data_question
-#    2826-2844   scope_check
+#     211-228    Lazy data stack
+#     229-291    _LazyModule
+#     292-330    _unavailable
+#     331-360    _cur
+#     361-386    _release_if_idle
+#     387-395    _rows
+#     396-402    _one
+#     403-406    Members
+#     407-418    search_members
+#     419-443    get_member_record
+#     444-447    Votes
+#     448-458    list_recent_votes
+#     459-468    get_division
+#     469-472    Cross-reference: votes × Register of Members' Interests
+#     473-483    division_interest_breakdown
+#     484-547    voting_vs_interests
+#     548-551    Legislation
+#     552-562    search_legislation
+#     563-573    get_bill
+#     574-595    search_statutory_instruments
+#     596-625    circular_si_crosswalk
+#     626-629    Payments / lobbying
+#     630-636    top_payments
+#     637-644    lobbying_organisations
+#     645-651    revolving_door
+#     652-655    Ministerial diaries — who ministers meet
+#     656-668    ministerial_diary_top_organisations
+#     669-681    ministerial_diary_organisation
+#     682-691    who_ministers_meet
+#     692-729    company_influence
+#     730-748    _spine_lobbying_lookup
+#     749-785    access_to_contracts
+#     786-803    procurement_lobbying_overlap
+#     804-807    Procurement
+#     808-817    search_suppliers
+#     818-825    get_supplier
+#     826-842    procurement_competition
+#     843-846    Committees
+#     847-853    list_committees
+#     854-859    get_committee
+#     860-863    Interests (Register of Members' Interests)
+#     864-871    get_member_interests
+#     872-875    Ministerial accountability
+#     876-882    who_was_minister
+#     883-886    Parliamentary questions
+#     887-911    get_member_questions
+#     912-932    member_question_count_by_year
+#     933-936    Payments by year
+#     937-943    payments_by_year
+#     944-947    Member floor speeches
+#     948-974    member_speeches
+#     975-978    SIPO political finance (party donations + GE2024 election ex
+#     979-997    party_donations
+#     998-1013   party_election_spend
+#    1014-1017   Judiciary (the bench + court-system health)
+#    1018-1034   judicial_appointments
+#    1035-1047   courts_health
+#    1048-1051   Public appointments (state boards)
+#    1052-1057   public_appointments
+#    1058-1082   Charity finances
+#    1083-1128   _charity_sector_dq_flags
+#    1129-1158   charity_financials
+#    1159-1161   Corporate distress notices (Iris Oifigiúil — companies only,
+#    1162-1168   _trim_notice
+#    1169-1209   corporate_distress_notices
+#    1210-1235   corporate_repeat_distress
+#    1236-1239   Public-body payments (the realised-SPEND grain)
+#    1240-1258   public_body_payments
+#    1259-1262   Procurement — deeper cuts (authority / CPV / live tenders)
+#    1263-1270   procurement_by_authority
+#    1271-1277   procurement_by_cpv
+#    1278-1284   open_tenders
+#    1285-1288   Ministerial roll-up
+#    1289-1298   current_cabinet
+#    1299-1302   Lobbying — revolving-door individual profile
+#    1303-1318   dpo_lobbying_profile
+#    1319-1322   Corpus search: divisions by topic
+#    1323-1368   search_votes_by_topic
+#    1369-1372   Join map (the association guard — read BEFORE cross-referenc
+#    1373-1450   join_map
+#    1451-1454   Data coverage (scope guard for honest answers)
+#    1455-1479   data_coverage
+#    1480-1488   _load_fact_cards
+#    1489-1520   list_datasets
+#    1521-1538   describe_dataset
+#    1539-1555   search_project: one metadata-layer retrieval call instead of
+#    1556-1561   _memory_dir
+#    1562-1576   _fts_ready
+#    1577-1580   _tokens
+#    1581-1661   _build_project_index
+#    1662-1669   _project_index
+#    1670-1750   search_project
+#    1751-1762   code_outline
+#    1763-1784   py_deps
+#    1785-1846   json_peek
+#    1847-1862   view_deps
+#    1863-1872   search_speeches
+#    1873-1882   search_questions
+#    1883-1921   siting_decision_documents
+#    1922-1938   search_planning_precedents
+#    1939-1951   column_deps
+#    1952-1967   source_fetch_failures
+#    1968-1971   Procurement conduit (authoritative-source bridge + serve-vs-
+#    1972-2049   procurement_notice
+#    2050-2073   project_value_estimate
+#    2074-2076   Siting check (planning-constraint triage for a point — the c
+#    2077-2089   _brief_item
+#    2090-2176   siting_check
+#    2177-2226   _siting_nearby_history
+#    2227-2254   _siting_process_context
+#    2255-2258   Cross-register watchlist + organisation dossier (entity-cros
+#    2259-2282   cross_register_watchlist
+#    2283-2300   _org_name_key
+#    2301-2312   _org_registers
+#    2313-2361   _resolve_org_candidates
+#    2362-2429   organisation_dossier
+#    2430-2433   Local government (council accountability scorecard)
+#    2434-2477   derelict_levy_compliance
+#    2478-2524   council_scorecard
+#    2525-2528   AFS (local-authority audited accounts — the BUDGET grain)
+#    2529-2574   afs_coverage
+#    2575-2578   Housing money (national demand / supply / accommodation spen
+#    2579-2608   housing_money
+#    2609-2612   Attendance (division turnout + TAA compliance)
+#    2613-2654   attendance_ranking
+#    2655-2658   National public finance (CSO general-government)
+#    2659-2674   gov_finance_annual
+#    2675-2678   Prompts (audit templates surfaced as client slash-commands)
+#    2679-2690   audit_member
+#    2691-2700   trace_bill_sis
+#    2701-2711   procurement_lobbying_check
+#    2712-2724   audit_party_finance
+#    2725-2736   judicial_appointment_trace
+#    2737-2751   assess_procurement_award
+#    2752-2766   siting_brief
+#    2767-2773   coverage_resource
+#    2774-2786   fact_cards_resource
+#    2787-2793   fact_card_resource
+#    2794-2801   join_map_resource
+#    2802-2811   doc_index_resource
+#    2812-2819   doc_sandbox_map_resource
+#    2820-2836   data_question
+#    2837-2855   scope_check
 # ── END SECTION MAP ── ─────────────────────────────────
 """
 
