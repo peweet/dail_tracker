@@ -6359,6 +6359,90 @@ def inject_css() -> None:
         .cmt-meeting-witnesses .cmt-w-label { font-weight: 600; color: var(--text-secondary); }
         .cmt-meeting-witnesses .cmt-w-none { font-style: italic; }
 
+        /* ── .gr-*  GRANTS page (planned; utility/pages_code/grants.py) —
+              hero banner + summary stat cards + pills. No dedicated page
+              palette yet, so it inherits --accent like the core .dt-*
+              system rather than defining its own hue. Tokens only. */
+        .gr-hero {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 2px;
+            padding: 1.25rem 1.5rem 1rem;
+            margin-bottom: 1rem;
+        }
+        .gr-hero-kicker {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.10em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin: 0 0 0.3rem 0;
+        }
+        .gr-hero-title {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-weight: 700;
+            font-size: 1.9rem;
+            line-height: 1.15;
+            color: var(--text-primary);
+            margin: 0 0 0.3rem 0;
+        }
+        .gr-hero-dek {
+            color: var(--text-secondary);
+            font-size: 0.90rem;
+            line-height: 1.5;
+            margin: 0.3rem 0 0;
+        }
+
+        /* Summary stat card (e.g. total grants / total value strip) —
+           same border-left-stripe + shadow treatment as .lg-card /
+           .att-ov-year-card. */
+        .gr-stat-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 8px;
+            padding: 0.8rem 1rem 0.6rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .gr-stat-card-value {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+        .gr-stat-card-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin-top: 0.2rem;
+        }
+
+        /* Inline pill/tag (e.g. scheme or county chip) — same shape as
+           .int-stat-pill, hover treatment as .lob-policy-pill. */
+        .gr-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            background: var(--surface-deep);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.1rem 0.55rem;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-meta);
+            cursor: pointer;
+            transition: border-color 0.12s, color 0.12s;
+        }
+        .gr-pill:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
         /* ── .sup-*  SUPPORT page + app-level footer (utility/pages_code/support.py,
               builders in ui/components.py). Appended LAST on purpose: .sup-footer
               renders after pg.run() on every page, so it must win any equal-specificity
