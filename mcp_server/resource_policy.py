@@ -137,6 +137,68 @@ PRESSURE_FLOOR_MB = 3000
 PRESSURE_IDLE_SECONDS = 180
 PRESSURE_MEMORY_LIMIT = "512MB"
 
+# ── Adaptive loosening when the box is quiet (added 2026-07-31) ────────────────
+# The 1 GB default is sized for the many-session worst case, but it also starves a
+# legitimately heavy query (the precedent FTS over ~14k inspector reports OOM'd at
+# the 512 MB pressure cap) on a box that at that moment had the RAM to serve it.
+# When free RAM is comfortably high AND few Claude sessions are open — the two facts
+# that together mean the worst case is not live — grant a larger budget. Pressure
+# always wins; an unreadable session count fails closed to the normal default.
+
+#: At or above this much free physical RAM, loosening becomes possible.
+HEADROOM_FLOOR_MB = 6000
+#: ... but only when this many claude.exe processes or fewer are running.
+HEADROOM_MAX_SESSIONS = 2
+HEADROOM_MEMORY_LIMIT = "4GB"
+
+#: tasklist costs ~100-300 ms — cache the count so connection rebuilds stay cheap.
+_SESSION_COUNT_TTL_SECONDS = 60.0
+_session_count_cache: tuple[float, int] | None = None
+
+
+def claude_session_count() -> int | None:
+    """Count of running claude.exe processes, cached ~60 s; None off-Windows or on failure.
+
+    Same tasklist probe as tools/hooks/session_context.py's ``_claude_session_count``,
+    duplicated rather than imported for the same reason ``free_ram_mb`` duplicates the
+    guard_memory ctypes call — a hook script and a server runtime module are different
+    layers for what is one subprocess call.
+    """
+    global _session_count_cache
+    if sys.platform != "win32":
+        return None
+    now = time.monotonic()
+    if _session_count_cache is not None and now - _session_count_cache[0] < _SESSION_COUNT_TTL_SECONDS:
+        return _session_count_cache[1]
+    try:
+        import subprocess
+
+        out = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq claude.exe", "/FO", "CSV", "/NH"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        count = sum(1 for line in out.stdout.splitlines() if "claude.exe" in line.lower())
+    except Exception:
+        return None
+    _session_count_cache = (now, count)
+    return count
+
+
+def with_headroom() -> bool:
+    """True when free RAM ≥ ``HEADROOM_FLOOR_MB`` and ≤ ``HEADROOM_MAX_SESSIONS`` sessions run.
+
+    Both facts must be readable and favourable — an unknown on either side means no
+    loosening, because the cost asymmetry is one-sided: a wrongly-small budget fails a
+    query with a clean error, a wrongly-large one OOMs the whole box.
+    """
+    free = free_ram_mb()
+    if free is None or free < HEADROOM_FLOOR_MB:
+        return False
+    count = claude_session_count()
+    return count is not None and count <= HEADROOM_MAX_SESSIONS
+
 
 def free_ram_mb() -> int | None:
     """Free physical RAM in MB, or None off-Windows or on any failure.
@@ -180,15 +242,19 @@ def under_pressure() -> bool:
 
 
 def effective_memory_limit() -> str:
-    """``memory_limit()``, tightened to ``PRESSURE_MEMORY_LIMIT`` when RAM is tight.
+    """``memory_limit()``, tightened under pressure, loosened when the box is quiet.
 
-    An explicit ``DAIL_MCP_DUCKDB_MEMORY_LIMIT`` always wins — this only adjusts the
-    default, the same way runtime_env.py's BLAS caps let an explicit export win.
+    Order matters: an explicit ``DAIL_MCP_DUCKDB_MEMORY_LIMIT`` always wins — this only
+    adjusts the default, the same way runtime_env.py's BLAS caps let an explicit export
+    win. Then pressure (tighten to ``PRESSURE_MEMORY_LIMIT``) beats headroom (loosen to
+    ``HEADROOM_MEMORY_LIMIT``); with neither, the plain default.
     """
     if os.environ.get("DAIL_MCP_DUCKDB_MEMORY_LIMIT", "").strip():
         return memory_limit()
     if under_pressure():
         return PRESSURE_MEMORY_LIMIT
+    if with_headroom():
+        return HEADROOM_MEMORY_LIMIT
     return memory_limit()
 
 
@@ -471,9 +537,17 @@ def drop_index_caches() -> None:
     Each ``reset_cache`` is cheap to undo: text/precedent FTS re-verify a fingerprint on
     next use, and the SQL graph re-parses ``sql_views/``.
     """
-    from mcp_server import precedent_fts, sql_index, text_fts
+    from mcp_server import sql_index, text_fts
 
-    for module in (text_fts, precedent_fts, sql_index):
+    modules = [text_fts, sql_index]
+    # Lives in the gitignored siting tree since the planning consolidation — absent on a
+    # public clone, so its cache drop is best-effort like server.py's own import of it.
+    with contextlib.suppress(Exception):
+        from planning.product.mcp import precedent_fts
+
+        modules.append(precedent_fts)
+
+    for module in modules:
         reset = getattr(module, "reset_cache", None)
         if reset is None:
             continue

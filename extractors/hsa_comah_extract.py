@@ -6,11 +6,20 @@ The HSA publishes the national register of major-accident establishments as twel
 coordinates; per-establishment consultation distances are held by planning authorities, not
 published centrally — that limitation is recorded in the coverage note, never papered over.
 
-Geocoding is an honest NAME-JOIN, not invention: most COMAH establishments are also
-EPA-licensed, so we match normalised operator names against the epa_licensed_facilities layer
-(WFS points ingested the same day) and take the facility's coordinates on a confident match.
-Unmatched rows keep NULL geometry in the register and are EXCLUDED from the spatial layer —
-the match rate is in the coverage json, so "n mapped of m" is always visible.
+Geocoding is layered and honest, never invention (per-row `geocode_source` + `geocode_precision`
+say which layer produced each point):
+  1. NAME-JOIN (`name_join`/`site`): most COMAH establishments are also EPA-licensed, so we match
+     normalised operator names against the epa_licensed_facilities layer (WFS points ingested the
+     same day) and take the facility's coordinates on a confident match.
+  2. ADDRESS GEOCODE (`nominatim`/`address`, added 2026-07-31): unmatched rows are geocoded from
+     the HSA-published establishment address via Nominatim (1 req/s, results cached to a sidecar
+     json so re-runs are free). An address hit is the published postal address, not a surveyed
+     site point — approximate by nature.
+  3. TOWN FALLBACK (`nominatim`/`town`): where the full address misses, the town+county tail is
+     tried; a hit is a TOWN CENTROID, marked as such, and must never be presented as a site
+     location downstream.
+Rows failing all three keep NULL geometry and are EXCLUDED from the spatial layer — the per-source
+split is in the coverage json, so "n mapped of m" (and how) is always visible.
 
 Writes:
   data/silver/parquet/hsa_comah_register.parquet                 full register (tier, region,
@@ -29,11 +38,14 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import logging
 import re
 import sys
+import time
 import unicodedata
 from pathlib import Path
+from urllib.parse import urlencode
 
 import polars as pl
 import shapely
@@ -74,6 +86,126 @@ _LEGAL = re.compile(
     r"\b(ltd|limited|teoranta|teo|plc|dac|clg|uc|ulc|company|co|ireland|irl|group|holdings)\b\.?",
     re.I,
 )
+
+# Nominatim address geocoding (2026-07-31). Usage-policy compliance: max 1 req/s (enforced by
+# _NOMINATIM_MIN_INTERVAL between UNCACHED requests), identifying UA (RESEARCH_UA carries a
+# contact address), and a persistent sidecar cache so re-runs send zero requests.
+_NOMINATIM = "https://nominatim.openstreetmap.org/search"
+_GEO_CACHE = ROOT / "data" / "_meta" / "hsa_comah_nominatim_cache.json"
+_NOMINATIM_MIN_INTERVAL = 1.05  # seconds between live requests
+# Ireland sanity box — a hit outside it is treated as a miss, never shipped.
+_IE_BOUNDS = (-11.0, 51.2, -5.3, 55.6)  # lon_min, lat_min, lon_max, lat_max
+_last_request_ts = 0.0
+
+
+def _load_geo_cache() -> dict:
+    if _GEO_CACHE.exists():
+        try:
+            return json.loads(_GEO_CACHE.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 — a corrupt cache is rebuilt, never fatal
+            LOG.warning("geocode cache unreadable, starting fresh: %s", _GEO_CACHE)
+    return {}
+
+
+def _save_geo_cache(cache: dict) -> None:
+    _GEO_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    _GEO_CACHE.write_text(json.dumps(cache, indent=1, sort_keys=True), encoding="utf-8")
+
+
+def _nominatim_query(query: str, cache: dict) -> dict | None:
+    """One cached Nominatim lookup: {'lon','lat','display_name','osm_type','type'} or None.
+
+    Cache stores misses as None too, so a re-run is free either way. The 1 req/s wait applies
+    only to live requests.
+    """
+    global _last_request_ts
+    if query in cache:
+        return cache[query]
+    wait = _NOMINATIM_MIN_INTERVAL - (time.monotonic() - _last_request_ts)
+    if wait > 0:
+        time.sleep(wait)
+    url = _NOMINATIM + "?" + urlencode(
+        {"q": query, "format": "jsonv2", "countrycodes": "ie", "limit": 1, "addressdetails": 0}
+    )
+    data = fetch_bytes(url, headers=polite_headers(), curl_fallback=False)
+    _last_request_ts = time.monotonic()
+    result = None
+    if data:
+        try:
+            rows = json.loads(data)
+            if rows:
+                r = rows[0]
+                lon, lat = float(r["lon"]), float(r["lat"])
+                if _IE_BOUNDS[0] <= lon <= _IE_BOUNDS[2] and _IE_BOUNDS[1] <= lat <= _IE_BOUNDS[3]:
+                    result = {
+                        "lon": lon,
+                        "lat": lat,
+                        "display_name": r.get("display_name", ""),
+                        "osm_type": r.get("osm_type", ""),
+                        "type": r.get("type", ""),
+                    }
+        except (ValueError, KeyError, TypeError):
+            LOG.warning("nominatim response unparseable for %r", query)
+    cache[query] = result
+    return result
+
+
+def _town_fallback_query(address: str) -> str | None:
+    """Coarse retry: the last two comma segments of the address (town + county), or None."""
+    parts = [p.strip() for p in (address or "").split(",") if p.strip()]
+    parts = [p for p in parts if p.lower() not in ("ireland", "eire", "éire")]
+    if len(parts) < 2:
+        return None
+    return ", ".join(parts[-2:])
+
+
+def geocode_unmatched(df: pl.DataFrame) -> pl.DataFrame:
+    """Fill lon/lat for rows the EPA name-join missed, from the published address.
+
+    Adds three columns to every row: geocode_source ('name_join'|'nominatim'|null),
+    geocode_precision ('site'|'address'|'town'|null), geocode_note (audit trail). A 'town' hit
+    is a town centroid — downstream copy must present it as approximate, never a site point.
+    """
+    cache = _load_geo_cache()
+    out_rows = []
+    n_cached_before = len(cache)
+    for r in df.iter_rows(named=True):
+        row = dict(r)
+        if row["lat"] is not None:
+            row["geocode_source"] = "name_join"
+            row["geocode_precision"] = "site"
+            row["geocode_note"] = (
+                f"EPA licensed-facility point ({row['epa_reg_cd']}, token overlap "
+                f"{row['match_score']})"
+            )
+            out_rows.append(row)
+            continue
+        addr = (row["address"] or "").strip()
+        hit, precision = None, None
+        if addr:
+            hit = _nominatim_query(addr, cache)
+            precision = "address" if hit else None
+            if hit is None:
+                coarse = _town_fallback_query(addr)
+                if coarse:
+                    hit = _nominatim_query(coarse, cache)
+                    precision = "town" if hit else None
+        if hit:
+            row["lon"], row["lat"] = hit["lon"], hit["lat"]
+            row["geocode_source"] = "nominatim"
+            row["geocode_precision"] = precision
+            row["geocode_note"] = (
+                f"Nominatim {precision} match ({hit['osm_type']}/{hit['type']}): "
+                f"{hit['display_name'][:120]}"
+            )
+        else:
+            row["geocode_source"] = None
+            row["geocode_precision"] = None
+            row["geocode_note"] = "ungeocoded — EPA name-join missed and Nominatim returned no usable hit"
+        out_rows.append(row)
+    _save_geo_cache(cache)
+    LOG.info("geocode cache: %d entries (%d before run)", len(cache), n_cached_before)
+    return pl.DataFrame(out_rows)
 
 
 def _fetch_page(url: str) -> str:
@@ -197,18 +329,26 @@ def main() -> None:
 
     register, dead_links = fetch_register()
     df = match_epa(register)
-    n_matched = df.filter(pl.col("lat").is_not_null()).height
+    n_join = df.filter(pl.col("lat").is_not_null()).height
+    df = geocode_unmatched(df)
+    n_geo = df.filter(pl.col("lat").is_not_null()).height
+    n_addr = df.filter(pl.col("geocode_precision") == "address").height
+    n_town = df.filter(pl.col("geocode_precision") == "town").height
     LOG.info(
-        "register %d rows (%d upper / %d lower) | geocoded via EPA join: %d (%.0f%%)",
+        "register %d rows (%d upper / %d lower) | geocoded %d (%.0f%%): %d EPA join + %d address + %d town",
         df.height,
         df.filter(pl.col("tier") == "upper").height,
         df.filter(pl.col("tier") == "lower").height,
-        n_matched,
-        100 * n_matched / max(df.height, 1),
+        n_geo,
+        100 * n_geo / max(df.height, 1),
+        n_join,
+        n_addr,
+        n_town,
     )
     if args.dry_run:
         print(df.group_by("tier").agg(n=pl.len(), geocoded=pl.col("lat").is_not_null().sum()))
-        print(df.filter(pl.col("lat").is_null()).select("establishment", "tier").head(20))
+        print(df.group_by("geocode_source", "geocode_precision").agg(n=pl.len()).sort("n", descending=True))
+        print(df.filter(pl.col("lat").is_null()).select("establishment", "tier"))
         return
 
     save_parquet(df, _OUT_REGISTER)
@@ -227,17 +367,28 @@ def main() -> None:
             "rows": df.height,
             "upper_tier": df.filter(pl.col("tier") == "upper").height,
             "lower_tier": df.filter(pl.col("tier") == "lower").height,
-            "geocoded_rows": n_matched,
-            "geocode_method": "name-join to epa_licensed_facilities (token overlap >= 0.5, county-gated); unmatched rows carry NULL geometry and are excluded from the spatial layer",
+            "geocoded_rows": n_geo,
+            "geocoded_name_join": n_join,
+            "geocoded_nominatim_address": n_addr,
+            "geocoded_nominatim_town": n_town,
+            "geocode_method": (
+                "layered: (1) name-join to epa_licensed_facilities (token overlap >= 0.5, "
+                "county-gated, precision=site); (2) Nominatim on the published address "
+                "(precision=address — postal address, approximate); (3) Nominatim on the "
+                "town+county tail (precision=town — TOWN CENTROID, never a site location). "
+                "Rows failing all three carry NULL geometry and are excluded from the spatial "
+                "layer; per-row geocode_source/geocode_precision/geocode_note carry the audit trail"
+            ),
             "grain": "one row per establishment x tier (HSA register as published)",
             "not_available": "consultation distances — held by planning authorities per establishment, not centrally published; the spatial layer marks WHERE establishments are, never the size of the zone around them",
             "dead_index_links_skipped": dead_links,
-            "licence": "hsa.ie public register pages; facts-only extraction",
+            "licence": "hsa.ie public register pages; facts-only extraction; geocoding © OpenStreetMap contributors (ODbL) via Nominatim",
         },
         _COV,
     )
     print(
-        f"OK {_OUT_REGISTER.name}: {df.height} establishments | layer: {spatial.height} geocoded"
+        f"OK {_OUT_REGISTER.name}: {df.height} establishments | layer: {spatial.height} geocoded "
+        f"({n_join} EPA join, {n_addr} address, {n_town} town)"
     )
 
 

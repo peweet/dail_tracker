@@ -77,14 +77,22 @@ def doc_type(url: str, text: str) -> str:
     u = url.lower()
     t = text[:3000].lower()
     is_md = "municipal district" in t or re.search(r"\bmd\b|municipal", u)
-    if re.search(r"standing.?order", u + t):
+    # Real minutes routinely open with boilerplate like "conduct the business of the meeting
+    # in line with Standing Orders" — that mention alone must NOT tip a genuine minutes doc
+    # into standing_orders, or every born-digital/OCR'd minutes doc misclassifies (was
+    # silently quarantining named-vote Carlow minutes and blocking Galway OCR recovery
+    # entirely — 2026-07-31). A real standing-orders regulation doc doesn't also carry the
+    # minutes-specific markers below, so only trust the text-body match when those are absent;
+    # a URL that says so (standing-orders.pdf) is still a hard signal either way.
+    is_minutes = bool(_MINMARK.search(text)) or "minute" in u
+    if re.search(r"standing.?order", u) or (re.search(r"standing.?order", t) and not is_minutes):
         return "standing_orders"
     if re.search(r"agenda", u) and not re.search(r"minute", u) and "minutes of" not in t:
         return "agenda"
     if re.search(r"management report|chief executive.?s? (monthly )?report|annual report|"
                  r"financial statement|local economic", u + t[:1500]):
         return "report_or_plan"
-    if _MINMARK.search(text) or "minute" in u:
+    if is_minutes:
         return "md_minutes" if is_md else "plenary_minutes"
     return "other"
 

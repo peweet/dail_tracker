@@ -51,6 +51,8 @@ _SERVER_OFFSET_DEG = 0.004  # server-side generalisation (~400 m) to shrink the 
 _SIMPLIFY_DEG = 0.01  # final shapely simplify (~1 km) — a coarse choropleth, not a precise map
 _MIN_PART_DEG2 = 0.0015  # drop polygon parts smaller than this (tiny islands)
 _PAGE = 2000  # FeatureServer maxRecordCount
+_IRL = (-11.0, 51.0, -5.0, 56.0)  # lon/lat envelope (matches planning_decision_profiles.py IRL) —
+# a buffer(0) repair that balloons/relocates a part instead of just fixing it lands outside this.
 
 # OSi ENG_NAME_VALUE → canonical local_authority (data/_meta/la_chief_executives.csv).
 # Explicit, not derived: "CORK COUNTY COUNCIL"→"Cork County" but "CORK CITY COUNCIL"→
@@ -141,6 +143,9 @@ def build_outlines(geojson_path: Path) -> dict:
         geom = shape(feat["geometry"])
         if not geom.is_valid:
             geom = geom.buffer(0)
+            b = geom.bounds
+            if b and not (_IRL[0] <= b[0] and _IRL[1] <= b[1] and b[2] <= _IRL[2] and b[3] <= _IRL[3]):
+                print(f"  WARNING: buffer(0) repair on {name} left bounds {b} outside Ireland envelope")
         by_name.setdefault(name, []).append(geom)
 
     shapes = {

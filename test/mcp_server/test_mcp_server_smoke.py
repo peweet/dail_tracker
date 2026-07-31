@@ -37,6 +37,19 @@ def test_tool_registry_loads():
     } <= names
 
 
+def test_siting_check_docstring_lists_every_canonical_use_class():
+    # Parity gate for the discovery seam (memory feedback_wiring_gap_parity_check_2026_07_31):
+    # a use class the engine accepts but the tool docstring never names is invisible to every
+    # MCP caller — ad_biogas_waste was undiscoverable for exactly this reason until 2026-07-31.
+    engine = pytest.importorskip(
+        "planning.product.core.engine", reason="optional 'siting' extra / private overlay absent"
+    )
+    tools = {t.name: t for t in asyncio.run(server.mcp.list_tools())}
+    desc = tools["siting_check"].description
+    for use_class in engine.USE_CLASSES:
+        assert f"'{use_class}'" in desc, f"canonical use_class {use_class!r} missing from siting_check docstring"
+
+
 def test_vote_tools_expose_bounding_params():
     # Contract: the high-cardinality vote tools must advertise their result-bounding
     # knobs so an agent can page/summarise instead of blowing the token budget.

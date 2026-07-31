@@ -18,7 +18,14 @@ suppressed for looking bad):
     already-captured  — the session's learnings were in memory before it ended
     no-durable-delta  — nothing worth keeping; recording that IS the record
 
-The pending count is surfaced once per session by session_context.py.
+--note is REQUIRED for all three outcomes (20+ chars, 2026-07-31) — the gap this closes:
+a bare `--record <s> no-durable-delta` cost nothing to type and proved nothing was
+actually assessed. The note forces the assessment to have happened: name the ONE durable
+learning or repeat-question/token-waste pattern considered, even when the answer is "none
+found" — say what was checked, not just the verdict.
+
+The pending count is surfaced once per session by session_context.py; tools/hooks/
+closeout_gate.py blocks once at TURNS_MIN with no record for the session at all.
 """
 
 from __future__ import annotations
@@ -35,6 +42,7 @@ REVIEWS = REPO / "logs" / "closeout_reviews.jsonl"
 
 TURNS_MIN = 20  # "substantive", kept in sync with session_context._adoption_tripwire
 OUTCOMES = ("promoted", "already-captured", "no-durable-delta")
+NOTE_MIN_CHARS = 20  # forces a real one-line assessment, not a bare dismissal
 # Sessions that ended before the gate shipped predate the practice — don't
 # retro-burden the backlog with history nobody committed to reviewing.
 SINCE = "2026-07-30"
@@ -72,8 +80,13 @@ def main() -> int:
         if outcome not in OUTCOMES:
             print(f"outcome must be one of {OUTCOMES}, got {outcome!r}")
             return 1
-        if outcome == "promoted" and not args.note:
-            print("promoted needs --note saying WHAT was promoted (the citation is the value).")
+        if len(args.note.strip()) < NOTE_MIN_CHARS:
+            print(
+                f"--note required for every outcome ({NOTE_MIN_CHARS}+ chars) — what was assessed, "
+                "not just which bucket it landed in. 'promoted' names WHAT was promoted (the citation "
+                "is the value); 'already-captured' names where; 'no-durable-delta' names what pattern "
+                "or repeat-question risk was actually checked for and ruled out."
+            )
             return 1
         REVIEWS.parent.mkdir(parents=True, exist_ok=True)
         row = {
