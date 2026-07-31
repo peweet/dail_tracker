@@ -327,6 +327,49 @@ def _unvalidated_note() -> str:
         return ""
 
 
+def _session_pressure_note() -> str:
+    """Warn when Claude sessions have piled up (added 2026-07-31 after 11 idle sessions
+    held 5.8 GB and left 0.5 GB of RAM free).
+
+    Sessions accumulate silently: every chat tab spawns a claude.exe (+ its ~100 MB MCP
+    server), a VS Code reload respawns every restored tab at once, and idle sessions
+    keep their ~0.5-0.7 GB Node heap forever. Transcripts persist to disk, so closing an
+    idle tab loses nothing — this note surfaces the count at the one moment (session
+    start) someone is looking. tasklist is ~100-300 ms; fails open like every note here.
+    """
+    try:
+        count = _claude_session_count()
+        if count < 4:
+            return ""
+        note = f"session pressure: {count} Claude sessions open (~{count * 1.2:.0f} GB incl. MCP servers)"
+        try:
+            import sys as _sys
+
+            hooks = Path(__file__).resolve().parent
+            if str(hooks) not in _sys.path:
+                _sys.path.insert(0, str(hooks))
+            from guard_memory import sample_memory  # type: ignore
+
+            free = sample_memory().get("free_mb")
+            if free is not None:
+                note += f", {free / 1024:.1f} GB RAM free"
+        except Exception:
+            pass
+        return note + " — close stale tabs; idle sessions resume from history, transcripts persist"
+    except Exception:
+        return ""
+
+
+def _claude_session_count() -> int:
+    out = subprocess.run(
+        ["tasklist", "/FI", "IMAGENAME eq claude.exe", "/FO", "CSV", "/NH"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    return sum(1 for line in out.stdout.splitlines() if "claude.exe" in line.lower())
+
+
 def _closeout_note() -> str:
     """Substantive sessions (ledger rows) never closed out — pull, not push: one
     count line here, the list lives in `python tools/session_closeout.py`."""
@@ -386,6 +429,7 @@ def main() -> int:
         _mcp_adoption_note(current_id),
         _adoption_tripwire(),
         _style_digest_note(),
+        _session_pressure_note(),
         _unvalidated_note(),
         _closeout_note(),
     ):

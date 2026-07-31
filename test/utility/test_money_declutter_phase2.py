@@ -26,6 +26,22 @@ import public_payments as pp  # noqa: E402
 
 from dail_tracker_core.results import QueryResult  # noqa: E402
 
+# Package split (2026-07): patch a name wherever a procurement submodule binds it
+# (same idiom as test_procurement_page_smoke.py).
+_PR_MODULES = [pr] + [
+    getattr(pr, m)
+    for m in ("page", "browse", "payments", "pay_profiles", "councils", "national", "ted", "tenders", "profiles", "patterns", "_shared")
+]
+
+
+def _patch_pr(monkeypatch, name, fn):
+    hit = False
+    for mod in _PR_MODULES:
+        if hasattr(mod, name):
+            monkeypatch.setattr(mod, name, fn)
+            hit = True
+    assert hit, f"no procurement module binds {name!r}"
+
 
 def _silence_streamlit():
     warnings.filterwarnings("ignore", message="No runtime found")
@@ -111,8 +127,8 @@ _TOP_PAID = pd.DataFrame(
 def _drive_bridge(monkeypatch) -> str:
     _silence_streamlit()
     sink: list[str] = []
-    monkeypatch.setattr(pr, "fetch_payments_corpus_stats_result", lambda *a, **k: QueryResult.success(_CORPUS))
-    monkeypatch.setattr(pr, "fetch_payments_supplier_summary_result", lambda *a, **k: QueryResult.success(_TOP_PAID))
+    _patch_pr(monkeypatch, "fetch_payments_corpus_stats_result", lambda *a, **k: QueryResult.success(_CORPUS))
+    _patch_pr(monkeypatch, "fetch_payments_supplier_summary_result", lambda *a, **k: QueryResult.success(_TOP_PAID))
     monkeypatch.setattr(pr.st, "caption", lambda *a, **k: sink.append(str(a[0]) if a else ""))
     monkeypatch.setattr(pr.st, "html", lambda *a, **k: sink.append(str(a[0]) if a else ""))
     pr._render_payments_bridge()
@@ -137,10 +153,10 @@ def test_bridge_teaser_keeps_company_class_quarantine(monkeypatch):
 def test_bridge_fails_soft_when_stats_unavailable(monkeypatch):
     _silence_streamlit()
     called: list[str] = []
-    monkeypatch.setattr(
-        pr, "fetch_payments_corpus_stats_result", lambda *a, **k: QueryResult.unavailable("view missing")
+    _patch_pr(
+        monkeypatch, "fetch_payments_corpus_stats_result", lambda *a, **k: QueryResult.unavailable("view missing")
     )
-    monkeypatch.setattr(pr, "empty_state", lambda *a, **k: called.append("empty"))
+    _patch_pr(monkeypatch, "empty_state", lambda *a, **k: called.append("empty"))
     pr._render_payments_bridge()  # must not raise
     assert called == ["empty"]
 

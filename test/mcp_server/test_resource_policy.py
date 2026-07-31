@@ -272,6 +272,86 @@ def test_interrupt_all_reaches_registered_connections_and_survives_bad_ones():
         resource_policy._LIVE_CONNECTIONS.discard(broken)
 
 
+def test_interrupting_a_connection_does_not_reach_its_cursor():
+    """The defect that made the first deadline useless, pinned as a property of DuckDB.
+
+    Every tool runs on ``_CONN.cursor()``. Interrupting the parent left the query
+    running through 34 consecutive sweeps. If a future DuckDB makes interrupt
+    propagate, this test fails and `server._cur` can stop registering cursors — but
+    until then, registering only the connection interrupts nothing that matters.
+    """
+    parent = duckdb.connect()
+    cur = parent.cursor()
+    out = {}
+
+    def run():
+        try:
+            cur.execute("SELECT count(*) FROM range(20000000000) t(i) WHERE i % 97 = 3").fetchone()
+            out["r"] = "COMPLETED"
+        except Exception as exc:  # noqa: BLE001
+            out["r"] = type(exc).__name__
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    time.sleep(1.0)
+    parent.interrupt()  # the WRONG object
+    t.join(timeout=6)
+    assert t.is_alive(), "interrupt now propagates to cursors — _cur() need not register them"
+    cur.interrupt()  # the right one
+    t.join(timeout=30)
+    assert not t.is_alive()
+    assert out["r"] == "InterruptException"
+
+
+def test_cur_registers_the_cursor_not_only_the_connection(monkeypatch):
+    """Guards the wiring: a cursor handed to a tool must be reachable by interrupt_all."""
+    from mcp_server import server
+
+    class FakeCursor:
+        def __init__(self):
+            self.interrupted = 0
+
+        def interrupt(self):
+            self.interrupted += 1
+
+    class FakeConn:
+        def __init__(self):
+            self.cursors: list[FakeCursor] = []
+
+        def cursor(self):
+            c = FakeCursor()
+            self.cursors.append(c)
+            return c
+
+        def interrupt(self):
+            pass
+
+    conn = FakeConn()
+    monkeypatch.setattr(server, "_CONN", conn, raising=False)
+    cursor = server._cur()
+    try:
+        assert cursor in list(resource_policy._LIVE_CONNECTIONS), "cursor was not registered"
+        resource_policy.interrupt_all()
+        assert cursor.interrupted == 1
+    finally:
+        resource_policy._LIVE_CONNECTIONS.discard(cursor)
+        monkeypatch.setattr(server, "_CONN", None, raising=False)
+
+
+def test_deadline_interrupts_once_per_call_not_once_per_poll(fresh_activity, monkeypatch):
+    """34 log lines for one stuck call was the first version's behaviour."""
+    monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "1")
+    monkeypatch.setattr(resource_policy, "_LAST_DEADLINE_EPISODE", None, raising=False)
+    hits = []
+    monkeypatch.setattr(resource_policy, "interrupt_all", lambda: (hits.append(1), 1)[1])
+    with fresh_activity.track():
+        time.sleep(1.05)
+        assert resource_policy.enforce_call_deadline() is True
+        for _ in range(5):  # further sweeps while the same call is still stuck
+            assert resource_policy.enforce_call_deadline() is False
+    assert hits == [1], "one stuck call must produce exactly one interrupt"
+
+
 def test_a_real_duckdb_query_is_actually_abortable():
     """The mechanism the whole deadline rests on: interrupt from another thread ends
     the query, so the worker thread returns instead of running to completion."""

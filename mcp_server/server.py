@@ -343,12 +343,18 @@ def _cur():
             # DuckDB defaults are unsafe once per-session servers multiply).
             resource_policy.apply_caps(conn)
             # api_conn builds this one directly, so it misses capped_connect's
-            # registration — without this the call deadline could not interrupt the
-            # connection that most queries actually run on.
+            # registration.
             resource_policy.register_connection(conn)
             register_views(conn, _EXTRA_VIEW_GLOBS, swallow_errors=True)
             _CONN = conn
-        return _CONN.cursor()
+        cursor = _CONN.cursor()
+    # Register the CURSOR, not just its parent: verified 2026-07-31 that interrupting a
+    # connection does not abort a query running on a cursor derived from it, and every
+    # tool here runs on this cursor. Registering only the parent left the call deadline
+    # interrupting an object no query was using. Held weakly, so it drops when the call
+    # that owns it returns.
+    resource_policy.register_connection(cursor)
+    return cursor
 
 
 def _release_if_idle() -> bool:
