@@ -9,6 +9,45 @@ Evidence bands: line counts and change counts are [Verified — `git ls-files | 
 [Reported — explore-agent surveys this session, spot-citations included but not
 independently re-read]. Re-verify a cited line range before editing near it.
 
+## Scope — what is excluded, and why (decided 2026-07-31)
+
+Assessed against a fresh size × churn scan [Verified — `git ls-files | xargs wc -l` +
+`git log --since=2026-02-01 --name-only`, 2026-07-31]. The program's admission gate,
+derived from the six measurements: a file qualifies only if it is **≥ ~2,000 lines AND
+≥ ~30 changes per 6 months AND its common change localizes** (doctrine above). Applying it:
+
+**Excluded — measured regression (strongest evidence):** `shared_css.py` (6,572 ln / 98
+changes), `member_overview.py` (2,498 / 58), `ui/components.py` (2,155 / 47). Split,
+measured 2-4× worse, reverted (c42e78a). Re-entry requires the convention-over-manifest
+lever first.
+
+**Excluded — the extractor class:** all of `extractors/` plus `iris/` (largest:
+`procurement_la_payments_extract.py` 1,622, `iris_oifigiuil_etl_polars.py` 2,065; churn
+<15/6mo for every extractor except the already-split C7). Grounds: fire-and-forget churn
+profile; the C7 measurement (the *highest*-churn extractor) came out flat; and the
+conventions ratchet (http_engine / coverage_io / parquet_io / extract_runner adoption)
+is already their refactor lane and pays better — dedup-on-touch, not decomposition.
+
+**Excluded — low churn despite size:** `corporate.py` (2,421), `lobbying_3.py` (2,219),
+`judiciary.py` (1,930), `dossiers.py` (1,657), `public_appointments.py` (1,456),
+`test/fixtures/sql_views/_generate.py` (1,208) — all under 15 changes/6mo. No change
+frequency to amortize against.
+
+**Excluded — mapping/config data files:** `shared/select_drop_rename_cols_mappings.py`
+(1,093) — a lookup table; every change greps straight to its key. Splitting a dict buys
+nothing.
+
+**Excluded — high churn but small:** `app.py` (77 changes), `payments.py`/`attendance.py`
+(42 each), `dail_tracker_core/queries/procurement.py` (46), `pipeline.py` (56) — all
+<900 lines; orientation cost is already low.
+
+**Remaining live candidates: one.** C5 `mcp_server/server.py` (2,872 / 34, growing) —
+"add an MCP tool" localizes into a domain module with no separate manifest (FastMCP
+registers by decorator), so the doctrine predicts a win; blocked only until the parallel
+session's server work lands. **On hold pending sustained churn + a frozen bench prompt:**
+`statutory_instruments.py` (1,598 / 34) and `legislation.py` (1,032 / 37) — churny but
+below the size band where any effect was measured; measure before touching.
+
 ## Selection method
 
 Per pattern P2, the saving is banked on every future change that touches a file, so
