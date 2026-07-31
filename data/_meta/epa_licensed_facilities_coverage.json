@@ -1,0 +1,27 @@
+{
+  "source": "https://gis.epa.ie/geoserver/EPA/ows",
+  "layers": {
+    "LEMA_Facilities_P_IPPC_IPC_IEL": 1067,
+    "LEMA_Facilities_Waste": 206
+  },
+  "rows": 1271,
+  "dropped": {
+    "total_raw": 1273,
+    "dropped_empty_name": 0,
+    "dropped_no_geometry": 0,
+    "dropped_dedupe": 2
+  },
+  "crs_transform": "EPSG:29902 (Irish Transverse Mercator) -> EPSG:4326 (WGS84), pyproj always_xy",
+  "anchor_check": {
+    "envelope": [
+      -10.7,
+      51.3,
+      -5.3,
+      55.5
+    ],
+    "checked": 1271,
+    "outside": 0
+  },
+  "grain": "one row per facility x active licence (industrial or waste), deduped on (RegCD, Name)",
+  "licence": "gis.epa.ie public WFS (GeoServer, no auth); facts-only extraction"
+}

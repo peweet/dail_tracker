@@ -15,18 +15,16 @@
 
 description: "Dáil Tracker harness regression: routing + package + counterfactual benches"
 
+# Exec providers carry the FULL command in the id string — promptfoo spawns
+# everything after 'exec: '. A config.command key is silently ignored (the
+# 2026-07-31 ENOENT failure: it spawned the bare id suffix 'routing'). Paths are
+# ABSOLUTE because promptfoo does not spawn from the repo root (relative
+# .venv\Scripts\python also ENOENTed); machine-specific by design — this gate is
+# local tooling, not CI. The probes locate the repo from __file__, so cwd is moot.
 providers:
-  - id: exec:routing
-    config:
-      command: .venv/Scripts/python tools/evals/routing_probe.py
-
-  - id: exec:package-newtools
-    config:
-      command: .venv/Scripts/python tools/evals/package_bench.py newtools
-
-  - id: exec:harness-on
-    config:
-      command: .venv/Scripts/python tools/evals/harness_bench.py on
+  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\routing_probe.py'
+  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\package_bench.py newtools'
+  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\harness_bench.py on'
 
 prompts:
   - "{{task}}"   # probes ignore stdin; tasks are baked into each script
@@ -34,21 +32,21 @@ prompts:
 tests:
   - description: "CLAUDE.md routing steers navigation-first (3/3 probes)"
     vars: { task: routing }
-    providers: [exec:routing]
+    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\routing_probe.py']
     assert:
       - type: contains
         value: "SUMMARY: 3/3"
 
   - description: "New tools keep beating baseline paths (no task scores 0)"
     vars: { task: package }
-    providers: [exec:package-newtools]
+    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\package_bench.py newtools']
     assert:
       - type: not-contains
         value: '"score": 0.0'
 
   - description: "Full-stack arm answers all 5 counterfactual tasks correctly"
     vars: { task: harness }
-    providers: [exec:harness-on]
+    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\harness_bench.py on']
     assert:
       - type: not-contains
         value: '"score": 0.0'
