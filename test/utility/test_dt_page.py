@@ -16,28 +16,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "utility"))
 
 import shared_css  # noqa: E402
 import ui.components as components  # noqa: E402
-import ui.components.lifecycle as _components_lifecycle  # noqa: E402
 from ui.components import dt_page  # noqa: E402
-
-# The 2026-07 package split (C4 of doc/REFACTORING_CANDIDATES.md) moved
-# dt_page/hide_sidebar out of the flat components module into
-# ui.components.lifecycle. dt_page calls hide_sidebar() as a bare name
-# resolved in ITS OWN defining module's globals (ui.components.lifecycle),
-# not through the ui.components package's re-exported attribute — so a
-# patch on the package alone would silently no-op. Patch both, the
-# _patch_pr idiom from test/utility/test_procurement_page_smoke.py.
-_HIDE_SIDEBAR_MODULES = [components, _components_lifecycle]
-
-
-def _patch_hide_sidebar(monkeypatch, fn):
-    for mod in _HIDE_SIDEBAR_MODULES:
-        monkeypatch.setattr(mod, "hide_sidebar", fn)
 
 
 def _spy_boot(monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(shared_css, "inject_css", lambda: calls.append("css"))
-    _patch_hide_sidebar(monkeypatch, lambda: calls.append("sidebar"))
+    monkeypatch.setattr(components, "hide_sidebar", lambda: calls.append("sidebar"))
     return calls
 
 
@@ -80,7 +65,7 @@ def test_raising_boot_is_also_caught(monkeypatch):
     def broken_sidebar():
         raise RuntimeError("boot crash")
 
-    _patch_hide_sidebar(monkeypatch, broken_sidebar)
+    monkeypatch.setattr(components, "hide_sidebar", broken_sidebar)
 
     @dt_page
     def fine_page() -> str:
