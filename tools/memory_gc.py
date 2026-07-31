@@ -219,6 +219,13 @@ def scan(stale_days: int) -> dict:
         n: currency_band(n, c["body"], min(c["age_d"], recall.get(n, float("inf"))), hot_linked, linked, n in broken_names)
         for n, c in cards.items()
     }
+    # Feedback cards (behavioral corrections) never once recalled in any transcript —
+    # the write-heavy/read-light gap measured 2026-07-31 (95/334 cards ever recalled).
+    # A correction that is never re-read never changes behavior: triage these into
+    # promote-to-HOT-one-liner or archive.
+    never_recalled_feedback = sorted(
+        n for n in cards if n.startswith("feedback_") and n not in recall
+    )
     return {
         "total": len(cards),
         "orphans": orphans,
@@ -227,6 +234,7 @@ def scan(stale_days: int) -> dict:
         "corrected": corrected,
         "archive_candidates": candidates,
         "currency": currency,
+        "never_recalled_feedback": never_recalled_feedback,
     }
 
 
@@ -256,6 +264,11 @@ def main() -> None:
     print(f"\nbroken [[links]] ({len(r['broken_links'])}):")
     for b in r["broken_links"][:20]:
         print(f"  {b}")
+
+    nrf = r["never_recalled_feedback"]
+    print(f"\nnever-recalled feedback cards ({len(nrf)}) — corrections that never changed behavior; promote or archive:")
+    for n in nrf[:60]:
+        print(f"  {n}")
 
     threshold_rank = _TIER_RANK[_LABEL_TO_TIER[args.min_band]] if args.min_band else None
     currency_items = sorted(r["currency"].items(), key=lambda kv: _TIER_RANK[kv[1]["tier"]])
