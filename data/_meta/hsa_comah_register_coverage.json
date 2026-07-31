@@ -3,12 +3,15 @@
   "rows": 106,
   "upper_tier": 50,
   "lower_tier": 56,
-  "geocoded_rows": 50,
-  "geocode_method": "name-join to epa_licensed_facilities (token overlap >= 0.5, county-gated); unmatched rows carry NULL geometry and are excluded from the spatial layer",
+  "geocoded_rows": 103,
+  "geocoded_name_join": 50,
+  "geocoded_nominatim_address": 21,
+  "geocoded_nominatim_town": 32,
+  "geocode_method": "layered: (1) name-join to epa_licensed_facilities (token overlap >= 0.5, county-gated, precision=site); (2) Nominatim on the published address (precision=address — postal address, approximate); (3) Nominatim on the town+county tail (precision=town — TOWN CENTROID, never a site location). Rows failing all three carry NULL geometry and are excluded from the spatial layer; per-row geocode_source/geocode_precision/geocode_note carry the audit trail",
   "grain": "one row per establishment x tier (HSA register as published)",
   "not_available": "consultation distances — held by planning authorities per establishment, not centrally published; the spatial layer marks WHERE establishments are, never the size of the zone around them",
   "dead_index_links_skipped": [
     "https://www.hsa.ie/eng/your_industry/chemicals/legislation_enforcement/comah/information_to_the_public/lower_tier_establishments_by_region/lower_tier_establishments_in_galway_mayo_cavan_roscommon/"
   ],
-  "licence": "hsa.ie public register pages; facts-only extraction"
+  "licence": "hsa.ie public register pages; facts-only extraction; geocoding © OpenStreetMap contributors (ODbL) via Nominatim"
 }

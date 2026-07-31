@@ -314,6 +314,11 @@ mcp = FastMCP("dail-tracker")
 # Every tool here is a pure read over committed data — advertise that to clients so
 # they can auto-approve without a destructive-action prompt.
 _RO = ToolAnnotations(readOnlyHint=True)
+# Exempts the repo-navigation tools from tool-search deferral (Claude Code docs,
+# code.claude.com/docs/en/mcp#exempt-a-server-from-deferral): without this they only
+# surface via a ToolSearch round-trip, which measurably loses out to Grep on the
+# no-extra-step path (see memory/feedback_grep_default_over_index_tools.md).
+_ALWAYS = {"anthropic/alwaysLoad": True}
 
 # One read-only union connection, built LAZILY on first tool call (not at import)
 # so the server starts instantly and the MCP handshake completes immediately —
@@ -1679,7 +1684,7 @@ def _project_index() -> list[dict]:
     return _PROJECT_INDEX
 
 
-@mcp.tool(annotations=_RO)
+@mcp.tool(annotations=_RO, meta=_ALWAYS)
 def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     """ "Where does X live?" — ONE structured retrieval call over the repo's metadata
     layer, so you don't grep or read the tree to place a topic. Ranks matches across
@@ -1760,7 +1765,7 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     return out
 
 
-@mcp.tool(annotations=_RO)
+@mcp.tool(annotations=_RO, meta=_ALWAYS)
 def code_outline(path: str, limit: int = 200, response_format: str = "detailed") -> dict:
     """Structural X-ray of repo Python WITHOUT reading it whole: module docstring, imports,
     and every class/def with signature, line span, decorators and one-line docstring — a
@@ -1774,7 +1779,7 @@ def code_outline(path: str, limit: int = 200, response_format: str = "detailed")
     return code_index.outline(REPO, path, limit=limit, response_format=response_format)
 
 
-@mcp.tool(annotations=_RO)
+@mcp.tool(annotations=_RO, meta=_ALWAYS)
 def py_deps(path: str) -> dict:
     """The Python analog of view_deps: repo-INTERNAL import edges for one module —
     what it imports and, more importantly, every repo module that imports IT. Call
@@ -1796,7 +1801,7 @@ def py_deps(path: str) -> dict:
     return out
 
 
-@mcp.tool(annotations=_RO)
+@mcp.tool(annotations=_RO, meta=_ALWAYS)
 def py_refs(path: str, name: str, limit: int = 60) -> dict:
     """Symbol-grain blast radius: every static reference to ONE def/class/method/
     constant, repo-wide — the call-site complement to py_deps. py_deps says which
@@ -1873,7 +1878,7 @@ def json_peek(path: str, expr: str = "", limit: int = 20) -> dict:
     return out
 
 
-@mcp.tool(annotations=_RO)
+@mcp.tool(annotations=_RO, meta=_ALWAYS)
 def view_deps(view: str = "") -> dict:
     """The sql_views/ dependency graph from REAL SQL ASTs (DuckDB's own parser via
     json_serialize_sql; regex fallback for the few non-serializable bodies — each view
@@ -1971,7 +1976,7 @@ def search_planning_precedents(query: str, authority: str = "", decision: str = 
     return precedent_fts.search(query, REPO, authority=authority, decision=decision, limit=limit)
 
 
-@mcp.tool(annotations=_RO)
+@mcp.tool(annotations=_RO, meta=_ALWAYS)
 def column_deps(view: str, column: str) -> dict:
     """Column-level blast radius: every view that breaks (or silently changes) if
     `view.column` is RENAMED — the question view_deps can't answer (it sees only
@@ -2140,9 +2145,12 @@ def siting_check(
     (climate statement, EIA, etc.). `site_area_ha`, when known, additionally drives the Schedule 5
     Part 2 area-based EIA screening (>2 ha/>20 ha limbs) and a units-per-ha density fact — leave it
     0 to skip both (silent, not 'clear'). `use_class` gates the use-specific nodes (wind turbines,
-    solar farms, intensive agriculture, quarries, pharma/chemical plants — Seveso + EPA IE licence)
+    solar farms, intensive agriculture, quarries, pharma/chemical plants — Seveso + EPA IE licence,
+    AD/biogas/waste — EPA licence + odour/air, general manufacturing — EPA licence screening,
+    data centres — grid/CPPA strategy + generators licence + carbon ceiling + project splitting)
     that otherwise stay silent; pass one of the canonical values exactly: 'wind_farm', 'solar_farm',
-    'intensive_agri', 'quarry_extractive', 'pharma_chemical'. Leave it unset for an ordinary house
+    'intensive_agri', 'quarry_extractive', 'warehouse_logistics', 'pharma_chemical',
+    'ad_biogas_waste', 'general_manufacturing', 'data_centre'. Leave it unset for an ordinary house
     or a use that doesn't match one of those — an unmatched or unset use_class fires nothing on
     that axis rather than guessing. `substance_inventory` (only read when use_class is
     'pharma_chemical') is an optional list of `{"name": str, "quantity_t": float, "cas": str}`

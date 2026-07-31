@@ -1,32 +1,32 @@
 # Council minutes — extraction quality assessment
 
-Auto-generated. Consolidated v1+v2. **308 unique docs**, **150 clean (49%)**, **158 quarantined**, **72 attributed member-votes**.
+Auto-generated. Consolidated v1+v2. **308 unique docs**, **155 clean (50%)**, **153 quarantined**, **185 attributed member-votes**.
 
 ## By extraction status
 | status | docs |
 |---|---|
 | text | 227 |
-| staged_offbox_scanned | 73 |
+| staged_offbox_scanned | 70 |
+| ocr_winocr | 5 |
 | err_ConnectionError | 5 |
-| ocr | 2 |
 | fetch_fail | 1 |
 
 ## By document type
 | doc_type | docs |
 |---|---|
-| plenary_minutes | 198 |
+| plenary_minutes | 197 |
 | other | 50 |
-| standing_orders | 24 |
-| md_minutes | 23 |
+| md_minutes | 26 |
+| standing_orders | 22 |
 | report_or_plan | 12 |
 | agenda | 1 |
 
 ## Quarantine reasons (for later review)
 | reason | docs |
 |---|---|
-| scanned_not_ocr | 73 |
+| scanned_not_ocr | 70 |
 | low_text | 40 |
-| not_minutes_standing_orders | 23 |
+| not_minutes_standing_orders | 21 |
 | not_minutes_report_or_plan | 12 |
 | extract_err_ConnectionError | 5 |
 | unrecognised_doctype | 4 |
@@ -35,7 +35,7 @@ Auto-generated. Consolidated v1+v2. **308 unique docs**, **150 clean (49%)**, **
 ## Per-council coverage
 | council | clean | quarantined | member_votes |
 |---|---|---|---|
-| Carlow | 3 | 6 | 72 |
+| Carlow | 8 | 1 | 185 |
 | Cavan | 1 | 1 | 0 |
 | Clare | 3 | 0 | 0 |
 | Cork City | 34 | 4 | 0 |
@@ -60,5 +60,5 @@ Auto-generated. Consolidated v1+v2. **308 unique docs**, **150 clean (49%)**, **
 
 ## Vote coverage
 - councils with attributed votes: ['Carlow']
-- total member-vote rows: 72
-- by vote: {'against': 42, 'abstain': 6, 'for': 20, 'absent': 4}
+- total member-vote rows: 185
+- by vote: {'against': 44, 'abstain': 6, 'for': 129, 'absent': 6}

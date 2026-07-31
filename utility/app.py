@@ -38,8 +38,8 @@ from ui.spa_links import install_spa_links
 # register a stub instead of letting one failed import crash the whole app. It is the DIRECT-engine
 # page (calls planning.product.core.engine via planning.product.ui.data_access.siting_data — no LLM, no MCP).
 try:
-    from pages_code.siting_assistant import siting_assistant_page
-    from pages_code.siting_check import siting_check_page
+    from planning.product.ui.pages.siting_assistant import siting_assistant_page
+    from planning.product.ui.pages.siting_check import siting_check_page
 except ImportError as _err:  # pragma: no cover - env-dependent
     _siting_import_error = str(_err)
 

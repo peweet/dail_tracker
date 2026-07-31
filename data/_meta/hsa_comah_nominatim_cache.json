@@ -1,0 +1,396 @@
+{
+ "Alexandra Road, Dublin Port, Dublin 1": {
+  "display_name": "Alexandra Road, North Wall, North Dock B Ward 1986, Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.3507178,
+  "lon": -6.2140927,
+  "osm_type": "way",
+  "type": "unclassified"
+ },
+ "Anchor Business Park, Courtstown, Little Island, Co. Cork": null,
+ "Askeaton, Co. Limerick": {
+  "display_name": "Askeaton, The Municipal District of Adare \u2014 Rathkeale, County Limerick, Munster, \u00c9ire / Ireland",
+  "lat": 52.599722,
+  "lon": -8.975556,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Bagenalstown, Co Carlow": {
+  "display_name": "Muine Bheag, The Municipal District of Muinebeag, County Carlow, Leinster, \u00c9ire / Ireland",
+  "lat": 52.7018267,
+  "lon": -6.9566623,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Ballydine, Kilsheelan, Clonmel, Co. Tipperary": {
+  "display_name": "Ballydine, Kilsheelan, The Borough District of Clonmel, County Tipperary, Munster, \u00c9ire / Ireland",
+  "lat": 52.3654677,
+  "lon": -7.5236598,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Blackchurch Business Park, Rathcoole, Co. Dublin": null,
+ "Carrigrohane Road, Cork": {
+  "display_name": "Carrigrohane Road, Bishopstown ED A, Cork, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 51.8956517,
+  "lon": -8.5383004,
+  "osm_type": "way",
+  "type": "trunk"
+ },
+ "Carrowdotia, Killimer, Kilrush, Co.Clare": null,
+ "Centre Park Road, Cork": {
+  "display_name": "Centre Park Road, Docklands, Knockrea B, Cork, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 51.8993327,
+  "lon": -8.4421044,
+  "osm_type": "way",
+  "type": "tertiary"
+ },
+ "Christendom, Ferrybank, Co. Waterford": {
+  "display_name": "Christendom, Ferrybank, Waterford City Metropolitan District, County Waterford, Munster, \u00c9ire / Ireland",
+  "lat": 52.2596702,
+  "lon": -7.0985056,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Claremorris Bulk Station,Ballindine Road, Claremorris, Co. Mayo": null,
+ "Claremorris, Co. Mayo": {
+  "display_name": "Claremorris, Claremorris-Swinford Municipal District, County Mayo, Connacht, \u00c9ire / Ireland",
+  "lat": 53.7197301,
+  "lon": -8.9987858,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Clorusk Lower, Royal Oak, Bagenalstown, Co Carlow": null,
+ "College Business &Technology Park, Blanchardstown, Dublin 15": {
+  "display_name": "College Business & Technology Park, Blanchardstown-Mulhuddart DED 1986, Blanchardstown, Fingal, County Dublin, Leinster, D15 R925, \u00c9ire / Ireland",
+  "lat": 53.4092948,
+  "lon": -6.3792386,
+  "osm_type": "way",
+  "type": "industrial"
+ },
+ "Damastown Industrial Estate, Dublin 15": null,
+ "Damastown Rise, Damastown Industrial Estate, Dublin 15": null,
+ "Dock Road, Limerick": {
+  "display_name": "Dock Road, Raheen, Ballycummin ED, The Metropolitan District of Limerick City, Limerick, County Limerick, Munster, \u00c9ire / Ireland",
+  "lat": 52.6492124,
+  "lon": -8.6639409,
+  "osm_type": "way",
+  "type": "secondary"
+ },
+ "Drinagh, Co. Wexford": {
+  "display_name": "Drinagh, Lady's Island ED, The Borough District of Wexford, County Wexford, Leinster, \u00c9ire / Ireland",
+  "lat": 52.2104776,
+  "lon": -6.3491118,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Drogheda Marine Terminal, Marsh Road, Drogheda, Co. Louth": null,
+ "Drogheda, Co. Louth": {
+  "display_name": "Drogheda, County Louth, Leinster, \u00c9ire / Ireland",
+  "lat": 53.7149877,
+  "lon": -6.3524183,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Dublin Port, Dublin 1": {
+  "display_name": "Dublin Tunnel, Fairview, North Dock B Ward 1986, Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.3536929,
+  "lon": -6.2231777,
+  "osm_type": "way",
+  "type": "motorway"
+ },
+ "Dublin Port, Dublin 3": {
+  "display_name": "Dublin Port, Dublin Tunnel, Fairview, North Dock B Ward 1986, Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.3561409,
+  "lon": -6.2272021,
+  "osm_type": "node",
+  "type": "motorway_junction"
+ },
+ "Dunleer, Co Louth": {
+  "display_name": "Dunleer, The Municipal District of Ardee, County Louth, Leinster, \u00c9ire / Ireland",
+  "lat": 53.8316175,
+  "lon": -6.3950752,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Fingal, Co. Dublin": {
+  "display_name": "Fingal, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.4942212,
+  "lon": -6.2249802,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Finglas, Dublin 11": {
+  "display_name": "Finglas, Ballygall A Ward 1986, Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.389167,
+  "lon": -6.296944,
+  "osm_type": "node",
+  "type": "suburb"
+ },
+ "Flavour Manufacturing Wexford, IDA Business & Technology Park, Rosslare Road, Drinagh, Co. Wexford": null,
+ "Forest Park, Zone C Mullingar Industrial Estate, Mullingar, Co. Westmeath": null,
+ "Foynes Harbour, Foynes, Co. Limerick": null,
+ "Foynes, Co. Limerick": {
+  "display_name": "Foynes, Shanagolden, The Municipal District of Adare \u2014 Rathkeale, County Limerick, Munster, \u00c9ire / Ireland",
+  "lat": 52.6111406,
+  "lon": -9.1109507,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Fuel Farm Facility, Corballis Road South, Dublin Airport, Fingal, Co. Dublin": null,
+ "Galway Harbour Enterprise Park, Co. Galway": {
+  "display_name": "Galway Harbour Enterprise Park, Renmore, Lough Atalia, Cathair na Gaillimhe, County Galway, Connacht, H91 V25X, \u00c9ire / Ireland",
+  "lat": 53.2697054,
+  "lon": -9.0401929,
+  "osm_type": "way",
+  "type": "industrial"
+ },
+ "Hazelhill, Ballyhaunis, Co. Mayo": {
+  "display_name": "Hazelhill, Ballyhaunis ED, Claremorris-Swinford Municipal District, County Mayo, Connacht, F35 NF82, \u00c9ire / Ireland",
+  "lat": 53.756202,
+  "lon": -8.7780185,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Hazelwood, Co. Sligo": {
+  "display_name": "Hazelwood, Calry ED, Sligo Municipal Borough District, County Sligo, Connacht, \u00c9ire / Ireland",
+  "lat": 54.2557859,
+  "lon": -8.4280182,
+  "osm_type": "way",
+  "type": "wood"
+ },
+ "Huntstown Power Station, Huntstown Quarry, Finglas, Dublin 11": null,
+ "I.D.A Business & Technology Park, Tullamore, Co. Offaly": null,
+ "Iarnrod Eireann Dublin Port, Alexandra Road, Dublin Port, Dublin 1": null,
+ "Iarnrod Eireann Inchicore Works, Inchicore Parade, Dublin 8": null,
+ "Inchicore Parade, Dublin 8": {
+  "display_name": "Inchicore Parade, Kilmainham B ED, Dublin, County Dublin, Leinster, D08 F6XN, \u00c9ire / Ireland",
+  "lat": 53.3399402,
+  "lon": -6.3259338,
+  "osm_type": "way",
+  "type": "residential"
+ },
+ "Killala Road, Ballina, Co. Mayo": {
+  "display_name": "Killala Road, Ballina Rural ED, Ballina Municipal District, County Mayo, Connacht, \u00c9ire / Ireland",
+  "lat": 54.130499,
+  "lon": -9.1636869,
+  "osm_type": "way",
+  "type": "secondary"
+ },
+ "Kilnagleary, Carrigaline, Co. Cork": {
+  "display_name": "Kilnagleary Business Park, Carrigaline ED, Municipal District of Carrigaline, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 51.8108673,
+  "lon": -8.3829646,
+  "osm_type": "way",
+  "type": "commercial"
+ },
+ "Kilrush, Co.Clare": {
+  "display_name": "Kilrush, West Clare Municipal District, County Clare, Munster, \u00c9ire / Ireland",
+  "lat": 52.6397222,
+  "lon": -9.4833283,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Kiltotan & Collinstown, Rochfordbridge, Co. Westmeath": null,
+ "Knockburden, Ovens, Co Cork": null,
+ "Knockburden, Ovens, Co. Cork": null,
+ "Little Island Industrial Estate, Little Island, Co. Cork": {
+  "display_name": "Little Island Industrial Estate, Caherlag ED, Municipal District of Cobh, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 51.9000076,
+  "lon": -8.3484568,
+  "osm_type": "way",
+  "type": "industrial"
+ },
+ "Little Island, Co. Cork": {
+  "display_name": "Little Island, Municipal District of Cobh, County Cork, Munster, T45 FC43, \u00c9ire / Ireland",
+  "lat": 51.9035274,
+  "lon": -8.3541241,
+  "osm_type": "node",
+  "type": "village"
+ },
+ "Lockheed Avenue, Airport Business Park, Waterford": {
+  "display_name": "Lockheed Avenue, Airport Business Park, Kilmacleague, Waterford City Metropolitan District, County Waterford, Munster, \u00c9ire / Ireland",
+  "lat": 52.1825972,
+  "lon": -7.0825744,
+  "osm_type": "way",
+  "type": "service"
+ },
+ "Mainland Tankfarm, Tarbert Demesne, Tarbert, Co. Kerry": null,
+ "Mallow, Co. Cork": {
+  "display_name": "Mallow, New Road, Mallow, The Municipal District of Kanturk-Mallow, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 52.138912,
+  "lon": -8.6551101,
+  "osm_type": "node",
+  "type": "station"
+ },
+ "Midleton, Co. Cork": {
+  "display_name": "Midleton, Mill Road, Midleton, The Municipal District of East Cork, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 51.9211955,
+  "lon": -8.1756984,
+  "osm_type": "node",
+  "type": "station"
+ },
+ "Morgans South, Askeaton, Co. Limerick": null,
+ "Mullingar, Co. Westmeath": {
+  "display_name": "Mullingar, The Municipal District of Mullingar \u2014 Kinnegad, County Westmeath, Leinster, \u00c9ire / Ireland",
+  "lat": 53.525822,
+  "lon": -7.341304,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "National Oil Reserves Agency Poolbeg TankFarm, Pigeon House Road,Dublin 4": null,
+ "Navan Rd. Mulhuddart, Dublin 15": {
+  "display_name": "Navan Road, Blanchardstown-Tyrrelstown DED 1986, Mulhuddart, Fingal, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.4062249,
+  "lon": -6.4155713,
+  "osm_type": "way",
+  "type": "trunk"
+ },
+ "New Ross, Co.Wexford": {
+  "display_name": "New Ross, The Municipal District of New Ross, County Wexford, Leinster, \u00c9ire / Ireland",
+  "lat": 52.3955671,
+  "lon": -6.9446066,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Ovens, Co Cork": {
+  "display_name": "Ovens, Municipal District of Macroom, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 51.8869169,
+  "lon": -8.6679485,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Ovens, Co. Cork": {
+  "display_name": "Ovens, Municipal District of Macroom, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 51.8869169,
+  "lon": -8.6679485,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Palmerstown, Co. Kilkenny": {
+  "display_name": "Palmerstown, Kilkenny Rural, The Municipal District of Kilkenny City, County Kilkenny, Leinster, \u00c9ire / Ireland",
+  "lat": 52.6581623,
+  "lon": -7.2814059,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Pigeon House Road, Dublin 4": {
+  "display_name": "Pigeon House Road, Irishtown, Pembroke East A Ward 1986, Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.3414394,
+  "lon": -6.2057891,
+  "osm_type": "way",
+  "type": "unclassified"
+ },
+ "Pigeon House Road, Ringsend, Dublin 4": null,
+ "Promenade Road, Dublin Port, Dublin 1": {
+  "display_name": "Promenade Road, North Wall, North Dock B ED, Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.3538441,
+  "lon": -6.2165244,
+  "osm_type": "way",
+  "type": "tertiary"
+ },
+ "Promenade Road, Dublin Port, Dublin 3": null,
+ "Quartertown Industrial Estate, Mallow, Co. Cork": null,
+ "Raheen Port, New Ross, Co.Wexford": null,
+ "Raheens Industrial Estate, Ringaskiddy, Co. Cork": null,
+ "Rathcoole, Co. Dublin": {
+  "display_name": "Rathcoole, South Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.2813003,
+  "lon": -6.4679425,
+  "osm_type": "node",
+  "type": "village"
+ },
+ "Rathcoole, Dublin 24": {
+  "display_name": "Rathcoole, South Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.2813003,
+  "lon": -6.4679425,
+  "osm_type": "node",
+  "type": "village"
+ },
+ "Red Barns, Drumcar Road, Dunleer, Co Louth": null,
+ "Richardstown Maturation Facility, Richardstown, Dunleer, Co Louth": null,
+ "Ringaskiddy, Co. Cork": {
+  "display_name": "Ringaskiddy, Municipal District of Carrigaline, County Cork, Munster, \u00c9ire / Ireland",
+  "lat": 51.8302347,
+  "lon": -8.3207701,
+  "osm_type": "node",
+  "type": "village"
+ },
+ "Ringsend, Dublin 4": {
+  "display_name": "Ringsend, Pembroke East A Ward 1986, Dublin, County Dublin, Leinster, D04 Y970, \u00c9ire / Ireland",
+  "lat": 53.341944,
+  "lon": -6.226389,
+  "osm_type": "node",
+  "type": "suburb"
+ },
+ "Rochfordbridge, Co. Westmeath": null,
+ "Rosslare Harbour, Co. Wexford": {
+  "display_name": "Rosslare Europort, E 01;E 30, St. Helen's ED, Rosslare Harbour, County Wexford, Leinster, \u00c9ire / Ireland",
+  "lat": 52.2511936,
+  "lon": -6.3375376,
+  "osm_type": "node",
+  "type": "station"
+ },
+ "Shannon Airport, Shannon, Co Clare": {
+  "display_name": "Shannon Airport Fire Station, O'Reagan Avenue, Clenagh ED, Shannon Municipal District, County Clare, Munster, \u00c9ire / Ireland",
+  "lat": 52.6907812,
+  "lon": -8.912716,
+  "osm_type": "way",
+  "type": "fire_station"
+ },
+ "Shellybanks Road (Off Pigeon House Road), Ringsend, Dublin 4": null,
+ "Slane, Co. Meath": {
+  "display_name": "Slane, The Municipal District of Laytown \u2014 Bettystown, County Meath, Leinster, \u00c9ire / Ireland",
+  "lat": 53.7085594,
+  "lon": -6.5431923,
+  "osm_type": "relation",
+  "type": "village"
+ },
+ "Stokestown, New Ross, Co. Wexford": {
+  "display_name": "Stokestown, Oldcourt ED, New Ross Municipal District, The Municipal District of New Ross, County Wexford, Leinster, \u00c9ire / Ireland",
+  "lat": 52.3567616,
+  "lon": -6.9798052,
+  "osm_type": "relation",
+  "type": "administrative"
+ },
+ "Tarbert, Co. Kerry": {
+  "display_name": "Tarbert, County Kerry, Munster, V31 WD66, \u00c9ire / Ireland",
+  "lat": 52.5725905,
+  "lon": -9.3745404,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "The Pound Road, Slane, Co. Meath": null,
+ "Tivoli Docks, Co. Cork": null,
+ "Tivoli Industrial Estate, Tivoli, Co. Cork": {
+  "display_name": "Tivoli Industrial Estate, Tivoli Docklands Industrial Estate, Lota Beg, Tivoli, Tivoli B, Cork, County Cork, Munster, T23 AN82, \u00c9ire / Ireland",
+  "lat": 51.9023891,
+  "lon": -8.405593,
+  "osm_type": "way",
+  "type": "service"
+ },
+ "Tolka Quay Road, Dublin Port, Dublin 1": {
+  "display_name": "Tolka Quay Road, North Wall, North Dock B ED, Dublin, County Dublin, Leinster, \u00c9ire / Ireland",
+  "lat": 53.3520516,
+  "lon": -6.2180961,
+  "osm_type": "way",
+  "type": "unclassified"
+ },
+ "Tullamore, Co. Offaly": {
+  "display_name": "Tullamore, The Municipal District of Tullamore, County Offaly, Leinster, \u00c9ire / Ireland",
+  "lat": 53.2743768,
+  "lon": -7.4927486,
+  "osm_type": "relation",
+  "type": "town"
+ },
+ "Unit 19,Tivoli Industrial Estate, Tivoli, Co. Cork": {
+  "display_name": "Tivoli Industrial Estate, Tivoli Docklands Industrial Estate, Lota Beg, Tivoli, Tivoli B, Cork, County Cork, Munster, T23 AN82, \u00c9ire / Ireland",
+  "lat": 51.9023891,
+  "lon": -8.405593,
+  "osm_type": "way",
+  "type": "service"
+ },
+ "Unit 405, Greenogue Business Park, Rathcoole, Dublin 24": null,
+ "Westpoint Business Park, Navan Rd. Mulhuddart, Dublin 15": null,
+ "Wexford Road, Rosslare Harbour, Co. Wexford": null,
+ "Whitegate Filling Plant, Midleton, Co. Cork": null
+}

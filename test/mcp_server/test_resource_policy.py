@@ -144,6 +144,63 @@ def test_under_pressure_none_when_free_ram_unreadable(monkeypatch):
     assert resource_policy.under_pressure() is False
 
 
+# ── adaptive loosening when the box is quiet ──────────────────────────────────
+
+
+def test_headroom_loosens_when_ram_free_and_few_sessions(monkeypatch):
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
+    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: 1)
+    assert resource_policy.effective_memory_limit() == resource_policy.HEADROOM_MEMORY_LIMIT
+
+
+def test_headroom_refused_when_many_sessions(monkeypatch):
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
+    monkeypatch.setattr(
+        resource_policy, "claude_session_count", lambda: resource_policy.HEADROOM_MAX_SESSIONS + 1
+    )
+    assert resource_policy.effective_memory_limit() == resource_policy.memory_limit()
+
+
+def test_headroom_fails_closed_when_session_count_unreadable(monkeypatch):
+    """Unknown session count means the worst case might be live — keep the default."""
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
+    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: None)
+    assert resource_policy.effective_memory_limit() == resource_policy.memory_limit()
+
+
+def test_headroom_refused_between_pressure_and_headroom_floors(monkeypatch):
+    """The middle band (above pressure, below headroom) stays on the plain default."""
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB - 1)
+    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: 1)
+    assert resource_policy.effective_memory_limit() == resource_policy.memory_limit()
+
+
+def test_pressure_beats_headroom(monkeypatch):
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.PRESSURE_FLOOR_MB - 1)
+    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: 1)
+    assert resource_policy.effective_memory_limit() == resource_policy.PRESSURE_MEMORY_LIMIT
+
+
+def test_explicit_env_wins_over_headroom(monkeypatch):
+    monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
+    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: 1)
+    monkeypatch.setenv("DAIL_MCP_DUCKDB_MEMORY_LIMIT", "768MB")
+    assert resource_policy.effective_memory_limit() == "768MB"
+
+
+def test_claude_session_count_off_windows_returns_none(monkeypatch):
+    monkeypatch.setattr(resource_policy.sys, "platform", "linux")
+    monkeypatch.setattr(resource_policy, "_session_count_cache", None)
+    assert resource_policy.claude_session_count() is None
+
+
+def test_claude_session_count_uses_its_cache(monkeypatch):
+    monkeypatch.setattr(
+        resource_policy, "_session_count_cache", (resource_policy.time.monotonic(), 7)
+    )
+    assert resource_policy.claude_session_count() == 7  # no tasklist spawn within the TTL
+
+
 def test_free_ram_mb_off_windows_returns_none(monkeypatch):
     monkeypatch.setattr(resource_policy.sys, "platform", "linux")
     assert resource_policy.free_ram_mb() is None
@@ -449,16 +506,25 @@ def test_watchdog_stops_promptly_when_asked():
 
 
 def test_drop_index_caches_clears_every_module():
-    from mcp_server import precedent_fts, sql_index, text_fts
+    from mcp_server import sql_index, text_fts
+
+    # Moved to the gitignored siting tree in the planning consolidation — optional here,
+    # exactly as it is for server.py's search_planning_precedents tool.
+    try:
+        from planning.product.mcp import precedent_fts
+    except Exception:
+        precedent_fts = None
 
     text_fts._CHECKED["speeches"] = True
-    precedent_fts._CHECKED["precedents"] = True
+    if precedent_fts is not None:
+        precedent_fts._CHECKED["precedents"] = True
     sql_index._GRAPH = {"sentinel": True}
     sql_index._BODIES = {"sentinel": "x"}
 
     resource_policy.drop_index_caches()
 
     assert text_fts._CHECKED == {}
-    assert precedent_fts._CHECKED == {}
+    if precedent_fts is not None:
+        assert precedent_fts._CHECKED == {}
     assert sql_index._GRAPH is None
     assert sql_index._BODIES is None

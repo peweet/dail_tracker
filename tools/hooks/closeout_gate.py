@@ -14,10 +14,12 @@ style_lint.py already uses for its evidence-grain check.
 This does NOT judge the closeout's content — promoted vs already-captured vs
 no-durable-delta stays a judgment call made by whoever runs --record (a
 no-durable-delta record is a legitimate, complete closeout). It only forces the ACT of
-recording one of the three outcomes to exist. Per feedback_guardrail_determinism_tiers:
-"does this block a mechanically-unambiguous action" — yes, presence-of-a-record is not
-a judgment call, unlike the outcome itself, which is why this earns a hard gate rather
-than another soft nudge.
+recording one of the three outcomes, WITH a note, to exist — session_closeout.py itself
+requires --note (20+ chars) on every outcome as of 2026-07-31, closing the gap where a
+bare no-durable-delta cost nothing to type and proved nothing was assessed. Per
+feedback_guardrail_determinism_tiers: "does this block a mechanically-unambiguous
+action" — yes, presence-of-a-record-with-a-note is not a judgment call, unlike whether
+the note is actually insightful, which stays Tier 3 and unenforced on purpose.
 
 Turn counting: the ledger row for THIS session doesn't exist until SessionEnd, so
 pending() can't see the current session while it's still running. This hook keeps its
@@ -140,12 +142,19 @@ def main() -> int:
         sys.stderr.write(
             f"Session closeout gate: {turns} assistant turns this session, no closeout record "
             "yet. tools/session_closeout.py has been advisory-only since 2026-07-30 with a "
-            "1/38 compliance rate — before continuing, run:\n"
-            f"  python tools/session_closeout.py --record {session_id[:12]} "
-            '<promoted|already-captured|no-durable-delta> [--note "..."]\n'
-            "This asks only that one of the three outcomes gets recorded, not that the "
-            "session's work was good — no-durable-delta is a complete, legitimate closeout. "
-            "Fires once per session; continuing without complying will not block again."
+            "1/38 compliance rate — before continuing:\n"
+            "  1. Assess this session for ONE durable learning or repeat process — something "
+            "that, captured now, saves tokens next time by preventing a re-ask or a re-derive "
+            "(a config quirk, a recurring correction, a gap between what a tool reports and "
+            "what actually happened). If it's worth memory, write it.\n"
+            f"  2. Then run: python tools/session_closeout.py --record {session_id[:12]} "
+            '<promoted|already-captured|no-durable-delta> --note "..." (20+ chars, required for '
+            "every outcome — name what was checked, even for no-durable-delta, not just the "
+            "verdict).\n"
+            "This does not require the session's work to have been notable — a genuine "
+            "no-durable-delta is a complete closeout. It requires the assessment to have "
+            "actually happened. Fires once per session; continuing without complying will not "
+            "block again."
         )
         return 2
     except Exception:

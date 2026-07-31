@@ -49,6 +49,9 @@ _NAME_FIXUPS = {  # ENG_NAME spelling -> canonical registry spelling, where they
     "Laois-Offaly": "Laois-Offaly",  # placeholder; none needed in practice
 }
 
+_IRL = (-11.0, 51.0, -5.0, 56.0)  # lon/lat envelope (matches planning_decision_profiles.py IRL) —
+# a buffer(0) repair that balloons/relocates a part instead of just fixing it lands outside this.
+
 
 def fetch_geojson(dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -76,6 +79,9 @@ def build_outlines(geojson_path: Path) -> dict:
         geom = shape(feat["geometry"])
         if not geom.is_valid:
             geom = geom.buffer(0)
+            b = geom.bounds
+            if b and not (_IRL[0] <= b[0] and _IRL[1] <= b[1] and b[2] <= _IRL[2] and b[3] <= _IRL[3]):
+                print(f"  WARNING: buffer(0) repair on {name} left bounds {b} outside Ireland envelope")
         by_name.setdefault(name, []).append(geom.simplify(_SIMPLIFY_DEG, preserve_topology=True))
 
     shapes = {

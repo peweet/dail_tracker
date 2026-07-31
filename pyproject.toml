@@ -71,6 +71,10 @@ pipeline = [
 # OCR pipeline for scanned PDFs (read_scan_pdf.py)
 ocr = [
     "ocrmypdf>=17.0",
+    "winocr>=0.0.15; sys_platform == 'win32'",  # Windows.Media.Ocr wrapper — works locally on this
+                         # box where PaddleOCR crashes (feedback_paddleocr_crashes_local_box); used by
+                         # pipeline_sandbox/council_minutes/council_minutes_ocr_recover.py. Was
+                         # pip-installed undeclared 2026-07-31 — see project_pharma_reconciliation_2026_07_31.
 ]
 
 # Siting Check (Product B) — the live geospatial planning-risk engine in
