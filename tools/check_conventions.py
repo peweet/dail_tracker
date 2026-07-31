@@ -194,15 +194,12 @@ def _page_entry_missing_dt_page(source: str, path: Path) -> list[str]:
 # candidate plan) or, if the growth is deliberate, raise the cap in this table —
 # visibly, in a diff. When a candidate is refactored, ratchet its cap DOWN.
 LARGEST_FILE_CAPS = {
-    # shared_css.py (6,572) split into shared_css/ 2026-07-31 (C1) — cap the largest fragment.
-    "utility/shared_css/interests_attendance.py": 695,
+    "utility/shared_css.py": 6572,
     # procurement.py (4,665) split into pages_code/procurement/ 2026-07-31 (C2,
     # doc/REFACTORING_CANDIDATES.md) — cap its largest resulting module instead.
     "utility/pages_code/procurement/patterns.py": 737,
-    # member_overview.py (2,498) and ui/components.py (2,155) split into packages
-    # 2026-07-31 (C3, C4) — cap each package's largest module.
-    "utility/pages_code/member_overview/profile.py": 851,
-    "utility/ui/components/cards.py": 502,
+    "utility/pages_code/member_overview.py": 2498,
+    "utility/ui/components.py": 2155,
     # server.py: a parallel session is actively growing this file (2744→2847 across
     # 2026-07-30/31); capped with headroom until that work lands, then ratchet down.
     "mcp_server/server.py": 2900,
