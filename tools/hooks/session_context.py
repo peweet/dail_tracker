@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -370,6 +372,39 @@ def _claude_session_count() -> int:
     return sum(1 for line in out.stdout.splitlines() if "claude.exe" in line.lower())
 
 
+def _memory_currency_note() -> str:
+    """Count of persistent-memory cards at/below Extracted band (tools/memory_gc.py)
+    — pull, not push: a low band means re-verify before citing that card as fact
+    (reference_agent_memory_staleness_literature_2026_07_31, oq:manual0006).
+
+    Unlike every other note in this file, memory_gc.py imports polars (via
+    services/data_contracts) — a real cost this hook otherwise avoids entirely.
+    Measured: ~0.85 s warm, up to ~5 s on a cold first touch. Throttled to once per
+    20h via a small cache file so most sessions read a cached count instead of
+    re-paying that import; fails open like every note here."""
+    cache_path = REPO / "logs" / "memory_currency_cache.json"
+    try:
+        if cache_path.exists() and time.time() - cache_path.stat().st_mtime < 20 * 3600:
+            n = json.loads(cache_path.read_text(encoding="utf-8")).get("count", 0)
+        else:
+            out = subprocess.run(
+                [sys.executable, str(REPO / "tools" / "memory_gc.py"), "--min-band", "Extracted"],
+                capture_output=True,
+                text=True,
+                timeout=8,
+                cwd=str(REPO),
+            )
+            m = re.search(r"currency band \((\d+) filtered\)", out.stdout)
+            n = int(m.group(1)) if m else 0
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps({"count": n}), encoding="utf-8")
+        if not n:
+            return ""
+        return f"{n} memory card(s) below Extracted band — `python tools/memory_gc.py --min-band Extracted`"
+    except Exception:
+        return ""
+
+
 def _closeout_note() -> str:
     """Substantive sessions (ledger rows) never closed out — pull, not push: one
     count line here, the list lives in `python tools/session_closeout.py`."""
@@ -432,6 +467,7 @@ def main() -> int:
         _session_pressure_note(),
         _unvalidated_note(),
         _closeout_note(),
+        _memory_currency_note(),
     ):
         if note:
             parts.append(note)
