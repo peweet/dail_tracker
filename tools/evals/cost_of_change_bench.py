@@ -64,6 +64,10 @@ CANDIDATES = {
     "C5": ("C5_mcp_server.md", "mcp_server/server.py"),
     "C6": ("C6_sql_view_tests.md", "test/sql_views/test_sql_views.py"),
     "C7": ("C7_public_body_extractor.md", "extractors/procurement_public_body_extract.py"),
+    # TALE budget A/B (arXiv:2412.18547): identical brief ± a numeric prose budget.
+    # Compare with bench_compare.py — output_tokens is the metric under test.
+    "TB_OFF": ("TB_budget_off.md", "test/sql_views/test_sql_views.py"),
+    "TB_ON": ("TB_budget_on.md", "test/sql_views/test_sql_views.py"),
 }
 
 DISALLOWED_TOOLS = [
@@ -89,12 +93,12 @@ def _git(args, cwd=REPO):
     ).stdout.strip()
 
 
-def _add_worktree(tag: str) -> Path:
+def _add_worktree(tag: str, ref: str) -> Path:
     # Outside the repo tree so a live bench never shadows Grep/Glob results in it.
     base = Path(tempfile.gettempdir()) / "dail_bench_worktrees"
     base.mkdir(exist_ok=True)
     path = base / f"wt_{tag}_{int(time.time())}"
-    _git(["worktree", "add", "--detach", str(path), "HEAD"])
+    _git(["worktree", "add", "--detach", str(path), ref])
     return path
 
 
@@ -121,8 +125,8 @@ def _parse_selfreport(text: str):
         return None
 
 
-async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: bool) -> dict:
-    wt = _add_worktree(cand)
+async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: bool, ref: str = "HEAD") -> dict:
+    wt = _add_worktree(cand, ref)
     tool_calls: list[dict] = []
     final_text_parts: list[str] = []
     result: ResultMessage | None = None
@@ -185,7 +189,7 @@ async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: b
         "candidate": cand,
         "model": model,
         "harness": {"setting_sources": [], "disallowed_tools": DISALLOWED_TOOLS},
-        "git_head": _git(["rev-parse", "--short", "HEAD"]),
+        "git_head": _git(["rev-parse", "--short", ref]),
         "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16],
         "primary_file": CANDIDATES.get(cand, (None, None))[1],
         "primary_file_loc": None,
@@ -206,15 +210,18 @@ async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: b
     }
     primary = CANDIDATES.get(cand, (None, None))[1]
     if primary:
-        path = REPO / primary
-        if path.exists():
-            row["primary_file_loc"] = sum(1 for _ in path.open(encoding="utf-8", errors="replace"))
-        elif path.with_suffix("").is_dir():
-            # Refactored into a package: the leading metric becomes the largest module.
-            row["primary_file_loc"] = max(
-                sum(1 for _ in f.open(encoding="utf-8", errors="replace"))
-                for f in path.with_suffix("").glob("*.py")
-            )
+        # LoC must reflect the ARM's tree (the ref), not the live working tree.
+        try:
+            row["primary_file_loc"] = len(_git(["show", f"{ref}:{primary}"]).splitlines())
+        except subprocess.CalledProcessError:
+            # Refactored into a package at this ref: the leading metric becomes the largest module.
+            pkg = primary.rsplit(".", 1)[0]
+            locs = [
+                len(_git(["show", f"{ref}:{name}"]).splitlines())
+                for name in _git(["ls-tree", "--name-only", ref, f"{pkg}/"]).splitlines()
+                if name.endswith(".py")
+            ]
+            row["primary_file_loc"] = max(locs) if locs else None
     return row
 
 
@@ -228,6 +235,11 @@ async def main() -> None:
     ap.add_argument(
         "--runs", type=int, default=1,
         help="repeats per candidate (>=5 for a decidable A/B — see bench_compare.py)",
+    )
+    ap.add_argument(
+        "--ref", default="HEAD",
+        help="git ref the worktree is created from — lets an arm run at its exact "
+        "before/after commit (rows record rev-parse of this ref as git_head)",
     )
     args = ap.parse_args()
 
@@ -249,8 +261,11 @@ async def main() -> None:
     for cand, prompt in jobs:
         for run_idx in range(1, runs + 1):
             max_turns = 6 if cand == "SMOKE" else args.max_turns
-            print(f"=== {cand} run {run_idx}/{runs} ({args.model}, max_turns={max_turns}) ===", flush=True)
-            row = await run_one(cand, prompt, args.model, max_turns, args.keep_worktree)
+            print(
+                f"=== {cand} run {run_idx}/{runs} ({args.model}, ref={args.ref}, max_turns={max_turns}) ===",
+                flush=True,
+            )
+            row = await run_one(cand, prompt, args.model, max_turns, args.keep_worktree, ref=args.ref)
             with LOG_PATH.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
             summary = {

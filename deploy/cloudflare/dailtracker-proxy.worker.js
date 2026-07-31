@@ -48,6 +48,7 @@ export default {
     if (location && location.includes(ORIGIN_HOST)) {
       const headers = new Headers(response.headers);
       headers.set("Location", location.replaceAll(ORIGIN_HOST, publicHost));
+      addSecurityHeaders(headers);
       return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
@@ -55,7 +56,31 @@ export default {
       });
     }
 
-    // Pass everything else (incl. the 101 + webSocket) straight through.
-    return response;
+    // 101 Switching Protocols (the WebSocket upgrade) carries the live
+    // `webSocket` on the Response object itself — headers on a 101 are
+    // meaningless to the browser and mutating them risks the upgrade. Only
+    // add security headers to ordinary HTTP responses.
+    if (response.status === 101) {
+      return response;
+    }
+
+    const headers = new Headers(response.headers);
+    addSecurityHeaders(headers);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   },
 };
+
+// Applied to every non-WebSocket response. CSP is deliberately not set here:
+// Streamlit's own inline scripts/styles would need auditing first, and
+// shipping it alongside the outage fix risks breaking the app on the same
+// deploy. Add it later as Content-Security-Policy-Report-Only, separately.
+function addSecurityHeaders(headers) {
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+}
