@@ -20,6 +20,26 @@ import hashlib
 import pytest
 
 import extractors.procurement_public_body_extract as m
+import extractors.public_body_payments.emit as _emit
+
+# 2026-07 C7 split (doc/REFACTORING_CANDIDATES.md): emit_rows dispatches to a bespoke
+# reader by NAME via ``globals()[spec["fn"]]`` inside extractors/public_body_payments/
+# emit.py -- that globals() resolves against emit.py's OWN namespace, not the flat shim's
+# (m). Patching only `m.read_courts` etc. would leave the real dispatch untouched, so
+# patch BOTH the shim (kept in sync for other callers) and the module emit_rows actually
+# runs in (same multi-module patch idiom as test/utility/test_procurement_page_smoke.py
+# `_patch_pr`).
+_READ_FN_MODULES = [m, _emit]
+
+
+def _patch_read_fn(monkeypatch, name, fn):
+    hit = False
+    for mod in _READ_FN_MODULES:
+        if hasattr(mod, name):
+            monkeypatch.setattr(mod, name, fn)
+            hit = True
+    assert hit, f"no module binds {name!r}"
+
 
 URL = "https://example.ie/files/payments-Q2-2024.pdf"  # -> period 2024-Q2 / 2024 / 2
 FAKE_PDF = b"%PDF-fake-bytes"
@@ -118,7 +138,7 @@ BRANCHES = [
 
 @pytest.mark.parametrize(("reader_key", "fn", "rec", "over"), BRANCHES, ids=[b[0] for b in BRANCHES])
 def test_reading_order_branch_wiring(monkeypatch, reader_key, fn, rec, over):
-    monkeypatch.setattr(m, fn, lambda b, mp: [dict(rec) for _ in range(4)])
+    _patch_read_fn(monkeypatch, fn, lambda b, mp: [dict(rec) for _ in range(4)])
     rows, stat = m.emit_rows(_cf(reader=reader_key), URL, FAKE_PDF, "pdf", None)
     assert stat == {"status": "ok", "rows": 4, "confidence": "medium"}
     assert len(rows) == 4
@@ -127,20 +147,20 @@ def test_reading_order_branch_wiring(monkeypatch, reader_key, fn, rec, over):
 
 
 def test_housing_malformed_date_falls_back_to_url_period(monkeypatch):
-    monkeypatch.setattr(m, "read_housing", lambda b, mp: [{**_rec(), "date": "banana"} for _ in range(4)])
+    _patch_read_fn(monkeypatch, "read_housing", lambda b, mp: [{**_rec(), "date": "banana"} for _ in range(4)])
     rows, _ = m.emit_rows(_cf(reader="reading_order_housing"), URL, FAKE_PDF, "pdf", None)
     assert (rows[0]["period"], rows[0]["year"], rows[0]["quarter"]) == ("2024-Q2", 2024, 2)
 
 
 def test_source_caveat_carries_configured_text(monkeypatch):
-    monkeypatch.setattr(m, "read_courts", lambda b, mp: [_rec() for _ in range(4)])
+    _patch_read_fn(monkeypatch, "read_courts", lambda b, mp: [_rec() for _ in range(4)])
     rows, _ = m.emit_rows(_cf(reader="reading_order_courts", caveat="incl. VAT"), URL, FAKE_PDF, "pdf", None)
     assert rows[0]["source_caveat"] == "incl. VAT"
 
 
 @pytest.mark.parametrize(("n", "conf"), [(1, "low"), (3, "low"), (4, "medium"), (20, "medium"), (21, "high")])
 def test_confidence_thresholds(monkeypatch, n, conf):
-    monkeypatch.setattr(m, "read_courts", lambda b, mp: [_rec() for _ in range(n)])
+    _patch_read_fn(monkeypatch, "read_courts", lambda b, mp: [_rec() for _ in range(n)])
     rows, stat = m.emit_rows(_cf(reader="reading_order_courts"), URL, FAKE_PDF, "pdf", None)
     assert stat["confidence"] == conf
     assert all(r["extraction_confidence"] == conf for r in rows)
@@ -310,7 +330,7 @@ def test_csv_category_total_supplier_skipped():
 def test_blank_supplier_promoted_from_name_like_po(monkeypatch):
     """Mis-mapped column: supplier empty, the company name sits in po_number.
     A name-like PO with no big number is promoted back to supplier_raw."""
-    monkeypatch.setattr(m, "read_courts", lambda b, mp: [_rec(supplier="", ref="AN POST LTD") for _ in range(4)])
+    _patch_read_fn(monkeypatch, "read_courts", lambda b, mp: [_rec(supplier="", ref="AN POST LTD") for _ in range(4)])
     rows, _ = m.emit_rows(_cf(reader="reading_order_courts"), URL, FAKE_PDF, "pdf", None)
     assert rows[0]["supplier_raw"] == "AN POST LTD"
     assert rows[0]["po_number"] is None
@@ -321,8 +341,8 @@ def test_blank_supplier_promoted_from_name_like_po(monkeypatch):
 def test_blank_supplier_with_numeric_po_downgraded_not_promoted(monkeypatch):
     """A category-total line ('Meter Reading Services 3,823,410') must NOT become
     a supplier; the row is downgraded to low + caveat-flagged instead."""
-    monkeypatch.setattr(
-        m,
+    _patch_read_fn(
+        monkeypatch,
         "read_courts",
         lambda b, mp: [_rec(supplier="", ref="Meter Reading Services 3,823,410") for _ in range(4)],
     )
@@ -333,7 +353,7 @@ def test_blank_supplier_with_numeric_po_downgraded_not_promoted(monkeypatch):
 
 
 def test_blank_supplier_blank_po_downgraded(monkeypatch):
-    monkeypatch.setattr(m, "read_courts", lambda b, mp: [_rec(supplier="", ref="") for _ in range(4)])
+    _patch_read_fn(monkeypatch, "read_courts", lambda b, mp: [_rec(supplier="", ref="") for _ in range(4)])
     rows, stat = m.emit_rows(_cf(reader="reading_order_courts"), URL, FAKE_PDF, "pdf", None)
     assert rows[0]["extraction_confidence"] == "low"
     assert rows[0]["caveat_text_detected"] is True
@@ -341,7 +361,7 @@ def test_blank_supplier_blank_po_downgraded(monkeypatch):
 
 
 def test_empty_reader_result_is_empty_status(monkeypatch):
-    monkeypatch.setattr(m, "read_courts", lambda b, mp: [])
+    _patch_read_fn(monkeypatch, "read_courts", lambda b, mp: [])
     rows, stat = m.emit_rows(_cf(reader="reading_order_courts"), URL, FAKE_PDF, "pdf", None)
     assert rows == []
     assert stat == {"status": "empty", "rows": 0, "confidence": "low"}
