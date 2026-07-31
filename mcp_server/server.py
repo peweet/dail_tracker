@@ -2130,17 +2130,26 @@ def siting_check(
     num_units: int = 0,
     floor_area_m2: float = 0.0,
     use_class: str = "",
+    site_area_ha: float = 0.0,
+    substance_inventory: list[dict] | None = None,
 ) -> dict:
     """Planning-constraint TRIAGE for a single point in Ireland: which planning ISSUES a proposed
     development triggers at (lat, lon), each with the governing rule quoted verbatim from the
     per-council rulebook and the likely required reports. `dev_type` is 'one_off_house' (default),
     'multi_unit', or 'commercial'; `num_units` / `floor_area_m2` drive the scale-gated requirements
-    (climate statement, EIA, etc.). `use_class` gates the use-specific nodes (wind turbines, solar
-    farms, intensive agriculture, quarries, pharma/chemical plants — Seveso + EPA IE licence) that
-    otherwise stay silent; pass one of the canonical values exactly: 'wind_farm', 'solar_farm',
+    (climate statement, EIA, etc.). `site_area_ha`, when known, additionally drives the Schedule 5
+    Part 2 area-based EIA screening (>2 ha/>20 ha limbs) and a units-per-ha density fact — leave it
+    0 to skip both (silent, not 'clear'). `use_class` gates the use-specific nodes (wind turbines,
+    solar farms, intensive agriculture, quarries, pharma/chemical plants — Seveso + EPA IE licence)
+    that otherwise stay silent; pass one of the canonical values exactly: 'wind_farm', 'solar_farm',
     'intensive_agri', 'quarry_extractive', 'pharma_chemical'. Leave it unset for an ordinary house
     or a use that doesn't match one of those — an unmatched or unset use_class fires nothing on
-    that axis rather than guessing. Returns the council in force, a headline, statutory EXCLUSIONS
+    that axis rather than guessing. `substance_inventory` (only read when use_class is
+    'pharma_chemical') is an optional list of `{"name": str, "quantity_t": float, "cas": str}`
+    (`cas` optional) giving the MAX quantity of each substance PRESENT at any one time — never
+    annual throughput; when supplied, the Seveso/COMAH node folds a PROVISIONAL category/named-
+    substance triage into its text (2% de-minimis exclusion NOT applied; unmatched substances are
+    named, never silently cleared). Returns the council in force, a headline, statutory EXCLUSIONS
     (designations whose polygon covers the point — each with the narrow real route that could still
     permit development), and the fired issues TIERED for signal: `site_specific_hard` /
     `site_specific_shaping` (notable at THIS location), an access/entrance section,
@@ -2159,6 +2168,7 @@ def siting_check(
         from planning.product.core import brief as _brief
         from planning.product.core import engine as _engine
         from planning.product.core.layers import make_store
+        from planning.product.core.seveso_inventory import InventoryLine
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
         return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
 
@@ -2168,6 +2178,11 @@ def siting_check(
         return {"error": "no planning-designation layers are ingested — siting check cannot run here"}
 
     dt = (dev_type or "one_off_house").strip()
+    inventory = (
+        [InventoryLine(name=r["name"], quantity_t=r["quantity_t"], cas=r.get("cas")) for r in substance_inventory]
+        if substance_inventory
+        else None
+    )
     result = _engine.evaluate(
         lon,
         lat,
@@ -2176,6 +2191,8 @@ def siting_check(
         floor_area_m2=floor_area_m2 or None,
         store=store,
         use_class=(use_class or "").strip() or None,
+        site_area_ha=site_area_ha or None,
+        substance_inventory=inventory,
     )
     b = _brief.build_brief(result)
     return {
