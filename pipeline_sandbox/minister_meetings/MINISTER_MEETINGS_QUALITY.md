@@ -25,6 +25,4 @@ Duplicate rows (same minister+date+subject): 1,972 of 110,100 (1.8%) — dedup b
 
 ## Recall
 
-A's declared gap: entry_class='other' = 20,364 classifiable-text rows. B (LinearSVC on A's 8 labeled classes) assigns 17,816 of them (87%) to a real class with positive margin. B's precision on this queue is UNMEASURED until the P(True) sample (diary_tolabel.json) is labeled — see AB verdict in the council-minutes run: expect confounds, verify before reclassifying anything.
-
-P(True) sample verdict: 39/42 top-of-queue reclassifications correct (93%) [Reported - diary_labels.json]. Root cause of A-misses: OCR-mangled subjects (unbounded variant space regexes cannot enumerate) - see diary_labels.json notes. Recommended shape: two-tier classifier - rules first (provenance-clean), model fallback ONLY for other-class rows above a margin gate, with an entry_class_source column (rule|model) so provenance survives. Pending: full-queue verification at lower margins before any gold rewrite.
+A's declared gap: entry_class='other' = 19,395 classifiable-text rows. B (LinearSVC on A's 8 labeled classes) assigns 17,036 of them (88%) to a real class with positive margin. B's precision on this queue is UNMEASURED until the P(True) sample (diary_tolabel.json) is labeled — see AB verdict in the council-minutes run: expect confounds, verify before reclassifying anything.
