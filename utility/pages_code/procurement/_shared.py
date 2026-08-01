@@ -194,6 +194,41 @@ def _section_picker() -> str:
     return chosen
 
 
+# The register picker inside "Who wins contracts?" had the exact bug the section picker was
+# rewritten to fix: it was a plain segmented_control with no URL sync, so a TED or State Aid
+# view could not be deep-linked, shared, or returned to after a drill-down — Back always landed
+# the reader on the national register. ?reg= makes those three registers reachable (they were
+# also unreachable to the screenshot harness, so they had never been reviewed). 2026-08-01.
+_REGISTER_LABELS = {
+    "National register (eTenders)": "etenders",
+    "EU register (TED)": "ted",
+    "EU State Aid (grants)": "stateaid",
+    "Register overlaps": "overlaps",
+}
+
+
+def _register_picker() -> str:
+    """Render the register bar and return the active LABEL. Same URL-authoritative pattern as
+    _section_picker: the URL wins on entry, a click writes it back."""
+    rev = {v: k for k, v in _REGISTER_LABELS.items()}
+    url_reg = st.query_params.get("reg")
+    want_label = rev.get(url_reg, "National register (eTenders)")
+
+    def _sync() -> None:
+        st.query_params["reg"] = _REGISTER_LABELS[st.session_state["pr_register"]]
+
+    if "pr_register" not in st.session_state:
+        st.session_state["pr_register"] = want_label
+    elif url_reg in _REGISTER_LABELS.values() and st.session_state["pr_register"] != want_label:
+        st.session_state["pr_register"] = want_label
+    st.segmented_control(
+        "Register", list(_REGISTER_LABELS), key="pr_register", on_change=_sync, label_visibility="collapsed"
+    )
+    chosen = st.session_state["pr_register"]
+    st.query_params["reg"] = _REGISTER_LABELS[chosen]
+    return chosen
+
+
 def _return_to_browse(section: str) -> None:
     """Back-button action for every drill-down: clear the drill keys but land on the section the
     drill came from (so the reader returns to context, not to the first section)."""

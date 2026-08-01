@@ -272,6 +272,7 @@ dossiers = _LazyModule("dail_tracker_core.dossiers", "dossiers")
 serialize = _LazyModule("dail_tracker_core.serialize", "serialize")
 appt = _LazyModule("dail_tracker_core.queries.appointments", "appt")
 att = _LazyModule("dail_tracker_core.queries.attendance", "att")
+bam = _LazyModule("dail_tracker_core.queries.nphdb_bam", "bam")
 char = _LazyModule("dail_tracker_core.queries.charities", "char")
 corp = _LazyModule("dail_tracker_core.queries.corporate", "corp")
 ent = _LazyModule("dail_tracker_core.queries.entity", "ent")
@@ -338,7 +339,7 @@ _CONN_LOCK = threading.RLock()
 # parquet degrades that one domain to an "unavailable" tool result, not a dead
 # server.
 _EXTRA_VIEW_GLOBS = ["sipo_*.sql", "judiciary_*.sql", "appointments_*.sql", "corporate_*.sql",
-                     "council_minutes_*.sql"]
+                     "council_minutes_*.sql", "nphdb_bam_*.sql"]
 
 
 def _cur():
@@ -1261,6 +1262,24 @@ def corporate_repeat_distress(limit: int = 50) -> dict:
     }
 
 
+# ── BAM / National Children's Hospital PQ disclosures ───────────────────────────
+
+
+@mcp.tool(annotations=_RO)
+def nphdb_bam_disclosures() -> dict:
+    """BAM's own Dáil-disclosed National Children's Hospital figures: a 15-row schedule-slippage
+    ledger (forecast Substantial Completion date + delay from the original August 2022 contractual
+    date, at each programme baseline/update) and a 5-row 2017-vs-2018 project-cost estimate table.
+    Both are static, hand-verified written-answer (PQ) disclosures — not a scraped corpus, not an
+    audited total, and NEVER summed with the payments/awards figures elsewhere in this server.
+    Every row carries its own `source_pq_ref` + `source_url`; the final slippage row's `notes`
+    records a wording discrepancy between the two PQ answers that carry the ledger."""
+    return {
+        "rows": _rows(bam.disclosures(_cur())),
+        "caveat": "a PQ disclosure, not an audited total — never summed with procurement/payments figures",
+    }
+
+
 # ── Public-body payments (the realised-SPEND grain) ─────────────────────────────
 
 
@@ -1921,10 +1940,13 @@ def search_speeches(query: str, year: int = 0, limit: int = 10, response_format:
 @mcp.tool(annotations=_RO)
 def search_council_minutes(query: str, year: int = 0, limit: int = 10, response_format: str = "concise") -> dict:
     """WHICH COUNCILS discussed a topic: BM25-ranked (porter-stemmed) search over the
-    council-minutes corpus (870+ meeting documents, 28 of 31 councils, 2015-2026) — the
-    local-government sibling of search_speeches. Use for cross-council topic questions
+    council-minutes corpus (879 meeting documents, 27 of 31 councils, 2015-2026; DLR,
+    Mayo, Roscommon and Sligo hold ZERO documents — absence of hits for them means
+    nothing was harvested, not that nothing was said) — the local-government sibling of
+    search_speeches. Use for cross-council topic questions
     ('which councils debated data centres / IPAS / flood relief') and for locating the
-    meeting that discussed a named site or scheme. Hits carry source_status:
+    meeting that discussed a named site or scheme. Scoring is per-token, not phrase:
+    'data centre' also ranks 'data collection'. Hits carry source_status:
     'ocr_winocr' rows are OCR-derived text (Extracted band) — carry that caveat into
     anything cited. Default hits are concise (council, date, doc_type, snippet); pass
     response_format='detailed' for meeting file / source_url provenance. First call

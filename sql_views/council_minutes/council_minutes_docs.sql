@@ -7,7 +7,10 @@ CREATE OR REPLACE VIEW v_council_minutes_docs AS
 SELECT
     council,
     meeting,
-    meeting_date,
+    -- Typed DATE: text_fts's year() filter needs a DATE column (year(VARCHAR) has no
+    -- overload — found in-practice 2026-08-01), and the raw field holds '' and
+    -- '2026 February' forms. try_cast nulls those; they stay retrievable via `meeting`.
+    try_cast(meeting_date AS DATE) AS meeting_date,
     doc_type,
     source_status,
     source_url,

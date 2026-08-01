@@ -15,7 +15,7 @@ WHAT THIS IS AND ISN'T
   - Static + deterministic (AST, no server). Catches "entity named, not carried OUT".
   - NOT ground truth: edges are state-indexed and this can't see loop closure or raw
     ?param anchors. Confirm a real cul-de-sac on live DOM with
-    audit_screenshots/_nav_graph_edges.py before treating a flag as fact.
+    tools/nav_graph_verify.py before treating a flag as fact.
 
 RATCHET (mirrors tools/check_conventions.py): pages that legitimately don't carry an
 entity are grandfathered in BASELINE below with a reason. A NEW offender fails. Fix a

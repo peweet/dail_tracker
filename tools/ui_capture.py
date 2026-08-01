@@ -52,7 +52,7 @@ import re  # noqa: E402
 import socket  # noqa: E402
 import subprocess  # noqa: E402
 import time  # noqa: E402
-from dataclasses import dataclass  # noqa: E402
+from dataclasses import dataclass, replace  # noqa: E402
 
 OUT_ROOT = REPO / "audit_screenshots"
 BASELINE_DIR = OUT_ROOT / "baseline"
@@ -132,6 +132,17 @@ def discover_routes(app_py: Path = APP_PY) -> list[Route]:
 HEAVY_ROUTES = frozenset({"planning-siting-check", "planning-siting-assistant"})
 
 
+def _slug_route(url_path: str) -> str:
+    """Filename-safe form of a route, keeping any query string legible.
+    "your-council?council=Cork%20City" -> "your-council__council-Cork-City"."""
+    path, _, query = url_path.partition("?")
+    if not query:
+        return path
+    from urllib.parse import unquote
+
+    return f"{path}__{re.sub(r'[^A-Za-z0-9._-]+', '-', unquote(query)).strip('-')}"
+
+
 def select_routes(
     routes: list[Route],
     *,
@@ -141,11 +152,26 @@ def select_routes(
     skip_heavy: bool = True,
 ) -> list[Route]:
     if only:
-        wanted = {r.strip("/") for r in only}
-        chosen = [r for r in routes if r.url_path in wanted]
-        missing = wanted - {r.url_path for r in chosen}
+        # A route may carry a query string ("your-council?council=Cork City"). Several pages
+        # render almost nothing until a selection is made — Your Council shows only its picker —
+        # so without this the harness could screenshot the empty state and never the page under
+        # review. The PATH is still validated against app.py; only the query rides along, and it
+        # becomes part of the capture's name so two states of one route don't overwrite
+        # each other. Added 2026-08-01.
+        chosen: list[Route] = []
+        missing: list[str] = []
+        by_path = {r.url_path: r for r in routes}
+        for raw in only:
+            path, _, query = raw.strip("/").partition("?")
+            base = by_path.get(path)
+            if base is None:
+                missing.append(path)
+            elif query:
+                chosen.append(replace(base, url_path=f"{path}?{query}"))
+            else:
+                chosen.append(base)
         if missing:
-            raise SystemExit(f"unknown route(s): {', '.join(sorted(missing))}")
+            raise SystemExit(f"unknown route(s): {', '.join(sorted(set(missing)))}")
         return chosen
     dropped = {r.strip("/") for r in (exclude or [])}
     if skip_heavy:
@@ -277,12 +303,91 @@ def settle(page, *, timeout: float = 45.0, stable_polls: int = 3, interval: floa
     return {**state, "settled": False}
 
 
-def open_route(page, base: str, route: Route, *, timeout: float) -> dict:
+# Density. NAVIGATION_GRAPH.md scores whether the entity travels; this scores
+# whether the page is worth arriving at. Both are structural — neither judges
+# taste — but "too dense / too sparse" stops being an impression once you can
+# say how much information a screen actually carries.
+#
+# `screens` is the page's scroll height in viewports. `chars_per_screen` and
+# `interactive_per_screen` normalise by it, so a long page is not punished for
+# being long — only for being thin. `above_fold_*` answers rubric dimension 1
+# (does the first screen carry data, or only navigation?).
+_DENSITY_JS = """() => {
+  const vh = window.innerHeight, doc = document.documentElement;
+  const main = document.querySelector('[data-testid="stMain"]') || document.body;
+  const inFold = (el) => { const r = el.getBoundingClientRect();
+                           return r.top < vh && r.bottom > 0; };
+  // A container div that merely INTERSECTS the fold contributes its whole
+  // innerText, including everything below it — first cut reported 384 figures
+  // on a legislation fold showing ~30. Count only leaf elements whose own top
+  // is on screen.
+  const foldLeaf = (el) => el.childElementCount === 0 &&
+                           el.getBoundingClientRect().top < vh &&
+                           el.getBoundingClientRect().bottom > 0;
+  const interactive = [...main.querySelectorAll('a,button,input,select,textarea,[role="button"]')];
+  const scrollH = Math.max(doc.scrollHeight, main.scrollHeight);
+  const text = (main.innerText || '').trim();
+  // Digit runs are the cheapest proxy for "a figure is on screen": this app's
+  // job is showing numbers, so a first screen with none is navigation-only.
+  const foldText = [...main.querySelectorAll('p,span,td,div,h1,h2,h3,li,a,strong,b')]
+      .filter(foldLeaf).map(e => e.textContent || '').join(' ');
+  return {
+    screens: +(scrollH / vh).toFixed(2),
+    chars: text.length,
+    interactive: interactive.length,
+    above_fold_interactive: interactive.filter(inFold).length,
+    above_fold_chars: foldText.trim().length,
+    above_fold_figures: (foldText.match(/\\d[\\d,.]*/g) || []).length,
+  };
+}"""
+
+
+def measure_density(page) -> dict:
+    """Structural density for one rendered page. Never raises."""
+    try:
+        d = page.evaluate(_DENSITY_JS)
+    except Exception:
+        return {}
+    screens = d.get("screens") or 1
+    d["chars_per_screen"] = int(d.get("chars", 0) / screens)
+    d["interactive_per_screen"] = round(d.get("interactive", 0) / screens, 1)
+    return d
+
+
+def open_route(page, base: str, route: Route, *, timeout: float, click: str | None = None) -> dict:
     url = f"{base}/{route.url_path}"
     page.goto(url, wait_until="domcontentloaded", timeout=60_000)
     state = settle(page, timeout=timeout)
+    if click:
+        # st.tabs is CLIENT-side: only the first panel has a layout box, so a screenshot of a
+        # tabbed page has never shown anything past tab 1 — the IPAS map and the entitlements
+        # section were unreviewable for that reason alone (found 2026-08-01). A ?query cannot
+        # reach them either, because st.tabs keeps no URL state. Clicking the tab by its
+        # visible text is the only handle the DOM offers.
+        try:
+            page.get_by_text(click, exact=False).first.click(timeout=8_000)
+            state = settle(page, timeout=timeout)
+        except Exception as exc:  # noqa: BLE001 — report it, never fail the whole sweep
+            state["click_error"] = f"{type(exc).__name__}: {exc}"[:160]
+        state["clicked"] = click
     state["url"] = url
     return state
+
+
+def scroll_to(page, text: str, *, timeout: float = 8_000) -> str:
+    """Bring the element whose text matches into view before a screenshot.
+
+    Streamlit renders into a scroll CONTAINER, not the document, so Playwright's
+    `full_page=True` still yields one viewport — a component below the fold cannot be seen at
+    all (the IPAS cartogram sits under three cards and a stat strip). Scrolling to the thing
+    under review is the only way to photograph it. Returns '' on success, else the error.
+    """
+    try:
+        page.get_by_text(text, exact=False).first.scroll_into_view_if_needed(timeout=timeout)
+        page.wait_for_timeout(350)  # let the smooth-scroll settle before the shutter
+        return ""
+    except Exception as exc:  # noqa: BLE001
+        return f"{type(exc).__name__}: {exc}"[:160]
 
 
 # ── commands ──────────────────────────────────────────────────────────────────
@@ -342,18 +447,31 @@ def cmd_capture(args) -> int:
             page = ctx.new_page()
             for route in routes:
                 started = time.monotonic()
-                state = open_route(page, base, route, timeout=args.timeout)
-                path = out_dir / f"{route.url_path}__{vp_name}.png"
+                state = open_route(page, base, route, timeout=args.timeout, click=args.click)
+                if args.scroll_to:
+                    err = scroll_to(page, args.scroll_to)
+                    if err:
+                        state["scroll_error"] = err
+                # A route carrying a query string ("your-council?council=Cork City") cannot go
+                # into a filename as-is — '?' is illegal on Windows and '=' / '%' read badly.
+                path = out_dir / f"{_slug_route(route.url_path)}__{vp_name}.png"
                 page.screenshot(path=str(path), full_page=args.full_page)
+                density = measure_density(page)
                 results.append(
                     {
                         "route": route.url_path, "viewport": vp_name, "settled": state["settled"],
                         "nodes": state.get("nodes"), "chars": state.get("chars"),
                         "seconds": round(time.monotonic() - started, 1), "path": str(path.relative_to(REPO)),
+                        **density,
                     }
                 )
                 flag = "" if state["settled"] else "  [TIMED OUT — capture may be mid-render]"
-                print(f"  {vp_name:<8} /{route.url_path:<34} {results[-1]['seconds']:>5.1f}s{flag}")
+                shape = (
+                    f"  {density['screens']:>5.1f} screens  {density['chars_per_screen']:>5} ch/scr"
+                    f"  fold: {density['above_fold_figures']:>3} figures"
+                    if density else ""
+                )
+                print(f"  {vp_name:<8} /{route.url_path:<34} {results[-1]['seconds']:>5.1f}s{shape}{flag}")
             ctx.close()
         browser.close()
 
@@ -449,11 +567,18 @@ def leaf(target: str) -> str:
 def attribute(target: str) -> str:
     """'ours' | 'vendor' | 'unknown' for one axe target selector."""
     tip = leaf(target)
-    if not tip:
-        return "unknown"
-    if any(f".{prefix}" in tip for prefix in OUR_CLASS_PREFIXES):
-        return "ours"
-    if any(marker in tip for marker in VENDOR_MARKERS) or RE_VENDOR_SHORT_CLASS.match(tip):
+    if tip:
+        if any(f".{prefix}" in tip for prefix in OUR_CLASS_PREFIXES):
+            return "ours"
+        if any(marker in tip for marker in VENDOR_MARKERS) or RE_VENDOR_SHORT_CLASS.match(tip):
+            return "vendor"
+    # The leaf can be a bare, unclassed element (a plain <div>) whose only
+    # identifying wrapper is an ANCESTOR segment axe already trimmed off by
+    # leaf() — e.g. `.rc-overflow-item:nth-child(3) > div[aria-haspopup="true"]`
+    # leaves just `div`. Fall back to the full chain for vendor markers only:
+    # "ours" stays leaf-scoped (a vendor container that happens to wrap one of
+    # our cards must not over-attribute blame to us — see the docstring above).
+    if any(marker in target for marker in VENDOR_MARKERS):
         return "vendor"
     return "unknown"
 
@@ -580,6 +705,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_cap.add_argument("--baseline", action="store_true", help="write to baseline/ instead of runs/<label>/")
     p_cap.add_argument("--viewport", choices=sorted(VIEWPORTS), help="default: every viewport")
     p_cap.add_argument("--full-page", action="store_true", help="capture the full scroll height")
+    p_cap.add_argument(
+        "--click",
+        help="visible text to click before capturing, e.g. a st.tabs label "
+        '("Where people are housed") — those panels have no URL state and are otherwise unreachable',
+    )
+    p_cap.add_argument(
+        "--scroll-to",
+        help="visible text to scroll into view before the shutter — Streamlit scrolls a "
+        "CONTAINER, so --full-page cannot reach a component below the fold",
+    )
     p_cap.set_defaults(func=cmd_capture)
 
     p_diff = sub.add_parser("diff", help="compare a run against the baseline")

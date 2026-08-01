@@ -610,6 +610,19 @@ pipeline_sandbox/council_minutes/wexford_tmp/
 pipeline_sandbox/council_minutes/tipperary/*.txt
 pipeline_sandbox/council_minutes/*.out
 
+# FTS probe databases (throwaway scratch DBs from sandbox search experiments, not source)
+*_fts_probe.sqlite
+
+# data/_sandbox/ — scratch dir for one-off probes (e.g. pq_fts_probe.sqlite), regenerable
+data/_sandbox/
+
+# ida/ — raw scrape cache backing the IDA sites register extraction
+# (pipeline_sandbox/pq_disclosures/pq_ida_sites_register.py). PDFs already caught by the
+# blanket *.pdf rule above; the .htm captures and their .stripped.txt derivatives are the
+# same "regenerable, not source" case as the council_minutes corpus above.
+ida/*.htm
+ida/*.stripped.txt
+
 # === editor swap + mergetool scratch files (never commit) ===
 # vim/IDE swap files and 3-way merge leftovers (vimdiff/mergetool writes
 # _BASE_/_LOCAL_/_REMOTE_/_BACKUP_ copies). These got committed once during a
@@ -672,6 +685,9 @@ tools/siting_report.py
 # marker matrix — run after ANY engine/catalogue/brief/report change
 tools/siting_report_dryrun.py
 siting_reports/
+# eval bench prompts that brief a builder against private-engine internals (e.g.
+# planning/product/core/report.py function names/paths) — the prompt text itself is IP
+tools/evals/bench_prompts/*siting*
 # national sweep + its baseline (2026-07-30): a private-engine regression harness — it imports
 # dail_tracker_core.siting, so it cannot run from a public clone. These two were tracked publicly
 # by oversight and were the 2 paths tools/check_no_private_ip.py blocked on.

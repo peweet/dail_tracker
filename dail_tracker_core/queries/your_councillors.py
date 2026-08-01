@@ -68,11 +68,77 @@ def roll_call_councils(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 
 
 def votes(conn: duckdb.DuckDBPyConnection, la: str, member: str) -> QueryResult:
+    """One councillor's named votes. `source_status` travels with each row because an
+    OCR-derived vote (ocr_winocr — every Galway City row) carries OCR risk and must be
+    badged, not rendered as plain fact."""
     return _run(
         conn,
-        "SELECT meeting_date, motion, vote FROM v_la_councillor_votes WHERE local_authority = ? AND member = ?",
+        "SELECT meeting_date, motion, vote, source_status FROM v_la_councillor_votes "
+        "WHERE local_authority = ? AND member = ?",
         [la, member],
     )
+
+
+def vote_provenance(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Trust-rail counts for a council's vote record — what the councillor cards do NOT show.
+
+    A card matches on member name, so it only ever shows join_status='resolved' rows. The
+    printed_form remainder (names the roster cannot resolve — earlier-term councillors and
+    roster gaps) is real, gate-verified data that would otherwise vanish silently. The page
+    states the count instead of dropping it."""
+    return _run(conn, "SELECT * FROM v_la_councillor_vote_provenance WHERE local_authority = ?", [la])
+
+
+def decisions(conn: duckdb.DuckDBPyConnection, la: str, limit: int = 200) -> QueryResult:
+    """Proposer/seconder motion events parsed from minute prose (Extracted band).
+
+    `outcome` is empty on ~90% of rows — the minutes name who moved a motion far more often
+    than they record what was resolved. Empty means the minutes do not record it."""
+    return _run(
+        conn,
+        "SELECT meeting_date, item_context, motion_snippet, proposer, seconder, outcome, "
+        "rollcall, source_url, source_status FROM v_la_council_decisions "
+        "WHERE local_authority = ? ORDER BY meeting_date DESC LIMIT ?",
+        [la, limit],
+    )
+
+
+def decision_topics(conn: duckdb.DuckDBPyConnection, la: str, limit: int = 12) -> QueryResult:
+    """Topic counts for one council's motions, biggest first.
+
+    Rows with no topic are excluded from the counts but NOT from the denominator the page
+    shows — ~77% of motions carry no label, and a topic chart drawn over the labelled 23%
+    would read as the council's whole agenda."""
+    return _run(
+        conn,
+        "SELECT trim(t) AS topic, count(*) AS motions FROM v_la_council_decisions, "
+        "unnest(str_split(topics, ' | ')) AS u(t) "
+        "WHERE local_authority = ? AND trim(t) <> '' GROUP BY topic ORDER BY motions DESC LIMIT ?",
+        [la, limit],
+    )
+
+
+def power_split(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """The reserved-vs-executive headline for one council."""
+    return _run(conn, "SELECT * FROM v_la_council_power_summary WHERE local_authority = ?", [la])
+
+
+def power_classes(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Per-class breakdown behind the split (s.183 disposals, Part 8, LPT, budget …).
+    Documents, not hits: one document naming s.183 eight times is one occasion."""
+    return _run(
+        conn,
+        "SELECT power_class, power_type, count(DISTINCT meeting) AS documents, "
+        "sum(n_hits) AS mentions FROM v_la_council_power_events WHERE local_authority = ? "
+        "GROUP BY power_class, power_type ORDER BY documents DESC",
+        [la],
+    )
+
+
+def decision_coverage(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Per-council decision counts (rows, how many carry an outcome, how many are dated) so a
+    page can say what the parse can and cannot answer."""
+    return _run(conn, "SELECT * FROM v_la_council_decision_coverage WHERE local_authority = ?", [la])
 
 
 def councillor_payments(conn: duckdb.DuckDBPyConnection, la: str, member: str) -> QueryResult:

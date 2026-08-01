@@ -203,7 +203,9 @@ CONSTITUENCY_FILES = [
     # Your-Councillors gold views — each reads a data/_meta CSV directly (no inter-view deps).
     "constituency_la_councillors.sql",  # elected-member roster by LEA
     "constituency_la_council_meeting_coverage.sql",  # per-council data-state tier (honest degradation)
-    "constituency_la_councillor_votes.sql",  # named roll-call votes (Carlow/Cork City/Kilkenny/Laois)
+    "constituency_la_councillor_votes.sql",  # named roll-call votes + their provenance counts (6 councils)
+    "constituency_la_council_decisions.sql",  # proposer/seconder motion events from minute prose (Extracted band)
+    "constituency_la_council_power_events.sql",  # reserved vs executive power split (doc grain; Extracted band)
     "constituency_la_councillor_payments.sql",  # ACTUAL s.142 payments (open-data councils; reads _meta CSV; no deps)
     "constituency_la_plan_directions.sql",  # OPR/Minister overrides of the MEMBERS' plan+zoning votes (reserved function; reads _meta CSV; no deps)
     "constituency_la_meeting_agendas.sql",  # what each council tabled (agenda)

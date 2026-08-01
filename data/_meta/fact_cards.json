@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-07-31T15:33:19+00:00",
+  "generated_utc": "2026-08-01T16:28:59+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
-  "count": 217,
+  "count": 219,
   "facts": {
     "afs_amalgamated_divisions": {
       "file": "data/silver/parquet/afs_amalgamated_divisions.parquet",
@@ -8738,6 +8738,39 @@
       ],
       "size_bytes": 1348
     },
+    "council_minutes_corpus": {
+      "file": "data/gold/parquet/council_minutes_corpus.parquet",
+      "layer": "gold",
+      "rows": 10912,
+      "columns": [
+        "council",
+        "meeting",
+        "meeting_date",
+        "doc_type",
+        "source_status",
+        "source_url",
+        "chunk",
+        "body"
+      ],
+      "column_types": {
+        "council": "String",
+        "meeting": "String",
+        "meeting_date": "String",
+        "doc_type": "String",
+        "source_status": "String",
+        "source_url": "String",
+        "chunk": "Int64",
+        "body": "String"
+      },
+      "year_span": [
+        2014,
+        2026
+      ],
+      "read_by": [
+        "read by council_minutes/council_minutes_docs.sql"
+      ],
+      "size_bytes": 9203005
+    },
     "cpo_land_acquisition_by_area_year": {
       "file": "data/silver/parquet/cpo_land_acquisition_by_area_year.parquet",
       "layer": "silver",
@@ -11689,7 +11722,10 @@
         "epa_name",
         "match_score",
         "lon",
-        "lat"
+        "lat",
+        "geocode_source",
+        "geocode_precision",
+        "geocode_note"
       ],
       "column_types": {
         "establishment": "String",
@@ -11700,9 +11736,12 @@
         "epa_name": "String",
         "match_score": "Float64",
         "lon": "Float64",
-        "lat": "Float64"
+        "lat": "Float64",
+        "geocode_source": "String",
+        "geocode_precision": "String",
+        "geocode_note": "String"
       },
-      "size_bytes": 9623
+      "size_bytes": 14427
     },
     "hse_tusla_payments_fact": {
       "file": "data/silver/parquet/hse_tusla_payments_fact.parquet",
@@ -12164,7 +12203,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 14839,
+      "rows": 15160,
       "columns": [
         "diary_date",
         "court",
@@ -12202,12 +12241,12 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_legal_diary_cases.sql, judiciary/judiciary_plaintiff_league.sql"
       ],
-      "size_bytes": 171690
+      "size_bytes": 174054
     },
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 1429,
+      "rows": 1463,
       "columns": [
         "diary_date",
         "court",
@@ -12229,7 +12268,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 8315
+      "size_bytes": 8520
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -12318,7 +12357,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 2465,
+      "rows": 2519,
       "columns": [
         "diary_date",
         "court",
@@ -12344,7 +12383,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 17412
+      "size_bytes": 17701
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -13282,6 +13321,7 @@
         "ingested_date",
         "entry_id",
         "entry_class",
+        "entry_class_source",
         "minister_display"
       ],
       "column_types": {
@@ -13294,6 +13334,7 @@
         "ingested_date": "Date",
         "entry_id": "String",
         "entry_class": "String",
+        "entry_class_source": "String",
         "minister_display": "String"
       },
       "year_span": [
@@ -13303,7 +13344,7 @@
       "read_by": [
         "read by diary/ministerial_diary_engagements.sql, diary/ministerial_diary_meetings.sql"
       ],
-      "size_bytes": 3680856
+      "size_bytes": 3695150
     },
     "ministerial_diary_org_mentions": {
       "file": "data/gold/parquet/ministerial_diary_org_mentions.parquet",
@@ -13342,12 +13383,12 @@
       "read_by": [
         "read by diary/ministerial_diary_engagements.sql"
       ],
-      "size_bytes": 346991
+      "size_bytes": 347002
     },
     "ministerial_diary_org_overlap": {
       "file": "data/gold/parquet/ministerial_diary_org_overlap.parquet",
       "layer": "gold",
-      "rows": 790,
+      "rows": 786,
       "columns": [
         "matched_org_name",
         "sector",
@@ -13375,7 +13416,7 @@
       "read_by": [
         "read by diary/ministerial_diary_org_overlap.sql"
       ],
-      "size_bytes": 20406
+      "size_bytes": 20317
     },
     "most_lobbied_politicians": {
       "file": "data/gold/parquet/most_lobbied_politicians.parquet",
@@ -13754,6 +13795,42 @@
         "read by constituency/constituency_la_noac_scorecard.sql"
       ],
       "size_bytes": 6265
+    },
+    "nphdb_bam_disclosures": {
+      "file": "data/gold/parquet/nphdb_bam_disclosures.parquet",
+      "layer": "gold",
+      "rows": 20,
+      "columns": [
+        "disclosure_type",
+        "sort_order",
+        "row_label",
+        "forecast_completion",
+        "delay_from_original",
+        "cost_2017_eur_m",
+        "cost_2018_eur_m",
+        "source_date",
+        "source_pq_ref",
+        "source_url",
+        "notes"
+      ],
+      "column_types": {
+        "disclosure_type": "String",
+        "sort_order": "Int64",
+        "row_label": "String",
+        "forecast_completion": "String",
+        "delay_from_original": "String",
+        "cost_2017_eur_m": "Float64",
+        "cost_2018_eur_m": "Float64",
+        "source_date": "Date",
+        "source_pq_ref": "String",
+        "source_url": "String",
+        "notes": "String"
+      },
+      "year_span": [
+        2021,
+        2025
+      ],
+      "size_bytes": 7144
     },
     "nphdb_payments_fact": {
       "file": "data/silver/parquet/nphdb_payments_fact.parquet",
@@ -16848,7 +16925,7 @@
     "ted_ie_awards": {
       "file": "data/silver/parquet/ted_ie_awards.parquet",
       "layer": "silver",
-      "rows": 14315,
+      "rows": 14576,
       "columns": [
         "procedure_type",
         "is_uncompetitive_procedure",
@@ -16942,7 +17019,7 @@
       "read_by": [
         "read by procurement/procurement_competition.sql, procurement/procurement_competition_by_cpv.sql, procurement/procurement_entity_chain.sql\u2026"
       ],
-      "size_bytes": 864796,
+      "size_bytes": 878069,
       "grain": "one row per TED award notice",
       "money_grain": "ted",
       "never_sum_with": "awarded|payments|budget",
@@ -17006,7 +17083,7 @@
     "ted_ie_tenders": {
       "file": "data/silver/parquet/ted_ie_tenders.parquet",
       "layer": "silver",
-      "rows": 2250,
+      "rows": 13456,
       "columns": [
         "publication_number",
         "notice_url",
@@ -17048,7 +17125,7 @@
       "read_by": [
         "read by procurement/procurement_ted_tenders.sql, api export: ted_tenders"
       ],
-      "size_bytes": 49816
+      "size_bytes": 249389
     },
     "ted_ie_winner_history": {
       "file": "data/silver/parquet/ted_ie_winner_history.parquet",

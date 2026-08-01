@@ -273,6 +273,8 @@ def root() -> dict:
             "/v1/constituencies/{name}/dossier",
             "/v1/councillors",
             "/v1/councillors/councils",
+            "/v1/councillors/decisions",
+            "/v1/councillors/powers",
             "/v1/coverage",
             "/v1/data",
             "/v1/data/{resource}",

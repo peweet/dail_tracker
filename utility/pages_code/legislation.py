@@ -18,6 +18,7 @@ from data_access.legislation_data import (
     fetch_bill_detail,
     fetch_bill_pdfs,
     fetch_bill_timeline,
+    fetch_introduced_year_coverage,
     fetch_introduced_years,
     fetch_legislation_index_filtered,
     fetch_most_contested_bills,
@@ -1015,6 +1016,20 @@ def legislation_page() -> None:
                 label_visibility="collapsed",
                 key="leg_title_search",
             )
+
+    # Coverage note under the pills. Every year with >=1 Bill gets a pill, which
+    # reads as uniform coverage back to 2006 — it isn't, and a reader who picks a
+    # thin year sees one Bill and concludes that is what the Oireachtas did. Values
+    # come from data_access; this renders them and computes nothing.
+    coverage = fetch_introduced_year_coverage()
+    if coverage["thin_years"]:
+        thin = " · ".join(f"{y} ({n})" for y, n in coverage["thin_years"])
+        missing = coverage["missing_years"]
+        gap = f" No Bills are recorded for {', '.join(str(y) for y in missing)}." if missing else ""
+        st.caption(
+            f"Bills on record thin out in the earliest years — {thin}."
+            f"{gap} Years from {coverage['first_full_year']} onward are more completely covered."
+        )
 
     start_date: str | None = None
     end_date: str | None = None

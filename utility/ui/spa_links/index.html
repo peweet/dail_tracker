@@ -43,6 +43,25 @@ function notify(href) {
 // listener below keeps delegating to a live frame.
 app.__dtSpaNotify = notify;
 
+// a11y landmarks. Streamlit renders the page body into
+// `<section data-testid="stMain">` with no accessible name, and emits no
+// <main> element at all. A bare <section> is only exposed as a landmark when
+// it HAS an accessible name, so every element on every page counts as "not
+// contained by a landmark" — axe reported 532 such instances across 23 routes
+// (2026-08-01). The cards themselves are fine; only the container was unnamed.
+// Naming it here rather than wrapping our own markup keeps ONE main landmark
+// per page, which is what the spec wants — per-card <section> wrappers would
+// trade one violation for a page full of competing regions.
+// Runs on every component render (not behind __dtSpaInstalled) so it survives
+// a remount; the guard is the attribute check itself.
+function markLandmarks() {
+  var main = doc.querySelector('section[data-testid="stMain"]');
+  if (main && !main.getAttribute("role")) {
+    main.setAttribute("role", "main");
+  }
+}
+markLandmarks();
+
 if (!app.__dtSpaInstalled) {
   app.__dtSpaInstalled = true;
   doc.addEventListener(

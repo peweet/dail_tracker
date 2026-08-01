@@ -93,11 +93,16 @@ def test_member_vote_summary_parity(conn):
 
 
 def test_member_vote_history_parity(conn):
+    # The reference carries the vote_id tiebreaker too (added 2026-08-01). Without
+    # it BOTH sides were non-deterministic — several divisions share a sitting date,
+    # so this compared two arbitrary scan orders and passed only when they happened
+    # to agree. It is now a real assertion about a total order, not a coin flip.
     mid = _sample_member_id(conn)
     got = q.member_vote_history(conn, mid, limit=_TD_HISTORY_LIMIT).data
     ref = conn.execute(
         "SELECT vote_id, vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
-        " FROM v_vote_member_detail WHERE member_id = ? ORDER BY vote_date DESC LIMIT ?",
+        " FROM v_vote_member_detail WHERE member_id = ?"
+        " ORDER BY vote_date DESC, vote_id DESC LIMIT ?",
         [mid, _TD_HISTORY_LIMIT],
     ).df()
     assert_frame_equal(got, ref)

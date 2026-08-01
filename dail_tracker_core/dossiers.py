@@ -1649,9 +1649,48 @@ def councillors_roster(
 
 
 def councillor_votes(conn: duckdb.DuckDBPyConnection, *, council: str, member: str) -> dict[str, Any]:
-    """A councillor's recorded roll-call votes (named-vote coverage is sparse — Carlow only so far)."""
+    """A councillor's recorded roll-call votes, with the council's vote-record provenance.
+
+    Named-vote coverage is sparse — 6 of 31 councils publish roll-calls we can parse
+    (v_la_council_meeting_coverage.tier = 'roll_call' is the live list).
+
+    `provenance` is returned WITH the votes on purpose. A councillor's card matches on name,
+    so it shows only the rows whose name the roster resolved; the printed-form remainder is
+    real, reconcile-gated data that would otherwise disappear without trace. A consumer that
+    reports a vote count needs the denominator next to it."""
     return {
         "council": council,
         "member": member,
         "votes": serialize.to_records(yc.votes(conn, council, member).data),
+        "provenance": serialize.first_record(yc.vote_provenance(conn, council).data),
+    }
+
+
+def council_decisions(conn: duckdb.DuckDBPyConnection, *, council: str, limit: int = 200) -> dict[str, Any]:
+    """Motion events (proposer, seconder, outcome) parsed from one council's minute prose.
+
+    BAND: Extracted — a regex parse of minute text, not a published decisions register.
+    `coverage` carries the counts that qualify it, above all how many rows have NO recorded
+    outcome (~90% overall): the minutes name who moved a motion far more often than they
+    record what was resolved. A caller that quotes a row must not read an empty outcome as
+    "no decision" — it means the minutes do not record one."""
+    return {
+        "council": council,
+        "decisions": serialize.to_records(yc.decisions(conn, council, limit).data),
+        "coverage": serialize.first_record(yc.decision_coverage(conn, council).data),
+        "topics": serialize.to_records(yc.decision_topics(conn, council).data),
+    }
+
+
+def council_powers(conn: duckdb.DuckDBPyConnection, *, council: str) -> dict[str, Any]:
+    """Where a council's elected members decide, versus where they noted an executive decision.
+
+    DOCUMENT grain and Extracted band: a row means "this document contains this power class",
+    so the counts answer "how often does this come before the members", never "this specific
+    decision was taken". `split.unclassified_rows` should be 0; anything else means a new
+    power class arrived that the reserved/executive mapping does not cover yet."""
+    return {
+        "council": council,
+        "split": serialize.first_record(yc.power_split(conn, council).data),
+        "classes": serialize.to_records(yc.power_classes(conn, council).data),
     }

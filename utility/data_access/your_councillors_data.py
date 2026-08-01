@@ -57,6 +57,32 @@ def fetch_roll_call_councils() -> QueryResult:
 
 
 @st.cache_data(ttl=600)
+def fetch_power_split(la: str) -> QueryResult:
+    """Reserved vs executive decision counts for one council (document grain, Extracted band)."""
+    return _q.power_split(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=600)
+def fetch_power_classes(la: str) -> QueryResult:
+    return _q.power_classes(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=600)
+def fetch_decisions(la: str, limit: int = 200) -> QueryResult:
+    return _q.decisions(get_constituency_conn(), la, limit)
+
+
+@st.cache_data(ttl=600)
+def fetch_decision_topics(la: str) -> QueryResult:
+    return _q.decision_topics(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=600)
+def fetch_decision_coverage(la: str) -> QueryResult:
+    return _q.decision_coverage(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=600)
 def fetch_councillor_payments(la: str, member: str) -> QueryResult:
     return _q.councillor_payments(get_constituency_conn(), la, member)
 

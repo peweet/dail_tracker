@@ -61,14 +61,36 @@ def _api_units() -> list[list[str]]:
 
 def _all_production_patterns() -> list[str]:
     """Every pattern any production builder registers (api units ⊇ the per-domain
-    Streamlit conns after the 2026-07-18 DOMAIN_REGISTRATIONS consolidation)."""
+    Streamlit conns after the 2026-07-18 DOMAIN_REGISTRATIONS consolidation).
+
+    The MCP server is the third production builder: `_cur()` registers api_conn() PLUS
+    `_EXTRA_VIEW_GLOBS` for the domains that have no FastAPI page (SIPO, judiciary,
+    appointments, corporate, council minutes). Those globs were missing here, so a view
+    reachable ONLY through an MCP tool was reported as an orphan — which is what happened to
+    council_minutes_docs.sql (added 2026-08-01, served live by search_council_minutes).
+    Importing the server module would start the lazy stack, so the list is read from source.
+    """
     pats: list[str] = list(_MEMBER_SET)
     for phases in C.DOMAIN_REGISTRATIONS.values():
         for globs, _swallow in phases:
             pats.extend(globs)
     for unit in _api_units():
         pats.extend(unit)
+    pats.extend(_mcp_extra_globs())
     return pats
+
+
+def _mcp_extra_globs() -> list[str]:
+    """`mcp_server.server._EXTRA_VIEW_GLOBS`, read without importing the server."""
+    import ast
+
+    src = (REPO / "mcp_server" / "server.py").read_text(encoding="utf-8")
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "_EXTRA_VIEW_GLOBS" for t in node.targets
+        ):
+            return list(ast.literal_eval(node.value))
+    raise AssertionError("mcp_server/server.py no longer defines _EXTRA_VIEW_GLOBS")
 
 
 def _files() -> list[Path]:

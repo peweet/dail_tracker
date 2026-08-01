@@ -44,7 +44,11 @@ from data_access.procurement_data import (
     fetch_council_summary_result,
     fetch_la_budget_divisions_result,
 )
-from data_access.your_councillors_data import fetch_coverage, fetch_roster_council
+from data_access.your_councillors_data import (
+    fetch_coverage,
+    fetch_power_split,
+    fetch_roster_council,
+)
 from pages_code.local_government import (
     _card_audit,
     _render_ce_hero,
@@ -307,6 +311,47 @@ def _councillor_card(council: str, name: str, party: str) -> str:
     )
 
 
+_PWR_CSS = """
+<style>
+.yc-pwr-bar { display:flex; height:10px; border-radius:5px; overflow:hidden; margin:0.15rem 0 0.35rem; }
+.yc-pwr-bar span { display:block; }
+.yc-pwr-res { background:#3a6b7e; }
+.yc-pwr-exe { background:#c9cdd2; }
+.yc-pwr-key { font-size:0.78rem; color:var(--text-secondary,#666); }
+.yc-pwr-key b { color:#16243a; font-weight:600; }
+</style>
+"""
+
+def _power_evidence(council: str) -> None:
+    """One bar: how often the members' own powers came before THIS council, versus items they
+    only noted. Document grain and Extracted band, so the caption says 'meeting documents',
+    never 'decisions' — a row means a document raised the matter, not that a vote happened."""
+    split = fetch_power_split(council)
+    if not split.ok or split.data is None or split.data.empty:
+        return  # silent: the roster card above already carries this council's coverage line
+    row = split.data.iloc[0]
+    reserved, executive = int(row["reserved_rows"]), int(row["executive_rows"])
+    total = reserved + executive
+    if total == 0:
+        return
+    pct = round(100 * reserved / total)
+    # Deliberately ONE short line. The rendered page showed this caption at 304 characters
+    # against ~90 for every other caption on the tab — the longest text block on a tab that
+    # already carries 12 headings, 9 info cards and 31 tiles. The per-class breakdown that used
+    # to sit here (Part 8, s.183, development plan) was also arguing with the tab's own
+    # "What the council is deciding" section, so it belongs with the decisions detail, not
+    # under the roster. The bar carries the comparison; the line carries the count and its band.
+    st.html(
+        f'{_PWR_CSS}<div class="yc-pwr-bar" role="img" aria-label="'
+        f'{pct}% of matters were members\' reserved functions">'
+        f'<span class="yc-pwr-res" style="width:{pct}%"></span>'
+        f'<span class="yc-pwr-exe" style="width:{100 - pct}%"></span></div>'
+        f'<div class="yc-pwr-key">Across <b>{int(row["documents"])}</b> processed meeting '
+        f"documents, <b>{reserved}</b> items were the members' own decisions and <b>{executive}</b> "
+        "were executive decisions they noted — counted from the minutes' wording.</div>"
+    )
+
+
 def _section_councillors(council: str) -> None:
     # Inline (no longer a cross-link): the roster is PROMOTED gold (v_la_councillors), read via
     # data_access. The whole-council roster is grouped by electoral area for display; per-councillor
@@ -318,6 +363,12 @@ def _section_councillors(council: str) -> None:
         "(staff, contracts, planning permissions).",
         border_left_color="#3a6b7e",
     )
+    # The reserved/executive claim above was static copy. This bar is the same claim measured in
+    # THIS council's own minutes, so the sentence stops being a general assertion about Irish
+    # local government and becomes a fact about the reader's council. Deliberately NOT a new
+    # section: it sits under the card it evidences, one bar and one line.
+    _power_evidence(council)
+
     # Reciprocal edge to the money flow: the budget these members adopt opens the VOTED lane.
     st.html(
         f'<div class="pr-prof-sub" style="margin:-0.2rem 0 0.5rem"><a class="dt-source-link" '
