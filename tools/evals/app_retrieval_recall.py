@@ -194,6 +194,11 @@ async def suite_project(session: ClientSession) -> None:
 async def _roundtrip(session: ClientSession | None, feed_tool: str, search_tool: str, member: str) -> tuple[str, int | None]:
     feed = await _call(session, feed_tool, {"name_or_code": member, "limit": 5})
     text = _longest_text(feed)
+    # Strip the member's own name first — PQ text opens with 'Deputy X asked the
+    # Minister…', and a phrase containing the name makes the round-trip trivially
+    # succeed without testing content recall at all.
+    for part in member.split():
+        text = re.sub(re.escape(part), " ", text, flags=re.I)
     phrase = _phrase_from(text, skip=10, n=8)
     if not phrase:
         _tick(f"{feed_tool}: no text for {member}")
