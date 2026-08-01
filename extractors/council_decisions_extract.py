@@ -15,13 +15,19 @@ from __future__ import annotations
 
 import json
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+# Code lives in extractors/ (2026-08-01); the data workspace (corpus + jsonl in/out)
+# stays in the sandbox where the harvest pipeline writes and the promote script reads.
+HERE = Path(__file__).resolve().parents[1] / "pipeline_sandbox" / "council_minutes"
 
 # name = up to ~45 chars after the honorific, cut at punctuation that ends a name
-_NAME = r"(?:Cllr\.?|Councillor|Comhairleoir)\s+([A-ZÁÉÍÓÚ][\w'’.\- ÁÉÍÓÚáéíóú]{2,45}?)"
+# GREEDY name match — the lazy form truncated every pattern-A SECONDER to its minimal
+# 3 chars ("Bri" for "Brian Bbb"); nothing anchors the seconder's right edge, so the
+# match must run long and _clean_name() splits the trailing sentence off (test-caught
+# defect, 2026-08-01 — affected all extracted motions until the graduation tests)
+_NAME = r"(?:Cllr\.?|Councillor|Comhairleoir)\s+([A-ZÁÉÍÓÚ][\w'’.\- ÁÉÍÓÚáéíóú]{2,45})"
 _PROP_A = re.compile(
     r"(?:on the )?PROPOS(?:AL|ED)\s+(?:of|by)\s*" + _NAME + r"[,\s]+(?:and\s+)?SECONDED\s+by\s*" + _NAME,
     re.I,

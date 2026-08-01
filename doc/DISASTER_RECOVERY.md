@@ -28,6 +28,8 @@ working machine. The backup side (what runs, how it's configured) is in
 | `data/bronze/` (~7.4 GB raw captures) | R2 bucket `dail-tracker-backup/bronze/` | `rclone copy` (below) |
 | `data/silver/` (~1.7 GB derived) | R2 bucket `dail-tracker-backup/silver/` | `rclone copy` (below) |
 | `data/gold/` (beyond the git slice), rest of `data/silver` | **not backed up** — regenerable | rebuild via the pipeline from bronze |
+| `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
+| `planning/product/` (~1.2 GB, kept out of the public repo — see `.gitignore`) | **not backed up as of 2026-08-01** — see note below | none yet |
 
 R2 account ID: `dda75db5c9db02954a7b45e69052c742`
 S3 endpoint: `https://dda75db5c9db02954a7b45e69052c742.r2.cloudflarestorage.com`
@@ -81,13 +83,18 @@ rclone copy "r2:dail-tracker-backup/bronze/pdfs/la_procurement/cork_city/<file>.
   .\data\bronze\pdfs\la_procurement\cork_city\
 ```
 
-## Re-arm the backup on the new machine
+## Re-arm the scheduled tasks on the new machine
 
-Once restored and verified:
+Once restored and verified, both scheduled tasks this project depends on need
+re-registering — not just the backup one:
 
 ```powershell
-tools\register_backup_task.ps1               # weekly Sun 02:00 task back in place
+tools\register_backup_task.ps1                # DailTracker-BackupR2, weekly Sun 02:00
+tools\register_legal_diary_task.ps1            # DailTracker-LegalDiary
 ```
+
+Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` afterward
+— both should show `Ready`.
 
 ## Notes
 
@@ -101,3 +108,14 @@ tools\register_backup_task.ps1               # weekly Sun 02:00 task back in pla
   [../tools/backup_to_r2.ps1](../tools/backup_to_r2.ps1).
 - Verified working: a live restore drill on 2026-06-13 pulled a file from R2 and its
   SHA-256 matched the committed manifest exactly.
+- **Open gap (2026-08-01): `planning/product/`** (~1.2 GB) is deliberately excluded
+  from GitHub (`.gitignore` — kept out of the public repo) but is *not* mirrored to
+  R2 either, since `backup_to_r2.ps1` only covers `bronze`/`silver`/`raw_bq`. Right
+  now this tree has no off-box copy at all. A local restic smoke test (encrypted,
+  local-only, this session) proved restic backs it up and restores it byte-for-byte
+  (1,140/1,140 files verified, `restic check` clean) — the natural fix is a second
+  restic repository targeting the same private R2 bucket under a distinct prefix,
+  which keeps it out of the public GitHub repo while giving it real off-box
+  durability. Not yet built: needs its own R2 credential (reuse or a new
+  least-privilege token) and a decision on where its repository password is stored
+  for unattended weekly runs.

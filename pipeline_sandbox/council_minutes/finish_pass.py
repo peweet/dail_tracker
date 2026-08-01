@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 import council_minutes_consolidate as base
-from decisions_extract import _fname_date
+from extractors.council_decisions_extract import _fname_date  # moved to production 2026-08-01
 
 HERE = Path(__file__).resolve().parent
 DUPES = HERE / "corpus_dupes"
@@ -104,10 +104,16 @@ def main() -> int:
           f"kept {len(kept)} | dates backfilled from page text: {backfilled}", flush=True)
 
     # downstream chain on the deduped corpus
-    for script in ("council_votes_extract.py", "decisions_extract.py",
-                   "minutes_value_classify.py", "completeness_table.py"):
-        r = subprocess.run([sys.executable, script], cwd=str(HERE))
-        print(f"  {script} exit={r.returncode}", flush=True)
+    # votes + decisions graduated to extractors/ (run as modules from ROOT);
+    # the analytical passes stay sandbox-side
+    for cmd, cwd in (
+        ([sys.executable, "-m", "extractors.council_votes_extract"], HERE.parents[1]),
+        ([sys.executable, "-m", "extractors.council_decisions_extract"], HERE.parents[1]),
+        ([sys.executable, "minutes_value_classify.py"], HERE),
+        ([sys.executable, "completeness_table.py"], HERE),
+    ):
+        r = subprocess.run(cmd, cwd=str(cwd))
+        print(f"  {' '.join(cmd[1:])} exit={r.returncode}", flush=True)
 
     quar = [json.loads(l) for l in (HERE / "quarantine/quarantine.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     votes = [json.loads(l) for l in (HERE / "member_votes_all.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]

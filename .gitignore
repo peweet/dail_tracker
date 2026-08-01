@@ -14,6 +14,21 @@
 *.json
 *.xlsx
 *.pdf
+# doc/source_pdfs — CACHED SOURCE DOCUMENTS that LIVE extractors read as their input
+# (2026-08-01). The blanket *.pdf / *.xlsx rules above were silently swallowing these,
+# even though three extractors' own headers describe them as "cached source, git-tracked":
+#   derelict_sites_levy_extract.py:15   -> 2024_Derelict_Sites_Statistics.xlsx
+#   noac_scorecard_extract.py:37        -> NOAC_LA_PerfInd_2024.pdf
+#   noac_indicators_long_extract.py:11  -> NOAC_LA_PerfInd_2024.pdf
+#   local_authority_arv_extract.py:42   -> 2026_Annual_Rates_on_Valuation.xlsx
+# They are upstream-published one-off documents (DHLGH/NOAC), NOT regenerable by the
+# pipeline and NOT mirrored to R2 (backup_to_r2.ps1 only covers bronze/silver/raw_bq), so
+# an un-tracked copy existed on exactly one disk. Same survive-machine-failure rationale as
+# the silver AFS facts below. ~5.8 MB total.
+!doc/source_pdfs/2024_Derelict_Sites_Statistics.xlsx
+!doc/source_pdfs/NOAC_LA_PerfInd_2024.pdf
+!doc/source_pdfs/2026_Annual_Rates_on_Valuation.xlsx
+
 # Raw server-download artifacts (LA procurement portals hand back .aspx/.ashx blobs that
 # are really PDFs/HTML); these are regenerable downloads, never source — the *.pdf rule
 # above misses them. One .aspx leaked into data/bronze/pdfs/ before this rule existed.

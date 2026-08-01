@@ -16,7 +16,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-from decisions_extract import _fname_date
+from extractors.council_decisions_extract import _fname_date  # moved to production 2026-08-01
 
 HERE = Path(__file__).resolve().parent
 EXPECTED_PER_YEAR = 11  # [Indicative] see module docstring

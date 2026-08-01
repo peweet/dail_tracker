@@ -418,6 +418,12 @@ RE_HAND_NFKD = re.compile(r"""unicodedata\.normalize\(\s*["']NFK?D["']""")
 # same exemption logic as R8's RULE_JARGON_EXEMPT).
 NFKD_CANONICAL = {"shared/normalise_join_key.py", "shared/name_norm.py", "tools/check_conventions.py"}
 BASELINE_HAND_NFKD = {
+    # council_votes_extract graduated from the sandbox 2026-08-01 carrying _fold():
+    # an initial-PRESERVING person-name fold for RosterResolver.initials ("O. Moran"
+    # → "Orla Moran"). Neither canonical fits: normalise_join_key SORTS characters
+    # (destroys initial+surname structure), name_norm is the ORG-name variant.
+    # Documented semantic difference, not drift.
+    "extractors/council_votes_extract.py",
     "committees/committees_long_format_etl.py",
     "dail_tracker_core/buyer_xref.py",
     "extractors/_diary_minister.py",
