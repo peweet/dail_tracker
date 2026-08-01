@@ -26,6 +26,12 @@ from mcp_server import resource_policy
 
 CACHE_REL = ".cache/text_fts.duckdb"
 
+# DuckDB's create_fts_index default `ignore` regex strips every non-alphabetic
+# character, so pure-digit tokens (bill/SI numbers, question refs, section numbers,
+# money figures) never enter the dictionary. Override to keep [a-z0-9] — verified
+# 2026-08-01 this restores digit search without changing word/stemming behaviour.
+_FTS_IGNORE = "[^a-z0-9]+"
+
 CORPORA = {
     "speeches": {
         "view": "v_member_speeches",
@@ -136,8 +142,10 @@ def _build(kind: str, cur, repo: Path, fp: tuple[int, str]) -> None:
     try:
         with contextlib.suppress(Exception):  # first build — no index yet
             con.execute(f"PRAGMA drop_fts_index('{kind}')")
-        # defaults: porter stemmer, english stopwords, lowercase — exactly what we want
-        con.execute(f"PRAGMA create_fts_index('{kind}', 'rid', '{spec['text_col']}')")
+        # defaults: porter stemmer, english stopwords, lowercase — exactly what we want.
+        # ignore overridden to _FTS_IGNORE (see module docstring above it) so citation
+        # queries (bill/SI numbers, question refs, section numbers) are searchable.
+        con.execute(f"PRAGMA create_fts_index('{kind}', 'rid', '{spec['text_col']}', ignore='{_FTS_IGNORE}')")
         # meta is written ONLY after a successful index build — a fingerprint written
         # earlier would mark a half-built cache as fresh and it would never rebuild
         con.execute("CREATE TABLE IF NOT EXISTS meta (kind VARCHAR PRIMARY KEY, n BIGINT, maxd VARCHAR)")

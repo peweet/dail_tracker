@@ -108,11 +108,14 @@ def _normalise_url(url: str) -> str:
     # ("…/ 2020-07-30_pq93…", "…_en .docx", 6 cases). Quoting turns these into
     # %5C / %20 and the fetch 404s. Both are safe to delete outright.
     url = url.replace("\\", "").replace(" ", "")
-    url = re.sub(r"^(https?):/(?!/)", r"\1://", url)
-    if url.startswith("//"):
-        url = "https:" + url
-    elif not url.startswith(("http://", "https://")):
-        url = "https://" + url.lstrip("/")
+    # Every attachment lives on this one host. Anchoring on it and rebuilding
+    # the scheme from scratch repairs every scheme mangling seen so far
+    # (single slash "https:/data…", missing scheme "data…", and a truncated
+    # scheme "ps://data…" — the first found live 2026-08-01) in one pass,
+    # instead of pattern-matching each mangled form individually.
+    host_idx = url.find("data.oireachtas.ie")
+    if host_idx != -1:
+        url = "https://" + url[host_idx:]
     # Collapse doubled slashes in the PATH only ("…/supportingDocumentation//file.docx"),
     # never in the "https://" scheme separator.
     scheme, rest = url.split("://", 1)
