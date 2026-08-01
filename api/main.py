@@ -10,6 +10,10 @@ Licence: data served under CC-BY 4.0 (mirrors the Oireachtas PSI upstream).
 
 from __future__ import annotations
 
+# isort: off
+import services.runtime_env  # noqa: F401  — BLAS-thread cap; MUST stay the first repo import
+# isort: on
+
 import logging
 import time
 from contextlib import asynccontextmanager

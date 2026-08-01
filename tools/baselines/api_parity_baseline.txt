@@ -54,6 +54,7 @@ judiciary.nominations
 judiciary.plaintiff_league
 judiciary.profile
 legislation.act_commencement
+legislation.distinct_introduced_years
 legislation.distinct_statuses
 legislation.most_contested_bills
 legislation.pre2014_act
@@ -130,12 +131,15 @@ payments.year_options
 procurement/afs.afs_by_division
 procurement/afs.afs_capital_by_division
 procurement/afs.afs_capital_by_year
+procurement/afs.afs_debt_standing
+procurement/afs.afs_financial_position
+procurement/afs.afs_loan_movement_by_year
+procurement/afs.afs_loans_payable_by_year
 procurement/afs.afs_national_by_division
 procurement/afs.la_budget_by_division
 procurement/afs.la_budget_vs_actual
 procurement/awards.available_years
 procurement/awards.awards_by_year
-procurement/awards.awards_for_authority
 procurement/awards.awards_for_cpv
 procurement/awards.bid_signal
 procurement/awards.supplier_concentration
@@ -149,9 +153,7 @@ procurement/payments.payment_lines_for_pair
 procurement/payments.payment_lines_for_supplier
 procurement/payments.payments_by_year
 procurement/payments.payments_corpus_stats
-procurement/payments.payments_for_publisher
 procurement/payments.payments_for_supplier
-procurement/payments.payments_publisher_profile
 procurement/payments.payments_publisher_summary
 procurement/payments.payments_publishers_for_supplier
 procurement/payments.payments_real_by_year

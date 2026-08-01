@@ -143,6 +143,7 @@ all = [
 #   uv sync --extra pipeline --group dev        # = CI's full lane
 [dependency-groups]
 dev = [
+    "scikit-learn>=1.9",      # TF-IDF/LinearSVC classifier exercises (works-type, council-minutes doc_type) — was pip-installed undeclared 2026-07-26; uv sync pruned such deps before (camelot, winocr)
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.11",
@@ -290,6 +291,10 @@ known_first_party = [
     "sipo_candidate_expenses_extract", "sipo_expense_items_paddle_etl",
     "sipo_expenses_paddle_etl", "sipo_promote_to_gold", "stateboards_roster_extract",
     "statutory_instruments", "test_silver_layer", "ui",
+    # Sibling-module imports missed by the original list (found when deptry was
+    # wired into the test suite 2026-07-31, tools/check_dependency_declarations.py):
+    "la_afs_balancesheet_extract", "guard_memory", "harness_bench",
+    "check_mcp_adoption", "session_closeout",
 ]
 
 [tool.deptry.per_rule_ignores]
@@ -298,7 +303,11 @@ known_first_party = [
 #   la_afs_extract.py:64-72). Kept OUT of this venv on purpose — it avoids the
 #   opencv/cv2 clash that would break SIPO OCR, and is best-effort (absent venv →
 #   those councils skip, the fitz fact still ships). NEVER add it to an extra.
-DEP001 = ["camelot"]
+#   paddleocr: GPU-only, install is manual/isolated by design (crashes local CPU
+#   box — feedback_paddleocr_crashes_local_box). Historically ignored under DEP003;
+#   when the package is absent from the venv deptry classifies it DEP001, so it is
+#   ignored under both codes for the same reason.
+DEP001 = ["camelot", "paddleocr"]
 # DEP002 — declared but "unused": all three are correct declarations deptry can't see.
 #   uvicorn/ocrmypdf are CLI-invoked (`uvicorn api.main:app`), never imported;
 #   dail-tracker is the `all` extra's self-reference.

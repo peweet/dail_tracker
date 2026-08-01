@@ -104,19 +104,30 @@ are `[Verified — file:line]`, not `[Reported]`.
 
 **Useable — confirmed gaps, buildable now, same shape as existing rules:**
 
-1. **No import-existence check exists.** `check_conventions.py` has ten rules (R1–R10: raw HTTP,
-   UA literals, raw parquet writes, `logging.basicConfig`, raw coverage JSON, retired formatters,
-   `@dt_page`, file-size ratchets, split-gate watch) — none check whether an imported package is
-   declared [Verified — tools/check_conventions.py, full read]. Spracklen et al.'s
-   package-hallucination finding maps onto a genuinely empty slot: AST-walk changed files for
-   `import X`, diff against `pyproject.toml`/`uv.lock`, same shape as R1–R5. `uv sync` pruning is
-   the only current backstop, and it fires after the code has already landed in a diff.
+1. **No import-existence check runs automatically.** `check_conventions.py` has ten rules (R1–R10:
+   raw HTTP, UA literals, raw parquet writes, `logging.basicConfig`, raw coverage JSON, retired
+   formatters, `@dt_page`, file-size ratchets, split-gate watch) — none check whether an imported
+   package is declared [Verified — tools/check_conventions.py, full read]. **Correction (07-31,
+   found while building the fix):** the draft's "uv sync pruning is the only current backstop" was
+   wrong — `deptry` was already declared in the dev group with a curated `[tool.deptry]` config
+   [Verified — pyproject.toml], and its DEP001 rule is exactly this check. The real gap was
+   *wiring*: no CI job or test ran it (repo-wide grep for `deptry` outside pyproject → 0 hits),
+   the classic wiring-gap pattern (memory: feedback_wiring_gap_parity_check_2026_07_31).
+   **SHIPPED 2026-07-31:** `tools/check_dependency_declarations.py` gates hard on DEP001 (stable
+   across venvs — computed from declarations, not the installed env) and demotes the
+   env-dependent DEP002/003/004 classes to advisory notes; runs in the fast suite via
+   `test/tools/test_dependency_declarations.py` (1.7s). Wiring it surfaced and fixed five
+   first-party modules missing from `known_first_party` and paddleocr ignored under the wrong
+   rule code [Verified — the gate now passes with 0 DEP001s].
 2. **The polars-for-ETL rule is enforced by discipline, not a check.** Zero `extractors/` files
    currently `import pandas` [Verified — `grep -rl "import pandas" extractors/` → 0 hits], but no
    rule would catch one if added. R3 (`raw-parquet-write`) already proves the
    zero-baseline-hard-rule pattern works at 100% adoption — a `pandas-in-extractors` rule is the
    same shape. The Twist/Harman ACL-2026 finding (models default to familiar libraries under
    pressure) is the concrete reason this rule is worth having *before* it's needed, not after.
+   **SHIPPED 2026-07-31:** R11 `pandas-in-etl` in `tools/check_conventions.py`, empty baseline
+   (zero offenders re-verified across both extractor roots at ship time), covering
+   `extractors/` and `planning/civic/extractors/`.
 
 **Already substantially covered — the paper validates existing design, not a build item:**
 
@@ -155,8 +166,14 @@ scoping material, not confirmed gaps.
 
 ## What this could concretely change (candidates only — nothing here is adopted)
 
-1. **Package-hallucination check at generation time** — confirmed gap, see Assessment #1 above.
-2. **`pandas`-in-extractors ratchet rule** — confirmed gap, see Assessment #2 above.
+1. **Package-hallucination check at generation time** — SHIPPED 2026-07-31 by wiring the
+   already-present `deptry` into a hard DEP001 gate, see Assessment #1 above.
+2. **`pandas`-in-extractors ratchet rule** — SHIPPED 2026-07-31 as R11 `pandas-in-etl`, see
+   Assessment #2 above. The Jin & Chen fix-guided-verification idea also landed the same day as
+   a short addition to `.claude/agents/verifier.md`: before promoting a finding to CONFIRMED the
+   verifier must name the one-line fix the finding implies (can't name a fix → the violated
+   "requirement" was probably hallucinated), kept deliberately short because the same paper found
+   elaborate review prompts increase misjudgment.
 3. **GeoParquet as an archival format for layer tables** — DECIDED 2026-07-31: skipped, see
    Assessment #5 (query path builds an STRtree regardless of format; covering shape doesn't
    match the repo's f32 bbox columns; runtime excludes the geopandas/GDAL toolchain; DuckDB

@@ -3,7 +3,7 @@
 
 # doc/ index
 
-66 docs · ~345.0k tokens total · 51 LIVE · 0 superseded/stale · 13 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+68 docs · ~359.5k tokens total · 51 LIVE · 0 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -70,8 +70,10 @@
 | [CLOUD_READINESS.md](CLOUD_READINESS.md) | — | 1.5k | — |  |
 | [COMMUNICATION_STYLE.md](COMMUNICATION_STYLE.md) | — | 6.7k | — |  |
 | [COMPETITOR_LANDSCAPE.md](COMPETITOR_LANDSCAPE.md) | — | 3.6k | — |  |
+| [EXTRACTION_QUALITY_CHECKLIST.md](EXTRACTION_QUALITY_CHECKLIST.md) | — | 0.7k | — |  |
 | [FRAMEWORK_DECOUPLING_PLAN.md](FRAMEWORK_DECOUPLING_PLAN.md) | — | 6.9k | — |  |
 | [JOURNALIST_MCP_PLAN.md](JOURNALIST_MCP_PLAN.md) | — | 5.1k | — |  |
+| [LLM_GEO_EU_RESEARCH_SCAN_2026_07_31.md](LLM_GEO_EU_RESEARCH_SCAN_2026_07_31.md) | — | 13.8k | — |  |
 | [OBSERVABILITY.md](OBSERVABILITY.md) | — | 1.7k | — |  |
 | [PLAN_ACP_GEOMETRY_AND_PRECEDENT.md](PLAN_ACP_GEOMETRY_AND_PRECEDENT.md) | — | 5.0k | — |  |
 | [REFACTORING_CANDIDATES.md](REFACTORING_CANDIDATES.md) | — | 4.9k | — |  |
@@ -80,4 +82,4 @@
 | [TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) | — | 5.9k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-07-31 -->
+<!-- generated 2026-08-01 -->

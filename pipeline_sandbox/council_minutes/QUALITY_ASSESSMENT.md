@@ -1,64 +1,69 @@
 # Council minutes — extraction quality assessment
 
-Auto-generated. Consolidated v1+v2. **308 unique docs**, **155 clean (50%)**, **153 quarantined**, **185 attributed member-votes**.
+Auto-generated. Consolidated v1+v2. **1139 unique docs**, **953 clean (84%)**, **186 quarantined**, **345 attributed member-votes**.
 
 ## By extraction status
 | status | docs |
 |---|---|
-| text | 227 |
-| staged_offbox_scanned | 70 |
-| ocr_winocr | 5 |
-| err_ConnectionError | 5 |
-| fetch_fail | 1 |
+| text | 825 |
+| ocr_winocr | 254 |
+| html | 57 |
+| fetch_fail | 3 |
 
 ## By document type
 | doc_type | docs |
 |---|---|
-| plenary_minutes | 197 |
-| other | 50 |
-| md_minutes | 26 |
-| standing_orders | 22 |
-| report_or_plan | 12 |
-| agenda | 1 |
+| plenary_minutes | 835 |
+| md_minutes | 134 |
+| report_or_plan | 84 |
+| other | 53 |
+| agenda | 23 |
+| standing_orders | 10 |
 
 ## Quarantine reasons (for later review)
 | reason | docs |
 |---|---|
-| scanned_not_ocr | 70 |
-| low_text | 40 |
-| not_minutes_standing_orders | 21 |
-| not_minutes_report_or_plan | 12 |
-| extract_err_ConnectionError | 5 |
-| unrecognised_doctype | 4 |
-| extract_fetch_fail | 1 |
+| not_minutes_report_or_plan | 84 |
+| low_text | 61 |
+| unrecognised_doctype | 15 |
+| not_minutes_agenda | 14 |
+| not_minutes_standing_orders | 9 |
+| extract_fetch_fail | 3 |
 
 ## Per-council coverage
 | council | clean | quarantined | member_votes |
 |---|---|---|---|
-| Carlow | 8 | 1 | 185 |
-| Cavan | 1 | 1 | 0 |
-| Clare | 3 | 0 | 0 |
-| Cork City | 34 | 4 | 0 |
-| Cork County | 1 | 0 | 0 |
-| Donegal | 20 | 0 | 0 |
-| Fingal | 0 | 1 | 0 |
-| Galway City | 0 | 40 | 0 |
-| Galway County | 0 | 11 | 0 |
-| Kerry | 16 | 0 | 0 |
-| Kildare | 13 | 5 | 0 |
-| Kilkenny | 14 | 10 | 0 |
-| Laois | 10 | 2 | 0 |
-| Leitrim | 2 | 16 | 0 |
-| Longford | 0 | 4 | 0 |
-| Louth | 0 | 12 | 0 |
-| Monaghan | 19 | 1 | 0 |
-| Offaly | 1 | 39 | 0 |
+| Carlow | 12 | 0 | 185 |
+| Cavan | 2 | 0 | 0 |
+| Clare | 55 | 2 | 0 |
+| Cork City | 105 | 2 | 0 |
+| Cork County | 14 | 2 | 0 |
+| Donegal | 42 | 0 | 0 |
+| Dublin City | 47 | 0 | 0 |
+| Fingal | 67 | 1 | 0 |
+| Galway | 13 | 0 | 0 |
+| Galway City | 104 | 8 | 0 |
+| Galway County | 29 | 0 | 0 |
+| Kerry | 31 | 15 | 0 |
+| Kildare | 30 | 18 | 0 |
+| Kilkenny | 18 | 6 | 0 |
+| Laois | 17 | 0 | 0 |
+| Leitrim | 2 | 19 | 0 |
+| Limerick | 2 | 0 | 0 |
+| Longford | 9 | 18 | 0 |
+| Louth | 13 | 0 | 0 |
+| Meath | 23 | 13 | 160 |
+| Monaghan | 31 | 1 | 0 |
+| Offaly | 15 | 55 | 0 |
 | Roscommon | 0 | 1 | 0 |
-| South Dublin | 1 | 0 | 0 |
-| Waterford | 12 | 3 | 0 |
-| Westmeath | 0 | 2 | 0 |
+| South Dublin | 1 | 1 | 0 |
+| Tipperary | 3 | 0 | 0 |
+| Waterford | 14 | 1 | 0 |
+| Westmeath | 56 | 1 | 0 |
+| Wexford | 99 | 11 | 0 |
+| Wicklow | 99 | 11 | 0 |
 
 ## Vote coverage
-- councils with attributed votes: ['Carlow']
-- total member-vote rows: 185
-- by vote: {'against': 44, 'abstain': 6, 'for': 129, 'absent': 6}
+- councils with attributed votes: ['Carlow', 'Meath']
+- total member-vote rows: 345
+- by vote: {'against': 63, 'abstain': 22, 'for': 229, 'absent': 31}

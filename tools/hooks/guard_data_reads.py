@@ -46,6 +46,14 @@ BLOCKED_META = ("data/_meta/fact_cards.json",)
 # CLAUDE.md already says to read via their SECTION MAP + offset/limit.
 LARGE_FILE_BYTES = 64_000
 
+# Images are exempt from the byte ceiling: bytes are not a proxy for tokens here.
+# A screenshot is tokenised from its DIMENSIONS after downscaling to the ~1568px
+# long edge, so a 1440x900 PNG costs ~1.7k tokens whether the file is 200 KB or
+# 8 MB. Applying LARGE_FILE_BYTES to them blocked exactly the review workflow
+# tools/ui_capture.py exists to feed (a 272 KB capture was refused as "~68k
+# tokens", ~40x its real cost). Added 2026-08-01.
+IMAGE_SUFFIX = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
+
 
 def _extract_path(payload: dict) -> str:
     ti = payload.get("tool_input") or payload.get("toolInput") or payload.get("input") or {}
@@ -84,6 +92,8 @@ def _oversized(path: str) -> int:
     try:
         import os
 
+        if path.replace("\\", "/").lower().endswith(IMAGE_SUFFIX):
+            return 0
         n = os.path.getsize(path)
         return n if n > LARGE_FILE_BYTES else 0
     except Exception:

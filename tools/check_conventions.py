@@ -145,6 +145,16 @@ BASELINE_RAW_COVERAGE = {
     "ted_ireland_winner_history_extract.py",
 }
 
+# R11: pandas in the ETL layer. CLAUDE.md never-break rule: "Polars for ETL,
+#     pandas only in the UI layer." Baseline is EMPTY (verified zero offenders
+#     across both extractor roots 2026-07-31) — this is the R3 pattern: lock in
+#     100% adoption before the first offender exists. The concrete threat is
+#     model library-familiarity bias (Twist & Harman et al., Findings of ACL
+#     2026, arXiv:2503.17181): under pressure a code model reaches for the
+#     familiar library, and pandas/polars look interchangeable at a glance.
+RE_PANDAS_IMPORT = re.compile(r"^\s*(?:import pandas\b|from pandas\b)", re.MULTILINE)
+BASELINE_PANDAS_IMPORT: set[str] = set()
+
 # ── Rules over utility/pages_code/ ────────────────────────────────────────────
 
 # R6: retired page-local formatter clones. The canonical versions live in
@@ -161,6 +171,7 @@ EXTRACTOR_RULES = [
     ("raw-parquet-write", RE_RAW_PARQUET, BASELINE_RAW_PARQUET, "use services.parquet_io.save_parquet (atomic, zstd)"),
     ("logging-basicconfig", RE_BASICCONFIG, BASELINE_BASICCONFIG, "use services.extract_runner.run_extractor(main)"),
     ("raw-coverage-json", RE_RAW_COVERAGE, BASELINE_RAW_COVERAGE, "use services.coverage_io.save_coverage (atomic)"),
+    ("pandas-in-etl", RE_PANDAS_IMPORT, BASELINE_PANDAS_IMPORT, "Polars for ETL; pandas only in the UI layer (CLAUDE.md never-break rule)"),
 ]
 
 
@@ -305,6 +316,160 @@ def _rule_file_jargon() -> list[str]:
     return out
 
 
+# ── R12: extraction quality report (completeness + recall sections) ──────────
+# Correctness gates say nothing about what an extraction MISSED (memory:
+# feedback_source_fidelity_audit_method). Any extraction OUTPUT directory — one
+# holding a corpus/ subdir or a *_clean.jsonl — must ship a quality report (.md)
+# containing BOTH "## Completeness" and "## Recall" section markers, per
+# doc/EXTRACTION_QUALITY_CHECKLIST.md. Ratchet: dirs predating the rule are
+# grandfathered; new extractions fail until the report exists. Deliberately a
+# marker check, not a content check — the sections' quality is judgement
+# (guardrail-determinism tiers), their PRESENCE is deterministic.
+EXTRACTION_QUALITY_SECTIONS = ("## Completeness", "## Recall")
+BASELINE_EXTRACTION_QUALITY = {
+    "pipeline_sandbox/committee_evidence",
+    "pipeline_sandbox/council_minutes",
+    "pipeline_sandbox/semistate_minutes",
+}
+
+
+def _extraction_quality_reports() -> list[str]:
+    out: list[str] = []
+    roots = [ROOT / "pipeline_sandbox", *EXTRACTOR_DIRS]
+    seen: set[Path] = set()
+    for root in roots:
+        if not root.exists():
+            continue
+        for marker in list(root.glob("*/corpus")) + list(root.glob("*/*_clean.jsonl")):
+            d = marker.parent
+            if d in seen:
+                continue
+            seen.add(d)
+            rel = d.relative_to(ROOT).as_posix()
+            if rel in BASELINE_EXTRACTION_QUALITY:
+                continue
+            mds = list(d.glob("*.md"))
+            ok = any(
+                all(s in md.read_text(encoding="utf-8", errors="replace") for s in EXTRACTION_QUALITY_SECTIONS)
+                for md in mds
+            )
+            if not ok:
+                out.append(
+                    f"{rel}: extraction output with no quality report carrying "
+                    f"{' + '.join(EXTRACTION_QUALITY_SECTIONS)} sections — "
+                    f"see doc/EXTRACTION_QUALITY_CHECKLIST.md"
+                )
+    return out
+
+
+# ── R13: raw parquet writes OUTSIDE the extractor dirs ───────────────────────
+# R3 locked save_parquet at 100% in the two extractor roots, but the never-break
+# rule ("parquet writes are atomic, zstd, row-floor guard") is repo-wide. The
+# 2026-08-01 prose-rule audit swept services/, dail_tracker_core/, votes/,
+# attendance/, payments/, iris/, tools/, planning/ and found ONE production
+# bypass (planning/product/core/dem.py, fixed same day) — so this locks the
+# whole production tree at zero, the R3/R11 move. Sandbox trees and tests stay
+# out of scope; services/parquet_io.py IS the canonical writer.
+PARQUET_SCAN_DIRS = (
+    "services", "dail_tracker_core", "votes", "attendance", "payments",
+    "iris", "tools", "planning", "wikidata", "committees", "reference",
+)
+PARQUET_SCAN_EXEMPT = {"services/parquet_io.py"}
+BASELINE_RAW_PARQUET_REPO: set[str] = set()
+
+
+def _raw_parquet_outside_extractors() -> list[str]:
+    out: list[str] = []
+    extractor_rels = {d.relative_to(ROOT).as_posix() for d in EXTRACTOR_DIRS}
+    for dirname in PARQUET_SCAN_DIRS:
+        root = ROOT / dirname
+        if not root.exists():  # planning/product is overlay-tracked; absent in CI checkouts
+            continue
+        for py in sorted(root.rglob("*.py")):
+            rel = py.relative_to(ROOT).as_posix()
+            parts = set(rel.split("/"))
+            if parts & {"sandbox", "pipeline_sandbox", "test", "__pycache__"}:
+                continue
+            if rel in PARQUET_SCAN_EXEMPT or rel in BASELINE_RAW_PARQUET_REPO:
+                continue
+            if any(rel.startswith(ex + "/") for ex in extractor_rels):
+                continue  # R3's ground
+            if RE_RAW_PARQUET.search(py.read_text(encoding="utf-8", errors="replace")):
+                out.append(f"{rel} — use services.parquet_io.save_parquet (atomic, zstd; min_rows opt-in)")
+    return out
+
+
+# ── R14: hand-rolled accent-fold normalisation ───────────────────────────────
+# CLAUDE.md never-break rule: the members join key is the normalised TD name —
+# "reuse the existing normaliser; don't invent matching." The canonicals are
+# shared/normalise_join_key.py and shared/name_norm.py. 25 files predating this
+# rule carry their own unicodedata.normalize("NFKD"/"NFD") call (many fold ORG
+# or LA names, which is legitimate — but nothing distinguishes them mechanically,
+# so they are grandfathered rather than judged here). The ratchet stops call-site
+# #26: a NEW hand-rolled fold either belongs in a shared/ helper or should import
+# one. Threat model = library-familiarity bias, same as R11.
+RE_HAND_NFKD = re.compile(r"""unicodedata\.normalize\(\s*["']NFK?D["']""")
+NFKD_CANONICAL = {"shared/normalise_join_key.py", "shared/name_norm.py"}
+BASELINE_HAND_NFKD = {
+    "committees/committees_long_format_etl.py",
+    "dail_tracker_core/buyer_xref.py",
+    "extractors/_diary_minister.py",
+    "extractors/cbi_registers_extract.py",
+    "extractors/diary_company_influence.py",
+    "extractors/diary_lobbying_overlap.py",
+    "extractors/diary_org_match.py",
+    "extractors/hsa_comah_extract.py",
+    "extractors/judiciary_bench_extract.py",
+    "extractors/la_budgets_extract.py",
+    "extractors/lgas_audit_reports_extract.py",
+    "extractors/lpt_laf_extract.py",
+    "extractors/news_mentions_extract.py",
+    "extractors/noac_indicators_long_extract.py",
+    "extractors/noac_scorecard_extract.py",
+    "extractors/noac_scorecard_history_extract.py",
+    "extractors/persist_judiciary_data.py",
+    "extractors/procurement_payments_consolidate.py",
+    "planning/civic/extractors/opr_plan_directions_extract.py",
+    "planning/civic/extractors/planning_appeal_outcomes.py",
+    "reference/ec_constituency_crosswalk_extract.py",
+    "utility/ui/avatars.py",
+    "utility/ui/entity_links.py",
+    "wikidata/ministerial_tenure_build.py",
+    "wikidata/stateboards_wikidata_enrich.py",
+}
+
+
+def _hand_rolled_nfkd() -> tuple[list[str], list[str]]:
+    """Returns (violations, stale_baseline_notes)."""
+    import subprocess
+
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "*.py"], cwd=str(ROOT), capture_output=True, text=True, check=True
+        ).stdout.splitlines()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return [], []
+    offenders: set[str] = set()
+    for rel in tracked:
+        rel = rel.replace("\\", "/")
+        if rel.startswith(("test/", "pipeline_sandbox/")) or rel in NFKD_CANONICAL:
+            continue
+        path = ROOT / rel
+        if not path.exists():
+            continue
+        if RE_HAND_NFKD.search(path.read_text(encoding="utf-8", errors="replace")):
+            offenders.add(rel)
+    violations = [
+        f"{rel} — import shared.normalise_join_key / shared.name_norm instead of hand-rolling the fold"
+        for rel in sorted(offenders - BASELINE_HAND_NFKD)
+    ]
+    stale = [
+        f"[hand-rolled-nfkd] {rel} no longer offends — remove it from the baseline (ratchet down)"
+        for rel in sorted(BASELINE_HAND_NFKD - offenders)
+    ]
+    return violations, stale
+
+
 def main() -> int:
     violations: list[str] = []
     stale_baseline: list[str] = []
@@ -338,6 +503,11 @@ def main() -> int:
 
     violations.extend(f"[rule-file-jargon] {v}" for v in _rule_file_jargon())
     violations.extend(f"[largest-file-ratchet] {v}" for v in _largest_file_ratchet())
+    violations.extend(f"[extraction-quality] {v}" for v in _extraction_quality_reports())
+    violations.extend(f"[raw-parquet-write] {v}" for v in _raw_parquet_outside_extractors())
+    nfkd_violations, nfkd_stale = _hand_rolled_nfkd()
+    violations.extend(f"[hand-rolled-nfkd] {v}" for v in nfkd_violations)
+    stale_baseline.extend(nfkd_stale)
 
     for note in stale_baseline:
         print(f"NOTE  {note}")
