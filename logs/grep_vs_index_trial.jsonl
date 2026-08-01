@@ -14,3 +14,5 @@
 {"ts": "2026-08-01T16:27:39.347707+00:00", "session": "c3175db1-95c", "category": "py_deps", "nudged": false, "pattern": "import corporate as corp|queries\\.corporate|queries import corporate"}
 {"ts": "2026-08-01T19:57:36.980227+00:00", "session": "06b4e45b-0c8", "category": "py_refs", "nudged": true, "pattern": "pq_pdf_garble_scores"}
 {"ts": "2026-08-01T20:42:10.059085+00:00", "session": "f8168c9e-0bd", "category": "py_deps", "nudged": true, "pattern": "from ui.format import|from ui import format"}
+{"ts": "2026-08-01T21:35:59.837363+00:00", "session": "696cac4d-6d6", "category": "py_refs", "nudged": true, "pattern": "DEV_TYPES"}
+{"ts": "2026-08-01T22:08:01.628576+00:00", "session": "310c32c9-4f7", "category": "sql_lineage", "nudged": true, "pattern": "CREATE.*VIEW v_la_council_decisions|read_parquet"}

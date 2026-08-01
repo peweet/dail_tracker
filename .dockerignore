@@ -16,6 +16,14 @@
 !dail_tracker_core/
 !sql_views/
 
+# private siting API image (planning/product/Dockerfile) — separate deployable, same
+# whitelist-everything-else discipline. planning/product/ is gitignored from the main repo
+# (tracked via the .git-siting overlay) but present on disk in a local working tree, which is
+# this image's only viable build context — see the Dockerfile header.
+!services/
+!planning/
+!planning/product/
+
 # data: ONLY the directories the registered views read (kept in sync with
 # `grep -rhoE "data/[A-Za-z0-9_./-]+" sql_views/`). data/bronze and raw pull
 # dirs stay out; runtime-generated export snapshots are rebuilt in-container.
