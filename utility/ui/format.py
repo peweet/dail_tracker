@@ -163,3 +163,51 @@ def fmt_month(val) -> str:
         return pd.Timestamp(val).strftime("%b %Y")
     except Exception:
         return str(val)
+
+
+def distinguish_truncations(texts: list[str], limit: int = 170, tail: int = 70) -> list[str]:
+    """Truncate for display WITHOUT making different items look identical.
+
+    A fixed truncation is fine until two long strings share a prefix longer than the limit.
+    On a councillor's voting record that produced two cards reading identically — the same
+    budget motion text — carrying OPPOSITE votes, because the two amendments diverged past
+    character 170 (Cork City 04/12/2024). The reader sees a contradiction; the data is right.
+
+    Where a group of items would collapse to the same display string, each one instead shows
+    its head, an ellipsis, and the window around the point where it first differs from its
+    siblings — so the distinguishing words are the ones on screen. Items that are genuinely
+    identical (the same motion, voted once) are left alone: they SHOULD look the same.
+    """
+    out = [t if len(t) <= limit else t[:limit] + "…" for t in texts]
+    groups: dict[str, list[int]] = {}
+    for i, shown in enumerate(out):
+        groups.setdefault(shown, []).append(i)
+    for idxs in groups.values():
+        distinct = {texts[i] for i in idxs}
+        if len(idxs) < 2 or len(distinct) < 2:
+            continue  # unique, or truly the same text — nothing to disambiguate
+        head = max(limit - tail, 40)
+        for i in idxs:
+            others = [t for t in distinct if t != texts[i]]
+            # first index at which this text differs from every sibling it collides with
+            div = min(_first_difference(texts[i], o) for o in others)
+            start = max(div - 10, head)
+            # snap to a word boundary — a window opening mid-word ("… wa (vote 1 of 2)")
+            # is noise, not a distinguishing detail
+            space = texts[i].find(" ", start)
+            if 0 <= space < start + 25:
+                start = space + 1
+            window = texts[i][start : start + tail]
+            out[i] = f"{texts[i][:head].rstrip()}… …{window}".rstrip() + (
+                "…" if len(texts[i]) > start + tail else ""
+            )
+    return out
+
+
+def _first_difference(a: str, b: str) -> int:
+    """Index of the first character at which two strings differ (len of the shorter if one
+    is a prefix of the other)."""
+    for i, (ca, cb) in enumerate(zip(a, b)):
+        if ca != cb:
+            return i
+    return min(len(a), len(b))
