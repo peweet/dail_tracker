@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""PreToolUse hook — refuse to start a memory-heavy command when RAM is already gone.
+"""PreToolUse hook — block heavy commands when free RAM is low (refuse to start a
+memory-heavy command when RAM is already gone).
 
 Written 2026-07-26 after two sessions died of OOM in one afternoon. The post-mortem:
 this box has 15.7 GB of RAM, every open Claude session holds ~1.2 GB (client + its MCP

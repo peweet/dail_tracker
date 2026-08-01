@@ -2149,6 +2149,7 @@ def siting_check(
     use_class: str = "",
     site_area_ha: float = 0.0,
     substance_inventory: list[dict] | None = None,
+    substance_inventory_source: str = "",
 ) -> dict:
     """Planning-constraint TRIAGE for a single point in Ireland: which planning ISSUES a proposed
     development triggers at (lat, lon), each with the governing rule quoted verbatim from the
@@ -2175,7 +2176,10 @@ def siting_check(
     `hazardous_processing: true` on a line only when you know it's held under elevated
     temperature/pressure (a reactor train, not a tank farm) — it reroutes that line from the P5c
     bulk-storage threshold (5,000/50,000 t) to the ten-times-stricter P5b one (50/200 t); 2%
-    de-minimis exclusion is NOT applied. Returns the council in force, a headline, statutory EXCLUSIONS
+    de-minimis exclusion is NOT applied. If the inventory figures are NOT real applicant data
+    (a what-if or estimate), set `substance_inventory_source` to a short label ('hypothetical',
+    'estimated') — the triage text then carries a NOT-REAL-DATA banner; leave it unset only for
+    genuine applicant figures. Returns the council in force, a headline, statutory EXCLUSIONS
     (designations whose polygon covers the point — each with the narrow real route that could still
     permit development), and the fired issues TIERED for signal: `site_specific_hard` /
     `site_specific_shaping` (notable at THIS location), an access/entrance section,
@@ -2227,6 +2231,7 @@ def siting_check(
         use_class=(use_class or "").strip() or None,
         site_area_ha=site_area_ha or None,
         substance_inventory=inventory,
+        substance_inventory_source=(substance_inventory_source or "").strip() or None,
     )
     b = _brief.build_brief(result)
     return {

@@ -10,6 +10,16 @@ key: PLAN|LIVE|infra
 
 # Data backup — off-box durability for the 9 GB of raw + derived data
 
+> **Tooling note (2026-08-01):** `restic` 0.19.1 is now installed on this machine
+> (`winget install --id restic.restic`, resolves to
+> `%LOCALAPPDATA%\Microsoft\WinGet\Packages\restic.restic_Microsoft.Winget.Source_8wekyb3d8bbwe\`)
+> as a prerequisite for a planned migration to encrypted, deduplicated, compressed
+> backups (restic speaks S3 natively, so it targets the same R2 bucket). **The live
+> backup mechanism described below — the plain `rclone` mirror — is unchanged and
+> still what runs weekly.** No restic repository has been initialized, no data has
+> been backed up with it yet, and nothing here should be treated as restorable via
+> restic until that migration is actually built and drilled.
+
 ## The problem this solves
 
 If this laptop is destroyed, what is lost?

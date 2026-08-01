@@ -23,11 +23,12 @@ Formats
 docx  -> python-docx, every table in the document
 xlsx  -> openpyxl (read_only), every sheet
 xls   -> xlrd via pandas
-pdf   -> fitz (PyMuPDF) text extraction only. NOTE: real PDF *table* extraction
-         needs camelot, which by project convention lives in an ISOLATED venv
-         ($AFS_CAMELOT_VENV, subprocess-invoked) and is deliberately NOT
-         importable here — so PDFs are recorded as text, flagged
-         `needs_table_parser`, and left for a camelot pass. Don't uv-add camelot.
+pdf   -> fitz (PyMuPDF) native table detection, `page.find_tables()`, with page
+         text as the fallback when no table is found. NOT camelot: user
+         directive 2026-08-01, and independently ghostscript is not installed
+         on this box (`gs: command not found`), which camelot's lattice mode
+         requires. camelot stays confined to the two AFS extractors' isolated
+         venv ($AFS_CAMELOT_VENV) — don't uv-add it here.
 
 Bounded + resumable: --limit caps downloads, every file is disk-cached, so a
 killed run resumes for free and reruns cost no network.
@@ -127,13 +128,22 @@ def _emit(grid: list[list[str]], where: str) -> list[dict]:
         if not row or not (row[0] or "").strip():
             continue
         for col_index, val in enumerate(row):
+            # Skip EMPTY cells. openpyxl returns a sheet's whole used rectangle,
+            # which stray formatting inflates enormously: one OPW attachment
+            # emitted 1,326,861 cells of which 959 were populated (0.07%), and
+            # 65.2% of a first full harvest was empty padding. row_index /
+            # col_index still carry the grid position, so nothing is lost —
+            # and ranking attachments by cell count stops being meaningless.
+            text = (val or "").strip()
+            if not text:
+                continue
             out.append(
                 {
                     "sheet_or_table": where,
                     "row_index": row_index,
                     "col_index": col_index,
                     "col_name": header[col_index] if col_index < len(header) else None,
-                    "value": (val or "").strip(),
+                    "value": text,
                 }
             )
     return out
@@ -175,24 +185,43 @@ def parse_xls(data: bytes) -> list[dict]:
 
 
 def parse_pdf(data: bytes) -> list[dict]:
-    """Text only — see module docstring on why camelot is not used in-process."""
+    """Extract PDF TABLES with fitz (PyMuPDF) — no camelot, per user direction
+    2026-08-01.
+
+    PyMuPDF has had native table detection since 1.23 (`page.find_tables()`,
+    confirmed present on 1.27.2.3 here), so this needs no isolated venv and no
+    subprocess hop. Falls back to page text only for pages where no table is
+    detected, so a text-only PDF still yields something.
+    """
     import fitz
 
     doc = fitz.open(stream=data, filetype="pdf")
-    rows = []
-    for pno, page in enumerate(doc):
-        text = page.get_text().strip()
-        if text:
-            rows.append(
-                {
-                    "sheet_or_table": f"page_{pno}",
-                    "row_index": 0,
-                    "col_index": 0,
-                    "col_name": "page_text",
-                    "value": text[:20_000],
-                }
-            )
-    doc.close()
+    rows: list[dict] = []
+    try:
+        for pno, page in enumerate(doc):
+            found = 0
+            try:
+                for ti, table in enumerate(page.find_tables().tables):
+                    grid = [["" if c is None else str(c) for c in r] for r in table.extract()]
+                    emitted = _emit(grid, f"page_{pno}_table_{ti}")
+                    rows.extend(emitted)
+                    found += len(emitted)
+            except Exception as e:  # detection can fail on odd page trees
+                logger.debug("find_tables failed p%d: %s", pno, e)
+            if not found:
+                text = page.get_text().strip()
+                if text:
+                    rows.append(
+                        {
+                            "sheet_or_table": f"page_{pno}_text",
+                            "row_index": 0,
+                            "col_index": 0,
+                            "col_name": "page_text",
+                            "value": text[:20_000],
+                        }
+                    )
+    finally:
+        doc.close()
     return rows
 
 
@@ -240,10 +269,11 @@ def main(argv: list[str] | None = None) -> int:
                 n = len(parsed)
                 for c in parsed:
                     cells.append({**c, **{k: rec[k] for k in ("date", "department", "section_title", "attachment_url")}})
-                if ext == "pdf":
-                    status = "needs_table_parser"  # text captured; camelot pass pending
-                elif n == 0:
+                if n == 0:
                     status = "no_tables"
+                elif ext == "pdf" and all(c.get("col_name") == "page_text" for c in parsed):
+                    # fitz found no table on any page — text captured only.
+                    status = "pdf_text_only"
             except Exception as e:  # one bad file must not kill the run
                 status = f"parse_error: {type(e).__name__}"
                 logger.warning("parse failed %s: %s", rec["attachment_url"], e)
