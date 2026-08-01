@@ -585,6 +585,16 @@ planning_rules/**/raw/
 # don't belong in git — keep the parent application_files dir tracked, ignore the _text dumps.
 planning_rules/application_files/**/_text/
 
+# === council_minutes — raw scraped/OCR'd text corpus (pipeline_sandbox, sandbox-only) ===
+# corpus/ + scratch dirs are regenerable scrape/OCR output, not source — one commit added
+# 1,051 files / 216 MB (2026-08-01, see doc/SANDBOX_MAP.md). Keep the .py/.js/.md pipeline
+# code and jsonl extraction outputs tracked; ignore the raw text.
+pipeline_sandbox/council_minutes/corpus/
+pipeline_sandbox/council_minutes/samples/
+pipeline_sandbox/council_minutes/wexford_tmp/
+pipeline_sandbox/council_minutes/tipperary/*.txt
+pipeline_sandbox/council_minutes/*.out
+
 # === editor swap + mergetool scratch files (never commit) ===
 # vim/IDE swap files and 3-way merge leftovers (vimdiff/mergetool writes
 # _BASE_/_LOCAL_/_REMOTE_/_BACKUP_ copies). These got committed once during a
