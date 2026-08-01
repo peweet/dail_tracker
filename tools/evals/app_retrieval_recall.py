@@ -18,10 +18,16 @@ Surfaces:
       the corpus-wide search surfaces that member in the top K. Spot-check grade (a few
       members), labelled as such in output.
 
-Everything runs through the stdio MCP client against mcp_server/server.py — the same
-deployed path an agent uses, so spine joins, caps and response shaping are all in scope.
+Transports (--transport, default 'direct'):
+  direct — import mcp_server.server and call the tool functions in-process. Same deployed
+      code (the @mcp.tool decorator returns the plain function; _cur() builds the shared
+      capped connection exactly as the server does) minus the stdio subprocess. Chosen
+      after two server-path runs stalled unexplained under RAM pressure (2026-08-01,
+      memory/project_retrieval_recall_evals_2026_08_01.md) while direct probes ran in
+      seconds. What it does NOT exercise: MCP serialization and the server process itself.
+  mcp — the original stdio client path, kept for when the box has headroom.
 
-Usage:  .venv/Scripts/python tools/evals/app_retrieval_recall.py [--suite all|precedents|project|speeches|questions] [--n 20]
+Usage:  .venv/Scripts/python tools/evals/app_retrieval_recall.py [--suite all|precedents|project|speeches|questions] [--n 20] [--transport direct|mcp]
 """
 
 from __future__ import annotations
@@ -78,7 +84,36 @@ def _walk_strings(obj) -> str:
     return str(obj)
 
 
-async def _call(session: ClientSession, tool: str, args: dict) -> dict | list | str:
+def _longest_text(obj) -> str:
+    """The single longest string leaf — in a feed row that is the spoken/question text,
+    not names or dates, so round-trip phrases come from actual content."""
+    if isinstance(obj, str):
+        return obj
+    leaves = []
+    if isinstance(obj, dict):
+        leaves = [_longest_text(v) for v in obj.values()]
+    elif isinstance(obj, list):
+        leaves = [_longest_text(v) for v in obj]
+    return max(leaves, key=len, default="")
+
+
+_DIRECT_MOD = None
+
+
+def _direct(tool: str, args: dict):
+    """Call the deployed tool function in-process (mcp.tool returns the plain function)."""
+    global _DIRECT_MOD
+    if _DIRECT_MOD is None:
+        import services.runtime_env  # noqa: F401 — BLAS cap before anything heavy
+        import mcp_server.server as _DIRECT_MOD  # noqa: PLW0603
+    fn = getattr(_DIRECT_MOD, tool)
+    fn = getattr(fn, "fn", fn)  # tolerate a wrapping decorator variant
+    return fn(**args)
+
+
+async def _call(session: ClientSession | None, tool: str, args: dict) -> dict | list | str:
+    if session is None:
+        return _direct(tool, args)
     res = await session.call_tool(tool, args)
     for block in res.content:
         if getattr(block, "type", "") == "text":
@@ -87,6 +122,10 @@ async def _call(session: ClientSession, tool: str, args: dict) -> dict | list | 
             except Exception:
                 return block.text
     return {}
+
+
+def _tick(msg: str) -> None:
+    print(f"    {msg}", flush=True)
 
 
 def _rank_of_case(result, case: str) -> int | None:
@@ -142,6 +181,7 @@ async def suite_project(session: ClientSession) -> None:
             if gold.lower() in _walk_strings(h).lower().replace("\\", "/"):
                 pos = i
                 break
+        _tick(f"project: '{query[:40]}…' rank={pos}")
         rows.append((query, gold, pos))
     hit1 = sum(1 for _, _, p in rows if p == 1)
     hit5 = sum(1 for _, _, p in rows if p is not None and p <= 5)
@@ -151,19 +191,23 @@ async def suite_project(session: ClientSession) -> None:
             print(f"  MISS '{q}' -> {g}  rank={p}")
 
 
-async def _roundtrip(session: ClientSession, feed_tool: str, search_tool: str, member: str) -> tuple[str, int | None]:
-    feed = await _call(session, feed_tool, {"name_or_code": member})
-    text = _walk_strings(feed)
-    phrase = _phrase_from(text, skip=40, n=8)
+async def _roundtrip(session: ClientSession | None, feed_tool: str, search_tool: str, member: str) -> tuple[str, int | None]:
+    feed = await _call(session, feed_tool, {"name_or_code": member, "limit": 5})
+    text = _longest_text(feed)
+    phrase = _phrase_from(text, skip=10, n=8)
     if not phrase:
+        _tick(f"{feed_tool}: no text for {member}")
         return member, None
     res = await _call(session, search_tool, {"query": phrase, "limit": 10})
     surname = member.split()[-1].lower()
     hits = res.get("hits", res.get("results", [])) if isinstance(res, dict) else []
+    rank = None
     for i, h in enumerate(hits, 1):
         if surname in _walk_strings(h).lower():
-            return member, i
-    return member, None
+            rank = i
+            break
+    _tick(f"{search_tool}: {member} phrase='{phrase[:40]}…' rank={rank}")
+    return member, rank
 
 
 async def suite_roundtrip(session: ClientSession, feed_tool: str, search_tool: str, label: str) -> None:
@@ -174,11 +218,27 @@ async def suite_roundtrip(session: ClientSession, feed_tool: str, search_tool: s
         print(f"  {m}: rank={r}")
 
 
+async def _run_suites(session: ClientSession | None, args) -> None:
+    if args.suite in ("all", "precedents"):
+        await suite_precedents(session, args.n)
+    if args.suite in ("all", "project"):
+        await suite_project(session)
+    if args.suite in ("all", "speeches"):
+        await suite_roundtrip(session, "member_speeches", "search_speeches", "search_speeches")
+    if args.suite in ("all", "questions"):
+        await suite_roundtrip(session, "get_member_questions", "search_questions", "search_questions")
+
+
 async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--suite", default="all", choices=["all", "precedents", "project", "speeches", "questions"])
     ap.add_argument("--n", type=int, default=20)
+    ap.add_argument("--transport", default="direct", choices=["direct", "mcp"])
     args = ap.parse_args()
+
+    if args.transport == "direct":
+        await _run_suites(None, args)
+        return 0
 
     env = os.environ.copy()
     env.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8",
@@ -191,14 +251,7 @@ async def main() -> int:
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            if args.suite in ("all", "precedents"):
-                await suite_precedents(session, args.n)
-            if args.suite in ("all", "project"):
-                await suite_project(session)
-            if args.suite in ("all", "speeches"):
-                await suite_roundtrip(session, "member_speeches", "search_speeches", "search_speeches")
-            if args.suite in ("all", "questions"):
-                await suite_roundtrip(session, "get_member_questions", "search_questions", "search_questions")
+            await _run_suites(session, args)
     return 0
 
 

@@ -27,6 +27,13 @@ output stays small enough to analyse directly.
 Sharded + resumable: re-run until it reports all shards present, then it
 concatenates. Shards let a killed run resume for free.
 
+THREADED because this is I/O-bound, not CPU-bound. Measured single-threaded on
+this box: 43 files/s (~85 min for the corpus) — Windows per-file open cost with
+AV scanning dominates; the census itself is a substring test plus, for the ~7%
+of sections that hit, an ElementTree parse. Threads release the GIL on file
+reads, so the pool multiplies throughput. Local disk only, no server to be
+polite to.
+
 Run:
     python -m pipeline_sandbox.pq_disclosures.pq_table_census
 """
@@ -37,7 +44,9 @@ import services.runtime_env  # noqa: F401  # MUST be first: caps BLAS threads
 
 import logging
 import sys
+import time
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import polars as pl
@@ -56,7 +65,8 @@ _FULL_CORPUS = Path("data/_sandbox/pq_disclosures_full.parquet")
 _SHARD_DIR = Path("data/_sandbox/_pq_table_census_shards")
 _OUT_TABLES = Path("data/_sandbox/pq_table_census.parquet")
 _OUT_ATTACH = Path("data/_sandbox/pq_attachment_census.parquet")
-_BATCH = 20_000
+_BATCH = 5_000   # small enough that shard logs double as a progress bar
+_WORKERS = 16    # I/O-bound local reads; see module docstring
 
 # Cheap string pre-filter: parsing every section costs ~30 min, but only a
 # minority contain a table. Substring test first, ElementTree only on hits.
@@ -132,7 +142,10 @@ def census_section(xml: str, meta: dict) -> tuple[list[dict], list[dict]]:
         for a in root.iter():
             if _strip_ns(a.tag) != "a":
                 continue
-            href = a.get("href") or ""
+            # Strip the href: a real slice of these carry a TRAILING SPACE in
+            # the source XML ("...en.docx "). Unstripped, urllib quoting turns
+            # it into %20 and the download 404s — a silent ~35% attachment loss.
+            href = (a.get("href") or "").strip()
             if _ATTACH_MARK not in href:
                 continue
             attachments.append(
@@ -167,24 +180,34 @@ def main() -> int:
         tables: list[dict] = []
         attachments: list[dict] = []
         missing = 0
-        for sec in chunk:
+
+        def _one(sec: dict):
+            """Read + census one section. Returns None for a cache miss."""
             p = _cache_path(sec["xml_uri"])
             if not p.exists():
-                missing += 1
-                continue
+                return None
             try:
-                t, a = census_section(p.read_text(encoding="utf-8"), sec)
+                return census_section(p.read_text(encoding="utf-8"), sec)
             except Exception as e:
                 logger.warning("census failed %s: %s", sec["xml_uri"], e)
-                continue
-            tables.extend(t)
-            attachments.extend(a)
+                return ([], [])
+
+        t0 = time.time()
+        with ThreadPoolExecutor(max_workers=_WORKERS) as ex:
+            for res in ex.map(_one, chunk):
+                if res is None:
+                    missing += 1
+                    continue
+                t, a = res
+                tables.extend(t)
+                attachments.extend(a)
+        rate = len(chunk) / max(time.time() - t0, 1e-6)
         # Empty shards still get written, so the resume check stays truthful.
         save_parquet(pl.DataFrame(tables, schema=_TABLE_SCHEMA), t_shard)
         save_parquet(pl.DataFrame(attachments, schema=_ATTACH_SCHEMA), a_shard)
         logger.info(
-            "shard %d/%d: %d tables, %d attachments (%d cache-missing)",
-            i + 1, n_shards, len(tables), len(attachments), missing,
+            "shard %d/%d: %d tables, %d attachments (%d cache-missing) @ %.0f sections/s",
+            i + 1, n_shards, len(tables), len(attachments), missing, rate,
         )
 
     t_parts = sorted(_SHARD_DIR.glob("tables_*.parquet"))
@@ -194,6 +217,13 @@ def main() -> int:
 
     tables_df = pl.concat([pl.read_parquet(p) for p in t_parts])
     attach_df = pl.concat([pl.read_parquet(p) for p in sorted(_SHARD_DIR.glob("attach_*.parquet"))])
+    # Re-apply the href strip at concat time so shards written by an earlier
+    # (unstripped) build of this script are still correct without a re-run.
+    attach_df = attach_df.with_columns(
+        pl.col("attachment_url").str.strip_chars()
+    ).with_columns(
+        pl.col("attachment_url").str.split(".").list.last().str.to_lowercase().str.slice(0, 10).alias("ext")
+    )
     save_parquet(tables_df, _OUT_TABLES)
     save_parquet(attach_df, _OUT_ATTACH)
 

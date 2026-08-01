@@ -417,9 +417,10 @@ def _one(qr) -> dict | None:
 
 @mcp.tool()
 def search_members(query: str) -> list[dict]:
-    """Find TDs/Senators by name (case-insensitive substring). Returns up to 10
-    candidates, each with unique_member_code, party, constituency and house. Pass
-    the unique_member_code to get_member_record for the full dossier."""
+    """Find TDs/Senators by name (case-insensitive substring) — resolve a politician,
+    deputy or senator to their member id. Returns up to 10 candidates, each with
+    unique_member_code, party, constituency and house. Pass the unique_member_code
+    to get_member_record for the full dossier."""
     try:
         records, _total, _ = dossiers.list_members(_cur(), fuzzy_name=query, limit=10)
     except _unavailable() as exc:
@@ -470,7 +471,8 @@ def list_recent_votes(house: str = "Dáil", limit: int = 20) -> list[dict]:
 @mcp.tool()
 def get_division(vote_id: str) -> dict:
     """One division's full record: the vote (date, title, outcome, tallies), the
-    party breakdown, every member's individual vote, and source links."""
+    party breakdown, who voted yes and no (every member's individual vote, every
+    TD's position on the motion), and source links."""
     try:
         d = dossiers.build_division_dossier(_cur(), vote_id)
     except _unavailable() as exc:
@@ -640,15 +642,17 @@ def circular_si_crosswalk(si_year: int = 0, si_number: int = 0, limit: int = 50)
 
 @mcp.tool()
 def top_payments(house: str = "Dáil", limit: int = 20) -> list[dict]:
-    """All-time Travel & Accommodation Allowance ranking by member."""
+    """All-time Travel & Accommodation Allowance (TAA) expenses ranking by member —
+    the biggest expense claimants across the whole data; payments_by_year scopes
+    the same claimed-expenses ranking to one calendar year."""
     records, _total, _ = dossiers.list_payments_ranking(_cur(), house=house, limit=limit)
     return records
 
 
 @mcp.tool()
 def lobbying_organisations(name: str = "", limit: int = 20) -> list[dict]:
-    """Search registered lobbying organisations (CRO + charity-enriched index) by
-    name substring."""
+    """Search the lobbying register by name substring — is this company, interest
+    group or organisation a registered lobbyist (CRO + charity-enriched index)."""
     records, _total, _ = dossiers.list_lobbying_orgs(_cur(), name=name or None, limit=limit)
     return records
 
@@ -818,8 +822,9 @@ def procurement_lobbying_overlap(limit: int = 50, order_by: str = "award_value",
 
 @mcp.tool(annotations=_RO)
 def search_suppliers(year: int = 0, order_by: str = "awards", limit: int = 20) -> list[dict]:
-    """Public-procurement (eTenders) supplier ranking — one row per supplier with
-    award counts, sum-safe awarded value, CRO match, and a lobbying-register overlap
+    """Public-procurement (eTenders) supplier ranking — which vendors/contractors win
+    the most state contracts and public tenders. One row per supplier with award
+    counts, sum-safe awarded value, CRO match, and a lobbying-register overlap
     flag. order_by is 'awards' (default) or 'value'. year=0 means all-time; pass a
     calendar year to scope it. Pass supplier_norm to get_supplier for the full record."""
     records, _total, _ = dossiers.list_suppliers(_cur(), year=year or None, order_by=order_by, limit=limit)
@@ -828,8 +833,9 @@ def search_suppliers(year: int = 0, order_by: str = "awards", limit: int = 20) -
 
 @mcp.tool(annotations=_RO)
 def get_supplier(supplier_norm: str) -> dict:
-    """One supplier's full procurement record: the ranking summary plus every award
-    (authority, CPV, date, value), newest first. Use the supplier_norm from search_suppliers."""
+    """One supplier's full procurement record — every contract award won by a single
+    company/vendor/contractor (authority, CPV, date, value), newest first, plus the
+    ranking summary. Use the supplier_norm from search_suppliers."""
     d = dossiers.build_supplier_dossier(_cur(), supplier_norm)
     return d or {"error": f"no supplier '{supplier_norm}'"}
 
@@ -949,8 +955,9 @@ def member_question_count_by_year(member_name: str) -> list[dict]:
 
 @mcp.tool(annotations=_RO)
 def payments_by_year(year: int, house: str = "Dáil", limit: int = 20) -> list[dict]:
-    """Travel & Accommodation Allowance ranking for ONE calendar year (use this for
-    'who claimed most in 2023?'; top_payments gives the all-time ranking instead)."""
+    """Travel & Accommodation Allowance expenses ranking for ONE calendar year — that
+    year's biggest expense claimants (use this for 'who claimed most in 2023?';
+    top_payments gives the all-time ranking instead)."""
     records, _total, _ = dossiers.list_payments_year_ranking(_cur(), year=year, house=house, limit=limit)
     return records
 
@@ -1014,7 +1021,8 @@ def party_donations(party: str = "") -> dict:
 
 @mcp.tool(annotations=_RO)
 def party_election_spend(party: str = "") -> dict:
-    """GE2024 candidate ELECTION EXPENSES disclosed to SIPO. With no `party`, returns the
+    """GE2024 candidate ELECTION EXPENSES — campaign spending disclosures to SIPO,
+    election expense returns per candidate. With no `party`, returns the
     per-party ranking plus an all-party `summary`. With a `party`, returns that party's
     per-candidate expenditure (candidate, constituency, amount, flag). A flag of
     'over_limit_verify' marks an OCR figure above the statutory limit to RE-CHECK — not a
@@ -1068,8 +1076,9 @@ def courts_health() -> dict:
 
 @mcp.tool(annotations=_RO)
 def public_appointments() -> list[dict] | dict:
-    """Public-appointment notices (state-board and similar appointments) — one row per notice
-    from the v_public_appointments surface."""
+    """Public-appointment notices — who was appointed to state boards, public bodies
+    and semi-state board seats; one row per notice from the v_public_appointments
+    surface."""
     return _rows(appt.public_appointments(_cur()))
 
 
@@ -1287,7 +1296,8 @@ def procurement_by_authority(limit: int = 25) -> list[dict] | dict:
 
 @mcp.tool(annotations=_RO)
 def procurement_by_cpv(limit: int = 25) -> list[dict] | dict:
-    """eTenders procurement AWARD activity grouped by CPV code (WHAT was bought): award counts
+    """eTenders procurement AWARD activity grouped by CPV code (WHAT was bought): which
+    categories of goods, services and sectors the state buys most — award counts
     and sum-safe value per category. Award ceilings, not realised spend."""
     return _rows(proc.cpv_summary(_cur(), limit=limit))
 
@@ -1967,8 +1977,10 @@ def search_planning_precedents(query: str, authority: str = "", decision: str = 
     Galway', 'karst percolation refusal', 'quarry blasting conditions') — the corpus-wide
     counterpart of the siting engine's per-node curated precedents. `authority` substring-filters
     the planning authority; `decision` filters GRANT/REFUSE/OTHER. TOPIC search ONLY — inspector
-    reports name third parties, so never use this to search for a person. Sandbox-hosted corpus:
-    on a machine without it the tool says so. First call builds the index (one-off, ~a minute)."""
+    reports name third parties, so never use this to search for a person. A 5+ digit run in the
+    query (e.g. '313603' or 'ABP-313603-22') matches the CASE NUMBER exactly — the text index is
+    letters-only, so numbers never rank by BM25. Sandbox-hosted corpus: on a machine without it
+    the tool says so. First call builds the index (one-off, ~a minute)."""
     try:
         from planning.product.mcp import precedent_fts
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed (public clone)
