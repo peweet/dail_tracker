@@ -68,6 +68,10 @@ CANDIDATES = {
     # Compare with bench_compare.py — output_tokens is the metric under test.
     "TB_OFF": ("TB_budget_off.md", "test/sql_views/test_sql_views.py"),
     "TB_ON": ("TB_budget_on.md", "test/sql_views/test_sql_views.py"),
+    # planning/product/ lives in the .git-siting overlay, not the main .git — run with
+    # --git-dir .git-siting. Tests the report.py split (2026-08-01): before-ref = the
+    # monolithic file, after-ref = the report_model/html/text/json split behind a shim.
+    "C8": ("C8_siting_report_export.md", "planning/product/core/report.py"),
 }
 
 DISALLOWED_TOOLS = [
@@ -87,27 +91,31 @@ SMOKE_PROMPT = (
 )
 
 
-def _git(args, cwd=REPO):
+def _git(args, cwd=REPO, git_dir=None):
+    # git_dir lets this reach repos tracked by a separate overlay git-dir over the same
+    # work-tree (e.g. planning/product/, tracked by .git-siting per its own CLAUDE.md) —
+    # the main .git ignores that path entirely, so worktrees cut from it would be empty.
+    prefix = ["--git-dir", str(git_dir), "--work-tree", str(REPO)] if git_dir else []
     return subprocess.run(
-        ["git", *args], cwd=str(cwd), capture_output=True, text=True, check=True
+        ["git", *prefix, *args], cwd=str(cwd), capture_output=True, text=True, check=True
     ).stdout.strip()
 
 
-def _add_worktree(tag: str, ref: str) -> Path:
+def _add_worktree(tag: str, ref: str, git_dir=None) -> Path:
     # Outside the repo tree so a live bench never shadows Grep/Glob results in it.
     base = Path(tempfile.gettempdir()) / "dail_bench_worktrees"
     base.mkdir(exist_ok=True)
     path = base / f"wt_{tag}_{int(time.time())}"
-    _git(["worktree", "add", "--detach", str(path), ref])
+    _git(["worktree", "add", "--detach", str(path), ref], git_dir=git_dir)
     return path
 
 
-def _remove_worktree(path: Path) -> None:
+def _remove_worktree(path: Path, git_dir=None) -> None:
     try:
-        _git(["worktree", "remove", "--force", str(path)])
+        _git(["worktree", "remove", "--force", str(path)], git_dir=git_dir)
     except subprocess.CalledProcessError as exc:
         print(f"WARN: worktree remove failed ({exc.stderr or exc}); pruning", file=sys.stderr)
-        _git(["worktree", "prune"])
+        _git(["worktree", "prune"], git_dir=git_dir)
 
 
 def _parse_selfreport(text: str):
@@ -125,8 +133,10 @@ def _parse_selfreport(text: str):
         return None
 
 
-async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: bool, ref: str = "HEAD") -> dict:
-    wt = _add_worktree(cand, ref)
+async def run_one(
+    cand: str, prompt: str, model: str, max_turns: int, keep_wt: bool, ref: str = "HEAD", git_dir=None
+) -> dict:
+    wt = _add_worktree(cand, ref, git_dir=git_dir)
     tool_calls: list[dict] = []
     final_text_parts: list[str] = []
     result: ResultMessage | None = None
@@ -169,7 +179,7 @@ async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: b
         if keep_wt:
             print(f"NOTE: keeping worktree {wt}", file=sys.stderr)
         else:
-            _remove_worktree(wt)
+            _remove_worktree(wt, git_dir=git_dir)
 
     wall_s = round(time.monotonic() - t0, 1)
     final_text = "\n".join(final_text_parts)
@@ -189,7 +199,7 @@ async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: b
         "candidate": cand,
         "model": model,
         "harness": {"setting_sources": [], "disallowed_tools": DISALLOWED_TOOLS},
-        "git_head": _git(["rev-parse", "--short", ref]),
+        "git_head": _git(["rev-parse", "--short", ref], git_dir=git_dir),
         "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16],
         "primary_file": CANDIDATES.get(cand, (None, None))[1],
         "primary_file_loc": None,
@@ -212,16 +222,31 @@ async def run_one(cand: str, prompt: str, model: str, max_turns: int, keep_wt: b
     if primary:
         # LoC must reflect the ARM's tree (the ref), not the live working tree.
         try:
-            row["primary_file_loc"] = len(_git(["show", f"{ref}:{primary}"]).splitlines())
+            row["primary_file_loc"] = len(_git(["show", f"{ref}:{primary}"], git_dir=git_dir).splitlines())
         except subprocess.CalledProcessError:
             # Refactored into a package at this ref: the leading metric becomes the largest module.
             pkg = primary.rsplit(".", 1)[0]
             locs = [
-                len(_git(["show", f"{ref}:{name}"]).splitlines())
-                for name in _git(["ls-tree", "--name-only", ref, f"{pkg}/"]).splitlines()
+                len(_git(["show", f"{ref}:{name}"], git_dir=git_dir).splitlines())
+                for name in _git(["ls-tree", "--name-only", ref, f"{pkg}/"], git_dir=git_dir).splitlines()
                 if name.endswith(".py")
             ]
             row["primary_file_loc"] = max(locs) if locs else None
+        # A file with the SAME name as before still exists post-split (report.py is now a
+        # re-export shim) so the except-branch above never fires for this repo's split shape;
+        # take the max across the sibling report_*.py modules too so the label reflects the
+        # actual largest file, not just the shim.
+        if primary.endswith("report.py"):
+            siblings = _git(
+                ["ls-tree", "--name-only", ref, f"{Path(primary).parent}/"], git_dir=git_dir
+            ).splitlines()
+            sib_locs = [
+                len(_git(["show", f"{ref}:{name}"], git_dir=git_dir).splitlines())
+                for name in siblings
+                if Path(name).stem.startswith("report_") and name.endswith(".py")
+            ]
+            if sib_locs:
+                row["primary_file_loc"] = max(row["primary_file_loc"] or 0, *sib_locs)
     return row
 
 
@@ -241,6 +266,11 @@ async def main() -> None:
         help="git ref the worktree is created from — lets an arm run at its exact "
         "before/after commit (rows record rev-parse of this ref as git_head)",
     )
+    ap.add_argument(
+        "--git-dir", default=None,
+        help="alternate --git-dir to worktree from (e.g. .git-siting) for a candidate whose "
+        "primary_file lives in a path the main .git ignores — see the git_siting alias",
+    )
     args = ap.parse_args()
 
     if args.smoke:
@@ -256,6 +286,8 @@ async def main() -> None:
             (c, (PROMPT_DIR / CANDIDATES[c][0]).read_text(encoding="utf-8")) for c in names
         ]
 
+    git_dir = str((REPO / args.git_dir).resolve()) if args.git_dir else None
+
     LOG_PATH.parent.mkdir(exist_ok=True)
     runs = max(1, args.runs)
     for cand, prompt in jobs:
@@ -265,7 +297,9 @@ async def main() -> None:
                 f"=== {cand} run {run_idx}/{runs} ({args.model}, ref={args.ref}, max_turns={max_turns}) ===",
                 flush=True,
             )
-            row = await run_one(cand, prompt, args.model, max_turns, args.keep_worktree, ref=args.ref)
+            row = await run_one(
+                cand, prompt, args.model, max_turns, args.keep_worktree, ref=args.ref, git_dir=git_dir
+            )
             with LOG_PATH.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
             summary = {

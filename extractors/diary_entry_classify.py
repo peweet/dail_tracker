@@ -176,6 +176,80 @@ def entry_class_expr(col: str = "subject") -> pl.Expr:
     return expr.otherwise(pl.lit("other")).alias("entry_class")
 
 
+# ── Tier 2: model fallback for the "other" residual (2026-08-01) ─────────────
+# 19% of gold rows landed in "other", and the hybrid-recipe probe showed the bulk
+# of the recoverable ones are OCR-MANGLED variants the rules cannot enumerate
+# ("Government Rusiness", "1eaders Questions", "Pre- Brief", "Travel: to Dublin") —
+# a model trained on the ~90k rule-labeled rows absorbs them (top-of-queue P(True)
+# sample 39/42; pipeline_sandbox/minister_meetings/MINISTER_MEETINGS_QUALITY.md).
+# Design constraints:
+#   - rules stay tier 1 (provenance-clean, ordered contract unchanged);
+#   - the model touches ONLY rows the rules left as "other";
+#   - margin gates are CALIBRATED-CONSERVATIVE (band sampling 2026-08-01: precision
+#     collapses below ~1.0; external_meeting is the noisy class → higher gate; many
+#     low-band rows are legitimately other — "Funeral", "No meetings scheduled");
+#   - entry_class_source records which tier assigned the class ("rule" | "model");
+#   - sklearn is import-guarded: absent → tier 1 only, logged, never fatal.
+MODEL_GATE_DEFAULT = 1.0
+MODEL_GATES = {"external_meeting": 1.2}
+
+
+def model_fallback(e: pl.DataFrame, subject_col: str = "subject") -> pl.DataFrame:
+    """Assign gated model classes to rules-"other" rows; adds entry_class_source."""
+    e = e.with_row_index("_row_idx").with_columns(
+        pl.when(pl.col("entry_class") != "other")
+        .then(pl.lit("rule"))
+        .otherwise(pl.lit("rule_residual"))
+        .alias("entry_class_source")
+    )
+    try:
+        from sklearn.feature_extraction.text import TfidfVectorizer  # noqa: PLC0415
+        from sklearn.svm import LinearSVC  # noqa: PLC0415
+    except ImportError:
+        log.warning("scikit-learn absent — model fallback skipped, rules-only classes shipped")
+        return e.drop("_row_idx")
+    train = e.filter(
+        (pl.col("entry_class") != "other")
+        & pl.col(subject_col).is_not_null()
+        & (pl.col(subject_col).str.len_chars() > 5)
+    )
+    other_mask = (
+        (pl.col("entry_class") == "other")
+        & pl.col(subject_col).is_not_null()
+        & (pl.col(subject_col).str.len_chars() > 5)
+    )
+    other = e.filter(other_mask)
+    if len(train) < 1000 or len(other) == 0:  # too little signal to trust a model tier
+        return e.drop("_row_idx")
+    vec = TfidfVectorizer(ngram_range=(1, 2), max_features=60000, sublinear_tf=True)
+    clf = LinearSVC(class_weight="balanced", random_state=0)
+    clf.fit(vec.fit_transform(train[subject_col].to_list()), train["entry_class"].to_list())
+    margins = clf.decision_function(vec.transform(other[subject_col].to_list()))
+    top = margins.max(axis=1)
+    pred = clf.predict(vec.transform(other[subject_col].to_list()))
+    assign = [
+        p if t >= MODEL_GATES.get(p, MODEL_GATE_DEFAULT) else None
+        for p, t in zip(pred, top, strict=True)
+    ]
+    other = other.with_columns(pl.Series("_model_class", assign, dtype=pl.String))
+    n_assigned = other["_model_class"].is_not_null().sum()
+    log.info("model fallback: %d of %d 'other' rows reclassified (gate %.1f/%.1f ext)",
+             n_assigned, len(other), MODEL_GATE_DEFAULT, MODEL_GATES["external_meeting"])
+    # positional join back — entry_id is stamped LATER in the chain, so the row
+    # index (added before the filter) is the only always-present stable key here
+    e = e.join(other.select(["_row_idx", "_model_class"]), on="_row_idx", how="left")
+    return e.with_columns(
+        pl.when(pl.col("_model_class").is_not_null())
+        .then(pl.col("_model_class"))
+        .otherwise(pl.col("entry_class"))
+        .alias("entry_class"),
+        pl.when(pl.col("_model_class").is_not_null())
+        .then(pl.lit("model"))
+        .otherwise(pl.col("entry_class_source"))
+        .alias("entry_class_source"),
+    ).drop("_model_class", "_row_idx")
+
+
 def main() -> int:
     setup_standalone_logging("diary_entry_classify")
     if not ENTRIES.exists():
@@ -185,7 +259,10 @@ def main() -> int:
     e = pl.read_parquet(ENTRIES)
     if "entry_class" in e.columns:  # idempotent re-derive
         e = e.drop("entry_class")
+    if "entry_class_source" in e.columns:
+        e = e.drop("entry_class_source")
     e = e.with_columns(entry_class_expr())
+    e = model_fallback(e)
     save_parquet(e, ENTRIES)
     e.write_csv(ENTRIES.with_suffix(".csv"))
 

@@ -477,6 +477,101 @@ def _hand_rolled_nfkd() -> tuple[list[str], list[str]]:
     return violations, stale
 
 
+# ── Streamlit API compliance (was civic-ui-review "Pass B") ───────────────────
+# Moved out of the review skill 2026-08-01. These are decidable by reading the
+# source, so a model re-deciding them each review was both slower and less
+# reliable: the skill's `html.escape` check was a false NEGATIVE on
+# lobbying_3.py, which escapes via `from html import escape as _h` (line 95).
+# Keeping them here frees the skill to spend its attention on what only a human
+# or a rendered page can judge.
+RE_API_RULES = (
+    (
+        "unsafe-allow-html",
+        re.compile(r"unsafe_allow_html\s*=\s*True"),
+        "use st.html(...) — st.markdown(unsafe_allow_html=True) is the deprecated path",
+    ),
+    (
+        "use-container-width",
+        re.compile(r"use_container_width\s*=\s*True"),
+        'use width="stretch"',
+    ),
+    (
+        "radio-horizontal",
+        re.compile(r"st\.radio\((?:[^()]|\([^()]*\))*horizontal\s*=\s*True", re.S),
+        "use st.segmented_control(...) for a 2-5 option toggle",
+    ),
+    (
+        "blank-write-spacer",
+        re.compile(r"st\.write\(\s*['\"]\s*['\"]\s*\)"),
+        "use st.space(n) for vertical spacing",
+    ),
+    (
+        "page-local-css",
+        re.compile(r"<style"),
+        "move the rules into utility/shared_css.py — page-local CSS forks the design system",
+    ),
+)
+
+# Grandfathered at introduction (2026-08-01). Counts then: unsafe-allow-html 20
+# occurrences across 9 files, page-local-css 15 across 8. The other three rules
+# start EMPTY — they had zero offenders, so they are a pure ratchet.
+BASELINE_API: dict[str, set[str]] = {
+    "unsafe-allow-html": {
+        "committees.py", "corporate.py", "election_2024.py", "judiciary.py", "lobbying_3.py",
+        "public_appointments.py", "statutory_instruments.py", "support.py", "what_they_own.py",
+    },
+    "page-local-css": {
+        "accommodation_spend.py", "corporate.py", "election_2024.py", "judiciary.py",
+        "patterns.py", "public_appointments.py", "statutory_instruments.py", "your_council.py",
+    },
+    "use-container-width": set(),
+    "radio-horizontal": set(),
+    "blank-write-spacer": set(),
+}
+
+# Both escapers count. `ui.format.esc` (format.py:115) is the repo's canonical one —
+# it wraps html.escape and renders NA as "". Recognising only the stdlib spelling
+# reproduced the exact false positive this rule exists to prevent: 13 of the 14
+# first-run hits were files escaping correctly through `from ui.format import esc`.
+RE_ESCAPE_IMPORT = re.compile(
+    r"^\s*(?:from\s+html\s+import\s+escape|import\s+html\b|from\s+ui\.format\s+import\s+[^\n]*\besc\b)",
+    re.M,
+)
+RE_HTML_FSTRING = re.compile(r"st\.html\(\s*f['\"]")
+
+
+def _streamlit_api_compliance() -> tuple[list[str], list[str]]:
+    """Returns (violations, stale_baseline_notes)."""
+    violations: list[str] = []
+    found: dict[str, set[str]] = {rule: set() for rule, _, _ in RE_API_RULES}
+    for py in sorted(PAGES.rglob("*.py")):
+        source = py.read_text(encoding="utf-8", errors="replace")
+        rel = py.relative_to(ROOT).as_posix()
+        for rule, regex, fix in RE_API_RULES:
+            match = regex.search(source)
+            if not match:
+                continue
+            found[rule].add(py.name)
+            if py.name in BASELINE_API[rule]:
+                continue
+            line = source[: match.start()].count("\n") + 1
+            violations.append(f"[{rule}] {rel}:{line} — {fix}")
+        # Escaping is checked at FILE level and alias-aware on purpose: matching
+        # the literal string "html.escape(" misses every aliased import, which is
+        # exactly how the old skill checklist cleared a file it should have read.
+        if RE_HTML_FSTRING.search(source) and not RE_ESCAPE_IMPORT.search(source):
+            violations.append(
+                f"[unescaped-html] {rel} — interpolates into st.html(f\"...\") but imports no "
+                f"escaper; add `from html import escape`"
+            )
+    stale = [
+        f"[{rule}] {name} no longer offends — remove it from BASELINE_API (ratchet down)"
+        for rule in sorted(BASELINE_API)
+        for name in sorted(BASELINE_API[rule] - found[rule])
+    ]
+    return violations, stale
+
+
 def main() -> int:
     violations: list[str] = []
     stale_baseline: list[str] = []
@@ -515,6 +610,9 @@ def main() -> int:
     nfkd_violations, nfkd_stale = _hand_rolled_nfkd()
     violations.extend(f"[hand-rolled-nfkd] {v}" for v in nfkd_violations)
     stale_baseline.extend(nfkd_stale)
+    api_violations, api_stale = _streamlit_api_compliance()
+    violations.extend(api_violations)
+    stale_baseline.extend(api_stale)
 
     for note in stale_baseline:
         print(f"NOTE  {note}")

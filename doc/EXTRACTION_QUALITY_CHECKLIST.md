@@ -36,6 +36,23 @@ pattern hit.
 - Fewer than ~5 checked examples behind a structural claim → the claim stays `Indicative`
   and says its sample size (evidence.md).
 
+## When a model tier earns its place (measured across two domains, 2026-08-01)
+Rules stay tier 1 always — they are provenance-clean and precise by construction. Add a
+model tier ONLY when both hold:
+- **Labeled volume**: tens of thousands of rule-labeled rows to train on (diaries: 90k →
+  93% top-of-queue precision; minutes: hundreds/class → 0–50% on confounded classes).
+- **Miss shape is noise-variants, not vocabulary-confounds**: OCR mangling ("Government
+  Rusiness", "1eaders Questions") is an unbounded variant space rules cannot enumerate —
+  the model absorbs it. If misses share vocabulary with a DIFFERENT class ("Chief
+  Executive" in attendance headers), the model learns the publisher, not the class.
+Ship it as a **two-tier classifier**: rules first; model only on the rules' residual,
+behind margin gates **calibrated by band-sampling** (precision collapses at low margins —
+sample each band before trusting it; noisy classes get higher gates); a
+`*_source` column ("rule" | "model") so provenance survives to the UI; model import
+guarded so its absence degrades to rules-only. Worked example:
+`extractors/diary_entry_classify.py` `model_fallback()` + `test_diary_classify.py`
+invariants test.
+
 ## Mechanics (existing repo rules, restated for one-stop reading)
 - Quarantine with a reason code, never drop silently; re-triage buckets when tooling
   improves (winocr recovered 74/91 docs the day it landed).
