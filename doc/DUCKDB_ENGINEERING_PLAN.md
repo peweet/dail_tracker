@@ -1,6 +1,6 @@
 ---
 tier: PLAN
-status: LIVE
+status: STALE
 domain: infra
 updated: 2026-07-17
 supersedes: []

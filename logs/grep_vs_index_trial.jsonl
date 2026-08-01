@@ -2,3 +2,6 @@
 {"ts": "2026-08-01T06:22:31.382582+00:00", "session": "cd0c9b83-fec", "category": "search_project", "nudged": true, "pattern": "def capped_connect"}
 {"ts": "2026-08-01T08:32:50.334708+00:00", "session": "8e45fff1-1dd", "category": "py_refs", "nudged": true, "pattern": "diary_labels"}
 {"ts": "2026-08-01T08:34:53.875992+00:00", "session": "8e45fff1-1dd", "category": "py_refs", "nudged": false, "pattern": "minister_meetings"}
+{"ts": "2026-08-01T08:44:36.159017+00:00", "session": "cb5dd928-f8a", "category": "py_refs", "nudged": true, "pattern": "_seanad_output"}
+{"ts": "2026-08-01T08:44:38.277713+00:00", "session": "cb5dd928-f8a", "category": "py_refs", "nudged": false, "pattern": "source_pdfs"}
+{"ts": "2026-08-01T08:44:52.921258+00:00", "session": "cb5dd928-f8a", "category": "py_refs", "nudged": false, "pattern": "source_pdfs"}

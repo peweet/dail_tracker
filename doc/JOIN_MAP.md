@@ -15,7 +15,7 @@ the canonical keys, the join graph, the measured yields, the structural blind sp
 never-join rules. Everything here is **measured from the data**, not asserted — figures dated
 2026-07-14; re-measure with `tools/`-style queries if the data has moved.
 
-Siblings: `doc/DATA_MAP.md` (maturity tiers + the 3-money-grain rule) · `doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md`
+Siblings: `doc/DATA_GRAINS.md` (the 3-money-grain rule) · `doc/archive/DATA_MAP.md` (maturity tiers — archived, status board is stale) · `doc/archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md`
 (the dossier design — **note it still says "design-only"; the `organisation_dossier` tool is in fact LIVE**).
 
 ---
@@ -95,7 +95,7 @@ already enforced in the MCP docstrings — keep it.
 1. **Three money grains never sum or union across each other:**
    **BUDGET** (LA adopted budgets, AFS by-division) · **AWARD/ceiling** (eTenders, TED) ·
    **PAYMENT/supplier** (LA payments, public_payments). A 4th grain — LA *adopted budgets* — is
-   BUDGETED, also never unioned. See `doc/DATA_MAP.md`.
+   BUDGETED, also never unioned. See `doc/DATA_GRAINS.md`.
 2. **NEVER sum TED with national awards** — TED overlaps eTenders; summing double-counts.
 3. **procurement × lobbying — NEVER sum `awarded_value` across the overlap.** One lobbying return
    attaches to its registrant **and** to each of its clients, so any org-level sum double-counts.

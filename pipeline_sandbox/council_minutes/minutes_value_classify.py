@@ -68,6 +68,26 @@ CONCERN = re.compile(
     r"calls? (up)?on the (minister|government|taoiseach|department|hse|tii|uisce)|"
     r"write to the (minister|department|taoiseach)|urges the (minister|government)", re.I)
 
+# ── community-opposition lens (2026-08-01, extended from the CHASE/Ringaskiddy find) ──
+# Two capture families: EVENT markers (how opposition reaches the chamber) and named
+# GROUP patterns (who). A group hit without an event marker still counts — the name
+# form itself ("X Action Group", "Save X") is the signal. Extracted band; group-name
+# precision is unmeasured until a P(True) sample runs (state it in the report).
+OPPOSITION_EVENTS = {
+    "deputation": r"\bdeputation\b",
+    "petition": r"\bpetition(?:s|ed)?\b",
+    "objection": r"\bobject(?:ion|ing|ors)s?\s+(?:to|against|were|was|raised)\b",
+    "protest": r"\bprotest(?:s|ers|ed)?\b|\bdemonstration\b",
+    "residents_concerns": r"residents'?\s+(?:concerns?|fears?|opposition|objections?)|"
+                          r"concerns?\s+(?:of|raised by|expressed by)\s+(?:local\s+)?residents",
+    "public_meeting": r"\bpublic meeting\b",
+}
+GROUP_NAME = re.compile(
+    r"\b([A-Z][\w'’&\- ]{2,40}?(?:Residents'? Association|Residents'? Group|Action Group|"
+    r"Community (?:Association|Group|Council|Alliance)|Tidy Towns|Alliance for [A-Z][\w' ]{2,30}|"
+    r"Campaign(?: Group)?)|Save [A-Z][\w'’\- ]{2,30}|Friends of (?:the )?[A-Z][\w'’\- ]{2,30})\b")
+_OPP_RX = {k: re.compile(v, re.I) for k, v in OPPOSITION_EVENTS.items()}
+
 _POWER_RX = {k: re.compile(v, re.I) for k, v in POWER_EVENTS.items()}
 _TOPIC_RX = {k: re.compile(v, re.I) for k, v in TOPICS.items()}
 
@@ -111,6 +131,70 @@ def main() -> int:
         })
     (HERE / "motion_topics.jsonl").write_text(
         "\n".join(json.dumps(t, ensure_ascii=False) for t in tagged), encoding="utf-8")
+
+    # pass 3: community-opposition events + named groups (snippet grain).
+    # MIN_VOTE_YEAR cutoff applies HERE too: without it the Louth 1900s minute-books
+    # flood 'deputation' (standard practice then) — 3 of 6 in the first P(True) spot
+    # sample were minute-book rows. Same year rule as the votes harness: a doc with no
+    # provable >=2018 year is excluded from this lens.
+    from extractors.council_votes_extract import MIN_VOTE_YEAR, _vote_year
+
+    opp_rows = []
+    for d in docs:
+        p = HERE / d.get("text_path", "")
+        if not d.get("text_path") or not p.exists():
+            continue
+        y = _vote_year(d)
+        if y is None or y < MIN_VOTE_YEAR:
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        la = d["local_authority"]
+        for marker, rx in _OPP_RX.items():
+            for m in rx.finditer(text):
+                snip = " ".join(text[max(0, m.start() - 130): m.start() + 220].split())
+                g = GROUP_NAME.search(text[max(0, m.start() - 300): m.start() + 300])
+                opp_rows.append({
+                    "local_authority": la, "meeting": d["meeting"],
+                    "meeting_date": d.get("meeting_date", ""), "marker": marker,
+                    "group": (g.group(0).strip() if g else ""),
+                    "topics": [t for t, trx in _TOPIC_RX.items() if trx.search(snip)],
+                    "source_status": d.get("status", ""), "snippet": snip[:260],
+                })
+        # standalone named-group mentions with no event marker nearby
+        for g in GROUP_NAME.finditer(text):
+            snip = " ".join(text[max(0, g.start() - 130): g.start() + 220].split())
+            opp_rows.append({
+                "local_authority": la, "meeting": d["meeting"],
+                "meeting_date": d.get("meeting_date", ""), "marker": "named_group",
+                "group": g.group(0).strip(),
+                "topics": [t for t, trx in _TOPIC_RX.items() if trx.search(snip)],
+                "source_status": d.get("status", ""), "snippet": snip[:260],
+            })
+    (HERE / "opposition_events.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in opp_rows), encoding="utf-8")
+    opp_by_marker = Counter(r["marker"] for r in opp_rows)
+    opp_groups = Counter(r["group"] for r in opp_rows if r["group"])
+    opp_topics = Counter(t for r in opp_rows for t in r["topics"])
+    n_event = sum(1 for r in opp_rows if r["marker"] != "named_group")
+    OL = ["# Community opposition in council minutes — events, groups, concerns\n"]
+    OL.append(f"Auto-generated (opposition lens, docs with provable year >= {MIN_VOTE_YEAR} only). "
+              f"**{n_event} OPPOSITION-EVENT rows** (deputation/petition/objection/protest/"
+              f"residents-concerns/public-meeting) + {len(opp_rows) - n_event} standalone "
+              f"named-group mentions (a community-groups DIRECTORY, not opposition per se — "
+              f"Tidy Towns dominate it) across "
+              f"{len({r['local_authority'] for r in opp_rows})} councils. Extracted band — "
+              "marker precision is MIXED ('deputation' also matches procedural correspondence); "
+              "P(True) sample pending (doc/EXTRACTION_QUALITY_CHECKLIST.md).\n")
+    OL.append("## Signals by marker\n\n| marker | rows |\n|---|---|")
+    for k, n in opp_by_marker.most_common():
+        OL.append(f"| {k} | {n} |")
+    OL.append("\n## Named groups (top 25 by mentions)\n\n| group | mentions |\n|---|---|")
+    for g, n in opp_groups.most_common(25):
+        OL.append(f"| {g} | {n} |")
+    OL.append("\n## Concern themes on opposition rows\n\n| topic | rows |\n|---|---|")
+    for t, n in opp_topics.most_common():
+        OL.append(f"| {t} | {n} |")
+    (HERE / "OPPOSITION.md").write_text("\n".join(OL), encoding="utf-8")
 
     # summary
     by_class = Counter(e["power_class"] for e in events)

@@ -1,3 +1,13 @@
+---
+tier: RECORD
+status: STALE
+domain: infra
+updated: 2026-07-31
+supersedes: []
+read_when: needing the full per-paper backing detail behind the token-optimization memory summary — read reference_token_optimization_literature_2026_07_31 in memory first
+key: RECORD|STALE|infra
+---
+
 # Token-optimization literature review — full working notes (2026-07-31)
 
 Rescued from the review session's scratchpad (session `0aa403c7`, 2026-07-31) so the

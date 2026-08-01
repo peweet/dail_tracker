@@ -56,7 +56,7 @@ on the gold facts; the design unifies their names and vocabularies and adds the 
 | 7 | `freshness` | struct | `{as_of, fetched_utc, stale_after_days, status}` | existing `freshness.json` |
 | 8 | `source_url` | url / null | landing or listing page | existing `source_landing_url` |
 | 9 | `source_document` | struct | `{url, hash, page}` | existing `source_file_url` + `source_file_hash` + `source_page_number` |
-| 10 | `pipeline_status` | enum | `live`, `sandbox`, `experimental`, `quarantined` | `doc/DATA_MAP.md` maturity tiers + `data/_meta/quarantine/` |
+| 10 | `pipeline_status` | enum | `live`, `sandbox`, `experimental`, `quarantined` | `doc/archive/DATA_MAP.md` maturity tiers + `data/_meta/quarantine/` |
 | 11 | `caveat` | struct | `{auto_flags: [..], text: str\|null}` | existing `caveat_text_detected` + `source_caveat` |
 
 Two supporting fields that already exist and gate everything money-related:
@@ -361,7 +361,7 @@ Data as of {as_of}. Methodology: {methodology_url}
 | source URL / document / hash | `source_landing_url`, `source_file_url`, `source_file_hash`, `source_page_number` | `procurement_public_body_extract.py:94-109` |
 | VAT base | `vat_status` {incl_vat,excl_vat,unknown} | `data_contracts.py:69`; consolidator |
 | privacy / PII gate | `privacy_status`, `supplier_class`, `public_display` | `data_contracts.py:70-83`; schema cols |
-| pipeline status / maturity | DATA_MAP tiers ⓪–⑤; quarantine rule/reason/run_id/timestamp | `doc/DATA_MAP.md`; `shared/quarantine.py`; `data/_meta/quarantine/*` |
+| pipeline status / maturity | DATA_MAP tiers ⓪–⑤; quarantine rule/reason/run_id/timestamp | `doc/archive/DATA_MAP.md`; `shared/quarantine.py`; `data/_meta/quarantine/*` |
 | freshness | `freshness.json` {measure, as_of, stale_after_days, status}; `freshness_line()` | `data/_meta/freshness.json`; `utility/data_access/freshness_data.py` |
 | source registry | 18-field per-source metadata (check_type, grain, caveat, privacy_risk, parser_wired…) | `tools/build_source_registry.py`; `data/_meta/source_registry.generated.json` |
 | disclosure regime | `disclosure_basis`, `disclosure_threshold_eur`, `threshold_vat`, `body_procurement_class`, `regime_note` (verified on gold fact) | `extractors/_publisher_regime.py`; consolidator |
