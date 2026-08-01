@@ -29,6 +29,14 @@ jobs:
       # Pure stdlib — no dependency install needed; it only reads committed JSON.
       - name: Report source health
         run: python tools/source_health_report.py
+      # The per-source traffic light (129-source ledger). Also stdlib-only, reads
+      # committed data/_meta files. --no-state: CI is a read-only checkout, so the
+      # broken-since state file (committed from local runs) is read via the ledger
+      # inputs but never written here. Wired 2026-08-01 — the checker existed with
+      # unit-tested logic but nothing executed the real run, so OVERDUE/TAKEN_DOWN
+      # states surfaced only when someone remembered to run it.
+      - name: Cadence traffic light (DUE / OVERDUE / TAKEN_DOWN)
+        run: python tools/migration/check_source_cadence.py --strict --due-only --no-state
       - name: Open issue on failed source (scheduled runs only)
         if: failure() && github.event_name == 'schedule'
         uses: actions/github-script@v7
@@ -37,6 +45,6 @@ jobs:
             github.rest.issues.create({
               ...context.repo,
               title: `Source health: a data source went stale (${new Date().toISOString().slice(0, 10)})`,
-              body: `The committed \`data/_meta/source_health.json\` shows one or more sources \`failed\` in the last pipeline run.\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nA \`failed\` file_age source means the held data is older than its \`stale_after_days\` policy — an automated poller (e.g. cro_poller) stopped, or a manual drop (charities register) is overdue. Refresh that source and re-run \`pipeline.py\` so source_health.json regenerates.`,
+              body: `The committed \`data/_meta/source_health.json\` shows one or more sources \`failed\`, OR the cadence traffic light (\`tools/migration/check_source_cadence.py\`) found an OVERDUE/BROKEN/TAKEN_DOWN source — see which step failed in the job log.\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nA \`failed\` file_age source means the held data is older than its \`stale_after_days\` policy — an automated poller (e.g. cro_poller) stopped, or a manual drop (charities register) is overdue. Refresh that source and re-run \`pipeline.py\` so source_health.json regenerates. For cadence findings, run the checker locally for the full table.`,
               labels: ["data", "sources"],
             });
