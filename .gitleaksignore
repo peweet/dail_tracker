@@ -14,3 +14,8 @@
 8f08cb5b92987c05d7560468363db8650082ded8:payments.py:generic-api-key:59
 6355b3b9953e4cb25f39ff0c60047d932ed6ff01:payments.py:generic-api-key:57
 6d24d9cf5b76c62e273869aaa812916c5ba5eecc:payments.py:generic-api-key:48
+# Drupal ajaxPageState tokens (theme_token/libraries state/service_key) embedded
+# in saved public council-portal HTML snapshots; not credentials — every anonymous
+# page load of the site carries them. Triaged 2026-08-01.
+897dd80815bde7e9e92cb017e03a72037d277824:ida/Consultations _ Galway County Council Online Consultation Portal.htm:generic-api-key:50
+897dd80815bde7e9e92cb017e03a72037d277824:ida/2.12 Oranmore _ Galway County Council Online Consultation Portal.htm:generic-api-key:44

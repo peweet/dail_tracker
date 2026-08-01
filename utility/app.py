@@ -32,34 +32,6 @@ from ui.components import site_footer_html
 from ui.page_analytics import log_page_view
 from ui.spa_links import install_spa_links
 
-# Siting Check runs a live geospatial engine (shapely/rasterio/pyyaml) over local designation
-# layers that are NOT shipped to Streamlit Cloud (gitignored). Those deps live in the `siting`
-# extra, so a Cloud install may lack them. Import defensively: if the deps (or data) are absent,
-# register a stub instead of letting one failed import crash the whole app. It is the DIRECT-engine
-# page (calls planning.product.core.engine via planning.product.ui.data_access.siting_data — no LLM, no MCP).
-try:
-    from planning.product.ui.pages.siting_assistant import siting_assistant_page
-    from planning.product.ui.pages.siting_check import siting_check_page
-except ImportError as _err:  # pragma: no cover - env-dependent
-    _siting_import_error = str(_err)
-
-    def siting_check_page() -> None:
-        st.title("Siting Check")
-        st.info(
-            "Siting Check runs a geospatial engine over local designation layers; it is "
-            "available in the local / development build only and not enabled here."
-        )
-        st.caption(f"(unavailable here: {_siting_import_error})")
-
-    def siting_assistant_page() -> None:
-        st.title("Siting Assistant")
-        st.info(
-            "The Siting Assistant runs the same geospatial engine plus a local language model; "
-            "it is available in the local / development build only and not enabled here."
-        )
-        st.caption(f"(unavailable here: {_siting_import_error})")
-
-
 st.set_page_config(
     page_title="Dáil Tracker",
     page_icon=":material/account_balance:",
@@ -279,16 +251,11 @@ pg = st.navigation(
                 url_path="follow-the-money",
                 visibility="hidden",
             ),
-            # RETIRED FROM THE NAV but kept routable (visibility="hidden"): now reached from
-            # the Public Payments hub's "Accommodation spend" entry card; the route stays
-            # alive for existing deep links and as the page companion to the
-            # /v1/housing/accommodation-spend API. Money nav declutter Phase 1.
             st.Page(
                 accommodation_spend_page,
                 title="Accommodation Spend",
                 icon=":material/hotel:",
                 url_path="accommodation-spend",
-                visibility="hidden",
             ),
             st.Page(
                 public_payments_page,
@@ -355,20 +322,6 @@ pg = st.navigation(
                 title="Appointments",
                 icon=":material/assignment_ind:",
                 url_path="rankings-appointments",
-            ),
-        ],
-        "Planning": [
-            st.Page(
-                siting_assistant_page,
-                title="Siting Assistant (POC)",
-                icon=":material/forum:",
-                url_path="planning-siting-assistant",
-            ),
-            st.Page(
-                siting_check_page,
-                title="Siting Check (experimental)",
-                icon=":material/travel_explore:",
-                url_path="planning-siting-check",
             ),
         ],
         "Glossary": [
