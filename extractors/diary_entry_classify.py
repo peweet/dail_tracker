@@ -191,7 +191,7 @@ def entry_class_expr(col: str = "subject") -> pl.Expr:
 # of the recoverable ones are OCR-MANGLED variants the rules cannot enumerate
 # ("Government Rusiness", "1eaders Questions", "Pre- Brief", "Travel: to Dublin") —
 # a model trained on the ~90k rule-labeled rows absorbs them (top-of-queue P(True)
-# sample 39/42; pipeline_sandbox/minister_meetings/MINISTER_MEETINGS_QUALITY.md).
+# sample 39/42; tools/evals/MINISTER_MEETINGS_QUALITY.md).
 # Design constraints:
 #   - rules stay tier 1 (provenance-clean, ordered contract unchanged);
 #   - the model touches ONLY rows the rules left as "other";
@@ -201,7 +201,7 @@ def entry_class_expr(col: str = "subject") -> pl.Expr:
 #   - entry_class_source records which tier assigned the class ("rule" | "model");
 #   - sklearn is import-guarded: absent → tier 1 only, logged, never fatal.
 # Verified per-class gates (stratified P(True) sample, 39 rows, 2026-08-01 —
-# pipeline_sandbox/minister_meetings/verify_sample.json): internal_dept/media/
+# tools/evals/verify_sample.json): internal_dept/media/
 # oireachtas/party judged 12/12 across bands; travel 5/6; govt_business safe only at
 # the OCR-variant margins (>=2.0); external_meeting judged 3/6 in BOTH bands (the
 # model maps "Personal"/"Garda Protection Officers" into it) so it is EXCLUDED —
