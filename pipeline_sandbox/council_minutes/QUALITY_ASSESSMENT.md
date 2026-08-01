@@ -1,20 +1,20 @@
 # Council minutes — extraction quality assessment
 
-Auto-generated. Consolidated v1+v2. **1139 unique docs**, **953 clean (84%)**, **186 quarantined**, **345 attributed member-votes**.
+Auto-generated. Consolidated v1+v2. **1065 unique docs**, **879 clean (83%)**, **186 quarantined**, **345 attributed member-votes**.
 
 ## By extraction status
 | status | docs |
 |---|---|
-| text | 825 |
-| ocr_winocr | 254 |
-| html | 57 |
+| text | 766 |
+| ocr_winocr | 243 |
+| html | 53 |
 | fetch_fail | 3 |
 
 ## By document type
 | doc_type | docs |
 |---|---|
-| plenary_minutes | 835 |
-| md_minutes | 134 |
+| plenary_minutes | 767 |
+| md_minutes | 128 |
 | report_or_plan | 84 |
 | other | 53 |
 | agenda | 23 |
@@ -35,16 +35,15 @@ Auto-generated. Consolidated v1+v2. **1139 unique docs**, **953 clean (84%)**, *
 |---|---|---|---|
 | Carlow | 12 | 0 | 185 |
 | Cavan | 2 | 0 | 0 |
-| Clare | 55 | 2 | 0 |
+| Clare | 51 | 2 | 0 |
 | Cork City | 105 | 2 | 0 |
 | Cork County | 14 | 2 | 0 |
 | Donegal | 42 | 0 | 0 |
-| Dublin City | 47 | 0 | 0 |
-| Fingal | 67 | 1 | 0 |
-| Galway | 13 | 0 | 0 |
+| Dublin City | 25 | 0 | 0 |
+| Fingal | 35 | 1 | 0 |
 | Galway City | 104 | 8 | 0 |
-| Galway County | 29 | 0 | 0 |
-| Kerry | 31 | 15 | 0 |
+| Galway County | 30 | 0 | 0 |
+| Kerry | 29 | 15 | 0 |
 | Kildare | 30 | 18 | 0 |
 | Kilkenny | 18 | 6 | 0 |
 | Laois | 17 | 0 | 0 |
@@ -53,14 +52,14 @@ Auto-generated. Consolidated v1+v2. **1139 unique docs**, **953 clean (84%)**, *
 | Longford | 9 | 18 | 0 |
 | Louth | 13 | 0 | 0 |
 | Meath | 23 | 13 | 160 |
-| Monaghan | 31 | 1 | 0 |
+| Monaghan | 30 | 1 | 0 |
 | Offaly | 15 | 55 | 0 |
 | Roscommon | 0 | 1 | 0 |
 | South Dublin | 1 | 1 | 0 |
 | Tipperary | 3 | 0 | 0 |
 | Waterford | 14 | 1 | 0 |
 | Westmeath | 56 | 1 | 0 |
-| Wexford | 99 | 11 | 0 |
+| Wexford | 98 | 11 | 0 |
 | Wicklow | 99 | 11 | 0 |
 
 ## Vote coverage

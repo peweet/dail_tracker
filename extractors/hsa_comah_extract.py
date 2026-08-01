@@ -108,8 +108,12 @@ def _load_geo_cache() -> dict:
 
 
 def _save_geo_cache(cache: dict) -> None:
-    _GEO_CACHE.parent.mkdir(parents=True, exist_ok=True)
-    _GEO_CACHE.write_text(json.dumps(cache, indent=1, sort_keys=True), encoding="utf-8")
+    # Atomic via save_coverage (its payload is generic JSON, not just coverage):
+    # this cache is rewritten after every geocode batch, and a crash mid-write
+    # would previously have corrupted it and thrown away all cached lookups.
+    from services.coverage_io import save_coverage
+
+    save_coverage(cache, _GEO_CACHE, indent=1, sort_keys=True)
 
 
 def _nominatim_query(query: str, cache: dict) -> dict | None:
@@ -246,7 +250,7 @@ def fetch_register() -> tuple[pl.DataFrame, list[str]]:
     for tier, index_path in _TIER_INDEX.items():
         index_html = _fetch_page(_BASE + index_path)
         links = sorted(
-            {l for l in _REGION_LINK.findall(index_html) if f"{tier}_tier_establishments_in_" in l}
+            {link for link in _REGION_LINK.findall(index_html) if f"{tier}_tier_establishments_in_" in link}
         )
         if not links:
             raise SystemExit(f"{tier}-tier index page listed no region links — page moved?")

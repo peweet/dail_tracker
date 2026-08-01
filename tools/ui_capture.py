@@ -45,6 +45,7 @@ import services.runtime_env  # noqa: E402, F401  isort:skip  (BLAS cap; first pr
 
 import argparse  # noqa: E402
 import ast  # noqa: E402
+import contextlib  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
 import socket  # noqa: E402
@@ -248,10 +249,8 @@ def settle(page, *, timeout: float = 45.0, stable_polls: int = 3, interval: floa
             stable += 1
             if stable >= stable_polls:
                 page.evaluate(_DISMISS_JS)
-                try:
+                with contextlib.suppress(Exception):
                     page.evaluate("() => document.fonts.ready")
-                except Exception:
-                    pass
                 return {**state, "settled": True}
         else:
             stable = 0
@@ -349,7 +348,7 @@ def cmd_diff(args) -> int:
     try:
         from PIL import Image, ImageChops
     except ImportError:
-        raise SystemExit("diff needs Pillow: .venv/Scripts/python -m pip install Pillow")
+        raise SystemExit("diff needs Pillow: .venv/Scripts/python -m pip install Pillow") from None
 
     run_dir = RUNS_DIR / args.label
     if not run_dir.is_dir():
