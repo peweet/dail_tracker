@@ -90,6 +90,11 @@ def _normalise_url(url: str) -> str:
     before fetching rather than losing them.
     """
     url = url.strip()
+    # Stray characters the real filename does not contain: backslash-escaped
+    # underscores ("2025-03-19\_pq1446…", 6 cases) and interior spaces
+    # ("…/ 2020-07-30_pq93…", "…_en .docx", 6 cases). Quoting turns these into
+    # %5C / %20 and the fetch 404s. Both are safe to delete outright.
+    url = url.replace("\\", "").replace(" ", "")
     url = re.sub(r"^(https?):/(?!/)", r"\1://", url)
     if url.startswith("//"):
         url = "https:" + url

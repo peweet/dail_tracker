@@ -1,4 +1,20 @@
+---
+tier: PLAN
+status: LIVE
+domain: infra
+updated: 2026-08-01
+supersedes: []
+read_when: setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md)
+key: PLAN|LIVE|infra
+---
+
 # Pointing `dailtracker.ie` at the Streamlit Cloud app (via Cloudflare)
+
+> **Moved out of `doc/archive/` on 2026-08-01** — that directory is gitignored
+> wholesale (`.gitignore:294`), so this file was never actually committed to
+> GitHub despite being the only setup guide for live, tracked infrastructure
+> (`deploy/cloudflare/wrangler.toml` still references it by this exact name).
+> Filed here instead so a disaster-recovery restore can actually find it.
 
 Streamlit **Community Cloud has no native custom-domain support** — an app only
 ever lives at `*.streamlit.app`. This doc gets a real domain (`dailtracker.ie`)

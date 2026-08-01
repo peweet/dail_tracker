@@ -33,11 +33,13 @@ import re
 import sys
 from pathlib import Path
 
-import requests
+from services.http_engine import fetch_bytes, polite_headers
 
-HERE = Path(__file__).resolve().parent
-HDRS = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                       "(KHTML, like Gecko) Chrome/120 Safari/537.36")}
+ROOT = Path(__file__).resolve().parents[1]
+# Data workspace stays in the sandbox: corpus text + member_votes outputs live where
+# the harvest/consolidation pipeline writes them and where councillors_promote_to_gold
+# reads them. Only the CODE graduated to extractors/ (2026-08-01).
+SANDBOX = ROOT / "pipeline_sandbox" / "council_minutes"
 
 MARKS = {"√", "✓", "✔", "x", "X", "✗", "•", "Y", "y", "1"}
 VOTE_COLS = ("for", "against", "abstain", "absent")
@@ -148,8 +150,8 @@ SOURCES = {
 # All divisions pass the RECONCILE GATE (printed tally == parsed name count) or are dropped.
 # ══════════════════════════════════════════════════════════════════════════════════════════════
 
-CORPUS = HERE / "corpus"
-META = HERE.parents[1] / "data" / "_meta"
+CORPUS = SANDBOX / "corpus"
+META = ROOT / "data" / "_meta"
 
 _MOJIBAKE_MARKERS = ("â€", "Ã", "Â", "\x92", "\x93", "\x94")
 
@@ -859,7 +861,7 @@ def refresh_carlow(extra: list[str]) -> list[dict]:
     for la, urls in work:
         for u in urls:
             try:
-                pdf = requests.get(u, headers=HDRS, timeout=70).content
+                pdf = fetch_bytes(u, headers=polite_headers(browser=True), timeout=70)
                 recs = parse_pdf(la, u.split("/")[-1], pdf)
                 rows += recs
                 print(f"{la:10} {u.split('/')[-1][:48]:48} -> {len(recs)} member-votes")
@@ -871,7 +873,7 @@ def refresh_carlow(extra: list[str]) -> list[dict]:
 def main() -> int:
     args = sys.argv[1:]
     existing: list[dict] = []
-    jl = HERE / "member_votes.jsonl"
+    jl = SANDBOX / "member_votes.jsonl"
     if jl.exists():
         existing = [json.loads(ln) for ln in jl.read_text(encoding="utf-8").splitlines() if ln.strip()]
     if "--refresh-carlow" in args:
@@ -886,7 +888,7 @@ def main() -> int:
     print(f"cutoff >={MIN_VOTE_YEAR}: dropped {pre - len(rows)} rows (pre-cutoff or undated)")
     jl.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
     fields = ["local_authority", "meeting", "meeting_date", "motion", "member", "vote"]
-    with open(HERE / "member_votes.csv", "w", newline="", encoding="utf-8") as fh:
+    with open(SANDBOX / "member_votes.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=fields)
         w.writeheader()
         w.writerows([{k: r.get(k, "") for k in fields} for r in rows])
