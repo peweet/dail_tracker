@@ -12,3 +12,4 @@
 {"ts": "2026-08-01T16:12:03.957156+00:00", "session": "c3175db1-95c", "category": "py_deps", "nudged": false, "pattern": "import services.runtime_env|from services import runtime_env|services\\.runtime_e"}
 {"ts": "2026-08-01T16:19:03.029591+00:00", "session": "f8168c9e-0bd", "category": "sql_lineage", "nudged": true, "pattern": "map_key|outline|def test_"}
 {"ts": "2026-08-01T16:27:39.347707+00:00", "session": "c3175db1-95c", "category": "py_deps", "nudged": false, "pattern": "import corporate as corp|queries\\.corporate|queries import corporate"}
+{"ts": "2026-08-01T19:57:36.980227+00:00", "session": "06b4e45b-0c8", "category": "py_refs", "nudged": true, "pattern": "pq_pdf_garble_scores"}

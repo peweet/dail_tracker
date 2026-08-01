@@ -327,7 +327,14 @@ _CORK_MOTION = re.compile(
     r"|[Ee]lection of[^.]{0,200}|Resolution[^.]{0,220})",
     re.I,
 )
-_CORK_QUOTE = re.compile(r"[“‘][^”’“‘]{15,280}[”’]")
+# 1400, not 280: Cork's budget amendments quote the whole motion INCLUDING its figure tables
+# ("'That the Draft Cork City Council Budget … be and is hereby amended as hereunder: - Table
+# A: Income Rates -2,500,000 …'"), which runs past 280 chars. The cap made the match fail, so
+# the motion fell through to the procedural sentence and 104 Cork rows reached gold captioned
+# only "A vote was taken where there appeared as follows:" (found in the render, 2026-08-01).
+# The stored motion is still truncated to 240 chars downstream, so a longer match costs
+# nothing and yields the meaningful opening clause instead of the boilerplate.
+_CORK_QUOTE = re.compile(r"[“‘][^”’“‘]{15,1400}[”’]")
 _CORK_CAND = re.compile(r"(Comhairleoir\w*\s+[A-Z][\w.’' -]{1,40}?)\s*$")
 _VOTE_OF = {"FOR": "for", "AGAINST": "against", "ABSTAIN": "abstain"}
 
@@ -379,7 +386,12 @@ def parse_cork_prose(la: str, fname: str, text: str, cov: Coverage, resolver: Ro
             continue
         cov.divisions_kept += 1
         # motion context: nearest preceding quote / motion sentence (+ nominee line for AGM votes)
-        win = text[max(0, group[0].start() - 900): group[0].start()]
+        # 1800, not 900: a budget amendment's quoted motion can itself run several hundred
+        # chars (tables inline), so the quote's OPENING falls outside a 900-char window and the
+        # motion silently degrades to "A vote was taken where there appeared as follows:".
+        # Widening is safe because `quotes[-1]` still takes the NEAREST preceding quote — a
+        # larger window only adds older candidates that the -1 never selects.
+        win = text[max(0, group[0].start() - 1800): group[0].start()]
         flat = re.sub(r"\s+", " ", win)
         quotes = _CORK_QUOTE.findall(flat)
         sentences = _CORK_MOTION.findall(flat)

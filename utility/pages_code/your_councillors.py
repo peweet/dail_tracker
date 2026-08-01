@@ -438,11 +438,38 @@ def your_councillors_page() -> None:
         if tier == "roll_call" and vr.ok and not vr.is_empty:
             for _, v in vr.data.head(25).iterrows():
                 col = _VOTE_COLOUR.get(v["vote"], "#555")
+                # An empty motion used to render the bare word "Motion", which reads as the
+                # motion's actual title rather than as a gap. 160 rows (Fingal 61, Galway City
+                # 99) have no extractable motion text, so this must say so.
+                #
+                # The ordinal case is separate and easy to miss: where one meeting holds two
+                # divisions the extractor cannot tell apart, it suffixes " (vote 1 of 2)" so
+                # they never collapse into one row. On a row with NO motion text that suffix
+                # becomes the entire card ("(vote 1 of 2)"), which reads as the motion's name.
+                # The ordinal has to stay in the data, so it is recognised here instead.
+                text = str(v["motion"] or "").strip()
+                ordinal = re.fullmatch(r"\(vote (\d+) of (\d+)\)", text)
+                if text and not ordinal:
+                    motion_html = f'<div style="margin:.15rem 0">{_h(text[:170])}</div>'
+                else:
+                    qualifier = f" — {_h(text.strip('()'))}" if ordinal else ""
+                    motion_html = (
+                        '<div style="margin:.15rem 0;color:var(--text-meta);font-style:italic">'
+                        f"Motion text not recorded in the minutes{qualifier}</div>"
+                    )
+                # ocr_winocr rows are OCR-derived (Extracted band) — every Galway City vote is
+                # one. Only Verified renders as plain fact, so the band travels with the row.
+                ocr = (
+                    '<span style="font-size:.68rem;color:var(--text-meta);margin-left:.4rem">'
+                    "from scanned minutes (OCR)</span>"
+                    if str(v.get("source_status") or "") == "ocr_winocr"
+                    else ""
+                )
                 info_card(
                     f'<div style="color:var(--text-meta);font-size:.8rem">{_h(str(v["meeting_date"]))}</div>'
-                    f'<div style="margin:.15rem 0">{_h((v["motion"] or "Motion").strip()[:170])}</div>'
+                    f"{motion_html}"
                     f'<span style="background:{col};color:#fff;border-radius:3px;padding:0 .5rem;'
-                    f'font-size:.72rem;font-weight:600;text-transform:uppercase">{_h(v["vote"])}</span>',
+                    f'font-size:.72rem;font-weight:600;text-transform:uppercase">{_h(v["vote"])}</span>{ocr}',
                     border_left_color=col,
                 )
             st.caption(f"{len(vr.data)} recorded roll-call votes, from the council minutes.")

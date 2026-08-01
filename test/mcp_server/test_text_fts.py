@@ -81,6 +81,28 @@ _CM_ROW = {
 }
 
 
+def test_fts_ignore_pattern_keeps_digit_tokens_searchable() -> None:
+    """DuckDB's create_fts_index default `ignore` regex strips every non-alphabetic
+    character, so a pure-digit citation token (bill/SI number, question ref, section
+    number) never enters the dictionary and a query for it silently returns zero hits
+    — found 2026-08-01 broken in all three live corpora (a real question_ref, an SI
+    number, and 'section 183' were each unfindable despite being verbatim in the
+    indexed text). This pins the fix (_FTS_IGNORE passed to create_fts_index) against
+    DuckDB's actual tokenizer, not a mock, so a DuckDB upgrade that changes `ignore`
+    semantics would fail this test rather than silently regress the live tools."""
+    import duckdb
+
+    con = duckdb.connect(":memory:")
+    con.execute("CREATE TABLE t (rid INTEGER, txt VARCHAR)")
+    con.execute("INSERT INTO t VALUES (1, 'the bill is S.I. No. 605 of 2022 about planning')")
+    con.execute("INSTALL fts; LOAD fts")
+    con.execute(f"PRAGMA create_fts_index('t', 'rid', 'txt', ignore='{text_fts._FTS_IGNORE}')")
+    digit_hit = con.execute("SELECT fts_main_t.match_bm25(rid, '605') FROM t WHERE rid = 1").fetchone()[0]
+    word_hit = con.execute("SELECT fts_main_t.match_bm25(rid, 'planning') FROM t WHERE rid = 1").fetchone()[0]
+    assert digit_hit is not None, "digit token '605' should be searchable, not stripped by the FTS tokenizer"
+    assert word_hit is not None, "word search must keep working alongside the digit fix"
+
+
 def test_council_minutes_concise_shape() -> None:
     """council_minutes corpus (2026-08-01): concise keeps council/date/doc_type + halved
     snippet; detailed keeps provenance (source_status for the Extracted-band badge,
