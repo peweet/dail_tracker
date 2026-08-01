@@ -679,3 +679,6 @@
 {"ts": "2026-08-01T23:11:08", "session": "9fb8bc39-e63", "warns": ["69-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-01T23:12:52", "session": "edd60726-acd", "warns": ["48-word sentence (rule 4 -- one idea per sentence)", "55-word sentence (rule 4 -- one idea per sentence)", "48-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-01T23:16:00", "session": "a01ca54f-7de", "warns": ["68-word sentence (rule 4 -- one idea per sentence)", "46-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T23:18:01", "session": "edd60726-acd", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "70-word sentence (rule 4 -- one idea per sentence)", "79-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T23:18:58", "session": "edd60726-acd", "warns": ["68-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T23:32:29", "session": "0be2b626-0a1", "warns": ["47-word sentence (rule 4 -- one idea per sentence)"]}
