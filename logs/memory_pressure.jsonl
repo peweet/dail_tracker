@@ -489,3 +489,10 @@
 {"ts": "2026-08-01T20:22:50+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 1897, "total_mb": 16073, "load_pct": 88, "commit_free_mb": 8190, "commit_total_mb": 40514}
 {"ts": "2026-08-01T20:23:26+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2050, "total_mb": 16073, "load_pct": 87, "commit_free_mb": 8224, "commit_total_mb": 40514}
 {"ts": "2026-08-01T20:23:44+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 1993, "total_mb": 16073, "load_pct": 87, "commit_free_mb": 8200, "commit_total_mb": 40514}
+{"ts": "2026-08-01T20:58:03+00:00", "kind": "siting report harness (loads the layer store)", "blocked": true, "free_mb": 916, "total_mb": 16073, "load_pct": 94, "commit_free_mb": 4270, "commit_total_mb": 40514}
+{"ts": "2026-08-01T21:00:15+00:00", "kind": "siting report harness (loads the layer store)", "blocked": true, "free_mb": 1324, "total_mb": 16073, "load_pct": 91, "commit_free_mb": 4758, "commit_total_mb": 40514}
+{"ts": "2026-08-01T21:08:08+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 1787, "total_mb": 16073, "load_pct": 88, "commit_free_mb": 4196, "commit_total_mb": 40514}
+{"ts": "2026-08-01T21:16:18+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 1985, "total_mb": 16073, "load_pct": 87, "commit_free_mb": 4416, "commit_total_mb": 40514}
+{"ts": "2026-08-01T21:20:09+00:00", "kind": "Streamlit app (pandas + layer store)", "blocked": true, "free_mb": 970, "total_mb": 16073, "load_pct": 93, "commit_free_mb": 3946, "commit_total_mb": 40514}
+{"ts": "2026-08-01T21:30:43+00:00", "kind": "siting report harness (loads the layer store)", "blocked": true, "free_mb": 1280, "total_mb": 16073, "load_pct": 92, "commit_free_mb": 4048, "commit_total_mb": 40514}
+{"ts": "2026-08-01T21:31:50+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 769, "total_mb": 16073, "load_pct": 95, "commit_free_mb": 4084, "commit_total_mb": 40514}

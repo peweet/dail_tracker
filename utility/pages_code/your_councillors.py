@@ -36,6 +36,7 @@ from ui.components import (  # noqa: E402
     subsection_heading,
     totals_strip,
 )
+from ui.format import distinguish_truncations  # noqa: E402
 
 _SEP = " | "
 _ACCENT = "#b8430f"  # editorial accent (warm ink-red), used sparingly for the lead statement
@@ -436,7 +437,25 @@ def your_councillors_page() -> None:
         tier = _tier(county)
         vr = ycd.fetch_votes(county, councillor)
         if tier == "roll_call" and vr.ok and not vr.is_empty:
-            for _, v in vr.data.head(25).iterrows():
+            shown = vr.data.head(25)
+            # The trailing " (vote 1 of 2)" the extractor adds to tell two divisions apart is
+            # split off BEFORE truncation and re-attached as a clean qualifier. Left inline it
+            # is the only difference between two otherwise identical strings, so the
+            # disambiguation window lands on it and renders "… … wa (vote 1 of 2)".
+            bodies, ordinals = [], []
+            for raw in shown["motion"]:
+                text = str(raw or "").strip()
+                m = re.search(r"\s*\((vote \d+ of \d+)\)\s*$", text)
+                bodies.append(text[: m.start()].strip() if m else text)
+                ordinals.append(m.group(1) if m else "")
+            # Display strings are computed across the WHOLE card set, not per row: two Cork
+            # budget amendments diverged past the truncation limit and rendered as identical
+            # cards carrying opposite votes. See ui.format.distinguish_truncations.
+            motion_display = [
+                f"{body} — {ordinal}" if ordinal and body else (body or ordinal)
+                for body, ordinal in zip(distinguish_truncations(bodies), ordinals, strict=True)
+            ]
+            for (_, v), shown_motion in zip(shown.iterrows(), motion_display, strict=True):
                 col = _VOTE_COLOUR.get(v["vote"], "#555")
                 # An empty motion used to render the bare word "Motion", which reads as the
                 # motion's actual title rather than as a gap. 160 rows (Fingal 61, Galway City
@@ -450,7 +469,7 @@ def your_councillors_page() -> None:
                 text = str(v["motion"] or "").strip()
                 ordinal = re.fullmatch(r"\(vote (\d+) of (\d+)\)", text)
                 if text and not ordinal:
-                    motion_html = f'<div style="margin:.15rem 0">{_h(text[:170])}</div>'
+                    motion_html = f'<div style="margin:.15rem 0">{_h(shown_motion)}</div>'
                 else:
                     qualifier = f" — {_h(text.strip('()'))}" if ordinal else ""
                     motion_html = (
