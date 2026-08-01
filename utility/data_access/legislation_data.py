@@ -71,6 +71,35 @@ def fetch_introduced_years() -> list[int]:
     return [int(y) for y in df["yr"].tolist()] if not df.empty else []
 
 
+@st.cache_data(ttl=300)
+def fetch_introduced_year_coverage(thin_below: int = 20) -> dict:
+    """Coverage shape behind the year pills, ready for the page to render.
+
+    Returns ``{"thin_years": [(year, count), ...], "thin_total": int,
+    "missing_years": [year, ...], "first_full_year": int | None}``. The page owns
+    no thresholds and does no arithmetic — it renders these values.
+
+    ``thin_below`` is a DISPLAY threshold, not a data claim: any year holding
+    fewer than this many Bills is called out by name with its real count, so the
+    reader sees the number rather than a verdict.
+    """
+    df = _q.introduced_year_counts(get_legislation_conn()).data
+    if df.empty:
+        return {"thin_years": [], "thin_total": 0, "missing_years": [], "first_full_year": None}
+    counts = {int(r.yr): int(r.n) for r in df.itertuples()}
+    thin = sorted(((y, n) for y, n in counts.items() if n < thin_below), reverse=True)
+    full = sorted((y for y, n in counts.items() if n >= thin_below))
+    # Gaps inside the covered span only — years before the record starts are not
+    # "missing", they are simply outside it.
+    span = range(min(counts), max(counts) + 1)
+    return {
+        "thin_years": thin,
+        "thin_total": sum(n for _, n in thin),
+        "missing_years": [y for y in span if y not in counts],
+        "first_full_year": full[0] if full else None,
+    }
+
+
 # ── Detail ─────────────────────────────────────────────────────────────────────
 
 

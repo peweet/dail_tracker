@@ -5,3 +5,10 @@
 {"ts": "2026-08-01T08:44:36.159017+00:00", "session": "cb5dd928-f8a", "category": "py_refs", "nudged": true, "pattern": "_seanad_output"}
 {"ts": "2026-08-01T08:44:38.277713+00:00", "session": "cb5dd928-f8a", "category": "py_refs", "nudged": false, "pattern": "source_pdfs"}
 {"ts": "2026-08-01T08:44:52.921258+00:00", "session": "cb5dd928-f8a", "category": "py_refs", "nudged": false, "pattern": "source_pdfs"}
+{"ts": "2026-08-01T12:29:24.559001+00:00", "session": "f8168c9e-0bd", "category": "py_refs", "nudged": true, "pattern": "council_coverage"}
+{"ts": "2026-08-01T12:30:31.506171+00:00", "session": "45fb5a44-d29", "category": "py_deps", "nudged": true, "pattern": "from planning.product.paths import|RULES_DIR|CURATED_LANDMARKS"}
+{"ts": "2026-08-01T14:38:11.522836+00:00", "session": "1ed337e4-58d", "category": "py_deps", "nudged": true, "pattern": "from planning.product.core import brief|from planning.product.core.brief|import "}
+{"ts": "2026-08-01T16:10:24.355099+00:00", "session": "c3175db1-95c", "category": "py_deps", "nudged": true, "pattern": "from dail_tracker_core.db import|register_views\\(|connect_with_views\\(\">\n"}
+{"ts": "2026-08-01T16:12:03.957156+00:00", "session": "c3175db1-95c", "category": "py_deps", "nudged": false, "pattern": "import services.runtime_env|from services import runtime_env|services\\.runtime_e"}
+{"ts": "2026-08-01T16:19:03.029591+00:00", "session": "f8168c9e-0bd", "category": "sql_lineage", "nudged": true, "pattern": "map_key|outline|def test_"}
+{"ts": "2026-08-01T16:27:39.347707+00:00", "session": "c3175db1-95c", "category": "py_deps", "nudged": false, "pattern": "import corporate as corp|queries\\.corporate|queries import corporate"}

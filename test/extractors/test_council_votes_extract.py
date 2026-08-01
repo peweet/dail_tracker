@@ -20,10 +20,12 @@ from extractors.council_votes_extract import (
     MIN_VOTE_YEAR,
     Coverage,
     RosterResolver,
+    _corpus_meeting_date,
     _vote_year,
     fold_initial_forms,
     parse_cork_prose,
     parse_galway_prose,
+    parse_wexford_grid,
 )
 
 CORK_OK = """
@@ -118,6 +120,81 @@ def test_fold_does_not_merge_ambiguous_initial_surname_pair() -> None:
             _vrow("Cork City", "Jane Maher")]
     out = fold_initial_forms(rows)
     assert "J. Maher" in {r["member"] for r in out}
+
+
+def test_percent20_slug_does_not_fake_a_2011_date() -> None:
+    """"Meeting%2011.12.23" slugs to "meeting_2011_12_23" and the ISO branch read it as
+    2011-12-23. The true date is 11 Dec 2023 — and dated 2011 the row falls below
+    MIN_VOTE_YEAR and is DELETED, so the bug costs rows, it does not just mislabel them."""
+    assert _corpus_meeting_date("county_20council_20meeting_2011_12_23_20_20minutes_docx_pdf.txt") == "2023-12-11"
+    # a genuine ISO name whose DAY is 20 must still parse as the day
+    assert _corpus_meeting_date("minutes_2025_01_20.txt") == "2025-01-20"
+
+
+def test_separatorless_ddmmyy_is_read_anchored() -> None:
+    """Galway City names files 220523_01_minutes.pdf = 22 May 2023. Before this every one of
+    its 508 vote rows was undated. Anchored at the start so a ModernGov MId mid-name cannot
+    be read as a date."""
+    assert _corpus_meeting_date("220523_01_minutes_pdf.txt") == "2023-05-22"
+    assert _corpus_meeting_date("minutes_mid_5152_pdf.txt") == ""
+
+
+WEXFORD_OK = """
+The Cathaoirleach advised that there would be a roll call vote to establish if slipway
+charges would be abolished. The outcome was that the proposal to abolish slipway charges
+was defeated with 2 in favour and 3 against. The voting was as follows:
+
+BARDEN PAT
+F
+DONOHOE
+ANTHONY
+A
+BYRNE
+CATHAL
+F
+CARTHY
+GER
+A
+MOORE
+JIM
+A
+"""
+
+
+def test_wexford_grid_reconciles_and_reads_both_name_layouts() -> None:
+    """Wexford prints the tally in prose and the names in a table fitz flattens to one token
+    per line, in TWO layouts: "SURNAME FORENAME" on one line, or split over two."""
+    cov = Coverage()
+    out = parse_wexford_grid("Wexford", "county_council_meeting_12_06_23_minutes_pdf.txt",
+                             WEXFORD_OK, cov, RosterResolver("Wexford"))
+    assert cov.divisions_kept == 1
+    assert cov.reconcile_drops == 0
+    assert len([r for r in out if r["vote"] == "for"]) == 2
+    assert len([r for r in out if r["vote"] == "against"]) == 3
+    assert all(r["source_status"] == "text" for r in out)
+    assert all(r["meeting_date"] == "2023-06-12" for r in out)
+
+
+def test_wexford_grid_drops_a_division_that_misses_the_tally() -> None:
+    """The same gate as every other adapter: a name list that does not count to the printed
+    tally is dropped whole, never emitted partially."""
+    cov = Coverage()
+    out = parse_wexford_grid("Wexford", "county_council_meeting_12_06_23_minutes_pdf.txt",
+                             WEXFORD_OK.replace("2 in favour and 3 against", "4 in favour and 3 against"),
+                             cov, RosterResolver("Wexford"))
+    assert out == []
+    assert cov.divisions_kept == 0
+    assert cov.reconcile_drops == 1
+
+
+def test_wexford_unglossed_AS_code_is_not_guessed() -> None:
+    """'AS' is glossed Absent in some Wexford documents and Abstain in others. With no legend
+    in the document the code is recorded nowhere rather than assigned a meaning."""
+    cov = Coverage()
+    out = parse_wexford_grid("Wexford", "x_12_06_23.txt",
+                             WEXFORD_OK + "WHELAN\nMAURA\nAS\n", cov, RosterResolver("Wexford"))
+    assert "Maura Whelan" not in {r["member"] for r in out}
+    assert cov.divisions_kept == 1  # the for/against tally still reconciles
 
 
 def test_fold_skips_carlow_already_normalised() -> None:

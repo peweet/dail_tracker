@@ -82,6 +82,23 @@ def distinct_statuses(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
+def introduced_year_counts(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Bill count per introduction year, newest first.
+
+    The pill row lists every year that has at least one Bill, which reads as
+    uniform coverage. It isn't: 2013-2026 hold 66-206 Bills each, while 2011
+    holds 13, 2010 holds 1, 2007 holds 2, 2006 holds 1, and 2008-2009 hold none
+    (measured 2026-08-01, 1,661 rows, zero NULL introduced_date). A reader who
+    picks 2010 and sees one Bill concludes the Oireachtas introduced one Bill
+    that year. These counts let the page state its own coverage instead.
+    """
+    return _run(
+        conn,
+        "SELECT year(introduced_date) AS yr, count(*) AS n FROM v_legislation_index"
+        " WHERE introduced_date IS NOT NULL GROUP BY 1 ORDER BY yr DESC",
+    )
+
+
 def distinct_introduced_years(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Distinct calendar years a Bill was introduced, newest first — the options
     for the index page's shared year_selector (2026-07-20 year-grammar migration,

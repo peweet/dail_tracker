@@ -12,7 +12,7 @@ key: CONTEXT|LIVE|ui
 
 *Living map of how the app's pages link to one another as an entity graph.*
 Last verified empirically: 2026-07-21 — all claimed edges re-confirmed on live
-DOM, **0 mismatches** (`audit_screenshots/_nav_graph_edges.py`). The prior
+DOM, **0 mismatches** (`tools/nav_graph_verify.py`). The prior
 2026-06-20 register was also machine-checked; the 07-21 pass corrected the
 harness itself (see "Test method" below) and added a static ratchet
 (`tools/check_nav_graph.py`, in the fast suite) that flags any NEW contextual
@@ -147,12 +147,23 @@ the server idle-reaps on this box, so spawn detached via WMI
 `Win32_Process.Create` and re-poll `/_stcore/health`. Note `localhost`
 resolves to IPv6 here — use `127.0.0.1`.
 
-- `audit_screenshots/_nav_graph_edges.py` — **the single live-DOM verifier**
-  (2026-07-21). Drives each claimed edge on its CORRECT detail state and asserts
-  present/absent. It subsumes the six exploratory 06-20 probes (four-claims test,
-  chrome-vs-contextual model validation v1/v2, back-link characterisation, post-fix
-  re-tests), now archived under `audit_screenshots/_archive/_nav_graph_*.py` — the
-  model narrative they proved lives in "The two edge classes" above.
+- `tools/nav_graph_verify.py` — **the single live-DOM verifier** (2026-07-21;
+  moved 2026-08-01 from `audit_screenshots/_nav_graph_edges.py`). Drives each
+  claimed edge on its CORRECT detail state and asserts present/absent. It subsumes
+  the six exploratory 06-20 probes (four-claims test, chrome-vs-contextual model
+  validation v1/v2, back-link characterisation, post-fix re-tests) — the model
+  narrative they proved lives in "The two edge classes" above.
+
+  > ⚠️ **It was deleted on 2026-08-01 during the screenshot-probe consolidation and
+  > restored the same day.** Nothing imported it, so an import check cleared it —
+  > but this doc depended on it. Lesson: a file named as load-bearing *by a LIVE
+  > doc* is load-bearing. The six exploratory probes stay retired; they live in
+  > `c:\tmp\audit_screenshots_pre_consolidation_2026-08-01.zip` if ever needed.
+
+  It now sits beside its static sibling `tools/check_nav_graph.py` and shares the
+  `tools/ui_capture.py` primitives (measured `settle()` rather than fixed sleeps,
+  one server manager), so a page that has merely not finished painting is no
+  longer indistinguishable from a missing edge.
 
 ⚠️ **Two harness traps the 07-21 re-verification exposed — both were false
 "mismatches", not app regressions.** State-indexing is subtler than "hit the detail

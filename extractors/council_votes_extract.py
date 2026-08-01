@@ -188,11 +188,29 @@ def _titlecase_name(s: str) -> str:
 
 def _corpus_meeting_date(fname: str) -> str:
     """ISO meeting date from a corpus filename (dd_mm_yy(yy) / yyyy_mm_dd / ddmmyyyy runs)."""
+    # %20-slugged names (Wexford, Carlow) carry each space as a literal "_20", which glues a
+    # bogus century onto the day: "Meeting%2011.12.23" slugs to "meeting_2011_12_23" and the
+    # ISO branch below reads it as 2011-12-23 instead of 11 Dec 2023. Found 2026-08-01. This is
+    # not cosmetic — MIN_VOTE_YEAR would then silently DELETE the row as pre-2018.
+    # Handled before the general patterns, and only for names that prove the encoding by
+    # carrying "_20" in front of a LETTER ("_20council"); a plain "2025_01_20" never does.
+    if re.search(r"_20[a-z]", fname, re.I):
+        m = re.search(r"_20(\d{1,2})[._](\d{1,2})[._](\d{2})(?!\d)", fname)
+        if m:
+            d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            if 1 <= d <= 31 and 1 <= mo <= 12:
+                return f"20{y:02d}-{mo:02d}-{d:02d}"
     for rx, order in (
         (r"(?<!\d)(20\d{2})_(\d{2})_(\d{2})(?!\d)", ("y", "m", "d")),
         (r"(?<!\d)(\d{1,2})_(\d{1,2})_(20\d{2})(?!\d)", ("d", "m", "y")),
         (r"(?<!\d)(\d{2})_(\d{2})_(\d{2})(?!\d)", ("d", "m", "yy")),
         (r"(?<!\d)(\d{2})(\d{2})(20\d{2})(?!\d)", ("d", "m", "y")),
+        # Galway City's separator-less DDMMYY ("220523_01_minutes_pdf.txt" = 22 May 2023).
+        # ANCHORED at the filename start: an unanchored 6-digit run would swallow ModernGov
+        # MIds and reference numbers mid-name. Verified 2026-08-01 against the date printed
+        # inside 8 sampled documents (6 exact; the 2 others print the date of the PREVIOUS
+        # minutes being adopted, so the filename is the authoritative meeting date).
+        (r"^(\d{2})(\d{2})(\d{2})(?!\d)", ("d", "m", "yy")),
     ):
         m = re.search(rx, fname)
         if m:
@@ -549,7 +567,13 @@ def parse_laois_grid(la: str, path: Path, cov: Coverage, resolver: RosterResolve
             cov.rows += 1
             out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
                         "motion": _fix_mojibake(div["motion"])[:240], "member": member, "vote": vote,
-                        "_div": cov.divisions_kept})
+                        # Stamped at the point of truth, like the Galway parser's 'ocr_winocr':
+                        # this reads a locally-held PDF with fitz find_tables(), which recovers
+                        # ✓-grid CELLS — a scanned page yields no table structure at all, so a
+                        # row reaching here came from born-digital text. The harvest ledger
+                        # can't supply it: the ledger's copy of this meeting is a differently
+                        # named file ("Minutes%20Council%20Meeting%20April%202026.pdf").
+                        "source_status": "text", "_div": cov.divisions_kept})
     return _dedupe_motions(out)
 
 
@@ -726,6 +750,96 @@ def parse_galway_prose(la: str, fname: str, text: str, cov: Coverage, resolver: 
     return _dedupe_motions(out)
 
 
+# ── Wexford NAME+CODE grid (born-digital) ───────────────────────────────────────────────────
+# Found 2026-08-01 by inspecting the corpus directly. The earlier adapter sweep reported "no
+# free wins" for Wexford because it only tried the three PROSE parsers, and Wexford's named
+# votes are a TABLE that fitz flattens into one-token-per-line text:
+#
+#   The outcome was that the proposal to abolish slipway charges was defeated with
+#   6 in favour and 22 against. The voting was as follows:        <- printed tally (the gate)
+#   BARDEN PAT
+#   F                                                             <- code, own line
+#   DONOHOE
+#   ANTHONY
+#   A
+#
+# 18 of 98 Wexford documents carry it (372 name-code triples). The tally sentence is the
+# reconcile gate, exactly as for Cork/Galway: a division is kept only when each side's parsed
+# names count to its printed number.
+#
+# ⚠ THE CODE VOCABULARY IS PER-DOCUMENT. The in-document legends say "F=For" and "A=Against"
+# consistently, but "AS=" is glossed as **Absent in some documents and Abstain in others**
+# (2 documents each). A hardcoded meaning for AS would silently mislabel one of the two, so
+# the legend is read from each document and AS is dropped when the document does not gloss it.
+# Neither reading affects the gate: the tally counts only for/against.
+_WX_TALLY = re.compile(
+    r"(\d{1,2})\s+in\s+favou?r\s+and\s+(\d{1,2})\s+against[^\n]{0,80}?voting\s+was\s+as\s+follows",
+    re.I | re.S)
+_WX_LEGEND = re.compile(r"\bAS\s*[=–-]\s*(Absent|Abstain\w*)", re.I)
+# NAME line(s) then a bare code line. Wexford prints either "SURNAME FORENAME" on one line or
+# surname and forename on consecutive lines; both end at a line holding only the code.
+_WX_ENTRY = re.compile(
+    r"\n[ \t]*([A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú’'\-]+(?:[ \t]+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú’'\-]+)?)"
+    r"[ \t]*\n[ \t]*([A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú’'\-]+[ \t]*\n[ \t]*)?"
+    r"(F|A|AS|ABS)[ \t]*(?=\n)")
+_WX_MOTION = re.compile(r"([^\n.]{15,200}?)\s*(?:was\s+(?:defeated|carried|passed|agreed)|\.)\s*$", re.S)
+
+
+def parse_wexford_grid(la: str, fname: str, text: str, cov: Coverage, resolver: RosterResolver) -> list[dict]:
+    """Wexford's flattened vote table. Same reconcile discipline as every other adapter."""
+    text = _fix_mojibake(text)
+    mdate = _corpus_meeting_date(fname) or _doc_meeting_date(text)
+    legend = _WX_LEGEND.search(text)
+    as_means = legend.group(1).lower()[:6] if legend else ""  # 'absent' | 'abstai' | ''
+    out: list[dict] = []
+    for tm in _WX_TALLY.finditer(text):
+        cov.divisions_found += 1
+        tallies = {"for": int(tm.group(1)), "against": int(tm.group(2))}
+        # the grid follows the tally sentence; stop at the next tally so two divisions in one
+        # document cannot bleed into each other
+        nxt = _WX_TALLY.search(text, tm.end())
+        block = text[tm.end(): nxt.start() if nxt else min(len(text), tm.end() + 4000)]
+        sides: dict[str, list[str]] = {"for": [], "against": [], "abstain": [], "absent": []}
+        for em in _WX_ENTRY.finditer(block):
+            name = re.sub(r"\s+", " ", f"{em.group(1)} {(em.group(2) or '').strip()}").strip()
+            code = em.group(3).upper()
+            if code == "F":
+                sides["for"].append(name)
+            elif code == "A":
+                sides["against"].append(name)
+            elif code in ("AS", "ABS"):
+                if code == "ABS" or as_means.startswith("abstai"):
+                    sides["abstain"].append(name)
+                elif as_means.startswith("absent"):
+                    sides["absent"].append(name)
+                # unglossed AS: recorded nowhere rather than guessed
+        if not all(len(sides[side]) == n for side, n in tallies.items()):
+            cov.reconcile_drops += 1
+            continue
+        cov.divisions_kept += 1
+        head = text[max(0, tm.start() - 400): tm.start() + 120]
+        mm = _WX_MOTION.search(re.sub(r"\s+", " ", head))
+        motion = mm.group(1).strip() if mm else re.sub(r"\s+", " ", head[-200:]).strip()
+        for side in ("for", "against", "abstain", "absent"):
+            for printed in sides[side]:
+                # Wexford prints SURNAME FORENAME; the roster is "Forename Surname"
+                parts = printed.split()
+                flipped = " ".join(reversed(parts)) if len(parts) == 2 else printed
+                member = resolver.full(flipped) or resolver.full(printed)
+                if not member:
+                    resolved, status = resolver.initials(flipped)
+                    member = resolved or _titlecase_name(flipped)
+                    if status == "ambiguous":
+                        cov.ambiguous_excluded += 1
+                    elif not resolved:
+                        cov.unmatched_kept += 1
+                cov.rows += 1
+                out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
+                            "motion": motion[:240], "member": member, "vote": side,
+                            "source_status": "text", "_div": cov.divisions_kept})
+    return _dedupe_motions(out)
+
+
 # Serving cutoff (user decision 2026-08-01): votes older than this stay out of the
 # served record — pre-2018 councils/membership are a different electoral era and the
 # minute-book era (Louth 1900s) must never flood in. Applied at the harness merge so
@@ -797,7 +911,12 @@ def fold_initial_forms(rows: list[dict]) -> list[dict]:
 # A council only earns a NEW adapter if the sweep shows real divisions in a format
 # none of the current parsers read.
 SWEEP = [
-    ("Wexford", "wexford"), ("Kerry", "kerry"), ("Dublin City", "dublin_city"),
+    # Wexford graduated to its own adapter 2026-08-01 (parse_wexford_grid) — the sweep had
+    # reported "no free wins" for it, but the sweep only tries the PROSE parsers and Wexford's
+    # named votes are a flattened table. Kerry stays here: inspected the same day, its 29 docs
+    # carry attendance roll-calls and budget "Division A/B" headings (both false positives for
+    # the vote-language markers) and exactly ONE printed tally, with no named list.
+    ("Kerry", "kerry"), ("Dublin City", "dublin_city"),
     ("Louth", "louth"), ("Meath", "meath"), ("Waterford", "waterford"),
     ("Clare", "clare"), ("Donegal", "donegal"), ("Kildare", "kildare"),
 ]
@@ -811,6 +930,7 @@ def run_corpus() -> list[dict]:
         ("Laois", "laois", "laois_grid"),
         ("Fingal", "fingal", "fingal"),  # ModernGov printed minutes (moderngov_harvest.py)
         ("Galway City", "galway_city", "galway"),  # winocr OCR text — Extracted band
+        ("Wexford", "wexford", "wexford_grid"),  # flattened NAME+CODE vote table (2026-08-01)
     ]
     all_rows: list[dict] = []
     for la, sub, kind in jobs:
@@ -831,6 +951,8 @@ def run_corpus() -> list[dict]:
                     all_rows += parse_fingal_prose(la, p.name, text, cov, resolver)
                 elif kind == "galway":
                     all_rows += parse_galway_prose(la, p.name, text, cov, resolver)
+                elif kind == "wexford_grid":
+                    all_rows += parse_wexford_grid(la, p.name, text, cov, resolver)
                 else:
                     all_rows += parse_kilkenny_prose(la, p.name, text, cov, resolver)
         print(f"{la:10} {cov.line()}")

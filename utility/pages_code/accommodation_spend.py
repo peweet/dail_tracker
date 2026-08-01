@@ -46,7 +46,16 @@ from data_access.housing_data import (
     fetch_ipas_operators_result,
     fetch_ipas_property_rates_result,
 )
-from ui.components import dt_page, empty_state, evidence_heading, hero_banner, totals_strip
+from ui.components import (
+    dt_page,
+    empty_state,
+    evidence_heading,
+    hero_banner,
+    pill,
+    ranked_member_card,
+    stat_strip,
+    totals_strip,
+)
 from ui.format import eur, eur_full
 
 # Authoritative denominator (C&AG 2024, Ch.10) — so our register-based figure is never
@@ -124,8 +133,39 @@ def _caveat(text_html: str) -> None:
     )
 
 
+def _render_top_providers(df) -> None:
+    """Top-3 providers by committed spend, placed above the fold. The tab
+    previously showed 3 stat tiles and a caveat paragraph before the first
+    scroll — no real names, no figures a reader could hold onto (measured
+    with tools/ui_capture.py: 2.8 screens, fold: 4 figures). Reuses the same
+    ranked-providers fetch _render_providers already loads further down; no
+    new query."""
+    top = df.head(3)
+    evidence_heading("Top providers")
+    for i, row in enumerate(top.itertuples(), start=1):
+        pills = pill(f"{_eur(row.ip_eur)} intl. protection") + pill(f"{_eur(row.ukraine_eur)} Ukraine")
+        badge = (
+            f'<span class="dt-name-card-badge-num">{_eur(row.total_eur)}</span>'
+            '<span class="dt-name-card-badge-lbl">committed</span>'
+        )
+        years = (
+            f"{int(row.first_year)}–{int(row.last_year)}"
+            if row.first_year != row.last_year
+            else str(int(row.first_year))
+        )
+        st.html(
+            ranked_member_card(
+                name=str(row.provider),
+                meta=years,
+                rank=i,
+                pills_html=pills,
+                badge_html=badge,
+            )
+        )
+
+
 # ─────────────────────────── The money ───────────────────────────
-def _render_by_year(df) -> None:
+def _render_by_year(df, top_providers=None) -> None:
     total = df["total_eur"].sum()
     yrs = [int(y) for y in df["year"].tolist()]
     totals_strip(
@@ -147,6 +187,8 @@ def _render_by_year(df) -> None:
         "that range. 2020–2022 remain thin (pre-surge; not separately published in a "
         "parsable register)."
     )
+    if top_providers is not None and not top_providers.empty:
+        _render_top_providers(top_providers)
     chart = df.set_index("year")[["ip_eur", "ukraine_eur"]].rename(
         columns={"ip_eur": "International protection", "ukraine_eur": "Ukraine"}
     )
@@ -230,10 +272,11 @@ def _render_money_tab() -> None:
             "The provider-payment figures could not be loaded. Try refreshing.",
         )
         return
-    evidence_heading("Spend by year")
-    _render_by_year(yr.data)
-
     prov = fetch_accommodation_spend_providers_result(40)
+
+    evidence_heading("Spend by year")
+    _render_by_year(yr.data, prov.data if prov.ok and not prov.data.empty else None)
+
     if prov.ok and not prov.data.empty:
         _render_providers(prov.data)
 
@@ -244,6 +287,31 @@ def _render_money_tab() -> None:
         "Most accommodation is procured by direct/emergency award, so it does NOT appear on "
         "eTenders/TED. Figures are committed purchase orders (PO-committed), not audited final cash."
     )
+
+
+def _render_top_la_rates(per_capita) -> None:
+    """Top-3 local authorities by IP applicants per 1,000 residents, shown above
+    the map. The map's own bounding box leaves the ranked bars below it below the
+    fold (measured with tools/ui_capture.py: fold carried only the 3 stat tiles,
+    4 figures); this surfaces the same per_capita frame the bars below already
+    use, just the leaders, before the map."""
+    evidence_heading("Highest rate")
+    for i, row in enumerate(per_capita.head(3).itertuples(), start=1):
+        band = str(getattr(row, "cag_band", "") or "")
+        pills = pill(f"{int(row.ip_applicants):,} accommodated") + (pill(f"band {band}") if band else "")
+        badge = (
+            f'<span class="dt-name-card-badge-num">{float(row.ip_per_1000_population):.1f}</span>'
+            '<span class="dt-name-card-badge-lbl">per 1,000</span>'
+        )
+        st.html(
+            ranked_member_card(
+                name=str(row.local_authority),
+                meta="",
+                rank=i,
+                pills_html=pills,
+                badge_html=badge,
+            )
+        )
 
 
 # ─────────────────────────── Where people are housed ───────────────────────────
@@ -269,9 +337,9 @@ def _render_where_tab() -> None:
         "auditor's. Population is Census 2022.</p></div>"
         "</div>"
     )
-    per_capita = df[df["ip_per_1000_population"].notna()]
+    per_capita = df[df["ip_per_1000_population"].notna()].sort_values("ip_per_1000_population", ascending=False)
     if not per_capita.empty:
-        top = per_capita.sort_values("ip_per_1000_population", ascending=False).iloc[0]
+        top = per_capita.iloc[0]
         totals_strip(
             [
                 (f"{total:,}", "people accommodated"),
@@ -282,6 +350,7 @@ def _render_where_tab() -> None:
                 ),
             ]
         )
+        _render_top_la_rates(per_capita)
 
     # The band legend, shared by the map and the bars below (both read the C&AG's own bands).
     band_legend = "".join(
@@ -291,30 +360,45 @@ def _render_where_tab() -> None:
         for b in _BAND_ORDER
     )
 
-    # The actual choropleth — the same 31-authority SVG the council map draws, but filled
-    # with the C&AG's Figure 10.2 bands (not council quintiles). Non-clickable: this tab has
-    # no per-LA drilldown, so the map is illustrative and the bars below are the detail.
-    from pages_code.local_government import _choropleth_html  # presentation helper, no logic
+    # GRID CARTOGRAM, not the outline choropleth (2026-08-01). On the outline map this
+    # measure is unreadable by construction: it is per-capita, so the highest-rate authorities
+    # are the urban ones, and those are the smallest polygons. The top C&AG band held exactly
+    # two authorities — Galway City (20.6 per 1,000) and South Dublin (13.2) — whose outlines
+    # are ~130 and ~120 bytes of geometry against Galway County's 2,730. The map was hiding
+    # its own headline. One equal tile per authority fixes that, and the tile can carry the
+    # actual rate, which the choropleth could not show at all.
+    from ui.cartogram import cartogram_html  # presentation helper, no logic
 
     fill_by_band = {
         str(r["map_key"]): _BAND_COLOUR[str(r["cag_band"])]
         for _, r in df.iterrows()
         if pd.notna(r.get("map_key")) and str(r.get("cag_band")) in _BAND_COLOUR
     }
-    map_html = _choropleth_html(
-        {},
-        alt="Map of the 31 local authorities shaded by international-protection applicants per 1,000 residents",
-        fill_by_name=fill_by_band,
-        clickable=False,
-    )
-    if map_html:
-        st.html(
-            '<div class="con-choro" style="cursor:default"><style>.con-choro .con-choropleth'
-            "{cursor:default}</style>"
-            f"{map_html}"
-            f'<div style="font-size:0.76rem;color:#5b6b73">Applicants per 1,000 residents · '
-            f"band (C&amp;AG Fig 10.2): {band_legend}</div></div>"
+    rate_by_la = {
+        str(r["map_key"]): f"{float(r['ip_per_1000_population']):.1f}"
+        for _, r in df.iterrows()
+        if pd.notna(r.get("map_key")) and pd.notna(r.get("ip_per_1000_population"))
+    }
+    st.html(
+        "<div>"
+        + cartogram_html(
+            fill_by_band,
+            value_by_name=rate_by_la,
+            alt=(
+                "Grid of the 31 local authorities, each tile shaded by international-protection "
+                "applicants per 1,000 residents"
+            ),
+            scale=1.15,
+            map_name="ipas-cartogram",
         )
+        +
+        # Two short lines, legend on its own, so the last band never orphans onto a third
+        # (the first cut wrapped "12+" alone under a run-on sentence).
+        '<div style="font-size:0.76rem;color:#5b6b73;margin-top:0.35rem">'
+        "One tile per authority, placed roughly geographically — not to scale.</div>"
+        '<div style="font-size:0.76rem;color:#5b6b73;margin-top:0.15rem">'
+        f"Applicants per 1,000 residents (C&amp;AG Fig 10.2 bands): {band_legend}</div></div>"
+    )
 
     # Ranked horizontal bars, coloured by the C&AG band — the map read as a league table.
     rate_max = float(per_capita["ip_per_1000_population"].max()) if not per_capita.empty else 1.0
@@ -377,6 +461,17 @@ def _render_operators_tab() -> None:
         "overview report names none. But HIQA's individual inspection reports name the operator of "
         "every centre — so each operator here can be set beside its inspection record and the public "
         "money it received. Only operators whose identity resolves with certainty are named.</p>"
+    )
+    worst = df.loc[df["pct_not_compliant"].idxmax()]
+    totals_strip(
+        [
+            (str(len(df)), "named operators"),
+            (str(int(df["centres"].sum())), "centres"),
+            (
+                f"{float(worst['pct_not_compliant']):.1f}%",
+                f"highest not-compliant ({html.escape(str(worst['operator']))})",
+            ),
+        ]
     )
     _caveat(
         "<strong>These are not linked as cause and effect.</strong> The inspection record (2024–2026) "
@@ -512,16 +607,24 @@ _REALITY_STYLE = {
     "NOT_PUBLISHED": ("#7c8a90", "Not published"),
     "IN_USE": ("#3f7d54", "In use"),
 }
+_REALITY_COLOUR = {status: colour for status, (colour, _label) in _REALITY_STYLE.items()}
 
 # A muted, low-opacity walking-figure outline — humanises the number without othering,
 # and avoids any photograph of an identifiable person. Decorative only.
 # st.html strips inline <svg>, so embed as a base64 data-URI <img> — the same technique
 # the choropleths use (see local_government.py / constituency.py).
+# Was a stick figure — a circle head and five straight line segments — which read as a
+# child's drawing beside statistics about people in State accommodation (2026-08-01). Now a
+# solid, plainly-drawn standing figure: filled head, shouldered torso, two legs, no strokes.
+# Same intent (a human mark, no photograph of an identifiable person), executed as a
+# silhouette rather than a diagram of a person.
 _SILHOUETTE_RAW = (
     "<svg xmlns='http://www.w3.org/2000/svg' width='46' height='72' viewBox='0 0 46 72'>"
-    "<circle cx='24' cy='9' r='7' fill='none' stroke='#2c4048' stroke-width='2.2'/>"
-    "<path d='M24 17 L21 39 M24 24 L36 31 M24 22 L11 30 M21 39 L12 62 M21 39 L31 60' "
-    "fill='none' stroke='#2c4048' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/>"
+    "<circle cx='23' cy='11' r='8' fill='#2c4048'/>"
+    "<path d='M23 21c-6.5 0-11 4.2-11 10.5V44c0 1.7 1.3 3 3 3h16c1.7 0 3-1.3 3-3V31.5"
+    "C34 25.2 29.5 21 23 21Z' fill='#2c4048'/>"
+    "<rect x='15.5' y='48.5' width='6' height='21.5' rx='3' fill='#2c4048'/>"
+    "<rect x='24.5' y='48.5' width='6' height='21.5' rx='3' fill='#2c4048'/>"
     "</svg>"
 )
 _SILHOUETTE = (
@@ -529,6 +632,17 @@ _SILHOUETTE = (
     + base64.b64encode(_SILHOUETTE_RAW.encode("utf-8")).decode("ascii")
     + '" width="54" height="84" alt="" style="opacity:0.5;flex:none"/>'
 )
+
+
+# Colour → bucket label for the entitlements summary strip. Keyed off the SAME
+# colours _REALITY_STYLE already assigns per status, so the count and the
+# per-card chip can never drift apart into two classifications of the same data.
+_REALITY_BUCKET_LABEL = {
+    "#b23c3c": "not delivered / serious gaps",
+    "#c67a1e": "gap found or gated",
+    "#3f7d54": "in use",
+    "#7c8a90": "not measured",
+}
 
 
 def _render_person_tab() -> None:
@@ -547,6 +661,16 @@ def _render_person_tab() -> None:
         "the auditor and the inspector actually found. The law is quoted from the Reception Conditions "
         "Regulations; the reality from the C&amp;AG, HIQA and the Government's own strategy.</p></div>"
         "</div>"
+    )
+
+    bucket_colours = df["reality_status"].astype(str).map(_REALITY_COLOUR).fillna("#7c8a90")
+    bucket_counts = bucket_colours.value_counts()  # logic_firewall: display_only
+    stat_strip(
+        [
+            (str(int(n)), _REALITY_BUCKET_LABEL[colour], colour)
+            for colour, n in bucket_counts.items()
+            if colour in _REALITY_BUCKET_LABEL
+        ]
     )
 
     for _, r in df.iterrows():

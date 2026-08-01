@@ -22,6 +22,7 @@ from ui.format import to_int as _n
 
 from ._shared import (
     _year_pills,
+    _register_picker,
     _section_picker,
 )
 
@@ -119,27 +120,20 @@ def procurement_page() -> None:
     # Hero carries no stat badges: the corpus counts + the top-winner / market-shape
     # findings live in the single _page_lede below, so the data isn't pushed off-screen
     # by a second stat block and the sum-safe total is shown exactly once.
+    # The dek covers the WHOLE page, so it names all four stages rather than only the award
+    # register. It previously described awards alone while heading the payments, open-tender
+    # and patterns sections too (2026-08-01 render audit).
     hero_banner(
         kicker="PUBLIC MONEY",
         title="Public Procurement",
-        dek="Contract awards published on eTenders and the national procurement open data — "
-        "who was awarded public contracts, by which bodies, in which categories.",
+        dek="Who wins public contracts, who actually gets paid, what is open for bidding now — "
+        "from eTenders, the EU journal and public bodies' own payment lists.",
     )
 
     # Search-first entry: one box across companies / public bodies / categories (renders
     # results only when the user types; the lenses below are untouched otherwise).
     _entity_search_hero()
 
-    # Caveat trimmed to its two load-bearing honesty rails (awarded ≠ paid; no-inference). The
-    # ceilings explanation moved to the "What these terms mean" expander (no duplication), and the
-    # "€570bn" contrast panel was removed 2026-06-08 — both cut above-the-fold weight.
-    st.html(
-        '<div class="pr-caveat"><strong>Awarded value, not money paid.</strong> '
-        "These are values at the point of award — see <em>Money actually paid</em> for real "
-        "payments. A contract award is a public record of a procurement decision, not evidence "
-        "of influence or wrongdoing.</div>"
-    )
-    _page_lede(stats)
     # ONE explainer door (2026-07-20 clutter pass). Terms, coverage honesty and the
     # money-lifecycle model each used to open their own collapsed expander, so three
     # grey bars stacked between the hero and the section picker and read as page
@@ -178,13 +172,7 @@ def procurement_page() -> None:
     section = _section_picker()
 
     if section == "wins":
-        register = st.segmented_control(
-            "Register",
-            ["National register (eTenders)", "EU register (TED)", "EU State Aid (grants)", "Register overlaps"],
-            default="National register (eTenders)",
-            key="pr_register",
-            label_visibility="collapsed",
-        )
+        register = _register_picker()
         if register == "EU register (TED)":
             # TED contract awards WON (2016–2026). The pre-award tender pipeline moved to
             # the top-level "Open right now" section (different grain, never summed).
@@ -209,6 +197,22 @@ def procurement_page() -> None:
                 overlap = fetch_lobbying_overlap_result()
                 _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), None)
         else:
+            # The award caveat and the Deloitte lede belong to THIS register only, and are
+            # rendered here rather than page-wide (2026-08-01 render audit). Page-wide they
+            # appeared on all four sections and were wrong on three — on "Who actually gets
+            # paid?" the caveat sent the reader to the tab they were already on, directly above
+            # that section's own caveat saying the opposite; on "Open right now" it captioned
+            # 227 open tenders as awarded values. Scoped to the wins section they were still
+            # wrong for two of its four registers: State Aid is GRANTS, not contract awards, and
+            # the lede's figures (44,164 awards, 10,016 suppliers) are the national register's
+            # alone. TED, State Aid and Register overlaps each carry their own description.
+            st.html(
+                '<div class="pr-caveat"><strong>Awarded value, not money paid.</strong> '
+                "These are values at the point of award — see <em>Money actually paid</em> for real "
+                "payments. A contract award is a public record of a procurement decision, not evidence "
+                "of influence or wrongdoing.</div>"
+            )
+            _page_lede(stats)
             # Lens + year on ONE refinement band (was three stacked rows: register / a "filter by
             # year" caption + pills / lens). The lens is the primary choice — what to rank — so it
             # leads; the year is a quiet refinement beside it. Year stays pills, never a dropdown

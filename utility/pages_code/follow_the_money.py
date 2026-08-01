@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.corporate_data import fetch_isif_portfolio
 from data_access.freshness_data import freshness_line
+from data_access.nphdb_bam_data import fetch_nphdb_bam_disclosures_result
 from data_access.procurement_data import (
     fetch_entity_search_result,
     fetch_payment_group_header_result,
@@ -83,7 +84,8 @@ _FEATURED_GROUPS = [
         "tier": "SPENT",
         "blurb": "The construction group, consolidated — its operating companies, PPP "
         "special-purpose vehicles and joint ventures rolled into one (Building, Civil, the "
-        "Schools and Courts bundles, Glasgiven).",
+        "Schools and Courts bundles, Glasgiven). Also carries BAM's own Dáil-disclosed National "
+        "Children's Hospital schedule-slippage and project-cost figures.",
     },
 ]
 
@@ -243,6 +245,103 @@ def _render_rail(trail: list[dict]) -> None:
     )
 
 
+# ── BAM disclosure panel (National Children's Hospital, PQ-sourced) ────────────
+def _bam_bn(v) -> str:
+    """A €m figure as €bn, matching how the source PQ table itself also states
+    these totals (see the row's ``notes``) — one decimal place, no trailing zero."""
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    s = f"{n / 1000:.2f}".rstrip("0").rstrip(".")
+    return f"€{s}bn"
+
+
+def _render_bam_disclosures_panel() -> None:
+    """BAM's own Dáil-disclosed National Children's Hospital figures — the
+    schedule-slippage ledger and a 2017/2018 project-cost estimate table, both
+    from written Parliamentary Questions. Retrieval-only: every figure and its
+    PQ citation come straight off the fetched v_nphdb_bam_disclosures frame; no
+    computation beyond a plain filter/row-select and a €m→€bn display format
+    already used in the source table itself. Silently no-ops if the view/source
+    is unavailable — same degrade-softly contract as the rest of this page."""
+    res = fetch_nphdb_bam_disclosures_result()
+    if not res.ok or res.data.empty:
+        return
+    df = res.data
+    slip = df[df["disclosure_type"] == "slippage"]
+    cost = df[df["disclosure_type"] == "cost"]
+    grand_total_rows = cost[cost["row_label"] == "Grand Total"]
+
+    st.html(
+        '<div class="mf-wall"><strong>Dáil-disclosed National Children\'s Hospital figures</strong> — '
+        "BAM's own reporting to the Oireachtas via written Parliamentary Questions. A different "
+        "disclosure and a different grain from the payment figures above — never summed with them, "
+        "and not an audited total.</div>"
+    )
+
+    baseline = slip.iloc[0] if not slip.empty else None
+    latest = slip.iloc[-1] if not slip.empty else None
+    grand_total = grand_total_rows.iloc[0] if not grand_total_rows.empty else None
+
+    cols = st.columns(2)
+    if baseline is not None and latest is not None:
+        with cols[0]:
+            st.metric(
+                "Schedule slippage",
+                _coalesce(latest.get("delay_from_original")) or "—",
+                help=(
+                    "Forecast Substantial Completion has moved from "
+                    f"{_coalesce(baseline.get('forecast_completion'))} (the original contractual date) "
+                    f"to {_coalesce(latest.get('forecast_completion'))}, per "
+                    f"{_coalesce(latest.get('source_pq_ref'))}."
+                ),
+            )
+    if grand_total is not None:
+        v2017, v2018 = grand_total.get("cost_2017_eur_m"), grand_total.get("cost_2018_eur_m")
+        if v2017 is not None and v2018 is not None:
+            with cols[1]:
+                st.metric(
+                    "Project cost estimate, 2017 → 2018",
+                    _bam_bn(v2018),
+                    delta=f"from {_bam_bn(v2017)}",
+                    delta_color="inverse",
+                    help=(
+                        f"{_coalesce(grand_total.get('source_pq_ref'))}. A 2017-vs-2018 ESTIMATE reported "
+                        "in a 2021 PQ answer — not current project cost."
+                    ),
+                )
+
+    with st.expander("Full BAM disclosure — schedule ledger + cost table"):
+        if not slip.empty:
+            st.caption("Schedule-slippage ledger — forecast Substantial Completion at each programme update")
+            st.dataframe(
+                slip[["row_label", "forecast_completion", "delay_from_original"]].rename(
+                    columns={
+                        "row_label": "Baseline / update",
+                        "forecast_completion": "Forecast completion",
+                        "delay_from_original": "Delay from original (Aug 2022)",
+                    }
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+            st.caption(f"Source: {_esc(_coalesce(slip.iloc[0].get('source_pq_ref')))} — {_esc(_coalesce(slip.iloc[0].get('source_url')))}")
+        if not cost.empty:
+            st.caption("Project-cost table (2017 vs 2018 estimates)")
+            st.dataframe(
+                cost[["row_label", "cost_2017_eur_m", "cost_2018_eur_m"]].rename(
+                    columns={"row_label": "Item", "cost_2017_eur_m": "2017 (€m)", "cost_2018_eur_m": "2018 (€m)"}
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+            st.caption(f"Source: {_esc(_coalesce(cost.iloc[0].get('source_pq_ref')))} — {_esc(_coalesce(cost.iloc[0].get('source_url')))}")
+        notes = df[df["notes"].notna()]
+        if not notes.empty:
+            st.caption("Notes — " + " · ".join(_esc(n) for n in notes["notes"].tolist()))
+
+
 # ── corporate-group node (the consolidation the whole feature was for) ─────────
 def _render_group(slug: str, tier: str, *, on_back) -> None:
     """A corporate-group node: the parent's many published legal entities rolled into one, with
@@ -309,6 +408,10 @@ def _render_group(slug: str, tier: str, *, on_back) -> None:
         "these entities and are an indicative <strong>floor</strong>, never an audited total — paid and "
         "ordered are never added, nor are euros summed across bodies with different VAT bases.</div>"
     )
+
+    # BAM-specific disclosure content, minimally scoped: shows only on the curated "bam" group node.
+    if slug == "bam":
+        _render_bam_disclosures_panel()
 
     if not tiers_present:
         empty_state("No payments found", "This group has no sum-safe payment records.")

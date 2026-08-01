@@ -358,14 +358,20 @@ def _render_search_bar() -> None:
     org_names = fetch_all_org_names()
     # Politicians first, then orgs (prefixed so the routing branch can
     # distinguish without a second lookup).
-    combined = [""] + pol_names + [f"[Org] {n}" for n in org_names]
+    # No leading "" sentinel: an empty first option that `index=0` selects counts
+    # as a SELECTED value, so Streamlit suppresses the placeholder below and the
+    # register's primary control renders as a blank box. `index=None` selects
+    # nothing, which is what actually shows the placeholder. `sel` is then None
+    # rather than "" until the user picks — both falsy, so the guard below is
+    # unchanged.
+    combined = pol_names + [f"[Org] {n}" for n in org_names]
 
     with filter_bar([6, 6]) as cols, cols[0]:
         field_label("Search the register")
         sel = st.selectbox(
             "Search",
             combined,
-            index=0,
+            index=None,
             label_visibility="collapsed",
             placeholder="e.g. Ibec, Mary Lou McDonald",
             key="lp3_jump",
@@ -424,6 +430,42 @@ def _render_landing(summary: pd.DataFrame) -> None:
     # Search + jump (was the sidebar) — sits under the hero on the landing.
     _render_search_bar()
 
+    # Most-lobbied strip. The first screen previously carried the hero sentence
+    # and navigation only — 7 figures across a 3.8-screen page (measured
+    # 2026-08-01, tools/ui_capture.py density). This surfaces three real
+    # politicians with their counts, so a reader sees the register's substance
+    # and has three concrete entry points before scrolling. No new query: the
+    # landing already loads this ranked index and used only row 0, for a tile
+    # href. Same cached fetch, reused below for the gateway.
+    pol_idx = fetch_politician_index()
+    if not pol_idx.empty:
+        _section_head("Most lobbied", "The politicians named in the most returns on the register.")
+        for row in pol_idx.head(3).itertuples():  # logic_firewall: display_only
+            code = str(getattr(row, "unique_member_code", "") or "")
+            name = str(getattr(row, "member_name", "") or "")
+            # dict.fromkeys de-duplicates while keeping order: for ministers
+            # `position` and `chamber` hold the SAME value, which rendered as
+            # "Department of Finance · Department of Finance".
+            meta = " · ".join(
+                dict.fromkeys(
+                    part
+                    for part in (str(getattr(row, "position", "") or ""), str(getattr(row, "chamber", "") or ""))
+                    if part and part != "nan"
+                )
+            )
+            st.html(
+                _ranked_card_html(
+                    name=name,
+                    meta=meta,
+                    pills_list=[
+                        _p(int(getattr(row, "return_count", 0) or 0), "return"),
+                        _p(int(getattr(row, "distinct_orgs", 0) or 0), "organisation"),
+                    ],
+                    rank=int(getattr(row, "rank", 0) or 0),
+                    profile_href=member_profile_url(code or _resolve_or_join(name), section="lobbying"),
+                )
+            )
+
     # Gateway — three matching quiet tiles. Identical shape across the trio
     # (heading + one sentence). Whole tile is the click target via the
     # clickable_card_link stretched-link pattern — no separate buttons,
@@ -434,7 +476,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
     )
 
     # Pre-compute URLs so each tile becomes a real <a href> at render-time.
-    pol_idx = fetch_politician_index()
+    # pol_idx is already loaded above (most-lobbied strip).
     if not pol_idx.empty:
         m_id = str(pol_idx.iloc[0].get("unique_member_code", "") or "")
         m_name = str(pol_idx.iloc[0].get("member_name", ""))

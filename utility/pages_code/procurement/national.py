@@ -134,7 +134,10 @@ def _render_eu_tam() -> None:
     # Disclose the full corpus size rather than silently show only the top slice.
     cnt = fetch_eu_tam_state_aid_count_result()
     total_awards = int(cnt.data.iloc[0]["n_awards"]) if cnt.ok and not cnt.data.empty else len(df)
-    of_total = f" of <strong>{total_awards:,}</strong> disclosed awards" if total_awards > len(df) else ""
+    # "disclosed", not "disclosed awards": the sentence below already supplies the noun, and the
+    # two together rendered as "…of 7,968 disclosed awards EU State-Aid awards…" (found in the
+    # 2026-08-01 render audit — the register was unreachable by URL until then, so nobody saw it).
+    of_total = f" of <strong>{total_awards:,}</strong> disclosed" if total_awards > len(df) else ""
     st.html(
         '<p class="pr-cap">'
         f"The largest <strong>{len(df)}</strong>{of_total} EU State-Aid awards to Irish beneficiaries"

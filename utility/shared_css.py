@@ -167,7 +167,7 @@ def inject_css() -> None:
             font-family: 'Epilogue', sans-serif;
             font-size: 0.78rem;
             font-weight: 400;
-            color: rgba(255,255,255,0.45);
+            color: rgba(255,255,255,0.55);   /* 6.06:1 on #111827; 0.45 was 4.48 = sub-AA */
             letter-spacing: 0.01em;
             line-height: 1;
         }
@@ -441,7 +441,7 @@ def inject_css() -> None:
                holds the identical literal it replaced (zero visual change). */
             --ink-strong:  oklch(25% 0.012 75);   /* dark heading / value on cards */
             --ink-700:     oklch(28% 0.012 75);   /* slightly lighter dark text   */
-            --ink-muted:   oklch(62% 0.008 75);   /* muted label / secondary value */
+            --ink-muted:   oklch(52% 0.008 75);   /* muted label; 52% not 62% — AA 5.12:1 on page */
 
             /* ── Vote-outcome colours (separate from the blue/orange signal
                family): carried = green, lost = red. Previously inlined in the
@@ -865,9 +865,9 @@ def inject_css() -> None:
             margin: 0 0 0.35rem 0;
         }
         .dt-filterbar-marker { height: 0; margin: 0; overflow: hidden; }
-        /* Bottom-align controls of unequal height (date_input vs selectbox). */
+        /* Top-align labels: flex-end drove short controls' field_labels 137px down beside a 4-row pill block. */
         [data-testid="stHorizontalBlock"]:has(.dt-filterbar-marker) {
-            align-items: flex-end;
+            align-items: flex-start;
             margin-top: 0.25rem;
         }
         .dt-filterbar-rule {
@@ -1830,7 +1830,10 @@ def inject_css() -> None:
             padding: 0.1rem 0.5rem;
             font-size: 0.76rem;
             font-weight: 600;
-            color: var(--text-meta);
+            /* --text-meta (52% lightness) on --surface-deep (90%) fails WCAG AA
+               small-text contrast (axe: serious). --text-secondary (44%) is the
+               next-darkest existing token and clears it. */
+            color: var(--text-secondary);
         }
         .int-stat-pill-accent { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
         /* Cross-page profile link rendered alongside int-stat-pill items. */
@@ -2019,7 +2022,7 @@ def inject_css() -> None:
         .dt-name-card-badge-lbl {
             font-size: 0.56rem;
             font-weight: 600;
-            color: var(--blue-500);
+            color: var(--blue-700);
             display: block;
         }
         /* Streamlit column override — one rule for every page */

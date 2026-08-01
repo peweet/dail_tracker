@@ -48,8 +48,10 @@ import services.runtime_env  # noqa: F401  # MUST be first: caps BLAS threads
 import argparse
 import io
 import logging
+import os
 import re
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -69,6 +71,17 @@ _OUT_INDEX = Path("data/_sandbox/pq_attachment_index.parquet")
 
 _ZIP_EXT = {"docx", "xlsx"}
 _MAX_ROWS_PER_TABLE = 5_000   # a runaway sheet shouldn't blow the parquet
+
+# fitz (PyMuPDF)'s table/structure-tree extraction is NOT thread-safe: two
+# concurrent page.find_tables() calls in different threads corrupt each
+# other's results (garbled/cross-document cells, "No common ancestor in
+# structure tree" MuPDF errors). Verified 2026-08-01 by re-parsing a known
+# PDF single-threaded (correct: 8,383 cells, header "Company Name or
+# Individual") vs. inside a 6-worker ThreadPoolExecutor alongside other real
+# PDFs (wrong on 5/5 trials — cell counts scattered, headers read as text
+# from an unrelated document). Fetches stay concurrent (I/O-bound, the
+# dominant cost); only the fitz call itself is serialized.
+_FITZ_LOCK = threading.Lock()
 
 
 def _validator(ext: str):
@@ -113,19 +126,55 @@ def _fetch(url: str, ext: str) -> bytes | None:
     key = re.sub(r"[^A-Za-z0-9._-]", "_", url.split("supportingDocumentation/", 1)[-1])
     cached = _CACHE / key
     if cached.exists():
-        return cached.read_bytes()
+        blob = cached.read_bytes()
+        # Re-validate on the way OUT of the cache. A non-atomic write (or a run
+        # killed mid-write) leaves a TRUNCATED file that still passes exists(),
+        # and the parser then silently yields a different, shorter document —
+        # observed live: 821 cells from a cache read vs 8,383 from the same
+        # URL fetched clean. Treat a failing blob as a miss and re-fetch.
+        if _validator(ext)(blob):
+            return blob
+        logger.warning("cache blob failed validation, re-fetching: %s", key)
     data = fetch_bytes(url, validate=_validator(ext))
     if data:
-        cached.write_bytes(data)
+        # Atomic: write to .part then os.replace, so a concurrent reader either
+        # sees the old file or the complete new one — never a partial.
+        tmp = cached.with_suffix(cached.suffix + ".part")
+        tmp.write_bytes(data)
+        os.replace(tmp, cached)
         time.sleep(0.1)  # stay a polite citizen; cache-hits skip this entirely
     return data
 
 
-def _emit(grid: list[list[str]], where: str) -> list[dict]:
-    """A 2-D grid -> long-format cell rows, applying the shared table traps."""
+def _emit(grid: list[list[str]], where: str, header_override: list[str] | None = None) -> list[dict]:
+    """A 2-D grid -> long-format cell rows, applying the shared table traps.
+
+    ``header_override`` carries a header forward onto a CONTINUATION table — a
+    multi-page PDF table whose later fragments start mid-data. Without it, row 0
+    of page 3 becomes the "header" and col_name reads like
+    ['Solarwinds', 'Sole Supplier', 'ICT'] — data masquerading as column names.
+    When overridden, every row of this fragment is data.
+    """
     grid = [r for r in grid if any((c or "").strip() for c in r)]
     if not grid:
         return []
+    if header_override is not None:
+        header = header_override
+        grid = [header] + grid  # keep row 0 = data after the [1:] slice below
+    else:
+        # A leading TITLE/CAPTION row ("2022 County by County Allocations") has at
+        # most 1 populated cell; the real multi-column header is the row after it.
+        # Without this, header = the caption text and the true header row
+        # ("Scheme Name | County | Allocation") is emitted as a bogus DATA row.
+        # Observed live: munitions-of-war PDFs (fitz) and county-allocation xlsx
+        # sheets (openpyxl) both do this — it's a property of the source layout,
+        # not one parser. [Verified 2026-08-01 — pq44633 PDFs, pq848 xlsx]
+        while len(grid) > 1 and sum(1 for c in grid[0] if (c or "").strip()) <= 1 and sum(
+            1 for c in grid[1] if (c or "").strip()
+        ) > 1:
+            grid = grid[1:]
+        if not grid:
+            return []
     header = [(c or "").strip() for c in grid[0]]
     out = []
     for row_index, row in enumerate(grid[1 : 1 + _MAX_ROWS_PER_TABLE]):
@@ -200,33 +249,41 @@ def parse_pdf(data: bytes) -> list[dict]:
     """
     import fitz
 
-    doc = fitz.open(stream=data, filetype="pdf")
     rows: list[dict] = []
-    try:
-        for pno, page in enumerate(doc):
-            found = 0
-            try:
-                for ti, table in enumerate(page.find_tables().tables):
-                    grid = [["" if c is None else str(c) for c in r] for r in table.extract()]
-                    emitted = _emit(grid, f"page_{pno}_table_{ti}")
-                    rows.extend(emitted)
-                    found += len(emitted)
-            except Exception as e:  # detection can fail on odd page trees
-                logger.debug("find_tables failed p%d: %s", pno, e)
-            if not found:
-                text = page.get_text().strip()
-                if text:
-                    rows.append(
-                        {
-                            "sheet_or_table": f"page_{pno}_text",
-                            "row_index": 0,
-                            "col_index": 0,
-                            "col_name": "page_text",
-                            "value": text[:20_000],
-                        }
-                    )
-    finally:
-        doc.close()
+    # Header carried forward across pages, keyed by column count: a continuation
+    # fragment of the same table has the same width as the one that had the header.
+    last_header: dict[int, list[str]] = {}
+    with _FITZ_LOCK:  # see _FITZ_LOCK docstring: fitz table extraction races across threads
+        doc = fitz.open(stream=data, filetype="pdf")
+        try:
+            for pno, page in enumerate(doc):
+                found = 0
+                try:
+                    for ti, table in enumerate(page.find_tables().tables):
+                        grid = [["" if c is None else str(c) for c in r] for r in table.extract()]
+                        ncols = max((len(r) for r in grid), default=0)
+                        override = last_header.get(ncols) if pno > 0 and ncols in last_header else None
+                        emitted = _emit(grid, f"page_{pno}_table_{ti}", header_override=override)
+                        if override is None and grid:
+                            last_header[ncols] = [(c or "").strip() for c in grid[0]]
+                        rows.extend(emitted)
+                        found += len(emitted)
+                except Exception as e:  # detection can fail on odd page trees
+                    logger.debug("find_tables failed p%d: %s", pno, e)
+                if not found:
+                    text = page.get_text().strip()
+                    if text:
+                        rows.append(
+                            {
+                                "sheet_or_table": f"page_{pno}_text",
+                                "row_index": 0,
+                                "col_index": 0,
+                                "col_name": "page_text",
+                                "value": text[:20_000],
+                            }
+                        )
+        finally:
+            doc.close()
     return rows
 
 

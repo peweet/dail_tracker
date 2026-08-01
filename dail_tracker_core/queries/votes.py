@@ -133,7 +133,7 @@ def member_vote_history(
     where = _and_clauses(clauses)
     sql = (
         "SELECT vote_id, vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
-        f" FROM v_vote_member_detail WHERE {where} ORDER BY vote_date DESC LIMIT ?"
+        f" FROM v_vote_member_detail WHERE {where} ORDER BY vote_date DESC, vote_id DESC LIMIT ?"
     )
     params.append(limit)
     return _run(conn, sql, params)
@@ -165,10 +165,17 @@ def vote_index(conn: duckdb.DuckDBPyConnection, date_from, date_to, outcome, hou
     body = _and_clauses(clauses)
     if body:
         where = " WHERE " + body
+    # vote_id breaks date ties. Many divisions share one sitting date (17 Dec 2025
+    # alone carries several), and `ORDER BY vote_date DESC` alone leaves their
+    # relative order to DuckDB's scan — two identical loads returned the cards in
+    # different orders, so the list visibly reshuffled on every rerun (caught by a
+    # pixel diff, 2026-08-01: 0.814% of the frame moved with no code or data change).
+    # A total order also makes LIMIT deterministic: without it, which rows survive
+    # the cut at the boundary date is arbitrary too.
     sql = (
         "SELECT vote_id, vote_date, debate_title, vote_outcome,"
         " yes_count, no_count, abstained_count, margin, oireachtas_url"
-        f" FROM v_vote_index{where} ORDER BY vote_date DESC LIMIT ?"
+        f" FROM v_vote_index{where} ORDER BY vote_date DESC, vote_id DESC LIMIT ?"
     )
     params.append(VOTE_INDEX_LIMIT)
     return _run(conn, sql, params)
@@ -225,6 +232,9 @@ def topical_votes(conn: duckdb.DuckDBPyConnection, topics: tuple[str, ...], hous
         " WHERE vote_type IN ('Voted Yes', 'Voted No')"
         " AND member_name IS NOT NULL AND house = ?"
         f" AND ({likes})"
-        " ORDER BY vote_date DESC LIMIT 2000"
+        # vote_id, member_id tiebreak: this is one row PER MEMBER per division, so
+        # a date alone leaves both the division order and the members within it to
+        # the scan — and the 2000-row LIMIT then cuts an arbitrary subset.
+        " ORDER BY vote_date DESC, vote_id DESC, member_id ASC LIMIT 2000"
     )
     return _run(conn, sql, [house, *patterns])
