@@ -66,6 +66,8 @@ pipeline = [
     "regex>=2023.0",       # \p{Lu} unicode-property patterns in member_interests.py (stdlib re can't do these)
     "openpyxl>=3.1",       # charity_normalise.py reads the Charities Register .xlsx via load_workbook
     "xlrd>=2.0",           # legacy .xls reader (pre-2021 OPW/LA payment quarterlies are .xls; openpyxl is .xlsx-only)
+    "scikit-learn>=1.9",   # tier-2 model fallback in diary_entry_classify.py (OCR-mangled subjects the
+                           # rules can't enumerate; import-guarded — absent = rules-only, never fatal)
 ]
 
 # OCR pipeline for scanned PDFs (read_scan_pdf.py)

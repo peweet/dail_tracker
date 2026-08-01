@@ -411,3 +411,11 @@
 {"ts": "2026-08-01T06:34:19+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 5116, "total_mb": 16073, "load_pct": 68, "commit_free_mb": 9510, "commit_total_mb": 43656}
 {"ts": "2026-08-01T06:44:22+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 4267, "total_mb": 16073, "load_pct": 73, "commit_free_mb": 7944, "commit_total_mb": 43656}
 {"ts": "2026-08-01T06:46:00+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 3028, "total_mb": 16073, "load_pct": 81, "commit_free_mb": 7316, "commit_total_mb": 43656}
+{"ts": "2026-08-01T06:49:55+00:00", "kind": "siting report harness (loads the layer store)", "blocked": true, "free_mb": 1297, "total_mb": 16073, "load_pct": 91, "commit_free_mb": 660, "commit_total_mb": 43656}
+{"ts": "2026-08-01T06:58:06+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2492, "total_mb": 16073, "load_pct": 84, "commit_free_mb": 11865, "commit_total_mb": 47777}
+{"ts": "2026-08-01T06:58:34+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2751, "total_mb": 16073, "load_pct": 82, "commit_free_mb": 11332, "commit_total_mb": 47777}
+{"ts": "2026-08-01T07:06:37+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2677, "total_mb": 16073, "load_pct": 83, "commit_free_mb": 11050, "commit_total_mb": 47777}
+{"ts": "2026-08-01T07:14:48+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2484, "total_mb": 16073, "load_pct": 84, "commit_free_mb": 12992, "commit_total_mb": 47777}
+{"ts": "2026-08-01T07:15:08+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2604, "total_mb": 16073, "load_pct": 83, "commit_free_mb": 13170, "commit_total_mb": 47777}
+{"ts": "2026-08-01T07:21:53+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 3919, "total_mb": 16073, "load_pct": 75, "commit_free_mb": 13544, "commit_total_mb": 47776}
+{"ts": "2026-08-01T07:24:06+00:00", "kind": "full ETL pipeline (spawns per-chain subprocesses)", "blocked": false, "free_mb": 3376, "total_mb": 16073, "load_pct": 78, "commit_free_mb": 13435, "commit_total_mb": 47776}

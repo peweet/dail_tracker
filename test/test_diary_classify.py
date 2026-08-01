@@ -139,3 +139,47 @@ def test_entry_class_expr_matches_scalar_classify() -> None:
     got = df.with_columns(entry_class_expr())["entry_class"].to_list()
     expected = [classify(s) for s in subjects]
     assert got == expected
+
+
+def test_model_fallback_invariants() -> None:
+    """Tier-2 model fallback (2026-08-01): the model may ONLY reclassify rows the
+    rules left as "other", every row carries entry_class_source, and rule
+    assignments are never overwritten. Counts are deliberately not asserted —
+    margins depend on the trained weights; the INVARIANTS are the contract."""
+    from extractors.diary_entry_classify import model_fallback
+
+    train_templates = {
+        "govt_business": "Cabinet Committee on Housing session {i}",
+        "oireachtas": "Leaders Questions slot {i}",
+        "media": "Radio interview Morning Ireland {i}",
+        "internal_dept": "Briefing with Officials {i}",
+        "travel": "Travel to Galway {i}",
+        "external_meeting": "Meeting with Chamber of Commerce {i}",
+        "party": "Fine Gael party meeting {i}",
+        "constituency": "Constituency day {i}",
+    }
+    rows = [
+        {"subject": tpl.format(i=i)}
+        for tpl in train_templates.values()
+        for i in range(160)
+    ]
+    # rules-"other" rows: OCR-mangled variants + genuinely unclassifiable
+    others = ["Government Rusiness", "Leaden Questions", "Pre- Brief", "Funeral", "xq"]
+    df = pl.DataFrame({"subject": [r["subject"] for r in rows] + others})
+    df = df.with_columns(entry_class_expr())
+    before = df["entry_class"].to_list()
+    out = model_fallback(df)
+
+    assert "entry_class_source" in out.columns
+    assert set(out["entry_class_source"].unique().to_list()) <= {"rule", "rule_residual", "model"}
+    after = out["entry_class"].to_list()
+    for b, a, src in zip(before, after, out["entry_class_source"].to_list(), strict=True):
+        if b != "other":
+            assert a == b and src == "rule"  # rules never overwritten
+        elif a != "other":
+            assert src == "model"  # any reclassification is attributed
+        else:
+            assert src == "rule_residual"
+    # sklearn present in the dev env: the frame passes the 1000-row training floor,
+    # so the function must at least run the model path without altering row count
+    assert len(out) == len(df)

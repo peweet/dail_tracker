@@ -387,6 +387,43 @@ _AXE_PATHS = (
     REPO / "node_modules" / "axe-core" / "axe.js",
 )
 
+# Attribution matters more than the raw count. The first real run on
+# /rankings-lobbying returned 80 violation instances, of which 71 targeted
+# `.st-emotion-cache-*` (Streamlit's generated DOM) and 8 targeted
+# `.rc-overflow-item` (the React library behind st.multiselect) — neither is
+# fixable without patching Streamlit. Exactly one, `.site-banner-sub`, was ours.
+# An unattributed report reads as "80 accessibility problems" and buries the one
+# that can actually be fixed.
+OUR_CLASS_PREFIXES = (
+    "dt-", "site-", "section-", "stat-", "lob-", "lp3-", "att-", "part-", "pay-", "int-",
+    "mo-", "leg-", "q-", "vt-", "cmt-", "don-", "e24-", "jud-", "pr-", "mf-", "pp-",
+    "con-", "hou-", "lg-", "sup-", "td-",
+)
+VENDOR_MARKERS = ("st-emotion-cache", 'data-testid="st', "stApp", "rc-overflow", "rc-virtual", "glide-", "katex")
+
+
+def leaf(target: str) -> str:
+    """The element axe actually flagged, not its ancestor chain.
+
+    axe reports a full descendant path. Matching anywhere in that string
+    misattributes every violation on a Streamlit container that happens to
+    contain one of our cards — the whole point is to know which element must
+    change, and that is the last segment.
+    """
+    return (target or "").split(">")[-1].strip()
+
+
+def attribute(target: str) -> str:
+    """'ours' | 'vendor' | 'unknown' for one axe target selector."""
+    tip = leaf(target)
+    if not tip:
+        return "unknown"
+    if any(f".{prefix}" in tip for prefix in OUR_CLASS_PREFIXES):
+        return "ours"
+    if any(marker in tip for marker in VENDOR_MARKERS):
+        return "vendor"
+    return "unknown"
+
 
 def cmd_a11y(args) -> int:
     from playwright.sync_api import sync_playwright
@@ -411,25 +448,41 @@ def cmd_a11y(args) -> int:
                 """() => axe.run(document, {resultTypes: ['violations']})
                         .then(r => r.violations.map(v => ({
                             id: v.id, impact: v.impact, help: v.help,
-                            nodes: v.nodes.length,
-                            target: v.nodes.length ? String(v.nodes[0].target) : null})))"""
+                            targets: v.nodes.map(n => String(n.target))})))"""
             )
+            ours = 0
             for violation in report:
-                findings.append({"route": route.url_path, **violation})
-            counts: dict[str, int] = {}
-            for v in report:
-                counts[v["impact"] or "unknown"] = counts.get(v["impact"] or "unknown", 0) + 1
-            summary = ", ".join(f"{n} {impact}" for impact, n in sorted(counts.items())) or "clean"
-            print(f"  /{route.url_path:<34} {summary}")
+                for target in violation["targets"]:
+                    findings.append(
+                        {
+                            "route": route.url_path, "id": violation["id"],
+                            "impact": violation["impact"], "help": violation["help"],
+                            "target": target, "owner": attribute(target),
+                        }
+                    )
+                    ours += attribute(target) == "ours"
+            total = sum(len(v["targets"]) for v in report)
+            print(f"  /{route.url_path:<34} {ours} ours / {total} total")
         browser.close()
 
     (out_dir / "a11y.json").write_text(json.dumps(findings, indent=2), encoding="utf-8")
-    by_rule: dict[str, int] = {}
-    for f in findings:
-        by_rule[f["id"]] = by_rule.get(f["id"], 0) + f["nodes"]
-    print(f"\n{len(findings)} violation instance(s) across {len(routes)} route(s)")
-    for rule, n in sorted(by_rule.items(), key=lambda kv: -kv[1])[:12]:
-        print(f"  {n:>5}  {rule}")
+    mine = [f for f in findings if f["owner"] == "ours"]
+    print(f"\n{len(mine)} actionable of {len(findings)} instance(s) across {len(routes)} route(s)")
+    for owner in ("vendor", "unknown"):
+        n = sum(1 for f in findings if f["owner"] == owner)
+        if n:
+            print(f"  ({n} {owner} — Streamlit's own DOM, not fixable here)" if owner == "vendor"
+                  else f"  ({n} unattributed — check the selector by hand)")
+    if mine:
+        # Grouped by rule + element: 71 instances of one rule on one card class is
+        # ONE thing to fix, and printing it 71 times hides the other findings.
+        grouped: dict[tuple[str, str, str], int] = {}
+        for f in mine:
+            key = (f["impact"] or "unknown", f["id"], leaf(f["target"]))
+            grouped[key] = grouped.get(key, 0) + 1
+        print("\nOURS (grouped by rule + element):")
+        for (impact, rule, element), n in sorted(grouped.items(), key=lambda kv: -kv[1]):
+            print(f"  [{impact}] {rule:<18} x{n:<4} {element}")
     print("\nNote: automated rules catch ~30-40% of WCAG issues; the rest needs a manual pass.")
     return 0
 

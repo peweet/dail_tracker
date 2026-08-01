@@ -1,0 +1,41 @@
+# gitleaks config — secret scanning for dail_extractor.
+#
+# Installed + baselined 2026-08-01: full working-tree scan (102 raw hits) triaged
+# to ZERO real secrets in tracked files; every allowlist entry below is a
+# classified false-positive class from that triage, not a blanket mute. Scans:
+#   local:  gitleaks git . --redact     (history)  |  gitleaks dir . --redact  (tree)
+#   CI:     gitleaks job in .github/workflows/ci.yml
+# Always --redact: a finding's location is the signal; echoing the matched
+# string into a log would itself be a leak.
+
+[extend]
+# Start from gitleaks' default ruleset; entries below only ADD allowlists.
+useDefault = true
+
+[[allowlists]]
+description = "Saved third-party web pages: their embedded frontend tokens are the publishing site's, not ours (source-page samples + council rulebook raw captures)"
+paths = [
+    '''doc/source_pdfs/_samples/.*\.html''',
+    '''planning/product/rules/.*/raw/.*\.html''',
+]
+
+[[allowlists]]
+description = "Deliberately fake credentials that TEST the log-redaction filter (test_secrets_are_redacted) — the strings must look like secrets for the test to mean anything"
+paths = ['''test/services/test_logging_cloud\.py''']
+
+[[allowlists]]
+description = "Document-ID constants whose variable name contains KEY (e.g. DOC_KEY = 'cag_roaps_2015_ch06') — identifiers, not credentials"
+regexTarget = "line"
+regexes = ['''DOC_KEY\s*=\s*"[a-z0-9_]+"''']
+
+[[allowlists]]
+description = "Bulk data + build artifacts: gitignored or public-record content where entropy strings are IDs, never credentials"
+paths = [
+    '''\.venv/.*''',
+    '''\.cache/.*''',
+    '''\.hypothesis/.*''',
+    '''__pycache__/.*''',
+    '''data/bronze/.*''',
+    '''data/silver/.*''',
+    '''data/gold/.*''',
+]

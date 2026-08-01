@@ -59,6 +59,20 @@ jobs:
       # script as the versioned .githooks/pre-push hook. See tools/check_no_private_ip.py.
       - run: uv run python tools/check_no_private_ip.py
 
+  # Secret scan (gitleaks): full-history scan with the repo config
+  # (.gitleaks.toml allowlists + .gitleaksignore grandfathered fingerprints —
+  # baselined 2026-08-01 at zero real secrets across 1,015 commits). Also runs
+  # locally via .githooks/pre-push when gitleaks is installed.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # gitleaks scans history, not just the checkout
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   typecheck:
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,16 @@
+# gitleaks fingerprint grandfather list - 13 historical false positives
+# (column-name lists tripping generic-api-key; triaged 2026-08-01, zero real secrets).
+# NEVER add a fingerprint without classifying the finding first.
+879c4d3a80ebbb695cdfd49f842a1d802f3189c5:extractors/noac_scorecard_history_extract.py:generic-api-key:138
+879c4d3a80ebbb695cdfd49f842a1d802f3189c5:extractors/noac_scorecard_history_extract.py:generic-api-key:153
+1d9b76845613c0684d3145c05f1797e856d21e81:extractors/noac_scorecard_history_extract.py:generic-api-key:138
+1d9b76845613c0684d3145c05f1797e856d21e81:extractors/noac_scorecard_history_extract.py:generic-api-key:153
+66f4fdf594fbce14884bf0528b435963cb6be434:doc/PAYMENTS_AUDIT.md:generic-api-key:92
+9684e8fb856e2a5a165175664e619065bbabfa81:doc/PAYMENTS_AUDIT.md:generic-api-key:92
+8b0d3cb7c0d97c7da1470d619d1bb6ab3b2ba330:utility/pages_code/payments.py:generic-api-key:149
+89efd0141cfa00a42af972e4c8975f30e6e63de0:utility/pages_code/payments.py:generic-api-key:149
+4864decf2a9673ed91a65f9f0f1053874ba490c8:enrich.py:generic-api-key:164
+300beb07a5a670339b69ba9bebc2237468a1b00c:enrich.py:generic-api-key:164
+8f08cb5b92987c05d7560468363db8650082ded8:payments.py:generic-api-key:59
+6355b3b9953e4cb25f39ff0c60047d932ed6ff01:payments.py:generic-api-key:57
+6d24d9cf5b76c62e273869aaa812916c5ba5eecc:payments.py:generic-api-key:48

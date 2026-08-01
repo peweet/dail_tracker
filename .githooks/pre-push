@@ -17,5 +17,18 @@ done
 status=$?
 if [ "$status" -ne 0 ]; then
   echo "pre-push: private-IP guard blocked the push (see above)." >&2
+  exit "$status"
 fi
-exit "$status"
+
+# Secret scan (gitleaks, installed 2026-08-01; config .gitleaks.toml, grandfathered
+# false positives in .gitleaksignore). Best-effort locally — a clone without
+# gitleaks still gets the CI job. --redact: never echo a matched secret.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git . --redact --no-banner
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "pre-push: gitleaks found a potential secret (see above; locations only, values redacted)." >&2
+    exit "$status"
+  fi
+fi
+exit 0
