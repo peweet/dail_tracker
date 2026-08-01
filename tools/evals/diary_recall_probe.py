@@ -1,13 +1,15 @@
-"""Hybrid-recipe probe over ministerial diary engagements (reference_extraction_hybrid_recipe).
+"""Hybrid-recipe recall eval over ministerial diary engagements (reference_extraction_hybrid_recipe).
 
-EXPERIMENTAL sandbox. A = extractors/diary_entry_classify.py (ordered keyword rules; its
-"other" class IS the declared recall gap — 19% of rows). B = TF-IDF+LinearSVC trained on
-A's 8 labeled classes, applied to the "other" bucket → ranked reclassification queue for
-P(True) labeling. Also: dedup count (minister+date+subject) and per-department month
-completeness — the two traps the council-minutes run proved recur.
+Graduated from pipeline_sandbox/minister_meetings/ 2026-08-01, alongside
+extractors/diary_entry_classify.py (tier 1 of the classifier it evaluates; MODEL_GATES there
+cites this eval's verify_sample.json). A = diary_entry_classify.py's ordered keyword rules;
+its "other" class IS the declared recall gap. B = TF-IDF+LinearSVC trained on A's 8 labeled
+classes, applied to the "other" bucket -> ranked reclassification queue for P(True) labeling.
+Also: dedup count (minister+date+subject) and per-department month completeness — the two
+traps the council-minutes run proved recur.
 
 Outputs (this dir): diary_tolabel.json (top-confidence queue sample) ·
-MINISTER_MEETINGS_QUALITY.md (R12 sections).
+MINISTER_MEETINGS_QUALITY.md (Completeness + Recall sections).
 Usage: python diary_recall_probe.py
 """
 from __future__ import annotations
