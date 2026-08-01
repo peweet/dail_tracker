@@ -1,6 +1,6 @@
 ---
 tier: PLAN
-status: LIVE
+status: STALE
 domain: procurement
 updated: 2026-06-14
 supersedes: []

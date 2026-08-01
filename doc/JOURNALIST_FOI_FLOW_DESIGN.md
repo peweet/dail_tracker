@@ -1,6 +1,6 @@
 ---
 tier: SPEC
-status: LIVE
+status: STALE
 domain: sources
 updated: 2026-06-22
 supersedes: []

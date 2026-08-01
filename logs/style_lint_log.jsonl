@@ -525,3 +525,22 @@
 {"ts": "2026-08-01T09:27:51", "session": "95fbaf03-0b5", "warns": ["53-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-01T09:32:37", "session": "cb5dd928-f8a", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}
 {"ts": "2026-08-01T09:33:35", "session": "1b7369b9-2e3", "warns": ["46-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:37:47", "session": "a69674a9-684", "warns": ["67-word sentence (rule 4 -- one idea per sentence)", "46-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:42:15", "session": "b63467a7-9f1", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "54-word sentence (rule 4 -- one idea per sentence)", "48-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:43:51", "session": "cd0c9b83-fec", "warns": ["69-word sentence (rule 4 -- one idea per sentence)", "62-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:48:16", "session": "1b7369b9-2e3", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "jargon: \"surfaces\" (rule 3 -- use the plain word)", "57-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:48:21", "session": "62a74d9d-dbc", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-08-01T09:50:11", "session": "d3cefa95-1e6", "warns": ["46-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:52:46", "session": "62a74d9d-dbc", "warns": ["jargon: \"really\" (rule 3 -- use the plain word)", "jargon: \"actually\" (rule 3 -- use the plain word)", "54-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:53:05", "session": "1b7369b9-2e3", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-08-01T09:53:40", "session": "d3cefa95-1e6", "warns": ["47-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:57:04", "session": "b63467a7-9f1", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "48-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:57:37", "session": "95fbaf03-0b5", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "49-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T09:58:41", "session": "7cd20114-f05", "warns": ["51-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T10:00:57", "session": "1b7369b9-2e3", "warns": ["jargon: \"surfaces\" (rule 3 -- use the plain word)", "54-word sentence (rule 4 -- one idea per sentence)", "57-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T10:02:04", "session": "ca41e5bf-0b8", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "51-word sentence (rule 4 -- one idea per sentence)", "53-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T10:03:47", "session": "62a74d9d-dbc", "warns": ["74-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T10:04:23", "session": "1b7369b9-2e3", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "75-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T10:04:58", "session": "cb5dd928-f8a", "warns": ["jargon: \"topology\" (rule 3 -- use the plain word)", "95-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T10:05:53", "session": "95fbaf03-0b5", "warns": ["48-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-01T10:06:53", "session": "1b7369b9-2e3", "warns": ["48-word sentence (rule 4 -- one idea per sentence)", "52-word sentence (rule 4 -- one idea per sentence)"]}

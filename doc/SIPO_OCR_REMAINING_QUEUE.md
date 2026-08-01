@@ -1,6 +1,6 @@
 ---
 tier: PLAN
-status: LIVE
+status: STALE
 domain: elections
 updated: 2026-06-26
 supersedes: []

@@ -65,3 +65,29 @@ def test_shape_hit_speeches_concise_keeps_speaker():
 def test_search_rejects_bad_response_format_before_touching_data():
     out = text_fts.search("questions", "housing", cur=None, repo=REPO, response_format="terse")
     assert "error" in out and "response_format" in out["error"]
+
+
+_CM_ROW = {
+    "rid": 3,
+    "council": "Kerry",
+    "meeting": "mar26.pdf",
+    "meeting_date": "2026-03-23",
+    "doc_type": "plenary_minutes",
+    "source_status": "ocr_winocr",
+    "source_url": "https://example.ie/mar26.pdf",
+    "chunk": 4,
+    "body": "y" * 400,
+    "score": 1.5,
+}
+
+
+def test_council_minutes_concise_shape() -> None:
+    """council_minutes corpus (2026-08-01): concise keeps council/date/doc_type + halved
+    snippet; detailed keeps provenance (source_status for the Extracted-band badge,
+    source_url, chunk)."""
+    concise = text_fts.shape_hit("council_minutes", dict(_CM_ROW), "concise")
+    assert set(concise) <= {"council", "meeting_date", "doc_type", "body", "score"}
+    assert len(concise["body"]) < 400
+    detailed = text_fts.shape_hit("council_minutes", dict(_CM_ROW), "detailed")
+    assert detailed["source_status"] == "ocr_winocr"
+    assert detailed["source_url"].startswith("https://")

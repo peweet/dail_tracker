@@ -1,6 +1,6 @@
 ---
 tier: PLAN
-status: LIVE
+status: STALE
 domain: money
 updated: 2026-06-03
 supersedes: []

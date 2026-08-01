@@ -48,6 +48,7 @@ import ast  # noqa: E402
 import contextlib  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
+import re  # noqa: E402
 import socket  # noqa: E402
 import subprocess  # noqa: E402
 import time  # noqa: E402
@@ -124,7 +125,21 @@ def discover_routes(app_py: Path = APP_PY) -> list[Route]:
     return sorted(routes, key=lambda r: r.url_path)
 
 
-def select_routes(routes: list[Route], *, only: list[str] | None, include_hidden: bool) -> list[Route]:
+# Excluded by default on a whole-app sweep: these two boot the siting geospatial
+# engine (PointScopedLayerStore, ~1.2 GB RSS) inside the Streamlit process. On a
+# 16 GB box already carrying several Claude sessions that is the difference
+# between a sweep and an OOM. Name them with --route to review them deliberately.
+HEAVY_ROUTES = frozenset({"planning-siting-check", "planning-siting-assistant"})
+
+
+def select_routes(
+    routes: list[Route],
+    *,
+    only: list[str] | None,
+    include_hidden: bool,
+    exclude: list[str] | None = None,
+    skip_heavy: bool = True,
+) -> list[Route]:
     if only:
         wanted = {r.strip("/") for r in only}
         chosen = [r for r in routes if r.url_path in wanted]
@@ -132,7 +147,10 @@ def select_routes(routes: list[Route], *, only: list[str] | None, include_hidden
         if missing:
             raise SystemExit(f"unknown route(s): {', '.join(sorted(missing))}")
         return chosen
-    return [r for r in routes if include_hidden or not r.hidden]
+    dropped = {r.strip("/") for r in (exclude or [])}
+    if skip_heavy:
+        dropped |= HEAVY_ROUTES
+    return [r for r in routes if (include_hidden or not r.hidden) and r.url_path not in dropped]
 
 
 # ── server ────────────────────────────────────────────────────────────────────
@@ -308,7 +326,10 @@ def _capture_dir(args) -> Path:
 def cmd_capture(args) -> int:
     from playwright.sync_api import sync_playwright
 
-    routes = select_routes(discover_routes(), only=args.route, include_hidden=args.include_hidden)
+    routes = select_routes(
+        discover_routes(), only=args.route, include_hidden=args.include_hidden,
+        exclude=args.exclude, skip_heavy=not args.include_heavy,
+    )
     viewports = [args.viewport] if args.viewport else list(VIEWPORTS)
     out_dir = _capture_dir(args)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -399,7 +420,14 @@ OUR_CLASS_PREFIXES = (
     "mo-", "leg-", "q-", "vt-", "cmt-", "don-", "e24-", "jud-", "pr-", "mf-", "pp-",
     "con-", "hou-", "lg-", "sup-", "td-",
 )
-VENDOR_MARKERS = ("st-emotion-cache", 'data-testid="st', "stApp", "rc-overflow", "rc-virtual", "glide-", "katex")
+VENDOR_MARKERS = (
+    "st-emotion-cache", 'data-testid="st', "stApp", "rc-overflow", "rc-virtual", "glide-", "katex",
+    # Streamlit's short-form emotion classes (.st-ag, .st-c5) and its generated
+    # tab ids (#tabs-bui11-tab-0). Without these they land in `unknown` and
+    # inflate the "check by hand" bucket with things we cannot fix anyway.
+    "#tabs-bui",
+)
+RE_VENDOR_SHORT_CLASS = re.compile(r"^\.st-[a-z0-9]{1,3}\b")
 
 
 def leaf(target: str) -> str:
@@ -410,7 +438,12 @@ def leaf(target: str) -> str:
     contain one of our cards — the whole point is to know which element must
     change, and that is the last segment.
     """
-    return (target or "").split(">")[-1].strip()
+    tip = (target or "").split(">")[-1].strip()
+    # Strip per-instance qualifiers so 31 council cards group as ONE finding
+    # rather than 31 — `.dt-card-link[href="?council=Donegal"]` and
+    # `:nth-child(4)` are the same element class with different data in it.
+    tip = re.sub(r"\[[^\]]*\]|:nth-child\([^)]*\)|:nth-of-type\([^)]*\)", "", tip)
+    return tip.strip()
 
 
 def attribute(target: str) -> str:
@@ -420,7 +453,7 @@ def attribute(target: str) -> str:
         return "unknown"
     if any(f".{prefix}" in tip for prefix in OUR_CLASS_PREFIXES):
         return "ours"
-    if any(marker in tip for marker in VENDOR_MARKERS):
+    if any(marker in tip for marker in VENDOR_MARKERS) or RE_VENDOR_SHORT_CLASS.match(tip):
         return "vendor"
     return "unknown"
 
@@ -432,7 +465,10 @@ def cmd_a11y(args) -> int:
     if axe_js is None:
         raise SystemExit("axe-core not installed. Run:  npm install --no-save axe-core")
 
-    routes = select_routes(discover_routes(), only=args.route, include_hidden=args.include_hidden)
+    routes = select_routes(
+        discover_routes(), only=args.route, include_hidden=args.include_hidden,
+        exclude=args.exclude, skip_heavy=not args.include_heavy,
+    )
     out_dir = RUNS_DIR / args.label
     out_dir.mkdir(parents=True, exist_ok=True)
     source = axe_js.read_text(encoding="utf-8")
@@ -490,7 +526,10 @@ def cmd_a11y(args) -> int:
 def cmd_probe(args) -> int:
     from playwright.sync_api import sync_playwright
 
-    routes = select_routes(discover_routes(), only=args.route, include_hidden=True)
+    routes = select_routes(
+        discover_routes(), only=args.route, include_hidden=True,
+        exclude=args.exclude, skip_heavy=not args.include_heavy,
+    )
     expression = Path(args.js_file).read_text(encoding="utf-8") if args.js_file else args.js
     if not expression:
         raise SystemExit("probe needs --js or --js-file")
@@ -524,6 +563,11 @@ def build_parser() -> argparse.ArgumentParser:
         if routes:
             sp.add_argument("--route", action="append", help="url_path (repeatable); default = all visible")
             sp.add_argument("--include-hidden", action="store_true", help="also capture visibility='hidden' routes")
+            sp.add_argument("--exclude", action="append", help="url_path to skip (repeatable)")
+            sp.add_argument(
+                "--include-heavy", action="store_true",
+                help=f"also sweep the siting routes ({', '.join(sorted(HEAVY_ROUTES))}) — ~1.2 GB each",
+            )
 
     p_routes = sub.add_parser("routes", help="list routes discovered from app.py")
     p_routes.add_argument("--check", action="store_true", help="load each route and fail if any 404s")

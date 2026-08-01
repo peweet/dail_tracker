@@ -13,6 +13,7 @@ against `extractors/ services/ sql_views/ test/ doc/ utility/` before moving.
 
 | File | Why retired | Superseded by / status |
 |---|---|---|
+| `_seanad_output/` (2026-08-01) | Seanad vote-history / senator-payment output tree, 33 MB, 13 files | Zero references — `rg "_seanad_output"` across the repo returned no files. Data only (`.csv`/`.parquet`), no code. Snapshotted in the `restic_sandbox` repo under tag `pre-move` before the move. |
 | `etenders_live_probe.py` | eTenders live-pull probe | ITT login/JS-gated dead end |
 | `etenders_itt_pull_probe.py` | ITT formula pull probe | login/JS-gated dead end (ITT gated) |
 | `inspect_hse_tusla.py` | throwaway inspection script | one-off |

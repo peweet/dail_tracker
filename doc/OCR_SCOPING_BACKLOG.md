@@ -1,6 +1,6 @@
 ---
 tier: PLAN
-status: LIVE
+status: STALE
 domain: sources
 updated: 2026-07-13
 supersedes: []

@@ -1,6 +1,6 @@
 ---
 tier: RECORD
-status: LIVE
+status: STALE
 domain: members
 updated: 2026-06-22
 supersedes: []

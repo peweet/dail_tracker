@@ -337,7 +337,8 @@ _CONN_LOCK = threading.RLock()
 # additive glob registration is enough. swallow_errors so a missing optional
 # parquet degrades that one domain to an "unavailable" tool result, not a dead
 # server.
-_EXTRA_VIEW_GLOBS = ["sipo_*.sql", "judiciary_*.sql", "appointments_*.sql", "corporate_*.sql"]
+_EXTRA_VIEW_GLOBS = ["sipo_*.sql", "judiciary_*.sql", "appointments_*.sql", "corporate_*.sql",
+                     "council_minutes_*.sql"]
 
 
 def _cur():
@@ -1915,6 +1916,21 @@ def search_speeches(query: str, year: int = 0, limit: int = 10, response_format:
     snippets — anything cited or published needs the detailed provenance fields.
     First call after a data refresh rebuilds the derived index (one-off, seconds)."""
     return text_fts.search("speeches", query, _cur(), REPO, year=year, limit=limit, response_format=response_format)
+
+
+@mcp.tool(annotations=_RO)
+def search_council_minutes(query: str, year: int = 0, limit: int = 10, response_format: str = "concise") -> dict:
+    """WHICH COUNCILS discussed a topic: BM25-ranked (porter-stemmed) search over the
+    council-minutes corpus (870+ meeting documents, 28 of 31 councils, 2015-2026) — the
+    local-government sibling of search_speeches. Use for cross-council topic questions
+    ('which councils debated data centres / IPAS / flood relief') and for locating the
+    meeting that discussed a named site or scheme. Hits carry source_status:
+    'ocr_winocr' rows are OCR-derived text (Extracted band) — carry that caveat into
+    anything cited. Default hits are concise (council, date, doc_type, snippet); pass
+    response_format='detailed' for meeting file / source_url provenance. First call
+    after a corpus refresh rebuilds the index (one-off, seconds)."""
+    return text_fts.search("council_minutes", query, _cur(), REPO, year=year, limit=limit,
+                           response_format=response_format)
 
 
 @mcp.tool(annotations=_RO)

@@ -1,6 +1,6 @@
 ---
 tier: RECORD
-status: LIVE
+status: STALE
 domain: commercial
 updated: 2026-07-08
 supersedes: []

@@ -1,6 +1,6 @@
 ---
 tier: RECORD
-status: LIVE
+status: STALE
 domain: local-gov
 updated: 2026-07-09
 supersedes: []

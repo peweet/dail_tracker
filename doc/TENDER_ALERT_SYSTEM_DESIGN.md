@@ -1,6 +1,6 @@
 ---
 tier: SPEC
-status: LIVE
+status: STALE
 domain: procurement
 updated: 2026-06-28
 supersedes: []
