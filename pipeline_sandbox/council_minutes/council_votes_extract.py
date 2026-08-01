@@ -644,7 +644,163 @@ def parse_fingal_prose(la: str, fname: str, text: str, cov: Coverage, resolver: 
     return _dedupe_motions(out)
 
 
+# ── Galway City prose (OCR text — Extracted band) ───────────────────────────────────────────
+# Roll-call format in the winocr'd minutes (2020-21 era, e.g. 080321_01):
+#   Proposed by: Cllr. D. Lyons Seconded by: Cllr. F. Fahy
+#   '<motion>'
+#   In favour: Cllr. A, Cllr. B, ... & Cllr. Z
+#   Against: Cllr. O. Hanley
+#   In Favour: 15 Against: 1 Abstain: O Present: 16      <- printed tally; OCR types 0 as O
+# The printed tally line is the reconcile gate (Cork discipline): a division is kept only
+# when each side's parsed names count to its printed number. 2015-era blocks print NO
+# numeric tally -> dropped + counted, never guessed. OCR garbles names ("C. Ö Conchüir",
+# "l. Byrne") — the roster fold carries more load here than any born-digital council.
+_GW_TALLY = re.compile(
+    r"In\s+Favou?r\s*:\s*([0-9OolI]{1,2})\s+Against\s*:\s*([0-9OolI]{1,2})"
+    r"(?:\s+Abstain\w*\s*:\s*([0-9OolI]{1,2}))?", re.I)
+_GW_SIDE = re.compile(r"\b(In\s+[Ff]avou?r|Against|Abstain\w*)\s*:")
+_GW_MOTION = re.compile(
+    r"Proposed\s+by\s*:\s*Cllr[^\n]{0,60}Seconded\s+by\s*:\s*Cllr[^\n]{0,60}\n(.{0,300}?)\n\s*In\s+[Ff]avou?r",
+    re.S)
+
+
+def _gw_int(s: str) -> int:
+    return int(s.translate(str.maketrans("OolI", "0011")))
+
+
+def _gw_names(seg: str) -> list[str]:
+    seg = re.sub(r"\s+", " ", seg).strip()
+    if re.match(r"Nil\b", seg, re.I):
+        return []
+    seg = re.sub(r"\bCllrs?\.?,?\s*", "", seg)
+    seg = re.sub(r"\s*&\s*", ", ", seg)
+    return [p.strip(" .;:'’") for p in seg.split(",")
+            if re.search(r"[A-Za-zÀ-ÿ]{2,}", p) and not re.fullmatch(r"[\d\sOolI]+", p.strip())]
+
+
+def parse_galway_prose(la: str, fname: str, text: str, cov: Coverage, resolver: RosterResolver) -> list[dict]:
+    text = _fix_mojibake(text)
+    mdate = _corpus_meeting_date(fname) or _doc_meeting_date(text)
+    out: list[dict] = []
+    for tm in _GW_TALLY.finditer(text):
+        cov.divisions_found += 1
+        tallies = {"for": _gw_int(tm.group(1)), "against": _gw_int(tm.group(2)),
+                   "abstain": _gw_int(tm.group(3)) if tm.group(3) else 0}
+        window = text[max(0, tm.start() - 2200): tm.start()]
+        marks = list(_GW_SIDE.finditer(window))
+        sides: dict[str, list[str]] = {}
+        for gi, gm in enumerate(marks):
+            seg_end = marks[gi + 1].start() if gi + 1 < len(marks) else len(window)
+            key = gm.group(1).lower().replace("in favour", "for").replace("in favor", "for")
+            key = "abstain" if key.startswith("abstain") else key
+            names = _gw_names(window[gm.end(): seg_end])
+            if names or key not in sides:  # keep the last non-empty list per side
+                sides[key] = names
+        ok = all(len(sides.get(side, [])) == n for side, n in tallies.items() if n > 0) \
+            and any(n > 0 for n in tallies.values())
+        if not ok:
+            cov.reconcile_drops += 1
+            continue
+        cov.divisions_kept += 1
+        mmatch = list(_GW_MOTION.finditer(text[max(0, tm.start() - 2200): tm.start()]))
+        motion = _fix_mojibake(re.sub(r"\s+", " ", mmatch[-1].group(1)).strip(" '‘’\"")) if mmatch else ""
+        for side, n in tallies.items():
+            if n == 0:
+                continue
+            for printed in sides.get(side, []):
+                resolved, status = resolver.initials(printed)
+                if status in ("ambiguous", "title") or resolved is None:
+                    if status == "ambiguous":
+                        cov.ambiguous_excluded += 1
+                    elif status == "title":
+                        cov.title_excluded += 1
+                    else:
+                        cov.unmatched_kept += 1
+                    resolved = _fix_mojibake(printed)
+                cov.rows += 1
+                out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
+                            "motion": motion[:240], "member": resolved, "vote": side,
+                            "source_status": "ocr_winocr", "_div": cov.divisions_kept})
+    return _dedupe_motions(out)
+
+
+# Serving cutoff (user decision 2026-08-01): votes older than this stay out of the
+# served record — pre-2018 councils/membership are a different electoral era and the
+# minute-book era (Louth 1900s) must never flood in. Applied at the harness merge so
+# every adapter inherits it; rows with NO parseable year also drop (a dateless vote
+# can't prove it's in-era — the minute-books are exactly the dateless case).
+MIN_VOTE_YEAR = 2018
+_YEAR_RX = re.compile(r"\b(19|20)\d{2}\b")
+
+
+def _vote_year(r: dict) -> int | None:
+    # meeting_date first; else the meeting FILENAME (Carlow/Laois rows carry an empty
+    # date field but a "…February%202026.pdf" filename — dropping those as undated
+    # deleted two whole verified councils on the first cutoff run, 2026-08-01)
+    from urllib.parse import unquote
+
+    if m := _YEAR_RX.search(str(r.get("meeting_date", ""))):
+        return int(m.group(0))
+    # filename fallback: slugs bury the year in digit/underscore runs ("april_202026",
+    # "February%202026_0") that defeat \b — match unboundaried, take the LAST hit
+    fname = unquote(str(r.get("meeting", ""))).replace("_20", " ")
+    hits = re.findall(r"(?:19|20)\d{2}", fname)
+    return int(hits[-1]) if hits else None
+
+
+def fold_initial_forms(rows: list[dict]) -> list[dict]:
+    """Post-parse roster fold (Carlow-style): a council's
+    own minutes mix 'O. O'Leary' (initial form) and 'Orla O'Leary' (full form) for the same
+    seat across meetings — RosterResolver.initials() can't unify them when the gold CSV
+    roster is missing that seat (Cork City: 28/31 names present, VOTE_VERIFICATION.md).
+    Build the full-form roster from what the corpus itself printed (per council, excluding
+    Carlow which already runs normalise_members), then fold every initial-form row onto its
+    (first-initial, surname) match — exact first, difflib >=0.86 fallback for spelling drift
+    (Boyle/Boylan). Ambiguous or no match -> left as printed: no misattribution."""
+    import difflib
+    from collections import defaultdict
+    by_la: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        by_la[r["local_authority"]].append(r)
+    out: list[dict] = []
+    for la, la_rows in by_la.items():
+        if la == "Carlow":  # already folded via normalise_members
+            out += la_rows
+            continue
+        full_names = {
+            r["member"] for r in la_rows
+            if len(_fold(r["member"]).split()) >= 2 and len(_fold(r["member"]).split()[0]) > 3
+        }
+        keyed = [(_fold(n).split()[0][0], _fold(n).split()[-1], n) for n in full_names]
+        for r in la_rows:
+            toks = _fold(r["member"]).split()
+            if len(toks) < 2 or len(toks[0]) > 3:  # not initial-form
+                out.append(r)
+                continue
+            initial, surname = toks[0][0], toks[-1]
+            cands = [k for k in keyed if k[0] == initial and k[1] == surname]
+            if not cands:  # spelling drift, same as RosterResolver.initials()
+                cands = [
+                    k for k in keyed
+                    if k[0] == initial and difflib.SequenceMatcher(None, k[1], surname).ratio() >= 0.86
+                ]
+            out.append({**r, "member": cands[0][2]} if len(cands) == 1 else r)
+    return out
+
+
 # ── corpus run + merge ───────────────────────────────────────────────────────────────────────
+# Adapter sweep (feedback_one_harness_per_repeatable_process): councils whose corpus
+# shows vote-language markers are tried against the EXISTING format adapters first —
+# the reconcile gates make a wrong-format parse yield ~nothing rather than garbage.
+# A council only earns a NEW adapter if the sweep shows real divisions in a format
+# none of the current parsers read.
+SWEEP = [
+    ("Wexford", "wexford"), ("Kerry", "kerry"), ("Dublin City", "dublin_city"),
+    ("Louth", "louth"), ("Meath", "meath"), ("Waterford", "waterford"),
+    ("Clare", "clare"), ("Donegal", "donegal"), ("Kildare", "kildare"),
+]
+
+
 def run_corpus() -> list[dict]:
     """Parse the local corpus for the three new councils; return rows (Carlow untouched)."""
     jobs = [
@@ -652,6 +808,7 @@ def run_corpus() -> list[dict]:
         ("Kilkenny", "kilkenny", "kilkenny"),
         ("Laois", "laois", "laois_grid"),
         ("Fingal", "fingal", "fingal"),  # ModernGov printed minutes (moderngov_harvest.py)
+        ("Galway City", "galway_city", "galway"),  # winocr OCR text — Extracted band
     ]
     all_rows: list[dict] = []
     for la, sub, kind in jobs:
@@ -670,9 +827,26 @@ def run_corpus() -> list[dict]:
                     all_rows += parse_cork_prose(la, p.name, text, cov, resolver)
                 elif kind == "fingal":
                     all_rows += parse_fingal_prose(la, p.name, text, cov, resolver)
+                elif kind == "galway":
+                    all_rows += parse_galway_prose(la, p.name, text, cov, resolver)
                 else:
                     all_rows += parse_kilkenny_prose(la, p.name, text, cov, resolver)
         print(f"{la:10} {cov.line()}")
+    # adapter sweep — existing formats tried against marker councils (no new code per
+    # council unless the sweep proves an unread format; see SWEEP comment above)
+    for la, sub in SWEEP:
+        folder = CORPUS / sub
+        if not folder.exists():
+            continue
+        cov = Coverage()
+        resolver = RosterResolver(la)
+        for p in sorted(q for q in folder.glob("*.txt") if "lcdc" not in q.name.lower()):
+            text = p.read_text(encoding="utf-8", errors="replace")
+            all_rows += parse_cork_prose(la, p.name, text, cov, resolver)
+            all_rows += parse_galway_prose(la, p.name, text, cov, resolver)
+            all_rows += parse_fingal_prose(la, p.name, text, cov, resolver)
+        if cov.divisions_found:
+            print(f"{la:10} [sweep] {cov.line()}")
     return all_rows
 
 
@@ -706,7 +880,10 @@ def main() -> int:
         # REGRESSION GATE: pass the existing Carlow rows through byte-identically
         carlow = [r for r in existing if r["local_authority"] == "Carlow"]
         print(f"Carlow     {len(carlow)} existing member-votes preserved (corpus mode)")
-    rows = carlow + run_corpus()
+    rows = fold_initial_forms(carlow + run_corpus())
+    pre = len(rows)
+    rows = [r for r in rows if (y := _vote_year(r)) is not None and y >= MIN_VOTE_YEAR]
+    print(f"cutoff >={MIN_VOTE_YEAR}: dropped {pre - len(rows)} rows (pre-cutoff or undated)")
     jl.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
     fields = ["local_authority", "meeting", "meeting_date", "motion", "member", "vote"]
     with open(HERE / "member_votes.csv", "w", newline="", encoding="utf-8") as fh:
