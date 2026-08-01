@@ -5,8 +5,10 @@ and parses VERBATIM governance clauses: Order of Business (the agenda template),
 (how councillors table items), Voting/Divisions (whether a recorded/named roll-call vote is taken —
 the structural reason named voting records exist for some councils and not others), Quorum.
 
-Output: standing_orders.jsonl — one row per council. Verbatim excerpts (display per the project's
-no-inference rule). Sandbox only.
+Output: pipeline_sandbox/council_minutes/standing_orders.jsonl — one row per council, read
+directly by extractors/councillors_promote_to_gold.py. Verbatim excerpts (display per the
+project's no-inference rule). Graduated from the sandbox 2026-08-01 — see
+test_standing_orders_extract.py for the pinned parsing logic.
 """
 from __future__ import annotations
 
@@ -16,17 +18,18 @@ import re
 from pathlib import Path
 from urllib.parse import urljoin
 
-import requests
 from bs4 import BeautifulSoup
 
-HERE = Path(__file__).resolve().parent
-H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"}
+from services.http_engine import polite_headers, session
+
+SANDBOX = Path(__file__).resolve().parents[1] / "pipeline_sandbox" / "council_minutes"
+HERE = SANDBOX
 SO_RX = re.compile(r"standing.?order", re.I)
 
 
 def get(u, t=30):
     try:
-        r = requests.get(u, headers=H, timeout=t, allow_redirects=True)
+        r = session.get(u, headers=polite_headers(browser=True), timeout=t, allow_redirects=True)
         return r if r.status_code == 200 else None
     except Exception:  # noqa: BLE001
         return None
