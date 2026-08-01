@@ -670,3 +670,7 @@ data/_meta/siting_national_sweep_baseline.json
 # file. Added BEFORE the first file lands there, so nothing is ever briefly visible to `git add -A`.
 # planning/civic/ is the deliberately-PUBLIC sibling — never add it here.
 /planning/product/
+
+# Node dependencies — installed via npm, never tracked (added 2026-08-01 after
+# node_modules/axe-core was committed by accident in 39bda48 "planning features").
+node_modules/
