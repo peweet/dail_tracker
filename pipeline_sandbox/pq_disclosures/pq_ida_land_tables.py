@@ -168,7 +168,9 @@ def extract_tables_and_attachments(xml: str, meta: dict) -> tuple[list[dict], li
                         for a in child.iter():
                             if _strip_ns(a.tag) != "a":
                                 continue
-                            href = a.get("href") or ""
+                            # .strip(): some hrefs carry a trailing space in the
+                            # source XML, which urllib quotes to %20 -> 404.
+                            href = (a.get("href") or "").strip()
                             if "supportingDocumentation" not in href:
                                 continue
                             for q in pending:

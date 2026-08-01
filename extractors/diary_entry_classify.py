@@ -62,7 +62,9 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
             # Irish titles, so no foreign-minister collision; an external org named alongside
             # still gets matched + flows to the overlap — govt_business is not excluded there.)
             r"|\bwith (?:the )?t[áa]naiste\b|\bwith (?:the )?taoiseach\b"
-            r"|\b(?:ministerial|cabinet|government) colleagues?\b",
+            r"|\b(?:ministerial|cabinet|government) colleagues?\b"
+            # OCR-tail fold-back (2026-08-01 verification): "Government BusinessO"/"Busieness"
+            r"|\bgovernment\s+busi",
             re.IGNORECASE,
         ),
     ),  # Cabinet, Government Meeting, Cabinet Committee, pre-Cabinet/pre-CC, with Taoiseach/Tánaiste, colleagues
@@ -74,7 +76,9 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
             r"|\bpromised legislation\b|\bparliamentary quest|\bpqs?\b|\bqpl\b|\bdivisions?\b"
             r"|\border of business\b|\bparliamentary party\b|\bpp\b|\bprivate members\b"
             r"|\badjournment\b|\bcommittee (?:meeting|hearing|appearance)\b|\b(?:joint|select) committee\b"
-            r"|\bcommittee on\b|\bvotes?\b|\bvoting\b|\bvot(?:e)?able\b|\bcommencement matters?\b|\blqs?\b|\boob\b",
+            r"|\bcommittee on\b|\bvotes?\b|\bvoting\b|\bvot(?:e)?able\b|\bcommencement matters?\b|\blqs?\b|\boob\b"
+            # fold-back (2026-08-01): Taoiseach's Questions was absent — 229 "other" rows
+            r"|taoiseach.?s?\s+questions",
             re.IGNORECASE,
         ),
     ),  # Dáil/Seanad, Leader('s) Questions, Topical Issues, stages, PQs, divisions/votes/votable, committees, PP
@@ -100,7 +104,10 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
             r"|\blate late\b|\bop[-\s]?ed\b|\bvideo\b"
             # named radio/TV programmes (distinctive only — NOT generic "this week"/"today with")
             r"|\bclaire byrne\b|\bpat kenny\b|\bthe last word\b|\btonight show\b|\bhard shoulder\b"
-            r"|\btoday fm\b|\bireland am\b",
+            r"|\btoday fm\b|\bireland am\b"
+            # fold-back (2026-08-01): hyphenated op forms + bare "photo" (media ordered
+            # before external_meeting, so "Photo Exhibition Launch" lands media by design)
+            r"|\bphoto[-\s]?op\b|\bpress[-\s]?op\b|\bphoto\b",
             re.IGNORECASE,
         ),
     ),  # interview, radio/TV (incl. local *fm + named shows), photocall/shoot, recording, press, video
@@ -117,7 +124,8 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
             # not activities, so they don't swallow genuine external prep.
             r"|\badvis[eo]rs?\b|\bspad\b|\bspecial advis[eo]r\b|\bprivate secretary\b|\bpriv\.? sec\b"
             r"|\bchief of staff\b|\bpress office\b|\bcomms team\b|\bassistant secretary\b|\bdiary meeting\b"
-            r"|\ba/?sec\b|\bsecgen\b|\bsg meeting\b",  # role abbreviations (Assistant Sec / Sec Gen)
+            r"|\ba/?sec\b|\bsecgen\b|\bsg meeting\b"  # role abbreviations (Assistant Sec / Sec Gen)
+            r"|\bpre\s*-\s*brief",  # fold-back (2026-08-01): "Pre - Brief" two-char gap beat pre[-\s]?brief
             re.IGNORECASE,
         ),
     ),  # briefing, officials, board, dept update, sec gen + advisers/private-sec/press-office/diary-meeting
@@ -125,7 +133,9 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
         "travel",
         re.compile(
             r"\btravel(?:ling)? to\b|\bflight\b|\bfly to\b|\btransfer to\b|\ben route\b"
-            r"|\bdrive to\b|\btrain to\b|\bdeparting\b",
+            r"|\bdrive to\b|\btrain to\b|\bdeparting\b"
+            # fold-back (2026-08-01): bare "Travel" subjects, "Travel: To X", "Drive A-B"
+            r"|^\s*travel\b|\btravel:\s|\bdrive\s+\w+[-–]\w+",
             re.IGNORECASE,
         ),
     ),  # travel to, flight, transfer to, en route, drive to
@@ -190,8 +200,20 @@ def entry_class_expr(col: str = "subject") -> pl.Expr:
 #     low-band rows are legitimately other — "Funeral", "No meetings scheduled");
 #   - entry_class_source records which tier assigned the class ("rule" | "model");
 #   - sklearn is import-guarded: absent → tier 1 only, logged, never fatal.
-MODEL_GATE_DEFAULT = 1.0
-MODEL_GATES = {"external_meeting": 1.2}
+# Verified per-class gates (stratified P(True) sample, 39 rows, 2026-08-01 —
+# pipeline_sandbox/minister_meetings/verify_sample.json): internal_dept/media/
+# oireachtas/party judged 12/12 across bands; travel 5/6; govt_business safe only at
+# the OCR-variant margins (>=2.0); external_meeting judged 3/6 in BOTH bands (the
+# model maps "Personal"/"Garda Protection Officers" into it) so it is EXCLUDED —
+# absent from this dict means the model may never assign it.
+MODEL_GATES = {
+    "internal_dept": 0.5,
+    "media": 0.5,
+    "oireachtas": 0.5,
+    "party": 0.5,
+    "travel": 0.5,
+    "govt_business": 2.0,
+}
 
 
 def model_fallback(e: pl.DataFrame, subject_col: str = "subject") -> pl.DataFrame:
@@ -228,13 +250,13 @@ def model_fallback(e: pl.DataFrame, subject_col: str = "subject") -> pl.DataFram
     top = margins.max(axis=1)
     pred = clf.predict(vec.transform(other[subject_col].to_list()))
     assign = [
-        p if t >= MODEL_GATES.get(p, MODEL_GATE_DEFAULT) else None
+        p if p in MODEL_GATES and t >= MODEL_GATES[p] else None
         for p, t in zip(pred, top, strict=True)
     ]
     other = other.with_columns(pl.Series("_model_class", assign, dtype=pl.String))
     n_assigned = other["_model_class"].is_not_null().sum()
-    log.info("model fallback: %d of %d 'other' rows reclassified (gate %.1f/%.1f ext)",
-             n_assigned, len(other), MODEL_GATE_DEFAULT, MODEL_GATES["external_meeting"])
+    log.info("model fallback: %d of %d 'other' rows reclassified (per-class gates; "
+             "external_meeting excluded)", n_assigned, len(other))
     # positional join back — entry_id is stamped LATER in the chain, so the row
     # index (added before the filter) is the only always-present stable key here
     e = e.join(other.select(["_row_idx", "_model_class"]), on="_row_idx", how="left")
