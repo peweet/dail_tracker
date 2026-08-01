@@ -2153,11 +2153,17 @@ def siting_check(
     'ad_biogas_waste', 'general_manufacturing', 'data_centre'. Leave it unset for an ordinary house
     or a use that doesn't match one of those — an unmatched or unset use_class fires nothing on
     that axis rather than guessing. `substance_inventory` (only read when use_class is
-    'pharma_chemical') is an optional list of `{"name": str, "quantity_t": float, "cas": str}`
-    (`cas` optional) giving the MAX quantity of each substance PRESENT at any one time — never
-    annual throughput; when supplied, the Seveso/COMAH node folds a PROVISIONAL category/named-
-    substance triage into its text (2% de-minimis exclusion NOT applied; unmatched substances are
-    named, never silently cleared). Returns the council in force, a headline, statutory EXCLUSIONS
+    'pharma_chemical') is an optional list of `{"name": str, "quantity_t": float, "cas": str,
+    "hazardous_processing": bool}` (`cas`/`hazardous_processing` optional, the latter defaults
+    False) giving the MAX quantity of each substance PRESENT at any one time — never annual
+    throughput; when supplied, the Seveso/COMAH node folds a PROVISIONAL category/named-substance
+    triage into its text. The lookup table covers flammable liquids (P5a/b/c), ammonia, chlorine,
+    hydrogen and methanol — not the full Annex I named-substance list; a real inventory entry
+    absent from the table surfaces as `unmatched`, never silently cleared. Set
+    `hazardous_processing: true` on a line only when you know it's held under elevated
+    temperature/pressure (a reactor train, not a tank farm) — it reroutes that line from the P5c
+    bulk-storage threshold (5,000/50,000 t) to the ten-times-stricter P5b one (50/200 t); 2%
+    de-minimis exclusion is NOT applied. Returns the council in force, a headline, statutory EXCLUSIONS
     (designations whose polygon covers the point — each with the narrow real route that could still
     permit development), and the fired issues TIERED for signal: `site_specific_hard` /
     `site_specific_shaping` (notable at THIS location), an access/entrance section,
@@ -2187,7 +2193,15 @@ def siting_check(
 
     dt = (dev_type or "one_off_house").strip()
     inventory = (
-        [InventoryLine(name=r["name"], quantity_t=r["quantity_t"], cas=r.get("cas")) for r in substance_inventory]
+        [
+            InventoryLine(
+                name=r["name"],
+                quantity_t=r["quantity_t"],
+                cas=r.get("cas"),
+                hazardous_processing=bool(r.get("hazardous_processing", False)),
+            )
+            for r in substance_inventory
+        ]
         if substance_inventory
         else None
     )

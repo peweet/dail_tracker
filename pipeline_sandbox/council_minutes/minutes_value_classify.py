@@ -35,11 +35,17 @@ POWER_EVENTS = {
     "reserved_real_devplan": r"(development plan|variation no|proposed variation)[^.\n]{0,120}(adopt|approv|vari)|material alteration",
     "reserved_real_lpt": r"local property tax|lpt[^a-z]|local adjustment factor",
     "reserved_real_rates": r"annual rate on valuation|\barv\b|commercial rates[^.\n]{0,60}(set|adopt|determin)",
-    "reserved_veto_s183": r"section\s*183|s\.?\s*183[^0-9]|disposal of (land|property)",
+    # widened 2026-08-01: AB_COMPARISON.md — 10/10 sampled SVM flags were real disposals
+    # phrased without the section number (Wicklow "To consider the disposal of 0.43 acres…")
+    "reserved_veto_s183": r"section\s*183|s\.?\s*183[^0-9]|disposal of (land|property|propert|fee simple)|"
+                          r"(to consider|proposed) (the )?disposal of",
     "reserved_veto_part8": r"part\s*(8|viii)\b|section\s*179|s\.?\s*179[^0-9]",
     "reserved_super_matcontra": r"material contravention",
     "exec_noted_mgmt": r"(management report|chief executive.{0,25}report)[^.\n]{0,80}(noted|received)|section\s*136",
-    "exec_noted_annual": r"annual report[^.\n]{0,60}(adopt|noted|approv)",
+    # widened 2026-08-01: AB_COMPARISON.md — 4/4 sampled flags real (audit-committee reports
+    # "circulated with the agenda" carry no adopt/noted verb in range)
+    "exec_noted_annual": r"annual report[^.\n]{0,60}(adopt|noted|approv|circulated|received)|"
+                         r"audit committee annual report",
     "requisition_s140": r"section\s*140|s\.?\s*140[^0-9]",
 }
 

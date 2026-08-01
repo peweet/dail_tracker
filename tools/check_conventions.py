@@ -203,15 +203,20 @@ def _page_entry_missing_dt_page(source: str, path: Path) -> list[str]:
 # candidate plan) or, if the growth is deliberate, raise the cap in this table —
 # visibly, in a diff. When a candidate is refactored, ratchet its cap DOWN.
 LARGEST_FILE_CAPS = {
-    "utility/shared_css.py": 6572,
+    # Raised 6572→6656 2026-08-01: the 07-31/08-01 feature work landed at 6656, and
+    # the C1/C3/C4 splits were MEASURED as token-cost regressions and reverted
+    # (commit c42e78a) — so growth is absorbed by cap raises, not extraction, until
+    # a bench run says otherwise (doc/REFACTORING_CANDIDATES.md).
+    "utility/shared_css.py": 6656,
     # procurement.py (4,665) split into pages_code/procurement/ 2026-07-31 (C2,
     # doc/REFACTORING_CANDIDATES.md) — cap its largest resulting module instead.
     "utility/pages_code/procurement/patterns.py": 737,
     "utility/pages_code/member_overview.py": 2498,
-    "utility/ui/components.py": 2155,
-    # server.py: a parallel session is actively growing this file (2744→2847 across
-    # 2026-07-30/31); capped with headroom until that work lands, then ratchet down.
-    "mcp_server/server.py": 2900,
+    # Raised 2155→2191 2026-08-01, same reasoning as shared_css.py above.
+    "utility/ui/components.py": 2191,
+    # The parallel session growing this file (2744→2847→2923, 2026-07-30/31) has
+    # landed; headroom removed 2026-08-01 — cap ratcheted to the landed size.
+    "mcp_server/server.py": 2923,
     "test/sql_views/test_sql_views.py": 3579,
     "extractors/procurement_public_body_extract.py": 2948,
 }
@@ -409,7 +414,9 @@ def _raw_parquet_outside_extractors() -> list[str]:
 # #26: a NEW hand-rolled fold either belongs in a shared/ helper or should import
 # one. Threat model = library-familiarity bias, same as R11.
 RE_HAND_NFKD = re.compile(r"""unicodedata\.normalize\(\s*["']NFK?D["']""")
-NFKD_CANONICAL = {"shared/normalise_join_key.py", "shared/name_norm.py"}
+# The two canonical homes, plus this file (its comments QUOTE the banned call —
+# same exemption logic as R8's RULE_JARGON_EXEMPT).
+NFKD_CANONICAL = {"shared/normalise_join_key.py", "shared/name_norm.py", "tools/check_conventions.py"}
 BASELINE_HAND_NFKD = {
     "committees/committees_long_format_etl.py",
     "dail_tracker_core/buyer_xref.py",
