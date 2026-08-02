@@ -93,6 +93,14 @@ siting = [
     "python-docx>=1.1",  # .docx report export (dail_tracker_core/siting/report.py render_docx)
     "weasyprint>=66",    # paged-media PDF (dail_tracker_core/siting/pdf.py) — needs GTK3 native libs:
                          # Windows = winget install tschoonj.GTKForWindows; Linux = apt install libpango-1.0-0
+    "plutoprint>=0.21.0", # PILOT (2026-08-02): candidate paged-media engine to compare against WeasyPrint —
+                         # ships prebuilt Windows wheels, might drop the GTK3 DLL shim above. Not wired into
+                         # any runtime path yet; used only by the render-comparison pilot script.
+    "jinja2>=3.1",       # nature-designations template (planning/product/core/templates/) — pure Python, no native deps
+    "jinjax>=0.65",      # PILOT (2026-08-02): component templating on top of the jinja2 migration already
+                         # underway (report_html_jinja.py) — trialled on one more report_html.py section
+                         # before any wider adoption.
+    "docxtpl>=0.18",     # Word-template .docx variant (planning/product/core/report_text.py render_docx_from_template) — pure Python, no native deps
     "esridump>=1.13",    # ArcGIS layer scrape (extractors/planning_layers_ingest.py) — was undeclared; uv sync pruned it 2026-07-25
     "pyproj>=3.6",       # CRS repair at INGEST only (dublin_city_rps: published GeoJSON is Irish Grid
                          # mis-projected as ITM, 2026-07-30) — the runtime layer store stays shapely-only
@@ -336,6 +344,18 @@ DEP004 = ["hypothesis", "pandera", "pytest", "responses"]
 [tool.pytest.ini_options]
 testpaths = ["test"]
 pythonpath = ["."]
+# Registered so a typo'd marker is an ERROR, not a silently inert decorator. Before this,
+# `integration`/`sources` were unregistered in planning/product and every use emitted a
+# PytestUnknownMarkWarning — a misspelled marker would simply never deselect anything.
+# `layers` is applied AUTOMATICALLY by planning/product/test/conftest.py to any test whose
+# module touches the layer store; it is not hand-applied, so it cannot drift out of date.
+markers = [
+    "integration: needs live network; not run in offline CI",
+    "sources: hits a real upstream source",
+    "sql: needs a SQL/DuckDB fixture",
+    "bronze: reads the bronze corpus from disk",
+    "layers: loads the ~1 GB siting layer cache (auto-applied; deselect for a fast, low-RAM run)",
+]
 
 # ── Coverage (a RATCHET, not a target) ───────────────────────────────────────
 # `source` is an explicit list of the shipped trees, NOT ".", so throwaway trees

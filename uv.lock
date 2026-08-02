@@ -605,6 +605,7 @@ all = [
     { name = "pymupdf" },
     { name = "regex" },
     { name = "requests" },
+    { name = "scikit-learn" },
     { name = "sqlglot" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "winocr", marker = "sys_platform == 'win32'" },
@@ -634,13 +635,18 @@ pipeline = [
     { name = "pymupdf" },
     { name = "regex" },
     { name = "requests" },
+    { name = "scikit-learn" },
     { name = "xlrd" },
 ]
 scrape = [
     { name = "playwright" },
 ]
 siting = [
+    { name = "docxtpl" },
     { name = "esridump" },
+    { name = "jinja2" },
+    { name = "jinjax" },
+    { name = "plutoprint" },
     { name = "polars" },
     { name = "pyproj" },
     { name = "python-docx" },
@@ -677,11 +683,14 @@ requires-dist = [
     { name = "altair", specifier = ">=6.0,<7" },
     { name = "beautifulsoup4", marker = "extra == 'pipeline'", specifier = ">=4.12" },
     { name = "dail-tracker", extras = ["ocr", "pipeline", "scrape", "api", "mcp"], marker = "extra == 'all'" },
+    { name = "docxtpl", marker = "extra == 'siting'", specifier = ">=0.18" },
     { name = "duckdb", specifier = ">=1.4,<2" },
     { name = "esridump", marker = "extra == 'siting'", specifier = ">=1.13" },
     { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.115,<1" },
     { name = "flatten-json", marker = "extra == 'pipeline'", specifier = ">=0.1.14" },
     { name = "jedi", marker = "extra == 'mcp'", specifier = ">=0.19" },
+    { name = "jinja2", marker = "extra == 'siting'", specifier = ">=3.1" },
+    { name = "jinjax", marker = "extra == 'siting'", specifier = ">=0.65" },
     { name = "jsonschema", marker = "extra == 'pipeline'", specifier = ">=4.0,<5" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.20,<2" },
     { name = "numpy", specifier = ">=2.0" },
@@ -691,6 +700,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2,<3.0" },
     { name = "playwright", marker = "extra == 'scrape'", specifier = ">=1.40" },
     { name = "plotly", specifier = ">=6.0,<7" },
+    { name = "plutoprint", marker = "extra == 'siting'", specifier = ">=0.21.0" },
     { name = "polars", marker = "extra == 'pipeline'", specifier = ">=1.39,!=1.41.0" },
     { name = "polars", marker = "extra == 'siting'", specifier = ">=1.39,!=1.41.0" },
     { name = "pyarrow", specifier = ">=14" },
@@ -702,6 +712,7 @@ requires-dist = [
     { name = "rasterio", marker = "extra == 'siting'", specifier = ">=1.3" },
     { name = "regex", marker = "extra == 'pipeline'", specifier = ">=2023.0" },
     { name = "requests", marker = "extra == 'pipeline'", specifier = ">=2.31" },
+    { name = "scikit-learn", marker = "extra == 'pipeline'", specifier = ">=1.9" },
     { name = "shapely", marker = "extra == 'siting'", specifier = ">=2.0" },
     { name = "sqlglot", marker = "extra == 'mcp'", specifier = ">=25" },
     { name = "streamlit", specifier = ">=1.50,<2" },
@@ -774,6 +785,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5f/c6/50f189a894e1f3bf21266299112c8a06cb731838976e1b9a9cadd0b4a86e/deptry-0.25.1-cp310-abi3-musllinux_1_1_x86_64.whl", hash = "sha256:18d21b3545ab2bfec53f3f45c6f5f201d55f713323327f8d12674505469ae6b7", size = 2145416, upload-time = "2026-03-18T23:22:24.682Z" },
     { url = "https://files.pythonhosted.org/packages/7a/6a/3f82f7a06217778282bc4456af1b4ffb3bc4b2c8e7891d00e8323f9ad0b8/deptry-0.25.1-cp310-abi3-win_amd64.whl", hash = "sha256:b59a560cb7dffb21832a98bb80d33d614cfb5630ea36ce21833eabf4eae3df99", size = 1718489, upload-time = "2026-03-18T23:22:28.589Z" },
     { url = "https://files.pythonhosted.org/packages/c7/7f/cd6b3ac8cf95f2f1c5c7a74ff6452e9098af89a9b56607381f677880641e/deptry-0.25.1-cp310-abi3-win_arm64.whl", hash = "sha256:6efffd8116fb9d2c45a251382ce4ce1c38dbb17179f581ec9231ed5390f7fc12", size = 1647020, upload-time = "2026-03-18T23:22:23.311Z" },
+]
+
+[[package]]
+name = "docxtpl"
+version = "0.20.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "lxml" },
+    { name = "python-docx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b2/b4/4435f3fcb1357ec441079c4af1dda3ea926fad6dcead4aed2d93b369944e/docxtpl-0.20.2.tar.gz", hash = "sha256:eddf3350d70b4d123208e801d585bcb313d21044a377a14f75a66d0965841de1", size = 17890, upload-time = "2025-11-13T12:47:15.943Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/ad/e07939d8e020e513d3860400413ba1e0e06102c469639b440d921337efef/docxtpl-0.20.2-py3-none-any.whl", hash = "sha256:626d5c570a46a62b2ca73b4d08f1c240fa031a5bc45371e1466a4fe184923d10", size = 17881, upload-time = "2025-11-13T12:47:13.704Z" },
 ]
 
 [[package]]
@@ -1173,6 +1198,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115, upload-time = "2025-03-05T20:05:02.478Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899, upload-time = "2025-03-05T20:05:00.369Z" },
+]
+
+[[package]]
+name = "jinjax"
+version = "0.65"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "markupsafe" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/26/45/7f99cc83066139d9e047055919cd748191207513fa1dcfd2e0a3bbfc872d/jinjax-0.65.tar.gz", hash = "sha256:2fb5b141a3f38db01e268fb768f3a404355ff9934ae885efcfb764d576fd7cd2", size = 32144, upload-time = "2026-06-16T22:16:11.489Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/68/35/0c153358e59cc1ee0afe3b497c83222ec45633589f32ada4241f87d189ae/jinjax-0.65-py3-none-any.whl", hash = "sha256:0cebd07dc4c6899b43447512cf23d4439f28ca005aa7ffb0cca0cb12376f9e28", size = 20609, upload-time = "2026-06-16T22:16:10.44Z" },
 ]
 
 [[package]]
@@ -1993,6 +2031,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
+name = "plutoprint"
+version = "0.21.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/16/e0/930e488122538d514698b65dcaf443f88ce9e66af0727d5ae6a1c7bb7223/plutoprint-0.21.0.tar.gz", hash = "sha256:699c90f4d452b3e151184ca0ac707ddd04c29f29a8bb6f38a163559199e642bf", size = 41464, upload-time = "2026-06-30T17:28:06.09Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4d/64/fdf4dd21e1537a4961e21138e712326784e612869519d2f613d16dfb4b37/plutoprint-0.21.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:a921bdf8ed6a4855930b455c152ca3cfd007c8f3546c52dda698e6c5b97faa45", size = 19072652, upload-time = "2026-06-30T17:27:35.202Z" },
+    { url = "https://files.pythonhosted.org/packages/61/c4/559fd5682555636ea26921e094eb6d2290d4ba753c92b58c6490be34d26d/plutoprint-0.21.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:0f19e8cce8d923e6db73fc0108d701cf2e996ebc87dd2327e7af01b4363c786c", size = 21350539, upload-time = "2026-06-30T17:27:38.962Z" },
+    { url = "https://files.pythonhosted.org/packages/13/aa/96c08ae0ee912a5330633628d7d76147024012c86fabaf7d73d3184c8419/plutoprint-0.21.0-cp312-cp312-win_amd64.whl", hash = "sha256:c68ebbb9001732f820c06275eedd022ff55deab343e074affbdd659f141a4a12", size = 19266051, upload-time = "2026-06-30T17:27:42.224Z" },
+    { url = "https://files.pythonhosted.org/packages/64/91/3e245031d5bde46078fc82fcc09605172e3774923a5e976e6e9dae3f215e/plutoprint-0.21.0-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:912180d6c5cc0e9d83d6a04fcf64e5eb99fd01f0818c58c4856a3a824d61184d", size = 19072648, upload-time = "2026-06-30T17:27:45.75Z" },
+    { url = "https://files.pythonhosted.org/packages/68/4b/671d58563f3fb86690d073b7498bb914b1d01941161e59fe1b2d0206f706/plutoprint-0.21.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:2edcff1f0b5d50b49604f7a95c415aa3032772ec5fd83358a0febc76450a3b92", size = 21350550, upload-time = "2026-06-30T17:27:49.016Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/ce/275832edfd7bc26562e20545e374ced5af6b2fe1f98ac993375983d139dd/plutoprint-0.21.0-cp313-cp313-win_amd64.whl", hash = "sha256:d37e76f20bc162eb9e49a7630052a8ec6b2cfd3d26fdd0da59c2d7a2d75430ad", size = 19266041, upload-time = "2026-06-30T17:27:52.894Z" },
+    { url = "https://files.pythonhosted.org/packages/40/e4/64c7da074007fc61a271b159fd8493d2a536e2352dbb20b012b592c2ea3f/plutoprint-0.21.0-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:7aa26b865afc0ace1b573365edca96b598c99a661104821e2777e3da97130d3a", size = 19072696, upload-time = "2026-06-30T17:27:56.666Z" },
+    { url = "https://files.pythonhosted.org/packages/64/9c/5025d0c37cf43d84adabf2b0e9032bedcbb193b733a302f42722f220bf0c/plutoprint-0.21.0-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:0ded380361d5f8b9c629b128869f22cac5da386317ebe79be9360555d445f99a", size = 21350592, upload-time = "2026-06-30T17:28:00.296Z" },
+    { url = "https://files.pythonhosted.org/packages/01/34/565c6187a030537c9ff18e2d50e31830b9953aad35fa42fed1ddc3f1433d/plutoprint-0.21.0-cp314-cp314-win_amd64.whl", hash = "sha256:ba98bd71a64d7af216ab8ead8315db815873f37fef7f52dec6bb4f8b9925f5d2", size = 20039980, upload-time = "2026-06-30T17:28:03.578Z" },
 ]
 
 [[package]]

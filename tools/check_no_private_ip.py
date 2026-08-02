@@ -37,6 +37,7 @@ no civic-lane path matches (none contain "siting").
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -58,6 +59,26 @@ DENY_DIR_PREFIXES: tuple[str, ...] = (
 #    Verified: NO civic-lane path contains "siting", so this cannot false-positive
 #    on the public planning-stats files. ─────────────────────────────────────
 DENY_SUBSTRINGS: tuple[str, ...] = ("siting",)
+
+# ── Filenames matching the siting-report generator's own output convention
+#    (site_<lat>_<lon>_<dev_type>.<ext>) are private-IP even when they land outside
+#    a deny directory and don't contain "siting" — confirmed 2026-08-02 by a disclosure
+#    audit that found exactly this shape sitting untracked at the repo root, unflagged
+#    by every rule above it. Matched on the basename only, case-insensitive. ───────────
+_SITE_REPORT_RE = re.compile(
+    r"^site_-?\d+(\.\d+)?_-?\d+(\.\d+)?_[a-z0-9_]+\.(html|pdf|docx|xlsx|json|md|geojson)$",
+    re.IGNORECASE,
+)
+
+# ── write_gis_package (core/gis.py) drops the coordinates into a DIRECTORY name —
+#    <stem>_gis/ — and writes plain-named files (site.geojson, constraints_points.geojson,
+#    README.txt, "OPEN ME - site map.html") underneath it. None of those basenames match
+#    _SITE_REPORT_RE, so the leak was in the parent path segment, not the file's own name.
+#    Extension-less variant of the same stem, checked against every path segment. ────────
+_SITE_STEM_RE = re.compile(
+    r"^site_-?\d+(\.\d+)?_-?\d+(\.\d+)?_[a-z0-9_]+$",
+    re.IGNORECASE,
+)
 
 # ── Individual private-IP files whose names carry neither a deny-dir nor
 #    the "siting" substring (so they need naming explicitly). ────────────────
@@ -136,6 +157,11 @@ def classify(path: str) -> str | None:
     for sub in DENY_SUBSTRINGS:
         if sub in lower:
             return f"path contains {sub!r} (siting IP)"
+    if _SITE_REPORT_RE.match(base):
+        return "generated site-report filename (site_<lat>_<lon>_<type>), regardless of location"
+    for segment in p.split("/")[:-1]:
+        if _SITE_STEM_RE.match(segment):
+            return "under generated site-report directory (site_<lat>_<lon>_<type>_gis), regardless of filename"
     if base in SECRET_BASENAMES or any(base.endswith(sfx) for sfx in SECRET_SUFFIXES):
         return "looks like a secret / credential file"
     return None

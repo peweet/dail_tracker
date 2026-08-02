@@ -53,7 +53,7 @@ $pwFile         = Join-Path $backupRoot 'restic_passwords.txt'   # ACL-restrict 
 #     endpoint=https://<accountid>.r2.cloudflarestorage.com
 $remoteSandbox  = 'r2'
 $remotePrivate  = 'r2private'
-$bucketPrivate  = 'dail-tracker-private'
+$bucketPrivate  = 'dail-siting'          # created 2026-08-02; holds the planning/siting IP
 $bucketSandbox  = 'dail-tracker-backup'      # sandbox trees share the existing bucket
 
 $root  = Split-Path -Parent $PSScriptRoot
@@ -100,13 +100,49 @@ $pwSandbox = $pwLines[($pwLines | Select-String -Pattern '^restic_sandbox').Line
 
 # Each job: repo dir, its password, the trees it snapshots, its destination bucket.
 # NOTE the exclusions - __pycache__ is regenerable noise; .venv would balloon the repo.
+# The sandbox job takes THE WHOLE REPO and subtracts what is deliberately covered
+# elsewhere. Deliberately a subtraction, not a list: the 2026-08-01 audit found 2.58 GB
+# stranded precisely because new directories kept appearing that no backup enumerated, and
+# enumerating them again just reset the same trap. A denylist protects tomorrow's new
+# top-level dir automatically; an allowlist cannot.
+#
+# What is subtracted from the sandbox job, and why each is safe to drop:
+#   data\bronze|silver|raw_bq  - already mirrored by backup_to_r2.ps1 (the rclone lane)
+#   planning, .git-siting      - go to the PRIVATE repo/bucket instead. Excluding them here
+#                                is what keeps the commercial IP out of the public-data
+#                                bucket; without these lines the isolation silently
+#                                collapses. `.git-siting` is the SEPARATE git dir for the
+#                                private siting repo (remote: peweet/pre-siting-private) -
+#                                3.1 GB of private history that a whole-repo sweep picks up
+#                                silently if you don't name it. This was caught by a
+#                                -DryRun on 2026-08-02; it is exactly why you run one.
+#   .cache                     - 2.4 GB of regenerable FTS indexes (precedent_fts.duckdb,
+#                                project_fts.sqlite, text_fts.duckdb); rebuilt from data
+#   .venv                      - regenerable with `uv sync`, and huge
+#   node_modules, __pycache__  - regenerable build/import noise
+# .git IS kept: it carries commits that may not be pushed yet, so it is the only copy of
+# that work. Git objects are immutable, so restic dedupes it well run-to-run.
+#
+# ALWAYS -DryRun after editing these: if an exclude stops matching, the job silently tries
+# to swallow 18 GB of bronze/silver, or leaks private IP into the public bucket.
+$excludeSandbox = @(
+    '--exclude', "$root\data\bronze",
+    '--exclude', "$root\data\silver",
+    '--exclude', "$root\data\raw_bq",
+    '--exclude', "$root\planning",
+    '--exclude', "$root\.git-siting",
+    '--exclude', "$root\.cache",
+    '--exclude', "$root\.venv",
+    '--exclude', '**/node_modules/**',
+    '--exclude', '**/__pycache__/**'
+)
+
 $jobs = @(
     @{ name='restic_private'; pw=$pwPrivate; remote=$remotePrivate; bucket=$bucketPrivate;
-       tag='private-ip'; paths=@("$root\planning") },
+       tag='private-ip'; excl=@('--exclude','**/__pycache__/**');
+       paths=@("$root\planning", "$root\.git-siting") },
     @{ name='restic_sandbox'; pw=$pwSandbox; remote=$remoteSandbox; bucket=$bucketSandbox;
-       tag='sandbox-unbacked';
-       paths=@("$root\pipeline_sandbox", "$root\data\sandbox", "$root\data\_sandbox",
-               "$root\doc", "$root\ida", "$root\out") }
+       tag='whole-repo'; excl=$excludeSandbox; paths=@($root) }
 )
 
 $failed = 0
@@ -123,7 +159,7 @@ foreach ($job in $jobs) {
 
     Write-Host "Snapshotting $($job.name) ..."
     $existing = @($job.paths | Where-Object { Test-Path $_ })
-    & $restic backup @existing --tag $job.tag --exclude '**/__pycache__/**'
+    & $restic backup @existing --tag $job.tag @($job.excl)
     if ($LASTEXITCODE -ne 0) { $failed = 1; continue }
 
     # Retention: keep enough history to recover from a mistake noticed weeks later,
