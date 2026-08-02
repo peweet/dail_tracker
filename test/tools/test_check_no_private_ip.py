@@ -36,6 +36,15 @@ FLAGGED = [
     "config/prod.pem",
     ".env",
     "app/secrets.toml",
+    "site_53.27070_-9.05680_one_off_house.html",
+    "data/exports/site_53.1234_-8.5678_commercial.pdf",
+    "site_51.82557_-8.31624_commercial_summary.pdf",
+    # the ArcGIS/QGIS package directory (core/gis.py:write_gis_package) carries the
+    # coordinates in the DIRECTORY name, not the file's own basename
+    "site_53.27070_-9.05680_one_off_house_gis/constraints_points.geojson",
+    "site_53.27070_-9.05680_one_off_house_gis/site.geojson",
+    "site_53.27070_-9.05680_one_off_house_gis/README.txt",
+    "out/site_53.27070_-9.05680_one_off_house_gis/OPEN ME - site map.html",
 ]
 
 

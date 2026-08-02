@@ -16,3 +16,8 @@
 {"ts": "2026-08-01T20:42:10.059085+00:00", "session": "f8168c9e-0bd", "category": "py_deps", "nudged": true, "pattern": "from ui.format import|from ui import format"}
 {"ts": "2026-08-01T21:35:59.837363+00:00", "session": "696cac4d-6d6", "category": "py_refs", "nudged": true, "pattern": "DEV_TYPES"}
 {"ts": "2026-08-01T22:08:01.628576+00:00", "session": "310c32c9-4f7", "category": "sql_lineage", "nudged": true, "pattern": "CREATE.*VIEW v_la_council_decisions|read_parquet"}
+{"ts": "2026-08-02T05:49:34.955108+00:00", "session": "ad69fb37-61a", "category": "py_deps", "nudged": true, "pattern": "from .report_model import"}
+{"ts": "2026-08-02T13:06:20.490111+00:00", "session": "8ba950b5-7b6", "category": "py_deps", "nudged": true, "pattern": "from planning.product.test.test_commercial_pack import|import test_commercial_pa"}
+{"ts": "2026-08-02T16:20:53.574419+00:00", "session": "7cf0c07a-862", "category": "search_project", "nudged": true, "pattern": "Cork County Development Plan 2022"}
+{"ts": "2026-08-02T16:21:28.080527+00:00", "session": "7cf0c07a-862", "category": "search_project", "nudged": false, "pattern": "Cork County Council"}
+{"ts": "2026-08-02T16:21:28.376496+00:00", "session": "7cf0c07a-862", "category": "search_project", "nudged": false, "pattern": "DM Standard"}

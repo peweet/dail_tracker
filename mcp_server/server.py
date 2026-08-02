@@ -2188,6 +2188,10 @@ def siting_check(
     site_area_ha: float = 0.0,
     substance_inventory: list[dict] | None = None,
     substance_inventory_source: str = "",
+    programme_items: list[str] | None = None,
+    process_capacity: dict | None = None,
+    floor_area_basis: str = "",
+    storeys: int = 0,
 ) -> dict:
     """Planning-constraint TRIAGE for a single point in Ireland: which planning ISSUES a proposed
     development triggers at (lat, lon), each with the governing rule quoted verbatim from the
@@ -2217,7 +2221,23 @@ def siting_check(
     de-minimis exclusion is NOT applied. If the inventory figures are NOT real applicant data
     (a what-if or estimate), set `substance_inventory_source` to a short label ('hypothetical',
     'estimated') — the triage text then carries a NOT-REAL-DATA banner; leave it unset only for
-    genuine applicant figures. Returns the council in force, a headline, statutory EXCLUSIONS
+    genuine applicant figures. `programme_items` names WHICH buildings a commercial industrial
+    scheme contains, from the closed list 'synthesis_production', 'warehouse', 'solvent_storage',
+    'qc_labs', 'utilities_energy_centre', 'waste_treatment', 'offices' — it enriches the copy of
+    nodes that already fire and NEVER changes which fire (a campus is one installation for consent
+    purposes), so it is provenance and detail, not a new trigger. `process_capacity` says how big
+    those buildings are: `{"reactor_trains": int, "installed_reactor_volume_m3": float,
+    "working_fill_factor": float, "mean_solvent_density_t_m3": float,
+    "combustion_aggregate_mw": float}`, every key optional. Supplying all three reactor terms
+    renders the in-process solvent derivation with each term labelled — it is recorded as the
+    caller's stated arithmetic and NEVER feeds the Seveso tier, which stays driven by
+    `substance_inventory`. `combustion_aggregate_mw` (the whole energy centre: boilers + CHP +
+    standby) makes the combustion node state which side of the 50 MW EPA Class 2.1 line and the
+    1 MW MCP floor the scheme sits, instead of only asking for the figure. Set
+    `floor_area_basis` to 'footprint' when `floor_area_m2` is a building footprint rather than
+    gross floor area — with `storeys` the GFA is derived and the size thresholds test that; without
+    storeys the figure is reported as the lower bound on GFA it is. Default ('gfa') is unchanged.
+    Returns the council in force, a headline, statutory EXCLUSIONS
     (designations whose polygon covers the point — each with the narrow real route that could still
     permit development), and the fired issues TIERED for signal: `site_specific_hard` /
     `site_specific_shaping` (notable at THIS location), an access/entrance section,
@@ -2236,6 +2256,7 @@ def siting_check(
         from planning.product.core import brief as _brief
         from planning.product.core import engine as _engine
         from planning.product.core.layers import make_store
+        from planning.product.core.process_capacity import ProcessCapacity
         from planning.product.core.seveso_inventory import InventoryLine
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
         return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
@@ -2259,6 +2280,17 @@ def siting_check(
         if substance_inventory
         else None
     )
+    # ProcessCapacity validates ranges and raises on a unit error (a mistyped MW that would
+    # otherwise render a confident wrong consent route). 0 is the MCP tool's not-supplied
+    # convention for every numeric here, so it maps to None rather than to a zero capacity.
+    _cap = process_capacity or {}
+    capacity = ProcessCapacity(
+        reactor_trains=_cap.get("reactor_trains") or None,
+        installed_reactor_volume_m3=_cap.get("installed_reactor_volume_m3") or None,
+        working_fill_factor=_cap.get("working_fill_factor") or None,
+        mean_solvent_density_t_m3=_cap.get("mean_solvent_density_t_m3") or None,
+        combustion_aggregate_mw=_cap.get("combustion_aggregate_mw") or None,
+    )
     result = _engine.evaluate(
         lon,
         lat,
@@ -2270,6 +2302,10 @@ def siting_check(
         site_area_ha=site_area_ha or None,
         substance_inventory=inventory,
         substance_inventory_source=(substance_inventory_source or "").strip() or None,
+        programme_items=programme_items or None,
+        process_capacity=capacity,
+        floor_area_basis=(floor_area_basis or "").strip() or None,
+        storeys=storeys or None,
     )
     b = _brief.build_brief(result)
     return {

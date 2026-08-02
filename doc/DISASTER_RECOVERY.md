@@ -29,8 +29,21 @@ working machine. The backup side (what runs, how it's configured) is in
 | `data/silver/` (~1.7 GB derived) | R2 bucket `dail-tracker-backup/silver/` | `rclone copy` (below) |
 | `data/gold/` (beyond the git slice), rest of `data/silver` | **not backed up** — regenerable | rebuild via the pipeline from bronze |
 | `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
-| `planning/` (~1.2 GB, kept out of the public repo — see `.gitignore`) | restic repo `restic_private` → R2 bucket `dail-tracker-private` | `restic restore` (below) |
-| Sandbox / `doc` / `ida` / `out` trees (~760 MB, neither git nor the rclone mirror) | restic repo `restic_sandbox` → R2 bucket `dail-tracker-backup` | `restic restore` (below) |
+| `planning/` **+ `.git-siting/`** (~4.1 GB private IP: the working tree *and* the separate git history for `peweet/pre-siting-private`) | restic repo `restic_private` → R2 bucket **`dail-siting`** | `restic restore` (below) |
+| **The whole repo otherwise** (~3.8 GB: `.git`, the non-mirrored parts of `data/`, `pipeline_sandbox`, `doc`, `ida`, `out`, `logs`, `audit_screenshots`, `.claude`, tests, tools) | restic repo `restic_sandbox` → R2 bucket `dail-tracker-backup` | `restic restore` (below) |
+
+The sandbox job is defined as **the repo minus a denylist**, not as a list of directories —
+so a new top-level directory is protected the day it appears. That is deliberate: the
+2026-08-01 audit found 2.58 GB stranded precisely because every backup enumerated an
+allowlist that reality had moved past. The denylist and the reason for each entry are in
+[tools/backup_restic_to_r2.ps1](../tools/backup_restic_to_r2.ps1).
+
+⚠ **`.git` is backed up, `.git-siting` is backed up to the *other* bucket.** Both carry
+commits that may not be pushed (2 unpushed in `.git-siting` as of 2026-08-02), so they are
+the only copy of that work. Routing `.git-siting` to the private bucket is what stops a
+whole-repo sweep from copying 3.1 GB of private siting history into the public-data bucket
+— a leak a `-DryRun` caught on 2026-08-02 and the reason to always run one after editing
+the excludes.
 
 R2 account ID: `dda75db5c9db02954a7b45e69052c742`
 S3 endpoint: `https://dda75db5c9db02954a7b45e69052c742.r2.cloudflarestorage.com`
@@ -81,9 +94,17 @@ repositories. You need the repository password from your password manager.
 ```powershell
 winget install --id restic.restic
 
-# Pull the repository down from R2 first (it is just a directory of files)
-rclone copy r2:dail-tracker-private/restic_private  C:\restore\restic_private
-rclone copy r2:dail-tracker-backup/restic_sandbox   C:\restore\restic_sandbox
+# Option A - point restic straight at R2 (no download step; this is how the 2026-08-02
+# verification ran). AWS_* are the R2 token for that bucket; the r2private token covers
+# dail-siting, the original r2 token covers dail-tracker-backup.
+$env:AWS_ACCESS_KEY_ID     = '<access key id>'
+$env:AWS_SECRET_ACCESS_KEY = '<secret access key>'
+$env:RESTIC_PASSWORD       = '<repository password from your password manager>'
+restic -r s3:https://dda75db5c9db02954a7b45e69052c742.r2.cloudflarestorage.com/dail-siting/restic_private snapshots
+
+# Option B - pull the repository down first (it is just a directory of files)
+rclone copy r2private:dail-siting/restic_private   C:\restore\restic_private
+rclone copy r2:dail-tracker-backup/restic_sandbox  C:\restore\restic_sandbox
 
 # Restore. --target is a PREFIX: restic recreates the original absolute path beneath it,
 # e.g. C:\restore\out\c\Users\...\dail_extractor\planning - move it into place afterwards.
@@ -96,6 +117,29 @@ restic -r C:\restore\restic_private check         # verify repo integrity
 
 Restore a single file instead of everything with
 `restic -r <repo> restore latest --target <dir> --include "*/planning/product/<file>"`.
+
+### Three Windows quirks that look like failures but are not (all hit in the 2026-08-02 drill)
+
+1. **`restic restore` exits 1 on a cosmetic error.** It reports
+   `failed to restore timestamp of "...\C\Users": Access is denied` → `Fatal: There were 1
+   errors`, *after* successfully restoring everything (`Restored 1192 / 1193 files/dirs`).
+   The failure is a timestamp write on the synthetic drive-letter directory, not on your
+   data. **Read the Summary line, not the exit code** — during a real disaster this reads
+   as a failed restore when it isn't.
+2. **The restored tree can refuse to delete.** That same `C\Users` directory inherits
+   restrictive permissions, so `Remove-Item -Recurse -Force` fails with *Access is denied /
+   directory not empty*. Fix:
+   `takeown /F <dir> /R /D O; icacls <dir> /grant "$env:USERNAME:(OI)(CI)F" /T /Q`, then delete.
+3. **RESTORE GIT REPOS TO A SHORT PATH.** `--target` recreates the *full absolute source
+   path* underneath it, so a nested target produces very deep paths. Restoring `.git-siting`
+   to a scratch dir gave a 201-character git-dir; git then appends `objects/xx/<40 hex>` and
+   breaches Windows' 260-char MAX_PATH. The symptom is alarming and looks exactly like data
+   loss — `fatal: cannot read commit object`, `fsck: invalid sha1 pointer` — while the packs
+   are provably byte-identical to the source. Two fixes, either works:
+   restore to a short target such as `C:\restore`, or pass `git -c core.longpaths=true`.
+   **Do not conclude the backup is corrupt from these errors** — verify by hashing a pack
+   against the source first (2026-08-02: all 21 pack files identical, 22,275 loose objects
+   on both sides, yet git failed until longpaths was enabled).
 
 **Verify a restore properly** with `restic check --read-data` — it re-reads and re-hashes
 every pack rather than just the metadata. It is slow, so it is not in the weekly script;
@@ -154,6 +198,27 @@ Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` aft
   API tokens mean a leaked token for the public-data backup grants no access to the
   private tree, and separate repository passwords give the same isolation at the
   encryption layer.
+- **Verified live 2026-08-02, three ways.** (a) Both repositories checked *from R2* with
+  `restic check --read-data`, which re-reads and re-hashes every pack in the bucket rather
+  than trusting rclone's transfer report. After the scope expansion to the whole repo:
+  `dail-siting/restic_private` **248/248 packs, 6 snapshots**;
+  `dail-tracker-backup/restic_sandbox` **204/204 packs, 7 snapshots**; no errors, both exit 0.
+  (c) **`.git-siting` functional restore** — 3.003 GiB pulled from R2 and proved to be a
+  *working* git repository, not merely matching bytes: `git log` returns the same three
+  commits as live, `fsck --connectivity-only` is clean, and **both unpushed commits survived**
+  (`f1c2cc5`, `1e4c1e0`). This needed `core.longpaths=true` — see quirk 3 below, and read it
+  before concluding anything is corrupt.
+  (b) **Full restore drill** — `restic restore latest` pulled `planning/` straight out of
+  R2 into a scratch dir and every restored file was SHA-256 compared against the live tree:
+  **1,052 identical, 0 corrupt**. The only divergences were 23 modified + 23 new files
+  written by an active session in the ~2 h since the snapshot, and 342 `__pycache__` files
+  the backup excludes on purpose. This is the restic-lane equivalent of the 2026-06-13
+  rclone-lane drill.
+- **Freshness is the real limit, not integrity.** That drill quantified it: an actively-
+  developed tree drifted by ~46 files in two hours. `DailTracker-BackupRestic` runs weekly
+  (Sun 03:00), so worst-case loss on `planning/` is a week of work, not a week of data
+  corruption. Run `tools/backup_restic_to_r2.ps1` by hand after any significant session if
+  that is too coarse.
 - **The repository passwords are now a single point of failure.** Unlike the plain
   rclone mirror (where a lost credential just means minting a new R2 token), losing a
   restic password makes that repository permanently unreadable — the data is encrypted
