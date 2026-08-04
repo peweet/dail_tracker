@@ -15,7 +15,7 @@ Outputs:
 
 Run:  ./.venv/Scripts/python.exe extractors/procurement_etenders_extract.py
       ./.venv/Scripts/python.exe extractors/procurement_etenders_extract.py --force   # re-download CSV
-The OGP CSV is cached at c:/tmp with a TTL (default 7d, --force / --cache-max-age-days /
+The OGP CSV is cached under ``DAIL_RUNTIME_DIR`` with a TTL (default 7d, --force / --cache-max-age-days /
 ETENDERS_CACHE_MAX_AGE_DAYS) so a recurring run re-pulls instead of reusing a stale copy.
 """
 
@@ -41,6 +41,7 @@ sys.path.insert(0, str(ROOT))
 from services.data_contracts import guard_award_fact  # noqa: E402
 from services.deflator import value_plausible_expr  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
+from paths import configured_path, runtime_path  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -66,8 +67,8 @@ SOURCE = {
     "license_url": "https://creativecommons.org/licenses/by/4.0/",
     "attribution": "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0.",
 }
-CACHE = Path("c:/tmp/etenders_opendata.csv")
-# Cache TTL: the old code reused c:/tmp/etenders_opendata.csv whenever it merely
+CACHE = configured_path("ETENDERS_CACHE_PATH", runtime_path("etenders_opendata.csv"))
+# Cache TTL: the old code reused the cached CSV whenever it merely
 # EXISTED, so a routine `procurement` chain run silently re-built from a months-old
 # CSV and never saw a new OGP publication (the same class of silent-staleness bug as
 # DAIL-160/162). A cache older than this is re-downloaded; --force ignores it
@@ -218,7 +219,7 @@ def ensure_csv(force: bool = False, max_age_days: float = CACHE_MAX_AGE_DAYS) ->
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--force", action="store_true", help="ignore the c:/tmp CSV cache and re-download the OGP export")
+    ap.add_argument("--force", action="store_true", help="ignore the runtime CSV cache and re-download the OGP export")
     ap.add_argument(
         "--cache-max-age-days",
         type=float,

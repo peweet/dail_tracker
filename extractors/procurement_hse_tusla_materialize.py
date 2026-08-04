@@ -37,6 +37,7 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
+from paths import runtime_path  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "extractors"))
 with contextlib.suppress(Exception):
@@ -54,7 +55,7 @@ pbe = _load("pbe", "extractors/procurement_public_body_extract.py")
 hst = _load("hst", "extractors/procurement_hse_tusla_parser.py")
 from sample_extract_procurement_pdf import MONEY_RE, cluster_word_rows  # noqa: E402
 
-TMP = Path("c:/tmp/procurement_publishers")
+TMP = runtime_path("procurement_publishers")
 OUT_FACT = ROOT / "data/silver/parquet/hse_tusla_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/hse_tusla_payments_coverage.json"
 PARSER_VERSION = "0.1.0"

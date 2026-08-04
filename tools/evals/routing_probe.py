@@ -1,20 +1,19 @@
-"""First real CLAUDE.md-steering benchmark via claude-agent-sdk.
+"""Project-instruction steering benchmark via the selected agent provider.
 
-Two probes, each a question the CLAUDE.md routing table explicitly maps to a
-cheap MCP navigation tool. PASS = a navigation tool fires before any raw
-Read/Grep/Glob. This measures what the config CAUSES, not what past sessions did.
+Two probes ask questions the repository routing table maps to cheap MCP
+navigation tools. PASS means a navigation tool fires before raw Read/Grep/Glob.
+The capability control distinguishes steering failure from missing MCP wiring.
 """
 
 import json
+from pathlib import Path
 
 import anyio
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ResultMessage,
-    ToolUseBlock,
-    query,
-)
+
+try:
+    from .provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+except ImportError:  # direct script execution
+    from provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
 
 NAV = {
     "mcp__dail-tracker__describe_dataset",
@@ -31,54 +30,56 @@ PROBES = [
         "What columns and grain does the procurement awarded dataset have? Just tell me, don't change anything.",
     ),
     ("where-lives", "Which dataset or view covers ministerial diaries? Just point me at it."),
-    # Capability control: not a steering test — it ORDERS the tool call. If this
-    # fails, the MCP tools are unavailable in headless runs and the probes above
-    # measured environment, not steering.
     (
         "capability",
-        "Call the dail-tracker MCP tool describe_dataset for any procurement dataset and report one line of its output. If you cannot find or call that tool, reply exactly TOOL-UNAVAILABLE.",
+        "Call the dail-tracker MCP tool describe_dataset for any procurement dataset and report one line of its "
+        "output. If you cannot find or call that tool, reply exactly TOOL-UNAVAILABLE.",
     ),
 ]
 
-
-PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
+PROJ = str(Path(__file__).resolve().parents[2])
 
 
 async def run_probe(name: str, prompt: str) -> dict:
-    opts = ClaudeAgentOptions(
-        model="claude-sonnet-5",
-        max_turns=8,
-        cwd=PROJ,
-        setting_sources=["project"],
-        permission_mode="bypassPermissions",
-        # The SDK does not load the project's .mcp.json (and its
-        # ${workspaceFolder} placeholders), so the server must be wired
-        # explicitly or every probe measures tool-absence, not steering.
-        mcp_servers={
-            "dail-tracker": {
-                "command": PROJ + r"\.venv\Scripts\python.exe",
-                "args": [PROJ + r"\mcp_server\server.py"],
-                "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
-            }
-        },
-    )
-    calls = []
+    calls: list[str] = []
     cost = None
     err = None
+    provider = None
+    model = None
     try:
-        async for msg in query(prompt=prompt, options=opts):
-            if isinstance(msg, AssistantMessage):
-                for b in msg.content:
-                    if isinstance(b, ToolUseBlock):
-                        calls.append(b.name)
-            if isinstance(msg, ResultMessage):
-                cost = msg.total_cost_usd
-    except Exception as e:  # keep the partial tool sequence — it's the finding
-        err = f"{type(e).__name__}: {e}"
-    first_nav = next((i for i, c in enumerate(calls) if c in NAV), None)
-    first_raw = next((i for i, c in enumerate(calls) if c in RAW), None)
+        result = await run_eval(
+            EvalRequest(
+                prompt=prompt,
+                cwd=PROJ,
+                claude_model="claude-sonnet-5",
+                max_turns=8,
+                sandbox="read-only",
+                project_settings=True,
+                # Explicit for both backends: neither should rely on accidental
+                # user-level MCP configuration in a benchmark.
+                mcp_servers=dail_tracker_mcp(PROJ),
+            )
+        )
+        calls = result.tool_names
+        cost = result.cost_usd
+        provider = result.provider
+        model = result.model
+        if result.is_error:
+            err = result.error
+    except Exception as exc:  # keep partial output: provider failure is the finding
+        err = f"{type(exc).__name__}: {exc}"
+
+    first_nav = next((i for i, call in enumerate(calls) if call in NAV), None)
+    first_raw = next((i for i, call in enumerate(calls) if call in RAW), None)
     ok = first_nav is not None and (first_raw is None or first_nav < first_raw)
-    out = {"probe": name, "pass": ok, "tool_sequence": calls, "cost_usd": cost}
+    out = {
+        "probe": name,
+        "pass": ok,
+        "tool_sequence": calls,
+        "cost_usd": cost,
+        "provider": provider,
+        "model": model,
+    }
     if err:
         out["error"] = err
     return out
@@ -87,25 +88,24 @@ async def run_probe(name: str, prompt: str) -> dict:
 async def main():
     import sys
 
-    # e.g. `routing_probe.py capability` runs one probe. Args that match no probe
-    # name are IGNORED (all probes run): promptfoo's exec provider always appends
-    # the prompt as a trailing argv, which filtered everything to 0/0 on
-    # 2026-07-31 — an unknown arg must not silently select nothing.
-    known = {n for n, _ in PROBES}
-    wanted = [a for a in sys.argv[1:] if a in known]
-    ignored = [a for a in sys.argv[1:] if a not in known]
+    # Unknown arguments are ignored because promptfoo's exec provider appends
+    # the prompt as a trailing argv; they must not silently select zero probes.
+    known = {name for name, _ in PROBES}
+    wanted = [arg for arg in sys.argv[1:] if arg in known]
+    ignored = [arg for arg in sys.argv[1:] if arg not in known]
     if ignored:
         print(f"NOTE: ignoring non-probe args {ignored!r}; probes: {sorted(known)}")
-    probes = [(n, p) for n, p in PROBES if not wanted or n in wanted]
+    probes = [(name, prompt) for name, prompt in PROBES if not wanted or name in wanted]
     results = []
     for name, prompt in probes:
         try:
             results.append(await run_probe(name, prompt))
-        except Exception as e:
-            results.append({"probe": name, "error": f"{type(e).__name__}: {e}"})
+        except Exception as exc:
+            results.append({"probe": name, "error": f"{type(exc).__name__}: {exc}"})
         print(json.dumps(results[-1]))
-    passed = sum(1 for r in results if r.get("pass"))
+    passed = sum(1 for result in results if result.get("pass"))
     print(f"SUMMARY: {passed}/{len(results)} probes chose navigation-first")
 
 
-anyio.run(main)
+if __name__ == "__main__":
+    anyio.run(main)

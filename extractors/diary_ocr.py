@@ -13,7 +13,7 @@ validated it against SIPO (far faster, results good). Per-page cells are checkpo
 crash loses one page, not the run. Reuses the proven SIPO PaddleOCR init (paddle 3.3.1
 Windows gotchas: enable_mkldnn=False, text_det_limit_side_len=1280).
 
-Operates on CACHED PDFs only (C:/tmp/min_diaries_pdfs) — NO gov.ie traffic.
+Operates on CACHED PDFs only (``DAIL_RUNTIME_DIR/min_diaries_pdfs``) — NO gov.ie traffic.
 
 Run (smoke one file):  .venv/Scripts/python.exe extractors/diary_ocr.py --file 2021-minister-smyths-diary.pdf --max-pages 6
 Run (a department):    .venv/Scripts/python.exe extractors/diary_ocr.py --depts DPER
@@ -36,13 +36,14 @@ import fitz
 from extractors._diary_minister import resolve_minister
 from extractors.diary_grid_parse import parse_day_grid, parse_grid
 from extractors.ministerial_diaries_extract import _infer_default_year, parse_entries
+from paths import PROJECT_ROOT, runtime_path
 from services.logging_setup import setup_standalone_logging
 
 log = logging.getLogger(__name__)
 
-INDEX = Path("data/sandbox/enrichment/ministerial_diaries_index.parquet")
-PDF_CACHE = Path("C:/tmp/min_diaries_pdfs")
-OCR_TXT = Path("C:/tmp/min_diaries_ocr")  # per-file reconstructed text (transient cache)
+INDEX = PROJECT_ROOT / "data" / "sandbox" / "enrichment" / "ministerial_diaries_index.parquet"
+PDF_CACHE = runtime_path("min_diaries_pdfs")
+OCR_TXT = runtime_path("min_diaries_ocr")  # per-file reconstructed text (transient cache)
 DPI = 300
 _Y_BAND = 12  # rows within this many px share a line (left/right column cells stay on one row)
 

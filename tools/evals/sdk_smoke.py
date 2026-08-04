@@ -1,23 +1,41 @@
-"""Smoke test: can claude-agent-sdk drive a session on this machine?"""
+"""Smoke test: can the selected coding-agent provider drive a session?"""
 
 import anyio
-from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, TextBlock, query
+from pathlib import Path
+
+try:
+    from .provider_adapter import EvalRequest, run_eval
+except ImportError:  # direct ``python tools/evals/sdk_smoke.py`` execution
+    from provider_adapter import EvalRequest, run_eval
+
+REPO = Path(__file__).resolve().parents[2]
 
 
 async def main():
-    opts = ClaudeAgentOptions(
-        model="claude-haiku-4-5-20251001",
-        max_turns=1,
-        allowed_tools=[],
-        system_prompt="You are a smoke test. Obey exactly.",
+    result = await run_eval(
+        EvalRequest(
+            prompt="Reply with exactly: SMOKE-OK",
+            cwd=REPO,
+            claude_model="claude-haiku-4-5-20251001",
+            project_settings=False,
+            sandbox="read-only",
+            system_prompt="You are a smoke test. Obey exactly.",
+            allowed_tools=[],
+            max_turns=1,
+        )
     )
-    async for msg in query(prompt="Reply with exactly: SMOKE-OK", options=opts):
-        if isinstance(msg, AssistantMessage):
-            for b in msg.content:
-                if isinstance(b, TextBlock):
-                    print("assistant:", b.text.strip())
-        if isinstance(msg, ResultMessage):
-            print("cost_usd:", msg.total_cost_usd, "turns:", msg.num_turns, "is_error:", msg.is_error)
+    print("assistant:", result.final_text.strip())
+    print(
+        "cost_usd:",
+        result.cost_usd,
+        "turns:",
+        result.num_turns,
+        "is_error:",
+        result.is_error,
+    )
+    if result.error:
+        print("error:", result.error)
 
 
-anyio.run(main)
+if __name__ == "__main__":
+    anyio.run(main)

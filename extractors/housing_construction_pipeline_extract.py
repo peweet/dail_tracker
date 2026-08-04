@@ -29,13 +29,13 @@ from io import BytesIO
 from pathlib import Path
 
 import polars as pl
-import requests
 
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from extractors.noac_collection_rates_extract import canonical_la  # noqa: E402 — after sys.path
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402 — after sys.path
 from services.parquet_io import save_parquet  # noqa: E402 — after sys.path
 
 with contextlib.suppress(Exception):
@@ -56,12 +56,13 @@ EXPECTED_LA_COUNT = 31
 
 
 def fetch_csv() -> pl.DataFrame:
-    r = requests.get(SOURCE_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
-    r.raise_for_status()
+    body = http_fetch_bytes(SOURCE_URL, timeout=60, validate=lambda payload: bool(payload.strip()))
+    if body is None:
+        raise RuntimeError(f"failed to fetch {SOURCE_NAME}")
     try:
-        return pl.read_csv(BytesIO(r.content), skip_lines=2, infer_schema_length=5000)
+        return pl.read_csv(BytesIO(body), skip_lines=2, infer_schema_length=5000)
     except Exception:
-        decoded = r.content.decode("latin-1").encode("utf-8")
+        decoded = body.decode("latin-1").encode("utf-8")
         return pl.read_csv(BytesIO(decoded), skip_lines=2, infer_schema_length=5000)
 
 

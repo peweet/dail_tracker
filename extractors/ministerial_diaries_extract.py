@@ -28,7 +28,7 @@ be presented as one (feedback_no_inference_in_app — co-occurrence only).
 Outputs -> data/sandbox/enrichment/
   ministerial_diaries_index.parquet / .csv    one row per published diary file
   ministerial_diary_entries.parquet / .csv    one row per parsed engagement (DETE)
-PDF cache -> C:/tmp/min_diaries_pdfs/ (transient)
+PDF cache -> ``DAIL_RUNTIME_DIR/min_diaries_pdfs/`` (transient)
 
 Run: .venv/Scripts/python.exe extractors/ministerial_diaries_extract.py
 """
@@ -51,6 +51,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from extractors._diary_minister import minister_from_filename
+from paths import PROJECT_ROOT, runtime_path
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 from shared.pdf_classification import DIARY_TEXT_CHAR_THRESHOLD, decide_text_layer
@@ -98,8 +99,8 @@ _SESSION = requests.Session()
 _SESSION.headers.update(HEADERS)
 _WARMED: set[str] = set()  # listing URLs we've already GET-warmed this run
 
-OUT_DIR = Path("data/sandbox/enrichment")
-PDF_CACHE = Path("C:/tmp/min_diaries_pdfs")
+OUT_DIR = PROJECT_ROOT / "data" / "sandbox" / "enrichment"
+PDF_CACHE = runtime_path("min_diaries_pdfs")
 # Inter-request pacing is JITTERED (a fixed cadence looks botty); env-tunable so a
 # WAF-sensitive backfill (e.g. EDUCATION) can be slowed without editing code.
 PACE_MIN = float(os.getenv("DIARY_PACE_MIN", "1.0"))

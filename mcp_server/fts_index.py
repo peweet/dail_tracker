@@ -166,10 +166,7 @@ def _function_header(rel: str, scope: str, node: ast.FunctionDef | ast.AsyncFunc
     signature = _unparse(node.args)
     returns = f" -> {_unparse(node.returns)}" if node.returns is not None else ""
     doc = _doc1(node)
-    return (
-        f"{rel}::{scope}{node.name}({signature}){returns}. {doc}"
-        f"{_decorator_summary(node)}"
-    ).strip()
+    return (f"{rel}::{scope}{node.name}(). signature: ({signature}){returns}. {doc}{_decorator_summary(node)}").strip()
 
 
 def _class_header(rel: str, scope: str, node: ast.ClassDef, label: str = "") -> str:
@@ -182,10 +179,7 @@ def _class_header(rel: str, scope: str, node: ast.ClassDef, label: str = "") -> 
     generic = f"[{', '.join(type_params)}]" if type_params else ""
     bases = f"({', '.join(params)})" if params else ""
     suffix = f" {label}" if label else ""
-    return (
-        f"{rel}::{scope}class {node.name}{generic}{bases}{suffix}. {_doc1(node)}"
-        f"{_decorator_summary(node)}"
-    ).strip()
+    return (f"{rel}::{scope}class {node.name}{generic}{bases}{suffix}. {_doc1(node)}{_decorator_summary(node)}").strip()
 
 
 def _class_chunks(
@@ -204,11 +198,7 @@ def _class_chunks(
     # methods/nested classes. The first gap is the class summary (decorators, header,
     # docstring and leading attributes); later gaps retain attributes after methods.
     out: list[tuple[str, str, str, str]] = []
-    members = [
-        child
-        for child in node.body
-        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-    ]
+    members = [child for child in node.body if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
     cursor = start
     gap_number = 0
     for member in members:
@@ -254,9 +244,7 @@ def _py_chunks(rel: str, text: str) -> list[tuple[str, str, str, str]]:
 
     out: list[tuple[str, str, str, str]] = []
     definitions = [
-        node
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
     ]
     cursor = 1
     module_section = 0
@@ -265,9 +253,7 @@ def _py_chunks(rel: str, text: str) -> list[tuple[str, str, str, str]]:
         if cursor < start:
             module_section += 1
             label = "module preamble" if module_section == 1 else f"module body {module_section}"
-            out.extend(
-                _line_windows(f"{rel} — {label}. {_doc1(tree)}", lines, cursor, start - 1, "code-chunk")
-            )
+            out.extend(_line_windows(f"{rel} — {label}. {_doc1(tree)}", lines, cursor, start - 1, "code-chunk"))
         if isinstance(node, ast.ClassDef):
             out.extend(_class_chunks(rel, "", node, lines))
         else:
@@ -286,7 +272,9 @@ def _md_chunks(rel: str, text: str) -> list[tuple[str, str, str, str]]:
     lines = text.splitlines()
     if not lines:
         return []
-    headings = [(line_no, match.group(1).strip()) for line_no, line in enumerate(lines, 1) if (match := _MD_HEADING.match(line))]
+    headings = [
+        (line_no, match.group(1).strip()) for line_no, line in enumerate(lines, 1) if (match := _MD_HEADING.match(line))
+    ]
     sections: list[tuple[int, int, str]] = []
     if not headings:
         sections.append((1, len(lines), "(intro)"))
@@ -498,7 +486,9 @@ def refresh(
                     text = changed_text.get(rel) or _read_source(src[rel])
                     edges = _py_imports(rel, text, repo_paths)
                 except (OSError, UnicodeError, LookupError, SyntaxError, tokenize.TokenError) as exc:
-                    conn.execute("INSERT OR REPLACE INTO errors (path, message) VALUES (?, ?)", (rel, _error_message(exc)))
+                    conn.execute(
+                        "INSERT OR REPLACE INTO errors (path, message) VALUES (?, ?)", (rel, _error_message(exc))
+                    )
                     continue
                 conn.executemany(
                     "INSERT OR IGNORE INTO imports (src, dst) VALUES (?,?)",

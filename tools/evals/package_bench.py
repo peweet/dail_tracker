@@ -15,17 +15,16 @@ wired explicitly or every probe measures tool-absence.
 
 import json
 import re
+from pathlib import Path
 
 import anyio
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ResultMessage,
-    ToolUseBlock,
-    query,
-)
 
-PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
+try:
+    from .provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+except ImportError:  # direct script execution
+    from provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+
+PROJ = str(Path(__file__).resolve().parents[2])
 
 NEW_TOOLS = [
     "mcp__dail-tracker__search_speeches",
@@ -104,34 +103,32 @@ def parse_answer(text: str) -> list:
 
 async def run_task(task: str, variant: str) -> dict:
     spec = TASKS[task]
-    opts = ClaudeAgentOptions(
-        model="claude-sonnet-5",
-        max_turns=12,
-        cwd=PROJ,
-        setting_sources=["project"],
-        permission_mode="bypassPermissions",
-        disallowed_tools=NEW_TOOLS if variant == "baseline" else [],
-        mcp_servers={
-            "dail-tracker": {
-                "command": PROJ + r"\.venv\Scripts\python.exe",
-                "args": [PROJ + r"\mcp_server\server.py"],
-                "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
-            }
-        },
-    )
     calls: list[str] = []
     cost = None
     text = ""
     err = None
+    provider = None
+    model = None
     try:
-        async for msg in query(prompt=spec["prompt"], options=opts):
-            if isinstance(msg, AssistantMessage):
-                for b in msg.content:
-                    if isinstance(b, ToolUseBlock):
-                        calls.append(b.name)
-            if isinstance(msg, ResultMessage):
-                cost = msg.total_cost_usd
-                text = getattr(msg, "result", "") or ""
+        result = await run_eval(
+            EvalRequest(
+                prompt=spec["prompt"],
+                cwd=PROJ,
+                claude_model="claude-sonnet-5",
+                max_turns=12,
+                sandbox="read-only",
+                project_settings=True,
+                disallowed_tools=NEW_TOOLS if variant == "baseline" else [],
+                mcp_servers=dail_tracker_mcp(PROJ),
+            )
+        )
+        calls = result.tool_names
+        cost = result.cost_usd
+        text = result.final_text
+        provider = result.provider
+        model = result.model
+        if result.is_error:
+            err = result.error
     except Exception as e:  # keep partials — they are the finding
         err = f"{type(e).__name__}: {e}"
     answer = parse_answer(text)
@@ -145,6 +142,8 @@ async def run_task(task: str, variant: str) -> dict:
         "cost_usd": round(cost, 4) if cost else None,
         "answer": answer,
         "sequence": calls,
+        "provider": provider,
+        "model": model,
     }
     if err:
         out["error"] = err
@@ -163,4 +162,5 @@ async def main():
             print(json.dumps(r, ensure_ascii=False))
 
 
-anyio.run(main)
+if __name__ == "__main__":
+    anyio.run(main)

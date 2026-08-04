@@ -1,0 +1,57 @@
+# Project-local MCP configuration for the public Dail Tracker repository.
+# Keep startup optional so a missing local data store does not prevent Codex from opening.
+[mcp_servers."dail-tracker"]
+enabled = true
+required = false
+command = "uv"
+args = ["run", "--frozen", "--extra", "mcp", "python", "mcp_server/server.py"]
+startup_timeout_sec = 360.0
+tool_timeout_sec = 360.0
+default_tools_approval_mode = "auto"
+disabled_tools = [
+  "search_planning_precedents",
+  "siting_check",
+  "siting_decision_documents",
+]
+
+[mcp_servers."dail-tracker".env]
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+OPENBLAS_NUM_THREADS = "1"
+OMP_NUM_THREADS = "1"
+MKL_NUM_THREADS = "1"
+NUMEXPR_NUM_THREADS = "1"
+
+# Private overlay only. Enable this server in a personal Codex config/profile when
+# planning/product and its external layer data are present. It stays disabled so a
+# clean public clone neither installs Siting dependencies nor exposes private tools.
+[mcp_servers.siting]
+enabled = false
+required = false
+command = "uv"
+args = [
+  "run",
+  "--frozen",
+  "--extra",
+  "mcp",
+  "--extra",
+  "siting",
+  "python",
+  "mcp_server/server.py",
+]
+startup_timeout_sec = 360.0
+tool_timeout_sec = 360.0
+default_tools_approval_mode = "auto"
+enabled_tools = [
+  "search_planning_precedents",
+  "siting_check",
+  "siting_decision_documents",
+]
+
+[mcp_servers.siting.env]
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+OPENBLAS_NUM_THREADS = "1"
+OMP_NUM_THREADS = "1"
+MKL_NUM_THREADS = "1"
+NUMEXPR_NUM_THREADS = "1"

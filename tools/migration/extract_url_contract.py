@@ -28,6 +28,7 @@ import argparse
 import ast
 import re
 import sys
+import tokenize
 from collections import defaultdict
 from pathlib import Path
 
@@ -56,6 +57,45 @@ QP_METHODS = {
 LINK_RE = re.compile(r"[?&]([a-zA-Z_][a-zA-Z0-9_]*)=")
 
 
+class AnalysisError(RuntimeError):
+    """A source file could not be decoded or parsed safely."""
+
+    def __init__(self, path: Path, cause: BaseException) -> None:
+        self.path = path
+        self.cause = cause
+        super().__init__(f"{path}: {type(cause).__name__}: {cause}")
+
+
+def parse_module(path: Path) -> ast.Module:
+    try:
+        with tokenize.open(path) as stream:
+            source = stream.read()
+        return ast.parse(source, filename=str(path))
+    except (OSError, UnicodeError, SyntaxError) as exc:
+        raise AnalysisError(path, exc) from exc
+
+
+def _docstring_values(tree: ast.AST) -> set[ast.AST]:
+    values: set[ast.AST] = set()
+    owners = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    for node in ast.walk(tree):
+        if not isinstance(node, owners) or not node.body:
+            continue
+        first = node.body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            values.add(first.value)
+    return values
+
+
+def _live_nodes(tree: ast.AST):
+    docstrings = _docstring_values(tree)
+    yield from (node for node in ast.walk(tree) if node not in docstrings)
+
+
 def is_query_params(node: ast.AST, aliases: set[str]) -> bool:
     """True for `st.query_params` or a local alias bound to it."""
     if isinstance(node, ast.Attribute) and node.attr == "query_params":
@@ -75,17 +115,13 @@ def collect_aliases(tree: ast.AST) -> set[str]:
 
 def keys_in_module(path: Path) -> tuple[set[str], set[str]]:
     """Return (read_or_written_keys, keys_appearing_in_built_links)."""
-    try:
-        src = path.read_text(encoding="utf-8")
-        tree = ast.parse(src)
-    except (OSError, UnicodeDecodeError, SyntaxError):
-        return set(), set()
+    tree = parse_module(path)
 
     aliases = collect_aliases(tree)
     keys: set[str] = set()
     link_keys: set[str] = set()
 
-    for node in ast.walk(tree):
+    for node in _live_nodes(tree):
         # st.query_params["member"]
         if isinstance(node, ast.Subscript) and is_query_params(node.value, aliases):
             if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
@@ -139,8 +175,7 @@ def keys_in_module(path: Path) -> tuple[set[str], set[str]]:
 
 def parse_routes() -> list[dict[str, str]]:
     """Read st.Page(...) registrations out of utility/app.py."""
-    src = APP_FILE.read_text(encoding="utf-8")
-    tree = ast.parse(src)
+    tree = parse_module(APP_FILE)
 
     # Map the local callable name back to its page module.
     func_to_module: dict[str, str] = {}
@@ -169,12 +204,20 @@ def parse_routes() -> list[dict[str, str]]:
 
 
 def module_to_path(module: str) -> Path | None:
-    """`pages_code.votes` -> utility/pages_code/votes.py"""
-    tail = module.split(".")[-1]
-    for base in (PAGES_DIR, UI_DIR):
-        cand = base / f"{tail}.py"
-        if cand.exists():
-            return cand
+    """Resolve an imported page/UI module without discarding package ownership."""
+    parts = module.split(".")
+    for marker, base in (("pages_code", PAGES_DIR), ("ui", UI_DIR)):
+        if marker not in parts:
+            continue
+        relative = parts[parts.index(marker) + 1 :]
+        if not relative:
+            continue
+        module_file = base.joinpath(*relative).with_suffix(".py")
+        if module_file.exists():
+            return module_file
+        package_file = base.joinpath(*relative, "__init__.py")
+        if package_file.exists():
+            return package_file
     return None
 
 
@@ -183,7 +226,10 @@ def build_report() -> str:
 
     per_module_keys: dict[str, set[str]] = {}
     per_module_links: dict[str, set[str]] = {}
-    for path in sorted([*PAGES_DIR.glob("*.py"), *UI_DIR.glob("*.py"), APP_FILE]):
+    sources = [*PAGES_DIR.rglob("*.py"), *UI_DIR.rglob("*.py"), APP_FILE]
+    for path in sorted(set(sources)):
+        if "__pycache__" in path.parts:
+            continue
         keys, links = keys_in_module(path)
         rel = str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
         if keys:
@@ -272,7 +318,11 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="fail if the committed contract has drifted")
     args = ap.parse_args()
 
-    report = build_report()
+    try:
+        report = build_report()
+    except AnalysisError as exc:
+        print(f"URL contract analysis failed closed: {exc}", file=sys.stderr)
+        return 1
 
     if args.check:
         if not DEFAULT_OUT.exists():

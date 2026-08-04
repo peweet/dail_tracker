@@ -35,7 +35,6 @@ import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import unquote
-from urllib.request import Request, urlopen
 
 import fitz  # PyMuPDF
 import polars as pl
@@ -46,6 +45,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import config  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
 CACHE = config.BRONZE_PDF_DIR / "lgas"
@@ -102,13 +102,12 @@ def fetch(url: str, retries: int = 3) -> bytes:
     time.sleep(0.8)  # EVERY request — gov.ie locks out bursts with 405s mid-run (162 of 393
     # failed on the first sweep when only PDF downloads were throttled)
     for attempt in range(retries + 1):
-        try:
-            return urlopen(Request(url, headers={"User-Agent": UA}), timeout=90).read()
-        except Exception:  # noqa: BLE001 — rate-limited; back off harder each time
-            if attempt == retries:
-                raise
+        body = http_fetch_bytes(url, headers={"User-Agent": UA}, timeout=90)
+        if body is not None:
+            return body
+        if attempt < retries:
             time.sleep(10 * (attempt + 1))
-    return b""
+    raise RuntimeError(f"failed to fetch {url} after {retries + 1} attempts")
 
 
 def council_from_slug(slug: str) -> str | None:

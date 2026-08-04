@@ -40,7 +40,6 @@ import time
 from pathlib import Path
 
 import polars as pl
-import requests
 from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +47,7 @@ sys.path.insert(0, str(ROOT))
 import contextlib  # noqa: E402
 
 from services.parquet_io import save_parquet  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -80,10 +80,10 @@ def fetch(url: str, cache_name: str | None = None, *, force: bool = False) -> st
         cp = CACHE_DIR / cache_name
         if cp.exists() and cp.stat().st_size > 500:
             return cp.read_text(encoding="utf-8", errors="ignore")
-    r = requests.get(url, headers=HDRS, timeout=30)
-    r.raise_for_status()
-    r.encoding = "utf-8"
-    txt = r.text
+    body = http_fetch_bytes(url, headers=HDRS, timeout=30, validate=lambda payload: bool(payload.strip()))
+    if body is None:
+        raise RuntimeError(f"failed to fetch {url}")
+    txt = body.decode("utf-8", errors="replace")
     if cache_name:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         (CACHE_DIR / cache_name).write_text(txt, encoding="utf-8")

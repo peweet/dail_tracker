@@ -79,6 +79,16 @@ def test_main_scans_nested_page_modules(tmp_path, capsys, monkeypatch):
     assert "reports/detail.py" in capsys.readouterr().out
 
 
+def test_nested_canonical_basename_does_not_inherit_top_level_ownership(tmp_path, monkeypatch):
+    nested = tmp_path / "reports" / "member_overview.py"
+    nested.parent.mkdir()
+    nested.write_text('column = "member_code"\n', encoding="utf-8")
+    monkeypatch.setattr(check_nav_graph, "PAGES", tmp_path)
+    monkeypatch.setattr(check_nav_graph, "BASELINE", {})
+
+    assert check_nav_graph.main() == 1
+
+
 def test_main_reports_parse_errors_and_fails_closed(tmp_path, capsys, monkeypatch):
     broken = tmp_path / "broken.py"
     broken.write_text("def incomplete(:\n", encoding="utf-8")

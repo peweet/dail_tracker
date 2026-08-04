@@ -3,7 +3,7 @@
 The defect these guard (measured 2026-07-27): every MCP server subprocess built its
 DuckDB connection on the library defaults — ``memory_limit`` 12.5 GiB (80% of RAM),
 ``threads`` 20 (one per core), ``temp_directory`` the relative ``.tmp``. Because the
-stdio transport gives every Claude session its own subprocess, seven sessions were
+stdio transport gives every coding-agent session its own subprocess, seven sessions were
 live at once, each with that ceiling. These tests pin the caps, and pin that the idle
 watchdog can never close a connection while a tool call is in flight.
 """
@@ -149,14 +149,14 @@ def test_under_pressure_none_when_free_ram_unreadable(monkeypatch):
 
 def test_headroom_loosens_when_ram_free_and_few_sessions(monkeypatch):
     monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
-    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: 1)
+    monkeypatch.setattr(resource_policy, "agent_session_count", lambda: 1)
     assert resource_policy.effective_memory_limit() == resource_policy.HEADROOM_MEMORY_LIMIT
 
 
 def test_headroom_refused_when_many_sessions(monkeypatch):
     monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
     monkeypatch.setattr(
-        resource_policy, "claude_session_count", lambda: resource_policy.HEADROOM_MAX_SESSIONS + 1
+        resource_policy, "agent_session_count", lambda: resource_policy.HEADROOM_MAX_SESSIONS + 1
     )
     assert resource_policy.effective_memory_limit() == resource_policy.memory_limit()
 
@@ -164,41 +164,67 @@ def test_headroom_refused_when_many_sessions(monkeypatch):
 def test_headroom_fails_closed_when_session_count_unreadable(monkeypatch):
     """Unknown session count means the worst case might be live — keep the default."""
     monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
-    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: None)
+    monkeypatch.setattr(resource_policy, "agent_session_count", lambda: None)
     assert resource_policy.effective_memory_limit() == resource_policy.memory_limit()
 
 
 def test_headroom_refused_between_pressure_and_headroom_floors(monkeypatch):
     """The middle band (above pressure, below headroom) stays on the plain default."""
     monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB - 1)
-    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: 1)
+    monkeypatch.setattr(resource_policy, "agent_session_count", lambda: 1)
     assert resource_policy.effective_memory_limit() == resource_policy.memory_limit()
 
 
 def test_pressure_beats_headroom(monkeypatch):
     monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.PRESSURE_FLOOR_MB - 1)
-    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: 1)
+    monkeypatch.setattr(resource_policy, "agent_session_count", lambda: 1)
     assert resource_policy.effective_memory_limit() == resource_policy.PRESSURE_MEMORY_LIMIT
 
 
 def test_explicit_env_wins_over_headroom(monkeypatch):
     monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
-    monkeypatch.setattr(resource_policy, "claude_session_count", lambda: 1)
+    monkeypatch.setattr(resource_policy, "agent_session_count", lambda: 1)
     monkeypatch.setenv("DAIL_MCP_DUCKDB_MEMORY_LIMIT", "768MB")
     assert resource_policy.effective_memory_limit() == "768MB"
 
 
-def test_claude_session_count_off_windows_returns_none(monkeypatch):
+def test_agent_session_count_off_windows_returns_none(monkeypatch):
     monkeypatch.setattr(resource_policy.sys, "platform", "linux")
     monkeypatch.setattr(resource_policy, "_session_count_cache", None)
-    assert resource_policy.claude_session_count() is None
+    assert resource_policy.agent_session_count() is None
 
 
-def test_claude_session_count_uses_its_cache(monkeypatch):
+def test_agent_session_count_uses_its_cache(monkeypatch):
     monkeypatch.setattr(
         resource_policy, "_session_count_cache", (resource_policy.time.monotonic(), 7)
     )
-    assert resource_policy.claude_session_count() == 7  # no tasklist spawn within the TTL
+    assert resource_policy.agent_session_count() == 7  # no tasklist spawn within the TTL
+
+
+def test_agent_session_count_includes_claude_and_codex(monkeypatch):
+    class _Result:
+        returncode = 0
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    seen: list[str] = []
+
+    def fake_run(command, **_kwargs):
+        image = command[2].removeprefix("IMAGENAME eq ")
+        seen.append(image)
+        rows = {
+            "claude.exe": '"claude.exe","1"\n"claude.exe","2"',
+            "codex.exe": '"codex.exe","3"',
+        }
+        return _Result(rows[image])
+
+    monkeypatch.setattr(resource_policy.sys, "platform", "win32")
+    monkeypatch.setattr(resource_policy, "_session_count_cache", None)
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    assert resource_policy.agent_session_count() == 3
+    assert seen == ["claude.exe", "codex.exe"]
 
 
 def test_free_ram_mb_off_windows_returns_none(monkeypatch):

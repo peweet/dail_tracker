@@ -1,8 +1,12 @@
 import concurrent.futures
+import contextlib
 import logging
+import os
+import secrets
 import subprocess
 import time
 from collections.abc import Callable
+from pathlib import Path
 from urllib.parse import quote
 
 import requests
@@ -33,7 +37,12 @@ def _sleep_backoff(attempt: int) -> None:
     time.sleep(RETRY_BACKOFF_BASE * (2 ** (attempt - 1)))
 
 
-def fetch_json(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[dict, int]:
+def fetch_json(
+    url: str,
+    timeout: tuple[int, int] | int = (10, 60),
+    *,
+    headers: dict[str, str] | None = None,
+) -> tuple[dict, int]:
     """Fetch one URL using the shared session, retrying transient faults.
 
     Retries (exponential backoff) on connection errors, timeouts, and retryable
@@ -44,7 +53,7 @@ def fetch_json(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[dict, int
     last_exc: Exception | None = None
     for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
         try:
-            response = session.get(url, timeout=timeout)
+            response = session.get(url, timeout=timeout, headers=headers)
             if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
                 logger.warning(
                     "fetch_json %s -> HTTP %s (attempt %d/%d), retrying",
@@ -359,6 +368,59 @@ def fetch_bytes(
     if body and (validate is None or validate(body)):
         return body
     return None
+
+
+def download_file(
+    url: str,
+    destination: Path,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: int = 180,
+    validate: Callable[[Path], bool] | None = None,
+) -> bool:
+    """Stream a download to an atomic destination, preserving any old file.
+
+    The normal requests leg streams bounded chunks instead of holding large CSVs
+    or PDFs in memory. A failed or invalid transfer is removed; ``destination``
+    is replaced only after a complete validated download.
+    """
+    headers = headers if headers is not None else polite_headers()
+    destination = destination.resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.{secrets.token_hex(6)}.part")
+    try:
+        for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+            try:
+                with session.get(
+                    quote(url, safe=_URL_QUOTE_SAFE),
+                    headers=headers,
+                    timeout=timeout,
+                    allow_redirects=True,
+                    stream=True,
+                ) as response:
+                    if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
+                        _sleep_backoff(attempt)
+                        continue
+                    response.raise_for_status()
+                    with temporary.open("wb") as output:
+                        for chunk in response.iter_content(1 << 16):
+                            if chunk:
+                                output.write(chunk)
+                if validate is None or validate(temporary):
+                    os.replace(temporary, destination)
+                    return True
+                break
+            except _RETRYABLE_EXC:
+                if attempt < RETRY_MAX_ATTEMPTS:
+                    _sleep_backoff(attempt)
+                    continue
+                break
+            except Exception:
+                break
+        return False
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            temporary.unlink()
 
 
 if __name__ == "__main__":

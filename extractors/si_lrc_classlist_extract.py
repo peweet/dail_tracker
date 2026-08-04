@@ -49,6 +49,7 @@ sys.path.insert(0, str(ROOT))
 import contextlib  # noqa: E402
 
 from services.parquet_io import save_parquet  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -84,21 +85,19 @@ def fetch(cat: int, *, offline: bool, refresh: bool) -> tuple[str, dict]:
         return raw_path.read_text(encoding="utf-8", errors="ignore"), meta
     if offline:
         raise FileNotFoundError(f"--offline but no cache for category {cat} at {raw_path}")
-    import requests  # lazy: keeps the parser importable in CI without network deps
-
     url = f"{BASE}/{cat}"
-    r = requests.get(url, headers=HDRS, timeout=60)
-    r.raise_for_status()
-    r.encoding = "utf-8"
-    txt = r.text
+    body = http_fetch_bytes(url, headers=HDRS, timeout=60, validate=lambda payload: bool(payload.strip()))
+    if body is None:
+        raise RuntimeError(f"failed to fetch LRC category {cat}: {url}")
+    txt = body.decode("utf-8", errors="replace")
     meta = {
         "url": url,
         "retrieved_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "status_code": r.status_code,
-        "content_type": r.headers.get("content-type", ""),
+        "status_code": 200,
+        "content_type": "text/html; charset=utf-8",
         "sha256": hashlib.sha256(txt.encode("utf-8")).hexdigest(),
         "raw_path": str(raw_path.relative_to(ROOT)),
-        "bytes": len(txt),
+        "bytes": len(body),
     }
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     raw_path.write_text(txt, encoding="utf-8")

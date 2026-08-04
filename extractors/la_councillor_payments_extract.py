@@ -30,12 +30,13 @@ import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
+
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 
 OUT_CSV = ROOT / "data/_meta/la_councillor_payments.csv"
 OUT_COV = ROOT / "data/_meta/la_councillor_payments_coverage.json"
@@ -82,8 +83,10 @@ SKIP_HEADERS = ("objectid", "fid", "month", "councillor")  # ArcGIS row-id colum
 
 
 def fetch(url: str) -> bytes:
-    req = Request(url, headers={"User-Agent": UA})
-    return urlopen(req, timeout=90).read()
+    body = http_fetch_bytes(url, headers={"User-Agent": UA}, timeout=90)
+    if body is None:
+        raise RuntimeError(f"failed to fetch {url}")
+    return body
 
 
 def csv_resource_urls(package: str) -> list[tuple[str, str]]:

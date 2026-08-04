@@ -80,10 +80,10 @@ ocr = [
                          # pip-installed undeclared 2026-07-31 — see project_pharma_reconciliation_2026_07_31.
 ]
 
-# Siting Check (Product B) — the live geospatial planning-risk engine in
-# dail_tracker_core.siting. NOT in core: the deployed Streamlit app guards its
-# import (utility/app.py) and the 291 MB designation layers + DEM are local-only
-# (gitignored), so Cloud runs without these. Battle-tested locally via
+# Siting Check (Product B) — the private geospatial planning-risk engine in
+# planning/product. NOT in core: its source and large designation layers are
+# maintained by the private overlay, so the public Streamlit deploy never imports
+# them. Battle-tested locally via
 # `uv sync --extra siting`. shapely = point-in-polygon joins; rasterio = DEM
 # range-read; pyyaml = issue catalogue; polars = layer parquet reads.
 siting = [
@@ -105,6 +105,14 @@ siting = [
     "esridump>=1.13",    # ArcGIS layer scrape (extractors/planning_layers_ingest.py) — was undeclared; uv sync pruned it 2026-07-25
     "pyproj>=3.6",       # CRS repair at INGEST only (dublin_city_rps: published GeoJSON is Irish Grid
                          # mis-projected as ITM, 2026-07-30) — the runtime layer store stays shapely-only
+]
+
+# Optional language tier for Siting's free-text intake and grounded appraisal.
+# The deterministic engine/API remains usable without this extra. The OpenAI SDK
+# is imported lazily so `uv sync --extra siting` does not acquire model-runtime
+# dependencies or require an API key.
+siting-ai = [
+    "openai>=2.53,<3",
 ]
 
 # Headless-browser scraping for JS-rendered sources that curl/RSS can't reach:
@@ -173,6 +181,8 @@ dev = [
     "sqlglot>=25",            # money-grain SQL lint (tools/check_money_grain_sums.py) — without this the test SKIPS in CI and the never-sum query gate only bites locally; also in the mcp extra
 ]
 evals = [
+    # Retained as the Claude provider; the OpenAI provider drives the installed
+    # Codex CLI through its stable JSONL interface and needs no Python SDK here.
     "claude-agent-sdk>=0.2.126",
 ]
 

@@ -1,7 +1,7 @@
 """Persist the validated judiciary exploration datasets (2026-06-04) to CSV + Parquet.
 THROWAWAY/sandbox persistence — NOT pipeline ETL. Outputs -> data/sandbox/judiciary/.
 Run: .venv/Scripts/python.exe extractors/persist_judiciary_data.py
-Sources: data/gold/parquet/public_appointments.parquet (spine), C:/tmp cached PDFs/CSVs,
+Sources: data/gold/parquet/public_appointments.parquet (spine), configured runtime cached PDFs/CSVs,
 ROSTER literal in probe_judiciary_join.py, and values captured during the 2026-06-04 pulls.
 """
 
@@ -18,11 +18,12 @@ import fitz  # PyMuPDF (in .venv)  # noqa: E402
 import polars as pl  # noqa: E402
 
 from extractors._judiciary_roster import ROSTER  # noqa: E402
+from paths import PROJECT_ROOT, configured_path, runtime_path  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
-OUT = Path("data/sandbox/judiciary")
+OUT = PROJECT_ROOT / "data" / "sandbox" / "judiciary"
 OUT.mkdir(parents=True, exist_ok=True)
-TMP = Path("C:/tmp")
+TMP = configured_path("JUDICIARY_CACHE_DIR", runtime_path("judiciary"))
 
 
 def write_both(df: pl.DataFrame, name: str):

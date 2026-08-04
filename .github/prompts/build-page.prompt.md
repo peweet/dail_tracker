@@ -8,7 +8,7 @@ agent: agent
 Build page: ${input:page_id}
 
 Read only:
-- `CLAUDE.md`
+- `AGENTS.md` and `utility/pages_code/AGENTS.md`
 - `dail_tracker_bold_ui_contract_pack_v5/page_runbooks/${input:page_id}.md`
 - `dail_tracker_bold_ui_contract_pack_v5/utility/page_contracts/${input:page_id}.yaml`
 - shared policy/pattern files, the target page file, shared CSS, relevant `utility/ui` helpers

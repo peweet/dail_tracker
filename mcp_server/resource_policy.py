@@ -3,7 +3,7 @@
 Why this exists. The stdio transport's process model is one server subprocess per
 client session — the MCP spec has the client launch the server as a subprocess and
 terminate it by closing stdin, so the lifecycle belongs to the client, not to us.
-Every open Claude Code window therefore holds its own interpreter, and each one's
+Every open coding-agent window therefore holds its own interpreter, and each one's
 DuckDB connection took the library defaults: ``memory_limit`` = 80% of system RAM
 (12.5 GiB on this box) and ``threads`` = core count (20). Measured 2026-07-27 with
 seven concurrent sessions live, that is seven processes each believing it may take
@@ -29,7 +29,7 @@ and an unexplained ``/mcp`` reconnect. Releasing state is the only legal spin-do
 Third policy, added after a call hung for 1801 s during a load test on 27 July: a
 call deadline. Two layers, and both are needed for different reasons.
 
-  * Client side — ``"timeout": 360000`` in ``.mcp.json``. Claude Code's own per-server
+  * Client side — ``"timeout": 360000`` in ``.mcp.json``. The client's per-server
     wall-clock limit, whose default (``MCP_TOOL_TIMEOUT``) is about 28 HOURS, which is
     why a stuck call simply hangs. This makes the client give up in six minutes.
     ``.mcp.json`` is strict JSON and cannot hold a comment, so the reason lives here.
@@ -141,13 +141,13 @@ PRESSURE_MEMORY_LIMIT = "512MB"
 # The 1 GB default is sized for the many-session worst case, but it also starves a
 # legitimately heavy query (the precedent FTS over ~14k inspector reports OOM'd at
 # the 512 MB pressure cap) on a box that at that moment had the RAM to serve it.
-# When free RAM is comfortably high AND few Claude sessions are open — the two facts
+# When free RAM is comfortably high AND few agent sessions are open — the two facts
 # that together mean the worst case is not live — grant a larger budget. Pressure
 # always wins; an unreadable session count fails closed to the normal default.
 
 #: At or above this much free physical RAM, loosening becomes possible.
 HEADROOM_FLOOR_MB = 6000
-#: ... but only when this many claude.exe processes or fewer are running.
+#: ... but only when this many Claude/Codex client processes or fewer are running.
 HEADROOM_MAX_SESSIONS = 2
 HEADROOM_MEMORY_LIMIT = "4GB"
 
@@ -156,13 +156,13 @@ _SESSION_COUNT_TTL_SECONDS = 60.0
 _session_count_cache: tuple[float, int] | None = None
 
 
-def claude_session_count() -> int | None:
-    """Count of running claude.exe processes, cached ~60 s; None off-Windows or on failure.
+def agent_session_count() -> int | None:
+    """Count running Claude/Codex client processes, cached ~60 s.
 
-    Same tasklist probe as tools/hooks/session_context.py's ``_claude_session_count``,
-    duplicated rather than imported for the same reason ``free_ram_mb`` duplicates the
-    guard_memory ctypes call — a hook script and a server runtime module are different
-    layers for what is one subprocess call.
+    Each client can own a separate stdio MCP subprocess, so both providers matter to
+    the headroom decision.  The two narrow ``tasklist`` probes avoid treating unrelated
+    OpenAI/Anthropic desktop processes as coding sessions.  Returns ``None`` off Windows
+    or if either probe fails, which deliberately disables loosening.
     """
     global _session_count_cache
     if sys.platform != "win32":
@@ -173,17 +173,27 @@ def claude_session_count() -> int | None:
     try:
         import subprocess
 
-        out = subprocess.run(
-            ["tasklist", "/FI", "IMAGENAME eq claude.exe", "/FO", "CSV", "/NH"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        count = sum(1 for line in out.stdout.splitlines() if "claude.exe" in line.lower())
+        count = 0
+        for image_name in ("claude.exe", "codex.exe"):
+            out = subprocess.run(
+                ["tasklist", "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if out.returncode != 0:
+                return None
+            count += sum(1 for line in out.stdout.splitlines() if image_name in line.lower())
     except Exception:
         return None
     _session_count_cache = (now, count)
     return count
+
+
+def claude_session_count() -> int | None:
+    """Backward-compatible alias for callers written before Codex support."""
+    return agent_session_count()
 
 
 def with_headroom() -> bool:
@@ -196,7 +206,7 @@ def with_headroom() -> bool:
     free = free_ram_mb()
     if free is None or free < HEADROOM_FLOOR_MB:
         return False
-    count = claude_session_count()
+    count = agent_session_count()
     return count is not None and count <= HEADROOM_MAX_SESSIONS
 
 

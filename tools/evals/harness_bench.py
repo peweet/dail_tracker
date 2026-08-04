@@ -18,18 +18,18 @@ the ON stack ANSWERS correctly, not which layer supplies the answer.
 """
 
 import json
+import os
 import re
+from pathlib import Path
 
 import anyio
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ResultMessage,
-    ToolUseBlock,
-    query,
-)
 
-PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
+try:
+    from .provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+except ImportError:  # direct script execution
+    from provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+
+PROJ = str(Path(__file__).resolve().parents[2])
 # Clean-room cwd for the offclean arm: a detached git worktree. Different path →
 # different project slug → NO auto-memory injection. Discovered 2026-07-25: with
 # cwd=PROJ, setting_sources=[] strips CLAUDE.md/rules/hooks/MCP but the memory
@@ -162,42 +162,39 @@ def parse_answer(text: str) -> dict:
 
 async def run_task(task: str, variant: str) -> dict:
     on = variant == "on"
-    import os
-
-    opts = ClaudeAgentOptions(
-        model="claude-sonnet-5",
-        max_turns=12,
-        cwd=WT if variant == "offclean" else PROJ,
-        setting_sources=["project"] if on else [],
-        permission_mode="bypassPermissions",
-        # offclean has no .venv in the worktree — put the real venv on PATH so
-        # Bash `python` (duckdb etc.) works the same in both arms
-        env={"PATH": PROJ + r"\.venv\Scripts;" + os.environ.get("PATH", ""), "PYTHONUTF8": "1"}
-        if variant == "offclean"
-        else {},
-        mcp_servers={
-            "dail-tracker": {
-                "command": PROJ + r"\.venv\Scripts\python.exe",
-                "args": [PROJ + r"\mcp_server\server.py"],
-                "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
-            }
-        }
-        if on
-        else {},
-    )
     calls: list[str] = []
     cost = None
     text = ""
     err = None
+    provider = None
+    model = None
     try:
-        async for msg in query(prompt=TASKS[task]["prompt"], options=opts):
-            if isinstance(msg, AssistantMessage):
-                for b in msg.content:
-                    if isinstance(b, ToolUseBlock):
-                        calls.append(b.name)
-            if isinstance(msg, ResultMessage):
-                cost = msg.total_cost_usd
-                text = getattr(msg, "result", "") or ""
+        result = await run_eval(
+            EvalRequest(
+                prompt=TASKS[task]["prompt"],
+                cwd=WT if variant == "offclean" else PROJ,
+                claude_model="claude-sonnet-5",
+                max_turns=12,
+                sandbox="read-only",
+                project_settings=on,
+                env={
+                    "PATH": str(Path(PROJ) / ".venv" / "Scripts")
+                    + os.pathsep
+                    + os.environ.get("PATH", ""),
+                    "PYTHONUTF8": "1",
+                }
+                if variant == "offclean"
+                else {},
+                mcp_servers=dail_tracker_mcp(PROJ) if on else {},
+            )
+        )
+        calls = result.tool_names
+        cost = result.cost_usd
+        text = result.final_text
+        provider = result.provider
+        model = result.model
+        if result.is_error:
+            err = result.error
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
     ans = parse_answer(text)
@@ -210,6 +207,8 @@ async def run_task(task: str, variant: str) -> dict:
         "cost_usd": round(cost, 4) if cost else None,
         "answer": ans,
         "sequence": calls,
+        "provider": provider,
+        "model": model,
     }
     if err:
         out["error"] = err
@@ -227,4 +226,5 @@ async def main():
             print(json.dumps(await run_task(task, variant), ensure_ascii=False))
 
 
-anyio.run(main)
+if __name__ == "__main__":
+    anyio.run(main)

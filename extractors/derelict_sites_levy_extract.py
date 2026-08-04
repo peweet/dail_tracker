@@ -62,14 +62,18 @@ _COLS = {
 
 
 def _download() -> None:
-    import requests
+    from services.http_engine import fetch_bytes, polite_headers
 
-    h = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://www.gov.ie/"}
-    r = requests.get(_URL, headers=h, timeout=60)
-    r.raise_for_status()
+    body = fetch_bytes(
+        _URL,
+        headers=polite_headers(browser=True, extra={"Referer": "https://www.gov.ie/"}),
+        timeout=60,
+    )
+    if body is None:
+        raise RuntimeError(f"failed to download {_URL}")
     _SRC.parent.mkdir(parents=True, exist_ok=True)
-    _SRC.write_bytes(r.content)
-    LOG.info("downloaded %d bytes -> %s", len(r.content), _SRC.relative_to(ROOT))
+    _SRC.write_bytes(body)
+    LOG.info("downloaded %d bytes -> %s", len(body), _SRC.relative_to(ROOT))
 
 
 def _clean_la(s: str) -> str:

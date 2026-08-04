@@ -11,6 +11,7 @@
     pytest [args]          Triage normal test runs.
     gain                   Project-filtered pilot statistics.
     version                Verify the pinned executable.
+    adoption [gate args]   Measure the pilot or record a review; never auto-adopts.
 
   Ruff is excluded because v0.44.2 misclassified unsafe hidden fixes during parity
   testing. Git is excluded because the repository's existing short status/log forms
@@ -24,6 +25,8 @@
 
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File tools/rtk.ps1 pytest test/tools/test_efficiency_hooks.py -q
+.EXAMPLE
+  powershell -NoProfile -ExecutionPolicy Bypass -File tools/rtk.ps1 adoption --require-eligible
 #>
 [CmdletBinding(PositionalBinding = $false)]
 param(
@@ -45,6 +48,7 @@ $venvScripts = Join-Path $repoRoot '.venv\Scripts'
 $venvPython = Join-Path $venvScripts 'python.exe'
 $teeDir = Join-Path $repoRoot '.cache\rtk\tee'
 $historyDb = Join-Path $repoRoot '.cache\rtk\history.db'
+$pilotEvents = Join-Path $repoRoot '.cache\rtk\pilot-events.jsonl'
 $hookFreeConfigPath = Join-Path ([IO.Path]::GetTempPath()) (
     'dail-extractor-rtk-no-claude-' + [Guid]::NewGuid().ToString('N')
 )
@@ -78,6 +82,38 @@ function Restore-ProcessEnvironment {
     }
 }
 
+function Write-PilotRunEvent {
+    param(
+        [Parameter(Mandatory = $true)][string]$RunId,
+        [Parameter(Mandatory = $true)][datetime]$StartedAt,
+        [Parameter(Mandatory = $true)][int]$ExitCode,
+        [Parameter(Mandatory = $true)][long]$ElapsedMs
+    )
+
+    # Pilot telemetry is deliberately local, tiny, and fail-open: a receipt must
+    # never change pytest's result. Test arguments are intentionally not retained.
+    try {
+        [IO.Directory]::CreateDirectory((Split-Path -Parent $pilotEvents)) | Out-Null
+        $row = [ordered]@{
+            schema = 'rtk-pilot-event/v1'
+            at_utc = [DateTime]::UtcNow.ToString('o')
+            started_at_utc = $StartedAt.ToUniversalTime().ToString('o')
+            run_id = $RunId
+            kind = 'rtk_run'
+            command = 'pytest'
+            exit_code = $ExitCode
+            elapsed_ms = $ElapsedMs
+            rtk_version = $rtkVersion
+        }
+        $json = $row | ConvertTo-Json -Compress
+        [IO.File]::AppendAllText($pilotEvents, "$json`n", [Text.UTF8Encoding]::new($false))
+    }
+    catch {
+        # Measurement is advisory. Preserve the child command's exit code even if
+        # the ignored local ledger cannot be written.
+    }
+}
+
 $previousEnvironment = @{}
 foreach ($name in @('Path', 'CLAUDE_CONFIG_DIR', 'RTK_DB_PATH', 'RTK_TELEMETRY_DISABLED', 'RTK_TEE_DIR', 'PYTHONUTF8', 'PYTHONIOENCODING')) {
     $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
@@ -85,10 +121,13 @@ foreach ($name in @('Path', 'CLAUDE_CONFIG_DIR', 'RTK_DB_PATH', 'RTK_TELEMETRY_D
 
 $exitCode = 1
 $originalLocation = Get-Location
+$rtkRunId = $null
+$rtkRunStartedAt = $null
+$rtkRunTimer = $null
 
 try {
-    if ($Command -notin @('pytest', 'gain', 'version')) {
-        throw "Unsupported command '$Command'. The RTK pilot allows only pytest, gain, and version."
+    if ($Command -notin @('pytest', 'gain', 'version', 'adoption')) {
+        throw "Unsupported command '$Command'. The RTK pilot allows only pytest, gain, version, and adoption."
     }
     if (-not (Test-Path -LiteralPath $rtkExe -PathType Leaf)) {
         throw "Pinned RTK is not installed. Run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/install_rtk.ps1"
@@ -142,8 +181,12 @@ try {
                 '^--pdbcls(?:$|=)',
                 '^--trace$'
             ) -RawAlternative '.venv/Scripts/python -m pytest ...'
+            $rtkRunId = [Guid]::NewGuid().ToString('N')
+            $rtkRunStartedAt = [DateTime]::UtcNow
+            $rtkRunTimer = [Diagnostics.Stopwatch]::StartNew()
             & $rtkExe pytest @CommandArgs
             $exitCode = $LASTEXITCODE
+            $rtkRunTimer.Stop()
         }
         'gain' {
             if ($CommandArgs.Count -ne 0) {
@@ -159,6 +202,13 @@ try {
             & $rtkExe --version
             $exitCode = $LASTEXITCODE
         }
+        'adoption' {
+            if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
+                throw 'The project .venv Python launcher is missing; cannot run the adoption gate.'
+            }
+            & $venvPython (Join-Path $repoRoot 'tools\rtk_pilot_gate.py') @CommandArgs
+            $exitCode = $LASTEXITCODE
+        }
     }
 }
 catch {
@@ -166,6 +216,12 @@ catch {
     [Console]::Error.WriteLine("rtk pilot: $($_.Exception.Message)")
 }
 finally {
+    if ($null -ne $rtkRunTimer) {
+        if ($rtkRunTimer.IsRunning) {
+            $rtkRunTimer.Stop()
+        }
+        Write-PilotRunEvent -RunId $rtkRunId -StartedAt $rtkRunStartedAt -ExitCode $exitCode -ElapsedMs ([math]::Round($rtkRunTimer.Elapsed.TotalMilliseconds))
+    }
     Set-Location -LiteralPath $originalLocation
     Restore-ProcessEnvironment -Previous $previousEnvironment
 }
