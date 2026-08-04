@@ -24,18 +24,17 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import anyio
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ResultMessage,
-    ToolUseBlock,
-    query,
-)
 
-PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
-PY = PROJ + r"\.venv\Scripts\python.exe"
+try:
+    from .provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+except ImportError:  # direct script execution
+    from provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+
+PROJ = str(Path(__file__).resolve().parents[2])
+PY = str(Path(PROJ) / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
 WT = r"C:\tmp\dail_prune_bench"
 
 sys.path.insert(0, os.path.join(PROJ, "tools", "evals"))
@@ -101,6 +100,10 @@ def make_wt(variant):
     else:
         with open(os.path.join(WT, "CLAUDE.md"), "w", encoding="utf-8") as fh:
             fh.write(TRIMMED)
+    # Codex's portable project-instruction surface is AGENTS.md. Mirroring the
+    # arm content keeps the experiment's independent variable identical while
+    # each provider reads its native instruction filename.
+    shutil.copyfile(os.path.join(WT, "CLAUDE.md"), os.path.join(WT, "AGENTS.md"))
     return len(open(os.path.join(WT, "CLAUDE.md"), encoding="utf-8").read())
 
 
@@ -116,34 +119,36 @@ STEER = [
 
 
 async def run_one(prompt, wt):
-    opts = ClaudeAgentOptions(
-        model="claude-sonnet-5",
-        max_turns=12,
-        cwd=wt,
-        setting_sources=["project"],
-        permission_mode="bypassPermissions",
-        env={"PATH": PROJ + r"\.venv\Scripts;" + os.environ.get("PATH", ""), "PYTHONUTF8": "1"},
-        mcp_servers={
-            "dail-tracker": {
-                "command": PY,
-                "args": [PROJ + r"\mcp_server\server.py"],
-                "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
-            }
-        },
-    )
     calls, cost, text = [], None, ""
+    provider, model = None, None
     try:
-        async for msg in query(prompt=prompt, options=opts):
-            if isinstance(msg, AssistantMessage):
-                for b in msg.content:
-                    if isinstance(b, ToolUseBlock):
-                        calls.append(b.name)
-            if isinstance(msg, ResultMessage):
-                cost = msg.total_cost_usd
-                text = getattr(msg, "result", "") or ""
-    except Exception as e:
-        text = f"__ERR__ {type(e).__name__}"
-    return calls, cost, text
+        result = await run_eval(
+            EvalRequest(
+                prompt=prompt,
+                cwd=wt,
+                claude_model="claude-sonnet-5",
+                max_turns=12,
+                sandbox="read-only",
+                project_settings=True,
+                env={
+                    "PATH": str(Path(PROJ) / ".venv" / "Scripts")
+                    + os.pathsep
+                    + os.environ.get("PATH", ""),
+                    "PYTHONUTF8": "1",
+                },
+                mcp_servers=dail_tracker_mcp(PROJ, PY),
+            )
+        )
+        calls = result.tool_names
+        cost = result.cost_usd
+        text = result.final_text
+        provider = result.provider
+        model = result.model
+        if result.is_error:
+            text = f"__ERR__ {result.error or 'provider error'}"
+    except Exception as exc:
+        text = f"__ERR__ {type(exc).__name__}: {exc}"
+    return calls, cost, text, provider, model
 
 
 async def main():
@@ -155,14 +160,14 @@ async def main():
             tot_score = tot_cost = 0.0
             rows = []
             for task, spec in TASKS.items():
-                calls, cost, text = await run_one(spec["prompt"], WT)
+                calls, cost, text, provider, model = await run_one(spec["prompt"], WT)
                 s = score(task, parse_answer(text))
                 tot_score += s
                 tot_cost += cost or 0
                 rows.append(f"{task}={s}")
             steer_ok = 0
             for _name, prompt in STEER:
-                calls, cost, text = await run_one(prompt, WT)
+                calls, cost, text, provider, model = await run_one(prompt, WT)
                 first_nav = next((i for i, c in enumerate(calls) if c in NAV), None)
                 first_raw = next((i for i, c in enumerate(calls) if c in RAW), None)
                 ok = first_nav is not None and (first_raw is None or first_nav < first_raw)
@@ -177,6 +182,8 @@ async def main():
                         "task_detail": rows,
                         "steering_nav_first": f"{steer_ok}/{len(STEER)}",
                         "total_cost_usd": round(tot_cost, 4),
+                        "provider": provider,
+                        "model": model,
                     }
                 ),
                 flush=True,
@@ -185,4 +192,5 @@ async def main():
             drop_wt()
 
 
-anyio.run(main)
+if __name__ == "__main__":
+    anyio.run(main)

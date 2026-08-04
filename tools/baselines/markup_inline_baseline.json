@@ -1,0 +1,55 @@
+{
+  "version": 2,
+  "counts": {
+    "utility/pages_code/accommodation_spend.py": 9,
+    "utility/pages_code/committees.py": 7,
+    "utility/pages_code/company.py": 7,
+    "utility/pages_code/constituency.py": 20,
+    "utility/pages_code/corporate.py": 19,
+    "utility/pages_code/election_2024.py": 17,
+    "utility/pages_code/follow_the_money.py": 11,
+    "utility/pages_code/glossary.py": 3,
+    "utility/pages_code/housing.py": 5,
+    "utility/pages_code/judiciary.py": 48,
+    "utility/pages_code/legislation.py": 11,
+    "utility/pages_code/lobbying_3.py": 13,
+    "utility/pages_code/local_government.py": 12,
+    "utility/pages_code/member_overview.py": 21,
+    "utility/pages_code/ministerial_diaries.py": 7,
+    "utility/pages_code/procurement.py": 107,
+    "utility/pages_code/public_appointments.py": 11,
+    "utility/pages_code/public_payments.py": 20,
+    "utility/pages_code/statutory_instruments.py": 15,
+    "utility/pages_code/votes.py": 5,
+    "utility/pages_code/what_they_own.py": 1,
+    "utility/pages_code/your_council.py": 11,
+    "utility/pages_code/your_councillors.py": 1,
+    "utility/ui/attendance_panel.py": 2,
+    "utility/ui/components.py": 33,
+    "utility/ui/interests_panel.py": 7,
+    "utility/ui/payments_panel.py": 1,
+    "utility/ui/source_links.py": 1,
+    "utility/ui/source_pdfs.py": 1,
+    "utility/ui/vote_explorer.py": 3
+  },
+  "lineage": [
+    {
+      "name": "procurement page split",
+      "baseline_paths": [
+        "utility/pages_code/procurement.py"
+      ],
+      "current_counts": {
+        "utility/pages_code/procurement/browse.py": 7,
+        "utility/pages_code/procurement/councils.py": 12,
+        "utility/pages_code/procurement/national.py": 7,
+        "utility/pages_code/procurement/page.py": 4,
+        "utility/pages_code/procurement/patterns.py": 20,
+        "utility/pages_code/procurement/pay_profiles.py": 10,
+        "utility/pages_code/procurement/payments.py": 10,
+        "utility/pages_code/procurement/profiles.py": 8,
+        "utility/pages_code/procurement/ted.py": 17,
+        "utility/pages_code/procurement/tenders.py": 12
+      }
+    }
+  ]
+}

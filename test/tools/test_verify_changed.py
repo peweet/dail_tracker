@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 from pathlib import Path
@@ -108,9 +109,16 @@ def test_sql_docs_and_mcp_each_select_their_special_gate() -> None:
     assert "test/mcp_server" in mcp[_keys(mcp).index("pytest-focused")].argv
 
 
-def test_scoped_agent_docs_do_not_trigger_their_area_code_gates() -> None:
+def test_agent_guides_and_prompts_select_the_portable_context_contract() -> None:
     checks = vc.build_checks(
         [
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".gitignore",
+            ".mcp.json",
+            ".vscode/mcp.json",
+            "CONTRIBUTING.md",
+            ".github/prompts/build-page.prompt.md",
             "utility/pages_code/AGENTS.md",
             "extractors/AGENTS.md",
             "sql_views/AGENTS.md",
@@ -119,7 +127,8 @@ def test_scoped_agent_docs_do_not_trigger_their_area_code_gates() -> None:
         ],
         python_executable="python",
     )
-    assert checks == ()
+    assert _keys(checks) == ["pytest-agent-context", "mcp-catalog"]
+    assert checks[0].argv[-1] == "test/tools/test_agent_context.py"
 
 
 def test_dependency_manifest_expands_to_global_checks_and_fast_tests() -> None:
@@ -331,6 +340,32 @@ def test_execute_checks_never_leaves_receipt_after_failure(tmp_path: Path) -> No
     assert not receipt.exists()
     assert len(results) == 1 and len(calls) == 1  # fail fast; no false receipt
     assert "broken" in (tmp_path / results[0].log_path).read_text(encoding="utf-8")
+
+
+def test_execute_checks_escapes_unencodable_child_output_on_a_legacy_console(tmp_path: Path, monkeypatch) -> None:
+    output = io.BytesIO()
+    stream = io.TextIOWrapper(output, encoding="cp1252", errors="strict")
+    monkeypatch.setattr(vc.sys, "stdout", stream)
+    vc._configure_console_output()
+
+    checks = (vc.CheckSpec("demo", ("python", "demo.py"), "test"),)
+    receipt = tmp_path / ".cache" / "verify-changed" / "receipts" / "ok.json"
+
+    def success(*args, **kwargs):
+        return subprocess.CompletedProcess(args[0], 0, f"child {chr(0x2192)} output\n", "")
+
+    ok, _ = vc.execute_checks(
+        repo=tmp_path,
+        checks=checks,
+        fingerprint="legacy-console",
+        cache_root=tmp_path / ".cache" / "verify-changed",
+        receipt_path=receipt,
+        runner=success,
+    )
+
+    stream.flush()
+    assert ok
+    assert "child \\u2192 output" in output.getvalue().decode("cp1252")
 
 
 def test_compact_output_keeps_head_tail_and_bounds_size() -> None:

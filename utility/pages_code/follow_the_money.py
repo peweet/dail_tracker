@@ -257,6 +257,16 @@ def _bam_bn(v) -> str:
     return f"€{s}bn"
 
 
+def _bam_disclosure_context_html() -> str:
+    """Return the grain warning that introduces the PQ-sourced BAM panel."""
+    return (
+        '<div class="mf-wall"><strong>Dáil-disclosed National Children\'s Hospital figures</strong> — '
+        "BAM's own reporting to the Oireachtas via written Parliamentary Questions. A different "
+        "disclosure and a different grain from the payment figures above — never summed with them, "
+        "and not an audited total.</div>"
+    )
+
+
 def _render_bam_disclosures_panel() -> None:
     """BAM's own Dáil-disclosed National Children's Hospital figures — the
     schedule-slippage ledger and a 2017/2018 project-cost estimate table, both
@@ -273,12 +283,7 @@ def _render_bam_disclosures_panel() -> None:
     cost = df[df["disclosure_type"] == "cost"]
     grand_total_rows = cost[cost["row_label"] == "Grand Total"]
 
-    st.html(
-        '<div class="mf-wall"><strong>Dáil-disclosed National Children\'s Hospital figures</strong> — '
-        "BAM's own reporting to the Oireachtas via written Parliamentary Questions. A different "
-        "disclosure and a different grain from the payment figures above — never summed with them, "
-        "and not an audited total.</div>"
-    )
+    st.html(_bam_disclosure_context_html())
 
     baseline = slip.iloc[0] if not slip.empty else None
     latest = slip.iloc[-1] if not slip.empty else None
@@ -326,7 +331,9 @@ def _render_bam_disclosures_panel() -> None:
                 width="stretch",
                 hide_index=True,
             )
-            st.caption(f"Source: {_esc(_coalesce(slip.iloc[0].get('source_pq_ref')))} — {_esc(_coalesce(slip.iloc[0].get('source_url')))}")
+            st.caption(
+                f"Source: {_esc(_coalesce(slip.iloc[0].get('source_pq_ref')))} — {_esc(_coalesce(slip.iloc[0].get('source_url')))}"
+            )
         if not cost.empty:
             st.caption("Project-cost table (2017 vs 2018 estimates)")
             st.dataframe(
@@ -336,7 +343,9 @@ def _render_bam_disclosures_panel() -> None:
                 width="stretch",
                 hide_index=True,
             )
-            st.caption(f"Source: {_esc(_coalesce(cost.iloc[0].get('source_pq_ref')))} — {_esc(_coalesce(cost.iloc[0].get('source_url')))}")
+            st.caption(
+                f"Source: {_esc(_coalesce(cost.iloc[0].get('source_pq_ref')))} — {_esc(_coalesce(cost.iloc[0].get('source_url')))}"
+            )
         notes = df[df["notes"].notna()]
         if not notes.empty:
             st.caption("Notes — " + " · ".join(_esc(n) for n in notes["notes"].tolist()))

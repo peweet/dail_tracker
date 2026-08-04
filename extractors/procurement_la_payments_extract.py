@@ -87,16 +87,14 @@ import hashlib
 import io
 import json
 import re
-import subprocess
 import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import quote, unquote, urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import fitz  # PyMuPDF
 import polars as pl
-import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -105,6 +103,7 @@ with contextlib.suppress(Exception):
 
 import config  # noqa: E402
 from services.fetch_report import Breaker, FetchReport, classify_body, classify_exception, write_sentinel  # noqa: E402
+from services.http_engine import fetch_bytes as resilient_fetch_bytes  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 from shared.pdf_layout import cluster_word_rows  # noqa: E402
@@ -696,34 +695,16 @@ REPORT = FetchReport("la_payments")
 LAST_ERR: dict = {}  # set by fetch_bytes on failure, read by the download loop
 
 
-def _curl(url: str) -> bytes | None:
-    try:
-        p = subprocess.run(
-            ["curl", "-sS", "-k", "-L", "--max-time", "90", "-A", H["User-Agent"], url],
-            capture_output=True,
-            timeout=120,
-        )
-        return p.stdout if p.returncode == 0 and p.stdout else None
-    except Exception:
-        return None
-
-
 def fetch_bytes(url: str) -> bytes | None:
-    # Sligo publishes hrefs with raw spaces — requests/curl reject them as malformed;
-    # '%' stays in the safe set so already-encoded hrefs (Galway) don't double-encode.
-    url = quote(url, safe="!#$%&'()*+,/:;=?@[]~")
     LAST_ERR.clear()
-    try:
-        r = requests.get(url, headers=H, timeout=90, allow_redirects=True)
-        r.raise_for_status()
-        return r.content
-    except Exception as e:
-        ec, status = classify_exception(e)
+
+    def record_failure(exc: Exception | None) -> None:
+        if exc is None:
+            return
+        ec, status = classify_exception(exc)
         LAST_ERR.update({"error_class": ec, "http_status": status})
-        b = _curl(url)
-        if b:
-            LAST_ERR.clear()
-        return b
+
+    return resilient_fetch_bytes(url, headers=H, timeout=90, on_failure=record_failure)
 
 
 def fetch_text(url: str) -> str | None:

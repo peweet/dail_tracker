@@ -15,12 +15,12 @@ from data_access.procurement_data import (
     fetch_supplier_year_trend_result,
 )
 from ui.entity_links import (
-    body_profile_url,
-    entity_cta_html,
+    buyer_dossier_cta_html,
+    company_link_html,
+    source_link_html,
 )
 from ui.components import (
     back_button,
-    clickable_card_link,
     empty_state,
     fmt_civic_date,
     paginate,
@@ -43,6 +43,7 @@ from ._shared import (
     _value_pill,
     _cro_pill,
     _lobby_pill,
+    _authority_link,
 )
 
 # NB: .ted and .pay_profiles both import from THIS module (award-row / panel helpers),
@@ -82,6 +83,20 @@ def _award_notice_url(r) -> str:
 
 
 def _award_row(head: str, meta_parts: list[str], r) -> str:
+    # Keep entity navigation and source evidence as sibling links. Wrapping the
+    # whole row in the external notice anchor would make a linked buyer/supplier a
+    # nested anchor, which is invalid HTML and leaves only one of the two journeys
+    # usable with a keyboard.
+    url = _award_notice_url(r)
+    if url:
+        meta_parts = [
+            *meta_parts,
+            source_link_html(
+                url,
+                "Source notice",
+                aria_label="Open the authoritative procurement notice in a new tab",
+            ),
+        ]
     meta = " · ".join(p for p in meta_parts if p and p != "—")
     # The published contract title (100% filled in the source) — without it a line item's
     # only description is its generic CPV label ("IT services: consulting, …").
@@ -92,25 +107,14 @@ def _award_row(head: str, meta_parts: list[str], r) -> str:
         f'<div class="pr-award-auth">{head or "—"}</div>{title_html}'
         f'<div class="pr-award-meta">{meta or "—"}</div></div>{_award_value_html(r)}</div>'
     )
-    # The guiding rail: every line item is a click away from its authoritative notice. Where a
-    # link resolves, the whole row opens it (new tab — it's an external source); otherwise the
-    # row stays static rather than pointing at a dead URL.
-    url = _award_notice_url(r)
-    if url:
-        return clickable_card_link(
-            href=url,
-            inner_html=inner,
-            aria_label=f"Open the source notice for this award to {head or 'this supplier'} ↗",
-            target="_blank",
-        )
     return inner
 
 
 def _award_detail_meta(r) -> list[str]:
     """Detail meta fragments shared by every award row: procedure, contract term, bid
-    count. The notice deep link is no longer inlined here — the whole award row is now a
-    link to its authoritative notice (see _award_row / _award_notice_url). All values come
-    straight from the view — display formatting only."""
+    count. :func:`_award_row` adds the source-notice link beside these fragments so an
+    entity link can coexist without invalid nested anchors. All values come straight
+    from the view; this function only formats them for display."""
     parts = [_esc(_coalesce(getattr(r, "procedure_type", None)))]
     months = _n(getattr(r, "contract_duration_months", None))
     if months > 0:
@@ -121,7 +125,7 @@ def _award_detail_meta(r) -> list[str]:
     return parts
 
 
-def _award_row_html(r) -> str:
+def _award_row_html(r, *, cross_page: bool = False) -> str:
     """Supplier-profile award row — headlines the contracting authority. Call-off rows are
     tagged: a drawdown under a framework/DPS, the nesting the register otherwise hides."""
     # category_label is the view's display fallback (CPV description, else OGP spend
@@ -139,7 +143,11 @@ def _award_row_html(r) -> str:
     ]
     if _truthy(getattr(r, "is_call_off", None)):
         meta.append("framework call-off")
-    return _award_row(_esc(r.contracting_authority) or "—", meta, r)
+    return _award_row(
+        _authority_link(r.contracting_authority, cross_page=cross_page),
+        meta,
+        r,
+    )
 
 
 def _supplier_head(r) -> str:
@@ -147,7 +155,19 @@ def _supplier_head(r) -> str:
     named (owner decision 2026-06-06): eTenders is published procurement data, so a supplier
     name on a public contract is already public and shown in a business capacity — consistent
     with the 'Money actually paid' tab. Only the published name is shown; no other PII."""
-    return _esc(getattr(r, "supplier", None)) or "—"
+    name = _coalesce(getattr(r, "supplier", None))
+    if not name:
+        return "—"
+    supplier_norm = str(_coalesce(getattr(r, "supplier_norm", None)))
+    resolves_to_company = (
+        _coalesce(getattr(r, "supplier_class", None)) == "company"
+        and len(supplier_norm) >= 4
+        and supplier_norm.upper() != "NULL"
+        and not _truthy(getattr(r, "name_truncated", None))
+    )
+    if resolves_to_company:
+        return company_link_html(supplier_norm, name, css_class="pr-auth-link")
+    return _esc(name)
 
 
 def _award_row_by_supplier(r) -> str:
@@ -176,7 +196,7 @@ def _award_row_cpv(r) -> str:
         _supplier_head(r),
         [
             fmt_civic_date(getattr(r, "award_date", None)),
-            _esc(_coalesce(getattr(r, "contracting_authority", None))),
+            _authority_link(getattr(r, "contracting_authority", None)),
             _coalesce(getattr(r, "competition_type", None)),
             *_award_detail_meta(r),
         ],
@@ -218,10 +238,15 @@ def _supplier_secured_trend(supplier_norm: str) -> None:
     )
 
 
-def _supplier_awards_section(row, supplier_norm: str) -> None:
+def _supplier_awards_section(row, supplier_norm: str, *, cross_page: bool = True) -> None:
     """Paginated eTenders award history for one firm, with the headline-reconciliation
     caption. Shared by the in-page supplier profile here and the /company dossier page
-    (pages_code/company.py) so the honesty copy can never drift between the two."""
+    (pages_code/company.py) so the honesty copy can never drift between the two.
+
+    The external ``/company`` reuse is the default and emits absolute authority links.
+    The legacy in-procurement profile passes ``cross_page=False`` for same-page soft
+    navigation.
+    """
     awards = fetch_awards_for_supplier(supplier_norm)
     if awards is None or awards.empty:
         empty_state("No itemised awards", "The supplier is in the ranking but no award rows were returned.")
@@ -268,7 +293,7 @@ def _supplier_awards_section(row, supplier_norm: str) -> None:
     key = f"pr_aw_{supplier_norm}_{year or 'all'}"
     page_idx = paginate(total, key_prefix=key, page_size=_AWARD_PAGE)
     page = awards.iloc[page_idx * _AWARD_PAGE : (page_idx + 1) * _AWARD_PAGE]
-    st.html("".join(_award_row_html(r) for r in page.itertuples()))
+    st.html("".join(_award_row_html(r, cross_page=cross_page) for r in page.itertuples()))
     st.html('<div class="pr-sp-sm"></div>')
     pagination_controls(
         total,
@@ -320,7 +345,7 @@ def _render_supplier_profile(supplier_norm: str) -> None:
     pills += [p for p in (_cro_pill(row), _lobby_pill(row)) if p]
     st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
 
-    _supplier_awards_section(row, supplier_norm)
+    _supplier_awards_section(row, supplier_norm, cross_page=False)
     _render_supplier_call_offs_panel(supplier_norm)
 
     # Cross-references for the same firm — each a separate register/stage, never summed.
@@ -407,11 +432,7 @@ def _render_authority_profile(authority: str) -> None:
     # GATED: only the ~90 crosswalk bodies resolve, so an authority not in it gets NO link
     # rather than a "not found" dead end (never a false hand-off).
     if resolve_buyer_identity(authority):
-        st.html(
-            '<div style="margin:-0.1rem 0 0.85rem">'
-            + entity_cta_html(body_profile_url(authority), "View this body's full dossier — awards + payments →")
-            + "</div>"
-        )
+        st.html(buyer_dossier_cta_html(authority))
 
     awards = fetch_awards_for_authority(authority)
     if awards is None or awards.empty:

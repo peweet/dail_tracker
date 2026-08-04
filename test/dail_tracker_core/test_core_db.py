@@ -9,7 +9,7 @@ is the property the data-access layer relies on.
 from __future__ import annotations
 
 from dail_tracker_core.db import (
-    PROJECT_ROOT,
+    DATA_DIR,
     absolutize_data_paths,
     connect_with_views,
 )
@@ -19,7 +19,7 @@ def test_absolutize_rewrites_data_literals():
     sql = "SELECT * FROM read_parquet('data/gold/parquet/x.parquet')"
     out = absolutize_data_paths(sql)
     assert "'data/" not in out
-    assert f"'{PROJECT_ROOT.as_posix()}/data/" in out
+    assert f"'{DATA_DIR.as_posix()}/" in out
 
 
 def test_absolutize_leaves_other_strings_untouched():

@@ -11,10 +11,12 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, Request
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.responses import CatalogResponse, CoverageResponse
 
-router = APIRouter(tags=["meta"])
+router = APIRouter(tags=["meta"], responses=ERROR_RESPONSES)
 
 _RESOURCES = [
     {
@@ -238,7 +240,7 @@ def _count(conn, view: str) -> int | None:
         return None
 
 
-@router.get("/catalog", summary="Manifest of published resources + live counts")
+@router.get("/catalog", response_model=CatalogResponse, summary="Manifest of published resources + live counts")
 def catalog(request: Request) -> dict:
     conn = getattr(request.app.state, "conn", None)
     # One request-scoped cursor for the ~24 counts — the shared base connection
@@ -262,7 +264,11 @@ def catalog(request: Request) -> dict:
     }
 
 
-@router.get("/coverage", summary="Per-domain scope guard: year ranges, corpus sizes, money-grain rules")
+@router.get(
+    "/coverage",
+    response_model=CoverageResponse,
+    summary="Per-domain scope guard: year ranges, corpus sizes, money-grain rules",
+)
 def coverage(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dict:
     """What the tracker covers and how far back — consult before answering a time- or
     completeness-sensitive question. States the hard money-grain rules so a client never

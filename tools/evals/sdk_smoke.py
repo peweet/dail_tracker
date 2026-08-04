@@ -1,7 +1,8 @@
 """Smoke test: can the selected coding-agent provider drive a session?"""
 
-import anyio
 from pathlib import Path
+
+import anyio
 
 try:
     from .provider_adapter import EvalRequest, run_eval

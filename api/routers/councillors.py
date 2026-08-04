@@ -13,18 +13,34 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.responses import (
+    CouncilDecisionsResponse,
+    CouncillorCouncilsResponse,
+    CouncillorRosterResponse,
+    CouncillorVotesResponse,
+    CouncilPowersResponse,
+)
 
-router = APIRouter(tags=["councillors"])
+router = APIRouter(tags=["councillors"], responses=ERROR_RESPONSES)
 
 
-@router.get("/councillors/councils", summary="Councils with a published councillor roster")
+@router.get(
+    "/councillors/councils",
+    response_model=CouncillorCouncilsResponse,
+    summary="Councils with a published councillor roster",
+)
 def councillor_councils(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dict:
     return dossiers.list_councillor_councils(cur)
 
 
-@router.get("/councillors/votes", summary="A councillor's recorded roll-call votes (sparse coverage)")
+@router.get(
+    "/councillors/votes",
+    response_model=CouncillorVotesResponse,
+    summary="A councillor's recorded roll-call votes (sparse coverage)",
+)
 def councillor_votes(
     council: str = Query(..., description="local authority name"),
     member: str = Query(..., description="councillor name"),
@@ -33,7 +49,11 @@ def councillor_votes(
     return dossiers.councillor_votes(cur, council=council, member=member)
 
 
-@router.get("/councillors/decisions", summary="Motion events parsed from a council's minutes (Extracted band)")
+@router.get(
+    "/councillors/decisions",
+    response_model=CouncilDecisionsResponse,
+    summary="Motion events parsed from a council's minutes (Extracted band)",
+)
 def council_decisions(
     council: str = Query(..., description="local authority name"),
     limit: int = Query(200, ge=1, le=2000, description="max rows"),
@@ -44,7 +64,11 @@ def council_decisions(
     return dossiers.council_decisions(cur, council=council, limit=limit)
 
 
-@router.get("/councillors/powers", summary="Reserved vs executive decisions for a council (Extracted band)")
+@router.get(
+    "/councillors/powers",
+    response_model=CouncilPowersResponse,
+    summary="Reserved vs executive decisions for a council (Extracted band)",
+)
 def council_powers(
     council: str = Query(..., description="local authority name"),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
@@ -55,7 +79,11 @@ def council_powers(
     return dossiers.council_powers(cur, council=council)
 
 
-@router.get("/councillors", summary="Councillor roster for a council (optionally one LEA) + coverage + CE")
+@router.get(
+    "/councillors",
+    response_model=CouncillorRosterResponse,
+    summary="Councillor roster for a council (optionally one LEA) + coverage + CE",
+)
 def councillors_roster(
     council: str = Query(..., description="local authority name"),
     lea: str | None = Query(None, description="optional local electoral area"),

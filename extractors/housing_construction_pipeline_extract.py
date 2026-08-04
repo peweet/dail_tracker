@@ -36,6 +36,7 @@ if str(_ROOT) not in sys.path:
 
 from extractors.noac_collection_rates_extract import canonical_la  # noqa: E402 — after sys.path
 from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402 — after sys.path
+from services.http_engine import polite_headers  # noqa: E402 — after sys.path
 from services.parquet_io import save_parquet  # noqa: E402 — after sys.path
 
 with contextlib.suppress(Exception):
@@ -56,7 +57,12 @@ EXPECTED_LA_COUNT = 31
 
 
 def fetch_csv() -> pl.DataFrame:
-    body = http_fetch_bytes(SOURCE_URL, timeout=60, validate=lambda payload: bool(payload.strip()))
+    body = http_fetch_bytes(
+        SOURCE_URL,
+        headers=polite_headers(browser=True),
+        timeout=60,
+        validate=lambda payload: bool(payload.strip()),
+    )
     if body is None:
         raise RuntimeError(f"failed to fetch {SOURCE_NAME}")
     try:

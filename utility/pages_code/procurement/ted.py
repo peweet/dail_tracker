@@ -24,6 +24,7 @@ from data_access.procurement_data import (
 )
 from ui.entity_links import (
     company_profile_url,
+    source_link_html,
 )
 from ui.components import (
     back_button,
@@ -43,6 +44,7 @@ from ._shared import (
     _eur_scale,
     _awards_word,
     _authority_link,
+    _buyer_link,
     _ted_winner_href,
     _yr_axis,
     _return_to_browse,
@@ -291,16 +293,21 @@ def _ted_notice_li(nr, *, show_name: bool) -> str:
     """One TED notice as a source-linked list item. ``show_name`` leads with the winner's own
     published name (used on variant rows so a name-based grouping is never hidden)."""
     url = _coalesce(getattr(nr, "notice_url", None))
-    if not url:
+    source = source_link_html(
+        url,
+        "Source notice",
+        aria_label="Open this award notice on TED in a new tab",
+    )
+    if not source:
         return ""
     date = _coalesce(getattr(nr, "dispatch_date", None))[:10]
-    buyer = _esc(_coalesce(getattr(nr, "buyer_name", None)) or "—")
+    buyer = _buyer_link(getattr(nr, "buyer_name", None))
     is_fw = _coalesce(getattr(nr, "value_kind", None)) == "framework_or_dps_ceiling"
     tag = "framework — shared ceiling, not a payment" if is_fw else "contract award"
     name_pre = f"<strong>{_esc(_coalesce(getattr(nr, 'winner_name', None)))}</strong> — " if show_name else ""
     return (
-        f'<li class="pr-notice"><a href="{_esc(url)}" target="_blank" rel="noopener">'
-        f'{name_pre}{buyer} · {date} ↗</a> <span class="pr-notice-tag">{tag}</span></li>'
+        f'<li class="pr-notice">{name_pre}{buyer} · {date} '
+        f'<span class="pr-notice-tag">{tag}</span> · {source}</li>'
     )
 
 
@@ -354,7 +361,7 @@ def _render_ted_winner_profile(join_norm: str) -> None:
     NOT gated on the firm appearing in the national eTenders register (most TED-only winners
     don't). A separate register, never summed with the national award totals."""
     if back_button("← Back to procurement", key="prtedwin"):
-        _return_to_browse("wins")
+        _return_to_browse("wins", register="ted")
 
     res = fetch_ted_for_supplier_result(join_norm)
     row = res.data.iloc[0] if (res.ok and not res.data.empty) else None
@@ -649,21 +656,16 @@ def _render_ted_tenders() -> None:
         if _truthy(getattr(r, "is_uncompetitive_procedure", None)):
             pills.append('<span class="pr-pill pr-pill-lob">no open call</span>')
         buyer = _coalesce(getattr(r, "buyer_name", None))
-        inner = _card(f"<span>{_esc(buyer) or '—'}</span>", meta, pills)
-        # Each card IS one line item (a single notice) — make the whole card open the
-        # authoritative EU Official Journal record, the closest thing to a pre-award detail page.
         url = _coalesce(getattr(r, "notice_url", None))
-        if url.startswith("http"):
-            cards.append(
-                clickable_card_link(
-                    href=url,
-                    inner_html=inner,
-                    aria_label=f"Open the EU tender notice from {buyer or 'this buyer'} on TED",
-                    target="_blank",
-                )
-            )
-        else:
-            cards.append(inner)
+        source = source_link_html(
+            url,
+            "Source notice",
+            aria_label=f"Open the EU tender notice from {buyer or 'this buyer'} on TED",
+        )
+        name_html = f"<span>{_buyer_link(buyer)}</span>"
+        if source:
+            name_html += f'<span class="pr-sub">{source}</span>'
+        cards.append(_card(name_html, meta, pills))
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, EU Official Journal '

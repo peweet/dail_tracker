@@ -10,8 +10,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_portable_root_guidance_is_present_and_not_ignored():
-    assert (ROOT / "AGENTS.md").is_file()
-    assert (ROOT / "CLAUDE.md").is_file()
+    guides = {
+        "AGENTS.md",
+        "CLAUDE.md",
+        "dail_tracker_core/AGENTS.md",
+        "extractors/AGENTS.md",
+        "mcp_server/AGENTS.md",
+        "planning/civic/extractors/AGENTS.md",
+        "sql_views/AGENTS.md",
+        "utility/pages_code/AGENTS.md",
+    }
+    assert not [path for path in sorted(guides) if not (ROOT / path).is_file()]
     active_ignores = {
         line.strip()
         for line in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
@@ -48,7 +57,7 @@ def test_canonical_tasks_are_documented_and_accepted():
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     assert "tools/dev.py verify" in contributing
     assert "tools/dev.py check" in contributing
-    assert {"verify", "check", "mcp-catalog", "doc-index"} <= set(dev.task_names())
+    assert {"verify", "check", "mcp-catalog", "ui-contracts", "doc-index"} <= set(dev.task_names())
 
 
 def test_doc_index_is_current(monkeypatch):

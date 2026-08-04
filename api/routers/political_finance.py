@@ -11,13 +11,19 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.responses import PartyDonationsResponse, PartyElectionSpendResponse
 
-router = APIRouter(tags=["political-finance"])
+router = APIRouter(tags=["political-finance"], responses=ERROR_RESPONSES)
 
 
-@router.get("/political-finance/donations", summary="Party donations disclosed to SIPO")
+@router.get(
+    "/political-finance/donations",
+    response_model=PartyDonationsResponse,
+    summary="Party donations disclosed to SIPO",
+)
 def party_donations(
     party: str | None = Query(
         None, description="Exact party label for its individual donor receipts; omit for the ranking"
@@ -30,7 +36,11 @@ def party_donations(
     return data
 
 
-@router.get("/political-finance/election-spend", summary="GE2024 candidate election expenses disclosed to SIPO")
+@router.get(
+    "/political-finance/election-spend",
+    response_model=PartyElectionSpendResponse,
+    summary="GE2024 candidate election expenses disclosed to SIPO",
+)
 def party_election_spend(
     party: str | None = Query(
         None, description="Exact party label for its per-candidate breakdown; omit for the ranking"

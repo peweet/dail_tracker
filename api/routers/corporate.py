@@ -12,13 +12,23 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.responses import (
+    CorporateNoticesResponse,
+    CorporateReceiversResponse,
+    CorporateRepeatDistressResponse,
+)
 
-router = APIRouter(tags=["corporate"])
+router = APIRouter(tags=["corporate"], responses=ERROR_RESPONSES)
 
 
-@router.get("/corporate/notices", summary="Corporate distress / register notices (Iris Oifigiúil)")
+@router.get(
+    "/corporate/notices",
+    response_model=CorporateNoticesResponse,
+    summary="Corporate distress / register notices (Iris Oifigiúil)",
+)
 def corporate_notices(
     query: str = Query("", description="Entity-name substring (case-insensitive)"),
     subtype: str = Query("", description="Notice subtype, e.g. 'receivership', 'examinership'"),
@@ -34,6 +44,7 @@ def corporate_notices(
 
 @router.get(
     "/corporate/repeat-distress",
+    response_model=CorporateRepeatDistressResponse,
     summary="CBI-authorised firms in repeat corporate distress (experimental) — regulatory provenance only",
 )
 def repeat_distress(
@@ -48,6 +59,7 @@ def repeat_distress(
 
 @router.get(
     "/corporate/receivers",
+    response_model=CorporateReceiversResponse,
     summary="Receivership lens: top appointers, operator firms, type-mix + notices-by-year (whole corpus)",
 )
 def receivers(

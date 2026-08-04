@@ -76,6 +76,14 @@ def test_concise_defs_flattens_methods_with_class_prefix():
     assert any(ln.startswith("def top ") for ln in lines)
 
 
+def test_index_names_handle_async_and_qualified_nested_defs():
+    import ast
+
+    tree = ast.parse("class Client:\n    async def fetch(self):\n        pass\n")
+    names = code_index._definition_names(code_index._outline_tree(tree))
+    assert names == ["Client", "fetch", "Client.fetch"]
+
+
 def test_outline_rejects_bad_response_format():
     assert "error" in code_index.outline(REPO, "mcp_server/code_index.py", response_format="terse")
 
@@ -156,6 +164,74 @@ def test_scan_policy_excludes_dot_private_and_sandbox_trees(tmp_path):
     assert paths == {"public/module.py"}
 
 
+def test_outline_enforces_scan_policy_for_explicit_files_and_subpackages(tmp_path):
+    repo = tmp_path / "repo"
+    public = repo / "public"
+    public.mkdir(parents=True)
+    (public / "visible.py").write_text("def visible():\n    pass\n", encoding="utf-8")
+    (public / "visible_pkg").mkdir()
+    (public / "visible_pkg" / "__init__.py").write_text("", encoding="utf-8")
+
+    excluded = (".agents", "private_models", "pipeline_sandbox", "generated_clients")
+    for name in excluded:
+        package = public / name
+        package.mkdir()
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "module.py").write_text("def hidden():\n    pass\n", encoding="utf-8")
+    excluded_files = (".hidden.py", "private_module.py", "sandbox_helpers.py", "generated_client.py")
+    for name in excluded_files:
+        (public / name).write_text("def hidden():\n    pass\n", encoding="utf-8")
+
+    directory = code_index.outline(repo, "public")
+    assert directory["subpackages"] == ["visible_pkg"]
+    for name in excluded:
+        assert "excluded by repository scan policy" in code_index.outline(repo, f"public/{name}")["error"]
+        assert "excluded by repository scan policy" in code_index.outline(repo, f"public/{name}/module.py")["error"]
+    for name in excluded_files:
+        assert "excluded by repository scan policy" in code_index.outline(repo, f"public/{name}")["error"]
+
+
+def test_outline_limit_budgets_nested_definitions_and_keeps_parent_shell(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    methods = "\n".join(f"    def method_{index}(self):\n        pass" for index in range(8))
+    (repo / "large.py").write_text(
+        f"class Large:\n{methods}\n\ndef after():\n    pass\n",
+        encoding="utf-8",
+    )
+
+    detailed = code_index.outline(repo, "large.py", limit=3)
+    assert detailed["def_count"] == 10
+    assert [entry["name"] for entry in detailed["defs"]] == ["Large"]
+    assert [entry["name"] for entry in detailed["defs"][0]["methods"]] == ["method_0", "method_1"]
+    assert detailed["truncated"] == "7 more definitions (nested included)"
+    assert code_index._definition_count(detailed["defs"]) == 3
+
+    concise = code_index.outline(repo, "large.py", limit=3, response_format="concise")
+    assert len(concise["defs"]) == 3
+    assert concise["defs"][0].startswith("class Large ")
+
+
+def test_outline_clamps_client_limit_to_server_side_maximum(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    methods = "\n".join(f"    def method_{index}(self):\n        pass" for index in range(205))
+    (repo / "huge.py").write_text(f"class Huge:\n{methods}\n", encoding="utf-8")
+
+    out = code_index.outline(repo, "huge.py", limit=1_000_000, response_format="concise")
+    assert out["def_count"] == 206
+    assert len(out["defs"]) == code_index.OUTLINE_DEFINITION_CAP
+    assert out["truncated"] == "6 more definitions (nested included)"
+
+
+def test_git_scan_failure_fails_closed(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / "visible.py").write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(code_index, "_git_visible_paths", lambda _repo: None)
+    assert list(code_index.iter_repository_files(repo, {".py"})) == []
+
+
 # ── server integration (needs the optional mcp extra) ────────────────────────
 
 
@@ -185,6 +261,7 @@ def test_search_project_rejects_unknown_kind():
     out = server.search_project("widget", kind="private")
     assert "error" in out
     assert "memory" in out["allowed"]
+    assert "external_memory" in out["allowed"]
 
 
 def test_json_peek_rejects_prefix_sibling_escape(tmp_path, monkeypatch):
@@ -200,3 +277,37 @@ def test_json_peek_rejects_prefix_sibling_escape(tmp_path, monkeypatch):
 
     out = server.json_peek("../repo_private/secret.json")
     assert "error" in out
+
+
+def test_json_peek_rejects_json_beyond_bounded_read_size(tmp_path, monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "large.json").write_text('{"value":"' + "x" * 64 + '"}', encoding="utf-8")
+    monkeypatch.setattr(server, "REPO", repo.resolve())
+    monkeypatch.setattr(server, "_JSON_PEEK_MAX_BYTES", 32)
+
+    out = server.json_peek("large.json")
+    assert "bounded read size" in out["error"]
+    assert out["max_bytes"] == 32
+
+
+def test_json_peek_streams_only_bounded_jsonl_sample(tmp_path, monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "sample.jsonl").write_text('{"ok": 1}\n' + "x" * 80 + "\n", encoding="utf-8")
+    monkeypatch.setattr(server, "REPO", repo.resolve())
+    monkeypatch.setattr(server, "_JSONL_PEEK_MAX_LINE_BYTES", 32)
+
+    sampled = server.json_peek("sample.jsonl", limit=1)
+    assert "error" not in sampled
+    assert sampled["value"]["len"] == 1
+
+    oversized = server.json_peek("sample.jsonl", limit=2)
+    assert "bounded line size" in oversized["error"]
+    assert oversized["max_line_bytes"] == 32

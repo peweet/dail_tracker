@@ -46,7 +46,20 @@ BUILDER_TARGET: dict[str, str] = {
     "bill_detail_url": "BILL",
     "si_detail_url": "SI",
     "company_profile_url": "COMPANY",
+    "company_link_html": "COMPANY",
+    "company_dossier_cta_html": "COMPANY",
     "authority_profile_url": "AUTHORITY",
+    "body_link_html": "AUTHORITY",
+    "buyer_dossier_cta_html": "AUTHORITY",
+    # Procurement renderers centralise state-aware entity navigation behind these
+    # shared wrappers.  Count the wrapper call, not only its implementation in
+    # ``procurement/_shared.py``, otherwise every importing module looks like a
+    # cul-de-sac even though its rendered card/name is clickable.
+    "_supplier_href": "COMPANY",
+    "_paid_supplier_href": "COMPANY",
+    "_authority_href": "AUTHORITY",
+    "_authority_link": "AUTHORITY",
+    "_buyer_link": "AUTHORITY",
     "council_accountability_url": "COUNCIL",
     "council_spending_url": "COUNCIL",
     "lobbying_org_url": "LOBBY_ORG",

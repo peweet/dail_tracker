@@ -322,6 +322,20 @@ _PWR_CSS = """
 </style>
 """
 
+
+def _power_evidence_html(*, pct: int, documents: int, reserved: int, executive: int) -> str:
+    """Return the measured reserved-versus-executive powers bar and evidence line."""
+    return (
+        f'{_PWR_CSS}<div class="yc-pwr-bar" role="img" aria-label="'
+        f"{pct}% of matters were members' reserved functions\">"
+        f'<span class="yc-pwr-res" style="width:{pct}%"></span>'
+        f'<span class="yc-pwr-exe" style="width:{100 - pct}%"></span></div>'
+        f'<div class="yc-pwr-key">Across <b>{documents}</b> processed meeting '
+        f"documents, <b>{reserved}</b> items were the members' own decisions and <b>{executive}</b> "
+        "were executive decisions they noted — counted from the minutes' wording.</div>"
+    )
+
+
 def _power_evidence(council: str) -> None:
     """One bar: how often the members' own powers came before THIS council, versus items they
     only noted. Document grain and Extracted band, so the caption says 'meeting documents',
@@ -342,13 +356,12 @@ def _power_evidence(council: str) -> None:
     # "What the council is deciding" section, so it belongs with the decisions detail, not
     # under the roster. The bar carries the comparison; the line carries the count and its band.
     st.html(
-        f'{_PWR_CSS}<div class="yc-pwr-bar" role="img" aria-label="'
-        f'{pct}% of matters were members\' reserved functions">'
-        f'<span class="yc-pwr-res" style="width:{pct}%"></span>'
-        f'<span class="yc-pwr-exe" style="width:{100 - pct}%"></span></div>'
-        f'<div class="yc-pwr-key">Across <b>{int(row["documents"])}</b> processed meeting '
-        f"documents, <b>{reserved}</b> items were the members' own decisions and <b>{executive}</b> "
-        "were executive decisions they noted — counted from the minutes' wording.</div>"
+        _power_evidence_html(
+            pct=pct,
+            documents=int(row["documents"]),
+            reserved=reserved,
+            executive=executive,
+        )
     )
 
 
@@ -559,6 +572,30 @@ def _debt_card(kicker: str, figure: str, sub: str) -> str:
     )
 
 
+def _debt_cards_html(cards: list[str]) -> str:
+    """Return the audited balance-sheet card grid with its component styles."""
+    return _DEBT_CSS + f'<div class="yc-debt">{"".join(cards[:4])}</div>'
+
+
+def _debt_trend_html(bars: str, *, first_year: int, last_year: int) -> str:
+    """Return the year-end borrowing trend bars and their bounded year labels."""
+    return (
+        f'<div class="yc-debt-trend">{bars}</div>'
+        f'<div class="yc-debt-trend-labels"><span>{first_year}</span>'
+        f"<span>Borrowing outstanding, year end</span><span>{last_year}</span></div>"
+    )
+
+
+def _debt_source_html(council: str, source_url: object, page: object) -> str:
+    """Return the audited-statement citation beneath a council's debt lane."""
+    page_note = f" (p{int(page)})" if page else ""
+    return (
+        '<div class="yc-debt-sub" style="margin-top:0.3rem">Source: audited Annual Financial '
+        f'Statement balance sheet{_h(page_note)} — <a href="{_h(str(source_url))}" target="_blank" '
+        f'rel="noopener">{_h(council)} finance publications</a>.</div>'
+    )
+
+
 def _render_debt_lane(council: str) -> None:
     """OWES lane — the council's financial POSITION from the audited AFS balance sheet: borrowing
     outstanding (with its national rank), new borrowing this year, supplier creditors, and the
@@ -604,7 +641,7 @@ def _render_debt_lane(council: str) -> None:
         cards.append(_debt_card("Owed to suppliers", _eur(pos.get("creditors_accruals_eur")), "creditors & accruals"))
         cards.append(_debt_card("What it owns", _eur(pos.get("fixed_assets_eur")), "fixed assets at book value"))
 
-    st.html(_DEBT_CSS + f'<div class="yc-debt">{"".join(cards[:4])}</div>')
+    st.html(_debt_cards_html(cards))
 
     # Debt trend — loans payable by year, as scaled bars (display-only presentation of the series).
     if trend_r.ok and trend_r.data is not None and len(trend_r.data) >= 2:
@@ -617,20 +654,17 @@ def _render_debt_lane(council: str) -> None:
             for i, v in enumerate(vals)
         )
         st.html(
-            f'<div class="yc-debt-trend">{bars}</div>'
-            f'<div class="yc-debt-trend-labels"><span>{int(td.iloc[0]["year"])}</span>'
-            f"<span>Borrowing outstanding, year end</span><span>{int(td.iloc[-1]['year'])}</span></div>"
+            _debt_trend_html(
+                bars,
+                first_year=int(td.iloc[0]["year"]),
+                last_year=int(td.iloc[-1]["year"]),
+            )
         )
 
     src = pos.get("source_file_url") if pos is not None else None
     page = pos.get("source_page_number") if pos is not None else None
     if src:
-        pg = f" (p{int(page)})" if page else ""
-        st.html(
-            f'<div class="yc-debt-sub" style="margin-top:0.3rem">Source: audited Annual Financial '
-            f'Statement balance sheet{_h(pg)} — <a href="{_h(str(src))}" target="_blank" '
-            f'rel="noopener">{_h(council)} finance publications</a>.</div>'
-        )
+        st.html(_debt_source_html(council, src, page))
 
 
 def _render_audit_lane(council: str) -> None:

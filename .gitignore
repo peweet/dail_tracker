@@ -12,6 +12,9 @@
 *.csv
 *.xml
 *.json
+# Static-analysis policy, not generated application data. CI must see the same
+# inline-markup debt limits and explicit file-lineage rules as local runs.
+!tools/baselines/markup_inline_baseline.json
 *.xlsx
 *.pdf
 # doc/source_pdfs — CACHED SOURCE DOCUMENTS that LIVE extractors read as their input

@@ -225,7 +225,8 @@ Requires Python 3.12+.
 git clone https://github.com/peweet/dail_tracker.git
 cd dail_tracker
 uv sync                                       # app runtime only (what Streamlit Cloud installs)
-uv sync --extra pipeline --group dev          # full local dev: + ETL deps + test/lint/typecheck tooling
+# Full local test/lint/typecheck profile (matches CI):
+uv sync --locked --extra pipeline --extra api --extra mcp --group dev
 ```
 
 ## Dashboard
@@ -251,6 +252,12 @@ views (reviewable joins).
 uv sync --extra api
 uvicorn api.main:app
 ```
+
+The source checkout defaults to its committed `data/` directory. An installed
+wheel keeps code/SQL resources inside the package but expects deployment data at
+an explicit absolute location, for example
+`DAIL_DATA_DIR=/srv/dail-tracker/data uvicorn api.main:app`. Export snapshots can
+be relocated independently with `DAIL_EXPORT_CACHE_DIR`.
 
 A read-only FastAPI app over the same data — open, no API key, versioned under
 `/v1`, interactive docs at `/docs`, served under **CC-BY-4.0**. `/v1/catalog`
@@ -324,9 +331,9 @@ bid-intelligence summaries; and exports / an authenticated API tier.
 ## Testing
 
 ```bash
-uv sync --extra pipeline --group dev
-uv run pytest test/ -v
-uv run ruff check .
+uv sync --locked --extra pipeline --extra api --extra mcp --group dev
+uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify
+uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py check
 ```
 
 Tests cover join-key normalisation, silver/gold output shape, SQL view

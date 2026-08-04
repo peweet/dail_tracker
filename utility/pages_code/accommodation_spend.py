@@ -314,6 +314,11 @@ def _render_top_la_rates(per_capita) -> None:
         )
 
 
+def _local_authority_rate_bars_html(bars: list[str]) -> str:
+    """Return the ranked local-authority accommodation-rate bar group."""
+    return f'<div style="margin:0.3rem 0 0.5rem">{"".join(bars)}</div>'
+
+
 # ─────────────────────────── Where people are housed ───────────────────────────
 def _render_where_tab() -> None:
     res = fetch_ipas_la_profile_result()
@@ -424,7 +429,7 @@ def _render_where_tab() -> None:
             f"{int(r['ip_applicants']):,}</div>"
             "</div>"
         )
-    st.html(f'<div style="margin:0.3rem 0 0.5rem">{"".join(bars)}</div>')
+    st.html(_local_authority_rate_bars_html(bars))
 
     unknown = df[df["ip_per_1000_population"].isna()]
     if not unknown.empty:

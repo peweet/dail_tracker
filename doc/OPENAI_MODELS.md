@@ -36,8 +36,9 @@ $env:OPENAI_API_KEY = "..."
 $env:SITING_LLM_PROVIDER = "openai"
 ```
 
-Supported provider values are `openai`, `claude`, and `auto`. `auto` uses configured OpenAI first
-and falls back to the local Claude CLI. Provider-specific defaults are `gpt-5.6-sol` for OpenAI and
+Supported provider values are `openai`, `claude`, and `auto`. When resolving a provider, `auto` selects
+configured OpenAI first and selects the local Claude CLI only when OpenAI is not configured; it does not
+retry a failed OpenAI request through Claude. Provider-specific defaults are `gpt-5.6-sol` for OpenAI and
 `sonnet` for Claude. Override them only when evaluating a deliberate model change:
 
 ```powershell
@@ -65,7 +66,60 @@ deterministic tier; enabling the SDK does not create a model-backed network endp
 Current API choices follow the official [GPT-5.6 model guidance](https://developers.openai.com/api/docs/guides/latest-model)
 and [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs).
 
+## Durable lessons and memory
+
+Codex has two complementary persistence layers. Required shared guidance belongs in tracked
+`AGENTS.md` files; local Memories are a personal recall aid and must not be the only copy of a
+repository invariant. The project configuration enables memory use but leaves automatic generation
+off. This avoids silently retaining sensitive content read from ordinary local files or shell output;
+`memories.disable_on_external_context = true` adds a second guard for chats that used MCP, web, or
+tool-search context. Use `/memories` to make a deliberate per-chat choice, or opt into generation in
+personal configuration after reviewing the privacy boundary.
+
+The provider-neutral shared lesson path is:
+
+1. `tools/discoveries.jsonl` holds short, trigger-keyed lessons.
+2. `memory/<slug>.md` holds public supporting detail.
+3. `planning/product/claude/memory/INDEX.md` and its linked notes hold private Siting decisions;
+   `claude/` is a legacy path name, not a provider requirement.
+4. The configured `UserPromptSubmit` hook checks the compact discovery index and injects at most
+   two matching one-liners. A compatible `Stop` hook asks once for a durable-learning assessment
+   after a substantive session. On first use, review and trust both project hooks with `/hooks`.
+
+The MCP namespace keeps the privacy boundary explicit: `search_project(query, kind="memory")`
+searches checked-in public `memory/` cards only. The legacy workstation store is excluded unless an
+operator deliberately requests `kind="external_memory"`; its snippets use a non-repository
+`memory://external/` path and must not be treated as shared or current project truth.
+
+Where the installed client exposes import, bring existing workstation-local Claude Code history
+into Codex with desktop **Settings > Import**, or run `/import` in an interactive CLI session,
+choose **Claude Code**, and select the project memories and recent chats. The currently installed
+CLI reports `external_agent_memory_import` as an under-development feature and disabled, so do not
+make that path a repository dependency. Use `/memories` to review whether a chat may use existing
+local memories or contribute to future ones. Imported and generated Codex state lives under
+`~/.codex/memories/`; treat it as generated personal state, not as a file-editing API or a
+repository knowledge base. ChatGPT web memory is separate from the local Codex store.
+
+The Siting Responses API adapter does **not** receive Codex or Claude development memory. It sees
+only its system policy, the current user input, deterministic engine output, and explicitly supplied
+case evidence. Adding repository memory to that runtime would create an unreviewed factual and
+prompt-injection channel, so any future runtime knowledge feature must use an explicit, scoped,
+provenance-bearing retrieval contract rather than implicit agent memory.
+
+See the official [AGENTS.md guidance](https://learn.chatgpt.com/docs/agent-configuration/agents-md),
+[Codex Memories guidance](https://learn.chatgpt.com/docs/customization/memories), and
+[Claude Code import guidance](https://learn.chatgpt.com/docs/import).
+
 ## Coding-agent evaluations
+
+Prepare the shared MCP environment first. Add the legacy `evals` dependency group only when using
+the Claude backend:
+
+```powershell
+uv sync --frozen --extra mcp --group dev
+# Claude backend as well:
+uv sync --frozen --extra mcp --group dev --group evals
+```
 
 The runners under `tools/evals/` accept:
 
@@ -88,6 +142,8 @@ consume model quota and must be an explicit operator action.
 Codex discovers the tracked root and nested `AGENTS.md` files automatically. Project MCP settings
 live in `.codex/config.toml`, not `.mcp.json`:
 
+- `CLAUDE.md` is configured as a fallback filename only when a directory has no `AGENTS.md`, so
+  tracked Siting guidance remains available during migration without overriding native Codex files.
 - `dail-tracker` is enabled and excludes private Siting tools.
 - `siting` installs both MCP and geospatial extras, filters to Siting tools, and is disabled by
   default so a clean public clone remains lean. Enable it only in a workspace that has the private

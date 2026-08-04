@@ -73,7 +73,7 @@ from ui.components import (
     render_national_finance_context,
     text_search_mask,
 )
-from ui.entity_links import body_profile_url, company_profile_url, entity_cta_html, source_link_html
+from ui.entity_links import buyer_dossier_cta_html, company_profile_url, entity_cta_html, source_link_html
 from ui.format import coalesce, esc, eur, to_int
 
 # Shared council audited-accounts (AFS by-division) context block. Cross-page
@@ -483,11 +483,7 @@ def _render_publisher_profile(publisher_id: str) -> None:
     # payments view doesn't carry). GATED on the crosswalk: only known bodies link.
     pub_name = str(_coalesce(df.iloc[0].get("publisher_name")) or publisher_id)
     if resolve_buyer_identity(pub_name):
-        st.html(
-            '<div style="margin:-0.1rem 0 0.85rem">'
-            + entity_cta_html(body_profile_url(pub_name), "View this body's full dossier — awards + payments →")
-            + "</div>"
-        )
+        st.html(buyer_dossier_cta_html(pub_name))
 
     # Council dossiers gain the audited-accounts breakdown — where the
     # council's whole operating spend goes, by service division (Housing,

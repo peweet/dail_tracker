@@ -206,3 +206,90 @@ def test_tripwire_fails_open(tmp_path, monkeypatch, capsys):
     assert tw.main() == 0
     assert _run(tw, {"session_id": "s", "transcript_path": str(tmp_path / "nope.jsonl")}, monkeypatch) == 0
     assert capsys.readouterr().out == ""
+
+
+# ── discovery_hint (provider-neutral UserPromptSubmit context) ───────────────
+
+
+def test_discovery_hint_accepts_codex_payload_and_uses_real_repo_detail(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    rows = tmp_path / "discoveries.jsonl"
+    rows.write_text(
+        json.dumps(
+            {
+                "id": "afs-trap",
+                "domain": "afs",
+                "trigger": ["audited financial statements"],
+                "discovery": "Keep gross and net measures distinct.",
+                "cost_band": "high",
+                "memory": "afs-detail",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    detail = REPO / "memory" / "afs-detail.md"
+    monkeypatch.setattr(hint, "DATA", str(rows))
+    monkeypatch.setattr(hint, "resolve_memory", lambda _slug: detail)
+
+    rc = _run(
+        hint,
+        {
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "Review these audited financial statements before editing.",
+            "session_id": uuid.uuid4().hex,
+        },
+        monkeypatch,
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    context = payload["hookSpecificOutput"]["additionalContext"]
+    assert payload["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+    assert "Keep gross and net measures distinct" in context
+    assert "detail: memory/afs-detail.md" in context
+
+
+def test_discovery_hint_does_not_expose_personal_absolute_memory_path(tmp_path, monkeypatch):
+    hint = _load("discovery_hint")
+    personal = tmp_path / "private" / "lesson.md"
+    monkeypatch.setattr(hint, "resolve_memory", lambda _slug: personal)
+
+    label = hint._detail_label("lesson")
+
+    assert str(personal) not in label
+    assert label == "external memory slug: lesson; resolve with tools/discoveries.py"
+
+
+def test_discovery_hint_caps_rows_and_fails_open(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    rows = tmp_path / "discoveries.jsonl"
+    rows.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "id": f"lesson-{index}",
+                    "trigger": ["planning evidence"],
+                    "discovery": f"lesson body {index}",
+                    "cost_band": "high",
+                }
+            )
+            for index in range(3)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(hint, "DATA", str(rows))
+
+    assert _run(
+        hint,
+        {"prompt": "Review the planning evidence for this proposal.", "session_id": uuid.uuid4().hex},
+        monkeypatch,
+    ) == 0
+    context = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert context.count("\n-") == hint.MAX_ROWS
+    assert "lesson-2" not in context
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json{{"))
+    assert hint.main() == 0
+    assert capsys.readouterr().out == ""

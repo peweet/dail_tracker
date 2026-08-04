@@ -3,6 +3,7 @@ import contextlib
 import logging
 import os
 import secrets
+import shutil
 import subprocess
 import time
 from collections.abc import Callable
@@ -11,15 +12,11 @@ from urllib.parse import quote
 
 import requests
 from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from services.schema_validation import validate_if_known
 
 logger = logging.getLogger(__name__)
-
-session = requests.Session()
-adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
 
 # Transient-fault retry policy. The Oireachtas API (and the gov endpoints sharing
 # this session) intermittently drop connections, time out mid-read on large pages,
@@ -33,8 +30,60 @@ RETRY_STATUS_FORCELIST = frozenset({429, 500, 502, 503, 504})
 _RETRYABLE_EXC = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
 
 
-def _sleep_backoff(attempt: int) -> None:
-    time.sleep(RETRY_BACKOFF_BASE * (2 ** (attempt - 1)))
+def new_session(
+    *,
+    headers: dict[str, str] | None = None,
+    retries: int = 2,
+    retry_statuses: bool = True,
+    pool_size: int = 20,
+) -> requests.Session:
+    """Create a bounded, retrying session for genuinely stateful HTTP flows.
+
+    Most callers should use :func:`fetch_json`, :func:`fetch_text` or
+    :func:`fetch_bytes`. This factory is for exchanges that must retain cookies,
+    inspect response status/headers, or stream a response across several related
+    requests. GET/HEAD connection and read failures are retried by urllib3;
+    retryable HTTP statuses use the same policy as the stateless helpers unless
+    ``retry_statuses`` is false for a caller that must observe the first status.
+    POST is deliberately excluded because replaying a state-changing form is not
+    generally safe.
+    """
+    if retries < 0:
+        raise ValueError("retries cannot be negative")
+    if pool_size < 1:
+        raise ValueError("pool_size must be at least 1")
+    retry = Retry(
+        total=retries,
+        connect=retries,
+        read=retries,
+        status=retries if retry_statuses else 0,
+        allowed_methods=frozenset({"GET", "HEAD"}),
+        status_forcelist=RETRY_STATUS_FORCELIST,
+        backoff_factor=RETRY_BACKOFF_BASE,
+        respect_retry_after_header=True,
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=pool_size, pool_maxsize=pool_size)
+    created = requests.Session()
+    created.mount("http://", adapter)
+    created.mount("https://", adapter)
+    if headers:
+        created.headers.update(headers)
+    return created
+
+
+# Stateless helpers own their explicit retry loop, so their shared session only
+# needs pooling. Stateful callers opt into the factory's transport retries.
+session = new_session(retries=0)
+
+
+def _sleep_backoff(attempt: int, response: requests.Response | None = None) -> None:
+    """Sleep for exponential backoff, preferring an integer Retry-After hint."""
+    delay = RETRY_BACKOFF_BASE * (2 ** (attempt - 1))
+    if response is not None:
+        with contextlib.suppress(TypeError, ValueError):
+            delay = max(0.0, float(response.headers.get("Retry-After", delay)))
+    time.sleep(delay)
 
 
 def fetch_json(
@@ -42,6 +91,8 @@ def fetch_json(
     timeout: tuple[int, int] | int = (10, 60),
     *,
     headers: dict[str, str] | None = None,
+    params: dict[str, object] | None = None,
+    attempts: int = RETRY_MAX_ATTEMPTS,
 ) -> tuple[dict, int]:
     """Fetch one URL using the shared session, retrying transient faults.
 
@@ -50,19 +101,21 @@ def fetch_json(
     Once RETRY_MAX_ATTEMPTS is exhausted the final error propagates, preserving
     the "raises on failure" contract fetch_all relies on to count failures.
     """
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
     last_exc: Exception | None = None
-    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+    for attempt in range(1, attempts + 1):
         try:
-            response = session.get(url, timeout=timeout, headers=headers)
-            if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
+            response = session.get(url, timeout=timeout, headers=headers, params=params)
+            if response.status_code in RETRY_STATUS_FORCELIST and attempt < attempts:
                 logger.warning(
                     "fetch_json %s -> HTTP %s (attempt %d/%d), retrying",
                     url,
                     response.status_code,
                     attempt,
-                    RETRY_MAX_ATTEMPTS,
+                    attempts,
                 )
-                _sleep_backoff(attempt)
+                _sleep_backoff(attempt, response)
                 continue
             response.raise_for_status()
             raw_bytes = len(response.content)
@@ -75,13 +128,13 @@ def fetch_json(
             return payload, raw_bytes
         except _RETRYABLE_EXC as exc:
             last_exc = exc
-            if attempt < RETRY_MAX_ATTEMPTS:
+            if attempt < attempts:
                 logger.warning(
                     "fetch_json %s -> %s (attempt %d/%d), retrying",
                     url,
                     type(exc).__name__,
                     attempt,
-                    RETRY_MAX_ATTEMPTS,
+                    attempts,
                 )
                 _sleep_backoff(attempt)
                 continue
@@ -91,7 +144,66 @@ def fetch_json(
     raise last_exc if last_exc is not None else RuntimeError("fetch_json: retry loop exited unexpectedly")
 
 
-def fetch_text(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[str, int]:
+def post_json(
+    url: str,
+    payload: dict,
+    timeout: tuple[int, int] | int = (10, 60),
+    *,
+    headers: dict[str, str] | None = None,
+    attempts: int = RETRY_MAX_ATTEMPTS,
+) -> tuple[dict, int]:
+    """POST a JSON document through the shared retrying session.
+
+    This is the write-method sibling of :func:`fetch_json`: transient connection,
+    timeout, 429 and 5xx failures are retried; permanent 4xx responses and an
+    exhausted retry budget raise. The response JSON and raw byte count mirror the
+    GET helper's contract, which keeps API pagination callers deterministic.
+    """
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
+    last_exc: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            response = session.post(url, json=payload, timeout=timeout, headers=headers)
+            if response.status_code in RETRY_STATUS_FORCELIST and attempt < attempts:
+                logger.warning(
+                    "post_json %s -> HTTP %s (attempt %d/%d), retrying",
+                    url,
+                    response.status_code,
+                    attempt,
+                    attempts,
+                )
+                _sleep_backoff(attempt, response)
+                continue
+            response.raise_for_status()
+            raw_bytes = len(response.content)
+            data = response.json()
+            validate_if_known(url, data)
+            return data, raw_bytes
+        except _RETRYABLE_EXC as exc:
+            last_exc = exc
+            if attempt < attempts:
+                logger.warning(
+                    "post_json %s -> %s (attempt %d/%d), retrying",
+                    url,
+                    type(exc).__name__,
+                    attempt,
+                    attempts,
+                )
+                _sleep_backoff(attempt)
+                continue
+            raise
+    raise last_exc if last_exc is not None else RuntimeError("post_json: retry loop exited unexpectedly")
+
+
+def fetch_text(
+    url: str,
+    timeout: tuple[int, int] | int = (10, 60),
+    *,
+    headers: dict[str, str] | None = None,
+    params: dict[str, object] | None = None,
+    attempts: int = RETRY_MAX_ATTEMPTS,
+) -> tuple[str, int]:
     """Fetch one URL as raw text, retrying transient faults.
 
     Sibling of fetch_json for non-JSON payloads (e.g. AKN debate XML). Same
@@ -101,19 +213,21 @@ def fetch_text(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[str, int]
     bucket means the object key does not exist, so failing fast (rather than
     retrying) is correct — the caller counts it as a miss.
     """
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
     last_exc: Exception | None = None
-    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+    for attempt in range(1, attempts + 1):
         try:
-            response = session.get(url, timeout=timeout)
-            if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
+            response = session.get(url, timeout=timeout, headers=headers, params=params)
+            if response.status_code in RETRY_STATUS_FORCELIST and attempt < attempts:
                 logger.warning(
                     "fetch_text %s -> HTTP %s (attempt %d/%d), retrying",
                     url,
                     response.status_code,
                     attempt,
-                    RETRY_MAX_ATTEMPTS,
+                    attempts,
                 )
-                _sleep_backoff(attempt)
+                _sleep_backoff(attempt, response)
                 continue
             response.raise_for_status()
             content = response.content
@@ -127,13 +241,13 @@ def fetch_text(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[str, int]
             return text, raw_bytes
         except _RETRYABLE_EXC as exc:
             last_exc = exc
-            if attempt < RETRY_MAX_ATTEMPTS:
+            if attempt < attempts:
                 logger.warning(
                     "fetch_text %s -> %s (attempt %d/%d), retrying",
                     url,
                     type(exc).__name__,
                     attempt,
-                    RETRY_MAX_ATTEMPTS,
+                    attempts,
                 )
                 _sleep_backoff(attempt)
                 continue
@@ -266,8 +380,9 @@ def post_bytes(
     data: dict[str, str],
     *,
     headers: dict[str, str] | None = None,
-    timeout: int = 90,
+    timeout: tuple[int, int] | int = 90,
     validate: Callable[[bytes], bool] | None = None,
+    attempts: int = RETRY_MAX_ATTEMPTS,
 ) -> bytes | None:
     """Best-effort form POST: bytes or None, never raises (fetch_bytes' sibling contract).
 
@@ -277,19 +392,21 @@ def post_bytes(
     curl leg (a POST body through subprocess quoting is where encodings go to die — callers
     needing that resilience should batch/retry at their own level).
     """
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
     headers = headers if headers is not None else polite_headers()
     body: bytes | None = None
-    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+    for attempt in range(1, attempts + 1):
         try:
             response = session.post(url, data=data, headers=headers, timeout=timeout, allow_redirects=True)
-            if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
-                _sleep_backoff(attempt)
+            if response.status_code in RETRY_STATUS_FORCELIST and attempt < attempts:
+                _sleep_backoff(attempt, response)
                 continue
             response.raise_for_status()
             body = response.content
             break
         except _RETRYABLE_EXC:
-            if attempt < RETRY_MAX_ATTEMPTS:
+            if attempt < attempts:
                 _sleep_backoff(attempt)
                 continue
             break
@@ -300,29 +417,81 @@ def post_bytes(
     return None
 
 
+def _curl_candidates() -> tuple[str, ...]:
+    """Return absolute curl executables in capability-first order.
+
+    ``DAIL_CURL_BIN`` is the explicit deployment override. On Windows, Git's
+    bundled curl is considered before the system copy because it commonly has
+    Brotli support needed by Irish public-sector sites. All discovery happens
+    through ``PATH`` and the resolved Git installation; no workstation-specific
+    path is embedded in the code.
+    """
+    candidates: list[str] = []
+    configured = os.environ.get("DAIL_CURL_BIN")
+    if configured:
+        resolved = shutil.which(configured)
+        if resolved is None:
+            configured_path = Path(configured).expanduser()
+            if configured_path.is_file():
+                resolved = str(configured_path.resolve())
+        if resolved:
+            candidates.append(str(Path(resolved).resolve()))
+
+    git_executable = shutil.which("git")
+    if git_executable:
+        git_root = Path(git_executable).resolve().parent.parent
+        embedded = git_root / "mingw64" / "bin" / "curl.exe"
+        if embedded.is_file():
+            candidates.append(str(embedded.resolve()))
+
+    system_curl = shutil.which("curl")
+    if system_curl:
+        candidates.append(str(Path(system_curl).resolve()))
+
+    return tuple(dict.fromkeys(candidates))
+
+
 def _curl_bytes(url: str, user_agent: str, timeout: int) -> bytes | None:
     """Last-resort fetch via the curl binary. -k tolerates council cert quirks
     (Meath/Sligo fail Python's TLS stack but answer curl fine — NOT a server
     block); --compressed lets curl negotiate only encodings it can decode
     (avoids the gov.ie brotli trap seen on the diary refresh)."""
-    try:
-        p = subprocess.run(
-            ["curl", "-sS", "-k", "-L", "--compressed", "--max-time", str(timeout), "-A", user_agent, url],
-            capture_output=True,
-            timeout=timeout + 30,
-        )
-        return p.stdout if p.returncode == 0 and p.stdout else None
-    except Exception:
-        return None
+    for executable in _curl_candidates():
+        try:
+            process = subprocess.run(
+                [
+                    executable,
+                    "-sS",
+                    "-k",
+                    "-L",
+                    "--compressed",
+                    "--max-time",
+                    str(timeout),
+                    "-A",
+                    user_agent,
+                    url,
+                ],
+                capture_output=True,
+                timeout=timeout + 30,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if process.returncode == 0 and process.stdout:
+            return process.stdout
+    return None
 
 
 def fetch_bytes(
     url: str,
     *,
     headers: dict[str, str] | None = None,
+    params: dict[str, object] | None = None,
     timeout: int = 90,
     curl_fallback: bool = True,
     validate: Callable[[bytes], bool] | None = None,
+    on_failure: Callable[[Exception | None], None] | None = None,
+    attempts: int = RETRY_MAX_ATTEMPTS,
 ) -> bytes | None:
     """Best-effort file download: requests (shared session + retry) → curl.
 
@@ -335,38 +504,51 @@ def fetch_bytes(
     asset: a response failing it is treated as a miss, which also triggers the
     curl fallback. Transient faults (429/5xx/timeouts) retry with backoff on the
     requests leg; permanent 4xx (WAF 403 is the canonical case) fall straight
-    through to curl.
+    through to curl. ``on_failure`` is called once, only after every enabled leg
+    fails, with the final requests exception when one exists; harvesters use it
+    to retain their structured failure reports without owning the network path.
     """
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
     headers = headers if headers is not None else polite_headers()
-    url = quote(url, safe=_URL_QUOTE_SAFE)
+    prepared_url = requests.Request("GET", url, params=params).prepare().url
+    url = quote(prepared_url or url, safe=_URL_QUOTE_SAFE)
 
     body: bytes | None = None
-    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+    last_exc: Exception | None = None
+    for attempt in range(1, attempts + 1):
         try:
             response = session.get(url, headers=headers, timeout=timeout, allow_redirects=True)
-            if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
-                _sleep_backoff(attempt)
+            if response.status_code in RETRY_STATUS_FORCELIST and attempt < attempts:
+                _sleep_backoff(attempt, response)
                 continue
             response.raise_for_status()
             body = response.content
             break
-        except _RETRYABLE_EXC:
-            if attempt < RETRY_MAX_ATTEMPTS:
+        except _RETRYABLE_EXC as exc:
+            last_exc = exc
+            if attempt < attempts:
                 _sleep_backoff(attempt)
                 continue
             break  # transient budget exhausted → curl leg
-        except Exception:
+        except Exception as exc:
+            last_exc = exc
             break  # permanent failure (4xx, TLS handshake…) → curl leg
 
     if body and (validate is None or validate(body)):
         return body
 
     if not curl_fallback:
+        if on_failure is not None:
+            on_failure(last_exc)
         return None
     logger.warning("fetch_bytes %s: requests leg failed%s, trying curl", url, " validation" if body else "")
-    body = _curl_bytes(url, headers.get("User-Agent", RESEARCH_UA), timeout)
+    curl_timeout = max(timeout) if isinstance(timeout, tuple) else timeout
+    body = _curl_bytes(url, headers.get("User-Agent", RESEARCH_UA), curl_timeout)
     if body and (validate is None or validate(body)):
         return body
+    if on_failure is not None:
+        on_failure(last_exc)
     return None
 
 
@@ -377,29 +559,33 @@ def download_file(
     headers: dict[str, str] | None = None,
     timeout: int = 180,
     validate: Callable[[Path], bool] | None = None,
+    on_failure: Callable[[Exception | None], None] | None = None,
 ) -> bool:
     """Stream a download to an atomic destination, preserving any old file.
 
     The normal requests leg streams bounded chunks instead of holding large CSVs
     or PDFs in memory. A failed or invalid transfer is removed; ``destination``
-    is replaced only after a complete validated download.
+    is replaced only after a complete validated download. ``on_failure`` follows
+    :func:`fetch_bytes`: it runs only after requests and curl both fail.
     """
     headers = headers if headers is not None else polite_headers()
+    url = quote(url, safe=_URL_QUOTE_SAFE)
     destination = destination.resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(f".{destination.name}.{secrets.token_hex(6)}.part")
+    last_exc: Exception | None = None
     try:
         for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
             try:
                 with session.get(
-                    quote(url, safe=_URL_QUOTE_SAFE),
+                    url,
                     headers=headers,
                     timeout=timeout,
                     allow_redirects=True,
                     stream=True,
                 ) as response:
                     if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
-                        _sleep_backoff(attempt)
+                        _sleep_backoff(attempt, response)
                         continue
                     response.raise_for_status()
                     with temporary.open("wb") as output:
@@ -410,13 +596,24 @@ def download_file(
                     os.replace(temporary, destination)
                     return True
                 break
-            except _RETRYABLE_EXC:
+            except _RETRYABLE_EXC as exc:
+                last_exc = exc
                 if attempt < RETRY_MAX_ATTEMPTS:
                     _sleep_backoff(attempt)
                     continue
                 break
-            except Exception:
+            except Exception as exc:
+                last_exc = exc
                 break
+
+        body = _curl_bytes(url, headers.get("User-Agent", RESEARCH_UA), timeout)
+        if body:
+            temporary.write_bytes(body)
+            if validate is None or validate(temporary):
+                os.replace(temporary, destination)
+                return True
+        if on_failure is not None:
+            on_failure(last_exc)
         return False
     finally:
         with contextlib.suppress(FileNotFoundError):

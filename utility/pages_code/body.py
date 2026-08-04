@@ -54,6 +54,21 @@ _FOOT = (
 )
 
 
+def _money_lane_heading_html(label: str) -> str:
+    """Return the shared heading for one distinct public-money lifecycle lane."""
+    return f'<h2 class="section-heading">{_esc(label)}</h2>'
+
+
+def _money_card_grid_html(cards: list[str]) -> str:
+    """Return the dossier's reusable responsive grid around complete money cards."""
+    return f'<div class="pr-grid">{"".join(cards)}</div>'
+
+
+def _dossier_caveat_html(caveat: object) -> str:
+    """Return the source-specific caveat that closes a public-body dossier."""
+    return f'<div class="pr-foot" style="margin-top:0.5rem">{_esc(caveat)}</div>'
+
+
 def _supplier_link(name: str, norm: object, supplier_class: object, awards_norms: frozenset[str]) -> str:
     """A supplier name as a gated /company door. Company-class + on the awards register →
     link; otherwise plain text (individuals are quarantined; payments-only firms have no
@@ -72,12 +87,12 @@ def _render_awards_lane(awards: dict, awards_norms: frozenset[str]) -> None:
     recent = awards.get("recent") or []
     if not summary and not recent:
         return
-    st.html('<h2 class="section-heading">Money awarded — contract ceilings</h2>')
+    st.html(_money_lane_heading_html("Money awarded — contract ceilings"))
     if summary:
         n_awards, n_suppliers = _n(summary.get("n_awards")), _n(summary.get("n_suppliers"))
         pills = [_value_pill(summary.get("awarded_value_safe_eur"))]
         meta = f"{n_awards:,} award{'s' if n_awards != 1 else ''} · {n_suppliers:,} supplier{'s' if n_suppliers != 1 else ''}"
-        st.html(f'<div class="pr-grid">{_card("<span>Awarded (eTenders)</span>", meta, pills)}</div>')
+        st.html(_money_card_grid_html([_card("<span>Awarded (eTenders)</span>", meta, pills)]))
     st.caption("An award ceiling is the maximum a contract may be worth — not money spent. Newest awards:")
     cards = []
     for i, a in enumerate(recent[:12], start=1):
@@ -88,7 +103,7 @@ def _render_awards_lane(awards: dict, awards_norms: frozenset[str]) -> None:
         pills = [_value_pill(a.get("value_eur"))] if a.get("value_safe_to_sum") else []
         cards.append(_card(f"<span>{name}</span><div class='pr-sub'>{title}</div>", meta, pills, rank=i))
     if cards:
-        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+        st.html(_money_card_grid_html(cards))
 
 
 def _render_payments_lane(payments: dict, awards_norms: frozenset[str]) -> None:
@@ -96,11 +111,11 @@ def _render_payments_lane(payments: dict, awards_norms: frozenset[str]) -> None:
     top = payments.get("top_suppliers") or []
     tier = payments.get("active_tier", "COMMITTED")
     if not summary:
-        st.html('<h2 class="section-heading">Money paid</h2>')
+        st.html(_money_lane_heading_html("Money paid"))
         st.caption("No purchase-order or payment disclosures are published for this body.")
         return
     ordered, paid = summary.get("ordered_safe_eur"), summary.get("paid_safe_eur")
-    st.html(f'<h2 class="section-heading">Money {_esc(_paid_verb(tier))} — published records</h2>')
+    st.html(_money_lane_heading_html(f"Money {_paid_verb(tier)} — published records"))
     n_sup = _n(summary.get("n_suppliers"))
     # BOTH lifecycle totals side by side, never summed.
     pills = []
@@ -111,7 +126,7 @@ def _render_payments_lane(payments: dict, awards_norms: frozenset[str]) -> None:
     meta = (
         f"{n_sup:,} supplier{'s' if n_sup != 1 else ''} · {_n(summary.get('min_year'))}–{_n(summary.get('max_year'))}"
     )
-    st.html(f'<div class="pr-grid">{_card("<span>Purchase orders &amp; payments</span>", meta, pills)}</div>')
+    st.html(_money_card_grid_html([_card("<span>Purchase orders &amp; payments</span>", meta, pills)]))
     st.caption(f"Top suppliers by money {_paid_verb(tier)} (sum-safe within this body):")
     cards = []
     for i, s in enumerate(top[:15], start=1):
@@ -120,7 +135,7 @@ def _render_payments_lane(payments: dict, awards_norms: frozenset[str]) -> None:
         meta = f"{np_:,} line{'s' if np_ != 1 else ''} · {_n(s.get('min_year'))}–{_n(s.get('max_year'))}"
         cards.append(_card(f"<span>{name}</span>", meta, [_paid_pill(s.get("total_safe_eur"), tier)], rank=i))
     if cards:
-        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+        st.html(_money_card_grid_html(cards))
 
 
 def _dossier(buyer: str) -> None:
@@ -146,7 +161,7 @@ def _dossier(buyer: str) -> None:
     awards_norms = awards_register_norms()
     _render_awards_lane(d["awards"], awards_norms)
     _render_payments_lane(d["payments"], awards_norms)
-    st.html(f'<div class="pr-foot" style="margin-top:0.5rem">{_esc(d["caveat"])}</div>')
+    st.html(_dossier_caveat_html(d["caveat"]))
     st.html(_FOOT)
 
 
@@ -193,7 +208,7 @@ def _landing() -> None:
                 aria_label=f"Open the public-money dossier for {r['display_name']}",
             )
         )
-    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(_money_card_grid_html(cards))
 
 
 @dt_page

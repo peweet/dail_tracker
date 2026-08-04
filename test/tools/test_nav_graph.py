@@ -41,6 +41,26 @@ def test_scan_detects_builder_call(tmp_path):
     assert "COMPANY" in carried
 
 
+def test_scan_recognises_shared_procurement_entity_wrappers(tmp_path):
+    f = tmp_path / "fake_page.py"
+    f.write_text(
+        "\n".join(
+            (
+                "supplier = _supplier_href(row.supplier_norm)",
+                "paid = _paid_supplier_href(row.supplier_normalised)",
+                "authority = _authority_href(row.contracting_authority)",
+                "authority_name = _authority_link(row.contracting_authority)",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    carried, cols = check_nav_graph.scan(f)
+
+    assert carried == {"AUTHORITY", "COMPANY"}
+    assert cols == {"contracting_authority", "supplier_norm", "supplier_normalised"}
+
+
 def test_scan_ignores_comment_only_reference(tmp_path):
     # A column named in a COMMENT (not rendered) must NOT count as an entity on
     # screen — this is the exact false positive AST-level detection eliminates.

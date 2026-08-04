@@ -30,10 +30,11 @@ import json
 import math
 import sys
 from pathlib import Path
-
-import requests
+from urllib.parse import urlencode
 
 from paths import PROJECT_ROOT as _ROOT
+from paths import absolute_path, configured_path, runtime_path
+from services.http_engine import fetch_json, polite_headers
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -42,7 +43,10 @@ _LAYER = (
     "https://services-eu1.arcgis.com/FH5XCsx8rYXqnjF5/arcgis/rest/services/"
     "National_Statutory_Boundaries_-_Local_Authorities__Ungeneralised_-_2026/FeatureServer/3"
 )
-_CACHE = Path("c:/tmp/local_authority_boundaries_2026.geojson")  # NOT committed
+_CACHE = configured_path(
+    "LOCAL_AUTHORITY_BOUNDARIES_CACHE",
+    runtime_path("reference", "local_authority_boundaries_2026.geojson"),
+)
 _ROSTER = _ROOT / "data" / "_meta" / "la_chief_executives.csv"
 _OUT = _ROOT / "data" / "_meta" / "local_authority_outlines.json"
 
@@ -103,9 +107,8 @@ def fetch_geojson(dest: Path) -> Path:
     feats: list[dict] = []
     offset = 0
     while True:
-        r = requests.get(
-            _LAYER + "/query",
-            params={
+        query = urlencode(
+            {
                 "where": "1=1",
                 "outFields": "ENG_NAME_VALUE",
                 "returnGeometry": "true",
@@ -114,12 +117,14 @@ def fetch_geojson(dest: Path) -> Path:
                 "f": "geojson",
                 "resultRecordCount": _PAGE,
                 "resultOffset": offset,
-            },
-            timeout=180,
-            headers={"User-Agent": "Mozilla/5.0"},
+            }
         )
-        r.raise_for_status()
-        page = r.json().get("features", [])
+        payload, _ = fetch_json(
+            f"{_LAYER}/query?{query}",
+            timeout=(10, 180),
+            headers=polite_headers(browser=True),
+        )
+        page = payload.get("features", [])
         feats.extend(page)
         print(f"  fetched {len(page)} (offset {offset}); total {len(feats)}")
         if len(page) < _PAGE:
@@ -204,13 +209,14 @@ def main() -> None:
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--geojson", type=Path, default=_CACHE)
     args = ap.parse_args()
+    geojson_path = absolute_path(args.geojson)
 
-    if not args.geojson.exists():
-        print(f"Fetching local-authority boundaries (paged, generalised) → {args.geojson} ...")
-        fetch_geojson(args.geojson)
-    print(f"Building outlines from {args.geojson} ...")
+    if not geojson_path.exists():
+        print(f"Fetching local-authority boundaries (paged, generalised) → {geojson_path} ...")
+        fetch_geojson(geojson_path)
+    print(f"Building outlines from {geojson_path} ...")
 
-    result = build_outlines(args.geojson)
+    result = build_outlines(geojson_path)
     canon = _canonical_names()
     got = set(result["local_authorities"])
     missing = canon - got

@@ -4,10 +4,18 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 
-router = APIRouter(tags=["meta"])
+from api.contracts import ERROR_RESPONSES
+from dail_tracker_core.models.responses import HealthResponse
+
+router = APIRouter(tags=["meta"], responses=ERROR_RESPONSES)
+
+# At least one real, data-backed public surface must have registered. A static
+# metadata-only view (for example v_payments_sources) must never turn an empty
+# mounted data directory into a false-ready service.
+_REQUIRED_VIEWS = frozenset({"v_payments_base"})
 
 
-@router.get("/health")
+@router.get("/health", response_model=HealthResponse)
 def health(request: Request) -> dict:
     conn = getattr(request.app.state, "conn", None)
     if conn is None:
@@ -17,10 +25,15 @@ def health(request: Request) -> dict:
     # the anyio worker threads FastAPI runs sync handlers on.
     cur = conn.cursor()
     try:
-        n = cur.execute("SELECT count(*) FROM information_schema.tables WHERE table_type='VIEW'").fetchone()
-        views_registered = int(n[0]) if n else 0
-        if views_registered == 0:
-            raise HTTPException(status_code=503, detail="database has no registered views")
+        rows = cur.execute("SELECT table_name FROM information_schema.tables WHERE table_type='VIEW'").fetchall()
+        registered = {str(row[0]) for row in rows}
+        missing = sorted(_REQUIRED_VIEWS - registered)
+        if missing:
+            raise HTTPException(
+                status_code=503,
+                detail=f"database missing required data views: {', '.join(missing)}",
+            )
+        views_registered = len(registered)
         return {"status": "ok", "views_registered": views_registered}
     except HTTPException:
         raise

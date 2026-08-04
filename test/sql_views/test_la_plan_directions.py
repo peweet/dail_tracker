@@ -19,6 +19,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from planning.civic.extractors import opr_plan_directions_extract as opr_extract  # noqa: E402
 from planning.civic.extractors.opr_plan_directions_extract import (  # noqa: E402
     CANON_31,
     canon_council,
@@ -88,6 +89,22 @@ def test_canon_council_from_plan_titles():
 def test_doc_date_from_upload_path():
     assert doc_date("https://www.opr.ie/wp-content/uploads/2023/08/x.pdf") == "2023-08"
     assert doc_date("https://www.opr.ie/no-date/x.pdf") == ""
+
+
+def test_register_fetch_uses_shared_resilient_http(monkeypatch):
+    observed: dict = {}
+
+    def fetch(_url, **kwargs):
+        observed.update(kwargs)
+        payload = b"<html><a href='/register'>Register</a></html>"
+        assert kwargs["validate"](payload)
+        return payload
+
+    monkeypatch.setattr(opr_extract, "fetch_bytes", fetch)
+
+    assert "<html>" in opr_extract.fetch(opr_extract.REGISTER)
+    assert observed["timeout"] == 90
+    assert observed["headers"]["Accept-Encoding"] == "gzip, deflate"
 
 
 # ── the fact ───────────────────────────────────────────────────────────────────────────────────

@@ -42,23 +42,58 @@ class ToolInfo:
     line: int
     doc_chars: int
     decorator: str
+    read_only_hint: bool
+    always_load_hint: bool
 
     @property
     def always_loaded(self) -> bool:
-        return "_ALWAYS" in self.decorator
+        return self.always_load_hint
 
     @property
     def read_only(self) -> bool:
-        return "_RO" in self.decorator
+        return self.read_only_hint
+
+
+def _resolve_assignment(node: ast.expr, assignments: dict[str, ast.expr]) -> ast.expr:
+    seen: set[str] = set()
+    while isinstance(node, ast.Name) and node.id in assignments and node.id not in seen:
+        seen.add(node.id)
+        node = assignments[node.id]
+    return node
+
+
+def _is_true(node: ast.expr) -> bool:
+    return isinstance(node, ast.Constant) and node.value is True
+
+
+def _read_only_value(node: ast.expr, assignments: dict[str, ast.expr]) -> bool:
+    node = _resolve_assignment(node, assignments)
+    if not isinstance(node, ast.Call) or not ast.unparse(node.func).endswith("ToolAnnotations"):
+        return False
+    return any(keyword.arg == "readOnlyHint" and _is_true(keyword.value) for keyword in node.keywords)
+
+
+def _always_load_value(node: ast.expr, assignments: dict[str, ast.expr]) -> bool:
+    node = _resolve_assignment(node, assignments)
+    if not isinstance(node, ast.Dict):
+        return False
+    return any(
+        isinstance(key, ast.Constant) and key.value == "anthropic/alwaysLoad" and _is_true(value)
+        for key, value in zip(node.keys, node.values, strict=True)
+        if key is not None
+    )
 
 
 def inspect_source(source: str) -> list[ToolInfo]:
     tree = ast.parse(source)
+    assignments: dict[str, ast.expr] = {}
     constants: dict[str, str] = {}
     for node in tree.body:
         if not isinstance(node, ast.Assign) or len(node.targets) != 1:
             continue
         target = node.targets[0]
+        if isinstance(target, ast.Name):
+            assignments[target.id] = node.value
         if isinstance(target, ast.Name) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
             constants[target.id] = node.value.value
 
@@ -71,7 +106,14 @@ def inspect_source(source: str) -> list[ToolInfo]:
             continue
         tool_node = tool_nodes[0]
         description = ast.get_docstring(node) or ""
+        read_only_hint = False
+        always_load_hint = False
         if isinstance(tool_node, ast.Call):
+            for keyword in tool_node.keywords:
+                if keyword.arg == "annotations":
+                    read_only_hint = _read_only_value(keyword.value, assignments)
+                elif keyword.arg == "meta":
+                    always_load_hint = _always_load_value(keyword.value, assignments)
             for keyword in tool_node.keywords:
                 if keyword.arg != "description":
                     continue
@@ -85,6 +127,8 @@ def inspect_source(source: str) -> list[ToolInfo]:
                 line=node.lineno,
                 doc_chars=len(description),
                 decorator=ast.unparse(tool_node),
+                read_only_hint=read_only_hint,
+                always_load_hint=always_load_hint,
             )
         )
     return tools

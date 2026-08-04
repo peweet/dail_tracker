@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from paths import PROJECT_ROOT, absolute_path, configured_path, runtime_path
+from paths import PROJECT_ROOT, RESOURCE_ROOT, absolute_path, configured_path, runtime_path
+
+
+def test_project_root_is_the_packaged_resource_root() -> None:
+    assert PROJECT_ROOT == RESOURCE_ROOT
+    assert (RESOURCE_ROOT / "sql_views").is_dir()
 
 
 def test_relative_paths_are_anchored_to_the_project_not_cwd(tmp_path: Path, monkeypatch) -> None:
@@ -32,3 +40,41 @@ def test_runtime_path_rejects_traversal(tmp_path: Path, monkeypatch, parts: tupl
     monkeypatch.setenv("DAIL_RUNTIME_DIR", str(tmp_path / "runtime"))
     with pytest.raises(ValueError, match="escapes"):
         runtime_path(*parts)
+
+
+def test_config_data_root_can_live_outside_the_installed_resources(tmp_path: Path) -> None:
+    data_root = (tmp_path / "mounted-data").resolve()
+    env = dict(os.environ, DAIL_DATA_DIR=str(data_root), PYTHONPATH=str(PROJECT_ROOT))
+    completed = subprocess.run(
+        [sys.executable, "-c", "from config import DATA_DIR; print(DATA_DIR)"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert Path(completed.stdout.strip()) == data_root
+
+
+def test_data_consumers_follow_the_configured_root(tmp_path: Path) -> None:
+    data_root = (tmp_path / "mounted-data").resolve()
+    env = dict(os.environ, DAIL_DATA_DIR=str(data_root), PYTHONPATH=str(PROJECT_ROOT))
+    command = (
+        "from dail_tracker_core.buyer_xref import XREF_CSV; "
+        "from services.data_contracts import QUARANTINE_DIR; "
+        "from planning.product.paths import DATA as SITING_DATA; "
+        "print(XREF_CSV); print(QUARANTINE_DIR); print(SITING_DATA)"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", command],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert completed.stdout.splitlines() == [
+        str(data_root / "_meta" / "procurement_publishers" / "buyer_xref.csv"),
+        str(data_root / "_meta" / "quarantine"),
+        str(data_root),
+    ]

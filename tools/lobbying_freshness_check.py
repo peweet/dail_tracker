@@ -48,6 +48,8 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from services.http_engine import fetch_text
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _GOLD_PARQUET = _PROJECT_ROOT / "data" / "gold" / "parquet" / "lobbyist_persistence.parquet"
 
@@ -104,8 +106,6 @@ def verdict(upstream_start: date | None, held_start: date | None, slack_days: in
 def fetch_recent_periods(window_days: int) -> list[str]:
     """Fetch a narrow recent window from the export API and return its ``Period``
     column values. Raises on network/HTTP error (caller maps to exit 2)."""
-    import requests  # lazy: keeps the pure functions importable without the dep
-
     today = date.today()
     start = today - timedelta(days=window_days)
     params = {
@@ -125,9 +125,8 @@ def fetch_recent_periods(window_days: int) -> list[str]:
         "lobbyist": "",
         "lobbyistId": "",
     }
-    resp = requests.get(ENDPOINT, headers={"User-Agent": USER_AGENT}, params=params, timeout=TIMEOUT)
-    resp.raise_for_status()
-    text = resp.content.lstrip(b"\xef\xbb\xbf").decode("utf-8", errors="replace")
+    text, _ = fetch_text(ENDPOINT, headers={"User-Agent": USER_AGENT}, params=params, timeout=TIMEOUT)
+    text = text.lstrip("\ufeff")
     reader = csv.DictReader(io.StringIO(text))
     if not reader.fieldnames or "Period" not in reader.fieldnames:
         raise ValueError("upstream CSV has no 'Period' column (schema drift)")

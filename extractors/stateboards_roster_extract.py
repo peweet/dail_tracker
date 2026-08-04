@@ -52,7 +52,6 @@ from pathlib import Path
 from urllib.parse import unquote, urljoin
 
 import polars as pl
-import requests
 from bs4 import BeautifulSoup
 
 with contextlib.suppress(Exception):
@@ -61,6 +60,7 @@ with contextlib.suppress(Exception):
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
+from services.http_engine import fetch_text  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -112,24 +112,21 @@ def _cache_slug(url: str) -> str:
     return f"{slug}.html"
 
 
-def fetch_html(session: requests.Session, url: str, *, use_cache: bool) -> str | None:
+def fetch_html(url: str, *, use_cache: bool) -> str | None:
     """GET one page; cache raw HTML to bronze. ``use_cache`` replays bronze
     without touching the network (dev / deterministic re-parse)."""
     cache = BRONZE_DIR / _cache_slug(url)
     if use_cache and cache.exists():
         return cache.read_text(encoding="utf-8")
-    for attempt in (1, 2, 3):
-        try:
-            r = session.get(url, headers=_H, timeout=30)
-            r.raise_for_status()
-            BRONZE_DIR.mkdir(parents=True, exist_ok=True)
-            cache.write_text(r.text, encoding="utf-8")
-            time.sleep(_SLEEP)
-            return r.text
-        except Exception as exc:  # noqa: BLE001 — retry transient HTTP/TLS causes
-            logger.warning("fetch attempt %d/3 failed for %s: %s", attempt, url, exc)
-            time.sleep(2 * attempt)
-    return None
+    try:
+        text, _ = fetch_text(url, headers=_H, timeout=30)
+    except Exception as exc:  # noqa: BLE001 — a failed page is recorded in coverage
+        logger.warning("fetch failed for %s after shared retries: %s", url, exc)
+        return None
+    BRONZE_DIR.mkdir(parents=True, exist_ok=True)
+    cache.write_text(text, encoding="utf-8")
+    time.sleep(_SLEEP)
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -282,10 +279,9 @@ _BOARDS_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
 
 
 def scrape(*, use_cache: bool, max_boards: int = 0, only_dept: str = "") -> tuple[pl.DataFrame, pl.DataFrame, dict]:
-    session = requests.Session()
     failures: list[str] = []
 
-    index_html = fetch_html(session, INDEX_URL, use_cache=use_cache)
+    index_html = fetch_html(INDEX_URL, use_cache=use_cache)
     if index_html is None:
         raise SystemExit("stateboards: could not fetch the department index — aborting (no partial write)")
     departments = parse_link_list(index_html, "/en/department/")
@@ -297,7 +293,7 @@ def scrape(*, use_cache: bool, max_boards: int = 0, only_dept: str = "") -> tupl
     member_rows: list[dict] = []
     n_boards = 0
     for dept_name, dept_url in departments:
-        dept_html = fetch_html(session, dept_url, use_cache=use_cache)
+        dept_html = fetch_html(dept_url, use_cache=use_cache)
         if dept_html is None:
             failures.append(dept_url)
             continue
@@ -305,7 +301,7 @@ def scrape(*, use_cache: bool, max_boards: int = 0, only_dept: str = "") -> tupl
         for body, board_url in boards:
             if max_boards and n_boards >= max_boards:
                 break
-            html = fetch_html(session, board_url, use_cache=use_cache)
+            html = fetch_html(board_url, use_cache=use_cache)
             if html is None:
                 failures.append(board_url)
                 continue

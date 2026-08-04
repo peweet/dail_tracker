@@ -35,10 +35,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
-import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.http_engine import post_json  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.buyer_clean import clean_buyer_display  # noqa: E402
 
@@ -147,11 +147,15 @@ def pull(max_pages: int) -> list[dict]:
     notices, page = [], 1
     while page <= max_pages:
         body = {"query": QUERY, "fields": FIELDS, "limit": 250, "page": page, "paginationMode": "PAGE_NUMBER"}
-        r = requests.post(URL, json=body, headers=H, timeout=120)
-        if r.status_code != 200:
-            print(f"  page {page} -> {r.status_code} {r.text[:140]}")
+        try:
+            payload, _ = post_json(URL, body, headers=H, timeout=120)
+        except Exception as exc:  # API failure ends pagination; load_raw can reuse the stale capture
+            response = getattr(exc, "response", None)
+            status = getattr(response, "status_code", type(exc).__name__)
+            detail = getattr(response, "text", str(exc))
+            print(f"  page {page} -> {status} {detail[:140]}")
             break
-        batch = r.json().get("notices", [])
+        batch = payload.get("notices", [])
         if not batch:
             break
         notices += batch

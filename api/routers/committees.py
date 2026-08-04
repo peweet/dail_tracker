@@ -5,13 +5,21 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers, serialize
+from dail_tracker_core.models.envelope import ListEnvelope
+from dail_tracker_core.models.responses import CommitteeResponse
 
-router = APIRouter(tags=["committees"])
+router = APIRouter(tags=["committees"], responses=ERROR_RESPONSES)
 
 
-@router.get("/committees", summary="Committees for a chamber (chair, member/party counts)")
+@router.get(
+    "/committees",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Committees for a chamber (chair, member/party counts)",
+)
 def list_committees(
     chamber: str = Query("Dáil", description="Dáil or Seanad"),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
@@ -23,6 +31,7 @@ def list_committees(
 
 @router.get(
     "/committees/{committee}",
+    response_model=CommitteeResponse,
     summary="One committee's rollup + its long-format party-seat breakdown",
 )
 def get_committee(

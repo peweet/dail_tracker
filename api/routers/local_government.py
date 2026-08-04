@@ -10,18 +10,32 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.responses import (
+    CouncilDossierResponse,
+    CouncilNoacIndicatorsResponse,
+    CouncilsResponse,
+)
 
-router = APIRouter(tags=["local-government"])
+router = APIRouter(tags=["local-government"], responses=ERROR_RESPONSES)
 
 
-@router.get("/local-government/councils", summary="31-council index + map layers + national headline")
+@router.get(
+    "/local-government/councils",
+    response_model=CouncilsResponse,
+    summary="31-council index + map layers + national headline",
+)
 def list_councils(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dict:
     return dossiers.list_councils(cur)
 
 
-@router.get("/local-government/councils/{local_authority}", summary="One council's accountability dossier")
+@router.get(
+    "/local-government/councils/{local_authority}",
+    response_model=CouncilDossierResponse,
+    summary="One council's accountability dossier",
+)
 def council_dossier(
     local_authority: str,
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
@@ -34,6 +48,7 @@ def council_dossier(
 
 @router.get(
     "/local-government/councils/{local_authority}/noac-indicators",
+    response_model=CouncilNoacIndicatorsResponse,
     summary="Full NOAC 2024 indicator set for one council (~125 series)",
 )
 def council_noac_indicators(

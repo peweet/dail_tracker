@@ -11,13 +11,18 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.envelope import ListEnvelope
+from dail_tracker_core.models.responses import AttendanceYearsResponse
 
-router = APIRouter(tags=["attendance"])
+router = APIRouter(tags=["attendance"], responses=ERROR_RESPONSES)
 
 
-@router.get("/attendance/years", summary="Reporting years available for a house")
+@router.get(
+    "/attendance/years", response_model=AttendanceYearsResponse, summary="Reporting years available for a house"
+)
 def attendance_years(
     house: str = Query("Dáil", description="Dáil or Seanad"),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
@@ -25,7 +30,12 @@ def attendance_years(
     return dossiers.attendance_years(cur, house=house)
 
 
-@router.get("/attendance/turnout", summary="Division turnout for a year (worst-first)")
+@router.get(
+    "/attendance/turnout",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Division turnout for a year (worst-first)",
+)
 def attendance_turnout(
     year: int | None = Query(None, description="defaults to the latest reporting year"),
     house: str = Query("Dáil", description="Dáil or Seanad"),
@@ -35,7 +45,12 @@ def attendance_turnout(
     return dossiers.attendance_turnout(cur, year=year, house=house, skip=page.skip, limit=page.limit)
 
 
-@router.get("/attendance/absences", summary="Longest physical-absence runs for a year")
+@router.get(
+    "/attendance/absences",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Longest physical-absence runs for a year",
+)
 def attendance_absences(
     year: int | None = Query(None, description="defaults to the latest reporting year"),
     house: str = Query("Dáil", description="Dáil or Seanad"),
@@ -45,7 +60,12 @@ def attendance_absences(
     return dossiers.attendance_absences(cur, year=year, house=house, skip=page.skip, limit=page.limit)
 
 
-@router.get("/attendance/taa-compliance", summary="Members below the statutory 120-day TAA threshold")
+@router.get(
+    "/attendance/taa-compliance",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Members below the statutory 120-day TAA threshold",
+)
 def attendance_taa(
     year: int | None = Query(None, description="defaults to the latest reporting year"),
     house: str = Query("Dáil", description="Dáil or Seanad"),
@@ -55,7 +75,12 @@ def attendance_taa(
     return dossiers.attendance_taa_compliance(cur, year=year, house=house, skip=page.skip, limit=page.limit)
 
 
-@router.get("/attendance/missing-members", summary="Roster members with no attendance record")
+@router.get(
+    "/attendance/missing-members",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Roster members with no attendance record",
+)
 def attendance_missing(
     page: Page = Depends(pagination(default=100)),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),

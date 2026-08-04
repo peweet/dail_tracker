@@ -50,9 +50,8 @@ import sys
 import unicodedata
 from pathlib import Path
 
-import requests
-
 from paths import PROJECT_ROOT as _ROOT
+from services.http_engine import fetch_bytes, polite_headers
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -199,9 +198,15 @@ def _county_to_la(kind: str, name: str) -> str | None:
 
 def fetch_pdf(dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    r = requests.get(_PDF_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=120)
-    r.raise_for_status()
-    dest.write_bytes(r.content)
+    content = fetch_bytes(
+        _PDF_URL,
+        headers=polite_headers(browser=True),
+        timeout=120,
+        validate=lambda body: body.startswith(b"%PDF"),
+    )
+    if content is None:
+        raise RuntimeError(f"failed to download a valid constituency report PDF: {_PDF_URL}")
+    dest.write_bytes(content)
     return dest
 
 

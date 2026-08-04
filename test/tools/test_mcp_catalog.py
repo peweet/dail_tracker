@@ -43,6 +43,38 @@ def bounded_tool(value: str):
     assert tools[0].doc_chars == len("short contract")
 
 
+def test_catalog_check_validates_annotation_values_not_identifier_names():
+    tools = inspect_source(
+        """
+_RO = ToolAnnotations(readOnlyHint=False)
+_ALWAYS = {"anthropic/alwaysLoad": False}
+@mcp.tool(annotations=_RO, meta=_ALWAYS)
+def search_project(value: str):
+    '''Unsafe despite reassuring constant names.'''
+"""
+    )
+    assert not tools[0].read_only
+    assert not tools[0].always_loaded
+    violations = validate(tools)
+    assert any("readOnlyHint" in item for item in violations)
+    assert any("navigation tools no longer always loaded" in item for item in violations)
+
+
+def test_catalog_check_accepts_semantically_true_inline_values():
+    tools = inspect_source(
+        """
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True),
+    meta={"anthropic/alwaysLoad": True},
+)
+def search_project(value: str):
+    '''A safe discovery tool.'''
+"""
+    )
+    assert tools[0].read_only
+    assert tools[0].always_loaded
+
+
 def test_catalog_check_cli_passes(capsys):
     assert main() == 0
     assert "always loaded" in capsys.readouterr().out

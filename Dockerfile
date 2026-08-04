@@ -41,6 +41,9 @@ COPY sql_views ./sql_views
 COPY data ./data
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV DAIL_DATA_DIR="/app/data" \
+    DAIL_EXPORT_CACHE_DIR="/app/data/_export_cache" \
+    DAIL_LOG_DIR="/app/logs"
 
 # Import smoke catches missing COPY entries before an image can be published.
 # The API materialises exports only under data/_export_cache at runtime.

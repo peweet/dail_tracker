@@ -1,4 +1,4 @@
-"""Canonical project-root resolution — the single source of truth for "where is root".
+"""Canonical code-resource and configurable runtime-path resolution.
 
 Deliberately side-effect-free: importing this module does NOT touch the filesystem
 (no dir creation, no logging, no IO). That is the whole point — modules that only
@@ -22,11 +22,16 @@ import os
 import tempfile
 from pathlib import Path
 
-# This file lives at the repo root today, so its parent IS the project root.
-PROJECT_ROOT: Path = Path(__file__).resolve().parent
+# This file lives at the repository root in a checkout and at the installed
+# distribution root in a wheel. It owns CODE/RESOURCE lookup only; mutable or
+# deployer-provided data belongs under a configured path (see ``config.DATA_DIR``).
+RESOURCE_ROOT: Path = Path(__file__).resolve().parent
+# Backwards-compatible name for code and packaged resources. Do not use this as
+# a writable data directory in new code.
+PROJECT_ROOT: Path = RESOURCE_ROOT
 
 
-def absolute_path(value: str | Path, *, base: Path = PROJECT_ROOT) -> Path:
+def absolute_path(value: str | Path, *, base: Path = RESOURCE_ROOT) -> Path:
     """Resolve ``value`` without depending on the process working directory.
 
     Relative configuration values are anchored to ``base``; absolute values are
@@ -38,7 +43,7 @@ def absolute_path(value: str | Path, *, base: Path = PROJECT_ROOT) -> Path:
     return candidate.resolve()
 
 
-def configured_path(name: str, default: str | Path, *, base: Path = PROJECT_ROOT) -> Path:
+def configured_path(name: str, default: str | Path, *, base: Path = RESOURCE_ROOT) -> Path:
     """Resolve an environment-configurable path to an absolute path."""
     return absolute_path(os.environ.get(name, default), base=base)
 

@@ -10,18 +10,30 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.envelope import ListEnvelope
+from dail_tracker_core.models.responses import ConstituencyDossierResponse
 
-router = APIRouter(tags=["constituencies"])
+router = APIRouter(tags=["constituencies"], responses=ERROR_RESPONSES)
 
 
-@router.get("/constituencies", summary="All 43 constituencies (demographics + current TD count)")
+@router.get(
+    "/constituencies",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="All 43 constituencies (demographics + current TD count)",
+)
 def list_constituencies(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dict:
     return dossiers.list_constituencies(cur)
 
 
-@router.get("/constituencies/{name}/dossier", summary="One constituency's composed record")
+@router.get(
+    "/constituencies/{name}/dossier",
+    response_model=ConstituencyDossierResponse,
+    summary="One constituency's composed record",
+)
 def constituency_dossier(
     name: str,
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),

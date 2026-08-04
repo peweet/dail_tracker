@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import sys
+
+import pytest
 
 from tools.migration import extract_class_contract, extract_url_contract, scan_framework_coupling
 
@@ -137,6 +140,43 @@ def test_url_contract_main_reports_nested_parse_errors(tmp_path, capsys, monkeyp
     assert "failed closed" in captured.err
 
 
+def test_url_contract_route_records_ignore_lines_but_keep_public_fields():
+    first = """## Routes (1)
+| Route (`url_path`) | Title | Page module | app.py line |
+|---|---|---|---:|
+| `?page=members` | Members | `utility.pages_code.members` | 10 |
+
+## Query parameters (0 distinct)
+"""
+    moved = first.replace("| 10 |", "| 999 |")
+    renamed = first.replace("| Members |", "| Representatives |")
+
+    assert extract_url_contract.extract_routes_from_doc(first) == extract_url_contract.extract_routes_from_doc(moved)
+    assert extract_url_contract.extract_routes_from_doc(first) != extract_url_contract.extract_routes_from_doc(renamed)
+
+
+def test_url_contract_check_fails_when_route_changes_but_parameters_do_not(tmp_path, capsys, monkeypatch):
+    committed = """## Routes (1)
+| Route (`url_path`) | Title | Page module | app.py line |
+|---|---|---|---:|
+| `?page=members` | Members | `utility.pages_code.members` | 10 |
+
+## Query parameters (1 distinct)
+| Parameter | Modules | Shared? |
+|---|---|---|
+| `member` | `utility/pages_code/members.py` | no |
+"""
+    current = committed.replace("`?page=members`", "`?page=representatives`")
+    contract = tmp_path / "URL_CONTRACT.md"
+    contract.write_text(committed, encoding="utf-8")
+    monkeypatch.setattr(extract_url_contract, "DEFAULT_OUT", contract)
+    monkeypatch.setattr(extract_url_contract, "build_report", lambda: current)
+    monkeypatch.setattr(sys, "argv", ["extract_url_contract.py", "--check"])
+
+    assert extract_url_contract.main() == 1
+    assert "route records" in capsys.readouterr().err
+
+
 def test_framework_scan_ignores_docstring_markup(tmp_path):
     module = tmp_path / "page.py"
     module.write_text(
@@ -181,6 +221,136 @@ def test_framework_markup_ratchet_scans_nested_modules(tmp_path, monkeypatch):
     counts = scan_framework_coupling.markup_counts()
 
     assert counts == {"utility/pages_code/reports/detail.py": 1}
+
+
+def test_framework_markup_ratchet_excludes_plain_copy_but_finds_html_fragments(tmp_path):
+    module = tmp_path / "page.py"
+    module.write_text(
+        """import streamlit as st
+
+name = "Ada"
+
+def component():
+    return "<article>named</article>"
+
+st.caption("An ordinary explanatory sentence.")
+st.write(f"An ordinary sentence about {name}.")
+st.markdown("**Formatted editorial copy.**")
+st.caption("<strong>Raw HTML caption</strong>")
+st.markdown(f"<div>A rendered fragment for {name}</div>")
+st.html("Text-only content in the dedicated HTML sink")
+st.html("<section>" + component())
+st.html(body="<p>Keyword-form fragment</p>")
+st.html(component())
+fragment = "<aside>Named fragment</aside>"
+st.html(fragment)
+""",
+        encoding="utf-8",
+    )
+
+    assert scan_framework_coupling.count_inline_markup(module) == 5
+
+
+def test_framework_markup_ratchet_supports_explicit_split_and_rename_lineage(tmp_path, monkeypatch, capsys):
+    baseline = tmp_path / "markup.json"
+    baseline.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "counts": {
+                    "utility/pages_code/legacy.py": 3,
+                    "utility/ui/old_name.py": 2,
+                    "utility/ui/stable.py": 1,
+                },
+                "lineage": [
+                    {
+                        "name": "legacy page split",
+                        "baseline_paths": ["utility/pages_code/legacy.py"],
+                        "current_counts": {
+                            "utility/pages_code/legacy/header.py": 1,
+                            "utility/pages_code/legacy/detail.py": 2,
+                        },
+                    },
+                    {
+                        "name": "component rename",
+                        "baseline_paths": ["utility/ui/old_name.py"],
+                        "current_counts": {"utility/ui/new_name.py": 2},
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(scan_framework_coupling, "MARKUP_BASELINE", baseline)
+    monkeypatch.setattr(
+        scan_framework_coupling,
+        "markup_counts",
+        lambda: {
+            "utility/pages_code/legacy/header.py": 1,
+            "utility/pages_code/legacy/detail.py": 2,
+            "utility/ui/new_name.py": 2,
+            "utility/ui/stable.py": 1,
+        },
+    )
+
+    assert scan_framework_coupling.run_markup_ratchet(update=False) == 0
+    assert "OK — no new anonymous markup" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        scan_framework_coupling,
+        "markup_counts",
+        lambda: {
+            "utility/pages_code/legacy/header.py": 2,
+            "utility/pages_code/legacy/detail.py": 1,
+            "utility/ui/new_name.py": 2,
+            "utility/ui/stable.py": 1,
+        },
+    )
+    assert scan_framework_coupling.run_markup_ratchet(update=False) == 1
+    captured = capsys.readouterr()
+    assert "utility/pages_code/legacy/header.py [legacy page split]: 1 -> 2 (+1)" in captured.err
+    assert "legacy/detail.py" not in captured.err
+
+    monkeypatch.setattr(
+        scan_framework_coupling,
+        "markup_counts",
+        lambda: {
+            "utility/pages_code/legacy/header.py": 1,
+            "utility/pages_code/legacy/detail.py": 2,
+            "utility/pages_code/legacy/new_child.py": 1,
+            "utility/ui/new_name.py": 2,
+            "utility/ui/stable.py": 1,
+        },
+    )
+    assert scan_framework_coupling.run_markup_ratchet(update=False) == 1
+    assert "utility/pages_code/legacy/new_child.py: 0 -> 1 (+1)" in capsys.readouterr().err
+
+
+def test_framework_markup_ratchet_rejects_lineage_that_increases_the_budget(tmp_path, monkeypatch):
+    baseline = tmp_path / "markup.json"
+    baseline.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "counts": {"utility/pages_code/legacy.py": 1},
+                "lineage": [
+                    {
+                        "name": "inflated split",
+                        "baseline_paths": ["utility/pages_code/legacy.py"],
+                        "current_counts": {
+                            "utility/pages_code/legacy/one.py": 1,
+                            "utility/pages_code/legacy/two.py": 1,
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(scan_framework_coupling, "MARKUP_BASELINE", baseline)
+
+    with pytest.raises(scan_framework_coupling.MarkupBaselineError, match="reallocates 1 source sites to 2"):
+        scan_framework_coupling._load_markup_baseline()
 
 
 def test_framework_main_reports_parse_errors(tmp_path, capsys, monkeypatch):

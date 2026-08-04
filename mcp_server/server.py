@@ -203,6 +203,13 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
+# json_peek is a navigation aid, not a bulk-data reader. Keep both ordinary JSON
+# parsing and streamed JSONL sampling inside explicit memory/read budgets.
+_JSON_PEEK_MAX_BYTES = 4 * 1024 * 1024
+_JSONL_PEEK_MAX_RECORDS = 100
+_JSONL_PEEK_MAX_LINE_BYTES = 256 * 1024
+_JSONL_PEEK_MAX_SAMPLE_BYTES = 2 * 1024 * 1024
+
 # isort: off
 # BLAS thread cap — must run before dail_tracker_core pulls in pandas/numpy, or the
 # reservation is already made and the setting is a no-op (services/runtime_env.py).
@@ -1616,9 +1623,9 @@ _PROJECT_INDEX: list[dict] | None = None
 _WORD = re.compile(r"[a-z0-9_]+")
 
 # Content FTS refresh throttle: an mtime walk is cheap but not free — at most one
-# refresh per _FTS_REFRESH_SECS per process. The memory dir slug follows Claude's
-# path-mangling convention (every [:\\/_] becomes '-'); if the dir doesn't exist
-# the index simply runs without memory files.
+# refresh per _FTS_REFRESH_SECS per process. The external-memory dir slug follows
+# Claude's path-mangling convention (every [:\\/_] becomes '-'); if the directory
+# doesn't exist the index simply runs without that legacy compatibility source.
 _FTS_LAST = 0.0
 _FTS_REFRESH_SECS = 120
 _FTS_MEMORY_ENABLED = False
@@ -1761,9 +1768,10 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     escalate by kind: describe_dataset(name) for a dataset, code_outline(path) for code,
     view_deps(name) for a sql_view (its AST-derived upstream/downstream edges). Wide
     question → this tool; specific view/module → the per-kind tool. Optional `kind`
-    filter: 'dataset' | 'doc' | 'sql_view' | 'code'. External assistant memory is
-    excluded by default and is searched only with the explicit `kind='memory'` filter;
-    its paths use a separate `memory://external/` namespace. Repository source scanning
+    filter: 'dataset' | 'doc' | 'sql_view' | 'code' | 'memory'. `memory` searches only
+    checked-in public cards under `memory/`. Workstation-local assistant memory is
+    excluded by default and requires explicit `kind='external_memory'`; those results
+    use a separate `memory://external/` namespace. Repository source scanning
     excludes ignored, dot, private, sandbox and generated trees. Use this as the first
     move on any "which dataset/view/doc/module covers …?" question, before Grep/Glob.
     v2: the reply may also carry `content_spans` — BM25-ranked AST/heading CHUNKS with
@@ -1773,7 +1781,7 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
         return {"error": "empty query"}
     q_join = "".join(q_tokens)
     want = {k.strip() for k in kind.lower().split(",") if k.strip()}
-    valid_kinds = {"dataset", "doc", "sql_view", "code", "memory"}
+    valid_kinds = {"dataset", "doc", "sql_view", "code", "memory", "external_memory"}
     if invalid := want - valid_kinds:
         return {
             "error": f"unknown kind(s): {', '.join(sorted(invalid))}",
@@ -1824,13 +1832,14 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
         "doc": "doc-section",
         "sql_view": "sql-view",
         "memory": "memory",
+        "external_memory": "external-memory",
     }
     content_kinds = (
         {"code-chunk", "doc-section", "sql-view"}
         if not want
         else {content_kind_map[item] for item in want if item in content_kind_map}
     )
-    include_external_memory = "memory" in want
+    include_external_memory = "external_memory" in want
     if content_kinds and _fts_ready(include_external_memory=include_external_memory):
         with contextlib.suppress(Exception):
             spans = fts_index.search(REPO, query, limit=6, kind=",".join(sorted(content_kinds)))
@@ -1847,7 +1856,10 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     if spans:
         out["content_spans"] = spans
         out["span_hint"] = (
-            "content_spans give path+line span — Read(path, offset=start, limit=span_len) instead of the whole file"
+            "Repository spans give path+line span — Read(path, offset=start, limit=span_len). "
+            "memory://external/ paths are deliberately non-repository namespaces; use only the bounded snippet."
+            if include_external_memory
+            else "content_spans give path+line span — Read(path, offset=start, limit=span_len) instead of the whole file"
         )
     if content_kinds and _FTS_REPORT.get("error_count"):
         out["index_error_count"] = _FTS_REPORT["error_count"]
@@ -1858,11 +1870,13 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
 @mcp.tool(annotations=_RO, meta=_ALWAYS)
 def code_outline(path: str, limit: int = 200, response_format: str = "detailed") -> dict:
     """Structural X-ray of repo Python WITHOUT reading it whole: module docstring, imports,
-    and every class/def with signature, line span, decorators and one-line docstring — a
-    multi-thousand-token file outlines in a few hundred tokens. Pass a repo-relative .py
-    file, or a package directory (e.g. 'dail_tracker_core/queries') for a per-module
-    summary + subpackage list. Locating ONE known symbol's span? Use
+    and recursively nested classes/defs. Classes include bases, metaclass, keywords,
+    type parameters and decorators; functions include signatures, decorators and
+    one-line docstrings. Pass a repo-relative .py file, or a package directory (e.g.
+    'dail_tracker_core/queries') for a per-module summary + subpackage list. Locating
+    ONE known symbol's span? Use
     response_format='concise' (name + span lines only, ~80% smaller on big files).
+    `limit` is clamped to 200 definitions, with nested symbols counting toward the cap.
     Workflow: search_project(query, kind='code') to find the
     module → code_outline(path) to find the def → Read(path, offset, limit) ONLY that
     span. Source is parsed with stdlib ast — never executed, bodies never returned."""
@@ -1916,12 +1930,13 @@ def py_refs(path: str, name: str, limit: int = 60) -> dict:
 
 @mcp.tool(annotations=_RO)
 def json_peek(path: str, expr: str = "", limit: int = 20) -> dict:
-    """Navigate a repo JSON/JSONL file WITHOUT reading it whole (fact_cards.json is
-    ~269KB — a whole-file Read is a context bomb and is hook-blocked). `expr` is a dot
-    path with [n] list indexing, e.g. 'layers[0].url' or 'judicial_legal_diary_cases.columns'.
-    Empty expr shows the top-level shape. Dicts return their keys + value types (values
-    only when scalar); lists return length + the first `limit` items, each truncated.
-    Output is hard-capped at ~2000 chars."""
+    """Navigate a repo JSON/JSONL file with bounded reads (a whole-file Read is a
+    context bomb and is hook-blocked). Ordinary JSON is limited to 4 MiB; JSONL streams
+    at most 100 records, 256 KiB per line, and 2 MiB per sample. `expr` is a dot path
+    with [n] list indexing, e.g. 'layers[0].url' or
+    'judicial_legal_diary_cases.columns'. Empty expr shows the top-level shape. Dicts
+    return keys + value types (values only when scalar); lists return length + the
+    first `limit` items, each truncated. Output is hard-capped at ~2000 chars."""
     import json as _json
 
     requested = Path(path)
@@ -1936,12 +1951,50 @@ def json_peek(path: str, expr: str = "", limit: int = 20) -> dict:
         return {"error": "path must be a repo-relative .json/.jsonl/.geojson file"}
     if not p.is_file():
         return {"error": f"not found: {path}"}
+    sample_limit = max(1, min(limit, _JSONL_PEEK_MAX_RECORDS))
     try:
         if p.suffix.lower() == ".jsonl":
-            with p.open(encoding="utf-8") as fh:
-                obj = [_json.loads(ln) for _, ln in zip(range(max(1, limit)), fh, strict=False)]
+            obj = []
+            sampled_bytes = 0
+            with p.open("rb") as fh:
+                for line_number in range(1, sample_limit + 1):
+                    remaining = _JSONL_PEEK_MAX_SAMPLE_BYTES - sampled_bytes
+                    if remaining <= 0:
+                        return {
+                            "error": "JSONL sample exceeds the bounded read budget; lower limit",
+                            "max_sample_bytes": _JSONL_PEEK_MAX_SAMPLE_BYTES,
+                        }
+                    raw_line = fh.readline(min(_JSONL_PEEK_MAX_LINE_BYTES, remaining) + 1)
+                    if not raw_line:
+                        break
+                    if len(raw_line) > _JSONL_PEEK_MAX_LINE_BYTES:
+                        return {
+                            "error": f"JSONL line {line_number} exceeds the bounded line size",
+                            "max_line_bytes": _JSONL_PEEK_MAX_LINE_BYTES,
+                        }
+                    sampled_bytes += len(raw_line)
+                    if sampled_bytes > _JSONL_PEEK_MAX_SAMPLE_BYTES:
+                        return {
+                            "error": "JSONL sample exceeds the bounded read budget; lower limit",
+                            "max_sample_bytes": _JSONL_PEEK_MAX_SAMPLE_BYTES,
+                        }
+                    obj.append(_json.loads(raw_line.decode("utf-8")))
         else:
-            obj = _json.loads(p.read_text(encoding="utf-8"))
+            size = p.stat().st_size
+            if size > _JSON_PEEK_MAX_BYTES:
+                return {
+                    "error": "JSON file exceeds json_peek's bounded read size",
+                    "size_bytes": size,
+                    "max_bytes": _JSON_PEEK_MAX_BYTES,
+                }
+            with p.open("rb") as fh:
+                raw = fh.read(_JSON_PEEK_MAX_BYTES + 1)
+            if len(raw) > _JSON_PEEK_MAX_BYTES:
+                return {
+                    "error": "JSON file grew beyond json_peek's bounded read size",
+                    "max_bytes": _JSON_PEEK_MAX_BYTES,
+                }
+            obj = _json.loads(raw.decode("utf-8"))
     except Exception as e:  # noqa: BLE001 — surface the parse error, never crash the server
         return {"error": f"parse failed: {e}"}
 
@@ -1968,11 +2021,11 @@ def json_peek(path: str, expr: str = "", limit: int = 20) -> dict:
         if isinstance(o, dict):
             if depth >= 1:
                 return f"dict[{len(o)}]"
-            return {k: shape(v, depth + 1) for k, v in list(o.items())[: max(1, limit)]}
+            return {k: shape(v, depth + 1) for k, v in list(o.items())[:sample_limit]}
         if isinstance(o, list):
             if depth >= 1:
                 return f"list[{len(o)}]"
-            return {"len": len(o), "items": [shape(x, depth + 1) for x in o[: max(1, limit)]]}
+            return {"len": len(o), "items": [shape(x, depth + 1) for x in o[:sample_limit]]}
         s = str(o)
         return s if len(s) <= 120 else s[:120] + "…"
 
@@ -2257,9 +2310,10 @@ _SITING_DESCRIPTION = (
     "Read-only planning-constraint triage for one point in Ireland. lat/lon locate "
     "the site; dev_type is one_off_house, multi_unit, or commercial. num_units, "
     "floor_area_m2, site_area_ha, floor_area_basis, and storeys drive scale checks. "
-    "use_class may be wind_farm, solar_farm, intensive_agri, quarry_extractive, "
-    "warehouse_logistics, pharma_chemical, ad_biogas_waste, general_manufacturing, "
-    "or data_centre; blank or unknown values trigger no use-specific rule. For "
+    "use_class may be 'wind_farm', 'solar_farm', 'intensive_agri', "
+    "'quarry_extractive', 'warehouse_logistics', 'pharma_chemical', "
+    "'ad_biogas_waste', 'general_manufacturing', or 'data_centre'; blank or unknown "
+    "values trigger no use-specific rule. For "
     "pharma_chemical, substance_inventory is the maximum tonnes present at one time, "
     "not annual throughput. Mark estimates with substance_inventory_source; unmatched "
     "substances are reported, never cleared. programme_items and process_capacity add "
