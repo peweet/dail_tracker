@@ -54,6 +54,7 @@ with contextlib.suppress(Exception):
 
 from config import BRONZE_DIR, DATA_DIR  # noqa: E402
 from extractors.legal_diary_extract import diary_date_from_lines  # noqa: E402
+from services.http_engine import new_session  # noqa: E402
 from services.logging_setup import setup_standalone_logging  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ TIMEOUT = 60
 
 
 def _session() -> requests.Session:
-    s = requests.Session()
+    s = new_session()
     s.headers.update({"User-Agent": USER_AGENT})
     return s
 

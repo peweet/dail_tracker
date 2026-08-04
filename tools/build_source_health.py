@@ -98,20 +98,22 @@ def check_link(rec: dict, timeout: float = 20.0) -> dict:
     url = rec.get("listing_url") or (rec.get("direct_files") or [None])[0]
     if not url:
         return _health(rec, SKIPPED, "no listing_url or direct_files to check")
-    import requests  # lazy: offline runs must not require requests/idna
+    from services.http_engine import new_session  # lazy: the offline path stays network-free
 
+    client = new_session(
+        headers={"User-Agent": "dail-tracker-bot/0.1 (source-health)"},
+        retry_statuses=False,
+    )
     try:
-        r = requests.head(
-            url, allow_redirects=True, timeout=timeout, headers={"User-Agent": "dail-tracker-bot/0.1 (source-health)"}
-        )
+        r = client.head(url, allow_redirects=True, timeout=timeout)
         # some servers 405 on HEAD — retry a lightweight ranged GET before judging
         if r.status_code in (403, 405):
-            r = requests.get(
+            r = client.get(
                 url,
                 allow_redirects=True,
                 timeout=timeout,
                 stream=True,
-                headers={"User-Agent": "dail-tracker-bot/0.1 (source-health)", "Range": "bytes=0-0"},
+                headers={"Range": "bytes=0-0"},
             )
         meta = dict(
             http_status=r.status_code,

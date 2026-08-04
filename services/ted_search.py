@@ -25,7 +25,8 @@ import time
 from pathlib import Path
 
 import requests
-from requests.adapters import HTTPAdapter
+
+from services.http_engine import new_session
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +46,7 @@ RETRY_BACKOFF_BASE = 0.8  # seconds; sleep before retry N = BASE * 2 ** (N - 1)
 RETRY_STATUS_FORCELIST = frozenset({429, 500, 502, 503, 504})
 _RETRYABLE_EXC = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
 
-_session = requests.Session()
-_adapter = HTTPAdapter(pool_connections=4, pool_maxsize=4)
-_session.mount("https://", _adapter)
+_session = new_session(retry_statuses=False, pool_size=4)
 
 
 def _post_with_retry(body: dict, timeout: tuple[int, int]) -> dict:

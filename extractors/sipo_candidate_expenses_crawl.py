@@ -40,9 +40,8 @@ import re
 import sys
 import time
 
-import requests
-
 from config import BRONZE_DIR, DATA_DIR
+from services.http_engine import fetch_bytes, fetch_text
 from services.logging_setup import setup_standalone_logging
 
 log = logging.getLogger("sipo_candidate_expenses_crawl")
@@ -79,20 +78,10 @@ RE_TITLE = re.compile(r"<title>\s*(?:SIPO\s*-\s*)?(.*?)\s*</title>", re.IGNORECA
 SKIP_SLUGS = {ROOT_SLUG}
 
 
-def _get(session: requests.Session, url: str, attempts: int = 4) -> str:
-    """GET with simple exponential backoff; returns response text (or raises)."""
-    last: Exception | None = None
-    for i in range(attempts):
-        try:
-            r = session.get(url, headers=HEADERS, timeout=TIMEOUT)
-            r.raise_for_status()
-            return r.text
-        except Exception as exc:  # noqa: BLE001 - network is the whole job here
-            last = exc
-            wait = SLEEP_S * (2**i)
-            log.warning("GET %s failed (%s); retry in %.1fs", url, exc, wait)
-            time.sleep(wait)
-    raise RuntimeError(f"GET failed after {attempts} attempts: {url}") from last
+def _get(url: str, attempts: int = 4) -> str:
+    """GET one page through the shared retrying text transport."""
+    text, _ = fetch_text(url, headers=HEADERS, timeout=TIMEOUT, attempts=attempts)
+    return text
 
 
 def _collection_links(html: str) -> list[str]:
@@ -147,9 +136,9 @@ def _candidate_documents(page_html: str) -> list[dict]:
     return docs
 
 
-def _discover_constituency(session: requests.Session, c_slug: str) -> list[dict]:
+def _discover_constituency(c_slug: str) -> list[dict]:
     """Discover one constituency's candidate documents (rows). Network-bound."""
-    c_html = _get(session, _slug_url(c_slug))
+    c_html = _get(_slug_url(c_slug))
     time.sleep(SLEEP_S)
     c_name = _page_title(c_html)
     candidates = [s for s in _collection_links(c_html) if s != c_slug]
@@ -157,7 +146,7 @@ def _discover_constituency(session: requests.Session, c_slug: str) -> list[dict]
 
     rows: list[dict] = []
     for cand_slug in candidates:
-        cand_html = _get(session, _slug_url(cand_slug))
+        cand_html = _get(_slug_url(cand_slug))
         time.sleep(SLEEP_S)
         cand_name = _page_title(cand_html)
         docs = _candidate_documents(cand_html)
@@ -186,12 +175,12 @@ def _discover_constituency(session: requests.Session, c_slug: str) -> list[dict]
     return rows
 
 
-def discover(session: requests.Session, limit_constituencies: int | None) -> list[dict]:
+def discover(limit_constituencies: int | None) -> list[dict]:
     """Two-level crawl: root → constituencies → candidates, checkpointed per
     constituency to ``_ckpt/<c_slug>.json`` so a re-run resumes instantly (only
     not-yet-discovered constituencies hit the network)."""
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
-    root_html = _get(session, _slug_url(ROOT_SLUG))
+    root_html = _get(_slug_url(ROOT_SLUG))
     time.sleep(SLEEP_S)
     constituencies = _collection_links(root_html)
     log.info("root: %d sub-collections (constituencies)", len(constituencies))
@@ -206,13 +195,13 @@ def discover(session: requests.Session, limit_constituencies: int | None) -> lis
             log.info("[%d/%d] %s: %d rows (cached)", ci, len(constituencies), c_slug, len(c_rows))
         else:
             log.info("[%d/%d] discovering %s ...", ci, len(constituencies), c_slug)
-            c_rows = _discover_constituency(session, c_slug)
+            c_rows = _discover_constituency(c_slug)
             ckpt.write_text(json.dumps(c_rows, ensure_ascii=False, indent=1), encoding="utf-8")
         rows.extend(c_rows)
     return rows
 
 
-def download(session: requests.Session, rows: list[dict], doc_types: set[str]) -> None:
+def download(rows: list[dict], doc_types: set[str]) -> None:
     """Download FOUND pdfs whose ``doc_type`` is in ``doc_types``; fills metadata.
 
     Files are named ``<candidate_slug>__<media_id>.pdf`` so a candidate with two
@@ -235,9 +224,14 @@ def download(session: requests.Session, rows: list[dict], doc_types: set[str]) -
             r["status"] = "CACHED"
             continue
         try:
-            resp = session.get(r["pdf_url"], headers=HEADERS, timeout=TIMEOUT)
-            resp.raise_for_status()
-            data = resp.content
+            data = fetch_bytes(
+                r["pdf_url"],
+                headers=HEADERS,
+                timeout=TIMEOUT,
+                validate=lambda body: body.startswith(b"%PDF"),
+            )
+            if data is None:
+                raise RuntimeError("shared transport returned no valid PDF")
             dest.write_bytes(data)
             r["bytes"] = len(data)
             r["sha256"] = hashlib.sha256(data).hexdigest()
@@ -331,9 +325,7 @@ def main() -> None:
         doc_types = {t.strip() for t in args.doc_types.split(",") if t.strip()}
 
     setup_standalone_logging("sipo_candidate_expenses_crawl")
-    session = requests.Session()
-
-    rows = discover(session, args.limit_constituencies)
+    rows = discover(args.limit_constituencies)
     found = sum(r["status"] == "FOUND" for r in rows)
     no_pdf = sum(r["status"] == "NO_PDF" for r in rows)
     by_type: dict[str, int] = {}
@@ -343,7 +335,7 @@ def main() -> None:
     log.info("discovered %d rows: %d docs (%s), %d candidates with no docs", len(rows), found, by_type, no_pdf)
 
     if not args.index_only:
-        download(session, rows, doc_types)
+        download(rows, doc_types)
 
     write_manifest(rows)
     write_sources_meta(rows)

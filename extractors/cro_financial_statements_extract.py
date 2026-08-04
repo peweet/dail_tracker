@@ -45,6 +45,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import config  # noqa: E402
+from services.http_engine import new_session  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
 CKAN_BASE = "https://opendata.cro.ie"
@@ -90,7 +91,7 @@ class SourceDrift(Exception):
 
 
 def _session() -> requests.Session:
-    s = requests.Session()
+    s = new_session()
     s.headers.update({"User-Agent": USER_AGENT})
     return s
 

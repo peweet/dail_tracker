@@ -26,6 +26,8 @@ import time
 
 import requests
 
+from services.http_engine import new_session
+
 logger = logging.getLogger(__name__)
 
 _GN_HOST = "news.google.com"
@@ -47,7 +49,7 @@ def is_gn_redirect(url: str | None) -> bool:
 
 def make_session() -> requests.Session:
     """A session pre-seeded with the consent cookie + a browser UA."""
-    s = requests.Session()
+    s = new_session(headers={"User-Agent": _UA})
     s.headers.update({"User-Agent": _UA})
     s.cookies.set("SOCS", _CONSENT_COOKIE, domain=".google.com")
     return s

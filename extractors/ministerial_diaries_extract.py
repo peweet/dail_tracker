@@ -52,6 +52,7 @@ from bs4 import BeautifulSoup
 
 from extractors._diary_minister import minister_from_filename
 from paths import PROJECT_ROOT, runtime_path
+from services.http_engine import new_session
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 from shared.pdf_classification import DIARY_TEXT_CHAR_THRESHOLD, decide_text_layer
@@ -66,6 +67,7 @@ def _has_text_layer(text: str) -> bool:
         len(text.strip()),
         threshold=DIARY_TEXT_CHAR_THRESHOLD,
     ).has_text_layer
+
 
 # gov.ie / assets.gov.ie front a WAF that returns 405 to requests that don't look
 # like a browser continuing a real page visit. Empirically (2026-06-21) the trip-wire
@@ -95,7 +97,7 @@ HEADERS = {
 # One persistent Session shared by the listing crawl and the PDF downloads, so the
 # WAF/edge clearance cookie set on a dept's HTML listing page is carried into that
 # dept's PDF requests (the asset host expects it).
-_SESSION = requests.Session()
+_SESSION = new_session(headers=HEADERS, retry_statuses=False)
 _SESSION.headers.update(HEADERS)
 _WARMED: set[str] = set()  # listing URLs we've already GET-warmed this run
 

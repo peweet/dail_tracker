@@ -20,7 +20,14 @@ def test_wheel_declares_runtime_packages_resources_and_chains() -> None:
     wheel = project["tool"]["hatch"]["build"]["targets"]["wheel"]
     entries = wheel["only-include"]
 
-    required = ["paths.py", "api", "mcp_server", "services/schemas", "sql_views"]
+    required = [
+        "paths.py",
+        "api",
+        "mcp_server",
+        "services/schemas",
+        "sql_views",
+        "tools/build_delivery_smoke_fixture.py",
+    ]
     required.extend(script for _, script in CHAINS)
     missing = [path for path in required if not _wheel_includes(path, entries)]
 
@@ -51,6 +58,7 @@ def test_ci_installs_api_and_mcp_and_smokes_delivery() -> None:
     assert "--extra pipeline --extra api --extra mcp --group dev" in ci
     assert 'dail-pipeline" --list' in ci
     assert 'export DAIL_DATA_DIR="$RUNNER_TEMP/dail-data"' in ci
+    assert "tools/build_delivery_smoke_fixture.py" in ci
     assert 'uvicorn" api.main:app' in ci
     assert "127.0.0.1:8091/v1/health" in ci
     assert "docker build --tag dailtracker-api:ci ." in ci

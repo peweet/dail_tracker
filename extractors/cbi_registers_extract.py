@@ -42,12 +42,12 @@ from pathlib import Path
 
 import fitz
 import polars as pl
-import requests
 from bs4 import BeautifulSoup
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 
+from services.http_engine import new_session  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_str  # noqa: E402
 
@@ -384,7 +384,7 @@ def _is_strong_firm_match_candidate(raw: str, norm: str) -> bool:
 
 
 def list_postback_targets() -> list[dict]:
-    s = requests.Session()
+    s = new_session(headers=H)
     r = s.get(URL, headers=H, timeout=30)
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "html.parser")
@@ -401,7 +401,7 @@ def list_postback_targets() -> list[dict]:
 def download_all(force: bool = False) -> list[dict]:
     items = list_postback_targets()
     _RAW.mkdir(parents=True, exist_ok=True)
-    s = requests.Session()
+    s = new_session(headers=H)
     results = []
     for i, it in enumerate(items):
         fname = f"{i:02d}_{_slug(it['title'])}.pdf"
