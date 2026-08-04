@@ -8,7 +8,7 @@ This closes that loop.
 The finding it was built to track (measured 2026-07-20): domain query tools
 (who_was_minister, get_supplier, ...) ARE adopted; the *navigation* tools the
 CLAUDE.md first-move routing table is built on (describe_dataset / search_project /
-outline / view_deps) are called ~never. Adoption is a navigation-reflex gap, not an
+code_outline / view_deps) are called ~never. Adoption is a navigation-reflex gap, not an
 "MCP is unused" gap.
 
 Reads transcripts off disk; prints only aggregates so nothing floods a context window.
@@ -32,7 +32,17 @@ MCP_PREFIX = "mcp__dail-tracker__"
 # The cheap-retrieval / navigation tools the CLAUDE.md "First move — route the
 # question" table points at. These are the reflex we want to see adopted; the
 # domain query tools are a separate (already-healthy) population.
-STEER = {"describe_dataset", "list_datasets", "search_project", "outline", "view_deps"}
+STEER = {
+    "describe_dataset",
+    "list_datasets",
+    "search_project",
+    "code_outline",
+    "py_deps",
+    "py_refs",
+    "json_peek",
+    "view_deps",
+    "column_deps",
+}
 # The raw-exploration alternatives a navigation tool would have displaced.
 RAW = {"Read", "Grep", "Glob"}
 

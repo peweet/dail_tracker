@@ -9,6 +9,11 @@ and the --list display's blurb map must stay in sync with the chain set.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
+import pipeline
 from paths import PROJECT_ROOT
 from pipeline import _CHAIN_BLURBS, CHAINS
 
@@ -16,6 +21,25 @@ from pipeline import _CHAIN_BLURBS, CHAINS
 def test_every_chain_script_exists():
     missing = [(name, script) for name, script in CHAINS if not (PROJECT_ROOT / script).is_file()]
     assert not missing, f"CHAINS entries point at non-existent scripts: {missing}"
+
+
+def test_every_chain_resolves_to_an_absolute_contained_path():
+    root = PROJECT_ROOT.resolve()
+    for _, script in CHAINS:
+        resolved = pipeline._resolve_chain_script(script)
+        assert resolved.is_absolute()
+        assert resolved.is_relative_to(root)
+
+
+def test_chain_resolution_rejects_project_root_escape(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "outside.py"
+    outside.write_text("pass\n", encoding="utf-8")
+    monkeypatch.setattr(pipeline, "PROJECT_ROOT", project)
+
+    with pytest.raises(ValueError, match="outside PROJECT_ROOT"):
+        pipeline._resolve_chain_script("../outside.py")
 
 
 def test_chain_names_are_unique():

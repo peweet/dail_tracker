@@ -11,8 +11,15 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from extractors._diary_minister import resolve_minister
-from extractors.ministerial_diaries_extract import parse_entries
+from extractors.ministerial_diaries_extract import _has_text_layer, parse_entries
+
+
+@pytest.mark.parametrize(("count", "expected"), [(100, False), (101, True)])
+def test_diary_text_layer_threshold_remains_strict(count: int, expected: bool) -> None:
+    assert _has_text_layer("x" * count) is expected
 
 
 def test_long_date_layout_2022_24():

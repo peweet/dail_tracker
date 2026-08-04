@@ -95,3 +95,18 @@ def test_list_datasets_money_only(server):
     r = _call(server.list_datasets, money_only=True)
     assert r["count"] >= 8
     assert all(d.get("never_sum_with") for d in r["datasets"])
+
+
+def test_unfiltered_dataset_discovery_is_bounded(server):
+    r = _call(server.list_datasets)
+    assert r["count"] > r["returned"]
+    assert r["returned"] <= 50
+    assert r["truncated"] is True
+    assert "describe_dataset" in r["hint"]
+
+
+def test_bulk_fact_card_resource_returns_an_index_not_the_full_file(server):
+    r = _call(server.fact_cards_resource)
+    assert r["returned"] <= 50
+    assert r["detail_resource"] == "data://fact-card/{dataset}"
+    assert len(json.dumps(r)) < 30_000

@@ -41,7 +41,7 @@ family = "JetBrains Mono"
 url = "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
 
 [client]
-showErrorDetails = true
+showErrorDetails = false
 
 [server]
 headless = true

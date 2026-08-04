@@ -606,6 +606,7 @@ all = [
     { name = "regex" },
     { name = "requests" },
     { name = "scikit-learn" },
+    { name = "shapely" },
     { name = "sqlglot" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "winocr", marker = "sys_platform == 'win32'" },
@@ -636,6 +637,7 @@ pipeline = [
     { name = "regex" },
     { name = "requests" },
     { name = "scikit-learn" },
+    { name = "shapely" },
     { name = "xlrd" },
 ]
 scrape = [
@@ -713,6 +715,7 @@ requires-dist = [
     { name = "regex", marker = "extra == 'pipeline'", specifier = ">=2023.0" },
     { name = "requests", marker = "extra == 'pipeline'", specifier = ">=2.31" },
     { name = "scikit-learn", marker = "extra == 'pipeline'", specifier = ">=1.9" },
+    { name = "shapely", marker = "extra == 'pipeline'", specifier = ">=2.0" },
     { name = "shapely", marker = "extra == 'siting'", specifier = ">=2.0" },
     { name = "sqlglot", marker = "extra == 'mcp'", specifier = ">=25" },
     { name = "streamlit", specifier = ">=1.50,<2" },

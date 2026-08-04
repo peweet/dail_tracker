@@ -1,9 +1,9 @@
 """
 Configuration constants: paths, API endpoints, date ranges.
 
-Pure config — no logging setup, no HTTP, no side effects beyond `init_dirs()`
-which runs at import to keep existing scripts working. Use `services.logging_setup`
-for logger configuration.
+Importing this module is side-effect free: writers and application entry points
+must call :func:`init_dirs` explicitly before creating project artefacts. Use
+``services.logging_setup`` for logger configuration.
 """
 
 from paths import PROJECT_ROOT
@@ -165,10 +165,6 @@ def init_dirs() -> None:
     """Create all project directories if they don't exist."""
     for d in DIRS:
         d.mkdir(parents=True, exist_ok=True)
-
-
-# Auto-create on import so scripts that write before any explicit setup don't crash.
-init_dirs()
 
 
 # ── UI-constant bridge (two-config trap mitigation, 2026-06-11) ─────────────────

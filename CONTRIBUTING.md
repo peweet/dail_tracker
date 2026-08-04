@@ -31,14 +31,14 @@ with:
 
 ## Code contributions
 
-- Set up the dev environment: `uv sync --extra pipeline --group dev`.
-- Run the checks before pushing:
+- Set up the dev environment: `uv sync --extra pipeline --extra mcp --group dev`.
+- Run focused checks while working, then the deterministic local gates before pushing:
   ```bash
-  uv run pytest test/ -v
-  uv run ruff check .
-  python tools/check_streamlit_logic_firewall.py
+  uv run python tools/dev.py verify
+  uv run python tools/dev.py check
   ```
-- Keep the project conventions (see `CLAUDE.md`): Polars for ETL, pandas only in
+- Keep the project conventions (see `AGENTS.md`; `CLAUDE.md` exposes the same portable
+  project guidance to Claude Code): Polars for ETL, pandas only in
   the UI layer; Streamlit pages carry no business logic; never sum the three
   money grains; reuse the existing name-normalisation join key.
 - Don't add third-party code under a licence incompatible with the AGPL or with

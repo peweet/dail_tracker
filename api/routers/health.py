@@ -18,7 +18,12 @@ def health(request: Request) -> dict:
     cur = conn.cursor()
     try:
         n = cur.execute("SELECT count(*) FROM information_schema.tables WHERE table_type='VIEW'").fetchone()
-        return {"status": "ok", "views_registered": int(n[0]) if n else 0}
+        views_registered = int(n[0]) if n else 0
+        if views_registered == 0:
+            raise HTTPException(status_code=503, detail="database has no registered views")
+        return {"status": "ok", "views_registered": views_registered}
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"database unavailable: {exc}") from exc
     finally:

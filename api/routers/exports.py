@@ -26,6 +26,12 @@ eTenders open-data CSV publishes quarterly with an inherent ~6-month lag, so
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
+import json
+import os
+import secrets
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,6 +45,10 @@ from config import GOLD_PARQUET_DIR, PROJECT_ROOT, SILVER_PARQUET_DIR
 router = APIRouter(tags=["data"])
 
 EXPORT_CACHE_DIR = PROJECT_ROOT / "data" / "_export_cache"
+EXPORT_SNAPSHOT_SCHEMA = 2
+
+_SNAPSHOT_LOCKS: dict[tuple[str, str], threading.Lock] = {}
+_SNAPSHOT_LOCKS_GUARD = threading.Lock()
 
 _ETENDERS_ATTRIBUTION = "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0."
 _TED_ATTRIBUTION = "Contains information from TED (© European Union), reused under Decision 2011/833/EU."
@@ -185,25 +195,101 @@ def _snapshot_path(name: str, fmt: str) -> Path:
     return EXPORT_CACHE_DIR / f"{name}.{fmt}"
 
 
+def _snapshot_metadata_path(snapshot: Path) -> Path:
+    return snapshot.with_name(f"{snapshot.name}.meta.json")
+
+
+def _snapshot_lock(name: str, fmt: str) -> threading.Lock:
+    key = (name, fmt)
+    with _SNAPSHOT_LOCKS_GUARD:
+        return _SNAPSHOT_LOCKS.setdefault(key, threading.Lock())
+
+
+def _policy_fingerprint(spec: ExportSpec, fmt: str) -> str:
+    """Hash every policy input that can change which rows reach a snapshot."""
+    payload = {
+        "schema": EXPORT_SNAPSHOT_SCHEMA,
+        "format": fmt,
+        "privacy_filter": spec.privacy_filter or "",
+        "source": str(spec.source.resolve()),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _source_identity(source: Path) -> dict[str, int]:
+    stat = source.stat()
+    return {"mtime_ns": stat.st_mtime_ns, "size": stat.st_size}
+
+
+def _snapshot_is_current(snapshot: Path, metadata: Path, spec: ExportSpec, fmt: str) -> bool:
+    if not snapshot.is_file() or not metadata.is_file():
+        return False
+    try:
+        state = json.loads(metadata.read_text(encoding="utf-8"))
+        return state == {
+            "policy": _policy_fingerprint(spec, fmt),
+            "source": _source_identity(spec.source),
+        }
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+
+
+def _write_metadata_atomic(path: Path, state: dict) -> None:
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
+    try:
+        tmp.write_text(json.dumps(state, sort_keys=True), encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            tmp.unlink()
+
+
 def _ensure_snapshot(name: str, spec: ExportSpec, fmt: str) -> Path:
     """Materialise (or reuse) the privacy-filtered snapshot for one resource.
 
-    Re-cut when missing or older than the source parquet, so a pipeline refresh
-    invalidates every cached file automatically via mtime.
+    Re-cut whenever the source identity or privacy policy changes. Generation is
+    atomic: concurrent readers see either the previous complete file or the next
+    complete file, never a partially written export.
     """
     out = _snapshot_path(name, fmt)
-    if out.exists() and out.stat().st_mtime >= spec.source.stat().st_mtime:
-        return out
-    EXPORT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    where = f" WHERE {spec.privacy_filter}" if spec.privacy_filter else ""
-    select = f"SELECT * FROM read_parquet('{spec.source.as_posix()}'){where}"
-    options = "FORMAT PARQUET, COMPRESSION ZSTD" if fmt == "parquet" else "FORMAT CSV, HEADER"
-    con = _connect()
-    try:
-        con.execute(f"COPY ({select}) TO '{out.as_posix()}' ({options})")
-    finally:
-        con.close()
-    return out
+    metadata = _snapshot_metadata_path(out)
+    with _snapshot_lock(name, fmt):
+        if _snapshot_is_current(out, metadata, spec, fmt):
+            return out
+
+        EXPORT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        where = f" WHERE {spec.privacy_filter}" if spec.privacy_filter else ""
+        select = f"SELECT * FROM read_parquet('{spec.source.as_posix()}'){where}"
+        options = "FORMAT PARQUET, COMPRESSION ZSTD" if fmt == "parquet" else "FORMAT CSV, HEADER"
+
+        # A pipeline may atomically replace the source while an API worker is
+        # cutting a snapshot. Retry once rather than attaching metadata for a
+        # different source generation to the copied rows.
+        for _attempt in range(2):
+            source_before = _source_identity(spec.source)
+            tmp = out.with_name(f".{out.name}.{secrets.token_hex(6)}.tmp")
+            try:
+                con = _connect()
+                try:
+                    con.execute(f"COPY ({select}) TO '{tmp.as_posix()}' ({options})")
+                finally:
+                    con.close()
+                source_after = _source_identity(spec.source)
+                if source_after != source_before:
+                    continue
+                with contextlib.suppress(FileNotFoundError):
+                    metadata.unlink()
+                os.replace(tmp, out)
+                _write_metadata_atomic(
+                    metadata,
+                    {"policy": _policy_fingerprint(spec, fmt), "source": source_after},
+                )
+                return out
+            finally:
+                with contextlib.suppress(FileNotFoundError):
+                    tmp.unlink()
+        raise RuntimeError(f"source changed while building export snapshot: {spec.source}")
 
 
 def _manifest_entry(name: str, spec: ExportSpec) -> dict:

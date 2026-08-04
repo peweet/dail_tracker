@@ -57,6 +57,7 @@ Issues = "https://github.com/peweet/dail_tracker/issues"
 # lean.
 pipeline = [
     "polars>=1.39,!=1.41.0",  # 1.41.0 (+ polars-runtime-32) was yanked upstream
+    "shapely>=2.0",           # planning/civic extractors import it in the default test/pipeline lane
     "PyMuPDF>=1.25",
     "requests>=2.31",
     "beautifulsoup4>=4.12",
@@ -134,8 +135,8 @@ mcp = [
 
 # Everything installable as an EXTRA — a full optional-runtime local setup.
 # Dev/test tooling is intentionally excluded (it's the dev group, not an extra).
-# Full local dev env (runtime + pipeline + tooling):
-#   uv sync --extra pipeline --extra ocr --extra api --group dev
+# Full local dev env (runtime + all optional capabilities + tooling):
+#   uv sync --all-extras --group dev
 all = [
     "dail-tracker[ocr,pipeline,scrape,api,mcp]",
 ]
@@ -148,9 +149,11 @@ all = [
 #   2. With `[tool.uv] default-groups = []` below, a bare `uv sync` (which is
 #      what Streamlit Cloud runs from uv.lock) installs ONLY the core runtime —
 #      never pytest/ruff/basedpyright. This is what keeps the Cloud image lean.
-# The test suite imports the pipeline/ETL modules, so the FULL dev/CI environment
-# is `core + pipeline extra + dev group`:
-#   uv sync --extra pipeline --group dev        # = CI's full lane
+# The test suite imports pipeline, API, and MCP modules, so the default CI test
+# environment explicitly installs all three capabilities. Tests may still use
+# ``importorskip`` for genuinely platform-specific integrations, but an omitted
+# published runtime extra must not turn a CI lane silently green.
+#   uv sync --extra pipeline --extra api --extra mcp --group dev
 [dependency-groups]
 dev = [
     "scikit-learn>=1.9",      # TF-IDF/LinearSVC classifier exercises (works-type, council-minutes doc_type) — was pip-installed undeclared 2026-07-26; uv sync pruned such deps before (camelot, winocr)
@@ -174,7 +177,10 @@ evals = [
 ]
 
 # ── Script entry points ──────────────────────────────────────────────────────
-# After `pip install -e .` you can run these directly from the command line:
+# Install the relevant runtime extra before invoking a capability command. The
+# pipeline registry/listing is import-safe in a core install; executing chains
+# requires `pip install -e ".[pipeline]"` (and the `scrape` extra + Chromium for
+# the optional browser-backed live-tenders chain).
 #   dail-members        → fetch member data from API
 #   dail-attendance     → extract attendance from PDFs
 #   dail-payments       → extract payment data from PDFs
@@ -424,25 +430,50 @@ venv = ".venv"
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 
-# Only files/dirs that actually exist on disk — `uv build` validates each entry.
-# Top-level standalone scripts (payments_full_psa_etl.py, oireachtas_pdf_poller.py
-# etc.) are run via subprocess from pipeline.py, not imported, so they don't
-# need to be in the wheel for the pipeline to work after `pip install`. Add new
-# entries only when the corresponding file is imported as a library.
+# Preserve the repository-relative layout in the wheel. Pipeline registry paths,
+# SQL resources, and schema resources are resolved from ``PROJECT_ROOT`` at
+# runtime, so flattening a nested package would change the execution contract.
+# The delivery smoke job installs this artifact outside the checkout and runs
+# ``dail-pipeline --list`` plus API/MCP imports to catch omissions.
 [tool.hatch.build.targets.wheel]
-packages = [
+exclude = ["**/AGENTS.md"]
+only-include = [
+    "api",
     "utility",
     "services",
     "shared",
+    "sql_views",
     "config.py",
+    "paths.py",
     "pipeline.py",
+    "manifest.py",
+    "bootstrap_refresh.py",
+    "members_refresh.py",
+    "payments_refresh.py",
+    "attendance_refresh.py",
+    "seanad_refresh.py",
+    "interests_refresh.py",
+    "lobbying_refresh.py",
+    "iris_refresh.py",
+    "legislation_refresh.py",
+    "ministerial_diaries_refresh.py",
     "attendance",
+    "charity",
+    "committees",
+    "corporate",
+    "debates",
+    "extractors",
+    "iris",
     "votes",
     "lobbying",
     "members",
     "legislation",
-    "manifest.py",
     "pdf_infra",
     "payments",
+    "planning/civic/extractors",
+    "reference",
+    "tools",
+    "wikidata",
     "dail_tracker_core",
+    "mcp_server",
 ]

@@ -310,7 +310,15 @@ def _unavailable() -> type[BaseException]:
     return SourceUnavailable
 
 
-mcp = FastMCP("dail-tracker")
+_MCP_INSTRUCTIONS = (
+    "Read-only access to Dáil Tracker data and repository indexes. For discovery, "
+    "start with search_project, then use code_outline, py_refs, view_deps, or "
+    "column_deps for the specific source. Use domain tools for civic facts and request "
+    "detailed output when provenance is needed. A missing result is not proof of absence. "
+    "Procurement awards, payments, budgets, and TED notice values are different money "
+    "grains and must never be summed together."
+)
+mcp = FastMCP("dail-tracker", instructions=_MCP_INSTRUCTIONS)
 
 # Every tool here is a pure read over committed data — advertise that to clients so
 # they can auto-approve without a destructive-action prompt.
@@ -338,8 +346,14 @@ _CONN_LOCK = threading.RLock()
 # additive glob registration is enough. swallow_errors so a missing optional
 # parquet degrades that one domain to an "unavailable" tool result, not a dead
 # server.
-_EXTRA_VIEW_GLOBS = ["sipo_*.sql", "judiciary_*.sql", "appointments_*.sql", "corporate_*.sql",
-                     "council_minutes_*.sql", "nphdb_bam_*.sql"]
+_EXTRA_VIEW_GLOBS = [
+    "sipo_*.sql",
+    "judiciary_*.sql",
+    "appointments_*.sql",
+    "corporate_*.sql",
+    "council_minutes_*.sql",
+    "nphdb_bam_*.sql",
+]
 
 
 def _cur():
@@ -417,7 +431,7 @@ def _one(qr) -> dict | None:
 # ── Members ───────────────────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def search_members(query: str) -> list[dict]:
     """Find TDs/Senators by name (case-insensitive substring) — resolve a politician,
     deputy or senator to their member id. Returns up to 10 candidates, each with
@@ -430,7 +444,7 @@ def search_members(query: str) -> list[dict]:
     return records
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def get_member_record(name_or_code: str) -> dict:
     """A member's full accountability dossier — identity, headline stats (days in
     chamber, votes cast, total payments), attendance by year, payments by year,
@@ -459,7 +473,7 @@ def get_member_record(name_or_code: str) -> dict:
 # ── Votes ─────────────────────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def list_recent_votes(house: str = "Dáil", limit: int = 20) -> list[dict]:
     """Recent Dáil/Seanad divisions (votes), most recent first. Each row has a
     vote_id usable with get_division."""
@@ -470,7 +484,7 @@ def list_recent_votes(house: str = "Dáil", limit: int = 20) -> list[dict]:
     return records
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def get_division(vote_id: str) -> dict:
     """One division's full record: the vote (date, title, outcome, tallies), the
     party breakdown, who voted yes and no (every member's individual vote, every
@@ -564,7 +578,7 @@ def voting_vs_interests(
 # ── Legislation ───────────────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def search_legislation(query: str = "", status: str = "", limit: int = 20) -> list[dict]:
     """Find bills by title substring and/or status (e.g. 'Current'). Returns bill
     summaries; pass a bill_id to get_bill for the full record."""
@@ -575,7 +589,7 @@ def search_legislation(query: str = "", status: str = "", limit: int = 20) -> li
     return records
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def get_bill(bill_id: str) -> dict:
     """One bill's full record: detail, lifecycle timeline, amendment intensity,
     sources, PDFs, debates, and the statutory instruments made under it."""
@@ -642,7 +656,7 @@ def circular_si_crosswalk(si_year: int = 0, si_number: int = 0, limit: int = 50)
 # ── Payments / lobbying ───────────────────────────────────────────────────────
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def top_payments(house: str = "Dáil", limit: int = 20) -> list[dict]:
     """All-time Travel & Accommodation Allowance (TAA) expenses ranking by member —
     the biggest expense claimants across the whole data; payments_by_year scopes
@@ -651,7 +665,7 @@ def top_payments(house: str = "Dáil", limit: int = 20) -> list[dict]:
     return records
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def lobbying_organisations(name: str = "", limit: int = 20) -> list[dict]:
     """Search the lobbying register by name substring — is this company, interest
     group or organisation a registered lobbyist (CRO + charity-enriched index)."""
@@ -659,7 +673,7 @@ def lobbying_organisations(name: str = "", limit: int = 20) -> list[dict]:
     return records
 
 
-@mcp.tool()
+@mcp.tool(annotations=_RO)
 def revolving_door(limit: int = 20) -> list[dict]:
     """Former office-holders (designated public officials) now working as
     lobbyists — the revolving-door register."""
@@ -901,6 +915,7 @@ def who_was_minister(department: str, on_date: str) -> dict:
 
 
 # ── Parliamentary questions ─────────────────────────────────────────────────────
+
 
 @mcp.tool(annotations=_RO)
 def get_member_questions(
@@ -1534,7 +1549,7 @@ def _load_fact_cards() -> dict:
 
 
 @mcp.tool(annotations=_RO)
-def list_datasets(layer: str = "", domain: str = "", money_only: bool = False) -> dict:
+def list_datasets(layer: str = "", domain: str = "", money_only: bool = False, limit: int = 50) -> dict:
     """The index of every fact the tracker holds — call this INSTEAD of listing data/ or scanning
     parquet. Returns one small line per silver/gold fact: name, layer, rows, year span, purpose,
     and (for money facts) the never-sum grain. Filter by `layer` ('gold'|'silver'), a `domain`
@@ -1562,7 +1577,14 @@ def list_datasets(layer: str = "", domain: str = "", money_only: bool = False) -
             row["money_grain"] = c["money_grain"]
             row["never_sum_with"] = c.get("never_sum_with")
         out.append(row)
-    return {"count": len(out), "datasets": sorted(out, key=lambda r: (r["layer"] or "", r["name"]))}
+    matches = sorted(out, key=lambda r: (r["layer"] or "", r["name"]))
+    cap = max(1, min(limit, 100))
+    datasets = matches[:cap]
+    result = {"count": len(matches), "returned": len(datasets), "datasets": datasets}
+    if len(matches) > cap:
+        result["truncated"] = True
+        result["hint"] = "Narrow with layer/domain/money_only, then call describe_dataset(name)."
+    return result
 
 
 @mcp.tool(annotations=_RO)
@@ -1599,6 +1621,8 @@ _WORD = re.compile(r"[a-z0-9_]+")
 # the index simply runs without memory files.
 _FTS_LAST = 0.0
 _FTS_REFRESH_SECS = 120
+_FTS_MEMORY_ENABLED = False
+_FTS_REPORT: dict = {}
 
 
 def _memory_dir() -> Path | None:
@@ -1607,18 +1631,28 @@ def _memory_dir() -> Path | None:
     return p if p.is_dir() else None
 
 
-def _fts_ready() -> bool:
-    """Refresh the content index if stale; never let index trouble break the tool."""
-    global _FTS_LAST
+def _fts_ready(*, include_external_memory: bool = False) -> bool:
+    """Refresh the bounded content index if stale and retain its error report."""
+    global _FTS_LAST, _FTS_MEMORY_ENABLED, _FTS_REPORT
     import time as _t
 
-    if _t.monotonic() - _FTS_LAST < _FTS_REFRESH_SECS:
+    if (
+        include_external_memory == _FTS_MEMORY_ENABLED
+        and _t.monotonic() - _FTS_LAST < _FTS_REFRESH_SECS
+    ):
         return True
     try:
-        fts_index.refresh(REPO, _memory_dir())
+        memory_dir = _memory_dir() if include_external_memory else None
+        _FTS_REPORT = fts_index.refresh(
+            REPO,
+            memory_dir,
+            include_external_memory=include_external_memory,
+        )
         _FTS_LAST = _t.monotonic()
+        _FTS_MEMORY_ENABLED = include_external_memory
         return True
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 — metadata search remains usable
+        _FTS_REPORT = {"error_count": 1, "errors": [{"path": "(index)", "error": str(exc)}]}
         return False
 
 
@@ -1655,6 +1689,9 @@ def _build_project_index() -> list[dict]:
                 if not m:
                     continue
                 title, rel, rest = m.group(1), m.group(2), m.group(3)
+                doc_path = Path("doc") / rel
+                if not code_index.DEFAULT_SCAN_POLICY.allows(doc_path):
+                    continue
                 cells = [x.strip() for x in rest.split("|")]
                 domain = cells[0] if cells else ""
                 read_when = cells[-2] if len(cells) >= 2 else ""  # last real cell before trailing ''
@@ -1662,7 +1699,7 @@ def _build_project_index() -> list[dict]:
                     {
                         "kind": "doc",
                         "name": title,
-                        "path": f"doc/{rel}",
+                        "path": doc_path.as_posix(),
                         "desc": read_when or domain,
                         "haystack": " ".join([title, domain, read_when]),
                     }
@@ -1672,7 +1709,9 @@ def _build_project_index() -> list[dict]:
     #    header (first ~15 lines), never the query body.
     views_dir = REPO / "sql_views"
     if views_dir.is_dir():
-        for sql in sorted(views_dir.rglob("*.sql")):
+        for sql in code_index.iter_repository_files(REPO, {".sql"}):
+            if not sql.relative_to(REPO).as_posix().startswith("sql_views/"):
+                continue
             with contextlib.suppress(Exception):
                 head = []
                 view_name = ""
@@ -1761,7 +1800,10 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
             why.append(f"name matches {', '.join(sorted(set(hit_in_name)))}")
         if hit_in_desc:
             why.append(f"describes {', '.join(sorted(set(hit_in_desc)))}")
-        scored.append({"kind": e["kind"], "name": e["name"], "path": e["path"], "why": "; ".join(why), "_s": score})
+        row = {"kind": e["kind"], "name": e["name"], "path": e["path"], "why": "; ".join(why), "_s": score}
+        if e.get("parse_error"):
+            row["warning"] = f"Python parse failed: {e['parse_error']}"
+        scored.append(row)
 
     scored.sort(key=lambda r: (-r["_s"], r["kind"], r["name"]))
     top = scored[: max(1, min(limit, 50))]
@@ -1951,8 +1993,9 @@ def search_council_minutes(query: str, year: int = 0, limit: int = 10, response_
     anything cited. Default hits are concise (council, date, doc_type, snippet); pass
     response_format='detailed' for meeting file / source_url provenance. First call
     after a corpus refresh rebuilds the index (one-off, seconds)."""
-    return text_fts.search("council_minutes", query, _cur(), REPO, year=year, limit=limit,
-                           response_format=response_format)
+    return text_fts.search(
+        "council_minutes", query, _cur(), REPO, year=year, limit=limit, response_format=response_format
+    )
 
 
 @mcp.tool(annotations=_RO)
@@ -2177,7 +2220,25 @@ def _brief_item(it) -> dict:
     return out
 
 
-@mcp.tool(annotations=_RO)
+_SITING_DESCRIPTION = (
+    "Read-only planning-constraint triage for one point in Ireland. lat/lon locate "
+    "the site; dev_type is one_off_house, multi_unit, or commercial. num_units, "
+    "floor_area_m2, site_area_ha, floor_area_basis, and storeys drive scale checks. "
+    "use_class may be wind_farm, solar_farm, intensive_agri, quarry_extractive, "
+    "warehouse_logistics, pharma_chemical, ad_biogas_waste, general_manufacturing, "
+    "or data_centre; blank or unknown values trigger no use-specific rule. For "
+    "pharma_chemical, substance_inventory is the maximum tonnes present at one time, "
+    "not annual throughput. Mark estimates with substance_inventory_source; unmatched "
+    "substances are reported, never cleared. programme_items and process_capacity add "
+    "stated scheme detail but never determine the Seveso tier, which uses inventory. "
+    "Returns the council, exclusions, tiered site-specific and standard issues, likely "
+    "reports, available layers, and not_assessed coverage gaps. This is triage, not a "
+    "grant/refuse verdict: an empty result or missing layer never proves developability. "
+    "Preserve the returned disclaimer and provenance in any answer."
+)
+
+
+@mcp.tool(annotations=_RO, description=_SITING_DESCRIPTION)
 def siting_check(
     lat: float,
     lon: float,
@@ -2945,15 +3006,11 @@ def coverage_resource() -> dict:
 
 @mcp.resource("data://fact-cards")
 def fact_cards_resource() -> dict:
-    """The whole fact-card index (data/_meta/fact_cards.json) — one small card per silver/gold
-    fact: columns, rows, grain, purpose, never-sum money class, which SQL views read it. Attach
-    this as ambient context to answer 'what datasets exist / what shape is X' WITHOUT scanning any
-    parquet or spending list_datasets/describe_dataset calls."""
-    if not _FACT_CARDS.exists():
-        return {"error": "fact_cards.json absent — run `python tools/build_fact_cards.py`"}
-    with contextlib.suppress(Exception):
-        return json.loads(_FACT_CARDS.read_text(encoding="utf-8"))
-    return {"error": "fact_cards.json unreadable"}
+    """Bounded fact-card index for discovery, never the full metadata file.
+    Use data://fact-card/{dataset} or describe_dataset(name) for one complete card."""
+    result = list_datasets(limit=50)
+    result["detail_resource"] = "data://fact-card/{dataset}"
+    return result
 
 
 @mcp.resource("data://fact-card/{dataset}")

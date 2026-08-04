@@ -21,18 +21,139 @@ from __future__ import annotations
 
 import ast
 import contextlib
-from pathlib import Path
+import os
+import subprocess
+import tokenize
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import Iterable, Iterator
 
-# Directories never worth indexing: environments, caches, VCS, throwaway probe scripts.
-# Any path segment starting with "." is skipped too (.venv, .git, .claude, .*_cache).
-_SKIP_PARTS = {"__pycache__", "node_modules", "audit_screenshots", "data"}
+# These defaults are the repository-navigation privacy boundary, not merely a speed
+# optimisation.  In particular, private overlays and agent scratch trees must not
+# silently become searchable just because they live below the checkout root.
+_SKIP_PARTS = frozenset(
+    {
+        "__pycache__",
+        "node_modules",
+        "audit_screenshots",
+        "data",
+        "logs",
+        "doc_archive",
+        "tmp",
+        "cache",
+    }
+)
 
 _DOC_CAP = 140  # one-line docstrings are truncated to this many chars
 _DEF_CAP_INDEX = 80  # def names contributing to a module's search haystack
 
 
+@dataclass(frozen=True, slots=True)
+class ScanPolicy:
+    """Explicit allow/deny policy for repository-navigation source scans.
+
+    Git's standard ignore rules define the first boundary when the checkout has Git
+    metadata.  These structural rules are applied as a second boundary and also make
+    synthetic/non-Git repositories safe by default.
+    """
+
+    excluded_parts: frozenset[str] = _SKIP_PARTS
+    exclude_dot_paths: bool = True
+    exclude_private: bool = True
+    exclude_sandboxes: bool = True
+
+    def allows(self, relative: str | Path | PurePosixPath) -> bool:
+        """Return whether a normalised, repository-relative path may be scanned."""
+        raw = str(relative).replace("\\", "/")
+        rel = PurePosixPath(raw)
+        if not raw or rel.is_absolute() or ".." in rel.parts:
+            return False
+        for part in rel.parts:
+            low = part.casefold()
+            if self.exclude_dot_paths and part.startswith("."):
+                return False
+            if low in self.excluded_parts:
+                return False
+            if self.exclude_private and (low == "private" or low.startswith("private_")):
+                return False
+            if self.exclude_sandboxes and (
+                low == "sandbox" or low.startswith("sandbox_") or low.endswith("_sandbox")
+            ):
+                return False
+        return True
+
+
+DEFAULT_SCAN_POLICY = ScanPolicy()
+
+
 def _skip(rel_parts: tuple[str, ...]) -> bool:
-    return any(p in _SKIP_PARTS or p.startswith(".") for p in rel_parts)
+    """Compatibility helper used by older callers and focused tests."""
+    return not DEFAULT_SCAN_POLICY.allows(PurePosixPath(*rel_parts))
+
+
+def _git_visible_paths(repo: Path) -> list[PurePosixPath] | None:
+    """Tracked plus untracked/non-ignored paths, or ``None`` outside a Git worktree."""
+    try:
+        top = subprocess.run(
+            ["git", "-C", os.fspath(repo), "rev-parse", "--show-toplevel"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        ).stdout.strip()
+        if Path(top).resolve() != repo.resolve():
+            return None
+        proc = subprocess.run(
+            ["git", "-C", os.fspath(repo), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return [PurePosixPath(os.fsdecode(raw)) for raw in proc.stdout.split(b"\0") if raw]
+
+
+def iter_repository_files(
+    repo: Path,
+    suffixes: Iterable[str],
+    policy: ScanPolicy = DEFAULT_SCAN_POLICY,
+) -> Iterator[Path]:
+    """Yield contained, policy-allowed source files in stable relative-path order.
+
+    A Git checkout uses ``git ls-files --exclude-standard`` so all repository ignore
+    sources (including the global excludes configured for that checkout) are honoured.
+    A non-Git synthetic repository falls back to a contained filesystem walk.
+    """
+    root = repo.resolve()
+    wanted = {suffix.casefold() for suffix in suffixes}
+    visible = _git_visible_paths(root)
+    if visible is None:
+        candidates = ((path.relative_to(root), path) for path in root.rglob("*") if path.is_file())
+    else:
+        candidates = ((Path(*rel.parts), root.joinpath(*rel.parts)) for rel in visible)
+
+    accepted: list[tuple[str, Path]] = []
+    for rel, path in candidates:
+        if path.suffix.casefold() not in wanted or not policy.allows(rel):
+            continue
+        try:
+            resolved = path.resolve(strict=True)
+            resolved.relative_to(root)
+        except (OSError, ValueError):
+            continue
+        if resolved.is_file():
+            accepted.append((rel.as_posix(), resolved))
+    for _, path in sorted(accepted):
+        yield path
+
+
+def read_python_source(path: Path) -> str:
+    """Decode Python source according to its PEP 263 encoding declaration."""
+    with tokenize.open(path) as handle:
+        return handle.read()
 
 
 def _doc1(node) -> str:
@@ -64,35 +185,98 @@ def _decorators(node) -> list[str]:
     return names
 
 
+def _start_line(node: ast.AST) -> int:
+    """First source line belonging to a definition, including decorators."""
+    decorators = getattr(node, "decorator_list", ())
+    return min((decorator.lineno for decorator in decorators), default=node.lineno)
+
+
+def _unparse(node: ast.AST) -> str:
+    with contextlib.suppress(Exception):
+        return ast.unparse(node)
+    return "?"
+
+
+def _direct_named_children(body: list[ast.stmt]) -> list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef]:
+    """Definitions lexically owned by ``body``, including conditional definitions.
+
+    Once a definition is found its body is not traversed here; recursion belongs to
+    that definition's own outline entry.  This prevents nested methods being reported
+    as module-level symbols while still seeing definitions under ``if TYPE_CHECKING``.
+    """
+    found: list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = []
+
+    def visit(node: ast.AST) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            found.append(node)
+            return
+        for child in ast.iter_child_nodes(node):
+            visit(child)
+
+    for statement in body:
+        visit(statement)
+    return sorted(found, key=_start_line)
+
+
 def _def_entry(node: ast.FunctionDef | ast.AsyncFunctionDef) -> dict:
     e = {
         "kind": "async def" if isinstance(node, ast.AsyncFunctionDef) else "def",
         "name": node.name,
-        "span": f"{node.lineno}-{node.end_lineno}",
+        "span": f"{_start_line(node)}-{node.end_lineno}",
         "sig": _sig(node),
     }
     if doc := _doc1(node):
         e["doc"] = doc
     if decs := _decorators(node):
         e["decorators"] = decs
+    if type_params := [_unparse(param) for param in getattr(node, "type_params", ())]:
+        e["type_params"] = type_params
+    if nested := [_named_entry(child) for child in _direct_named_children(node.body)]:
+        e["nested"] = nested
     return e
 
 
+def _class_entry(node: ast.ClassDef) -> dict:
+    entry: dict = {
+        "kind": "class",
+        "name": node.name,
+        "span": f"{_start_line(node)}-{node.end_lineno}",
+    }
+    if bases := [_unparse(base) for base in node.bases]:
+        entry["bases"] = bases
+    keywords = []
+    for keyword in node.keywords:
+        value = _unparse(keyword.value)
+        if keyword.arg == "metaclass":
+            entry["metaclass"] = value
+        else:
+            keywords.append(f"{keyword.arg}={value}" if keyword.arg else f"**{value}")
+    if keywords:
+        entry["keywords"] = keywords
+    if type_params := [_unparse(param) for param in getattr(node, "type_params", ())]:
+        entry["type_params"] = type_params
+    if doc := _doc1(node):
+        entry["doc"] = doc
+    if decs := _decorators(node):
+        entry["decorators"] = decs
+
+    children = [_named_entry(child) for child in _direct_named_children(node.body)]
+    methods = [child for child in children if child["kind"] in {"def", "async def"}]
+    classes = [child for child in children if child["kind"] == "class"]
+    if methods:
+        entry["methods"] = methods
+    if classes:
+        entry["classes"] = classes
+    return entry
+
+
+def _named_entry(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> dict:
+    return _class_entry(node) if isinstance(node, ast.ClassDef) else _def_entry(node)
+
+
 def _outline_tree(tree: ast.Module) -> list[dict]:
-    """Top-level defs/classes; class methods nested one level (deeper is flattened out)."""
-    out: list[dict] = []
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            out.append(_def_entry(node))
-        elif isinstance(node, ast.ClassDef):
-            entry: dict = {"kind": "class", "name": node.name, "span": f"{node.lineno}-{node.end_lineno}"}
-            if doc := _doc1(node):
-                entry["doc"] = doc
-            methods = [_def_entry(n) for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
-            if methods:
-                entry["methods"] = methods
-            out.append(entry)
-    return out
+    """Top-level definitions with recursively structured lexical children."""
+    return [_named_entry(node) for node in _direct_named_children(tree.body)]
 
 
 def _imports(tree: ast.Module, cap: int = 40) -> list[str]:
@@ -106,34 +290,55 @@ def _imports(tree: ast.Module, cap: int = 40) -> list[str]:
     return list(seen)[:cap]
 
 
-def _parse(py: Path) -> tuple[ast.Module, int] | None:
-    """(tree, line_count), or None when unreadable/unparseable (sandbox scripts may not parse)."""
-    try:
-        src = py.read_text(encoding="utf-8", errors="replace")
-        return ast.parse(src), len(src.splitlines())
-    except Exception:  # noqa: BLE001
-        return None
+def _parse(py: Path) -> tuple[ast.Module, int]:
+    """Parse one Python source file, preserving actionable decoding/syntax errors."""
+    src = read_python_source(py)
+    return ast.parse(src, filename=os.fspath(py)), len(src.splitlines())
 
 
 def _resolve(repo: Path, path: str) -> Path | None:
     """Resolve a repo-relative path, refusing anything that escapes the repo."""
+    requested = Path(path)
+    if requested.is_absolute():
+        return None
     try:
-        target = (repo / path).resolve()
-        target.relative_to(repo.resolve())
+        root = repo.resolve()
+        target = (root / requested).resolve()
+        target.relative_to(root)
     except (ValueError, OSError):
         return None
     return target
 
 
 def _concise_defs(defs: list[dict]) -> list[str]:
-    """'def outline 128-176' one-liners; methods flattened as 'def Class.method 12-20'.
-    The routing question ('which span do I Read?') needs name + span only — signatures,
-    docstrings and decorators are the detailed extras."""
+    """Flatten structured entries to ``kind qualified.name start-end`` lines."""
     out: list[str] = []
-    for d in defs:
-        out.append(f"{d['kind']} {d['name']} {d['span']}")
-        out.extend(f"{m['kind']} {d['name']}.{m['name']} {m['span']}" for m in d.get("methods", []))
+
+    def add(entry: dict, prefix: str = "") -> None:
+        qualified = f"{prefix}.{entry['name']}" if prefix else entry["name"]
+        out.append(f"{entry['kind']} {qualified} {entry['span']}")
+        for child in (*entry.get("methods", ()), *entry.get("classes", ()), *entry.get("nested", ())):
+            add(child, qualified)
+
+    for entry in defs:
+        add(entry)
     return out
+
+
+def _definition_count(defs: list[dict]) -> int:
+    total = 0
+    for entry in defs:
+        total += 1
+        for key in ("methods", "classes", "nested"):
+            total += _definition_count(entry.get(key, []))
+    return total
+
+
+def _parse_error(exc: BaseException) -> str:
+    if isinstance(exc, SyntaxError):
+        where = f"line {exc.lineno}" if exc.lineno else "unknown line"
+        return f"SyntaxError at {where}: {exc.msg}"
+    return f"{type(exc).__name__}: {exc}"
 
 
 def outline(repo: Path, path: str, limit: int = 200, response_format: str = "detailed") -> dict:
@@ -152,11 +357,11 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
         files = sorted(p for p in target.glob("*.py") if not _skip(p.relative_to(repo).parts))
         modules = []
         for py in files[:80]:
-            parsed = _parse(py)
-            if parsed is None:
-                modules.append({"name": py.name, "error": "unparseable"})
+            try:
+                tree, n_lines = _parse(py)
+            except (OSError, UnicodeError, LookupError, SyntaxError, tokenize.TokenError) as exc:
+                modules.append({"name": py.name, "error": _parse_error(exc)})
                 continue
-            tree, n_lines = parsed
             names = [d["name"] for d in _outline_tree(tree)][:40]
             m = {"name": py.name, "lines": n_lines, "defs": names}
             if doc := _doc1(tree):
@@ -170,12 +375,12 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
 
     if target.suffix != ".py":
         return {"error": f"not a Python file (use Read for other types): {path}"}
-    parsed = _parse(target)
-    if parsed is None:
-        return {"error": f"could not parse: {path}"}
-    tree, n_lines = parsed
+    try:
+        tree, n_lines = _parse(target)
+    except (OSError, UnicodeError, LookupError, SyntaxError, tokenize.TokenError) as exc:
+        return {"error": f"could not parse {path}: {_parse_error(exc)}"}
     defs = _outline_tree(tree)
-    n_defs = sum(1 + len(d.get("methods", [])) for d in defs)
+    n_defs = _definition_count(defs)
     kept = defs[: max(1, limit)]
     out = {
         "path": target.relative_to(repo.resolve()).as_posix(),
@@ -197,25 +402,35 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
 
 def build_code_index(repo: Path) -> list[dict]:
     """One search_project entry per repo .py: dotted module name, docstring first line,
-    and def/class names in the haystack — so 'where does X live in code?' is one call."""
+    and def/class names in the haystack — so 'where does X live in code?' is one call.
+
+    Parse failures remain visible as entries with ``parse_error`` instead of silently
+    disappearing from repository search.
+    """
     repo = repo.resolve()
     idx: list[dict] = []
-    for py in sorted(repo.rglob("*.py")):
+    for py in iter_repository_files(repo, {".py"}):
         rel = py.relative_to(repo)
-        if _skip(rel.parts):
-            continue
-        parsed = _parse(py)
-        if parsed is None:
-            continue
-        tree, _ = parsed
         dotted = ".".join(rel.with_suffix("").parts)
         if dotted.endswith(".__init__"):
             dotted = dotted[: -len(".__init__")]
+        try:
+            tree, _ = _parse(py)
+        except (OSError, UnicodeError, LookupError, SyntaxError, tokenize.TokenError) as exc:
+            error = _parse_error(exc)
+            idx.append(
+                {
+                    "kind": "code",
+                    "name": dotted,
+                    "path": rel.as_posix(),
+                    "desc": f"Python parse failed: {error}",
+                    "haystack": f"{dotted} {py.stem} parse error {error}",
+                    "parse_error": error,
+                }
+            )
+            continue
         desc = _doc1(tree)
-        names: list[str] = []
-        for d in _outline_tree(tree):
-            names.append(d["name"])
-            names.extend(m["name"] for m in d.get("methods", []))
+        names = [line.split(" ", 2)[1] for line in _concise_defs(_outline_tree(tree))]
         idx.append(
             {
                 "kind": "code",

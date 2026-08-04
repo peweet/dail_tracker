@@ -15,11 +15,12 @@ Rebuild the candidate ranking that feeds this file with:  python tools/token_led
 from __future__ import annotations
 
 import json
-import os
 import sys
+from pathlib import Path
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, "discoveries.jsonl")
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+DATA = HERE / "discoveries.jsonl"
 _BAND_RANK = {"high": 0, "med": 1, "low": 2, None: 3}
 
 
@@ -54,6 +55,19 @@ def find(terms):
     return sorted(hits, key=lambda r: _BAND_RANK.get(r.get("cost_band"), 3))
 
 
+def resolve_memory(slug: str, roots: list[Path] | None = None) -> Path | None:
+    if not slug:
+        return None
+    if roots is None:
+        roots = [ROOT / "memory"]
+        roots.extend((Path.home() / ".claude" / "projects").glob("*/memory"))
+    for root in roots:
+        path = root / f"{slug}.md"
+        if path.is_file():
+            return path
+    return None
+
+
 def show(rows):
     if not rows:
         print("no discovery matched — this may itself be worth capturing after you find it")
@@ -64,7 +78,14 @@ def show(rows):
         anchor_s = f" ~{anchor // 1000}k out" if anchor else ""
         print(f"[{band}{anchor_s}] {r['id']}  ({r.get('domain', '')})")
         print(f"    {r['discovery']}")
-        print(f"    -> MEMORY.md: {r.get('memory', '?')}\n")
+        detail = resolve_memory(str(r.get("memory", "")))
+        if detail is not None:
+            try:
+                shown = detail.relative_to(ROOT)
+            except ValueError:
+                shown = detail
+            print(f"    -> detail: {shown}")
+        print()
 
 
 def main(argv):

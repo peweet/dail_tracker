@@ -19,6 +19,8 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -176,6 +178,15 @@ _ERROR_KINDS = {400: "bad_request", 404: "not_found", 422: "bad_request", 503: "
 async def _http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
     kind = _ERROR_KINDS.get(exc.status_code, "error")
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "kind": kind})
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Keep FastAPI's validation detail while applying our stable error envelope."""
+    return JSONResponse(
+        status_code=422,
+        content={"detail": jsonable_encoder(exc.errors()), "kind": "bad_request"},
+    )
 
 
 app.include_router(health.router, prefix="/v1")

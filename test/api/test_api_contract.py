@@ -12,9 +12,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytest.importorskip("fastapi")
+import duckdb  # noqa: E402
+from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from api.main import app  # noqa: E402
+from api.routers import health  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -31,6 +34,7 @@ def test_error_bodies_carry_machine_readable_kind(client):
     # Validation failures (limit over cap) are bad_request, not a bare 422 shape.
     body = client.get("/v1/votes", params={"limit": 999999})
     assert body.status_code == 422
+    assert body.json()["kind"] == "bad_request"
 
 
 def test_enveloped_lists_are_self_dating(client):
@@ -47,3 +51,17 @@ def test_pagination_convention_defaults(client):
     votes_params = {p["name"]: p for p in spec["paths"]["/v1/votes"]["get"]["parameters"]}
     assert votes_params["limit"]["schema"]["default"] == 50
     assert votes_params["limit"]["schema"]["maximum"] == 500
+
+
+def test_health_is_not_ready_without_registered_views():
+    probe = FastAPI()
+    probe.include_router(health.router, prefix="/v1")
+    conn = duckdb.connect()
+    probe.state.conn = conn
+    try:
+        with TestClient(probe) as client:
+            response = client.get("/v1/health")
+        assert response.status_code == 503
+        assert response.json()["detail"] == "database has no registered views"
+    finally:
+        conn.close()

@@ -33,16 +33,36 @@ Run as a smoke test:
 """
 
 import tempfile
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
 
 from services.parquet_io import save_parquet
+from paths import PROJECT_ROOT
 
-QUARANTINE_DIR = Path("data/silver/_quarantine")
+QUARANTINE_DIR = PROJECT_ROOT / "data" / "silver" / "_quarantine"
 
 _META_COLS = ("_quarantine_rule", "_quarantine_reason", "_run_id", "_quarantined_at")
+_SOURCE_RE = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}\Z")
+_RUN_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}\Z")
+
+
+def _quarantine_path(out_dir: Path, source: str, run_id: str) -> Path:
+    """Return a contained absolute output path for validated identifiers."""
+    if not _SOURCE_RE.fullmatch(source):
+        raise ValueError("source must contain only lowercase letters, digits, '_' or '-'")
+    if not _RUN_ID_RE.fullmatch(run_id):
+        raise ValueError("run_id contains unsupported characters or is too long")
+
+    root = out_dir.expanduser().resolve()
+    candidate = (root / f"{source}_{run_id.replace(':', '-')}.parquet").resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:  # Defensive even though the identifiers are strict.
+        raise ValueError("quarantine output escapes out_dir") from exc
+    return candidate
 
 
 def quarantine(
@@ -94,8 +114,9 @@ def quarantine(
     the source schema, callers should rename upstream — this writer does
     not silently overwrite.
     """
+    out_path = _quarantine_path(out_dir, source, run_id)
     if df_failed.is_empty():
-        return out_dir / f"{source}_{safe(run_id)}.parquet"  # not written
+        return out_path  # not written
 
     overlap = set(df_failed.columns) & set(_META_COLS)
     if overlap:
@@ -112,16 +133,8 @@ def quarantine(
         pl.lit(now).alias("_quarantined_at"),
     )
 
-    out_path = out_dir / f"{source}_{safe(run_id)}.parquet"
     save_parquet(annotated, out_path)
     return out_path
-
-
-def safe(run_id: str) -> str:
-    # run_id contains ':' from the ISO timestamp, which is illegal in
-    # Windows filenames. Mirror the substitution the manifest layer would
-    # use if it ever wrote run-named files itself.
-    return run_id.replace(":", "-")
 
 
 # --- worked example: how attendance.py would call this ---------------------
