@@ -28,6 +28,7 @@ import argparse
 import ast
 import re
 import sys
+import tokenize
 from collections import defaultdict
 from pathlib import Path
 
@@ -49,6 +50,45 @@ DYNAMIC_HINT_RE = re.compile(r"[-_]$")
 FRAMEWORK_PREFIXES = ("st", "block-", "main", "row-widget", "element-container", "css-")
 
 
+class AnalysisError(RuntimeError):
+    """A source file could not be decoded or parsed safely."""
+
+    def __init__(self, path: Path, cause: BaseException) -> None:
+        self.path = path
+        self.cause = cause
+        super().__init__(f"{path}: {type(cause).__name__}: {cause}")
+
+
+def parse_module(path: Path) -> ast.Module:
+    try:
+        with tokenize.open(path) as stream:
+            source = stream.read()
+        return ast.parse(source, filename=str(path))
+    except (OSError, UnicodeError, SyntaxError) as exc:
+        raise AnalysisError(path, exc) from exc
+
+
+def _docstring_values(tree: ast.AST) -> set[ast.AST]:
+    values: set[ast.AST] = set()
+    owners = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    for node in ast.walk(tree):
+        if not isinstance(node, owners) or not node.body:
+            continue
+        first = node.body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            values.add(first.value)
+    return values
+
+
+def _live_nodes(tree: ast.AST):
+    docstrings = _docstring_values(tree)
+    yield from (node for node in ast.walk(tree) if node not in docstrings)
+
+
 def _literal_parts(node: ast.AST) -> list[str]:
     """String pieces of a Constant or JoinedStr, holes replaced by a marker."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -66,15 +106,12 @@ def _literal_parts(node: ast.AST) -> list[str]:
 
 def emitted_classes(path: Path) -> tuple[set[str], set[str]]:
     """(static class tokens, dynamic/partial tokens) emitted by one module."""
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, SyntaxError):
-        return set(), set()
+    tree = parse_module(path)
 
     static: set[str] = set()
     dynamic: set[str] = set()
 
-    for node in ast.walk(tree):
+    for node in _live_nodes(tree):
         for text in _literal_parts(node):
             if "class" not in text:
                 continue
@@ -94,12 +131,19 @@ def emitted_classes(path: Path) -> tuple[set[str], set[str]]:
 def defined_selectors() -> set[str]:
     """Class selectors defined anywhere in the project's CSS."""
     found: set[str] = set()
-    sources = [CSS_FILE, *PAGES_DIR.glob("*.py"), *UI_DIR.glob("*.py")]
-    for path in sources:
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+    sources = [CSS_FILE, *PAGES_DIR.rglob("*.py"), *UI_DIR.rglob("*.py")]
+    for path in sorted(set(sources)):
+        if "__pycache__" in path.parts:
             continue
+        tree = parse_module(path)
+        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+        literals: list[tuple[int, int, str]] = []
+        for node in _live_nodes(tree):
+            if isinstance(node, ast.Constant) and isinstance(parents.get(node), ast.JoinedStr):
+                continue
+            for text in _literal_parts(node):
+                literals.append((getattr(node, "lineno", 0), getattr(node, "col_offset", 0), text))
+        text = "\n".join(value for _, _, value in sorted(literals))
         # Only look inside <style> blocks so ordinary code can't add false selectors.
         for block in re.findall(r"<style>(.*?)</style>", text, re.DOTALL):
             found.update(CSS_SELECTOR_RE.findall(block))
@@ -127,8 +171,10 @@ def collect() -> tuple[dict[str, set[str]], set[str], set[str], set[str]]:
 
     # app.py and shared_css.py emit markup too (nav chrome, site banner) — omitting
     # them would mis-report their classes as dead CSS.
-    emitters = [*PAGES_DIR.glob("*.py"), *UI_DIR.glob("*.py"), APP_FILE, CSS_FILE]
+    emitters = [*PAGES_DIR.rglob("*.py"), *UI_DIR.rglob("*.py"), APP_FILE, CSS_FILE]
     for path in sorted(set(emitters)):
+        if "__pycache__" in path.parts:
+            continue
         static, dynamic = emitted_classes(path)
         if static or dynamic:
             rel = str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
@@ -245,7 +291,11 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.check or args.update_baseline:
-        _, emitted, _, defined = collect()
+        try:
+            _, emitted, _, defined = collect()
+        except AnalysisError as exc:
+            print(f"CSS class analysis failed closed: {exc}", file=sys.stderr)
+            return 1
         unstyled = sorted(c for c in emitted - defined if not is_framework(c))
 
         if args.update_baseline:
@@ -276,7 +326,11 @@ def main() -> int:
         print("OK — no new unstyled classes.")
         return 0
 
-    report = build_report(show_orphans=args.orphans)
+    try:
+        report = build_report(show_orphans=args.orphans)
+    except AnalysisError as exc:
+        print(f"CSS class analysis failed closed: {exc}", file=sys.stderr)
+        return 1
     if args.out:
         args.out.write_text(report, encoding="utf-8")
         print(f"[wrote {args.out}]", file=sys.stderr)

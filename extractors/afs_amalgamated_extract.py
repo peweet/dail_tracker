@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import contextlib
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -32,12 +31,15 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import config  # noqa: E402
+from paths import runtime_path  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
+from services.http_engine import polite_headers  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
 # medallion: raw PDFs -> bronze; reconciled conformed fact -> silver. (Gold = SQL views.)
 CACHE = config.BRONZE_PDF_DIR / "afs"
 OUT_PARQUET = config.SILVER_PARQUET_DIR / "afs_amalgamated_divisions.parquet"
-OUT_CSV = Path("c:/tmp/afs/afs_amalgamated_divisions.csv")  # debug copy only
+OUT_CSV = runtime_path("afs", "afs_amalgamated_divisions.csv")  # debug copy only
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research)"}
 
 URLS = {
@@ -94,23 +96,15 @@ def download(year: int, url: str) -> Path | None:
     if dest.exists() and dest.stat().st_size > 20000:
         return dest
     CACHE.mkdir(parents=True, exist_ok=True)
-    try:
-        import requests
-
-        b = requests.get(url, headers=H, timeout=120).content
-        if b[:4] != b"%PDF":
-            raise ValueError("not pdf")
+    b = http_fetch_bytes(
+        url,
+        headers=polite_headers(browser=True),
+        timeout=120,
+        validate=lambda payload: payload[:4] == b"%PDF",
+    )
+    if b:
         dest.write_bytes(b)
         return dest
-    except Exception:
-        with contextlib.suppress(Exception):
-            subprocess.run(
-                ["curl", "-sS", "-L", "--max-time", "120", "-A", H["User-Agent"], "-o", str(dest), url],
-                timeout=150,
-                check=False,
-            )
-            if dest.exists() and dest.read_bytes()[:4] == b"%PDF":
-                return dest
     return None
 
 

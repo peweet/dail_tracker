@@ -3,7 +3,7 @@
 
 # doc/ index
 
-61 docs · ~316.4k tokens total · 20 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+62 docs · ~317.6k tokens total · 21 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -17,6 +17,7 @@
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 3.4k | 2026-06-13 | the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2 |
+| [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 1.2k | 2026-08-04 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |
 | [LOCAL_AUTHORITY_ACCOUNTABILITY.md](LOCAL_AUTHORITY_ACCOUNTABILITY.md) | local-gov | 2.1k | 2026-06-20 | when working on local-authority accountability data — CE roster, NOAC collection rates, planning overturn rate, or derelict sites levy |

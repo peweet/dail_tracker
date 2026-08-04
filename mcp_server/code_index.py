@@ -24,9 +24,9 @@ import contextlib
 import os
 import subprocess
 import tokenize
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Iterable, Iterator
 
 # These defaults are the repository-navigation privacy boundary, not merely a speed
 # optimisation.  In particular, private overlays and agent scratch trees must not
@@ -76,9 +76,7 @@ class ScanPolicy:
                 return False
             if self.exclude_private and (low == "private" or low.startswith("private_")):
                 return False
-            if self.exclude_sandboxes and (
-                low == "sandbox" or low.startswith("sandbox_") or low.endswith("_sandbox")
-            ):
+            if self.exclude_sandboxes and (low == "sandbox" or low.startswith("sandbox_") or low.endswith("_sandbox")):
                 return False
         return True
 
@@ -145,7 +143,7 @@ def iter_repository_files(
         except (OSError, ValueError):
             continue
         if resolved.is_file():
-            accepted.append((rel.as_posix(), resolved))
+            accepted.append((rel.as_posix(), path))
     for _, path in sorted(accepted):
         yield path
 

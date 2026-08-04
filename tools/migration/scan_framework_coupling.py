@@ -15,8 +15,8 @@ Usage
     python tools/scan_framework_coupling.py --json out.json
     python tools/scan_framework_coupling.py --layer utility/ui
 
-Exit code is always 0 — this is a survey, not a ratchet. The ratchets that DO
-gate CI are tools/check_streamlit_logic_firewall.py and tools/check_conventions.py.
+The survey exits 1 when any source cannot be decoded or parsed; a partial report
+would understate coupling. The optional inline-markup mode is also a CI ratchet.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ import argparse
 import ast
 import json
 import sys
+import tokenize
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,6 +34,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Directories that are never part of the shipped import graph.
 SKIP_DIRS = {
+    ".cache",
     ".venv",
     ".git",
     "__pycache__",
@@ -169,6 +171,40 @@ class ModuleInfo:
     reaches_streamlit_via: str | None = None
 
 
+class AnalysisError(RuntimeError):
+    """A source file could not be decoded or parsed safely."""
+
+    def __init__(self, path: Path, cause: BaseException) -> None:
+        self.path = path
+        self.cause = cause
+        super().__init__(f"{path}: {type(cause).__name__}: {cause}")
+
+
+def parse_module(path: Path) -> tuple[str, ast.Module]:
+    try:
+        with tokenize.open(path) as stream:
+            source = stream.read()
+        return source, ast.parse(source, filename=str(path))
+    except (OSError, UnicodeError, SyntaxError) as exc:
+        raise AnalysisError(path, exc) from exc
+
+
+def _docstring_values(tree: ast.AST) -> set[ast.AST]:
+    values: set[ast.AST] = set()
+    owners = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    for node in ast.walk(tree):
+        if not isinstance(node, owners) or not node.body:
+            continue
+        first = node.body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            values.add(first.value)
+    return values
+
+
 def iter_python_files(root: Path) -> list[Path]:
     out: list[Path] = []
     for p in root.rglob("*.py"):
@@ -223,16 +259,10 @@ def looks_like_markup(value: str) -> bool:
     )
 
 
-def scan_module(path: Path) -> ModuleInfo | None:
-    rel = str(path.relative_to(PROJECT_ROOT))
-    try:
-        src = path.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
-        return None
-    try:
-        tree = ast.parse(src)
-    except SyntaxError:
-        return None
+def scan_module(path: Path, root: Path = PROJECT_ROOT) -> ModuleInfo:
+    rel = str(path.relative_to(root))
+    src, tree = parse_module(path)
+    docstrings = _docstring_values(tree)
 
     info = ModuleInfo(
         path=path,
@@ -243,6 +273,8 @@ def scan_module(path: Path) -> ModuleInfo | None:
     )
 
     for node in ast.walk(tree):
+        if node in docstrings:
+            continue
         if isinstance(node, ast.Import):
             for alias in node.names:
                 info.raw_imports.add(alias.name)
@@ -476,10 +508,7 @@ MARKUP_SCAN_DIRS = ("utility/pages_code", "utility/ui")
 
 def count_inline_markup(path: Path) -> int:
     """Markup call sites whose argument is an inline literal rather than a call."""
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, SyntaxError):
-        return 0
+    _, tree = parse_module(path)
     n = 0
     for node in ast.walk(tree):
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
@@ -501,10 +530,12 @@ def count_inline_markup(path: Path) -> int:
 def markup_counts() -> dict[str, int]:
     counts: dict[str, int] = {}
     for d in MARKUP_SCAN_DIRS:
-        for path in sorted((PROJECT_ROOT / d).glob("*.py")):
+        for path in sorted((PROJECT_ROOT / d).rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
             n = count_inline_markup(path)
             if n:
-                counts[f"{d}/{path.name}"] = n
+                counts[path.relative_to(PROJECT_ROOT).as_posix()] = n
     return counts
 
 
@@ -556,14 +587,27 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.check_markup or args.update_markup_baseline:
-        return run_markup_ratchet(update=args.update_markup_baseline)
+        try:
+            return run_markup_ratchet(update=args.update_markup_baseline)
+        except AnalysisError as exc:
+            print(f"Framework markup analysis failed closed: {exc}", file=sys.stderr)
+            return 1
 
     files = iter_python_files(args.root)
     modules: dict[str, ModuleInfo] = {}
+    errors: list[AnalysisError] = []
     for f in files:
-        info = scan_module(f)
-        if info is not None:
-            modules[info.dotted] = info
+        try:
+            info = scan_module(f, args.root)
+        except AnalysisError as exc:
+            errors.append(exc)
+            continue
+        modules[info.dotted] = info
+
+    if errors:
+        for error in errors:
+            print(f"Framework coupling analysis failed closed: {error}", file=sys.stderr)
+        return 1
 
     resolver = build_resolver(modules)
     link_edges(modules, resolver)

@@ -52,6 +52,7 @@ from afs_amalgamated_extract import parse_ie  # noqa: E402
 from procurement_la_seed import HREF_RE, fetch_bytes, fetch_text  # noqa: E402
 
 import config  # noqa: E402
+from paths import configured_path, runtime_path  # noqa: E402
 from services.coverage_io import save_coverage  # noqa: E402
 from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 from services.http_engine import polite_headers  # noqa: E402
@@ -69,7 +70,12 @@ OUT_COV = ROOT / "data/_meta/la_afs_coverage.json"
 # absent (CI/Cloud/fresh machine), these councils are skipped and the fitz fact still ships.
 # Rebuild the venv (then re-run): the recipe is in la_afs_camelot_ie.py's docstring. The venv
 # path is overridable via $AFS_CAMELOT_VENV so a fresh clone can point at its own.
-CAMELOT_VENV = Path(os.environ.get("AFS_CAMELOT_VENV", "c:/tmp/afs_camelot_venv/Scripts/python.exe"))
+_CAMELOT_PYTHON = runtime_path(
+    "afs_camelot_venv",
+    "Scripts" if os.name == "nt" else "bin",
+    "python.exe" if os.name == "nt" else "python",
+)
+CAMELOT_VENV = configured_path("AFS_CAMELOT_VENV", _CAMELOT_PYTHON)
 CAMELOT_SCRIPT = ROOT / "extractors" / "la_afs_camelot_ie.py"
 CAMELOT_ROWS = ROOT / "data" / "_meta" / "la_afs_camelot_rows.json"
 

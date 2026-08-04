@@ -7,6 +7,7 @@ when ``mcp`` is absent, mirroring test_mcp_server_smoke.py.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -96,21 +97,106 @@ def test_build_code_index_covers_repo_and_skips_env():
     assert "register_views" in db["haystack"]  # def names are searchable
 
 
+def test_outline_reports_complete_class_contract(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "models.py").write_text(
+        """@registered('widget')
+class Widget[T](Base, Protocol, metaclass=WidgetMeta, frozen=True):
+    \"\"\"A generic widget.\"\"\"
+
+    class State(Enum):
+        READY = 'ready'
+
+    @classmethod
+    def make(cls, value: T) -> T:
+        def validate(item: T) -> T:
+            return item
+        return validate(value)
+""",
+        encoding="utf-8",
+    )
+
+    out = code_index.outline(repo, "models.py")
+    widget = out["defs"][0]
+    assert widget["span"].startswith("1-")
+    assert widget["decorators"] == ["registered('widget')"]
+    assert widget["bases"] == ["Base", "Protocol"]
+    assert widget["metaclass"] == "WidgetMeta"
+    assert widget["keywords"] == ["frozen=True"]
+    assert widget["type_params"] == ["T"]
+    assert widget["classes"][0]["name"] == "State"
+    assert widget["methods"][0]["nested"][0]["name"] == "validate"
+    assert out["def_count"] == 4
+
+
+def test_parse_errors_and_declared_source_encoding_are_reported(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    encoded = b'# -*- coding: latin-1 -*-\n"""caf\xe9 module"""\ndef ok():\n    pass\n'
+    (repo / "encoded.py").write_bytes(encoded)
+    (repo / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+
+    assert code_index.outline(repo, "encoded.py")["doc"] == "caf\u00e9 module"
+    error = code_index.outline(repo, "broken.py")["error"]
+    assert "SyntaxError" in error and "line 1" in error
+    indexed = {entry["path"]: entry for entry in code_index.build_code_index(repo)}
+    assert "parse_error" in indexed["broken.py"]
+
+
+def test_scan_policy_excludes_dot_private_and_sandbox_trees(tmp_path):
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / ".gitignore").write_text("ignored/\n", encoding="utf-8")
+    for directory in ("public", ".agents", "doc/private", "pipeline_sandbox", "ignored"):
+        (repo / directory).mkdir(parents=True, exist_ok=True)
+        (repo / directory / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    paths = {entry["path"] for entry in code_index.build_code_index(repo)}
+    assert paths == {"public/module.py"}
+
+
 # ── server integration (needs the optional mcp extra) ────────────────────────
-
-mcp_mod = pytest.importorskip("mcp")
-
-from mcp_server import server  # noqa: E402
 
 
 def test_code_outline_tool_registered():
     import asyncio
+
+    pytest.importorskip("mcp")
+    from mcp_server import server
 
     names = {t.name for t in asyncio.run(server.mcp.list_tools())}
     assert "code_outline" in names
 
 
 def test_search_project_finds_code():
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
     hits = server.search_project("register_views connection", kind="code")
     assert hits["count"] >= 1
     assert any(r["path"] == "dail_tracker_core/db.py" for r in hits["results"])
+
+
+def test_search_project_rejects_unknown_kind():
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    out = server.search_project("widget", kind="private")
+    assert "error" in out
+    assert "memory" in out["allowed"]
+
+
+def test_json_peek_rejects_prefix_sibling_escape(tmp_path, monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    repo = tmp_path / "repo"
+    sibling = tmp_path / "repo_private"
+    repo.mkdir()
+    sibling.mkdir()
+    (sibling / "secret.json").write_text('{"secret": true}', encoding="utf-8")
+    monkeypatch.setattr(server, "REPO", repo.resolve())
+
+    out = server.json_peek("../repo_private/secret.json")
+    assert "error" in out

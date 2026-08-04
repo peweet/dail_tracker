@@ -17,7 +17,7 @@ that's fine — the goal is to confirm schema + landmines per source before Phas
 
 Run:  ./.venv/Scripts/python.exe extractors/sample_extract_procurement_pdf.py
       ./.venv/Scripts/python.exe extractors/sample_extract_procurement_pdf.py --max-pages 3
-Writes c:/tmp/procurement_publishers/sample_extraction_pdf_report.json
+Writes ``DAIL_RUNTIME_DIR/procurement_publishers/sample_extraction_pdf_report.json``.
 """
 
 from __future__ import annotations
@@ -41,8 +41,9 @@ with contextlib.suppress(Exception):
 
 # Re-exported: procurement_hse_tusla_materialize / _parser import cluster_word_rows from here.
 from shared.pdf_layout import cluster_word_rows  # noqa: E402
+from paths import runtime_path  # noqa: E402
 
-TMP = Path("c:/tmp/procurement_publishers")
+TMP = runtime_path("procurement_publishers")
 PROBE = TMP / "procurement_publishers_probe.json"
 OUT = TMP / "sample_extraction_pdf_report.json"
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}

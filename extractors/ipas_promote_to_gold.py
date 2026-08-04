@@ -36,11 +36,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from services.parquet_io import save_parquet  # noqa: E402
+from paths import configured_path, runtime_path  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
-SANDBOX = Path("c:/tmp/dail_new_sources/silver")
+SANDBOX = configured_path("IPAS_SANDBOX_DIR", runtime_path("dail_new_sources", "silver"))
 GOLD = ROOT / "data/gold/parquet"
 
 _PII_TOKENS = ("address", "national_id", "home", "dob", "birth", "pps", "phone", "email", "resident_name", "eircode")

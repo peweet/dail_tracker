@@ -29,7 +29,6 @@ import ast
 import sys
 import tokenize
 from pathlib import Path
-from typing import TypeAlias
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 QUERIES_DIR = PROJECT_ROOT / "dail_tracker_core" / "queries"
@@ -48,7 +47,7 @@ EXCLUDED_MODULES = {"siting"}
 EXCLUDED_FUNCS = {"main", "register", "build", "connect"}
 
 QUERY_PACKAGE = "dail_tracker_core.queries"
-Symbol: TypeAlias = tuple[str, str]
+type Symbol = tuple[str, str]
 
 
 class AnalysisError(RuntimeError):
@@ -201,7 +200,11 @@ def referenced_names(
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     prefix = QUERY_PACKAGE + "."
-                    if alias.asname and alias.name.startswith(prefix):
+                    if not alias.asname:
+                        continue
+                    if alias.name == QUERY_PACKAGE:
+                        module_aliases[alias.asname] = "__init__"
+                    elif alias.name.startswith(prefix):
                         module_aliases[alias.asname] = alias.name[len(prefix) :].replace(".", "/")
 
         for node in ast.walk(tree):
@@ -209,14 +212,23 @@ def referenced_names(
                 referenced.add(resolve_symbol(symbol_aliases[node.id], exports))
             elif isinstance(node, ast.Attribute):
                 parts = _attribute_parts(node)
-                if not parts or parts[0] not in module_aliases or len(parts) < 2:
+                if not parts:
                     continue
-                base = module_aliases[parts[0]]
-                suffix = parts[1:]
-                base_parts = [] if base == "__init__" else base.split("/")
-                owner = "/".join([*base_parts, *suffix[:-1]]) or "__init__"
+                if parts[0] in module_aliases and len(parts) >= 2:
+                    base = module_aliases[parts[0]]
+                    suffix = parts[1:]
+                    base_parts = [] if base == "__init__" else base.split("/")
+                    owner = "/".join([*base_parts, *suffix[:-1]]) or "__init__"
+                    name = suffix[-1]
+                else:
+                    package_parts = QUERY_PACKAGE.split(".")
+                    if parts[: len(package_parts)] != package_parts or len(parts) <= len(package_parts):
+                        continue
+                    suffix = parts[len(package_parts) :]
+                    owner = "/".join(suffix[:-1]) or "__init__"
+                    name = suffix[-1]
                 if owner in modules:
-                    referenced.add(resolve_symbol((owner, suffix[-1]), exports))
+                    referenced.add(resolve_symbol((owner, name), exports))
     return referenced
 
 
@@ -259,17 +271,11 @@ def main() -> int:
         print(f"queries dir not found: {QUERIES_DIR}", file=sys.stderr)
         return 1
 
-    defined: list[tuple[str, str, int]] = []
-    for path in sorted(QUERIES_DIR.rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
-        for module, name, lineno in public_functions(path):
-            if module.split("/")[0] in EXCLUDED_MODULES:
-                continue
-            defined.append((module, name, lineno))
-
-    consumed = referenced_names(CONSUMER_PATHS)
-    unexposed = [(m, n, ln) for m, n, ln in defined if n not in consumed]
+    try:
+        defined, _consumed, unexposed = analyse()
+    except AnalysisError as exc:
+        print(f"API parity analysis failed closed: {exc}", file=sys.stderr)
+        return 1
 
     by_module: dict[str, list[str]] = {}
     totals: dict[str, int] = {}
@@ -311,7 +317,10 @@ def main() -> int:
     if new_drift:
         print(f"\nFAIL — {len(new_drift)} new Streamlit-only function(s) since the baseline:", file=sys.stderr)
         for m, n, ln in sorted(new_drift):
-            rel = (QUERIES_DIR / f"{m}.py").relative_to(PROJECT_ROOT).as_posix()
+            path = QUERIES_DIR / f"{m}.py"
+            if not path.exists():
+                path = QUERIES_DIR / m / "__init__.py"
+            rel = path.relative_to(PROJECT_ROOT).as_posix()
             print(f"  {rel}:{ln}  {n}", file=sys.stderr)
         print("\nAdd a router/dossier helper, or justify and re-baseline deliberately.", file=sys.stderr)
         return 1

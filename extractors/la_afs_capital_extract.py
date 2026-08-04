@@ -53,6 +53,7 @@ with contextlib.suppress(Exception):
 import la_afs_extract as rev  # noqa: E402  (CACHE, REGISTRY, best_ie_page, statement_year, title_year)
 
 import config  # noqa: E402
+from paths import configured_path, runtime_path  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
 OUT_PARQUET = config.SILVER_PARQUET_DIR / "la_afs_capital_divisions.parquet"
@@ -65,9 +66,15 @@ import subprocess  # noqa: E402
 
 # The camelot helper + its cached reconcile rows now live IN THE REPO (portable on any clone),
 # mirroring the revenue sibling la_afs_extract/la_afs_camelot_ie. Only the heavy isolated venv
-# stays in c:/tmp (build recipe in la_afs_camelot_capital_ie.py's docstring; override via
-# AFS_CAMELOT_VENV). Absent venv → the committed cached rows are merged as-is.
-CAMELOT_VENV = Path(os.environ.get("AFS_CAMELOT_VENV", "c:/tmp/afs_camelot_venv/Scripts/python.exe"))
+# stays in the configured runtime area (build recipe in
+# la_afs_camelot_capital_ie.py's docstring; override via AFS_CAMELOT_VENV).
+# Absent venv → the committed cached rows are merged as-is.
+_CAMELOT_PYTHON = runtime_path(
+    "afs_camelot_venv",
+    "Scripts" if os.name == "nt" else "bin",
+    "python.exe" if os.name == "nt" else "python",
+)
+CAMELOT_VENV = configured_path("AFS_CAMELOT_VENV", _CAMELOT_PYTHON)
 CAMELOT_SCRIPT = ROOT / "extractors" / "la_afs_camelot_capital_ie.py"
 CAMELOT_ROWS = ROOT / "data" / "_meta" / "la_afs_capital_camelot_rows.json"
 CAMELOT_SLUGS = ["monaghan", "kildare", "clare", "fingal", "dlr", "kilkenny"]

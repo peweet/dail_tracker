@@ -30,7 +30,7 @@ current day only — history comes from the poller's archive, one file per day).
 
 Run:
   ./.venv/Scripts/python.exe extractors/legal_diary_extract.py                 # latest archived docx
-  ./.venv/Scripts/python.exe extractors/legal_diary_extract.py --file C:/tmp/diary.docx
+  ./.venv/Scripts/python.exe extractors/legal_diary_extract.py --file <runtime-dir>/diary.docx
   ./.venv/Scripts/python.exe extractors/legal_diary_extract.py --all-archived  # rebuild every archived day
 """
 
@@ -57,6 +57,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from config import BRONZE_DIR, DATA_DIR, GOLD_PARQUET_DIR  # noqa: E402
+from paths import runtime_path  # noqa: E402
 from services.logging_setup import setup_standalone_logging  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
@@ -737,7 +738,7 @@ def _resolve_inputs(args) -> list[Path]:
     archived = sorted(ARCHIVE_DIR.glob("*.docx")) if ARCHIVE_DIR.exists() else []
     if archived:
         return archived
-    fallback = Path("C:/tmp/diary.docx")
+    fallback = runtime_path("diary.docx")
     if fallback.exists():
         logger.info("No archive present; using cached %s", fallback)
         return [fallback]

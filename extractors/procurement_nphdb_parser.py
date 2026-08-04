@@ -24,7 +24,7 @@ promote only on a separate go-ahead).
 
 Run:
   ./.venv/Scripts/python.exe extractors/procurement_nphdb_parser.py
-  ./.venv/Scripts/python.exe extractors/procurement_nphdb_parser.py --pdf c:/tmp/.../file.pdf
+  ./.venv/Scripts/python.exe extractors/procurement_nphdb_parser.py --pdf <runtime-dir>/file.pdf
 """
 
 from __future__ import annotations
@@ -46,6 +46,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from services.parquet_io import save_parquet  # noqa: E402
+from paths import runtime_path  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -56,7 +57,7 @@ _spec = importlib.util.spec_from_file_location("pbe", str(ROOT / "extractors/pro
 pbe = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pbe)
 
-TMP = Path("c:/tmp/procurement_publishers")
+TMP = runtime_path("procurement_publishers")
 OUT_FACT = ROOT / "data/silver/parquet/nphdb_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/nphdb_payments_coverage.json"
 PARSER_VERSION = "0.1.0"

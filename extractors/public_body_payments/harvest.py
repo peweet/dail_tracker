@@ -30,7 +30,6 @@ from .readers import period_from_url
 ROOT = Path(__file__).resolve().parents[2]
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
-TMP = Path("c:/tmp/procurement_publishers")
 BRONZE = ROOT / "data/bronze/pdfs/public_body_procurement"
 REPORT = FetchReport("public_body")
 LAST_ERR: dict = {}  # set by fetch_bytes on failure, read by the download loop

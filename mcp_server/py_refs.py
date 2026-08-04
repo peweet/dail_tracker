@@ -16,16 +16,40 @@ optional ``mcp`` extra installed (tests importorskip jedi instead).
 from __future__ import annotations
 
 import ast
+import contextlib
 import io
 import threading
 import tokenize
 from pathlib import Path
 
-from mcp_server.code_index import DEFAULT_SCAN_POLICY, read_python_source
+from mcp_server.code_index import DEFAULT_SCAN_POLICY, iter_repository_files, read_python_source
 
 _REF_CAP = 200  # hard ceiling on returned reference rows
 _CODE_CAP = 160  # one source line per reference, truncated to this many chars
 _JEDI_REFERENCE_LOCK = threading.Lock()
+
+
+def _allowed_python_paths(repo: Path) -> set[str]:
+    """Git-visible, policy-approved Python paths available to reference inference."""
+    return {
+        path.relative_to(repo).as_posix() for path in iter_repository_files(repo, {".py", ".pyi"}, DEFAULT_SCAN_POLICY)
+    }
+
+
+def _filtered_jedi_recurse(original, repo: Path, allowed: set[str]):
+    """Wrap Jedi's file discovery so ignored/private/sandbox files are never parsed."""
+
+    def filtered(folder_io, except_paths=()):
+        for file_io in original(folder_io, except_paths):
+            try:
+                rel = Path(file_io.path).resolve().relative_to(repo).as_posix()
+            except (OSError, ValueError):
+                yield file_io
+                continue
+            if rel in allowed:
+                yield file_io
+
+    return filtered
 
 
 def _resolve_module(repo: Path, path: str) -> Path | None:
@@ -143,6 +167,10 @@ def refs(repo: Path, path: str, name: str, limit: int = 60) -> dict:
     target = _resolve_module(repo, path)
     if target is None:
         return {"error": f"no such module: {path}"}
+    allowed_paths = _allowed_python_paths(repo)
+    target_rel = target.relative_to(repo).as_posix()
+    if target_rel not in allowed_paths:
+        return {"error": f"module is excluded by the repository scan policy: {path}"}
     try:
         src = read_python_source(target)
         pos = _locate(src, name)
@@ -160,11 +188,21 @@ def refs(repo: Path, path: str, name: str, limit: int = 60) -> dict:
     with _JEDI_REFERENCE_LOCK:
         try:
             from jedi.inference import references as _jedi_refs
-
-            caps = (_jedi_refs._PARSED_FILE_LIMIT, _jedi_refs._OPENED_FILE_LIMIT)
-            _jedi_refs._PARSED_FILE_LIMIT, _jedi_refs._OPENED_FILE_LIMIT = 100_000, 100_000
-        except (ImportError, AttributeError):  # jedi internals moved — search runs capped
-            _jedi_refs, caps = None, None
+        except ImportError:
+            _jedi_refs = None
+        caps = None
+        original_recurse = None
+        if _jedi_refs is not None:
+            with contextlib.suppress(AttributeError):
+                caps = (_jedi_refs._PARSED_FILE_LIMIT, _jedi_refs._OPENED_FILE_LIMIT)
+                _jedi_refs._PARSED_FILE_LIMIT, _jedi_refs._OPENED_FILE_LIMIT = 100_000, 100_000
+            with contextlib.suppress(AttributeError):
+                original_recurse = _jedi_refs.recurse_find_python_files
+                _jedi_refs.recurse_find_python_files = _filtered_jedi_recurse(
+                    original_recurse,
+                    repo,
+                    allowed_paths,
+                )
         try:
             script = jedi.Script(code=src, path=str(target), project=jedi.Project(str(repo)))
             found = script.get_references(line, col, include_builtins=False)
@@ -173,6 +211,8 @@ def refs(repo: Path, path: str, name: str, limit: int = 60) -> dict:
         finally:
             if caps is not None:
                 _jedi_refs._PARSED_FILE_LIMIT, _jedi_refs._OPENED_FILE_LIMIT = caps
+            if original_recurse is not None:
+                _jedi_refs.recurse_find_python_files = original_recurse
 
     definitions: list[dict] = []
     references: list[dict] = []
@@ -187,7 +227,7 @@ def refs(repo: Path, path: str, name: str, limit: int = 60) -> dict:
         except (OSError, ValueError):
             external += 1  # site-packages / stdlib — outside the repo
             continue
-        if not DEFAULT_SCAN_POLICY.allows(rel):
+        if rel not in allowed_paths:
             excluded += 1
             continue
         row = {"path": rel, "line": n.line, "code": n.get_line_code().strip()[:_CODE_CAP]}

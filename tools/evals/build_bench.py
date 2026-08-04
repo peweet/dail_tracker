@@ -30,19 +30,18 @@ import json
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 import anyio
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ResultMessage,
-    ToolUseBlock,
-    query,
-)
 
-PROJ = r"C:\Users\pglyn\PycharmProjects\dail_extractor"
-VENV = PROJ + r"\.venv\Scripts"
-PY = VENV + r"\python.exe"
+try:
+    from .provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+except ImportError:  # direct script execution
+    from provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+
+PROJ = str(Path(__file__).resolve().parents[2])
+VENV = str(Path(PROJ) / ".venv" / ("Scripts" if os.name == "nt" else "bin"))
+PY = str(Path(VENV) / ("python.exe" if os.name == "nt" else "python"))
 WT_BASE = r"C:\tmp\dail_build_bench"
 
 

@@ -1636,10 +1636,7 @@ def _fts_ready(*, include_external_memory: bool = False) -> bool:
     global _FTS_LAST, _FTS_MEMORY_ENABLED, _FTS_REPORT
     import time as _t
 
-    if (
-        include_external_memory == _FTS_MEMORY_ENABLED
-        and _t.monotonic() - _FTS_LAST < _FTS_REFRESH_SECS
-    ):
+    if include_external_memory == _FTS_MEMORY_ENABLED and _t.monotonic() - _FTS_LAST < _FTS_REFRESH_SECS:
         return True
     try:
         memory_dir = _memory_dir() if include_external_memory else None
@@ -1764,9 +1761,11 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     escalate by kind: describe_dataset(name) for a dataset, code_outline(path) for code,
     view_deps(name) for a sql_view (its AST-derived upstream/downstream edges). Wide
     question → this tool; specific view/module → the per-kind tool. Optional `kind`
-    filter: 'dataset' | 'doc' | 'sql_view' | 'code'. It indexes METADATA only — never
-    parquet rows or source bodies — so it is cheap and safe. Use it as the first move on
-    any "which dataset/view/doc/module covers …?" question, before Grep/Glob.
+    filter: 'dataset' | 'doc' | 'sql_view' | 'code'. External assistant memory is
+    excluded by default and is searched only with the explicit `kind='memory'` filter;
+    its paths use a separate `memory://external/` namespace. Repository source scanning
+    excludes ignored, dot, private, sandbox and generated trees. Use this as the first
+    move on any "which dataset/view/doc/module covers …?" question, before Grep/Glob.
     v2: the reply may also carry `content_spans` — BM25-ranked AST/heading CHUNKS with
     path + line span + snippet, so you Read only that span instead of the whole file."""
     q_tokens = _tokens(query)
@@ -1774,6 +1773,12 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
         return {"error": "empty query"}
     q_join = "".join(q_tokens)
     want = {k.strip() for k in kind.lower().split(",") if k.strip()}
+    valid_kinds = {"dataset", "doc", "sql_view", "code", "memory"}
+    if invalid := want - valid_kinds:
+        return {
+            "error": f"unknown kind(s): {', '.join(sorted(invalid))}",
+            "allowed": sorted(valid_kinds),
+        }
 
     scored = []
     for e in _project_index():
@@ -1814,26 +1819,39 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     # snippet so the follow-up is Read(path, offset, limit) of just that span, not a
     # whole-file read. Fails soft: metadata results stand alone if the index is out.
     spans: list[dict] = []
-    if _fts_ready():
+    content_kind_map = {
+        "code": "code-chunk",
+        "doc": "doc-section",
+        "sql_view": "sql-view",
+        "memory": "memory",
+    }
+    content_kinds = (
+        {"code-chunk", "doc-section", "sql-view"}
+        if not want
+        else {content_kind_map[item] for item in want if item in content_kind_map}
+    )
+    include_external_memory = "memory" in want
+    if content_kinds and _fts_ready(include_external_memory=include_external_memory):
         with contextlib.suppress(Exception):
-            fts_kind = {"code": "code-chunk", "doc": "doc-section", "sql_view": "sql-view", "memory": "memory"}.get(
-                next(iter(want), ""), ""
-            )
-            spans = fts_index.search(REPO, query, limit=6, kind=fts_kind)
+            spans = fts_index.search(REPO, query, limit=6, kind=",".join(sorted(content_kinds)))
 
     if not top and not spans:
-        return {
+        out = {
             "query": query,
             "count": 0,
             "results": [],
             "hint": "no metadata match — try a broader term or Grep the source tree",
         }
-    out = {"query": query, "count": len(top), "results": top}
+    else:
+        out = {"query": query, "count": len(top), "results": top}
     if spans:
         out["content_spans"] = spans
         out["span_hint"] = (
             "content_spans give path+line span — Read(path, offset=start, limit=span_len) instead of the whole file"
         )
+    if content_kinds and _FTS_REPORT.get("error_count"):
+        out["index_error_count"] = _FTS_REPORT["error_count"]
+        out["index_errors"] = _FTS_REPORT.get("errors", [])[:10]
     return out
 
 
@@ -1860,13 +1878,21 @@ def py_deps(path: str) -> dict:
     repo-relative path ('services/parquet_io.py') or dotted module
     ('services.parquet_io'). Edges come from stdlib-ast parsing at index time —
     deterministic for static imports, blind to dynamic/importlib ones."""
+    requested = Path(path)
+    if requested.is_absolute() or requested.drive:
+        return {"error": f"path must be repository-relative: {path}"}
     rel = path.replace("\\", "/").strip("/")
     if not rel.endswith(".py"):
         cand = rel.replace(".", "/")
         rel = f"{cand}.py" if (REPO / f"{cand}.py").is_file() else f"{cand}/__init__.py"
-    if not (REPO / rel).is_file():
+    try:
+        target = (REPO / rel).resolve()
+        rel = target.relative_to(REPO).as_posix()
+    except (OSError, ValueError):
+        return {"error": f"path escapes the repository: {path}"}
+    if not code_index.DEFAULT_SCAN_POLICY.allows(rel) or not target.is_file():
         return {"error": f"no such module: {path}"}
-    if not _fts_ready():
+    if not _fts_ready(include_external_memory=False):
         return {"error": "index unavailable — try again"}
     out = fts_index.deps(REPO, rel)
     out["counts"] = {"imports": len(out["imports"]), "imported_by": len(out["imported_by"])}
@@ -1898,8 +1924,15 @@ def json_peek(path: str, expr: str = "", limit: int = 20) -> dict:
     Output is hard-capped at ~2000 chars."""
     import json as _json
 
-    p = (REPO / path).resolve()
-    if not str(p).startswith(str(REPO)) or p.suffix.lower() not in (".json", ".jsonl", ".geojson"):
+    requested = Path(path)
+    if requested.is_absolute() or requested.drive:
+        return {"error": "path must be a repo-relative .json/.jsonl/.geojson file"}
+    try:
+        p = (REPO / requested).resolve()
+        p.relative_to(REPO)
+    except (OSError, ValueError):
+        return {"error": "path must be a repo-relative .json/.jsonl/.geojson file"}
+    if p.suffix.lower() not in (".json", ".jsonl", ".geojson"):
         return {"error": "path must be a repo-relative .json/.jsonl/.geojson file"}
     if not p.is_file():
         return {"error": f"not found: {path}"}

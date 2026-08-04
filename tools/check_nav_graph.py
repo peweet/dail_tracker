@@ -169,7 +169,7 @@ def main() -> int:
         except ScanError as exc:
             errors.append(exc)
             continue
-        own = CANONICAL_PAGE.get(rel, CANONICAL_PAGE.get(f.name))
+        own = CANONICAL_PAGE.get(rel)
         uncarried = sorted({ENTITY_COLS[c] for c in cols} - carried - ({own} if own else set()))
         if not uncarried:
             if rel in BASELINE:

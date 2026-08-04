@@ -25,3 +25,59 @@ def test_api_parity_ratchet_holds(capsys, monkeypatch):
     rc = check_api_parity.main()
     out = capsys.readouterr()
     assert rc == 0, f"API parity drift:\n{out.out}\n{out.err}"
+
+
+def test_analyse_resolves_nested_reexports_without_name_collisions(tmp_path, monkeypatch):
+    queries = tmp_path / "queries"
+    nested = queries / "nested"
+    nested.mkdir(parents=True)
+    (queries / "__init__.py").write_text("", encoding="utf-8")
+    (queries / "alpha.py").write_text("def shared():\n    return 'alpha'\n", encoding="utf-8")
+    (nested / "beta.py").write_text("def shared():\n    return 'beta'\n", encoding="utf-8")
+    (nested / "__init__.py").write_text(
+        "from dail_tracker_core.queries.nested.beta import shared\n",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.py"
+    consumer.write_text(
+        "from dail_tracker_core.queries import nested as query\nresult = query.shared()\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_api_parity, "QUERIES_DIR", queries)
+    monkeypatch.setattr(check_api_parity, "CONSUMER_PATHS", [consumer])
+
+    defined, consumed, unexposed = check_api_parity.analyse()
+
+    assert ("nested/beta", "shared", 1) in defined
+    assert ("nested/beta", "shared") in consumed
+    assert ("alpha", "shared", 1) in unexposed
+    assert ("nested/beta", "shared", 1) not in unexposed
+
+
+def test_main_reports_query_parse_errors_and_fails_closed(tmp_path, capsys, monkeypatch):
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "broken.py").write_text("def incomplete(:\n", encoding="utf-8")
+    consumer = tmp_path / "consumer.py"
+    consumer.write_text("", encoding="utf-8")
+    monkeypatch.setattr(check_api_parity, "QUERIES_DIR", queries)
+    monkeypatch.setattr(check_api_parity, "CONSUMER_PATHS", [consumer])
+    monkeypatch.setattr(check_api_parity, "BASELINE", tmp_path / "baseline.txt")
+    monkeypatch.setattr(sys, "argv", ["check_api_parity.py"])
+
+    assert check_api_parity.main() == 1
+    captured = capsys.readouterr()
+    assert "broken.py" in captured.err
+    assert "failed closed" in captured.err
+
+
+def test_parse_module_reports_decode_errors(tmp_path):
+    broken = tmp_path / "broken.py"
+    broken.write_bytes(b"# coding: utf-8\nvalue = '\xff'\n")
+
+    try:
+        check_api_parity.parse_module(broken)
+    except check_api_parity.AnalysisError as exc:
+        assert exc.path == broken
+    else:
+        raise AssertionError("invalid source encoding was silently accepted")

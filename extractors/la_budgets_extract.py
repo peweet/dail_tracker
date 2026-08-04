@@ -30,12 +30,10 @@ from __future__ import annotations
 import argparse
 import contextlib
 import re
-import subprocess
 import sys
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.request import Request, urlopen
 
 import fitz  # PyMuPDF
 import polars as pl
@@ -48,6 +46,7 @@ with contextlib.suppress(Exception):
 import config  # noqa: E402
 from services.coverage_io import save_coverage  # noqa: E402
 from services.extract_runner import run_extractor  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
 CACHE = config.BRONZE_PDF_DIR / "la_budgets"
@@ -164,20 +163,13 @@ def fetch(url: str, dest: Path) -> Path | None:
     if dest.exists() and dest.stat().st_size > 100_000:
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
-    body = b""
-    with contextlib.suppress(Exception):
-        req = Request(url, headers={"User-Agent": UA})
-        body = urlopen(req, timeout=90).read()
-    if body[:4] != b"%PDF":  # WAF fallback
-        with contextlib.suppress(Exception):
-            p = subprocess.run(
-                ["curl", "-sS", "-k", "-L", "--max-time", "120", "-A", UA, url],
-                capture_output=True,
-                timeout=150,
-                check=False,
-            )
-            body = p.stdout
-    if body[:4] != b"%PDF":
+    body = http_fetch_bytes(
+        url,
+        headers={"User-Agent": UA},
+        timeout=120,
+        validate=lambda payload: payload[:4] == b"%PDF",
+    )
+    if body is None:
         return None
     dest.write_bytes(body)
     return dest

@@ -21,7 +21,6 @@ import time
 from pathlib import Path
 
 import polars as pl
-import requests
 
 try:  # noqa: SIM105
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -31,6 +30,7 @@ except Exception:
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 
 _OUT = _ROOT / "data" / "gold" / "parquet"
 _API = "https://ws.cso.ie/public/api.restful/PxStat.Data.Cube_API.ReadDataset/{code}/CSV/1.0/en"
@@ -111,9 +111,10 @@ DEFLATOR_BASE_YEAR = 2025
 
 def fetch_csv(code: str) -> pl.DataFrame:
     url = _API.format(code=code)
-    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
-    r.raise_for_status()
-    raw = r.content.decode("utf-8-sig")
+    body = http_fetch_bytes(url, timeout=60, validate=lambda payload: bool(payload.strip()))
+    if body is None:
+        raise RuntimeError(f"failed to fetch CSO PxStat table {code}")
+    raw = body.decode("utf-8-sig")
     # PEA08 / HPM03 use "-" as null for "Total" rows in code columns;
     # treat as null + read all as strings then cast on demand
     df = pl.read_csv(

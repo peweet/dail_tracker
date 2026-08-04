@@ -36,10 +36,13 @@ Exit code is always 0 — a gauge, not a gate.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
+import tokenize
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -63,11 +66,61 @@ HOST_RULES: list[tuple[str, str, str]] = [
 # Anything ending .ie that didn't match above is treated as a council/public host.
 COUNCIL_SUFFIX = (".ie",)
 
-LOCAL_PATH_RE = re.compile(r"""["'](?:[cC]:[\\/]tmp|/mnt/c|[cC]:[\\/]Users)[^"']*["']""")
-GOVIE_IN_CODE_RE = re.compile(r"gov\.ie")
-BROWSER_UA_RE = re.compile(r"browser\s*=\s*True|GOVIE_HEADERS|BROWSER_UA|Mozilla/5\.0")
-BARE_REQUEST_RE = re.compile(r"\brequests\.(get|post|head)\s*\(|\burlopen\s*\(")
-FETCH_ENGINE_RE = re.compile(r"fetch_bytes|http_engine")
+LOCAL_PATH_RE = re.compile(r"(?:[cC]:[\\/]tmp|/mnt/c|[cC]:[\\/]Users)[^\r\n\"']*")
+
+
+def _docstring_nodes(tree: ast.AST) -> set[int]:
+    """Identify structural docstrings so prose never counts as runtime code."""
+    found: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) or not node.body:
+            continue
+        first = node.body[0]
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+            found.add(id(first.value))
+    return found
+
+
+def _runtime_signals(source: str, filename: str) -> dict[str, object]:
+    """Extract executable path/fetch signals from one parsed Python module."""
+    tree = ast.parse(source, filename=filename)
+    docs = _docstring_nodes(tree)
+    live_strings = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docs
+    ]
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+
+    bare_requests = any(
+        (
+            isinstance(call.func, ast.Attribute)
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "requests"
+            and call.func.attr in {"get", "post", "head"}
+        )
+        or (isinstance(call.func, ast.Name) and call.func.id == "urlopen")
+        for call in calls
+    )
+    uses_engine = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "services.http_engine"
+        and any(alias.name in {"fetch_bytes", "fetch_json", "fetch_text", "post_bytes"} for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    browser_ua = any("Mozilla/5.0" in value for value in live_strings) or any(
+        isinstance(call.func, ast.Name)
+        and call.func.id == "polite_headers"
+        and any(keyword.arg == "browser" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in call.keywords)
+        for call in calls
+    )
+    return {
+        "local_paths": sorted({match.group(0) for value in live_strings for match in LOCAL_PATH_RE.finditer(value)})[:4],
+        "bare_requests": bare_requests,
+        "uses_engine": uses_engine,
+        "gov_ie": any("gov.ie" in value for value in live_strings),
+        "browser_ua": browser_ua,
+    }
 
 
 def classify_host(host: str) -> tuple[str, str]:
@@ -138,37 +191,42 @@ def polling_coverage(sources: list[dict]) -> dict:
     }
 
 
-def runtime_resilience() -> dict:
-    files: list[Path] = []
-    for d in RUNTIME_DIRS:
-        if d.exists():
-            files += [p for p in d.rglob("*.py") if "__pycache__" not in p.parts]
+def runtime_resilience(files: Iterable[Path] | None = None) -> dict:
+    if files is None:
+        discovered: list[Path] = []
+        for directory in RUNTIME_DIRS:
+            if directory.exists():
+                discovered += [p for p in directory.rglob("*.py") if "__pycache__" not in p.parts]
+        files = discovered
+    files = list(files)
 
     local_paths: dict[str, list[str]] = {}
     bare_requests: list[str] = []
     govie_no_ua: list[str] = []
+    scan_errors: dict[str, str] = {}
     uses_engine = 0
 
     for path in sorted(files):
-        rel = str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
         try:
-            src = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            rel = str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
+        except ValueError:
+            rel = str(path)
+        try:
+            with tokenize.open(path) as source_file:
+                src = source_file.read()
+            signals = _runtime_signals(src, rel)
+        except (OSError, UnicodeError, SyntaxError) as exc:
+            scan_errors[rel] = f"{type(exc).__name__}: {exc}"
             continue
 
-        hits = LOCAL_PATH_RE.findall(src)
+        hits = signals["local_paths"]
         if hits:
-            local_paths[rel] = sorted(set(hits))[:4]
-        if BARE_REQUEST_RE.search(src):
+            local_paths[rel] = hits
+        if signals["bare_requests"]:
             bare_requests.append(rel)
-        if FETCH_ENGINE_RE.search(src):
+        if signals["uses_engine"]:
             uses_engine += 1
-        # a module that fetches gov.ie but never sets a browser UA
-        if (
-            GOVIE_IN_CODE_RE.search(src)
-            and not BROWSER_UA_RE.search(src)
-            and (BARE_REQUEST_RE.search(src) or FETCH_ENGINE_RE.search(src))
-        ):
+        if signals["gov_ie"] and not signals["browser_ua"] and (signals["bare_requests"] or signals["uses_engine"]):
             govie_no_ua.append(rel)
 
     return {
@@ -177,6 +235,7 @@ def runtime_resilience() -> dict:
         "bare_requests": bare_requests,
         "govie_no_ua": govie_no_ua,
         "uses_engine": uses_engine,
+        "scan_errors": scan_errors,
     }
 
 
@@ -209,6 +268,7 @@ def render(sources: list[dict]) -> str:
         f"- **{len(res['bare_requests'])} runtime modules** bypass the resilient "
         f"`fetch_bytes` engine with bare `requests`."
     )
+    w(f"- **{len(res['scan_errors'])} runtime modules** could not be parsed; any such error fails the scan.")
     w(
         f"- Polling: **{pol['pollable']}/{pol['total']}** sources pollable; but only "
         f"**{pol['wired']}** have a wired parser.\n"
@@ -275,6 +335,12 @@ def render(sources: list[dict]) -> str:
     for rel, hits in sorted(res["local_paths"].items()):
         w(f"| `{rel}` | {', '.join(f'`{h.strip(chr(34))}`' for h in hits)} |")
     w("")
+
+    if res["scan_errors"]:
+        w(f"### Scanner errors â€” {len(res['scan_errors'])} modules were not inspected\n")
+        for rel, error in sorted(res["scan_errors"].items()):
+            w(f"- `{rel}`: {error}")
+        w("")
 
     w(f"### Fragile fetches — {len(res['bare_requests'])} modules bypass `fetch_bytes`\n")
     w(
@@ -352,7 +418,7 @@ def main() -> int:
         print(f"[wrote {args.out}]", file=sys.stderr)
     else:
         sys.stdout.write(report)
-    return 0
+    return 2 if runtime_resilience()["scan_errors"] else 0
 
 
 if __name__ == "__main__":

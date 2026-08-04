@@ -18,7 +18,7 @@ eventual harvester has a seed list and we know up front what each council yields
 Merge target for the parallel Galway work (probe_procurement_pdf_galway.py).
 
 Run:  ./.venv/Scripts/python.exe extractors/procurement_la_seed.py
-Writes a summary to c:/tmp/procurement_la/seed_report.json; samples to same dir.
+Writes a summary to ``DAIL_RUNTIME_DIR/procurement_la/seed_report.json``; samples to same dir.
 """
 
 from __future__ import annotations
@@ -36,9 +36,10 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
+from paths import runtime_path  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
-TMP = Path("c:/tmp/procurement_la")
+TMP = runtime_path("procurement_la")
 
 # council -> landing page that LISTS the quarterly PO files. region tags let us
 # fan out by area. "kind" is the expected publication shape (confirmed where noted).
@@ -422,7 +423,7 @@ def main() -> None:
     print(f"  have tabular (csv/xlsx): {len(tab)}  {[r['council'] for r in tab]}")
     print(f"  have PDF               : {len(pdf)}  {[r['council'] for r in pdf]}")
     print(f"  no links on landing    : {len(dead)}  {[r['council'] for r in dead]}")
-    print("\nseed_report.json written to c:/tmp/procurement_la/")
+    print(f"\nseed_report.json written to {TMP}")
     print("NOTE: 'no links on landing' usually = the files are on a sub-page or rendered")
     print("by JS; those councils need a per-site crawl, not a single-page harvest.")
 

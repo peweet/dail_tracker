@@ -39,12 +39,12 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import polars as pl
-import requests
 from dateutil import parser as dateparser
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 
 SILVER = ROOT / "data/silver/parquet"
 OUT = SILVER / "news_mentions.parquet"
@@ -218,9 +218,15 @@ def parse_gn_items(content: bytes) -> list[dict]:
 
 
 def fetch_member(name: str, days: int, timeout: int = 20) -> list[dict]:
-    r = requests.get(gn_search_url(name, days), headers=HEADERS, timeout=timeout)
-    r.raise_for_status()
-    return parse_gn_items(r.content)
+    body = http_fetch_bytes(
+        gn_search_url(name, days),
+        headers=HEADERS,
+        timeout=timeout,
+        validate=lambda payload: bool(payload.strip()),
+    )
+    if body is None:
+        raise RuntimeError(f"failed to fetch Google News feed for {name}")
+    return parse_gn_items(body)
 
 
 def rows_for_member(m: dict, items: list[dict], fetched_at: datetime) -> list[dict]:
