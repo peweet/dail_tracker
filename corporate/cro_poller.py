@@ -45,6 +45,7 @@ from pathlib import Path
 import requests
 
 from config import BRONZE_DIR
+from services.http_engine import new_session
 
 logger = logging.getLogger("cro_poller")
 
@@ -121,7 +122,7 @@ class SourceDrift(Exception):
 
 
 def _session() -> requests.Session:
-    s = requests.Session()
+    s = new_session()
     s.headers.update({"User-Agent": USER_AGENT})
     return s
 

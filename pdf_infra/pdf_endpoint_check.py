@@ -4,7 +4,9 @@ from datetime import date
 
 import requests
 
-session = requests.Session()
+from services.http_engine import new_session, polite_headers
+
+session = new_session(headers=polite_headers(browser=True), retry_statuses=False)
 
 
 # Attendance PDFs
@@ -634,7 +636,7 @@ if __name__ == "__main__":
 
     setup_standalone_logging("endpoint_check")
 
-    session = requests.Session()
+    session = new_session(headers=polite_headers(browser=True), retry_statuses=False)
     broken, _ = endpoint_checker(urls=urls, session=session)
 
     print("\n=== API endpoint canaries ===")

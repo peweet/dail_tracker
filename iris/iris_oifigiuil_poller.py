@@ -52,6 +52,7 @@ from pathlib import Path
 import requests
 
 from config import BRONZE_DIR
+from services.http_engine import new_session
 
 USER_AGENT = "dail-tracker-bot/0.1 (+https://github.com/peweet/dail_tracker; mailto:p.glynn18@gmail.com)"
 DEFAULT_TIMEOUT = (10, 30)
@@ -72,7 +73,7 @@ class Candidate:
 
 
 def _session() -> requests.Session:
-    s = requests.Session()
+    s = new_session(retry_statuses=False)
     s.headers.update({"User-Agent": USER_AGENT})
     return s
 

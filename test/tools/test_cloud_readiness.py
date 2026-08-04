@@ -85,6 +85,32 @@ transport.fetch_bytes("https://example.test/file")
     assert signals["bare_requests"] is False
 
 
+def test_engine_session_factory_calls_remain_visible_as_direct_transport() -> None:
+    source = """from services.http_engine import new_session as make_client
+client = make_client()
+client.get("https://example.test/stateful")
+"""
+    signals = _runtime_signals(source, "stateful.py")
+    assert signals["uses_engine"] is True
+    assert signals["direct_http_calls"] == [{"kind": "requests.Session.get", "line": 3}]
+
+
+def test_session_stored_on_instance_is_detected() -> None:
+    source = """import requests as req
+
+class Crawler:
+    client: req.Session
+
+    def __init__(self):
+        self.client = req.Session()
+
+    def fetch(self):
+        return self.client.get("https://example.test/stateful")
+"""
+    signals = _runtime_signals(source, "instance_session.py")
+    assert signals["direct_http_calls"] == [{"kind": "requests.Session.get", "line": 10}]
+
+
 def test_python_encoding_cookie_is_honoured(tmp_path: Path) -> None:
     source = tmp_path / "latin1_source.py"
     source.write_bytes(b'# -*- coding: latin-1 -*-\nLABEL = "caf\xe9"\n')
@@ -105,8 +131,11 @@ def test_runtime_discovery_covers_orchestrators_packages_and_pipeline_tools() ->
     assert "members_refresh.py" in discovered
     assert "corporate/cro_poller.py" in discovered
     assert "planning/civic/extractors/planning_appeal_outcomes.py" in discovered
+    assert "api/main.py" in discovered
+    assert "dail_tracker_core/connections.py" in discovered
     assert "services/http_engine.py" in discovered
     assert "tools/build_source_health.py" in discovered
+    assert "utility/pages_code/body.py" in discovered
 
 
 def test_transport_exemption_is_reported_with_rationale() -> None:
@@ -115,3 +144,13 @@ def test_transport_exemption_is_reported_with_rationale() -> None:
     assert "canonical shared" in exemption["reason"]
     assert exemption["calls"]
     assert result["bare_requests"] == []
+
+
+def test_full_runtime_surface_has_no_unreviewed_or_incomplete_scan_gaps() -> None:
+    result = runtime_resilience()
+    assert result["bare_requests"] == []
+    assert result["local_paths"] == {}
+    assert result["govie_no_ua"] == []
+    assert result["scan_errors"] == {}
+    assert result["unused_transport_exemptions"] == []
+    assert result["uncentralized_transport_exemptions"] == []

@@ -3,7 +3,7 @@
 
 # doc/ index
 
-63 docs · ~325.3k tokens total · 22 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+64 docs · ~332.6k tokens total · 23 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -13,6 +13,7 @@
 | [DATA_GRAINS.md](DATA_GRAINS.md) | data | 2.5k | 2026-07-17 | before summing or comparing any money figure across procurement, payments, budgets, donations, or allowances |
 | [DATA_LIMITATIONS.md](DATA_LIMITATIONS.md) | data | 12.1k | 2026-07-17 | before citing any dataset's completeness, scope, or coverage of a person/topic — check known caveats and silent-failure risks first |
 | [JOIN_MAP.md](JOIN_MAP.md) | data | 1.7k | 2026-07-14 | before attempting any cross-register association/join between datasets (ORG name-norm or PERSON anagram key) |
+| [AST_SCANNER_FAILURE_MODES.md](AST_SCANNER_FAILURE_MODES.md) | engineering | 7.3k | 2026-08-04 | auditing an AST-based code scanner, contract extractor, repository indexer, or migration ratchet for false positives and false negatives |
 | [CI_CD.md](CI_CD.md) | infra | 4.9k | 2026-06-21 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |

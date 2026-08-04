@@ -33,14 +33,14 @@ Run: python test_wiki_data.py
 import html as _html
 import re
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 import orjson
+import requests
 
 from paths import PROJECT_ROOT
+from services.http_engine import fetch_json, new_session
 
 SPARQL_URL = "https://query.wikidata.org/sparql"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
@@ -49,6 +49,7 @@ HEADERS = {
     "User-Agent": "DailTracker/0.1 (civic transparency research; contact p.glynn18@gmail.com)",
     "Accept": "application/sparql-results+json",
 }
+_SESSION = new_session(headers={"User-Agent": HEADERS["User-Agent"]})
 
 PHOTO_DIR = PROJECT_ROOT / "avatar" / "wikidata"
 MANIFEST_PATH = PHOTO_DIR / "manifest.json"
@@ -116,14 +117,16 @@ def fetch_sparql(query: str, attempts: int = 4) -> list[dict]:
     "1 req / min"). Back off on any transient failure and retry rather than
     aborting the whole run, mirroring wikidata_socials_etl.fetch_wikidata.
     """
-    params = urllib.parse.urlencode({"query": query, "format": "json"})
-    url = f"{SPARQL_URL}?{params}"
     last_err: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            req = urllib.request.Request(url, headers=HEADERS)
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = orjson.loads(resp.read())
+            data, _ = fetch_json(
+                SPARQL_URL,
+                headers=HEADERS,
+                params={"query": query, "format": "json"},
+                timeout=60,
+                attempts=1,
+            )
             return data["results"]["bindings"]
         except Exception as e:  # noqa: BLE001 — retry every transient cause
             last_err = e
@@ -185,12 +188,13 @@ def ext_from_content_type(content_type: str) -> str:
 def download_image(url: str, save_dir: Path, base_name: str) -> tuple[Path | None, str]:
     """Download to save_dir/<base_name><ext>. Ext is derived from Content-Type."""
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": HEADERS["User-Agent"]})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            content_type = resp.headers.get("Content-Type", "")
-            data = resp.read()
-    except urllib.error.HTTPError as e:
-        return None, f"HTTP {e.code}"
+        with _SESSION.get(url, timeout=15) as response:
+            response.raise_for_status()
+            content_type = response.headers.get("Content-Type", "")
+            data = response.content
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else "unknown"
+        return None, f"HTTP {status}"
     except Exception as e:
         return None, str(e)
 
@@ -208,20 +212,21 @@ def fetch_commons_metadata(filename: str) -> dict:
     """
     if not filename:
         return {"_error": "empty filename"}
-    api_url = f"{COMMONS_API}?" + urllib.parse.urlencode(
-        {
-            "action": "query",
-            "prop": "imageinfo",
-            "iiprop": "extmetadata",
-            "titles": f"File:{filename}",
-            "format": "json",
-            "formatversion": "2",
-        }
-    )
+    params = {
+        "action": "query",
+        "prop": "imageinfo",
+        "iiprop": "extmetadata",
+        "titles": f"File:{filename}",
+        "format": "json",
+        "formatversion": "2",
+    }
     try:
-        req = urllib.request.Request(api_url, headers={"User-Agent": HEADERS["User-Agent"]})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = orjson.loads(resp.read())
+        data, _ = fetch_json(
+            COMMONS_API,
+            headers={"User-Agent": HEADERS["User-Agent"]},
+            params=params,
+            timeout=15,
+        )
     except Exception as e:
         return {"_error": str(e)}
 

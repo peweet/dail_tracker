@@ -65,3 +65,20 @@ def test_health_is_not_ready_without_registered_views():
         assert response.json()["detail"] == "database missing required data views: v_payments_base"
     finally:
         conn.close()
+
+
+def test_health_requires_a_data_backed_core_view():
+    probe = FastAPI()
+    probe.include_router(health.router, prefix="/v1")
+    conn = duckdb.connect()
+    conn.execute("CREATE VIEW v_payments_sources AS SELECT 'metadata only' AS source")
+    probe.state.conn = conn
+    try:
+        with TestClient(probe) as client:
+            assert client.get("/v1/health").status_code == 503
+            conn.execute("CREATE VIEW v_payments_base AS SELECT 1 AS payment")
+            response = client.get("/v1/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "views_registered": 2}
+    finally:
+        conn.close()

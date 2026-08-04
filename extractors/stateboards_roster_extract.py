@@ -59,8 +59,8 @@ with contextlib.suppress(Exception):
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
-from services.parquet_io import save_parquet  # noqa: E402
 from services.http_engine import fetch_text  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

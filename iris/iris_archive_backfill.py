@@ -49,6 +49,7 @@ from iris.iris_oifigiuil_poller import (
     already_on_disk,
     download,
 )
+from services.http_engine import new_session
 
 ARCHIVE_BASE = "https://www.irisoifigiuil.ie/archive"
 DEFAULT_DEST = BRONZE_DIR / "iris_oifigiuil"
@@ -59,7 +60,7 @@ _HREF_RE = re.compile(r'href="([^"]*?([A-Za-z]{2})(\d{2})(\d{2})(\d{2})\.(?:pdf|
 
 
 def _session() -> requests.Session:
-    s = requests.Session()
+    s = new_session()
     s.headers.update({"User-Agent": USER_AGENT})
     return s
 

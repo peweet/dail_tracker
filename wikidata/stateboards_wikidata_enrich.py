@@ -57,13 +57,13 @@ import unicodedata
 from pathlib import Path
 
 import polars as pl
-import requests
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
+from services.http_engine import post_bytes  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -202,14 +202,16 @@ def _sparql(query: str, attempts: int = 4) -> list[dict]:
     last: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            resp = requests.post(
+            body = post_bytes(
                 _SPARQL_ENDPOINT,
                 data={"query": query},
                 headers={"User-Agent": _UA, "Accept": "application/sparql-results+json"},
                 timeout=120,
+                attempts=1,
             )
-            resp.raise_for_status()
-            return resp.json()["results"]["bindings"]
+            if body is None:
+                raise RuntimeError("WDQS returned no usable JSON response")
+            return json.loads(body)["results"]["bindings"]
         except Exception as exc:  # noqa: BLE001 — retry every transient cause
             last = exc
             wait = 65 * attempt

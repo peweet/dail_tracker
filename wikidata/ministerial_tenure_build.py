@@ -40,10 +40,10 @@ import time
 import unicodedata
 
 import pandas as pd
-import requests
 
 from config import BRONZE_DIR, SILVER_DIR
 from iris.si_entity_enrichment import canonicalise_department, load_department_aliases
+from services.http_engine import post_bytes
 from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
@@ -90,16 +90,19 @@ def fetch_wikidata(attempts: int = 4) -> pd.DataFrame:
     last_err: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            resp = requests.post(
+            body = post_bytes(
                 _SPARQL_ENDPOINT,
                 data={"query": _QUERY},
                 headers={"User-Agent": _USER_AGENT, "Accept": "text/csv"},
                 timeout=90,
+                attempts=1,
             )
-            resp.raise_for_status()
+            if body is None:
+                raise RuntimeError("WDQS returned no usable CSV response")
+            text = body.decode("utf-8", errors="replace")
             _RAW_OUT.parent.mkdir(parents=True, exist_ok=True)
-            _RAW_OUT.write_text(resp.text, encoding="utf-8")
-            return pd.read_csv(io.StringIO(resp.text))
+            _RAW_OUT.write_text(text, encoding="utf-8")
+            return pd.read_csv(io.StringIO(text))
         except Exception as exc:  # noqa: BLE001 — network flakiness, retry all
             last_err = exc
             logger.warning("Wikidata fetch attempt %d/%d failed: %s", attempt, attempts, exc)

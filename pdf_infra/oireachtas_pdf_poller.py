@@ -48,6 +48,7 @@ from pdf_infra.pdf_fingerprint import (
     save_index,
     sha256_file,
 )
+from services.http_engine import fetch_text, new_session
 
 logger = logging.getLogger(__name__)
 
@@ -154,16 +155,8 @@ class IndexEntry:
 
 
 def fetch_index_html(source: PollSource, page: int = 1) -> str:
-    resp = requests.get(
-        source.index_url_for(page),
-        headers={"User-Agent": USER_AGENT},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    # Force utf-8: the site sends utf-8 but meta-tag detection sometimes
-    # mis-fires, which would turn 'Dáil Éireann' into 'D�il �ireann'.
-    resp.encoding = "utf-8"
-    return resp.text
+    text, _ = fetch_text(source.index_url_for(page), headers={"User-Agent": USER_AGENT}, timeout=30)
+    return text
 
 
 def count_cards(html: str) -> int:
@@ -423,7 +416,7 @@ def run_one(source: PollSource) -> dict:
 
     new_entries = filter_new(source, entries)
 
-    session = requests.Session()
+    session = new_session(headers={"User-Agent": USER_AGENT}, retry_statuses=False)
     session.headers.update({"User-Agent": USER_AGENT})
 
     # DAIL-162 supersession check on the files we already hold: baseline the new ones,
