@@ -13,12 +13,12 @@ from data_access.procurement_data import (
     fetch_live_tenders_stats_result,
 )
 from ui.components import (
-    clickable_card_link,
     empty_state,
     fmt_civic_date,
     paginate,
     pagination_controls,
 )
+from ui.entity_links import source_link_html
 
 from ui.format import coalesce as _coalesce
 from ui.format import esc as _esc
@@ -28,6 +28,7 @@ from ._shared import (
     _TOP,
     _LIVE_PAGE,
     _eur,
+    _buyer_link,
     _card,
 )
 
@@ -75,7 +76,7 @@ def _render_expiring_contracts() -> None:
     st.caption(
         f"{len(df):,} contracts whose advertised term ends within {months} months, soonest first. "
         "Values are award/ceiling figures shown for context — never totals. "
-        "Click a contract to open its award notice on TED."
+        "Use each Source notice link to open the authoritative TED record."
     )
     cards = []
     for r in df.itertuples():
@@ -103,19 +104,16 @@ def _render_expiring_contracts() -> None:
         if basis:
             pills.append(f'<span class="pr-pill">{basis}</span>')
         buyer = _coalesce(getattr(r, "buyer_name", None))
-        inner = _card(f"<span>{_esc(buyer) or '—'}</span>", meta, pills)
         url = _coalesce(getattr(r, "notice_url", None))
-        if url.startswith("http"):
-            cards.append(
-                clickable_card_link(
-                    href=url,
-                    inner_html=inner,
-                    aria_label=f"Open the EU award notice from {buyer or 'this buyer'} on TED",
-                    target="_blank",
-                )
-            )
-        else:
-            cards.append(inner)
+        source = source_link_html(
+            url,
+            "Source notice",
+            aria_label=f"Open the EU award notice from {buyer or 'this buyer'} on TED",
+        )
+        name_html = f"<span>{_buyer_link(buyer)}</span>"
+        if source:
+            name_html += f'<span class="pr-sub">{source}</span>'
+        cards.append(_card(name_html, meta, pills))
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, EU Official Journal award '
@@ -272,22 +270,18 @@ def _render_national_open_tenders() -> None:
             pills.append(f'<span class="pr-pill pr-pill-val">{ev} est. value</span>')
         buyer = _coalesce(getattr(r, "buyer", None))
         title = _coalesce(getattr(r, "title", None))
-        name_html = f"<span>{_esc(buyer) or '—'}</span>"
+        name_html = f"<span>{_buyer_link(buyer)}</span>"
         if title:
             name_html += f'<span class="pr-sub">{_esc(title)}</span>'
-        inner = _card(name_html, meta, pills, rank=rank)
         url = _coalesce(getattr(r, "detail_url", None))
-        if url.startswith("http"):
-            cards.append(
-                clickable_card_link(
-                    href=url,
-                    inner_html=inner,
-                    aria_label=f"Open the national tender from {buyer or 'this buyer'} on eTenders",
-                    target="_blank",
-                )
-            )
-        else:
-            cards.append(inner)
+        source = source_link_html(
+            url,
+            "Source notice",
+            aria_label=f"Open the national tender from {buyer or 'this buyer'} on eTenders",
+        )
+        if source:
+            name_html += f'<span class="pr-sub">{source}</span>'
+        cards.append(_card(name_html, meta, pills, rank=rank))
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html('<div class="pr-sp-md"></div>')
     pagination_controls(
@@ -353,7 +347,7 @@ def _render_national_expiring() -> None:
             pills.append(f'<span class="pr-pill">{ev} award value</span>')
         buyer = _coalesce(getattr(r, "buyer_name", None))
         contract = _coalesce(getattr(r, "contract_name", None))
-        name_html = f"<span>{_esc(buyer) or '—'}</span>"
+        name_html = f"<span>{_buyer_link(buyer)}</span>"
         if contract:
             name_html += f'<span class="pr-sub">{_esc(contract)}</span>'
         cards.append(_card(name_html, meta, pills))

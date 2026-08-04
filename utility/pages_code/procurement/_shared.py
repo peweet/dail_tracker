@@ -6,9 +6,13 @@ import urllib.parse
 import pandas as pd
 import streamlit as st
 
+from data_access.procurement_data import resolve_buyer_identity
 from ui.entity_links import (
     authority_profile_url,
+    body_link_html,
     company_profile_url,
+    entity_link_html,
+    procurement_ted_winner_url,
 )
 from ui.components import (
     year_selector,
@@ -55,13 +59,29 @@ def _authority_href(authority, *, cross_page: bool = False) -> str:
 def _authority_link(authority, *, cross_page: bool = False) -> str:
     """The authority name as a clickable buyer-dossier link (escaped). Used inside plain
     award rows (NOT rows already wrapped in clickable_card_link — no nested anchors)."""
-    name = _esc(authority)
+    name = _coalesce(authority)
     if not name:
         return "—"
-    return (
-        f'<a class="pr-auth-link" href="{_esc(_authority_href(authority, cross_page=cross_page))}" '
-        f'target="_self">{name}</a>'
+    return entity_link_html(
+        _authority_href(authority, cross_page=cross_page),
+        name,
+        css_class="pr-auth-link",
+        aria_label=f"View awards made by {name}",
     )
+
+
+def _buyer_link(buyer) -> str:
+    """Canonical public-body link for a buyer known to the curated crosswalk.
+
+    TED/eTenders buyer strings do not all resolve to the unified ``/body`` dossier,
+    so this helper fails closed to escaped text instead of emitting a dead link.
+    ``resolve_buyer_identity`` is cached by the data-access layer.
+    """
+    name = _coalesce(buyer)
+    if not name:
+        return "—"
+    resolved = resolve_buyer_identity(name)
+    return body_link_html(name if resolved else None, name, css_class="pr-auth-link")
 
 
 def _cpv_href(cpv_code) -> str:
@@ -69,7 +89,7 @@ def _cpv_href(cpv_code) -> str:
 
 
 def _ted_winner_href(join_norm) -> str:
-    return f"?ted_winner={urllib.parse.quote(str(join_norm))}"
+    return procurement_ted_winner_url(str(join_norm), relative=True)
 
 
 def _single_bid_cpv_href(cpv_division) -> str:
@@ -217,9 +237,9 @@ def _register_picker() -> str:
     def _sync() -> None:
         st.query_params["reg"] = _REGISTER_LABELS[st.session_state["pr_register"]]
 
-    if "pr_register" not in st.session_state:
-        st.session_state["pr_register"] = want_label
-    elif url_reg in _REGISTER_LABELS.values() and st.session_state["pr_register"] != want_label:
+    if "pr_register" not in st.session_state or (
+        url_reg in _REGISTER_LABELS.values() and st.session_state["pr_register"] != want_label
+    ):
         st.session_state["pr_register"] = want_label
     st.segmented_control(
         "Register", list(_REGISTER_LABELS), key="pr_register", on_change=_sync, label_visibility="collapsed"
@@ -229,11 +249,20 @@ def _register_picker() -> str:
     return chosen
 
 
-def _return_to_browse(section: str) -> None:
+def _return_to_browse(section: str, *, register: str | None = None) -> None:
     """Back-button action for every drill-down: clear the drill keys but land on the section the
-    drill came from (so the reader returns to context, not to the first section)."""
+    drill came from (so the reader returns to context, not to the first section).
+
+    ``register`` retains the nested award-register state for drills such as a TED
+    winner; omitting it keeps the national-register default used by authority and CPV
+    profiles.
+    """
+    if register is not None and register not in _REGISTER_LABELS.values():
+        raise ValueError(f"unknown procurement register {register!r}")
     st.query_params.clear()
     st.query_params["tab"] = section
+    if register is not None:
+        st.query_params["reg"] = register
     st.rerun()
 
 

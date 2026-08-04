@@ -26,6 +26,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api import __version__
 from api.routers import (
+    analytics,
     appointments,
     attendance,
     catalog,
@@ -51,6 +52,7 @@ from api.routers import (
     votes,
 )
 from dail_tracker_core.connections import api_conn
+from dail_tracker_core.models.responses import RootMetadataResponse
 from dail_tracker_core.results import SourceUnavailable
 from services.logging_cloud import (
     configure_logging,
@@ -211,10 +213,22 @@ app.include_router(public_finance.router, prefix="/v1")
 app.include_router(local_government.router, prefix="/v1")
 app.include_router(constituencies.router, prefix="/v1")
 app.include_router(councillors.router, prefix="/v1")
+app.include_router(analytics.router, prefix="/v1")
 app.include_router(exports.router, prefix="/v1")
 
 
-@app.get("/", tags=["meta"])
+def _public_get_resources() -> list[str]:
+    """Derive the discovery list from registered routes so it cannot drift."""
+    return sorted(
+        {
+            route.path
+            for route in app.routes
+            if route.path.startswith("/v1") and "GET" in (getattr(route, "methods", None) or set())
+        }
+    )
+
+
+@app.get("/", tags=["meta"], response_model=RootMetadataResponse)
 def root() -> dict:
     return {
         "name": "Dáil Tracker API",
@@ -224,70 +238,5 @@ def root() -> dict:
         "licence": "CC-BY-4.0",
         "attribution": "Data via Dáil Tracker",
         "catalog": "/v1/catalog",
-        "resources": [
-            "/v1/health",
-            "/v1/catalog",
-            "/v1/members",
-            "/v1/members/{code}/dossier",
-            "/v1/members/{code}/questions",
-            "/v1/members/{code}/interests",
-            "/v1/members/{code}/speeches",
-            "/v1/legislation",
-            "/v1/legislation/{bill_id}",
-            "/v1/statutory-instruments",
-            "/v1/votes",
-            "/v1/votes/{vote_id}",
-            "/v1/votes/{vote_id}/interest-breakdown",
-            "/v1/cross-reference/votes-interests",
-            "/v1/payments",
-            "/v1/payments/{year}",
-            "/v1/lobbying/organisations",
-            "/v1/lobbying/revolving-door",
-            "/v1/procurement/suppliers",
-            "/v1/procurement/suppliers/{supplier_norm}/dossier",
-            "/v1/procurement/competition",
-            "/v1/procurement/lobbying-overlap",
-            "/v1/procurement/authorities",
-            "/v1/procurement/cpv",
-            "/v1/procurement/open-tenders",
-            "/v1/committees",
-            "/v1/committees/{committee}",
-            "/v1/ministers",
-            "/v1/cabinet",
-            "/v1/ministerial/diary/organisations",
-            "/v1/ministerial/diary/organisations/{name}",
-            "/v1/ministerial/diary/meetings",
-            "/v1/political-finance/donations",
-            "/v1/political-finance/election-spend",
-            "/v1/judiciary/appointments",
-            "/v1/judiciary/courts-health",
-            "/v1/charities",
-            "/v1/corporate/notices",
-            "/v1/corporate/repeat-distress",
-            "/v1/corporate/receivers",
-            "/v1/public-body-payments",
-            "/v1/public-appointments",
-            "/v1/lobbying/dpo/{individual_name}",
-            "/v1/search/votes-by-topic",
-            "/v1/attendance/turnout",
-            "/v1/attendance/absences",
-            "/v1/attendance/taa-compliance",
-            "/v1/attendance/missing-members",
-            "/v1/attendance/years",
-            "/v1/housing/waiting-list",
-            "/v1/housing/supply",
-            "/v1/housing/accommodation-spend",
-            "/v1/public-finance/government-finance",
-            "/v1/local-government/councils",
-            "/v1/local-government/councils/{local_authority}",
-            "/v1/constituencies",
-            "/v1/constituencies/{name}/dossier",
-            "/v1/councillors",
-            "/v1/councillors/councils",
-            "/v1/councillors/decisions",
-            "/v1/councillors/powers",
-            "/v1/coverage",
-            "/v1/data",
-            "/v1/data/{resource}",
-        ],
+        "resources": _public_get_resources(),
     }

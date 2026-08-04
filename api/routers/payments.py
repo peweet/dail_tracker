@@ -9,13 +9,20 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
+from dail_tracker_core.models.envelope import ListEnvelope
 
-router = APIRouter(tags=["payments"])
+router = APIRouter(tags=["payments"], responses=ERROR_RESPONSES)
 
 
-@router.get("/payments", summary="All-time TAA payment ranking by member")
+@router.get(
+    "/payments",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="All-time TAA payment ranking by member",
+)
 def list_payments(
     house: str = Query("Dáil", description="Dáil or Seanad"),
     page: Page = Depends(pagination()),
@@ -25,7 +32,12 @@ def list_payments(
     return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
-@router.get("/payments/{year}", summary="TAA payment ranking for one calendar year")
+@router.get(
+    "/payments/{year}",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="TAA payment ranking for one calendar year",
+)
 def list_payments_for_year(
     year: int,
     house: str = Query("Dáil", description="Dáil or Seanad"),

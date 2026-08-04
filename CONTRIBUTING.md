@@ -31,11 +31,11 @@ with:
 
 ## Code contributions
 
-- Set up the dev environment: `uv sync --extra pipeline --extra mcp --group dev`.
+- Set up the CI-equivalent dev environment: `uv sync --locked --extra pipeline --extra api --extra mcp --group dev`.
 - Run focused checks while working, then the deterministic local gates before pushing:
   ```bash
-  uv run python tools/dev.py verify
-  uv run python tools/dev.py check
+  uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify
+  uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py check
   ```
 - Keep the project conventions (see `AGENTS.md`; `CLAUDE.md` exposes the same portable
   project guidance to Claude Code): Polars for ETL, pandas only in

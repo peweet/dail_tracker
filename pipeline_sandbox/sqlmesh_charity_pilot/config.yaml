@@ -1,0 +1,19 @@
+gateways:
+  local:
+    connection:
+      type: duckdb
+      database: .state/charity_pilot.duckdb
+
+default_gateway: local
+
+model_defaults:
+  dialect: duckdb
+  start: 2026-08-03
+  cron: '@daily'
+
+linter:
+  enabled: true
+  rules:
+    - ambiguousorinvalidcolumn
+    - invalidselectstarexpansion
+    - noambiguousprojections

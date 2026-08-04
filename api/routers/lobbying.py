@@ -5,13 +5,21 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
+from dail_tracker_core.models.envelope import ListEnvelope
+from dail_tracker_core.models.responses import DpoProfileResponse
 
-router = APIRouter(tags=["lobbying"])
+router = APIRouter(tags=["lobbying"], responses=ERROR_RESPONSES)
 
 
-@router.get("/lobbying/organisations", summary="Lobbying organisations index (enriched)")
+@router.get(
+    "/lobbying/organisations",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Lobbying organisations index (enriched)",
+)
 def list_organisations(
     name: str | None = Query(None, description="case-insensitive substring on organisation name"),
     exclude_state_adjacent: bool = Query(False, description="drop HSE/hospital-type public bodies"),
@@ -24,7 +32,12 @@ def list_organisations(
     return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
 
 
-@router.get("/lobbying/revolving-door", summary="Former office-holders now lobbying (DPO register)")
+@router.get(
+    "/lobbying/revolving-door",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Former office-holders now lobbying (DPO register)",
+)
 def list_revolving_door(
     page: Page = Depends(pagination()),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
@@ -35,6 +48,7 @@ def list_revolving_door(
 
 @router.get(
     "/lobbying/dpo/{individual_name}",
+    response_model=DpoProfileResponse,
     summary="One designated public official's revolving-door footprint (firms, clients, targets)",
 )
 def dpo_profile(

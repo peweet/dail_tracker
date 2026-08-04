@@ -26,8 +26,8 @@ import logging
 from pathlib import Path
 
 import polars as pl
-import requests
 
+from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -67,15 +67,13 @@ FWD_DATE_COLS = ["DecisionDueDate", "ExpiryDate", "AppealSubmittedDate"]
 DATE_COLS = PAST_DATE_COLS + FWD_DATE_COLS
 FLOOR_YEAR = 1963  # the modern planning system starts with the 1963 Planning Act
 
-_SESSION = requests.Session()
-_SESSION.headers["User-Agent"] = "dail-tracker-planning-ingest/1.0"
+_HEADERS = {"User-Agent": "dail-tracker-planning-ingest/1.0"}
 
 
 def _query(**params) -> dict:
     params.setdefault("f", "json")
-    r = _SESSION.get(L0 + "/query", params=params, timeout=120)
-    r.raise_for_status()
-    return r.json()
+    response, _ = fetch_json(L0 + "/query", params=params, headers=_HEADERS, timeout=120)
+    return response
 
 
 def fetch(where: str, max_pages: int | None) -> list[dict]:

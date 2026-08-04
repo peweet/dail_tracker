@@ -239,10 +239,7 @@ def _append_config(command: list[str], key: str, value: Any) -> None:
 
 def _inside_git_tree(path: Path) -> bool:
     current = path.resolve()
-    for candidate in (current, *current.parents):
-        if (candidate / ".git").exists():
-            return True
-    return False
+    return any((candidate / ".git").exists() for candidate in (current, *current.parents))
 
 
 def build_codex_command(
@@ -517,6 +514,16 @@ def run_codex(
     env_source = os.environ if environ is None else environ
     env = dict(env_source)
     env.update({str(key): str(value) for key, value in request.env.items()})
+    # The Windows CLI resolves its config/auth directory through HOME, while
+    # Python and PowerShell commonly expose only USERPROFILE.  Preserve an
+    # explicit HOME, but supply its platform-equivalent when it is absent so a
+    # nested benchmark session can start under the same account.
+    if os.name == "nt" and not env.get("HOME") and env.get("USERPROFILE"):
+        env["HOME"] = env["USERPROFILE"]
+    if os.name == "nt" and not env.get("CODEX_HOME") and env.get("USERPROFILE"):
+        default_codex_home = Path(env["USERPROFILE"]) / ".codex"
+        if default_codex_home.is_dir():
+            env["CODEX_HOME"] = str(default_codex_home)
     prompt = request.prompt
     if request.system_prompt:
         prompt = f"{request.system_prompt.strip()}\n\n{prompt}"
@@ -599,7 +606,14 @@ async def run_claude(
     if request.disallowed_tools:
         kwargs["disallowed_tools"] = list(request.disallowed_tools)
     if request.mcp_servers:
-        kwargs["mcp_servers"] = dict(request.mcp_servers)
+        # Codex-only selection/timeout keys are not part of the Claude SDK's
+        # stdio-server TypedDict. Keep the legacy backend payload byte-for-byte
+        # compatible with the command/args/env shape it used before this port.
+        claude_mcp_keys = {"type", "command", "args", "env"}
+        kwargs["mcp_servers"] = {
+            name: {key: value for key, value in config.items() if key in claude_mcp_keys}
+            for name, config in request.mcp_servers.items()
+        }
     if request.env:
         kwargs["env"] = dict(request.env)
 

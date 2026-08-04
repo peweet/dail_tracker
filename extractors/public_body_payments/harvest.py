@@ -15,14 +15,12 @@ attribute-access-through-the-module workaround is needed here.
 from __future__ import annotations
 
 import re
-import subprocess
 import time
 from pathlib import Path
-from urllib.parse import quote, unquote, urljoin, urlparse
-
-import requests
+from urllib.parse import unquote, urljoin, urlparse
 
 from services.fetch_report import FetchReport, classify_exception
+from services.http_engine import fetch_bytes as resilient_fetch_bytes
 
 from .config import DATA_EXT
 from .readers import period_from_url
@@ -51,34 +49,16 @@ NAV_HINT = re.compile(
 
 
 # ============================================================================ fetch
-def _curl(url: str) -> bytes | None:
-    try:
-        p = subprocess.run(
-            ["curl", "-sS", "-k", "-L", "--max-time", "90", "-A", H["User-Agent"], url],
-            capture_output=True,
-            timeout=120,
-        )
-        return p.stdout if p.returncode == 0 and p.stdout else None
-    except Exception:
-        return None
-
-
 def fetch_bytes(url: str) -> bytes | None:
-    # some publishers emit hrefs with raw spaces — requests/curl reject them as malformed;
-    # '%' stays in the safe set so already-encoded hrefs don't double-encode.
-    url = quote(url, safe="!#$%&'()*+,/:;=?@[]~")
     LAST_ERR.clear()
-    try:
-        r = requests.get(url, headers=H, timeout=90, allow_redirects=True)
-        r.raise_for_status()
-        return r.content
-    except Exception as e:
-        ec, status = classify_exception(e)
+
+    def record_failure(exc: Exception | None) -> None:
+        if exc is None:
+            return
+        ec, status = classify_exception(exc)
         LAST_ERR.update({"error_class": ec, "http_status": status})
-        b = _curl(url)
-        if b:
-            LAST_ERR.clear()
-        return b
+
+    return resilient_fetch_bytes(url, headers=H, timeout=90, on_failure=record_failure)
 
 
 def fetch_text(url: str) -> str | None:

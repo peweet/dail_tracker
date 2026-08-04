@@ -1,8 +1,9 @@
 """Cross-page navigation helpers for Dáil Tracker.
 
-Every entity (TD, division, bill) has one canonical URL. Use these helpers
-anywhere you render an entity name; never hand-roll the URL string. If a
-page is renamed, update PAGES here and utility/app.py at the same time.
+Every entity (member, division, bill, company, public body, or procurement
+register) has one canonical URL. Use these helpers anywhere you render an
+entity name; never hand-roll the URL string. If a page is renamed, update
+``PAGES`` here and ``utility/app.py`` at the same time.
 
 Why ``<a href>`` and not ``st.button`` + ``st.switch_page``:
 - keyboard accessible by default (Tab + Enter)
@@ -160,6 +161,30 @@ def company_profile_url(supplier_norm: str) -> str:
     return f"/{PAGES['company']}?supplier={_q(supplier_norm)}"
 
 
+def company_link_html(
+    supplier_norm: str | None,
+    name: object,
+    *,
+    css_class: str = "dt-member-link",
+) -> str:
+    """Render a company name as a canonical dossier link.
+
+    ``supplier_norm`` must be a key known to resolve in the awards register. Callers
+    that start from another register must apply ``awards_register_norms`` first. A
+    missing key degrades to escaped text, keeping incomplete rows readable without
+    emitting a false hand-off.
+    """
+    label = "" if name is None else str(name)
+    if not supplier_norm:
+        return _h(label)
+    return entity_link_html(
+        company_profile_url(str(supplier_norm)),
+        label,
+        css_class=css_class,
+        aria_label=f"View company dossier for {label}",
+    )
+
+
 def authority_profile_url(authority: str) -> str:
     """Cross-page link to a contracting authority's procurement dossier:
     /rankings-procurement?authority=<contracting_authority>. The Procurement page
@@ -185,6 +210,54 @@ def body_profile_url(buyer: str) -> str:
     the reader on a generic list. Resolves fail-closed — an unknown buyer shows a "not found"
     note on /body, never a fuzzy guess."""
     return f"/{PAGES['body']}?buyer={_q(buyer)}"
+
+
+def body_link_html(
+    buyer: str | None,
+    name: object | None = None,
+    *,
+    css_class: str = "dt-member-link",
+) -> str:
+    """Render a public-body name as a canonical buyer-dossier link.
+
+    The buyer crosswalk is curated rather than fuzzy. Callers must gate this helper
+    with ``resolve_buyer_identity``; pass ``None`` when a name is not known to
+    resolve and the helper will return escaped plain text.
+    """
+    label = str(name if name is not None else buyer or "")
+    if not buyer:
+        return _h(label)
+    return entity_link_html(
+        body_profile_url(str(buyer)),
+        label,
+        css_class=css_class,
+        aria_label=f"View public-body dossier for {label}",
+    )
+
+
+_PROCUREMENT_REGISTERS = frozenset({"etenders", "ted", "stateaid", "overlaps"})
+
+
+def procurement_register_url(register: str) -> str:
+    """Canonical procurement browse URL for one declared award register.
+
+    ``reg`` is URL-backed state so a shared link and browser Back both reopen the
+    same register rather than silently falling back to the national list.
+    """
+    if register not in _PROCUREMENT_REGISTERS:
+        allowed = ", ".join(sorted(_PROCUREMENT_REGISTERS))
+        raise ValueError(f"unknown procurement register {register!r}; expected one of {allowed}")
+    return f"/{PAGES['procurement']}?tab=wins&reg={_q(register)}"
+
+
+def procurement_ted_winner_url(join_norm: str, *, relative: bool = False) -> str:
+    """TED winner drill-down that retains the ``wins``/``ted`` browse state.
+
+    Set ``relative=True`` for an in-page Streamlit soft rerun. The absolute form is
+    safe for links emitted by other pages and remains bookmarkable.
+    """
+    base = "" if relative else f"/{PAGES['procurement']}"
+    return f"{base}?tab=wins&reg=ted&ted_winner={_q(join_norm)}"
 
 
 def council_accountability_url(local_authority: str) -> str:
@@ -356,6 +429,50 @@ def entity_cta_html(
         entity_cta_html(member_votes_url(jk), "Full voting history →")
     """
     return f'<a class="{_h(css_class)}" href="{_h(href)}" target="_self">{_h(label)}</a>'
+
+
+def buyer_dossier_cta_html(buyer: str) -> str:
+    """Complete profile CTA that hands a known buyer to the unified dossier."""
+    return (
+        '<div style="margin:-0.1rem 0 0.8rem">'
+        + entity_cta_html(
+            body_profile_url(buyer),
+            "View this body's full dossier: awards and payments →",
+        )
+        + "</div>"
+    )
+
+
+def company_dossier_cta_html(supplier_norm: str) -> str:
+    """Complete profile CTA that hands a known supplier to its company dossier."""
+    return (
+        '<div style="margin:-0.1rem 0 0.8rem">'
+        + entity_cta_html(
+            company_profile_url(supplier_norm),
+            "View full company dossier: awards, lobbying and CRO →",
+        )
+        + "</div>"
+    )
+
+
+def entity_link_html(
+    href: str | None,
+    label: object,
+    *,
+    css_class: str = "dt-member-link",
+    aria_label: str | None = None,
+) -> str:
+    """Accessible inline internal link with a plain-text fallback.
+
+    This low-level renderer keeps escaping, ``target`` and accessible naming
+    consistent while typed helpers such as :func:`company_profile_url` retain
+    ownership of URL identity.
+    """
+    text = "" if label is None else str(label)
+    if not href:
+        return _h(text)
+    aria = f' aria-label="{_h(aria_label)}"' if aria_label else ""
+    return f'<a class="{_h(css_class)}" href="{_h(href)}" target="_self"{aria}>{_h(text)}</a>'
 
 
 # ── Free-text URL normalisation ────────────────────────────────────────────────

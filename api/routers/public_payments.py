@@ -10,13 +10,19 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.responses import PublicBodyPaymentsResponse
 
-router = APIRouter(tags=["public-payments"])
+router = APIRouter(tags=["public-payments"], responses=ERROR_RESPONSES)
 
 
-@router.get("/public-body-payments", summary="Public-body payments/POs over €20k (realised spend)")
+@router.get(
+    "/public-body-payments",
+    response_model=PublicBodyPaymentsResponse,
+    summary="Public-body payments/POs over €20k (realised spend)",
+)
 def public_body_payments(
     side: str = Query("publisher", description="'publisher' (paying body) or 'supplier' (who was paid)"),
     order_by: str = Query("value", description="'value' (sum-safe €) or 'lines' (record count)"),

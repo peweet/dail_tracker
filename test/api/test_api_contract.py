@@ -62,6 +62,6 @@ def test_health_is_not_ready_without_registered_views():
         with TestClient(probe) as client:
             response = client.get("/v1/health")
         assert response.status_code == 503
-        assert response.json()["detail"] == "database has no registered views"
+        assert response.json()["detail"] == "database missing required data views: v_payments_base"
     finally:
         conn.close()

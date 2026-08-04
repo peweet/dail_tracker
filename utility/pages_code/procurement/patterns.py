@@ -21,6 +21,7 @@ from data_access.procurement_data import (
     fetch_supplier_summary_result,
 )
 from ui.entity_links import (
+    company_link_html,
     company_profile_url,
 )
 from ui.components import (
@@ -41,6 +42,7 @@ from ._shared import (
     _awards_word,
     _supplier_href,
     _authority_href,
+    _authority_link,
     _cpv_href,
     _single_bid_cpv_href,
     _paid_supplier_href,
@@ -303,16 +305,15 @@ def _render_patterns() -> None:
                 if _truthy(r.authority_is_central_purchasing)
                 else ""
             )
-            meta = f"{_awards_word(_n(r.n_awards))} from {_esc(r.contracting_authority)} · {_n(r.first_year)}–{_n(r.last_year)}"
-            pills = [f'<span class="pr-pill pr-pill-val">{yrs} winning years</span>'] + ([badge] if badge else [])
-            inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills)
-            cards.append(
-                clickable_card_link(
-                    href=_supplier_href(r.supplier_norm),
-                    inner_html=inner,
-                    aria_label=f"Open the public-money dossier of {r.supplier}",
-                )
+            supplier = company_link_html(r.supplier_norm, r.supplier, css_class="pr-auth-link")
+            buyer = _authority_link(r.contracting_authority)
+            name_html = (
+                f"<span>{supplier}</span>"
+                f'<span class="pr-sub">{_awards_word(_n(r.n_awards))} from {buyer}</span>'
             )
+            meta = f"{_n(r.first_year)}–{_n(r.last_year)}"
+            pills = [f'<span class="pr-pill pr-pill-val">{yrs} winning years</span>'] + ([badge] if badge else [])
+            cards.append(_card(name_html, meta, pills))
         st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
     # 4. One-buyer suppliers (central purchasing excluded in the query)
@@ -327,16 +328,15 @@ def _render_patterns() -> None:
         )
         cards = []
         for r in dep.data.head(12).itertuples():
-            meta = f"{_n(r.awards_from_top_authority):,} of {_n(r.total_awards):,} awards from {_esc(r.top_authority)}"
-            pills = [f'<span class="pr-pill pr-pill-val">{float(r.top_authority_share_pct):g}% one buyer</span>']
-            inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills)
-            cards.append(
-                clickable_card_link(
-                    href=_supplier_href(r.supplier_norm),
-                    inner_html=inner,
-                    aria_label=f"Open the public-money dossier of {r.supplier}",
-                )
+            supplier = company_link_html(r.supplier_norm, r.supplier, css_class="pr-auth-link")
+            buyer = _authority_link(r.top_authority)
+            name_html = (
+                f"<span>{supplier}</span>"
+                f'<span class="pr-sub">{_n(r.awards_from_top_authority):,} of '
+                f"{_n(r.total_awards):,} awards from {buyer}</span>"
             )
+            pills = [f'<span class="pr-pill pr-pill-val">{float(r.top_authority_share_pct):g}% one buyer</span>']
+            cards.append(_card(name_html, "", pills))
         st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
     # 5. Year-end ordering shape (COMMITTED tier only)

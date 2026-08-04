@@ -26,13 +26,11 @@ import argparse
 import contextlib
 import json
 import re
-import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
 
 import fitz  # PyMuPDF
-import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -40,8 +38,9 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 # Re-exported: procurement_hse_tusla_materialize / _parser import cluster_word_rows from here.
-from shared.pdf_layout import cluster_word_rows  # noqa: E402
 from paths import runtime_path  # noqa: E402
+from services.http_engine import fetch_bytes  # noqa: E402
+from shared.pdf_layout import cluster_word_rows  # noqa: E402
 
 TMP = runtime_path("procurement_publishers")
 PROBE = TMP / "procurement_publishers_probe.json"
@@ -86,18 +85,6 @@ def to_eur(token: str) -> float | None:
     return None
 
 
-def _curl(url: str) -> bytes | None:
-    try:
-        p = subprocess.run(
-            ["curl", "-sS", "-k", "-L", "--max-time", "90", "-A", H["User-Agent"], url],
-            capture_output=True,
-            timeout=120,
-        )
-        return p.stdout if p.returncode == 0 and p.stdout else None
-    except Exception:
-        return None
-
-
 def fetch(url: str) -> bytes | None:
     # disk cache: these PDFs (HSE 159pp etc.) don't change run-to-run; stop re-downloading.
     import hashlib
@@ -105,15 +92,7 @@ def fetch(url: str) -> bytes | None:
     cache = TMP / "_pdf_cache" / (hashlib.md5(url.encode()).hexdigest() + ".pdf")
     if cache.exists() and cache.stat().st_size > 2000:
         return cache.read_bytes()
-    b = None
-    try:
-        r = requests.get(url, headers=H, timeout=90, allow_redirects=True)
-        if r.content[:4] == b"%PDF" or "pdf" in r.headers.get("content-type", ""):
-            b = r.content
-    except Exception:
-        pass
-    if not (b and b[:4] == b"%PDF"):
-        b = _curl(url)
+    b = fetch_bytes(url, headers=H, timeout=90, validate=lambda body: body.startswith(b"%PDF"))
     if b and b[:4] == b"%PDF":
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_bytes(b)

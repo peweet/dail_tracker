@@ -17,9 +17,9 @@ import logging
 from pathlib import Path
 
 import orjson
-import requests
 
 from config import API_BASE, MEMBERS_DIR
+from services.http_engine import fetch_json
 
 # Module logger only — the pipeline orchestrator configures root logging
 # (per-run dir or stream-only under orchestration); standalone callers get
@@ -27,7 +27,6 @@ from config import API_BASE, MEMBERS_DIR
 logger = logging.getLogger(__name__)
 
 # Reusable session — keeps connections alive across requests (TCP reuse / connection pooling)
-session = requests.Session()
 
 
 def fetch_members(
@@ -61,9 +60,7 @@ def fetch_members(
         raise ValueError("Invalid house specified. Use 'dail' or 'seanad'.")
     url = f"{API_BASE}/members?chamber_id={chamber_id}&date_start={date_start}&date_end={date_end}&limit=600"
     logger.info(f"Fetching members from: {url}")
-    response = session.get(url, timeout=60)
-    response.raise_for_status()  # Raise on 4xx/5xx
-    data = response.json()
+    data, _ = fetch_json(url, timeout=60)
 
     member_count = len(data.get("results", []))
     logger.info(f"Loaded member data for {member_count} members from the API.")

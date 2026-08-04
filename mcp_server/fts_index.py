@@ -5,16 +5,20 @@ file level; the agent then still reads whole files to find the relevant lines. T
 module indexes CONTENT CHUNKS so a query returns path + line-span + snippet and the
 follow-up is a bounded Read of just that span. Chunking is structure-aware per cAST
 (arXiv 2506.15655: AST chunks with scope headers beat line chunks, +4.3 R@5 on
-RepoEval): Python splits on top-level defs/classes (large classes per-method), each
-chunk headed by its module::Class.name scope line; markdown splits on headings; SQL
-views and memory files are one chunk each (they are small). Ranking is plain BM25 —
+RepoEval): Python splits on top-level defs/classes while retaining decorators and
+module-level gaps; large classes split into structural and per-method windows. Markdown
+splits on headings and every oversized body is windowed with an exact line span.
+Checked-in ``memory/`` cards have their own ``memory`` result kind. External
+assistant memory is excluded unless the caller explicitly enables its separate
+``memory://external/`` namespace and ``external-memory`` result kind. Ranking is plain BM25 —
 at this corpus size lexical rank is enough (sub-1k-doc BM25 >90% top-hit rates in the
 retrieval literature); no embeddings, no extra deps: stdlib sqlite3 ships FTS5.
 
-The DB is a derived cache at .cache/project_fts.sqlite (gitignored). refresh() is
-mtime-incremental: unchanged files cost a stat, changed files are re-chunked, deleted
-files are purged. Callers should refresh() before search() — a stale index would
-return old line spans, which is worse than no index.
+The DB is a derived cache at .cache/project_fts.sqlite (gitignored). ``refresh`` uses
+mtime-nanoseconds plus file size: unchanged files cost a stat, changed files are
+re-chunked, and deleted files are purged. Parse/decoding errors are persisted in the
+refresh report rather than silently returning an empty index. Callers should refresh
+before search — a stale line span is worse than no hit.
 """
 
 from __future__ import annotations
@@ -45,7 +49,7 @@ _MD_HEADING = re.compile(r"^#{1,3}\s+(.+)$")
 # under-report importers — worse than a one-off 40s rebuild).
 SCHEMA_VERSION = "4"
 
-CHUNK_KINDS = frozenset({"code-chunk", "doc-section", "sql-view", "memory"})
+CHUNK_KINDS = frozenset({"code-chunk", "doc-section", "sql-view", "memory", "external-memory"})
 _MEMORY_NAMESPACE = "memory://external/"
 
 
@@ -362,6 +366,8 @@ def _sources(
         rel = path.relative_to(root).as_posix()
         if path.suffix.casefold() == ".py":
             sources[rel] = _Source(path, "py")
+        elif rel.startswith("memory/") and path.suffix.casefold() == ".md":
+            sources[rel] = _Source(path, "memory")
         elif path.suffix.casefold() == ".md":
             sources[rel] = _Source(path, "md")
         elif rel.startswith("sql_views/"):
@@ -379,7 +385,7 @@ def _sources(
             except (OSError, ValueError):
                 continue
             source_id = f"{_MEMORY_NAMESPACE}{quote(path.name, safe='._-')}"
-            sources[source_id] = _Source(path, "memory")
+            sources[source_id] = _Source(path, "external-memory")
     return sources
 
 
@@ -427,6 +433,9 @@ def refresh(
             try:
                 fingerprint = _fingerprint(source.path)
             except OSError as exc:
+                conn.execute("DELETE FROM chunks WHERE path = ?", (rel,))
+                conn.execute("DELETE FROM imports WHERE src = ?", (rel,))
+                conn.execute("DELETE FROM files WHERE path = ?", (rel,))
                 conn.execute("INSERT OR REPLACE INTO errors (path, message) VALUES (?, ?)", (rel, _error_message(exc)))
                 continue
             if known.get(rel) == (fingerprint, source.source_kind):
@@ -443,11 +452,11 @@ def refresh(
                     _py_chunks(rel, text)
                     if source.source_kind == "py"
                     else _md_chunks(rel, text)
-                    if source.source_kind in {"md", "memory"}
+                    if source.source_kind in {"md", "memory", "external-memory"}
                     else _whole(rel, text, "sql-view")
                 )
-                if source.source_kind == "memory":
-                    chunks = [(header, body, span, "memory") for header, body, span, _ in chunks]
+                if source.source_kind in {"memory", "external-memory"}:
+                    chunks = [(header, body, span, source.source_kind) for header, body, span, _ in chunks]
                 conn.executemany(
                     "INSERT INTO chunks (header, body, path, span, kind) VALUES (?,?,?,?,?)",
                     [(header, body, rel, span, kind) for header, body, span, kind in chunks],
@@ -460,6 +469,7 @@ def refresh(
                             [(rel, imported) for imported in _py_imports(rel, text, repo_paths)],
                         )
             except (OSError, UnicodeError, LookupError, SyntaxError, tokenize.TokenError) as exc:
+                conn.execute("DELETE FROM chunks WHERE path = ?", (rel,))
                 if source.source_kind == "py":
                     conn.execute("DELETE FROM imports WHERE src = ?", (rel,))
                 conn.execute("INSERT OR REPLACE INTO errors (path, message) VALUES (?, ?)", (rel, _error_message(exc)))
@@ -486,6 +496,8 @@ def refresh(
                     text = changed_text.get(rel) or _read_source(src[rel])
                     edges = _py_imports(rel, text, repo_paths)
                 except (OSError, UnicodeError, LookupError, SyntaxError, tokenize.TokenError) as exc:
+                    conn.execute("DELETE FROM chunks WHERE path = ?", (rel,))
+                    conn.execute("DELETE FROM files WHERE path = ?", (rel,))
                     conn.execute(
                         "INSERT OR REPLACE INTO errors (path, message) VALUES (?, ?)", (rel, _error_message(exc))
                     )

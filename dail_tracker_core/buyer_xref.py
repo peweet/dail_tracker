@@ -20,9 +20,9 @@ import re
 import unicodedata
 from typing import Any
 
-from dail_tracker_core.db import PROJECT_ROOT
+from config import DATA_DIR
 
-XREF_CSV = PROJECT_ROOT / "data" / "_meta" / "procurement_publishers" / "buyer_xref.csv"
+XREF_CSV = DATA_DIR / "_meta" / "procurement_publishers" / "buyer_xref.csv"
 
 _NAME_COLS = (
     "display_name",

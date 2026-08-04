@@ -206,11 +206,14 @@ def test_scan_policy_and_external_memory_are_explicit(tmp_path):
     fts_index.refresh(repo, external)
     assert not fts_index.search(repo, "confidential_private_marker")
     assert not fts_index.search(repo, "external_memory_marker")
-    assert fts_index.search(repo, "repository_memory_marker")[0]["path"] == "memory/note.md"
+    repository_hits = fts_index.search(repo, "repository_memory_marker", kind="memory")
+    assert repository_hits[0]["path"] == "memory/note.md"
+    assert repository_hits[0]["kind"] == "memory"
 
     fts_index.refresh(repo, external, include_external_memory=True)
-    external_hits = fts_index.search(repo, "external_memory_marker", kind="memory")
+    external_hits = fts_index.search(repo, "external_memory_marker", kind="external-memory")
     assert external_hits[0]["path"] == "memory://external/note.md"
+    assert external_hits[0]["kind"] == "external-memory"
     with pytest.raises(ValueError, match="invalid chunk kind"):
         fts_index.search(repo, "widgets", kind="private")
 

@@ -41,30 +41,15 @@ PAGES = ROOT / "utility" / "pages_code"
 RE_RAW_HTTP = re.compile(r"requests\.(get|post|Session)\(|urllib\.request")
 BASELINE_RAW_HTTP = {
     "_gnews_resolve.py",
-    "afs_amalgamated_extract.py",
     "cbi_registers_extract.py",
     "cro_financial_statements_extract.py",
-    "cso_pxstat_extract.py",
-    "derelict_sites_levy_extract.py",
-    "housing_construction_pipeline_extract.py",
-    "la_budgets_extract.py",
-    "la_councillor_payments_extract.py",
-    "lgas_audit_reports_extract.py",
     "member_contact_extract.py",
     "ministerial_diaries_extract.py",
-    "news_mentions_extract.py",
-    "opr_plan_directions_extract.py",
     "planning_appeal_outcomes.py",
     "planning_applications_ingest.py",
     "planning_decision_profiles.py",
-    "procurement_etenders_extract.py",
-    "procurement_la_payments_extract.py",
-    "sample_extract_procurement_pdf.py",
-    "si_legislation_directory_extract.py",
-    "si_lrc_classlist_extract.py",
     "sipo_candidate_expenses_crawl.py",
     "stateboards_roster_extract.py",
-    "ted_ireland_tenders_extract.py",
 }
 
 # R2: User-Agent literals. Use polite_headers(browser=...) instead.
@@ -72,18 +57,14 @@ RE_UA_LITERAL = re.compile(r"Mozilla/5\.0")
 BASELINE_UA_LITERAL = {
     "afs_amalgamated_extract.py",
     "cbi_registers_extract.py",
-    "cso_pxstat_extract.py",
-    "derelict_sites_levy_extract.py",
     "etenders_live_tenders_extract.py",
     "_gnews_resolve.py",
-    "housing_construction_pipeline_extract.py",
     "la_budgets_extract.py",
     "la_councillor_payments_extract.py",
     "lgas_audit_reports_extract.py",
     "ministerial_diaries_extract.py",
     "news_mentions_extract.py",
     "opr_plan_directions_extract.py",
-    "procurement_etenders_extract.py",
     "procurement_la_payments_extract.py",
     "procurement_la_seed.py",
     "sample_extract_procurement_pdf.py",
@@ -171,7 +152,12 @@ EXTRACTOR_RULES = [
     ("raw-parquet-write", RE_RAW_PARQUET, BASELINE_RAW_PARQUET, "use services.parquet_io.save_parquet (atomic, zstd)"),
     ("logging-basicconfig", RE_BASICCONFIG, BASELINE_BASICCONFIG, "use services.extract_runner.run_extractor(main)"),
     ("raw-coverage-json", RE_RAW_COVERAGE, BASELINE_RAW_COVERAGE, "use services.coverage_io.save_coverage (atomic)"),
-    ("pandas-in-etl", RE_PANDAS_IMPORT, BASELINE_PANDAS_IMPORT, "Polars for ETL; pandas only in the UI layer (CLAUDE.md never-break rule)"),
+    (
+        "pandas-in-etl",
+        RE_PANDAS_IMPORT,
+        BASELINE_PANDAS_IMPORT,
+        "Polars for ETL; pandas only in the UI layer (CLAUDE.md never-break rule)",
+    ),
 ]
 
 
@@ -207,16 +193,19 @@ LARGEST_FILE_CAPS = {
     # the C1/C3/C4 splits were MEASURED as token-cost regressions and reverted
     # (commit c42e78a) — so growth is absorbed by cap raises, not extraction, until
     # a bench run says otherwise (doc/REFACTORING_CANDIDATES.md).
-    "utility/shared_css.py": 6656,
+    # Raised 6656→6659 2026-08-04 for the three-line semantic-component styling
+    # landed by the markup cleanup; no unrelated headroom is granted.
+    "utility/shared_css.py": 6659,
     # procurement.py (4,665) split into pages_code/procurement/ 2026-07-31 (C2,
     # doc/REFACTORING_CANDIDATES.md) — cap its largest resulting module instead.
     "utility/pages_code/procurement/patterns.py": 737,
     "utility/pages_code/member_overview.py": 2498,
     # Raised 2155→2191 2026-08-01, same reasoning as shared_css.py above.
     "utility/ui/components.py": 2191,
-    # The parallel session growing this file (2744→2847→2923, 2026-07-30/31) has
-    # landed; headroom removed 2026-08-01 — cap ratcheted to the landed size.
-    "mcp_server/server.py": 2923,
+    # Raised 2923→3172 2026-08-04 after the privacy-safe code index, bounded JSON
+    # reader, external-memory opt-in and nested-outline response caps landed.
+    # The cap equals the formatted file exactly; future growth still fails.
+    "mcp_server/server.py": 3172,
     "test/sql_views/test_sql_views.py": 3579,
     "extractors/procurement_public_body_extract.py": 2948,
 }
@@ -374,12 +363,25 @@ def _extraction_quality_reports() -> list[str]:
 # attendance/, payments/, iris/, tools/, planning/ and found ONE production
 # bypass (planning/product/core/dem.py, fixed same day) — so this locks the
 # whole production tree at zero, the R3/R11 move. Sandbox trees and tests stay
-# out of scope; services/parquet_io.py IS the canonical writer.
+# out of scope. The root service and the deliberately vendored planning-product
+# service are the two canonical writer implementations.
 PARQUET_SCAN_DIRS = (
-    "services", "dail_tracker_core", "votes", "attendance", "payments",
-    "iris", "tools", "planning", "wikidata", "committees", "reference",
+    "services",
+    "dail_tracker_core",
+    "votes",
+    "attendance",
+    "payments",
+    "iris",
+    "tools",
+    "planning",
+    "wikidata",
+    "committees",
+    "reference",
 )
-PARQUET_SCAN_EXEMPT = {"services/parquet_io.py"}
+PARQUET_SCAN_EXEMPT = {
+    "planning/product/services/parquet_io.py",
+    "services/parquet_io.py",
+}
 BASELINE_RAW_PARQUET_REPO: set[str] = set()
 
 
@@ -523,12 +525,24 @@ RE_API_RULES = (
 # start EMPTY — they had zero offenders, so they are a pure ratchet.
 BASELINE_API: dict[str, set[str]] = {
     "unsafe-allow-html": {
-        "committees.py", "corporate.py", "election_2024.py", "judiciary.py", "lobbying_3.py",
-        "public_appointments.py", "statutory_instruments.py", "support.py", "what_they_own.py",
+        "committees.py",
+        "corporate.py",
+        "election_2024.py",
+        "judiciary.py",
+        "lobbying_3.py",
+        "public_appointments.py",
+        "statutory_instruments.py",
+        "support.py",
+        "what_they_own.py",
     },
     "page-local-css": {
-        "accommodation_spend.py", "corporate.py", "election_2024.py", "judiciary.py",
-        "patterns.py", "public_appointments.py", "statutory_instruments.py", "your_council.py",
+        "corporate.py",
+        "election_2024.py",
+        "judiciary.py",
+        "patterns.py",
+        "public_appointments.py",
+        "statutory_instruments.py",
+        "your_council.py",
     },
     "use-container-width": set(),
     "radio-horizontal": set(),
@@ -567,7 +581,7 @@ def _streamlit_api_compliance() -> tuple[list[str], list[str]]:
         # exactly how the old skill checklist cleared a file it should have read.
         if RE_HTML_FSTRING.search(source) and not RE_ESCAPE_IMPORT.search(source):
             violations.append(
-                f"[unescaped-html] {rel} — interpolates into st.html(f\"...\") but imports no "
+                f'[unescaped-html] {rel} — interpolates into st.html(f"...") but imports no '
                 f"escaper; add `from html import escape`"
             )
     stale = [

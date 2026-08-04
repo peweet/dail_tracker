@@ -5,14 +5,21 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
+from dail_tracker_core.models.envelope import ListEnvelope
 from dail_tracker_core.models.legislation import BillDossier
 
-router = APIRouter(tags=["legislation"])
+router = APIRouter(tags=["legislation"], responses=ERROR_RESPONSES)
 
 
-@router.get("/legislation", summary="List bills, filterable")
+@router.get(
+    "/legislation",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="List bills, filterable",
+)
 def list_bills(
     status: str | None = Query(None, description="bill_status, e.g. 'Current'"),
     title_search: str | None = Query(None, description="case-insensitive substring on bill_title"),
@@ -48,7 +55,12 @@ def bill_dossier(
     return BillDossier(**data)
 
 
-@router.get("/statutory-instruments", summary="List statutory instruments, filterable")
+@router.get(
+    "/statutory-instruments",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="List statutory instruments, filterable",
+)
 def list_statutory_instruments(
     year: int | None = Query(None),
     operation: str | None = Query(None, description="e.g. 'made', 'revoked'"),

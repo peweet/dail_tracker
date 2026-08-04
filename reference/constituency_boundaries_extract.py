@@ -24,9 +24,9 @@ import re
 import sys
 from pathlib import Path
 
-import requests
-
 from paths import PROJECT_ROOT as _ROOT
+from paths import absolute_path, configured_path, runtime_path
+from services.http_engine import download_file, polite_headers
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -37,7 +37,10 @@ from reference.ec_constituency_crosswalk_extract import _CONSTITUENCIES  # noqa:
 _GEOJSON_URL = (
     "https://data-osi.opendata.arcgis.com/api/download/v1/items/a37ad6a3a6ff47e4a5a0ff313b418448/geojson?layers=0"
 )
-_CACHE = Path("c:/tmp/constituency_boundaries_2023.geojson")  # 54 MB, NOT committed
+_CACHE = configured_path(
+    "CONSTITUENCY_BOUNDARIES_CACHE",
+    runtime_path("reference", "constituency_boundaries_2023.geojson"),
+)
 _OUT = _ROOT / "data" / "_meta" / "constituency_outlines.json"
 
 _VIEW = 1000.0  # SVG viewbox is 0..1000 on the long axis
@@ -54,10 +57,22 @@ _IRL = (-11.0, 51.0, -5.0, 56.0)  # lon/lat envelope (matches planning_decision_
 
 
 def fetch_geojson(dest: Path) -> Path:
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(_GEOJSON_URL, timeout=180, stream=True, headers={"User-Agent": "Mozilla/5.0"}) as r:
-        r.raise_for_status()
-        dest.write_bytes(r.content)
+    """Atomically stream the large reference layer to an absolute cache path."""
+
+    def plausible_geojson(path: Path) -> bool:
+        if path.stat().st_size < 1_000_000:
+            return False
+        with path.open("rb") as stream:
+            return stream.read(1) == b"{"
+
+    if not download_file(
+        _GEOJSON_URL,
+        dest,
+        headers=polite_headers(browser=True),
+        timeout=180,
+        validate=plausible_geojson,
+    ):
+        raise RuntimeError(f"failed to download constituency boundaries from {_GEOJSON_URL}")
     return dest
 
 
@@ -141,13 +156,14 @@ def main() -> None:
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--geojson", type=Path, default=_CACHE)
     args = ap.parse_args()
+    geojson_path = absolute_path(args.geojson)
 
-    if not args.geojson.exists():
-        print(f"Downloading constituency boundaries (~54 MB) → {args.geojson} ...")
-        fetch_geojson(args.geojson)
-    print(f"Building outlines from {args.geojson} ...")
+    if not geojson_path.exists():
+        print(f"Downloading constituency boundaries (~54 MB) → {geojson_path} ...")
+        fetch_geojson(geojson_path)
+    print(f"Building outlines from {geojson_path} ...")
 
-    result = build_outlines(args.geojson)
+    result = build_outlines(geojson_path)
     got = set(result["constituencies"])
     missing = set(_CONSTITUENCIES) - got
     print(f"  {len(got)}/43 constituencies have an outline; viewbox={result['viewbox']}")

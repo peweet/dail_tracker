@@ -6,13 +6,16 @@ must call :func:`init_dirs` explicitly before creating project artefacts. Use
 ``services.logging_setup`` for logger configuration.
 """
 
-from paths import PROJECT_ROOT
+from paths import PROJECT_ROOT, configured_path
 
 # Single source of truth for the project root lives in paths.py (side-effect-free).
 # BASE_DIR is kept as an alias for the ~32 modules that import it from config.
 BASE_DIR = PROJECT_ROOT
-DATA_DIR = BASE_DIR / "data"
-LOG_DIR = BASE_DIR / "logs"
+# Data is a deployment input, not a package resource. The source checkout and
+# Docker image keep the historical defaults, while an installed wheel can point
+# at a mounted dataset without writing into site-packages.
+DATA_DIR = configured_path("DAIL_DATA_DIR", "data", base=BASE_DIR)
+LOG_DIR = configured_path("DAIL_LOG_DIR", "logs", base=BASE_DIR)
 
 # Pipeline-end data-age signal (tools/check_freshness.py writes it; CI canaries
 # and the Streamlit provenance lines read it). Mirrored in utility/config.py;

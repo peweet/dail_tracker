@@ -9,14 +9,18 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.envelope import ListEnvelope
 
-router = APIRouter(tags=["public-finance"])
+router = APIRouter(tags=["public-finance"], responses=ERROR_RESPONSES)
 
 
 @router.get(
     "/public-finance/government-finance",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
     summary="General-government revenue/expenditure/balance per year (CSO GFA01)",
 )
 def government_finance(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dict:

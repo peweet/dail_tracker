@@ -15,25 +15,26 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Mapping
-from pathlib import Path
 
 import duckdb
 
-# dail_tracker_core/db.py -> parents[0] = dail_tracker_core, parents[1] = repo root.
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from config import DATA_DIR
+from paths import PROJECT_ROOT
+
 SQL_VIEWS_DIR = PROJECT_ROOT / "sql_views"
 
 _log = logging.getLogger(__name__)
 
 
 def absolutize_data_paths(sql: str) -> str:
-    """Rewrite ``read_parquet('data/...')`` literals to absolute project paths.
+    """Rewrite ``read_parquet('data/...')`` literals to the configured data root.
 
     DuckDB resolves relative literals against the process CWD, which is wrong
-    whenever the app is launched from a subdirectory. Anchoring to PROJECT_ROOT
-    makes view registration CWD-independent.
+    whenever the app is launched from a subdirectory. ``DAIL_DATA_DIR`` also
+    lets installed wheels and containers read a mounted dataset independently
+    of the packaged SQL/code resource root.
     """
-    return sql.replace("'data/", f"'{PROJECT_ROOT.as_posix()}/data/")
+    return sql.replace("'data/", f"'{DATA_DIR.as_posix()}/")
 
 
 def register_views(

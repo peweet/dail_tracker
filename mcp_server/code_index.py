@@ -9,9 +9,14 @@ parsed, never executed):
 - ``build_code_index(repo)`` — one {kind:"code"} entry per repo .py (module path,
   docstring first line, def/class names) for the ``search_project`` haystack.
 - ``outline(repo, path)`` — a structural X-ray of one file (or a package directory):
-  module docstring, imports, every class/def with signature, line span, decorators and
-  one-line docstring. A ~4k-token file outlines in a few hundred tokens; the caller
-  then Reads only the one span it needs.
+  module docstring, imports, and recursively structured classes/defs. Class entries
+  include bases, decorators, metaclass, keywords and type parameters; function entries
+  include signatures and lexical children. A ~4k-token file outlines in a few hundred
+  tokens; the caller then reads only the one span it needs.
+
+Repository-wide scans use Git's visible/non-ignored file set plus an explicit policy
+that excludes dot, private, sandbox and generated trees. Source is decoded with its
+PEP 263 declaration and parse failures are surfaced instead of silently omitted.
 
 Kept separate from server.py (which registers the MCP tool wrappers) so it is
 importable and testable without the optional ``mcp`` extra installed.
@@ -46,6 +51,7 @@ _SKIP_PARTS = frozenset(
 
 _DOC_CAP = 140  # one-line docstrings are truncated to this many chars
 _DEF_CAP_INDEX = 80  # def names contributing to a module's search haystack
+OUTLINE_DEFINITION_CAP = 200  # hard response budget; nested definitions count too
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +67,7 @@ class ScanPolicy:
     exclude_dot_paths: bool = True
     exclude_private: bool = True
     exclude_sandboxes: bool = True
+    exclude_generated: bool = True
 
     def allows(self, relative: str | Path | PurePosixPath) -> bool:
         """Return whether a normalised, repository-relative path may be scanned."""
@@ -77,6 +84,10 @@ class ScanPolicy:
             if self.exclude_private and (low == "private" or low.startswith("private_")):
                 return False
             if self.exclude_sandboxes and (low == "sandbox" or low.startswith("sandbox_") or low.endswith("_sandbox")):
+                return False
+            if self.exclude_generated and (
+                low == "generated" or low.startswith("generated_") or low.endswith("_generated")
+            ):
                 return False
         return True
 
@@ -129,6 +140,8 @@ def iter_repository_files(
     wanted = {suffix.casefold() for suffix in suffixes}
     visible = _git_visible_paths(root)
     if visible is None:
+        if (root / ".git").exists():
+            return  # Git policy could not be evaluated: fail closed, never scan ignored files.
         candidates = ((path.relative_to(root), path) for path in root.rglob("*") if path.is_file())
     else:
         candidates = ((Path(*rel.parts), root.joinpath(*rel.parts)) for rel in visible)
@@ -297,7 +310,7 @@ def _parse(py: Path) -> tuple[ast.Module, int]:
 def _resolve(repo: Path, path: str) -> Path | None:
     """Resolve a repo-relative path, refusing anything that escapes the repo."""
     requested = Path(path)
-    if requested.is_absolute():
+    if requested.is_absolute() or requested.drive:
         return None
     try:
         root = repo.resolve()
@@ -332,6 +345,62 @@ def _definition_count(defs: list[dict]) -> int:
     return total
 
 
+_CHILD_DEFINITION_KEYS = ("methods", "classes", "nested")
+
+
+def _definition_start(entry: dict) -> int:
+    """Return an outline entry's first line for stable cross-kind traversal."""
+    with contextlib.suppress(ValueError, TypeError, AttributeError):
+        return int(str(entry["span"]).split("-", 1)[0])
+    return 0
+
+
+def _truncate_definitions(defs: list[dict], limit: int) -> tuple[list[dict], int]:
+    """Copy at most ``limit`` definitions, recursively counting nested entries.
+
+    A parent consumes one budget slot before any lexical child, so a partial class or
+    function remains a useful shell with its own signature/span when the response is
+    truncated. Children stored in separate schema fields are visited by source order.
+    """
+    remaining = max(0, limit)
+
+    def copy_entry(entry: dict) -> dict | None:
+        nonlocal remaining
+        if remaining <= 0:
+            return None
+        remaining -= 1
+        copied = {key: value for key, value in entry.items() if key not in _CHILD_DEFINITION_KEYS}
+        children = sorted(
+            ((_definition_start(child), key, child) for key in _CHILD_DEFINITION_KEYS for child in entry.get(key, ())),
+            key=lambda item: item[0],
+        )
+        for _, key, child in children:
+            child_copy = copy_entry(child)
+            if child_copy is None:
+                break
+            copied.setdefault(key, []).append(child_copy)
+        return copied
+
+    kept: list[dict] = []
+    for entry in defs:
+        entry_copy = copy_entry(entry)
+        if entry_copy is None:
+            break
+        kept.append(entry_copy)
+    return kept, max(0, limit) - remaining
+
+
+def _definition_names(defs: list[dict], prefix: str = "") -> list[str]:
+    """Bare and qualified names for the module-level search haystack."""
+    names: list[str] = []
+    for entry in defs:
+        qualified = f"{prefix}.{entry['name']}" if prefix else entry["name"]
+        names.extend((entry["name"], qualified))
+        for key in ("methods", "classes", "nested"):
+            names.extend(_definition_names(entry.get(key, []), qualified))
+    return list(dict.fromkeys(names))
+
+
 def _parse_error(exc: BaseException) -> str:
     if isinstance(exc, SyntaxError):
         where = f"line {exc.lineno}" if exc.lineno else "unknown line"
@@ -342,17 +411,34 @@ def _parse_error(exc: BaseException) -> str:
 def outline(repo: Path, path: str, limit: int = 200, response_format: str = "detailed") -> dict:
     """Outline one .py file, or a directory as a per-module summary. Returns {error} dicts
     (never raises) so the MCP wrapper can pass the result straight through.
-    response_format='concise' drops imports/signatures/docstrings — name + span only."""
+    response_format='concise' drops imports/signatures/docstrings — name + span only.
+    File responses are hard-capped at ``OUTLINE_DEFINITION_CAP`` definitions, counting
+    nested classes/functions/methods as well as top-level definitions."""
     if response_format not in ("concise", "detailed"):
         return {"error": f"response_format must be 'concise' or 'detailed', got {response_format!r}"}
     target = _resolve(repo, path)
     if target is None:
         return {"error": f"path escapes the repository: {path}"}
+    root = repo.resolve()
+    relative = target.relative_to(root)
+    requested_relative = Path(path or ".")
+    if not DEFAULT_SCAN_POLICY.allows(requested_relative) or not DEFAULT_SCAN_POLICY.allows(relative):
+        return {"error": f"path is excluded by repository scan policy: {path}"}
     if not target.exists():
         return {"error": f"no such path: {path}"}
 
     if target.is_dir():
-        files = sorted(p for p in target.glob("*.py") if not _skip(p.relative_to(repo).parts))
+        files: list[Path] = []
+        for candidate in target.glob("*.py"):
+            try:
+                requested_rel = candidate.relative_to(root)
+                resolved = candidate.resolve(strict=True)
+                rel = resolved.relative_to(root)
+            except (OSError, ValueError):
+                continue
+            if resolved.is_file() and DEFAULT_SCAN_POLICY.allows(requested_rel) and DEFAULT_SCAN_POLICY.allows(rel):
+                files.append(resolved)
+        files.sort()
         modules = []
         for py in files[:80]:
             try:
@@ -365,7 +451,23 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
             if doc := _doc1(tree):
                 m["doc"] = doc
             modules.append(m)
-        subpackages = sorted(d.name for d in target.iterdir() if d.is_dir() and (d / "__init__.py").exists())
+        subpackages: list[str] = []
+        for candidate in target.iterdir():
+            try:
+                requested_rel = candidate.relative_to(root)
+                resolved = candidate.resolve(strict=True)
+                rel = resolved.relative_to(root)
+            except (OSError, ValueError):
+                continue
+            init = resolved / "__init__.py"
+            if (
+                resolved.is_dir()
+                and init.is_file()
+                and DEFAULT_SCAN_POLICY.allows(requested_rel)
+                and DEFAULT_SCAN_POLICY.allows(rel)
+            ):
+                subpackages.append(candidate.name)
+        subpackages.sort()
         out = {"path": path, "modules": modules, "subpackages": subpackages}
         if len(files) > 80:
             out["truncated"] = f"{len(files) - 80} more files — outline them directly"
@@ -379,7 +481,8 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
         return {"error": f"could not parse {path}: {_parse_error(exc)}"}
     defs = _outline_tree(tree)
     n_defs = _definition_count(defs)
-    kept = defs[: max(1, limit)]
+    cap = max(1, min(limit, OUTLINE_DEFINITION_CAP))
+    kept, returned_defs = _truncate_definitions(defs, cap)
     out = {
         "path": target.relative_to(repo.resolve()).as_posix(),
         "lines": n_lines,
@@ -392,8 +495,8 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
         out["defs"] = kept
     if doc := _doc1(tree):
         out["doc"] = doc
-    if len(defs) > limit:
-        out["truncated"] = f"{len(defs) - limit} more top-level defs"
+    if n_defs > returned_defs:
+        out["truncated"] = f"{n_defs - returned_defs} more definitions (nested included)"
     out["def_count"] = n_defs
     return out
 
@@ -428,7 +531,7 @@ def build_code_index(repo: Path) -> list[dict]:
             )
             continue
         desc = _doc1(tree)
-        names = [line.split(" ", 2)[1] for line in _concise_defs(_outline_tree(tree))]
+        names = _definition_names(_outline_tree(tree))
         idx.append(
             {
                 "kind": "code",

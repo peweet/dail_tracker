@@ -28,9 +28,14 @@ import os
 import re
 import sys
 import tempfile
+from pathlib import Path
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA = os.path.join(REPO, "tools", "discoveries.jsonl")
+if REPO not in sys.path:
+    sys.path.insert(0, REPO)
+
+from tools.discoveries import resolve_memory  # noqa: E402 - standalone hook path bootstrap
 
 MAX_ROWS = 2  # per the design note: 1-2 rows max, or it becomes prompt noise
 MIN_PROMPT_CHARS = 20  # below this it's "yes"/"ok"/a path — nothing to match on
@@ -159,6 +164,20 @@ def _save_seen(session: str, seen: set[str]) -> None:
         pass  # can't persist -> worst case is a repeat hint next prompt, not a crash
 
 
+def _detail_label(slug: str) -> str:
+    """Return a truthful, portable detail reference for an indexed lesson."""
+    detail = resolve_memory(slug)
+    if detail is None:
+        return ""
+    try:
+        rel = detail.resolve().relative_to(Path(REPO).resolve())
+    except (OSError, ValueError):
+        # Personal compatibility memory may sit outside the repository. Do not inject
+        # a workstation-specific absolute path; the lookup CLI can resolve it locally.
+        return f"external memory slug: {slug}; resolve with tools/discoveries.py"
+    return f"detail: {rel.as_posix()}"
+
+
 def main() -> int:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
@@ -189,8 +208,8 @@ def main() -> int:
     lines = []
     for r in picked:
         one = str(r["discovery"])[:MAX_LINE_CHARS]
-        mem = r.get("memory", "")
-        lines.append(f"- {r['id']}: {one}" + (f" (detail: memory/{mem}.md)" if mem else ""))
+        label = _detail_label(str(r.get("memory", "")))
+        lines.append(f"- {r['id']}: {one}" + (f" ({label})" if label else ""))
     ctx = "[discovery-index] Cached finding(s) matching this prompt — read before re-deriving:\n" + "\n".join(lines)
     print(
         json.dumps(

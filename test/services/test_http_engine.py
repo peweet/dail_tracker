@@ -77,6 +77,33 @@ def test_fetch_json_propagates_timeout_via_session():
     assert data == {"ok": True}
 
 
+@responses.activate
+def test_fetch_json_passes_query_params_and_headers():
+    url = "https://api.example.com/search"
+    responses.add(responses.GET, url, json={"ok": True}, status=200)
+
+    data, _ = fetch_json(url, params={"page": 2}, headers={"X-Research-Client": "tracker"})
+
+    assert data == {"ok": True}
+    assert responses.calls[0].request.url == f"{url}?page=2"
+    assert responses.calls[0].request.headers["X-Research-Client"] == "tracker"
+
+
+def test_new_session_uses_bounded_shared_retry_policy():
+    import services.http_engine as he
+
+    created = he.new_session(headers={"X-Research-Client": "tracker"}, retries=4, pool_size=7)
+    adapter = created.get_adapter("https://")
+
+    assert adapter._pool_connections == 7
+    assert adapter._pool_maxsize == 7
+    assert adapter.max_retries.total == 4
+    assert adapter.max_retries.status == 4
+    assert adapter.max_retries.status_forcelist == he.RETRY_STATUS_FORCELIST
+    assert adapter.max_retries.allowed_methods == frozenset({"GET", "HEAD"})
+    assert created.headers["X-Research-Client"] == "tracker"
+
+
 # ---------------------------------------------------------------------------
 # fetch_json — transient-fault retry
 # ---------------------------------------------------------------------------
@@ -401,6 +428,49 @@ def test_polite_headers_browser_and_extra():
     assert h["Accept-Encoding"] == "gzip, deflate"
 
 
+def test_curl_candidates_are_absolute_and_prefer_configured_then_git(tmp_path, monkeypatch):
+    import services.http_engine as he
+
+    configured = tmp_path / "custom" / "curl.exe"
+    git = tmp_path / "Git" / "cmd" / "git.exe"
+    embedded = tmp_path / "Git" / "mingw64" / "bin" / "curl.exe"
+    system = tmp_path / "Windows" / "curl.exe"
+    for executable in (configured, git, embedded, system):
+        executable.parent.mkdir(parents=True, exist_ok=True)
+        executable.touch()
+
+    monkeypatch.setenv("DAIL_CURL_BIN", str(configured))
+
+    def fake_which(name: str) -> str | None:
+        return {
+            str(configured): str(configured),
+            "git": str(git),
+            "curl": str(system),
+        }.get(name)
+
+    monkeypatch.setattr(he.shutil, "which", fake_which)
+
+    assert he._curl_candidates() == tuple(str(path.resolve()) for path in (configured, embedded, system))
+
+
+def test_curl_bytes_tries_discovered_executables_in_order(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_candidates", lambda: ("first-curl", "second-curl"))
+    calls: list[str] = []
+
+    def fake_run(args, **_kwargs):
+        calls.append(args[0])
+        if args[0] == "first-curl":
+            return he.subprocess.CompletedProcess(args, 61, stdout=b"")
+        return he.subprocess.CompletedProcess(args, 0, stdout=b"decoded")
+
+    monkeypatch.setattr(he.subprocess, "run", fake_run)
+
+    assert he._curl_bytes("https://example.test", "agent", 10) == b"decoded"
+    assert calls == ["first-curl", "second-curl"]
+
+
 @responses.activate
 def test_fetch_bytes_returns_content_on_success(monkeypatch):
     import services.http_engine as he
@@ -508,3 +578,117 @@ def test_fetch_bytes_custom_headers_reach_the_wire(monkeypatch):
 
     he.fetch_bytes(url, headers=he.polite_headers(browser=True))
     assert responses.calls[0].request.headers["User-Agent"] == he.BROWSER_UA
+
+
+@responses.activate
+def test_fetch_bytes_passes_params_and_honours_retry_after(monkeypatch):
+    import services.http_engine as he
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(he.time, "sleep", sleeps.append)
+    monkeypatch.setattr(he, "_curl_bytes", lambda *args: pytest.fail("curl must not run"))
+    url = "https://api.example.com/export"
+    responses.add(responses.GET, f"{url}?page=2", status=429, headers={"Retry-After": "7"})
+    responses.add(responses.GET, f"{url}?page=2", body=b"csv", status=200)
+
+    assert he.fetch_bytes(url, params={"page": 2}, attempts=2) == b"csv"
+    assert sleeps == [7.0]
+
+
+@responses.activate
+def test_post_json_retries_transient_status_and_sends_json(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/search"
+    responses.add(responses.POST, url, status=503)
+    responses.add(responses.POST, url, json={"notices": [{"id": "one"}]}, status=200)
+
+    payload, raw_bytes = he.post_json(url, {"page": 2}, headers={"Accept": "application/json"})
+
+    assert payload == {"notices": [{"id": "one"}]}
+    assert raw_bytes > 0
+    assert len(responses.calls) == 2
+    assert responses.calls[1].request.body == b'{"page": 2}'
+
+
+@responses.activate
+def test_fetch_bytes_reports_final_requests_failure(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *args: None)
+    failures: list[Exception | None] = []
+    url = "https://council.example.com/missing.pdf"
+    responses.add(responses.GET, url, status=404)
+
+    assert he.fetch_bytes(url, on_failure=failures.append) is None
+    assert len(failures) == 1
+    assert isinstance(failures[0], requests.HTTPError)
+    assert failures[0].response.status_code == 404
+
+
+@responses.activate
+def test_fetch_bytes_does_not_report_recovered_curl_failure(monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *args: b"recovered")
+    failures: list[Exception | None] = []
+    url = "https://council.example.com/waf.pdf"
+    responses.add(responses.GET, url, status=403)
+
+    assert he.fetch_bytes(url, on_failure=failures.append) == b"recovered"
+    assert failures == []
+
+
+@responses.activate
+def test_download_file_streams_and_replaces_destination(tmp_path, monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *args: pytest.fail("curl must not run"))
+    destination = tmp_path / "download.csv"
+    destination.write_bytes(b"old")
+    url = "https://assets.example.com/download.csv"
+    responses.add(responses.GET, url, body=b"new,data\n1,2\n", status=200)
+
+    assert he.download_file(url, destination)
+    assert destination.read_bytes() == b"new,data\n1,2\n"
+    assert not list(tmp_path.glob("*.part"))
+
+
+@responses.activate
+def test_download_file_curl_fallback_is_atomic(tmp_path, monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *args: b"%PDF curl")
+    destination = tmp_path / "document.pdf"
+    url = "https://assets.example.com/document.pdf"
+    responses.add(responses.GET, url, status=403)
+
+    assert he.download_file(url, destination, validate=lambda path: path.read_bytes().startswith(b"%PDF"))
+    assert destination.read_bytes() == b"%PDF curl"
+    assert not list(tmp_path.glob("*.part"))
+
+
+@responses.activate
+def test_download_file_failure_preserves_existing_destination(tmp_path, monkeypatch):
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "_curl_bytes", lambda *args: b"not a PDF")
+    destination = tmp_path / "document.pdf"
+    destination.write_bytes(b"%PDF old")
+    failures: list[Exception | None] = []
+    url = "https://assets.example.com/document.pdf"
+    responses.add(responses.GET, url, status=404)
+
+    ok = he.download_file(
+        url,
+        destination,
+        validate=lambda path: path.read_bytes().startswith(b"%PDF"),
+        on_failure=failures.append,
+    )
+
+    assert not ok
+    assert destination.read_bytes() == b"%PDF old"
+    assert not list(tmp_path.glob("*.part"))
+    assert isinstance(failures[0], requests.HTTPError)
+    assert failures[0].response.status_code == 404

@@ -155,9 +155,7 @@ def test_headroom_loosens_when_ram_free_and_few_sessions(monkeypatch):
 
 def test_headroom_refused_when_many_sessions(monkeypatch):
     monkeypatch.setattr(resource_policy, "free_ram_mb", lambda: resource_policy.HEADROOM_FLOOR_MB + 1)
-    monkeypatch.setattr(
-        resource_policy, "agent_session_count", lambda: resource_policy.HEADROOM_MAX_SESSIONS + 1
-    )
+    monkeypatch.setattr(resource_policy, "agent_session_count", lambda: resource_policy.HEADROOM_MAX_SESSIONS + 1)
     assert resource_policy.effective_memory_limit() == resource_policy.memory_limit()
 
 
@@ -195,9 +193,7 @@ def test_agent_session_count_off_windows_returns_none(monkeypatch):
 
 
 def test_agent_session_count_uses_its_cache(monkeypatch):
-    monkeypatch.setattr(
-        resource_policy, "_session_count_cache", (resource_policy.time.monotonic(), 7)
-    )
+    monkeypatch.setattr(resource_policy, "_session_count_cache", (resource_policy.time.monotonic(), 7))
     assert resource_policy.agent_session_count() == 7  # no tasklist spawn within the TTL
 
 

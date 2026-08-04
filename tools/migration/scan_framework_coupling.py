@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import sys
 import tokenize
 from collections import Counter, defaultdict
@@ -196,11 +197,7 @@ def _docstring_values(tree: ast.AST) -> set[ast.AST]:
         if not isinstance(node, owners) or not node.body:
             continue
         first = node.body[0]
-        if (
-            isinstance(first, ast.Expr)
-            and isinstance(first.value, ast.Constant)
-            and isinstance(first.value.value, str)
-        ):
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
             values.add(first.value)
     return values
 
@@ -504,10 +501,96 @@ def render_report(modules: dict[str, ModuleInfo], layer_filter: str | None) -> s
 MARKUP_SINKS = {"html", "markdown", "write", "caption"}
 MARKUP_BASELINE = PROJECT_ROOT / "tools" / "baselines" / "markup_inline_baseline.json"
 MARKUP_SCAN_DIRS = ("utility/pages_code", "utility/ui")
+# Version 2 records path lineage. A split/rename keeps its predecessor in
+# ``counts`` and allocates exactly the same budget across explicit successor
+# paths. New successor files therefore still start at zero, and debt cannot be
+# shuffled between modules merely because they share a package.
+MARKUP_BASELINE_VERSION = 2
+
+# Raw HTML, not ordinary prose or lightweight Markdown emphasis. ``st.html`` is
+# intrinsically an HTML sink, but the other Streamlit methods are also used for
+# hundreds of plain captions and explanatory sentences. Counting those as
+# anonymous components made the ratchet measure editorial copy instead of UI
+# structure.
+_HTML_TAG_RE = re.compile(r"<\s*/?\s*[a-zA-Z][\w:-]*(?:\s[^<>]*?)?\s*/?>", re.DOTALL)
+
+
+class MarkupBaselineError(ValueError):
+    """The committed markup policy is malformed or internally ambiguous."""
+
+
+@dataclass(frozen=True)
+class MarkupLineage:
+    """Map one or more historical files to their explicit current paths."""
+
+    name: str
+    baseline_paths: tuple[str, ...]
+    current_counts: dict[str, int]
+
+
+@dataclass(frozen=True)
+class MarkupBaseline:
+    """Per-file debt limits plus explicit file split/rename lineage."""
+
+    counts: dict[str, int]
+    lineage: tuple[MarkupLineage, ...] = ()
+
+
+@dataclass(frozen=True)
+class MarkupComparison:
+    """One independently ratcheted file or declared lineage group."""
+
+    label: str
+    baseline: int
+    current: int
+
+
+def _render_argument(node: ast.Call) -> ast.expr | None:
+    """Return the rendered body from positional or documented keyword form."""
+    if node.args:
+        return node.args[0]
+    for keyword in node.keywords:
+        if keyword.arg in {"body", "text"}:
+            return keyword.value
+    return None
+
+
+def _embedded_literal_text(node: ast.AST) -> str | None:
+    """Collect only literal string fragments embedded in an inline expression."""
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else None
+    if isinstance(node, ast.FormattedValue):
+        return ""
+    if isinstance(node, ast.JoinedStr):
+        parts = [_embedded_literal_text(value) for value in node.values]
+        return "".join(part for part in parts if part is not None)
+    if isinstance(node, ast.BinOp):
+        left = _embedded_literal_text(node.left)
+        right = _embedded_literal_text(node.right)
+        if left is None and right is None:
+            return None
+        return (left or "") + (right or "")
+    return None
+
+
+def _is_anonymous_markup(sink: str, argument: ast.expr) -> bool:
+    """Whether an inline expression defines a rendered HTML fragment.
+
+    A name or helper call is already a named component boundary. ``st.html``
+    always renders HTML, including a text-only HTML fragment. For the more
+    general prose sinks, require an actual HTML tag so ordinary captions,
+    ``st.write`` copy, and Markdown emphasis do not become component debt.
+    """
+    if not isinstance(argument, (ast.JoinedStr, ast.Constant, ast.BinOp)):
+        return False
+    text = _embedded_literal_text(argument)
+    if text is None:
+        return False
+    return sink == "html" or bool(_HTML_TAG_RE.search(text))
 
 
 def count_inline_markup(path: Path) -> int:
-    """Markup call sites whose argument is an inline literal rather than a call."""
+    """Count anonymous rendered HTML fragments, excluding ordinary UI copy."""
     _, tree = parse_module(path)
     n = 0
     for node in ast.walk(tree):
@@ -518,11 +601,8 @@ def count_inline_markup(path: Path) -> int:
             continue
         if not (isinstance(fn.value, ast.Name) and fn.value.id == "st"):
             continue
-        if not node.args:
-            continue
-        arg = node.args[0]
-        # A Call means a named helper produced the markup — that is the good shape.
-        if isinstance(arg, (ast.JoinedStr, ast.Constant, ast.BinOp)):
+        argument = _render_argument(node)
+        if argument is not None and _is_anonymous_markup(fn.attr, argument):
             n += 1
     return n
 
@@ -539,13 +619,111 @@ def markup_counts() -> dict[str, int]:
     return counts
 
 
+def _normalised_count_map(raw: object, *, field: str) -> dict[str, int]:
+    if not isinstance(raw, dict):
+        raise MarkupBaselineError(f"{field} must be an object mapping paths to counts")
+    counts: dict[str, int] = {}
+    for path, count in raw.items():
+        if not isinstance(path, str) or not path or "\\" in path or Path(path).is_absolute() or ".." in path.split("/"):
+            raise MarkupBaselineError(f"{field} contains an invalid project-relative path: {path!r}")
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise MarkupBaselineError(f"{field}[{path!r}] must be a non-negative integer")
+        counts[path] = count
+    return counts
+
+
+def _load_markup_baseline() -> MarkupBaseline:
+    try:
+        raw = json.loads(MARKUP_BASELINE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise MarkupBaselineError(f"cannot read {MARKUP_BASELINE}: {exc}") from exc
+
+    # Read the original count-only shape so an older checkout fails on actual
+    # regressions rather than on a migration detail. All newly written policy
+    # uses the versioned shape below.
+    if isinstance(raw, dict) and "version" not in raw:
+        return MarkupBaseline(_normalised_count_map(raw, field="baseline"))
+    if not isinstance(raw, dict) or raw.get("version") != MARKUP_BASELINE_VERSION:
+        raise MarkupBaselineError(f"markup baseline version must be {MARKUP_BASELINE_VERSION}")
+
+    counts = _normalised_count_map(raw.get("counts"), field="counts")
+    raw_lineage = raw.get("lineage", [])
+    if not isinstance(raw_lineage, list):
+        raise MarkupBaselineError("lineage must be a list")
+    lineage: list[MarkupLineage] = []
+    claimed_baseline_paths: set[str] = set()
+    claimed_current_paths: set[str] = set()
+    for index, item in enumerate(raw_lineage):
+        if not isinstance(item, dict):
+            raise MarkupBaselineError(f"lineage[{index}] must be an object")
+        name = item.get("name")
+        baseline_paths = item.get("baseline_paths")
+        current_counts = _normalised_count_map(item.get("current_counts"), field=f"lineage[{index}].current_counts")
+        if not isinstance(name, str) or not name.strip():
+            raise MarkupBaselineError(f"lineage[{index}].name must be a non-empty string")
+        if (
+            not isinstance(baseline_paths, list)
+            or not baseline_paths
+            or not all(isinstance(path, str) for path in baseline_paths)
+        ):
+            raise MarkupBaselineError(f"lineage[{index}].baseline_paths must be a non-empty string list")
+        if not current_counts:
+            raise MarkupBaselineError(f"lineage[{index}].current_counts must not be empty")
+        if len(set(baseline_paths)) != len(baseline_paths):
+            raise MarkupBaselineError(f"lineage[{index}].baseline_paths contains duplicates")
+        missing = sorted(set(baseline_paths) - counts.keys())
+        if missing:
+            raise MarkupBaselineError(f"lineage[{index}] references missing baseline paths: {missing}")
+        overlap = claimed_baseline_paths.intersection(baseline_paths)
+        if overlap:
+            raise MarkupBaselineError(f"baseline paths occur in multiple lineage groups: {sorted(overlap)}")
+        current_overlap = claimed_current_paths.intersection(current_counts)
+        if current_overlap:
+            raise MarkupBaselineError(f"current paths occur in multiple lineage groups: {sorted(current_overlap)}")
+        exact_overlap = set(current_counts).intersection(counts.keys() - set(baseline_paths))
+        if exact_overlap:
+            raise MarkupBaselineError(
+                f"lineage current paths also have exact baseline entries: {sorted(exact_overlap)}"
+            )
+        source_budget = sum(counts[path] for path in baseline_paths)
+        current_budget = sum(current_counts.values())
+        if source_budget != current_budget:
+            raise MarkupBaselineError(
+                f"lineage[{index}] reallocates {source_budget} source sites to {current_budget} current sites"
+            )
+        claimed_baseline_paths.update(baseline_paths)
+        claimed_current_paths.update(current_counts)
+        lineage.append(MarkupLineage(name.strip(), tuple(baseline_paths), current_counts))
+    return MarkupBaseline(counts, tuple(lineage))
+
+
+def _markup_comparisons(current: dict[str, int], baseline: MarkupBaseline) -> list[MarkupComparison]:
+    """Build independent anti-regression units, honouring declared path lineage."""
+    remaining_current = set(current)
+    remaining_baseline = set(baseline.counts)
+    comparisons: list[MarkupComparison] = []
+
+    for lineage in baseline.lineage:
+        remaining_current.difference_update(lineage.current_counts)
+        remaining_baseline.difference_update(lineage.baseline_paths)
+        comparisons.extend(
+            MarkupComparison(f"{path} [{lineage.name}]", limit, current.get(path, 0))
+            for path, limit in lineage.current_counts.items()
+        )
+
+    for path in sorted(remaining_baseline | remaining_current):
+        comparisons.append(MarkupComparison(path, baseline.counts.get(path, 0), current.get(path, 0)))
+    return comparisons
+
+
 def run_markup_ratchet(update: bool) -> int:
     counts = markup_counts()
     total = sum(counts.values())
 
     if update:
         MARKUP_BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        MARKUP_BASELINE.write_text(json.dumps(counts, indent=2, sort_keys=True), encoding="utf-8")
+        payload = {"version": MARKUP_BASELINE_VERSION, "counts": counts, "lineage": []}
+        MARKUP_BASELINE.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"[markup baseline written: {total} inline sites across {len(counts)} files]")
         return 0
 
@@ -553,19 +731,23 @@ def run_markup_ratchet(update: bool) -> int:
         print("No markup baseline. Create it with --update-markup-baseline", file=sys.stderr)
         return 1
 
-    baseline: dict[str, int] = json.loads(MARKUP_BASELINE.read_text(encoding="utf-8"))
-    base_total = sum(baseline.values())
-    regressions = [(f, baseline.get(f, 0), n) for f, n in counts.items() if n > baseline.get(f, 0)]
+    baseline = _load_markup_baseline()
+    base_total = sum(baseline.counts.values())
+    comparisons = _markup_comparisons(counts, baseline)
+    regressions = [unit for unit in comparisons if unit.current > unit.baseline]
 
     print(f"Inline markup sites: {total} (baseline {base_total}, delta {total - base_total:+d})")
-    improved = sum(1 for f, n in counts.items() if n < baseline.get(f, 0))
+    improved = sum(unit.current < unit.baseline for unit in comparisons)
     if improved:
         print(f"Improved files: {improved} — re-baseline to lock the gain in.")
 
     if regressions:
         print(f"\nFAIL — {len(regressions)} file(s) grew inline markup:", file=sys.stderr)
-        for f, was, now in sorted(regressions):
-            print(f"  {f}: {was} -> {now} (+{now - was})", file=sys.stderr)
+        for unit in sorted(regressions, key=lambda item: item.label):
+            print(
+                f"  {unit.label}: {unit.baseline} -> {unit.current} (+{unit.current - unit.baseline})",
+                file=sys.stderr,
+            )
         print(
             "\nRoute new markup through a named function that RETURNS the html "
             "string, then pass it to st.html(). That function is the component.",
@@ -589,7 +771,7 @@ def main() -> int:
     if args.check_markup or args.update_markup_baseline:
         try:
             return run_markup_ratchet(update=args.update_markup_baseline)
-        except AnalysisError as exc:
+        except (AnalysisError, MarkupBaselineError) as exc:
             print(f"Framework markup analysis failed closed: {exc}", file=sys.stderr)
             return 1
 

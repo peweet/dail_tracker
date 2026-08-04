@@ -18,7 +18,7 @@ Axis 2 — POLLING / CANARY COVERAGE (registry + source_health.json)
     What fraction of sources can we even tell has gone stale? A source with no
     poller and no canary fails silently in the cloud.
 
-Axis 3 — RUNTIME RESILIENCE (AST/grep over extractors/ + iris/)
+Axis 3 — RUNTIME RESILIENCE (AST over the executable pipeline surface)
     Migration blockers baked into the code that runs during pipeline.py:
       * hardcoded c:/tmp or Windows paths (won't exist on Linux)
       * bare requests.get / urlopen (no retry, no curl fallback, no WAF spoof)
@@ -49,7 +49,81 @@ from urllib.parse import urlparse
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = PROJECT_ROOT / "data" / "_meta" / "source_registry.generated.json"
 HEALTH = PROJECT_ROOT / "data" / "_meta" / "source_health.json"
-RUNTIME_DIRS = [PROJECT_ROOT / "extractors", PROJECT_ROOT / "iris"]
+RUNTIME_DIR_NAMES = (
+    "attendance",
+    "charity",
+    "committees",
+    "corporate",
+    "debates",
+    "extractors",
+    "iris",
+    "legal",
+    "legislation",
+    "lobbying",
+    "members",
+    "payments",
+    "pdf_infra",
+    "planning/civic/extractors",
+    "reference",
+    "services",
+    "shared",
+    "votes",
+    "wikidata",
+)
+RUNTIME_DIRS = tuple(PROJECT_ROOT / name for name in RUNTIME_DIR_NAMES)
+PIPELINE_TOOL_FILES = (
+    "tools/build_fact_cards.py",
+    "tools/build_source_health.py",
+    "tools/build_source_registry.py",
+    "tools/check_extraction_quality.py",
+    "tools/check_freshness.py",
+    "tools/check_output_regressions.py",
+    "tools/lobbying_freshness_check.py",
+    "tools/procurement_source_poller.py",
+)
+
+# Direct transports are exceptions only when the HTTP exchange itself carries
+# state that the generic helpers intentionally do not model.  Every exception is
+# reported with this rationale; adding a filename here is therefore a reviewable
+# architecture decision, not a hidden scanner suppression.
+DIRECT_HTTP_EXEMPTIONS = {
+    "services/http_engine.py": "canonical shared retry, validation, streaming and curl-fallback transport",
+    "services/ted_search.py": (
+        "stateful TED iteration-token paginator with declared-total completeness checks and endpoint-specific retries"
+    ),
+    "pdf_infra/pdf_endpoint_check.py": (
+        "diagnostic probe must retain exact HEAD status and requests exception classes instead of downloading content"
+    ),
+    "pdf_infra/pdf_downloader.py": "dedicated streamed PDF transport owns response streaming and per-file diagnostics",
+    "pdf_infra/oireachtas_pdf_poller.py": (
+        "stateful manifest poller compares remote HEAD lengths before resumable streamed downloads"
+    ),
+    "tools/build_source_health.py": (
+        "source-health probe intentionally observes HEAD/Range status and headers without fetching full files"
+    ),
+    "tools/procurement_source_poller.py": (
+        "freshness probe requires response status/headers and a source-specific permissive TLS context"
+    ),
+    "extractors/_gnews_resolve.py": (
+        "cookie-bearing Google News resolver performs a stateful landing-page plus batchexecute RPC exchange"
+    ),
+}
+
+HTTP_METHODS = frozenset({"get", "post", "head", "put", "patch", "delete", "request"})
+HTTP_ENGINE_FUNCTIONS = frozenset(
+    {
+        "download_file",
+        "fetch_all",
+        "fetch_all_text",
+        "fetch_bytes",
+        "fetch_json",
+        "fetch_text",
+        "new_session",
+        "polite_headers",
+        "post_bytes",
+        "post_json",
+    }
+)
 
 # Host → (risk band, class). Order matters: first match wins.
 HOST_RULES: list[tuple[str, str, str]] = [
@@ -81,6 +155,191 @@ def _docstring_nodes(tree: ast.AST) -> set[int]:
     return found
 
 
+def _attribute_parts(node: ast.AST) -> tuple[str, ...]:
+    """Return the dotted name represented by a Name/Attribute expression."""
+    parts: list[str] = []
+    current = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        parts.append(current.id)
+        return tuple(reversed(parts))
+    return ()
+
+
+def _is_session_annotation(node: ast.AST | None, request_modules: set[str], session_types: set[str]) -> bool:
+    if node is None:
+        return False
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _is_session_annotation(node.left, request_modules, session_types) or _is_session_annotation(
+            node.right, request_modules, session_types
+        )
+    if isinstance(node, ast.Subscript):
+        return _is_session_annotation(node.value, request_modules, session_types)
+    parts = _attribute_parts(node)
+    return bool(
+        (len(parts) == 1 and parts[0] in session_types)
+        or (len(parts) >= 2 and parts[-1] == "Session" and parts[0] in request_modules)
+    )
+
+
+def _direct_http_calls(tree: ast.AST) -> list[dict[str, object]]:
+    """Resolve direct requests/urllib calls, including aliases and bound sessions."""
+    request_modules: set[str] = set()
+    request_functions: dict[str, str] = {}
+    session_types: set[str] = set()
+    urllib_roots: set[str] = set()
+    urllib_request_modules: set[str] = set()
+    urlopen_functions: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bound = alias.asname or alias.name.split(".")[0]
+                if alias.name == "requests":
+                    request_modules.add(bound)
+                elif alias.name == "urllib":
+                    urllib_roots.add(bound)
+                elif alias.name == "urllib.request":
+                    if alias.asname:
+                        urllib_request_modules.add(bound)
+                    else:
+                        urllib_roots.add(bound)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "requests":
+                for alias in node.names:
+                    bound = alias.asname or alias.name
+                    if alias.name in HTTP_METHODS:
+                        request_functions[bound] = alias.name
+                    elif alias.name == "Session":
+                        session_types.add(bound)
+            elif node.module == "requests.sessions":
+                for alias in node.names:
+                    if alias.name == "Session":
+                        session_types.add(alias.asname or alias.name)
+            elif node.module == "urllib.request":
+                for alias in node.names:
+                    if alias.name == "urlopen":
+                        urlopen_functions.add(alias.asname or alias.name)
+            elif node.module == "urllib":
+                for alias in node.names:
+                    if alias.name == "request":
+                        urllib_request_modules.add(alias.asname or alias.name)
+
+    # Support local module aliases (``http = requests``) and session factories
+    # whose return annotation makes the transport ownership explicit.
+    session_factories = set(session_types)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _is_session_annotation(
+            node.returns, request_modules, session_types
+        ):
+            session_factories.add(node.name)
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            value = node.value
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if isinstance(value, ast.Name) and value.id in request_modules:
+                request_modules.update(target.id for target in targets if isinstance(target, ast.Name))
+
+    def is_session_factory(call: ast.Call) -> bool:
+        parts = _attribute_parts(call.func)
+        return bool(
+            (len(parts) == 1 and parts[0] in session_factories)
+            or (len(parts) == 2 and parts[0] in request_modules and parts[1] in {"Session", "session"})
+        )
+
+    session_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            args = (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+            session_names.update(
+                arg.arg for arg in args if _is_session_annotation(arg.annotation, request_modules, session_types)
+            )
+
+    # Fixed point covers ``session = make_session()`` and simple aliases.
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(tree):
+            targets: list[ast.expr] = []
+            value: ast.AST | None = None
+            if isinstance(node, ast.Assign):
+                targets, value = node.targets, node.value
+            elif isinstance(node, ast.AnnAssign):
+                targets, value = [node.target], node.value
+            if value is not None:
+                is_session = (isinstance(value, ast.Call) and is_session_factory(value)) or (
+                    isinstance(value, ast.Name) and value.id in session_names
+                )
+                if is_session:
+                    for target in targets:
+                        if isinstance(target, ast.Name) and target.id not in session_names:
+                            session_names.add(target.id)
+                            changed = True
+            if isinstance(node, (ast.With, ast.AsyncWith)):
+                for item in node.items:
+                    if (
+                        isinstance(item.context_expr, ast.Call)
+                        and is_session_factory(item.context_expr)
+                        and isinstance(item.optional_vars, ast.Name)
+                        and item.optional_vars.id not in session_names
+                    ):
+                        session_names.add(item.optional_vars.id)
+                        changed = True
+
+    found: list[dict[str, object]] = []
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        parts = _attribute_parts(call.func)
+        kind: str | None = None
+        if isinstance(call.func, ast.Name) and call.func.id in request_functions:
+            kind = f"requests.{request_functions[call.func.id]} (imported as {call.func.id})"
+        elif isinstance(call.func, ast.Name) and call.func.id in urlopen_functions:
+            kind = f"urllib.request.urlopen (imported as {call.func.id})"
+        elif len(parts) == 2 and parts[0] in request_modules and parts[1] in HTTP_METHODS:
+            kind = f"requests.{parts[1]}"
+        elif len(parts) == 2 and parts[0] in session_names and parts[1] in HTTP_METHODS:
+            kind = f"requests.Session.{parts[1]}"
+        elif (
+            len(parts) == 2
+            and parts[0] in urllib_request_modules
+            and parts[1] == "urlopen"
+            or len(parts) == 3
+            and parts[0] in urllib_roots
+            and parts[1:] == ("request", "urlopen")
+        ):
+            kind = "urllib.request.urlopen"
+        elif (
+            isinstance(call.func, ast.Attribute)
+            and call.func.attr in HTTP_METHODS
+            and isinstance(call.func.value, ast.Call)
+            and is_session_factory(call.func.value)
+        ):
+            kind = f"requests.Session.{call.func.attr}"
+        if kind is not None:
+            found.append({"line": call.lineno, "kind": kind})
+    return sorted(found, key=lambda item: (int(item["line"]), str(item["kind"])))
+
+
+def _uses_http_engine(tree: ast.AST) -> bool:
+    """Return whether a module imports a public shared-engine helper."""
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.module == "services.http_engine"
+            and any(alias.name in HTTP_ENGINE_FUNCTIONS for alias in node.names)
+        ):
+            return True
+        if isinstance(node, ast.Import) and any(alias.name == "services.http_engine" for alias in node.names):
+            return True
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.module == "services"
+            and any(alias.name == "http_engine" for alias in node.names)
+        ):
+            return True
+    return False
+
+
 def _runtime_signals(source: str, filename: str) -> dict[str, object]:
     """Extract executable path/fetch signals from one parsed Python module."""
     tree = ast.parse(source, filename=filename)
@@ -91,36 +350,39 @@ def _runtime_signals(source: str, filename: str) -> dict[str, object]:
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docs
     ]
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
-
-    bare_requests = any(
-        (
-            isinstance(call.func, ast.Attribute)
-            and isinstance(call.func.value, ast.Name)
-            and call.func.value.id == "requests"
-            and call.func.attr in {"get", "post", "head"}
-        )
-        or (isinstance(call.func, ast.Name) and call.func.id == "urlopen")
-        for call in calls
-    )
-    uses_engine = any(
-        isinstance(node, ast.ImportFrom)
-        and node.module == "services.http_engine"
-        and any(alias.name in {"fetch_bytes", "fetch_json", "fetch_text", "post_bytes"} for alias in node.names)
-        for node in ast.walk(tree)
-    )
+    direct_http_calls = _direct_http_calls(tree)
+    uses_engine = _uses_http_engine(tree)
     browser_ua = any("Mozilla/5.0" in value for value in live_strings) or any(
         isinstance(call.func, ast.Name)
         and call.func.id == "polite_headers"
-        and any(keyword.arg == "browser" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in call.keywords)
+        and any(
+            keyword.arg == "browser" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True
+            for keyword in call.keywords
+        )
         for call in calls
     )
     return {
-        "local_paths": sorted({match.group(0) for value in live_strings for match in LOCAL_PATH_RE.finditer(value)})[:4],
-        "bare_requests": bare_requests,
+        "local_paths": sorted({match.group(0) for value in live_strings for match in LOCAL_PATH_RE.finditer(value)})[
+            :4
+        ],
+        "bare_requests": bool(direct_http_calls),
+        "direct_http_calls": direct_http_calls,
         "uses_engine": uses_engine,
         "gov_ie": any("gov.ie" in value for value in live_strings),
         "browser_ua": browser_ua,
     }
+
+
+def discover_runtime_files() -> list[Path]:
+    """Return the deterministic Python surface exercised by refresh pipelines."""
+    discovered: set[Path] = set()
+    for directory in RUNTIME_DIRS:
+        if directory.exists():
+            discovered.update(path for path in directory.rglob("*.py") if "__pycache__" not in path.parts)
+    discovered.update(PROJECT_ROOT.glob("*_refresh.py"))
+    discovered.add(PROJECT_ROOT / "pipeline.py")
+    discovered.update(PROJECT_ROOT / rel for rel in PIPELINE_TOOL_FILES)
+    return sorted(path for path in discovered if path.is_file())
 
 
 def classify_host(host: str) -> tuple[str, str]:
@@ -193,15 +455,13 @@ def polling_coverage(sources: list[dict]) -> dict:
 
 def runtime_resilience(files: Iterable[Path] | None = None) -> dict:
     if files is None:
-        discovered: list[Path] = []
-        for directory in RUNTIME_DIRS:
-            if directory.exists():
-                discovered += [p for p in directory.rglob("*.py") if "__pycache__" not in p.parts]
-        files = discovered
+        files = discover_runtime_files()
     files = list(files)
 
     local_paths: dict[str, list[str]] = {}
     bare_requests: list[str] = []
+    direct_http: dict[str, list[dict[str, object]]] = {}
+    transport_exemptions: dict[str, dict[str, object]] = {}
     govie_no_ua: list[str] = []
     scan_errors: dict[str, str] = {}
     uses_engine = 0
@@ -223,7 +483,13 @@ def runtime_resilience(files: Iterable[Path] | None = None) -> dict:
         if hits:
             local_paths[rel] = hits
         if signals["bare_requests"]:
-            bare_requests.append(rel)
+            calls = signals["direct_http_calls"]
+            direct_http[rel] = calls
+            rationale = DIRECT_HTTP_EXEMPTIONS.get(rel)
+            if rationale is not None:
+                transport_exemptions[rel] = {"reason": rationale, "calls": calls}
+            else:
+                bare_requests.append(rel)
         if signals["uses_engine"]:
             uses_engine += 1
         if signals["gov_ie"] and not signals["browser_ua"] and (signals["bare_requests"] or signals["uses_engine"]):
@@ -233,6 +499,8 @@ def runtime_resilience(files: Iterable[Path] | None = None) -> dict:
         "n_files": len(files),
         "local_paths": local_paths,
         "bare_requests": bare_requests,
+        "direct_http": direct_http,
+        "transport_exemptions": transport_exemptions,
         "govie_no_ua": govie_no_ua,
         "uses_engine": uses_engine,
         "scan_errors": scan_errors,
@@ -266,7 +534,7 @@ def render(sources: list[dict]) -> str:
     w(f"- **{blockers} runtime modules** hardcode a `c:/tmp` or Windows path — hard blockers on Linux.")
     w(
         f"- **{len(res['bare_requests'])} runtime modules** bypass the resilient "
-        f"`fetch_bytes` engine with bare `requests`."
+        f"HTTP engine without an approved stateful-transport rationale."
     )
     w(f"- **{len(res['scan_errors'])} runtime modules** could not be parsed; any such error fails the scan.")
     w(
@@ -320,7 +588,8 @@ def render(sources: list[dict]) -> str:
     # ---- axis 3 ----
     w("## Axis 3 — runtime resilience\n")
     w(
-        f"Scanned {res['n_files']} modules in `extractors/` + `iris/`. "
+        f"Scanned {res['n_files']} modules across runtime packages, root refresh "
+        f"orchestrators and pipeline tools. "
         f"{res['uses_engine']} use the `fetch_bytes` engine (retry + curl fallback + "
         f"WAF-spoof option).\n"
     )
@@ -342,15 +611,28 @@ def render(sources: list[dict]) -> str:
             w(f"- `{rel}`: {error}")
         w("")
 
-    w(f"### Fragile fetches — {len(res['bare_requests'])} modules bypass `fetch_bytes`\n")
+    w(f"### Fragile fetches — {len(res['bare_requests'])} modules bypass the shared HTTP engine\n")
     w(
         "Bare `requests`/`urlopen`: no shared-session retry, no curl fallback, no "
         "WAF-interstitial validation. Fine for a CKAN API resolve; risky for a file "
         "download from a WAF'd host.\n"
     )
     for rel in sorted(res["bare_requests"]):
-        w(f"- `{rel}`")
+        calls = ", ".join(f"{call['kind']}:{call['line']}" for call in res["direct_http"][rel])
+        w(f"- `{rel}` — {calls}")
     w("")
+
+    if res["transport_exemptions"]:
+        w(f"### Reviewed stateful transports — {len(res['transport_exemptions'])}\n")
+        w(
+            "These modules intentionally own response/session state that the generic helpers "
+            "do not expose. Their rationale is part of the generated report so suppressions "
+            "cannot become invisible.\n"
+        )
+        for rel, exemption in sorted(res["transport_exemptions"].items()):
+            calls = ", ".join(f"{call['kind']}:{call['line']}" for call in exemption["calls"])
+            w(f"- `{rel}` — {exemption['reason']} ({calls})")
+        w("")
 
     if res["govie_no_ua"]:
         w(f"### gov.ie fetches with no browser-UA in the module — {len(res['govie_no_ua'])}\n")
@@ -390,6 +672,15 @@ def render(sources: list[dict]) -> str:
 
 
 def main() -> int:
+    # Windows PowerShell commonly exposes a cp1252 stream; the report contains
+    # civic names and arrows that are not representable there. Configure the
+    # existing streams instead of requiring every caller to set environment
+    # variables before a scanner can run.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-o", "--out", type=Path)
     ap.add_argument("--json", type=Path)
@@ -401,7 +692,10 @@ def main() -> int:
 
     report = render(sources)
 
-    if args.json:
+    json_path = (PROJECT_ROOT / args.json).resolve() if args.json and not args.json.is_absolute() else args.json
+    out_path = (PROJECT_ROOT / args.out).resolve() if args.out and not args.out.is_absolute() else args.out
+
+    if json_path:
         exp = source_exposure(sources)
         payload = {
             "band_totals": dict(exp["band_totals"]),
@@ -410,12 +704,14 @@ def main() -> int:
             "polling": {k: (dict(v) if isinstance(v, Counter) else v) for k, v in polling_coverage(sources).items()},
             "resilience": {k: (v if isinstance(v, (int, list)) else v) for k, v in runtime_resilience().items()},
         }
-        args.json.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
-        print(f"[wrote {args.json}]", file=sys.stderr)
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+        print(f"[wrote {json_path}]", file=sys.stderr)
 
-    if args.out:
-        args.out.write_text(report, encoding="utf-8")
-        print(f"[wrote {args.out}]", file=sys.stderr)
+    if out_path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(report, encoding="utf-8")
+        print(f"[wrote {out_path}]", file=sys.stderr)
     else:
         sys.stdout.write(report)
     return 2 if runtime_resilience()["scan_errors"] else 0

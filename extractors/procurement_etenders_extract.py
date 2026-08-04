@@ -34,14 +34,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
-import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from paths import configured_path, runtime_path  # noqa: E402
 from services.data_contracts import guard_award_fact  # noqa: E402
 from services.deflator import value_plausible_expr  # noqa: E402
+from services.http_engine import download_file, fetch_json, polite_headers  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
-from paths import configured_path, runtime_path  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -54,7 +54,7 @@ URL = "https://assets.gov.ie/static/documents/7ba65f1b/Public_Procurement_Openda
 # browser UA + gov.ie Referer clears the WAF (same spoof as extractors/derelict_sites_levy_
 # extract.py:67). data.gov.ie's CKAN API doesn't gate today, but we send the same headers there
 # too for consistency + in case that resource also migrates behind the WAF.
-GOVIE_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://www.gov.ie/"}
+GOVIE_HEADERS = polite_headers(browser=True, extra={"Referer": "https://www.gov.ie/"})
 # Provenance: the citable record of where this data came from. Emitted into the
 # coverage JSON so the UI provenance footer reads source-of-truth, not hardcoded copy.
 SOURCE = {
@@ -177,9 +177,8 @@ CKAN_PACKAGE_URL = "https://data.gov.ie/api/3/action/package_show?id=contract-no
 
 def resolve_download_url(fallback: str = URL) -> str:
     try:
-        r = requests.get(CKAN_PACKAGE_URL, headers=GOVIE_HEADERS, timeout=30)
-        r.raise_for_status()
-        for res in r.json().get("result", {}).get("resources", []):
+        payload, _ = fetch_json(CKAN_PACKAGE_URL, headers=GOVIE_HEADERS, timeout=30)
+        for res in payload.get("result", {}).get("resources", []):
             u = (res.get("url") or "").strip()
             if u.lower().endswith(".csv"):
                 if u != fallback:
@@ -196,24 +195,23 @@ def ensure_csv(force: bool = False, max_age_days: float = CACHE_MAX_AGE_DAYS) ->
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     print("downloading eTenders CSV…")
     src_url = resolve_download_url()
-    # Stream to a .part file and atomically swap, so a mid-download failure can't leave a
-    # truncated cache — and so the fallback below still has the last-good copy to return.
-    tmp = CACHE.with_suffix(CACHE.suffix + ".part")
-    try:
-        with requests.get(src_url, headers=GOVIE_HEADERS, timeout=180, stream=True) as r:
-            r.raise_for_status()
-            with open(tmp, "wb") as f:
-                for ch in r.iter_content(1 << 16):
-                    f.write(ch)
-        tmp.replace(CACHE)
-    except requests.RequestException as e:
-        tmp.unlink(missing_ok=True)
+    failures: list[Exception | None] = []
+    downloaded = download_file(
+        src_url,
+        CACHE,
+        headers=GOVIE_HEADERS,
+        timeout=180,
+        validate=lambda path: path.stat().st_size > 1_000_000,
+        on_failure=failures.append,
+    )
+    if not downloaded:
         # Degrade to the last good cache rather than failing the whole chain: a transient gov.ie
         # WAF block / outage shouldn't wipe procurement gold. Only fatal when there is no cache.
         if CACHE.exists():
-            print(f"  download failed ({type(e).__name__}: {e}); using existing cache {CACHE}", file=sys.stderr)
+            detail = f" ({type(failures[0]).__name__}: {failures[0]})" if failures and failures[0] else ""
+            print(f"  download failed{detail}; using existing cache {CACHE}", file=sys.stderr)
             return CACHE
-        raise
+        raise RuntimeError(f"eTenders CSV download failed: {src_url}")
     return CACHE
 
 

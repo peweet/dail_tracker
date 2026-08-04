@@ -1,0 +1,34 @@
+test_sector_totals_by_year:
+  model: charity_pilot.sector_totals_by_year
+  inputs:
+    charity_pilot.financials_by_year:
+      rows:
+        - rcn: 1001
+          period_year: 2024
+          gross_income: 100.0
+          gross_expenditure: 80.0
+          income_govt_or_la: 40.0
+        - rcn: 1002
+          period_year: 2024
+          gross_income: 250.0
+          gross_expenditure: 200.0
+          income_govt_or_la: 75.0
+        - rcn: 1001
+          period_year: 2023
+          gross_income: 90.0
+          gross_expenditure: 70.0
+          income_govt_or_la: 35.0
+  outputs:
+    query:
+      rows:
+        - period_year: 2023
+          n_charities: 1
+          total_gross_income: 90.0
+          total_gross_expenditure: 70.0
+          total_income_govt_or_la: 35.0
+        - period_year: 2024
+          n_charities: 2
+          total_gross_income: 350.0
+          total_gross_expenditure: 280.0
+          total_income_govt_or_la: 115.0
+

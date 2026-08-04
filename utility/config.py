@@ -9,19 +9,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from paths import PROJECT_ROOT, configured_path
+
 # ── Paths ───────────────────────────────────────────────────────────────────────
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SILVER_DIR = PROJECT_ROOT / "data" / "silver"
+DATA_DIR = configured_path("DAIL_DATA_DIR", "data", base=PROJECT_ROOT)
+SILVER_DIR = DATA_DIR / "silver"
 # Pipeline-end data-age signal (tools/check_freshness.py). The UI only ever
 # READS this committed JSON — never parquet — for "data updated" lines.
 # Mirrored in root config.py; keep both in sync (dual-config convention).
-FRESHNESS_JSON = PROJECT_ROOT / "data" / "_meta" / "freshness.json"
+FRESHNESS_JSON = DATA_DIR / "_meta" / "freshness.json"
 # Values the fidelity/contract gates held back from the app (single traceable ledger).
 # Mirrored in root config.py; keep both in sync (dual-config convention).
-QUARANTINE_LEDGER_JSON = PROJECT_ROOT / "data" / "_meta" / "quarantine_ledger.json"
-SILVER_PARQUET_DIR = PROJECT_ROOT / "data" / "silver" / "parquet"
-GOLD_PARQUET_DIR = PROJECT_ROOT / "data" / "gold" / "parquet"
+QUARANTINE_LEDGER_JSON = DATA_DIR / "_meta" / "quarantine_ledger.json"
+SILVER_PARQUET_DIR = DATA_DIR / "silver" / "parquet"
+GOLD_PARQUET_DIR = DATA_DIR / "gold" / "parquet"
 
 SILVER_INTERESTS_CSV: dict[str, Path] = {
     "Dáil": SILVER_DIR / "dail_member_interests_combined.csv",

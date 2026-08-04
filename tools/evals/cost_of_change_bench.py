@@ -43,14 +43,11 @@ import time  # noqa: E402
 from datetime import UTC, datetime  # noqa: E402
 
 import anyio  # noqa: E402
-from claude_agent_sdk import (  # noqa: E402
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ResultMessage,
-    TextBlock,
-    ToolUseBlock,
-    query,
-)
+
+try:  # noqa: E402
+    from .provider_adapter import EvalRequest, EvalResult, run_eval
+except ImportError:  # direct script execution  # noqa: E402
+    from provider_adapter import EvalRequest, EvalResult, run_eval
 
 PROMPT_DIR = REPO / "tools" / "evals" / "bench_prompts"
 LOG_PATH = REPO / "logs" / "cost_of_change.jsonl"
@@ -134,45 +131,46 @@ def _parse_selfreport(text: str):
 
 
 async def run_one(
-    cand: str, prompt: str, model: str, max_turns: int, keep_wt: bool, ref: str = "HEAD", git_dir=None
+    cand: str,
+    prompt: str,
+    model: str | None,
+    max_turns: int,
+    keep_wt: bool,
+    ref: str = "HEAD",
+    git_dir=None,
 ) -> dict:
     wt = _add_worktree(cand, ref, git_dir=git_dir)
     tool_calls: list[dict] = []
-    final_text_parts: list[str] = []
-    result: ResultMessage | None = None
+    result: EvalResult | None = None
     err = None
     t0 = time.monotonic()
     try:
-        # allowed_tools does NOT restrict under bypassPermissions (C6 pilot ran
-        # Bash despite it) — disallowed_tools is the restrictor.
-        opts = ClaudeAgentOptions(
-            model=model,
-            max_turns=max_turns,
-            cwd=str(wt),
-            setting_sources=[],
-            permission_mode="bypassPermissions",
-            allowed_tools=["Read", "Grep", "Glob", "Edit", "Write"],
-            disallowed_tools=DISALLOWED_TOOLS,
+        result = await run_eval(
+            EvalRequest(
+                prompt=prompt,
+                cwd=wt,
+                model=model,
+                claude_model="claude-sonnet-5",
+                max_turns=max_turns,
+                sandbox="workspace-write",
+                project_settings=False,
+                allowed_tools=["Read", "Grep", "Glob", "Edit", "Write"],
+                disallowed_tools=DISALLOWED_TOOLS,
+            )
         )
-        async for msg in query(prompt=prompt, options=opts):
-            if isinstance(msg, AssistantMessage):
-                final_text_parts = []  # keep only the last assistant message's text
-                for b in msg.content:
-                    if isinstance(b, ToolUseBlock):
-                        inp = b.input or {}
-                        tool_calls.append(
-                            {
-                                "tool": b.name,
-                                "path": inp.get("file_path") or inp.get("path"),
-                                "offset": inp.get("offset"),
-                                "limit": inp.get("limit"),
-                                "pattern": inp.get("pattern"),
-                            }
-                        )
-                    elif isinstance(b, TextBlock):
-                        final_text_parts.append(b.text)
-            elif isinstance(msg, ResultMessage):
-                result = msg
+        for call in result.tool_calls:
+            inp = call.input
+            tool_calls.append(
+                {
+                    "tool": call.name,
+                    "path": inp.get("file_path") or inp.get("path"),
+                    "offset": inp.get("offset"),
+                    "limit": inp.get("limit"),
+                    "pattern": inp.get("pattern"),
+                }
+            )
+        if result.is_error:
+            err = result.error
     except Exception as exc:  # keep the partial record — it's still a finding
         err = f"{type(exc).__name__}: {exc}"
     finally:
@@ -182,9 +180,9 @@ async def run_one(
             _remove_worktree(wt, git_dir=git_dir)
 
     wall_s = round(time.monotonic() - t0, 1)
-    final_text = "\n".join(final_text_parts)
+    final_text = result.final_text if result else ""
     selfreport = _parse_selfreport(final_text)
-    usage = dict(result.usage) if result and result.usage else {}
+    usage = dict(result.usage) if result else {}
     total_input = sum(
         usage.get(k) or 0
         for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
@@ -197,7 +195,9 @@ async def run_one(
     row = {
         "ts": datetime.now(UTC).isoformat(timespec="seconds"),
         "candidate": cand,
-        "model": model,
+        "provider": result.provider if result else None,
+        "model": result.model if result else model,
+        "reasoning_effort": result.reasoning_effort if result else None,
         "harness": {"setting_sources": [], "disallowed_tools": DISALLOWED_TOOLS},
         "git_head": _git(["rev-parse", "--short", ref], git_dir=git_dir),
         "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16],
@@ -205,7 +205,7 @@ async def run_one(
         "primary_file_loc": None,
         "wall_s": wall_s,
         "num_turns": result.num_turns if result else None,
-        "cost_usd": result.total_cost_usd if result else None,
+        "cost_usd": result.cost_usd if result else None,
         "usage": usage,
         "total_input_tokens": total_input or None,
         "output_tokens": usage.get("output_tokens"),
@@ -216,6 +216,7 @@ async def run_one(
         "selfreport_tokens_est": (selfreport_chars // 4) if selfreport_chars else None,
         "is_error": bool(result.is_error) if result else True,
         "error": err,
+        "diagnostics": result.diagnostics if result else [],
         "final_text_tail": final_text[-500:],
     }
     primary = CANDIDATES.get(cand, (None, None))[1]
@@ -253,7 +254,11 @@ async def run_one(
 async def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--candidates", default="", help="comma-separated C1..C7, or 'all'")
-    ap.add_argument("--model", default="claude-sonnet-5")
+    ap.add_argument(
+        "--model",
+        default=None,
+        help="model override (DAIL_EVAL_MODEL takes precedence; otherwise provider default)",
+    )
     ap.add_argument("--max-turns", type=int, default=60)
     ap.add_argument("--smoke", action="store_true", help="run plumbing check only")
     ap.add_argument("--keep-worktree", action="store_true")
@@ -294,7 +299,8 @@ async def main() -> None:
         for run_idx in range(1, runs + 1):
             max_turns = 6 if cand == "SMOKE" else args.max_turns
             print(
-                f"=== {cand} run {run_idx}/{runs} ({args.model}, ref={args.ref}, max_turns={max_turns}) ===",
+                f"=== {cand} run {run_idx}/{runs} ({args.model or 'provider-default'}, "
+                f"ref={args.ref}, max_turns={max_turns}) ===",
                 flush=True,
             )
             row = await run_one(
@@ -325,4 +331,5 @@ async def main() -> None:
             print(json.dumps(summary), flush=True)
 
 
-anyio.run(main)
+if __name__ == "__main__":
+    anyio.run(main)

@@ -1,8 +1,10 @@
-"""Cheap trigger-keyed lookup over tools/discoveries.jsonl.
+"""Provider-neutral, trigger-keyed lookup over tools/discoveries.jsonl.
 
 The point: a future session about to explore a topic can get the hard-won one-liner
 for a few hundred tokens instead of re-deriving it over a 1M-token session. Companion
-to MEMORY.md — this is the fast index, the memory slug holds the full detail + bands.
+to the repository memory cards — this is the fast index, while a memory slug may hold
+the full detail and evidence bands.  Checked-in public cards win, followed by the
+private Siting knowledge base and finally a workstation-local Claude Code import.
 
     python tools/discoveries.py afs gross          # rows whose trigger/text match ALL terms
     python tools/discoveries.py --domain siting    # everything in one feature area
@@ -22,6 +24,25 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 DATA = HERE / "discoveries.jsonl"
 _BAND_RANK = {"high": 0, "med": 1, "low": 2, None: 3}
+
+
+def default_memory_roots(root: Path = ROOT, home: Path | None = None) -> list[Path]:
+    """Return memory-card roots in portable-first precedence order.
+
+    The ``planning/product/claude`` name is retained for private-repository history;
+    its Markdown notes are provider-neutral and are also read by Codex.  Personal
+    Claude memory is only a compatibility fallback and is never required in CI or on
+    another developer's machine.  Codex's own ``~/.codex/memories`` is generated
+    state and is injected by Codex itself, so this lookup deliberately does not parse
+    or edit it.
+    """
+    home = home or Path.home()
+    roots = [
+        root / "memory",
+        root / "planning" / "product" / "claude" / "memory",
+    ]
+    roots.extend((home / ".claude" / "projects").glob("*/memory"))
+    return roots
 
 
 def load():
@@ -59,8 +80,7 @@ def resolve_memory(slug: str, roots: list[Path] | None = None) -> Path | None:
     if not slug:
         return None
     if roots is None:
-        roots = [ROOT / "memory"]
-        roots.extend((Path.home() / ".claude" / "projects").glob("*/memory"))
+        roots = default_memory_roots()
     for root in roots:
         path = root / f"{slug}.md"
         if path.is_file():

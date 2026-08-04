@@ -8,8 +8,8 @@ it guards the local/MCP environment.
 
 from __future__ import annotations
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest

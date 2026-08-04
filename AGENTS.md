@@ -7,9 +7,16 @@ This file is the portable, tool-neutral entry point for work in this repository.
 1. Run `git status --short` and preserve unrelated changes.
 2. Route the task with the table below; read only the files needed for that area.
 3. Use `rg --files` and scoped `rg -n` searches. The tracked `.rgignore` hides bulky generated data and artifacts from default searches.
-4. Use `uv run python tools/dev.py verify` for focused, changed-file-aware verification. Use `uv run python tools/dev.py check` before a broad handoff.
+4. Use `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify` for focused, changed-file-aware verification. Use the same command with `check` before a broad handoff. The runner repairs a bare invocation once, but specifying the profile avoids a bootstrap re-exec.
 
 Before re-deriving a known project trap, run `uv run python tools/discoveries.py <topic>`. For a source file over roughly 1,500 lines, read its leading `SECTION MAP` first and then open only the relevant span.
+
+## Durable project knowledge
+
+- Put rules that must apply on every run in this file or the nearest nested `AGENTS.md`.
+- Put a concise, trigger-keyed lesson in `tools/discoveries.jsonl` and supporting evidence in `memory/<slug>.md`. The configured Codex `UserPromptSubmit` hook may inject up to two matching one-liners; inspect and trust it once with `/hooks`.
+- For a deeper workstation-local lookup, use `search_project(query, kind="external_memory")` explicitly. `kind="memory"` searches checked-in public cards only. External memory is excluded from ordinary project search and may be stale; verify every path, number, and implementation claim against the current tree.
+- Local Codex Memories and imported Claude memories are supplemental personal context. Never make them the only copy of a repository invariant, decision, or verification command.
 
 ## Routing
 
@@ -20,8 +27,9 @@ Before re-deriving a known project trap, run `uv run python tools/discoveries.py
 | Extraction and enrichment | `extractors/` or `planning/civic/extractors/` | the nearest `AGENTS.md` |
 | SQL views and data contracts | `sql_views/`, `test/sql_views/` | `sql_views/AGENTS.md` |
 | MCP tools and repository navigation | `mcp_server/`, `test/mcp_server/` | `mcp_server/AGENTS.md` |
+| Private Siting product | `planning/product/` | `planning/product/AGENTS.md`; tracked `CLAUDE.md` is the configured migration fallback |
 | Project documentation | `doc/INDEX.md` | `doc/SANDBOX_MAP.md` distinguishes live and experimental code |
-| Canonical development commands | `tools/dev.py` | run `uv run python tools/dev.py list` |
+| Canonical development commands | `tools/dev.py` | run `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py list` |
 
 When the configured `dail-tracker` MCP server is available, prefer `search_project`, `code_outline`, `py_refs`, `view_deps`, `column_deps`, and `describe_dataset` for broad discovery. Otherwise use narrowly scoped `rg`. After two or three unsuccessful index calls, inspect the specific source span directly.
 
@@ -38,10 +46,10 @@ When the configured `dail-tracker` MCP server is available, prefer `search_proje
 
 ## Verification
 
-- Focused: `uv run python tools/dev.py verify`
-- Inspect the selected checks without running them: `uv run python tools/dev.py verify --plan`
-- Fast suite: `uv run python tools/dev.py test-fast`
-- Full local merge-gate approximation: `uv run python tools/dev.py check`
-- SQL contract changes also need `DAIL_INTEGRATION_TESTS=1 uv run pytest -m sql -q` with committed gold data present.
+- Focused: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify`
+- Inspect the selected checks without running them: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify --plan`
+- Fast suite: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py test-fast`
+- Full local merge-gate approximation: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py check`
+- SQL contract changes also need `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py sql-contracts` with committed gold data present.
 
 Successful focused verification is cached against the exact Git/worktree fingerprint. A changed file, commit, interpreter, or verification policy invalidates the receipt. Failed runs are never cached.

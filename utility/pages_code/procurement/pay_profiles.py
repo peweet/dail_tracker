@@ -19,10 +19,9 @@ from data_access.procurement_data import (
     fetch_supplier_payments_by_year_result,
 )
 from ui.entity_links import (
-    body_profile_url,
-    company_profile_url,
+    buyer_dossier_cta_html,
+    company_dossier_cta_html,
     council_accountability_url,
-    entity_cta_html,
 )
 from ui.components import (
     back_button,
@@ -148,11 +147,7 @@ def _render_payments_publisher_profile(
     # payments/AFS profile doesn't carry. GATED on the crosswalk so only the ~90 known
     # bodies link (never a "not found" dead end).
     if resolve_buyer_identity(publisher_name):
-        st.html(
-            '<div style="margin:-0.1rem 0 0.7rem">'
-            + entity_cta_html(body_profile_url(publisher_name), "View this body's full dossier — awards + payments →")
-            + "</div>"
-        )
+        st.html(buyer_dossier_cta_html(publisher_name))
     # Both lifecycle tiers side by side — distinct stages of public money, NEVER summed.
     if prow is not None:
         tier_pills = []
@@ -352,14 +347,7 @@ def _render_payments_supplier_profile(
     # register, so a payments-only firm gets NO link rather than a "Company not found"
     # dead end (the nav-graph never-a-false-hand-off rule; mirrors the leaf below).
     if supplier_norm in awards_register_norms():
-        st.html(
-            '<div style="margin:-0.1rem 0 0.75rem">'
-            + entity_cta_html(
-                company_profile_url(str(supplier_norm)),
-                "View full company dossier — awards, lobbying & CRO →",
-            )
-            + "</div>"
-        )
+        st.html(company_dossier_cta_html(str(supplier_norm)))
 
     if not tiers_present:
         empty_state("No payments found", "This firm has no sum-safe payment records.")
@@ -530,14 +518,7 @@ def _render_payment_lines(
     # firm, so an unregistered supplier gets NO link rather than a dead end. (Was ungated —
     # a false hand-off for the ~86% of paid suppliers that never won a public contract.)
     if supplier_norm in awards_register_norms():
-        st.html(
-            '<div style="margin:-0.2rem 0 0.85rem">'
-            + entity_cta_html(
-                company_profile_url(str(supplier_norm)),
-                "View full company dossier — awards, lobbying & CRO →",
-            )
-            + "</div>"
-        )
+        st.html(company_dossier_cta_html(str(supplier_norm)))
 
     if df.empty:
         empty_state(

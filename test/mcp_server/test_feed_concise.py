@@ -66,6 +66,4 @@ def test_detailed_returns_feed_verbatim():
 
 def test_bad_format_and_no_match_return_errors():
     assert "error" in shape_feed(_feed(), "questions", "verbose", "no match")
-    assert shape_feed(None, "questions", "concise", "no member matches 'X'") == {
-        "error": "no member matches 'X'"
-    }
+    assert shape_feed(None, "questions", "concise", "no member matches 'X'") == {"error": "no member matches 'X'"}

@@ -50,8 +50,8 @@ import unicodedata
 from pathlib import Path
 
 import polars as pl
-import requests
 
+from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -169,7 +169,7 @@ def _norm_abp(d: str | None) -> str:
 def _fetch_acp() -> pl.DataFrame:
     rows, off = [], 0
     while True:
-        r = requests.get(
+        response, _ = fetch_json(
             ACP,
             params={
                 "where": "1=1",
@@ -184,8 +184,8 @@ def _fetch_acp() -> pl.DataFrame:
                 "f": "json",
             },
             timeout=120,
-        ).json()
-        f = r.get("features", [])
+        )
+        f = response.get("features", [])
         if not f:
             break
         for x in f:

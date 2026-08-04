@@ -35,11 +35,23 @@ def test_api_container_copies_services_and_drops_root() -> None:
     assert "USER 10001:10001" in dockerfile
 
 
+def test_public_docker_context_excludes_the_private_planning_overlay() -> None:
+    public_ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+    private_ignore = (ROOT / "planning" / "product" / "Dockerfile.dockerignore").read_text(encoding="utf-8")
+
+    assert "!planning/product/" not in public_ignore
+    assert "!planning/product/**" in private_ignore
+    assert "planning/product/.env*" in private_ignore
+
+
 def test_ci_installs_api_and_mcp_and_smokes_delivery() -> None:
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     audit = (ROOT / ".github" / "workflows" / "audit.yml").read_text(encoding="utf-8")
 
     assert "--extra pipeline --extra api --extra mcp --group dev" in ci
     assert 'dail-pipeline" --list' in ci
+    assert 'export DAIL_DATA_DIR="$RUNNER_TEMP/dail-data"' in ci
+    assert 'uvicorn" api.main:app' in ci
+    assert "127.0.0.1:8091/v1/health" in ci
     assert "docker build --tag dailtracker-api:ci ." in ci
     assert "uv sync --frozen --all-extras --group dev" in audit

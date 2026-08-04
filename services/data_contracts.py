@@ -50,10 +50,11 @@ from pathlib import Path
 
 import polars as pl
 
+from config import DATA_DIR
+
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-QUARANTINE_DIR = PROJECT_ROOT / "data" / "_meta" / "quarantine"
+QUARANTINE_DIR = DATA_DIR / "_meta" / "quarantine"
 
 # --------------------------------------------------------------------------- vocab
 # Closed vocabularies for the disciplined classification columns. "unknown"/"UNKNOWN"

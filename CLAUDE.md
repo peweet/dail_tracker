@@ -49,7 +49,7 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
 
 ## Environment & commands
 
-- The environment is managed with `uv`; use `uv run python ...` so commands work across platforms. **UTF-8 is required** (`PYTHONUTF8=1` / `PYTHONIOENCODING=utf-8`) or console output can break on Irish accents.
+- The environment is managed with `uv`; run development tasks with `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py ...` so they use the CI-equivalent profile across platforms. The runner handles legacy console encodings safely; do not depend on a user-local UTF-8 override.
 - **Memory (added 2026-07-26 after two OOM session crashes):** `services/runtime_env.py` caps
   the BLAS thread count and must stay the **first** import in every entry point — uncapped,
   `import pandas` reserves ~650 MB of commit per process on this 20-core box. Each open Claude
@@ -57,7 +57,7 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
   siting run (`pytest test/siting` commits 5.4 GB). `tools/hooks/guard_memory.py` blocks heavy
   commands below 1.5 GB free. Measure **private bytes**, never working set — Windows trims the
   latter, which reads ~30 MB while the process commits 714 MB.
-- Canonical tasks: `uv run python tools/dev.py list`; focused verification: `uv run python tools/dev.py verify`; deterministic local gates: `uv run python tools/dev.py check`. `pytest --testmon` remains opt-in because its database invalidates on wide refactors.
+- Canonical tasks: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py list`; focused verification: the same command with `verify`; deterministic local gates: the same command with `check`. `pytest --testmon` remains opt-in because its database invalidates on wide refactors.
 - App: `uv run streamlit run utility/app.py`. ETL: `uv run python pipeline.py`. The task runner exposes the firewall, convention, MCP-catalog, dependency, type, and test checks.
 - **UI audit: `python tools/ui_capture.py {routes|capture|diff|a11y|probe}`** — THE screenshot/accessibility harness (replaced 88 ad-hoc `audit_screenshots/_*.py` probes). Routes are AST-parsed from `utility/app.py`, so never hardcode a route list. `--serve` starts its own Streamlit (~1 GB; siting routes excluded unless `--include-heavy`). `a11y` needs `npm install --no-save axe-core` and attributes each violation `ours`/`vendor` — **only `ours` is actionable**. Used by the `civic-ui-review` skill.
 

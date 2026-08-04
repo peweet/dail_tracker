@@ -5,14 +5,26 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
+from dail_tracker_core.models.envelope import ListEnvelope
+from dail_tracker_core.models.responses import (
+    DivisionInterestBreakdownResponse,
+    TopicVoteSearchResponse,
+    VotesInterestsCrossReferenceResponse,
+)
 from dail_tracker_core.models.votes import DivisionDossier
 
-router = APIRouter(tags=["votes"])
+router = APIRouter(tags=["votes"], responses=ERROR_RESPONSES)
 
 
-@router.get("/votes", summary="List divisions (votes), filterable")
+@router.get(
+    "/votes",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="List divisions (votes), filterable",
+)
 def list_votes(
     house: str = Query("Dáil", description="Dáil or Seanad"),
     date_from: str | None = Query(None, description="vote_date >= (YYYY-MM-DD)"),
@@ -44,6 +56,7 @@ def division_dossier(
 
 @router.get(
     "/votes/{vote_id}/interest-breakdown",
+    response_model=DivisionInterestBreakdownResponse,
     summary="A division's Yes/Níl/Abstain tally split by its voters' declared interests",
 )
 def division_interest_breakdown(
@@ -58,6 +71,7 @@ def division_interest_breakdown(
 
 @router.get(
     "/search/votes-by-topic",
+    response_model=TopicVoteSearchResponse,
     summary="How members voted on debates matching topic keywords (corpus-wide search)",
 )
 def search_votes_by_topic(
@@ -77,6 +91,7 @@ def search_votes_by_topic(
 
 @router.get(
     "/cross-reference/votes-interests",
+    response_model=VotesInterestsCrossReferenceResponse,
     tags=["cross-reference"],
     summary="Members who voted a given way on a division AND declare a given interest",
 )

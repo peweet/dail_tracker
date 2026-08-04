@@ -248,34 +248,33 @@ async def run_task(task: str, variant: str) -> dict:
     try:
         if spec["plant"]:
             spec["plant"](wt)
-        opts = ClaudeAgentOptions(
-            model="claude-sonnet-5",
-            max_turns=25,
-            cwd=wt,
-            setting_sources=["project"] if on else [],
-            permission_mode="bypassPermissions",
-            env={"PATH": VENV + ";" + os.environ.get("PATH", ""), "PYTHONUTF8": "1"},
-            mcp_servers={
-                "dail-tracker": {
-                    "command": PY,
-                    "args": [PROJ + r"\mcp_server\server.py"],
-                    "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
-                }
-            }
-            if on
-            else {},
-        )
         calls: list[str] = []
         cost = None
         err = None
+        provider = None
+        model = None
         try:
-            async for msg in query(prompt=prompt, options=opts):
-                if isinstance(msg, AssistantMessage):
-                    for b in msg.content:
-                        if isinstance(b, ToolUseBlock):
-                            calls.append(b.name)
-                if isinstance(msg, ResultMessage):
-                    cost = msg.total_cost_usd
+            result = await run_eval(
+                EvalRequest(
+                    prompt=prompt,
+                    cwd=wt,
+                    claude_model="claude-sonnet-5",
+                    max_turns=25,
+                    sandbox="workspace-write",
+                    project_settings=on,
+                    env={
+                        "PATH": VENV + os.pathsep + os.environ.get("PATH", ""),
+                        "PYTHONUTF8": "1",
+                    },
+                    mcp_servers=dail_tracker_mcp(PROJ, PY) if on else {},
+                )
+            )
+            calls = result.tool_names
+            cost = result.cost_usd
+            provider = result.provider
+            model = result.model
+            if result.is_error:
+                err = result.error
         except Exception as e:
             err = f"{type(e).__name__}: {e}"
         score, detail = spec["score"](wt)
@@ -287,6 +286,8 @@ async def run_task(task: str, variant: str) -> dict:
             "tool_calls": len(calls),
             "mcp_calls": sum(c.startswith("mcp__") for c in calls),
             "cost_usd": round(cost, 4) if cost else None,
+            "provider": provider,
+            "model": model,
         }
         if err:
             out["agent_error"] = err
@@ -306,4 +307,5 @@ async def main():
             print(json.dumps(await run_task(task, variant), ensure_ascii=False), flush=True)
 
 
-anyio.run(main)
+if __name__ == "__main__":
+    anyio.run(main)

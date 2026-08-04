@@ -22,6 +22,11 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run python tools/build_doc_index.py --check
       - run: uv run python tools/check_mcp_catalog.py
+      - name: Check live frontend migration contracts
+        run: |
+          uv run python tools/migration/extract_url_contract.py --check
+          uv run python tools/migration/extract_class_contract.py --check
+          uv run python tools/migration/scan_framework_coupling.py --check-markup
 
   # Dependency truth: pyproject.toml (human intent) → uv.lock (resolved env) →
   # requirements.txt (app-runtime export for Streamlit Cloud / pip fallback).
@@ -145,8 +150,25 @@ jobs:
       - name: Smoke-test installed entry points outside the checkout
         run: |
           cd "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/dail-data"
+          export DAIL_DATA_DIR="$RUNNER_TEMP/dail-data"
+          "$GITHUB_WORKSPACE/.venv/bin/python" "$GITHUB_WORKSPACE/tools/build_delivery_smoke_fixture.py" --data-dir "$DAIL_DATA_DIR"
           "$GITHUB_WORKSPACE/.venv/bin/dail-pipeline" --list
-          "$GITHUB_WORKSPACE/.venv/bin/python" -c "import api.main; import mcp_server.server"
+          "$GITHUB_WORKSPACE/.venv/bin/python" -c "import os; from pathlib import Path; from config import DATA_DIR; assert DATA_DIR == Path(os.environ['DAIL_DATA_DIR']).resolve(); import mcp_server.server"
+          "$GITHUB_WORKSPACE/.venv/bin/uvicorn" api.main:app --host 127.0.0.1 --port 8091 >"$RUNNER_TEMP/wheel-api.log" 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8091/v1/health >/dev/null; then
+              kill "$api_pid"
+              wait "$api_pid" || true
+              trap - EXIT
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/wheel-api.log"
+          exit 1
       - name: Build API image
         run: docker build --tag dailtracker-api:ci .
       - name: Smoke-test API image as its non-root user

@@ -1,5 +1,44 @@
 # Project-local MCP configuration for the public Dail Tracker repository.
 # Keep startup optional so a missing local data store does not prevent Codex from opening.
+# Existing tracked CLAUDE.md files remain a migration fallback only where a directory
+# has no AGENTS.md; native AGENTS.md always wins Codex's discovery order.
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+[features]
+hooks = true
+memories = true
+
+# Local Codex memories are a personal recall layer, never the source of truth for
+# repository rules.  Keep external-context turns out of automatic extraction: this
+# workspace uses MCP and web evidence that may include private planning material.
+[memories]
+generate_memories = false
+use_memories = true
+disable_on_external_context = true
+
+# Inject at most two curated, checked-in discovery one-liners when a prompt matches.
+# Codex requires each project hook definition to be reviewed once with `/hooks`.
+[[hooks.UserPromptSubmit]]
+
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/discovery_hint.py"'
+command_windows = 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/discovery_hint.py) }"'
+timeout = 10
+statusMessage = "Checking durable project lessons"
+additionalContextLimit = 1200
+
+# After a substantive session, require one explicit durable-learning assessment.
+# The existing hook understands Codex's Stop payload and fires at most once per session.
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/closeout_gate.py"'
+command_windows = 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/closeout_gate.py) }"'
+timeout = 10
+statusMessage = "Checking for a durable project lesson"
+
 [mcp_servers."dail-tracker"]
 enabled = true
 required = false

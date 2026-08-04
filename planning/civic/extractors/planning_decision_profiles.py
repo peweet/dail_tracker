@@ -28,12 +28,12 @@ import logging
 from pathlib import Path
 
 import polars as pl
-import requests
 from shapely import STRtree
 from shapely import points as shp_points
 from shapely.geometry import shape
 from shapely.validation import make_valid
 
+from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -63,7 +63,7 @@ def _fetch_polys(layer_url: str) -> list:
     """Paginated generalised geometry pull → list of valid, in-bounds shapely polygons."""
     polys, offset = [], 0
     while True:
-        r = requests.get(
+        response, _ = fetch_json(
             f"{layer_url}/query",
             # outFields="*" not a named field — layers differ (NPWS has SITECODE, SMR does not; a
             # missing named field errors to empty). Geometry is all we need for containment anyway.
@@ -79,7 +79,7 @@ def _fetch_polys(layer_url: str) -> list:
             },
             timeout=180,
         )
-        j = r.json()
+        j = response
         if "error" in j:
             raise SystemExit(f"ArcGIS error fetching {layer_url}: {j['error']}")
         feats = j.get("features", [])

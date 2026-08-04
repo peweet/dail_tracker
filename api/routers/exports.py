@@ -40,11 +40,14 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from config import GOLD_PARQUET_DIR, PROJECT_ROOT, SILVER_PARQUET_DIR
+from api.contracts import ERROR_RESPONSES
+from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_PARQUET_DIR
+from dail_tracker_core.models.responses import ExportManifestResponse
+from paths import configured_path
 
-router = APIRouter(tags=["data"])
+router = APIRouter(tags=["data"], responses=ERROR_RESPONSES)
 
-EXPORT_CACHE_DIR = PROJECT_ROOT / "data" / "_export_cache"
+EXPORT_CACHE_DIR = configured_path("DAIL_EXPORT_CACHE_DIR", DATA_DIR / "_export_cache")
 EXPORT_SNAPSHOT_SCHEMA = 2
 
 _SNAPSHOT_LOCKS: dict[tuple[str, str], threading.Lock] = {}
@@ -332,7 +335,10 @@ def _manifest_entry(name: str, spec: ExportSpec) -> dict:
 
 
 @router.get(
-    "/data", summary="Bulk export manifest — every downloadable dataset with licence, caveats and data currency"
+    "/data",
+    response_model=ExportManifestResponse,
+    response_model_exclude_unset=True,
+    summary="Bulk export manifest — every downloadable dataset with licence, caveats and data currency",
 )
 def data_manifest() -> dict:
     return {
@@ -349,7 +355,11 @@ def data_manifest() -> dict:
     }
 
 
-@router.get("/data/{resource}", summary="Download one dataset as parquet (default) or CSV")
+@router.get(
+    "/data/{resource}",
+    response_class=FileResponse,
+    summary="Download one dataset as parquet (default) or CSV",
+)
 def download(
     resource: str,
     format: str = Query("parquet", pattern="^(parquet|csv)$", description="parquet (zstd) or csv"),

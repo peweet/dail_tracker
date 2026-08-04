@@ -64,3 +64,44 @@ def test_too_small_cache_is_not_fresh(cache):
 def test_default_ttl_is_positive_finite():
     """Guard against reverting to the old exists-only (effectively infinite) cache."""
     assert 0 < pe.CACHE_MAX_AGE_DAYS < 3650
+
+
+def test_resolve_download_url_uses_shared_json_fetch(monkeypatch):
+    current = "https://assets.gov.ie/current.csv"
+    calls = []
+
+    def fetch(url, **kwargs):
+        calls.append((url, kwargs))
+        return {"result": {"resources": [{"url": current}]}}, 100
+
+    monkeypatch.setattr(pe, "fetch_json", fetch)
+
+    assert pe.resolve_download_url("https://assets.gov.ie/stale.csv") == current
+    assert calls[0][0] == pe.CKAN_PACKAGE_URL
+    assert calls[0][1]["headers"] == pe.GOVIE_HEADERS
+
+
+def test_ensure_csv_uses_atomic_shared_download(cache, monkeypatch):
+    source = "https://assets.gov.ie/current.csv"
+    monkeypatch.setattr(pe, "resolve_download_url", lambda: source)
+
+    def download(url, destination, **kwargs):
+        assert url == source
+        destination.write_bytes(b"x" * 1_000_001)
+        assert kwargs["validate"](destination)
+        return True
+
+    monkeypatch.setattr(pe, "download_file", download)
+
+    assert pe.ensure_csv(force=True) == cache
+    assert cache.stat().st_size == 1_000_001
+
+
+def test_ensure_csv_preserves_last_good_cache_on_download_failure(cache, monkeypatch):
+    _write_big(cache, age_days=30)
+    before = cache.read_bytes()
+    monkeypatch.setattr(pe, "resolve_download_url", lambda: "https://assets.gov.ie/current.csv")
+    monkeypatch.setattr(pe, "download_file", lambda *_args, **_kwargs: False)
+
+    assert pe.ensure_csv(force=True) == cache
+    assert cache.read_bytes() == before

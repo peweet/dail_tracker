@@ -13,12 +13,19 @@ import os
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
+from dail_tracker_core.models.envelope import ListEnvelope
+from dail_tracker_core.models.responses import (
+    ProcurementCompetitionResponse,
+    ProcurementLobbyingOverlapResponse,
+    SupplierDossierResponse,
+)
 from dail_tracker_core.queries import procurement as _q
 from services.deflator import list_indices
 
-router = APIRouter(tags=["procurement"])
+router = APIRouter(tags=["procurement"], responses=ERROR_RESPONSES)
 
 # EXPERIMENTAL real-terms (inflation-adjusted) endpoints. Gated to the same DAIL_EXPERIMENTAL flag
 # as the Streamlit lens so the feature stays local until vetted: routes are hidden from the public
@@ -38,7 +45,12 @@ def _require_experimental() -> None:
         raise HTTPException(status_code=404, detail="experimental endpoint not enabled")
 
 
-@router.get("/procurement/suppliers", summary="Supplier ranking (CRO + lobbying-overlap enriched)")
+@router.get(
+    "/procurement/suppliers",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Supplier ranking (CRO + lobbying-overlap enriched)",
+)
 def list_suppliers(
     year: int | None = Query(None, description="Scope to one calendar year; omit for all-time"),
     order_by: str = Query("awards", description="'awards' (contract count) or 'value' (sum-safe €)"),
@@ -53,6 +65,7 @@ def list_suppliers(
 
 @router.get(
     "/procurement/suppliers/{supplier_norm}/dossier",
+    response_model=SupplierDossierResponse,
     summary="One supplier's composed record (ranking summary + every award, newest first)",
 )
 def supplier_dossier(
@@ -67,6 +80,7 @@ def supplier_dossier(
 
 @router.get(
     "/procurement/competition",
+    response_model=ProcurementCompetitionResponse,
     summary="Per-buyer competition quality (single-bidder rate, TED 2024+) — a signal, never a verdict",
 )
 def competition(
@@ -83,6 +97,7 @@ def competition(
 
 @router.get(
     "/procurement/lobbying-overlap",
+    response_model=ProcurementLobbyingOverlapResponse,
     summary="Companies on BOTH the procurement and lobbying registers (co-occurrence only)",
 )
 def lobbying_overlap(
@@ -99,6 +114,8 @@ def lobbying_overlap(
 
 @router.get(
     "/procurement/authorities",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
     summary="Award activity by contracting authority (buyer) — counts + sum-safe value (CEILINGS)",
 )
 def authorities(
@@ -111,6 +128,8 @@ def authorities(
 
 @router.get(
     "/procurement/cpv",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
     summary="Award activity by CPV code (what was bought) — counts + sum-safe value (CEILINGS)",
 )
 def cpv(
@@ -123,6 +142,8 @@ def cpv(
 
 @router.get(
     "/procurement/open-tenders",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
     summary="Live TED (EU OJ) Irish tender opportunities — the forward pipeline (estimates, never summed)",
 )
 def open_tenders(
@@ -137,6 +158,8 @@ def open_tenders(
 # ── EXPERIMENTAL real-terms (inflation-adjusted) endpoints (gated) ────────────────────────────
 @router.get(
     "/procurement/inflation/indices",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
     summary="EXPERIMENTAL — the deflation index registry (CPI / gov-consumption / construction TPI / materials)",
     include_in_schema=_EXPERIMENTAL,
 )
@@ -149,6 +172,8 @@ def inflation_indices() -> dict:
 
 @router.get(
     "/procurement/inflation/cpv",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
     summary="EXPERIMENTAL — per-CPV award benchmark, nominal + inflation-adjusted band "
     "(construction categories use tender prices, others CPI)",
     include_in_schema=_EXPERIMENTAL,
@@ -167,6 +192,8 @@ def inflation_cpv(
 
 @router.get(
     "/procurement/inflation/spend-trend",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
     summary="EXPERIMENTAL — per-year public spend, nominal vs real (government-consumption deflator) + uplift",
     include_in_schema=_EXPERIMENTAL,
 )

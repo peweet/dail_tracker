@@ -5,13 +5,26 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
+from dail_tracker_core.models.responses import (
+    CabinetResponse,
+    DiaryMeetingsResponse,
+    DiaryOrganisationResponse,
+    DiaryOrganisationsResponse,
+    MinisterLookupResponse,
+)
 
-router = APIRouter(tags=["ministerial"])
+router = APIRouter(tags=["ministerial"], responses=ERROR_RESPONSES)
 
 
-@router.get("/ministers", summary="Who held a department on a given date")
+@router.get(
+    "/ministers",
+    response_model=MinisterLookupResponse,
+    response_model_exclude_unset=True,
+    summary="Who held a department on a given date",
+)
 def who_was_minister(
     department: str = Query(..., description="Fuzzy department label, e.g. 'Health', 'Finance'"),
     on_date: str = Query(..., description="ISO date (YYYY-MM-DD)"),
@@ -24,7 +37,11 @@ def who_was_minister(
     return data
 
 
-@router.get("/cabinet", summary="Current ministerial line-up + the department list")
+@router.get(
+    "/cabinet",
+    response_model=CabinetResponse,
+    summary="Current ministerial line-up + the department list",
+)
 def current_cabinet(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dict:
     data = dossiers.current_cabinet(cur)
     if "error" in data:
@@ -40,6 +57,7 @@ def current_cabinet(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dic
 
 @router.get(
     "/ministerial/diary/organisations",
+    response_model=DiaryOrganisationsResponse,
     summary="Organisations ranked by logged ministerial meetings (with lobbying-register corroboration)",
 )
 def diary_top_organisations(
@@ -55,6 +73,7 @@ def diary_top_organisations(
 
 @router.get(
     "/ministerial/diary/organisations/{name}",
+    response_model=DiaryOrganisationResponse,
     summary="One organisation's ministerial-access record (summary + every logged meeting)",
 )
 def diary_organisation(
@@ -71,6 +90,7 @@ def diary_organisation(
 
 @router.get(
     "/ministerial/diary/meetings",
+    response_model=DiaryMeetingsResponse,
     summary="Search logged external ministerial meetings by minister surname and/or subject keyword",
 )
 def diary_meetings(

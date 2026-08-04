@@ -31,6 +31,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -220,6 +221,15 @@ def _is_doc_only_path(path: str) -> bool:
     return p.suffix.lower() in {".md", ".rst"}
 
 
+def _is_portable_context_path(path: str) -> bool:
+    p = PurePosixPath(path)
+    return (
+        p.name in {"AGENTS.md", "CLAUDE.md"}
+        or path.startswith(".github/prompts/")
+        or path in {".gitignore", ".mcp.json", ".vscode/mcp.json", "CONTRIBUTING.md"}
+    )
+
+
 def _is_doc_index_input(path: str) -> bool:
     p = PurePosixPath(path)
     return path == "tools/build_doc_index.py" or (
@@ -405,6 +415,16 @@ def build_checks(
             _python_check("doc-index", py, "tools/build_doc_index.py", "root documentation changed", "--check")
         )
 
+    if any(_is_portable_context_path(path) for path in paths):
+        checks.append(
+            _pytest_check(
+                "pytest-agent-context",
+                py,
+                ("test/tools/test_agent_context.py",),
+                "portable agent guidance or prompt routing changed",
+            )
+        )
+
     if any(_is_mcp_related(path) for path in paths):
         checks.append(_python_check("mcp-catalog", py, "tools/check_mcp_catalog.py", "MCP surface changed"))
 
@@ -447,6 +467,7 @@ def build_checks(
         if path.endswith(".py")
         or path in DEPENDENCY_FILES
         or _is_doc_only_path(path)
+        or _is_portable_context_path(path)
         or _is_doc_index_input(path)
         or _is_mcp_related(path)
         or _is_sql_related(path)
@@ -658,6 +679,17 @@ def compact_output(text: str, *, max_lines: int = 18, max_chars: int = 3_000) ->
     return rendered
 
 
+def _configure_console_output() -> None:
+    """Keep captured UTF-8 diagnostics safe on legacy Windows consoles."""
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        with suppress(OSError, TypeError, ValueError):
+            reconfigure(errors="backslashreplace")
+
+
 def format_command(argv: Sequence[str]) -> str:
     return subprocess.list2cmdline(list(argv)) if os.name == "nt" else shlex.join(argv)
 
@@ -725,7 +757,7 @@ def execute_checks(
             return False, tuple(results)
 
         summary = compact_output(combined, max_lines=2, max_chars=500)
-        suffix = f" — {summary}" if summary else ""
+        suffix = f" - {summary}" if summary else ""
         print(f"PASS {check.key} ({elapsed:.1f}s){suffix}")
 
     payload: dict[str, object] = {
@@ -804,6 +836,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    _configure_console_output()
     args = parse_args(argv)
     try:
         plan = build_plan(ROOT, requested_base=args.base, full=args.full)

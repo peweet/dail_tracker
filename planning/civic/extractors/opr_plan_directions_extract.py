@@ -41,16 +41,16 @@ import csv
 import html as html_mod
 import json
 import re
-import subprocess
 import sys
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 
-import requests
-
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
+
+from services.http_engine import fetch_bytes, polite_headers  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -121,9 +121,9 @@ def fold(s: str) -> str:
 #      cannot decode brotli without the (uninstalled) brotli package;
 #   3. Windows' bundled curl.exe has no brotli either — `--compressed` dies with
 #      "curl: (61) Unrecognized content encoding type".
-# Git's bundled curl DOES have brotli, so try that explicitly. Ordered fallback below; installing
-# the `brotli` package would collapse this to a one-liner, but that's a dependency decision.
-_CURLS = [r"C:\Program Files\Git\mingw64\bin\curl.exe", "curl"]
+# Git's bundled curl DOES have brotli. The shared HTTP engine discovers it from
+# the resolved Git installation (or ``DAIL_CURL_BIN``), with no machine-specific
+# executable path embedded here.
 
 
 def _looks_html(s: str) -> bool:
@@ -131,23 +131,18 @@ def _looks_html(s: str) -> bool:
 
 
 def fetch(url: str) -> str:
-    hdrs = {"User-Agent": UA, "Accept-Encoding": "gzip, deflate"}
-    with contextlib.suppress(Exception):  # works wherever the server honours Accept-Encoding
-        r = requests.get(url, headers=hdrs, timeout=90)
-        if r.ok and _looks_html(r.text):
-            return r.text
-    for exe in _CURLS:  # brotli-capable curl (Git's), then whatever is on PATH
-        with contextlib.suppress(Exception):
-            p = subprocess.run(
-                [exe, "-sS", "-k", "-L", "--compressed", "--max-time", "90", "-A", UA, url],
-                capture_output=True,
-                timeout=120,
-                check=False,
-            )
-            body = p.stdout.decode("utf-8", errors="replace")
-            if _looks_html(body):
-                return body
-    return ""
+    """Fetch and decode the register through the retrying shared HTTP path."""
+    headers = polite_headers(
+        browser=True,
+        extra={"User-Agent": UA, "Accept-Encoding": "gzip, deflate"},
+    )
+    payload = fetch_bytes(
+        url,
+        headers=headers,
+        timeout=90,
+        validate=lambda body: _looks_html(body.decode("utf-8", errors="replace")),
+    )
+    return payload.decode("utf-8", errors="replace") if payload else ""
 
 
 def canon_council(plan_name: str) -> str | None:

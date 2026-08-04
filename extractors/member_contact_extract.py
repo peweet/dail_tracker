@@ -44,9 +44,9 @@ import re
 import time
 
 import polars as pl
-import requests
 
 from config import BRONZE_DIR, SILVER_PARQUET_DIR
+from services.http_engine import fetch_text
 from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
@@ -148,17 +148,16 @@ def parse_contact(html: str) -> dict:
     return out
 
 
-def fetch_one(code: str, session: requests.Session, attempts: int = 3) -> dict:
-    """Fetch + parse one member. Network failures retry with linear backoff; a
+def fetch_one(code: str, attempts: int = 1) -> dict:
+    """Fetch and parse one member. The shared engine owns transient retries; a
     final failure yields an all-null data row (transparent — the run could not
     see contact data for this member)."""
     url = _PROFILE_FMT.format(code=code)
     last_err: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            resp = session.get(url, headers={"User-Agent": _USER_AGENT}, timeout=45)
-            resp.raise_for_status()
-            row = parse_contact(resp.text)
+            text, _ = fetch_text(url, headers={"User-Agent": _USER_AGENT}, timeout=45)
+            row = parse_contact(text)
             row["unique_member_code"] = code
             row["profile_url"] = url
             row["source_url"] = url
@@ -187,10 +186,9 @@ def run(max_n: int | None = None, sleep: float = 0.25) -> dict:
     logger.info("Scraping contact details for %d members", len(codes))
 
     today = datetime.date.today().isoformat()
-    session = requests.Session()
     rows: list[dict] = []
     for i, code in enumerate(codes, 1):
-        row = fetch_one(code, session)
+        row = fetch_one(code)
         row["scraped_date"] = today
         rows.append(row)
         if i % 25 == 0:

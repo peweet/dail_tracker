@@ -13,13 +13,14 @@ This tool reads it out of the code rather than out of anyone's memory:
 
 Usage
 -----
-    python tools/extract_url_contract.py                  # markdown to stdout
-    python tools/extract_url_contract.py -o doc/URL_CONTRACT.md
-    python tools/extract_url_contract.py --check          # exit 1 if drifted
+    python tools/migration/extract_url_contract.py                  # markdown to stdout
+    python tools/migration/extract_url_contract.py -o doc/URL_CONTRACT.md
+    python tools/migration/extract_url_contract.py --check          # exit 1 if drifted
 
-`--check` compares against the committed doc/URL_CONTRACT.md and fails when the
-code has grown or dropped a parameter without the contract being regenerated.
-That is the ratchet: the contract cannot silently rot.
+`--check` compares against the committed doc/URL_CONTRACT.md and fails when a
+route record or query parameter changes without the contract being regenerated.
+Application line numbers are deliberately ignored. That is the ratchet: the
+contract cannot silently rot after harmless source movement or real URL drift.
 """
 
 from __future__ import annotations
@@ -57,6 +58,14 @@ QP_METHODS = {
 LINK_RE = re.compile(r"[?&]([a-zA-Z_][a-zA-Z0-9_]*)=")
 
 
+def output_path(path: Path) -> Path:
+    """Resolve CLI output against the project, independent of process CWD."""
+    candidate = path.expanduser()
+    if not candidate.is_absolute():
+        candidate = PROJECT_ROOT / candidate
+    return candidate.resolve()
+
+
 class AnalysisError(RuntimeError):
     """A source file could not be decoded or parsed safely."""
 
@@ -82,11 +91,7 @@ def _docstring_values(tree: ast.AST) -> set[ast.AST]:
         if not isinstance(node, owners) or not node.body:
             continue
         first = node.body[0]
-        if (
-            isinstance(first, ast.Expr)
-            and isinstance(first.value, ast.Constant)
-            and isinstance(first.value.value, str)
-        ):
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
             values.add(first.value)
     return values
 
@@ -252,9 +257,9 @@ def build_report() -> str:
     w("# URL contract — the deep-link spec\n")
     w(
         "> **GENERATED — do not hand-edit.** Regenerate with "
-        "`python tools/extract_url_contract.py -o doc/URL_CONTRACT.md`.\n"
+        "`python tools/migration/extract_url_contract.py -o doc/URL_CONTRACT.md`.\n"
     )
-    w("> Verify with `python tools/extract_url_contract.py --check` (fails on drift).\n")
+    w("> Verify with `python tools/migration/extract_url_contract.py --check` (fails on drift).\n")
     w(
         "This is the one part of the UI that outside parties depend on: bookmarks, shared links, "
         "search results, and any future React router. Streamlit widgets and CSS can be "
@@ -312,7 +317,41 @@ def extract_keys_from_doc(text: str) -> set[str]:
     return set(re.findall(r"^\| `([a-zA-Z_][a-zA-Z0-9_]*)` \|", text, re.MULTILINE))
 
 
+def extract_routes_from_doc(text: str) -> list[tuple[str, str, str]]:
+    """Return normalized ``(url_path, title, module)`` route records.
+
+    The generated table includes ``app.py`` line numbers for navigation, but a
+    source-only line move is not a public contract change. Keeping duplicate
+    records in the sorted list also makes an accidental duplicate route fail.
+    """
+    records: list[tuple[str, str, str]] = []
+    in_routes = False
+    for line in text.splitlines():
+        if line.startswith("## Routes ("):
+            in_routes = True
+            continue
+        if in_routes and line.startswith("## "):
+            break
+        if not in_routes or not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 4 or not cells[3].isdigit():
+            continue
+        route, title, module, _line_number = cells
+        if route == "_(default)_":
+            url_path = ""
+        elif route.startswith("`?page=") and route.endswith("`"):
+            url_path = route[len("`?page=") : -1]
+        else:
+            continue
+        records.append((url_path, title, module.strip("`")))
+    return sorted(records)
+
+
 def main() -> int:
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-o", "--out", type=Path, help="write markdown here")
     ap.add_argument("--check", action="store_true", help="fail if the committed contract has drifted")
@@ -331,20 +370,36 @@ def main() -> int:
         committed = DEFAULT_OUT.read_text(encoding="utf-8")
         now_keys = extract_keys_from_doc(report)
         was_keys = extract_keys_from_doc(committed)
-        added, removed = now_keys - was_keys, was_keys - now_keys
-        if added or removed:
-            if added:
-                print(f"URL contract DRIFT — new parameters in code: {sorted(added)}", file=sys.stderr)
-            if removed:
-                print(f"URL contract DRIFT — parameters gone from code: {sorted(removed)}", file=sys.stderr)
-            print("Regenerate: python tools/extract_url_contract.py -o doc/URL_CONTRACT.md", file=sys.stderr)
+        added_keys, removed_keys = now_keys - was_keys, was_keys - now_keys
+        now_routes = extract_routes_from_doc(report)
+        was_routes = extract_routes_from_doc(committed)
+        if added_keys or removed_keys or now_routes != was_routes:
+            if added_keys:
+                print(f"URL contract DRIFT — new parameters in code: {sorted(added_keys)}", file=sys.stderr)
+            if removed_keys:
+                print(f"URL contract DRIFT — parameters gone from code: {sorted(removed_keys)}", file=sys.stderr)
+            if now_routes != was_routes:
+                added_routes = sorted(set(now_routes) - set(was_routes))
+                removed_routes = sorted(set(was_routes) - set(now_routes))
+                if added_routes:
+                    print(f"URL contract DRIFT — new/changed route records: {added_routes}", file=sys.stderr)
+                if removed_routes:
+                    print(f"URL contract DRIFT — removed/changed route records: {removed_routes}", file=sys.stderr)
+                if not added_routes and not removed_routes:
+                    print("URL contract DRIFT — duplicate route records changed", file=sys.stderr)
+            print(
+                "Regenerate: python tools/migration/extract_url_contract.py -o doc/URL_CONTRACT.md",
+                file=sys.stderr,
+            )
             return 1
-        print(f"URL contract OK — {len(now_keys)} parameters match the committed spec.")
+        print(f"URL contract OK — {len(now_routes)} routes and {len(now_keys)} parameters match the committed spec.")
         return 0
 
     if args.out:
-        args.out.write_text(report, encoding="utf-8")
-        print(f"[wrote {args.out}]", file=sys.stderr)
+        destination = output_path(args.out)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(report, encoding="utf-8")
+        print(f"[wrote {destination}]", file=sys.stderr)
     else:
         sys.stdout.write(report)
     return 0

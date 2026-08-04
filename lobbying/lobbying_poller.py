@@ -28,13 +28,11 @@ from __future__ import annotations
 
 import hashlib
 import sys
-import time
 from datetime import date, datetime
 from pathlib import Path
 
-import requests
-
 from config import BRONZE_DIR
+from services.http_engine import fetch_bytes
 
 # ── Operator-edited constants ───────────────────────────────────────────────
 ENDPOINT = "https://api.lobbying.ie/api/ExportReturns/Csv"
@@ -101,14 +99,19 @@ def fetch_ytd() -> bytes:
         "lobbyist": "",
         "lobbyistId": "",
     }
-    resp = requests.get(ENDPOINT, headers={"User-Agent": USER_AGENT}, params=params, timeout=TIMEOUT)
-    if resp.status_code == 429:
-        retry_after = int(resp.headers.get("Retry-After", "30"))
-        print(f"[lobbying] 429 rate-limited, sleeping {retry_after}s and retrying once")
-        time.sleep(retry_after)
-        resp = requests.get(ENDPOINT, headers={"User-Agent": USER_AGENT}, params=params, timeout=TIMEOUT)
-    resp.raise_for_status()
-    return resp.content
+    failures: list[Exception | None] = []
+    content = fetch_bytes(
+        ENDPOINT,
+        headers={"User-Agent": USER_AGENT},
+        params=params,
+        timeout=TIMEOUT,
+        attempts=2,
+        on_failure=failures.append,
+    )
+    if content is None:
+        cause = failures[0] if failures else None
+        raise RuntimeError(f"lobbying export failed: {cause or 'no usable response'}")
+    return content
 
 
 def validate(csv_bytes: bytes, mode: str) -> tuple[bool, list[str]]:
@@ -168,7 +171,7 @@ def main() -> int:
 
     try:
         csv_bytes = fetch_ytd()
-    except requests.RequestException as exc:
+    except Exception as exc:  # noqa: BLE001 - every transport failure maps to exit 1
         print(f"[lobbying] ERROR fetching: {exc}", file=sys.stderr)
         return 1
     print(f"[lobbying] fetched {len(csv_bytes):,} bytes")

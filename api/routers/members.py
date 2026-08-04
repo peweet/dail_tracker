@@ -5,14 +5,26 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
 from dail_tracker_core import dossiers, serialize
+from dail_tracker_core.models.envelope import ListEnvelope
 from dail_tracker_core.models.member import MemberDossier, MemberSummary
+from dail_tracker_core.models.responses import (
+    MemberInterestsResponse,
+    MemberQuestionsResponse,
+    MemberSpeechesResponse,
+)
 
-router = APIRouter(tags=["members"])
+router = APIRouter(tags=["members"], responses=ERROR_RESPONSES)
 
 
-@router.get("/members", summary="List members (TDs + Senators), filterable")
+@router.get(
+    "/members",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="List members (TDs + Senators), filterable",
+)
 def list_members(
     house: str | None = Query(None, description="Dáil or Seanad"),
     party: str | None = Query(None),
@@ -51,6 +63,7 @@ def member_dossier(
 
 @router.get(
     "/members/{name_or_code}/questions",
+    response_model=MemberQuestionsResponse,
     summary="A member's parliamentary-question feed, filterable",
 )
 def member_questions(
@@ -73,6 +86,7 @@ def member_questions(
 
 @router.get(
     "/members/{name_or_code}/interests",
+    response_model=MemberInterestsResponse,
     summary="A member's declared Register of Members' Interests (per-year summary + every declaration)",
 )
 def member_interests(
@@ -87,6 +101,7 @@ def member_interests(
 
 @router.get(
     "/members/{name_or_code}/speeches",
+    response_model=MemberSpeechesResponse,
     summary="A member's floor-contribution feed (speeches + oral questions) from the debate record",
 )
 def member_speeches(

@@ -68,6 +68,11 @@ _STAGE_COMMITTEE = "committee"
 _STAGE_TD = "td"
 
 
+def _committee_legend_html(items_html: str) -> str:
+    """Return the shared party-colour key above the visible committee cards."""
+    return f'<div class="cmt-legend">{items_html}</div>'
+
+
 # ── stage 1: register ─────────────────────────────────────────────────
 
 
@@ -271,7 +276,7 @@ def _stage_register(
             f'style="background:{party_colour(p)}"></span>{_h(p)}</span>'
             for p, _ in sorted(seat_totals.items(), key=lambda kv: (-kv[1], kv[0]))
         )
-        st.html(f'<div class="cmt-legend">{_key}</div>')
+        st.html(_committee_legend_html(_key))
 
     cards_html: list[str] = []
     for i, row in page_summary.iterrows():

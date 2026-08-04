@@ -1,17 +1,17 @@
-# Promptfoo regression gate over the SDK bench harnesses (2026-07-25).
+# Promptfoo regression gate over the provider-neutral bench harnesses.
 #
 # Wraps the three probe scripts as exec providers and asserts on their printed
 # summaries/scores. Each eval run SPENDS REAL API MONEY (~$0.60 routing, ~$1.50
 # per bench arm at 2026-07 prices [Reported — measured probe costs in
-# project_efficiency_build_2026_07_25]) — run after harness/CLAUDE.md changes,
+# project_efficiency_build_2026_07_25]) — run after harness/project-guidance changes,
 # not in CI on every commit.
 #
 # Run:  promptfoo eval -c tools/evals/promptfooconfig.yaml
 # View: promptfoo view
 #
-# Note: probes must run from the repo root and can be blocked by the Claude Code
-# auto-mode classifier when launched from inside an agent session — run from a
-# plain terminal.
+# Select the backend with DAIL_EVAL_PROVIDER=codex|claude|auto and optionally
+# pin DAIL_EVAL_MODEL / DAIL_EVAL_REASONING_EFFORT. Run paid probes deliberately
+# from a plain terminal, not from CI or another agent session.
 
 description: "Dáil Tracker harness regression: routing + package + counterfactual benches"
 
@@ -30,7 +30,7 @@ prompts:
   - "{{task}}"   # probes ignore stdin; tasks are baked into each script
 
 tests:
-  - description: "CLAUDE.md routing steers navigation-first (3/3 probes)"
+  - description: "Project guidance steers navigation-first (3/3 probes)"
     vars: { task: routing }
     providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\routing_probe.py']
     assert:
