@@ -20,6 +20,8 @@ jobs:
       - run: uv sync --frozen --group dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - run: uv run python tools/build_doc_index.py --check
+      - run: uv run python tools/check_mcp_catalog.py
 
   # Dependency truth: pyproject.toml (human intent) → uv.lock (resolved env) →
   # requirements.txt (app-runtime export for Streamlit Cloud / pip fallback).
@@ -84,7 +86,7 @@ jobs:
       # in [tool.basedpyright]). The app runtime (duckdb/streamlit/…) is core; the
       # dev group adds basedpyright and the pipeline extra adds polars/requests/…,
       # so every in-scope import resolves. Scope + rules live in pyproject.toml.
-      - run: uv sync --frozen --extra pipeline --group dev
+      - run: uv sync --frozen --extra pipeline --extra api --group dev
       # Scoped to services/ + pure-logic modules; fails on any NEW type error.
       - run: uv run basedpyright
 
@@ -95,10 +97,11 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-      # The app runtime (streamlit/altair/plotly/duckdb) is core; the pipeline
-      # extra + dev group add polars/PyMuPDF/pytest/…, so test_page_imports.py
-      # (imports every Streamlit page) plus the pipeline/schema tests all run in CI.
-      - run: uv sync --frozen --extra pipeline --group dev
+      # API and MCP are explicit so their module-level import guards cannot
+      # silently turn missing capability tests into a green CI run.
+      - run: uv sync --frozen --extra pipeline --extra api --extra mcp --group dev
+      - name: Assert required test capabilities are importable
+        run: uv run python -c "import fastapi, jedi, mcp, sqlglot"
       # Expected-failure ledger (test/expected_failures.yaml): environment-dependent
       # failures only — schema-validated here so an entry without a reason/evidence/
       # resolution fails the PR. Applied entries are printed by test/conftest.py in
@@ -123,6 +126,42 @@ jobs:
       - run: >-
           uv run pytest -m "not integration and not sql and not sources and not bronze" -v
           --cov --cov-report=term-missing:skip-covered --cov-fail-under=38
+
+  # Build what users actually install, run it away from the source checkout,
+  # and boot the API image. Source-tree tests cannot catch missing wheel or
+  # Docker resources.
+  delivery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra pipeline --extra api --extra mcp --group dev
+      - name: Build and install the wheel artifact
+        run: |
+          uv build --wheel
+          uv pip install --python .venv/bin/python --reinstall --no-deps dist/*.whl
+      - name: Smoke-test installed entry points outside the checkout
+        run: |
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/.venv/bin/dail-pipeline" --list
+          "$GITHUB_WORKSPACE/.venv/bin/python" -c "import api.main; import mcp_server.server"
+      - name: Build API image
+        run: docker build --tag dailtracker-api:ci .
+      - name: Smoke-test API image as its non-root user
+        run: |
+          test "$(docker run --rm dailtracker-api:ci id -u)" != "0"
+          container_id="$(docker run --detach --publish 8080:8080 dailtracker-api:ci)"
+          trap 'docker rm --force "$container_id" >/dev/null' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/v1/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs "$container_id"
+          exit 1
 
   # SQL view contract suite (~80 tests): executes every registered view against
   # the committed gold parquet under data/gold/ (un-gitignored), so it gates PRs

@@ -53,8 +53,18 @@ from bs4 import BeautifulSoup
 from extractors._diary_minister import minister_from_filename
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
+from shared.pdf_classification import DIARY_TEXT_CHAR_THRESHOLD, decide_text_layer
 
 log = logging.getLogger(__name__)
+
+
+def _has_text_layer(text: str) -> bool:
+    """Preserve the diary extractor's strict whole-document text threshold."""
+
+    return decide_text_layer(
+        len(text.strip()),
+        threshold=DIARY_TEXT_CHAR_THRESHOLD,
+    ).has_text_layer
 
 # gov.ie / assets.gov.ie front a WAF that returns 405 to requests that don't look
 # like a browser continuing a real page visit. Empirically (2026-06-21) the trip-wire
@@ -560,7 +570,7 @@ def main(only_depts: set[str] | None = None, max_files: int | None = None, min_f
             log.warning("unreadable pdf %s: %s", pdf.name, e)
             f.update({"n_pages": None, "has_text_layer": False, "n_entries_parsed": 0, "parse_status": "unreadable"})
             continue
-        has_text = len(text.strip()) > 100
+        has_text = _has_text_layer(text)
         f["has_text_layer"] = has_text
         if not has_text:
             f.update({"n_entries_parsed": 0, "parse_status": "scanned_needs_offbox_ocr"})

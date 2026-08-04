@@ -14,6 +14,7 @@ are left untouched. New runs append the new schema.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import platform
@@ -22,8 +23,6 @@ from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-import orjson
 
 from config import DATA_DIR, PROJECT_ROOT
 from services.run_paths import get_git_sha, make_run_id, run_dir, write_latest_pointer
@@ -35,14 +34,14 @@ def _read_json(path: Path, default):
     if not path.exists():
         return default
     try:
-        return orjson.loads(path.read_bytes())
-    except Exception:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return default
 
 
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(orjson.dumps(payload, option=orjson.OPT_INDENT_2))
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _per_run_path(run_id: str) -> Path:

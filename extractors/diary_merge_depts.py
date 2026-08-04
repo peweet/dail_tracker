@@ -36,6 +36,7 @@ from extractors._diary_minister import minister_from_filename
 from extractors._diary_minister import surname_key as _surname_key
 from extractors.ministerial_diaries_extract import (
     OUT_DIR,
+    _has_text_layer,
     _infer_default_year,
     discover_files,
     download,
@@ -78,7 +79,7 @@ def parse_dept_entries(depts: set[str]) -> pl.DataFrame:
         except Exception as e:  # noqa: BLE001
             log.warning("unreadable %s: %s", f["file_name"], e)
             continue
-        if len(text.strip()) <= 100:  # image-only scan → OCR queue, not here
+        if not _has_text_layer(text):  # image-only scan → OCR queue, not here
             skipped_scan += 1
             continue
         year = f["period_year_guess"] or _infer_default_year(text)

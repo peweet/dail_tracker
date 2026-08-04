@@ -29,11 +29,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from config import LOG_DIR
+from paths import PROJECT_ROOT
 
 RUNS_DIR = LOG_DIR / "runs"
 LATEST_POINTER = LOG_DIR / "latest_run_id.txt"
 
 ENV_RUN_ID = "DAIL_PIPELINE_RUN_ID"
+
+_RUN_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}\Z", re.ASCII)
 
 
 def make_run_id() -> str:
@@ -42,9 +45,30 @@ def make_run_id() -> str:
     return f"{now}-{uuid.uuid4().hex[:8]}"
 
 
+def validate_run_id(run_id: str) -> str:
+    """Return a safe run ID or raise ``ValueError``.
+
+    Run IDs become directory names and are also accepted from the inherited
+    ``DAIL_PIPELINE_RUN_ID`` environment variable. Restricting them to one
+    portable path component prevents absolute paths and ``..`` traversal from
+    redirecting logs outside :data:`RUNS_DIR`.
+    """
+    if not isinstance(run_id, str) or not _RUN_ID_PATTERN.fullmatch(run_id):
+        raise ValueError(
+            "run_id must be 1-128 ASCII letters, digits, underscores, or hyphens and must start with a letter or digit"
+        )
+    return run_id
+
+
 def run_dir(run_id: str) -> Path:
-    """Path to a run's directory. Creates dir + steps/ subdir on first call."""
-    p = RUNS_DIR / run_id
+    """Return the contained absolute run directory, creating it if needed."""
+    safe_run_id = validate_run_id(run_id)
+    runs_root = RUNS_DIR.resolve()
+    p = (runs_root / safe_run_id).resolve()
+    try:
+        p.relative_to(runs_root)
+    except ValueError as exc:  # defense in depth if the ID policy changes
+        raise ValueError(f"run_id resolves outside the run directory: {run_id!r}") from exc
     (p / "steps").mkdir(parents=True, exist_ok=True)
     return p
 
@@ -65,8 +89,9 @@ def step_log_path(run_id: str, ordinal: int, name: str) -> Path:
 
 def write_latest_pointer(run_id: str) -> None:
     """Write the most-recent run_id as a tiny text file (no symlinks)."""
+    safe_run_id = validate_run_id(run_id)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    LATEST_POINTER.write_text(run_id, encoding="utf-8")
+    LATEST_POINTER.write_text(safe_run_id, encoding="utf-8")
 
 
 def get_git_sha() -> str | None:
@@ -74,6 +99,7 @@ def get_git_sha() -> str | None:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
+            cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,
             timeout=5,

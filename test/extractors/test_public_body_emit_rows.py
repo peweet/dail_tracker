@@ -21,6 +21,7 @@ import pytest
 
 import extractors.procurement_public_body_extract as m
 import extractors.public_body_payments.emit as _emit
+import extractors.public_body_payments.readers as _readers
 
 # 2026-07 C7 split (doc/REFACTORING_CANDIDATES.md): emit_rows dispatches to a bespoke
 # reader by NAME via ``globals()[spec["fn"]]`` inside extractors/public_body_payments/
@@ -188,6 +189,29 @@ def _geometry_pdf(note: str = "") -> bytes:
     b = doc.tobytes()
     doc.close()
     return b
+
+
+@pytest.mark.parametrize(("count", "expected"), [(200, False), (201, True)])
+def test_generic_pdf_digital_threshold_remains_strict(monkeypatch, count, expected):
+    class FakePage:
+        def get_text(self, _kind):
+            return "x" * count
+
+    class FakeDocument:
+        page_count = 1
+
+        def __getitem__(self, _index):
+            return FakePage()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(_readers.fitz, "open", lambda **_kwargs: FakeDocument())
+    monkeypatch.setattr(_readers, "cluster_word_rows", lambda _page: [])
+
+    result = _readers.read_pdf(FAKE_PDF, None)
+
+    assert result["digital"] is expected
 
 
 def test_generic_pdf_geometry_path():

@@ -11,6 +11,7 @@ The allow-list IS the security boundary, so these tests pin three properties:
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -23,7 +24,8 @@ import duckdb  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from api.main import app  # noqa: E402
-from api.routers.exports import EXPORTS  # noqa: E402
+from api.routers import exports  # noqa: E402
+from api.routers.exports import EXPORTS, ExportSpec  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -79,6 +81,40 @@ def test_csv_download_has_header(client):
 
 def test_bad_format_rejected(client):
     assert client.get("/v1/data/procurement_awards", params={"format": "xlsx"}).status_code == 422
+
+
+def test_snapshot_cache_invalidates_when_privacy_policy_changes(tmp_path, monkeypatch):
+    source = tmp_path / "source.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            "COPY (SELECT * FROM (VALUES (1, TRUE), (2, FALSE)) t(id, public_display)) "
+            f"TO '{source.as_posix()}' (FORMAT PARQUET)"
+        )
+    finally:
+        con.close()
+
+    monkeypatch.setattr(exports, "EXPORT_CACHE_DIR", tmp_path / "cache")
+    common = {
+        "source": source,
+        "description": "test",
+        "licence": "test",
+        "attribution": "test",
+        "caveat": "test",
+    }
+    unfiltered = ExportSpec(**common)
+    filtered = ExportSpec(**common, privacy_filter="public_display = TRUE")
+
+    snapshot = exports._ensure_snapshot("policy-change", unfiltered, "parquet")
+    assert duckdb.sql(f"SELECT count(*) FROM read_parquet('{snapshot.as_posix()}')").fetchone()[0] == 2
+    first_policy = json.loads(exports._snapshot_metadata_path(snapshot).read_text(encoding="utf-8"))["policy"]
+
+    same_path = exports._ensure_snapshot("policy-change", filtered, "parquet")
+    assert same_path == snapshot
+    assert duckdb.sql(f"SELECT count(*) FROM read_parquet('{snapshot.as_posix()}')").fetchone()[0] == 1
+    second_policy = json.loads(exports._snapshot_metadata_path(snapshot).read_text(encoding="utf-8"))["policy"]
+    assert second_policy != first_policy
+    assert not list(snapshot.parent.glob("*.tmp"))
 
 
 @pytest.mark.parametrize(

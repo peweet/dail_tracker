@@ -38,6 +38,7 @@ import services.runtime_env  # noqa: F401
 
 import argparse
 import contextlib
+import importlib.util
 import logging
 import os
 import subprocess
@@ -46,15 +47,30 @@ import threading
 import time
 from pathlib import Path
 
+from config import init_dirs
 from manifest import (
     create_run_manifest,
     record_step_finished,
     record_step_started,
     run_finished_at,
 )
+from paths import PROJECT_ROOT
 from services.logging_cloud import cloud_mode, log_event
 from services.logging_setup import setup_logging
 from services.run_paths import ENV_RUN_ID, make_run_id, run_dir, step_log_path
+
+_PIPELINE_DEPENDENCY_IMPORTS: tuple[str, ...] = (
+    "bs4",
+    "fitz",
+    "jsonschema",
+    "openpyxl",
+    "orjson",
+    "polars",
+    "regex",
+    "requests",
+    "sklearn",
+    "xlrd",
+)
 
 # Domain refresh chains in the default execution order. Each tuple is
 # (chain_name, script_path). Chain name is used by --select/--exclude.
@@ -472,6 +488,30 @@ def _chain_extra_env(name: str) -> dict[str, str]:
     return _CHAIN_EXTRA_ENV.get(name, {})
 
 
+def _resolve_chain_script(script: str) -> Path:
+    """Resolve a registry path beneath the canonical project root.
+
+    ``CHAINS`` stays repository-relative because those values are portable and
+    useful in manifests. The subprocess boundary receives an absolute path and
+    a fixed working directory, so invoking ``dail-pipeline`` from another
+    directory cannot change which file runs.
+    """
+    project_root = PROJECT_ROOT.resolve()
+    script_path = (project_root / script).resolve()
+    try:
+        script_path.relative_to(project_root)
+    except ValueError as exc:
+        raise ValueError(f"chain script resolves outside PROJECT_ROOT: {script!r}") from exc
+    if not script_path.is_file():
+        raise FileNotFoundError(f"chain script does not exist: {script_path}")
+    return script_path
+
+
+def _missing_pipeline_dependencies() -> list[str]:
+    """Return import names absent from the published ``pipeline`` extra."""
+    return [name for name in _PIPELINE_DEPENDENCY_IMPORTS if importlib.util.find_spec(name) is None]
+
+
 def _kill_process_tree(proc: subprocess.Popen) -> None:
     """Kill the chain process AND all its descendants.
 
@@ -516,11 +556,13 @@ def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tupl
     tail: list[str] = []
     timed_out = False
     timeout_s = _chain_timeout(name)
+    script_path = _resolve_chain_script(script)
     with open(log_path, "w", encoding="utf-8", newline="") as logf:
         logf.write(f"# === {name} ({script}) ===\n")
         logf.flush()
         proc = subprocess.Popen(
-            [sys.executable, script],
+            [sys.executable, str(script_path)],
+            cwd=PROJECT_ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=1,
@@ -677,6 +719,13 @@ def main() -> int:
         _print_chain_list()
         return 0
 
+    missing_dependencies = _missing_pipeline_dependencies()
+    if missing_dependencies:
+        ap.error(
+            "pipeline dependencies are not installed "
+            f"({', '.join(missing_dependencies)}); install with: pip install 'dail-tracker[pipeline]'"
+        )
+
     selected = _parse_csv_list(args.select)
     excluded = _parse_csv_list(args.exclude)
     chains = _filter_chains(selected, excluded)
@@ -684,6 +733,9 @@ def main() -> int:
         print("No chains selected after --select/--exclude. Nothing to do.", file=sys.stderr)
         return 1
 
+    # Configuration imports are deliberately side-effect-free. A real pipeline
+    # execution owns creation of its mutable data/log directory tree.
+    init_dirs()
     run_id = make_run_id()
     setup_logging(run_id)
 

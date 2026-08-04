@@ -3,7 +3,7 @@
 
 # doc/ index
 
-61 docs · ~314.3k tokens total · 20 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+61 docs · ~316.4k tokens total · 20 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -16,7 +16,7 @@
 | [CI_CD.md](CI_CD.md) | infra | 4.9k | 2026-06-21 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
-| [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 1.5k | 2026-06-13 | the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2 |
+| [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 3.4k | 2026-06-13 | the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2 |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |
 | [LOCAL_AUTHORITY_ACCOUNTABILITY.md](LOCAL_AUTHORITY_ACCOUNTABILITY.md) | local-gov | 2.1k | 2026-06-20 | when working on local-authority accountability data — CE roster, NOAC collection rates, planning overturn rate, or derelict sites levy |
@@ -28,7 +28,7 @@
 | [TED_ENRICHMENT.md](TED_ENRICHMENT.md) | procurement | 5.1k | 2026-06-08 | checking what TED enrichment already exists before proposing new TED ingestion/enrichment work |
 | [ROADMAP_SOURCES.md](ROADMAP_SOURCES.md) | sources | 3.1k | 2026-07-17 | scoping a candidate new ingestion source before claiming it's built, or prioritising the ingestion backlog |
 | [SOURCES.md](SOURCES.md) | sources | 6.2k | 2026-07-17 | checking whether a data source is actually implemented/API-exposed before claiming it exists or is built |
-| [NAVIGATION_GRAPH.md](NAVIGATION_GRAPH.md) | ui | 2.7k | 2026-06-20 | before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel) |
+| [NAVIGATION_GRAPH.md](NAVIGATION_GRAPH.md) | ui | 2.9k | 2026-06-20 | before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel) |
 
 ## Superseded / stale
 > Kept for history and inbound references. Do not rely on their bodies.
@@ -83,4 +83,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.4k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-08-01 -->
+<!-- generated 2026-08-04 -->

@@ -15,6 +15,7 @@ from __future__ import annotations
 import contextlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -104,7 +105,12 @@ def _mcp_note() -> str:
         for spec in servers.values():
             cmd = str(spec.get("command", ""))
             args = [str(a) for a in spec.get("args", [])]
-            cmd_path = Path(cmd) if Path(cmd).is_absolute() else REPO / cmd
+            command = Path(cmd)
+            if command.is_absolute() or command.parent != Path("."):
+                cmd_path = command if command.is_absolute() else REPO / command
+            else:
+                resolved = shutil.which(cmd)
+                cmd_path = Path(resolved) if resolved else Path()
             if not cmd_path.is_file():
                 return f"MCP: command path NOT FOUND ({cmd}) — server cannot start"
             for a in args:
@@ -112,11 +118,9 @@ def _mcp_note() -> str:
                     ap = Path(a) if Path(a).is_absolute() else REPO / a
                     if not ap.is_file():
                         return f"MCP: server script NOT FOUND ({a})"
-        import py_compile
-
         for p in sorted((REPO / "mcp_server").glob("*.py")):
             try:
-                py_compile.compile(str(p), doraise=True)
+                compile(p.read_text(encoding="utf-8"), str(p), "exec")
             except Exception as exc:  # noqa: BLE001 — name the file, keep the session alive
                 return f"MCP: server code BROKEN ({p.name}: {type(exc).__name__}) — /mcp will fail"
         import os

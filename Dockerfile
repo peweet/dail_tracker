@@ -26,14 +26,29 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project --extra api
 
+# Run the network service without root privileges. Source and committed data
+# remain root-owned/read-only; only the generated export cache and logs are
+# writable by the service account.
+RUN groupadd --system --gid 10001 dailtracker \
+    && useradd --system --uid 10001 --gid dailtracker --home-dir /app --no-create-home dailtracker
+
 # Code + the SQL view firewall + the committed data the views read.
 COPY paths.py config.py ./
 COPY api ./api
 COPY dail_tracker_core ./dail_tracker_core
+COPY services ./services
 COPY sql_views ./sql_views
 COPY data ./data
 
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Import smoke catches missing COPY entries before an image can be published.
+# The API materialises exports only under data/_export_cache at runtime.
+RUN python -c "import api.main" \
+    && mkdir -p /app/data/_export_cache /app/logs \
+    && chown -R dailtracker:dailtracker /app/data/_export_cache /app/logs
+
+USER 10001:10001
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \

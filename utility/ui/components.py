@@ -67,7 +67,7 @@ import functools
 import logging
 import os
 import re
-import traceback
+import secrets
 from contextlib import contextmanager
 from html import escape as _h
 from urllib.parse import quote as _q
@@ -183,8 +183,9 @@ def page_error_boundary(page_fn):
     """Decorator: catch any unhandled exception in a page entry point and
     show a calm civic-voice empty_state instead of Streamlit's red traceback.
 
-    Logs full traceback for debugging; exposes a brief technical summary in
-    a collapsed expander so journalists/devs can paste it into a GitHub issue.
+    Logs the full traceback for debugging and shows users only an incident id.
+    Tracebacks can contain filesystem paths, SQL and source values, so they must
+    never be rendered into the public page.
     Only catches Exception (not BaseException), so st.stop() and Ctrl+C work.
     """
 
@@ -192,9 +193,9 @@ def page_error_boundary(page_fn):
     def wrapper(*args, **kwargs):
         try:
             return page_fn(*args, **kwargs)
-        except Exception as exc:
-            tb = traceback.format_exc()
-            _log.exception("page entry crashed: %s", page_fn.__name__)
+        except Exception:
+            incident_id = secrets.token_hex(6)
+            _log.exception("page entry crashed: %s [incident=%s]", page_fn.__name__, incident_id)
             try:
                 from shared_css import inject_css
 
@@ -207,12 +208,10 @@ def page_error_boundary(page_fn):
                 '<span style="color:var(--text-meta)">'
                 "Try refreshing. If it persists, the underlying view may be "
                 "missing or the data file may be stale. "
-                f"({_h(type(exc).__name__)})"
+                f"Reference: <code>{_h(incident_id)}</code>."
                 "</span>"
                 "</div>"
             )
-            with st.expander("Technical details", expanded=False):
-                st.code(tb, language="text")
             return None
 
     return wrapper

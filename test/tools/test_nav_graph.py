@@ -48,3 +48,44 @@ def test_scan_ignores_comment_only_reference(tmp_path):
     f.write_text("# resolve a minister member_code from the pipeline\nx = 1\n", encoding="utf-8")
     carried, cols = check_nav_graph.scan(f)
     assert "member_code" not in cols
+
+
+def test_scan_ignores_module_class_and_function_docstrings(tmp_path):
+    f = tmp_path / "fake_page.py"
+    f.write_text(
+        '''"""supplier_norm"""
+
+class Example:
+    """member_code"""
+
+    def render(self):
+        """bill_id"""
+        return "ordinary text"
+''',
+        encoding="utf-8",
+    )
+    _, cols = check_nav_graph.scan(f)
+    assert cols == set()
+
+
+def test_main_scans_nested_page_modules(tmp_path, capsys, monkeypatch):
+    nested = tmp_path / "reports" / "detail.py"
+    nested.parent.mkdir()
+    nested.write_text('column = "supplier_norm"\n', encoding="utf-8")
+    monkeypatch.setattr(check_nav_graph, "PAGES", tmp_path)
+    monkeypatch.setattr(check_nav_graph, "BASELINE", {})
+
+    assert check_nav_graph.main() == 1
+    assert "reports/detail.py" in capsys.readouterr().out
+
+
+def test_main_reports_parse_errors_and_fails_closed(tmp_path, capsys, monkeypatch):
+    broken = tmp_path / "broken.py"
+    broken.write_text("def incomplete(:\n", encoding="utf-8")
+    monkeypatch.setattr(check_nav_graph, "PAGES", tmp_path)
+    monkeypatch.setattr(check_nav_graph, "BASELINE", {})
+
+    assert check_nav_graph.main() == 1
+    captured = capsys.readouterr()
+    assert "broken.py" in captured.err
+    assert "failing closed" in captured.err

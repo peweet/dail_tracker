@@ -15,6 +15,7 @@ import re
 import fitz  # PyMuPDF
 import polars as pl
 
+from shared.pdf_classification import PAYMENTS_TEXT_CHAR_THRESHOLD, decide_text_layer
 from shared.pdf_layout import cluster_word_rows
 from shared.text_encoding import decode_table_bytes
 
@@ -207,7 +208,10 @@ def read_pdf(b: bytes, max_pages: int | None) -> dict:
     doc.close()
     roles = refine_roles(cols, roles, [r for _, r in out_rows]) if cols else roles
     return {
-        "digital": digital_chars > 200,
+        "digital": decide_text_layer(
+            digital_chars,
+            threshold=PAYMENTS_TEXT_CHAR_THRESHOLD,
+        ).has_text_layer,
         "cols": cols,
         "header_label": header_label,
         "roles": roles,

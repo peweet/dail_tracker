@@ -22,11 +22,10 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-      # Full env (core + pipeline extra + dev group) so the audit covers every
-      # locked dependency, not just the app runtime. pip-audit is in the dev
-      # group (pyproject [dependency-groups]), so it installs with the sync — no
-      # ad-hoc `uv pip install` that would escape the lockfile.
-      - run: uv sync --frozen --extra pipeline --group dev
+      # Audit every published runtime capability (API, MCP, OCR, browser,
+      # siting, and ETL), not only the default app and pipeline. pip-audit comes
+      # from the locked dev group; evaluation-only tooling is not shipped.
+      - run: uv sync --frozen --all-extras --group dev
       # --strict: fail on any vuln. Drop later only if consistent unfixable
       # transitive CVEs become a problem (use --ignore-vuln GHSA-xxxx with a
       # comment + revisit date — not a blanket disable).

@@ -7,7 +7,7 @@ agent: agent
 
 Redesign page: ${input:page_id}
 
-Use `page_runbooks/${input:page_id}.md` and read only the files it lists.
+Use `dail_tracker_bold_ui_contract_pack_v5/page_runbooks/${input:page_id}.md` and read only the files it lists.
 
 This is a UI redesign, not a safe refactor. The existing page is a **functional** reference,
 not a design reference. Preserve all data semantics and the logic firewall (no queries in the

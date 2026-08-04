@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import ast
 import sys
+import tokenize
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,16 +92,54 @@ BASELINE: dict[str, tuple[str, str]] = {
 }
 
 
+class ScanError(RuntimeError):
+    """A source file could not be decoded or parsed safely."""
+
+    def __init__(self, path: Path, cause: BaseException) -> None:
+        self.path = path
+        self.cause = cause
+        super().__init__(f"{path}: {type(cause).__name__}: {cause}")
+
+
+def _parse(path: Path) -> ast.Module:
+    try:
+        with tokenize.open(path) as stream:
+            source = stream.read()
+        return ast.parse(source, filename=str(path))
+    except (OSError, UnicodeError, SyntaxError) as exc:
+        raise ScanError(path, exc) from exc
+
+
+def _docstring_values(tree: ast.AST) -> set[ast.AST]:
+    """Return the literal nodes used as real Python docstrings."""
+    values: set[ast.AST] = set()
+    owners = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    for node in ast.walk(tree):
+        if not isinstance(node, owners) or not node.body:
+            continue
+        first = node.body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            values.add(first.value)
+    return values
+
+
 def scan(path: Path) -> tuple[set[str], set[str]]:
     """Return (entities carried OUT via a builder, entity columns referenced in CODE).
 
     Column detection is AST-level (string constants + attribute names) so comments
     and docstrings never trigger a false positive.
     """
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    tree = _parse(path)
+    docstrings = _docstring_values(tree)
     carried: set[str] = set()
     cols: set[str] = set()
     for node in ast.walk(tree):
+        if node in docstrings:
+            continue
         if isinstance(node, ast.Call):
             fn = node.func
             name = fn.id if isinstance(fn, ast.Name) else fn.attr if isinstance(fn, ast.Attribute) else None
@@ -118,24 +157,36 @@ def scan(path: Path) -> tuple[set[str], set[str]]:
 def main() -> int:
     live: list[tuple[str, str, list[str]]] = []  # real (non-baseline) cul-de-sacs
     stale_baseline: list[str] = []  # baselined but now clean -> remove
-    for f in sorted(PAGES.glob("*.py")):
+    errors: list[ScanError] = []
+    for f in sorted(PAGES.rglob("*.py")):
+        if "__pycache__" in f.parts:
+            continue
         if f.name == "__init__.py":
             continue
-        carried, cols = scan(f)
-        own = CANONICAL_PAGE.get(f.name)
+        rel = f.relative_to(PAGES).as_posix()
+        try:
+            carried, cols = scan(f)
+        except ScanError as exc:
+            errors.append(exc)
+            continue
+        own = CANONICAL_PAGE.get(rel, CANONICAL_PAGE.get(f.name))
         uncarried = sorted({ENTITY_COLS[c] for c in cols} - carried - ({own} if own else set()))
         if not uncarried:
-            if f.name in BASELINE:
-                stale_baseline.append(f.name)
+            if rel in BASELINE:
+                stale_baseline.append(rel)
             continue
         cols_for = sorted(c for c in cols if ENTITY_COLS[c] in uncarried)
-        if f.name in BASELINE and BASELINE[f.name][0] in uncarried:
+        if rel in BASELINE and BASELINE[rel][0] in uncarried:
             continue  # accepted
-        live.append((f.name, ", ".join(uncarried), cols_for))
+        live.append((rel, ", ".join(uncarried), cols_for))
 
     print("=" * 78)
     print("NAV-GRAPH CUL-DE-SAC CHECK  (entity column rendered, not carried out)")
     print("=" * 78)
+    if errors:
+        for error in errors:
+            print(f"  ERROR {error}", file=sys.stderr)
+        print(f"\n  {len(errors)} file(s) could not be analysed; failing closed.", file=sys.stderr)
     if live:
         for name, ents, cols_for in live:
             print(f"  FAIL  {name:30s} renders {cols_for} but does not carry {ents}")
@@ -147,7 +198,7 @@ def main() -> int:
     if stale_baseline:
         print(f"\n  BASELINE STALE — now clean, delete from BASELINE: {stale_baseline}")
 
-    return 1 if (live or stale_baseline) else 0
+    return 1 if (live or stale_baseline or errors) else 0
 
 
 if __name__ == "__main__":

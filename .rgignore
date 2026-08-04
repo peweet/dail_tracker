@@ -1,0 +1,35 @@
+# Keep broad searches on source and contracts. Use `rg --no-ignore <known path>`
+# when one of these artifacts is intentionally in scope.
+
+data/**
+!data/_meta/
+!data/_meta/**
+doc/source_pdfs/**
+pipeline_sandbox/**/corpus/**
+pipeline_sandbox/**/samples/**
+pipeline_sandbox/**/output/**
+
+logs/**
+audit_screenshots/**
+out/**
+tmp/**
+node_modules/**
+coverage.json
+
+*.parquet
+*.duckdb
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.pyc
+*.jsonl
+*.log
+*.swp
+
+_BACKUP_*.gitignore
+_BASE_*.gitignore
+_LOCAL_*.gitignore
+_REMOTE_*.gitignore
