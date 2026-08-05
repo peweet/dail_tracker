@@ -30,13 +30,7 @@ _VALID_RETENTION = {"runtime", "lineage", "dead"}
 # Ship gaps: runtime-read parquet that isn't git-tracked, so a fresh clone can't serve the view.
 # Each must be fixed by tracking the file (or removing the view). Currently NONE — stateboards_boards
 # was tracked 2026-06-19. Any entry the manifest reports beyond this set fails test_no_new_ship_gaps.
-KNOWN_SHIP_GAPS: set[str] = {
-    # Read by planning/product/core/precedents.py (nearby-appeals on the siting page).
-    # Surfaced 2026-07-25 when the stale manifest was regenerated — the read predates that;
-    # the old manifest simply didn't record it. Untracked pending an owner decision on
-    # whether the ACP spine parquet ships in the public repo (siting-privacy adjacent).
-    "data/silver/parquet/planning_acp_cases.parquet",
-}
+KNOWN_SHIP_GAPS: set[str] = set()
 
 
 @pytest.fixture(scope="module")

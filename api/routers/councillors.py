@@ -21,6 +21,7 @@ from dail_tracker_core.models.responses import (
     CouncillorCouncilsResponse,
     CouncillorRosterResponse,
     CouncillorVotesResponse,
+    CouncilMinutesSearchResponse,
     CouncilPowersResponse,
 )
 
@@ -77,6 +78,20 @@ def council_powers(
     plan) versus where they noted a Chief Executive decision. Document grain — counts, not
     quotable events."""
     return dossiers.council_powers(cur, council=council)
+
+
+@router.get(
+    "/councillors/minutes/search",
+    response_model=CouncilMinutesSearchResponse,
+    summary="Literal search within one council's vetted minutes corpus",
+)
+def council_minutes_search(
+    council: str = Query(..., description="local authority name"),
+    query: str = Query(..., min_length=2, max_length=200, description="literal text to find"),
+    limit: int = Query(20, ge=1, le=50, description="max matching documents"),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    return dossiers.council_minutes_search(cur, council=council, query=query, limit=limit)
 
 
 @router.get(

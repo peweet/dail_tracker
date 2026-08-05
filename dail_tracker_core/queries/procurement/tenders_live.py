@@ -63,6 +63,18 @@ def live_tenders(
     return _run(conn, sql, params)
 
 
+def live_tender_by_id(conn: duckdb.DuckDBPyConnection, resource_id: str) -> QueryResult:
+    """One national live tender, selected by its stable source resource id."""
+    return _run(
+        conn,
+        "SELECT title, buyer, published_date, submission_deadline, days_to_deadline,"
+        " procedure, status, estimated_value_eur, realisation_tier, value_kind,"
+        " resource_id, detail_url, retrieved_utc"
+        " FROM v_procurement_live_tenders WHERE resource_id = ? LIMIT 1",
+        [resource_id],
+    )
+
+
 def live_tender_sectors(conn: duckdb.DuckDBPyConnection, *, within_days: int | None = None) -> QueryResult:
     """Distinct CPV divisions in the open national pipeline with a per-division count — the sector
     facet's option list. Returns ``unavailable`` (so the page simply omits the facet) until the

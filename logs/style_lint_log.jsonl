@@ -801,3 +801,6 @@
 {"ts": "2026-08-03T14:30:33", "session": "0246b2bf-a0c", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "jargon: \"simply\" (rule 3 -- use the plain word)", "60-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-03T15:13:42", "session": "0246b2bf-a0c", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}
 {"ts": "2026-08-03T15:18:51", "session": "0246b2bf-a0c", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "51-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-05T23:39:35", "session": "jarg11ee966b", "warns": ["jargon: \"surfaces\" (rule 3 -- use the plain word)", "jargon: \"the tension here is\" (rule 3 -- use the plain word)", "jargon: \"utilize\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-08-05T23:39:35", "session": "long4739e725", "warns": ["60-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-05T23:39:35", "session": "capdf08625d5", "warns": ["jargon: \"utilize\" (rule 3 -- use the plain word)", "jargon: \"leverage\" (rule 3 -- use the plain word)", "jargon: \"simply\" (rule 3 -- use the plain word)"]}

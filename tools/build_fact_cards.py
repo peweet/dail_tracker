@@ -31,6 +31,7 @@ import contextlib
 import csv
 import json
 import re
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -48,6 +49,34 @@ with contextlib.suppress(Exception):
 LAYERS = {"gold": ROOT / "data/gold/parquet", "silver": ROOT / "data/silver/parquet"}
 _YEAR_COL = re.compile(r"(^|_)(year|yr)$", re.I)
 _DATE_COL = re.compile(r"(date|_at$|_on$|period)", re.I)
+
+
+def public_parquet_paths() -> list[Path]:
+    """Versioned public silver/gold parquets, with a filesystem fallback outside Git.
+
+    Fact cards are an MCP discovery surface, so ignored local/private overlay outputs
+    must not become searchable merely because they were written under ``data/``.
+    """
+    if (ROOT / ".git").exists():
+        proc = subprocess.run(
+            [
+                "git",
+                "ls-files",
+                "-z",
+                "--",
+                "data/gold/parquet/*.parquet",
+                "data/silver/parquet/*.parquet",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+        )
+        return [
+            ROOT / raw.decode("utf-8")
+            for raw in proc.stdout.split(b"\0")
+            if raw and (ROOT / raw.decode("utf-8")).is_file()
+        ]
+    return sorted(path for directory in LAYERS.values() for path in directory.glob("*.parquet"))
 
 
 def _load(name: str) -> dict:
@@ -148,10 +177,13 @@ def build() -> dict:
     fresh_by = {k: v for k, v in freshness.items() if isinstance(v, dict)} if isinstance(freshness, dict) else {}
 
     cards: dict[str, dict] = {}
+    public_paths = {path.resolve() for path in public_parquet_paths()}
     for layer, d in LAYERS.items():
         if not d.is_dir():
             continue
         for p in sorted(d.glob("*.parquet")):
+            if p.resolve() not in public_paths:
+                continue
             fname, stem = p.name, p.stem
             card: dict = {"file": f"data/{'gold' if layer == 'gold' else 'silver'}/parquet/{fname}", "layer": layer}
             # rows + columns + year-span ALWAYS from the live footer (the regression baseline goes

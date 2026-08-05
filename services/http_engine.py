@@ -206,6 +206,7 @@ def fetch_text(
     *,
     headers: dict[str, str] | None = None,
     params: QueryParams = None,
+    encoding: str | None = None,
     attempts: int = RETRY_MAX_ATTEMPTS,
 ) -> tuple[str, int]:
     """Fetch one URL as raw text, retrying transient faults.
@@ -241,7 +242,7 @@ def fetch_text(
             # chardet install (seen 2026-07-07 shadowing charset_normalizer -> AttributeError:
             # module 'chardet' has no attribute 'detect') makes that raise. Use the server-declared
             # charset if present, else UTF-8 — correct for the Oireachtas AKN debate XML this fetches.
-            text = content.decode(response.encoding or "utf-8", errors="replace")
+            text = content.decode(encoding or response.encoding or "utf-8", errors="replace")
             return text, raw_bytes
         except _RETRYABLE_EXC as exc:
             last_exc = exc

@@ -110,15 +110,9 @@ KNOWN_OPTIONAL: frozenset[str] = frozenset(
     }
 )
 
-# Parquet read at runtime by PYTHON core modules rather than by a SQL view. The view scan below
-# cannot see these, so without an entry here they fall through to `dead` ("untrack candidate") and
-# drop out of the shipped runtime set — the page that reads them then silently empties on Cloud,
-# which is exactly the failure the planning_appeal_outcomes .gitignore note describes.
-# Keep this list SHORT: a SQL view is still the preferred way to expose a fact.
-CORE_RUNTIME_READS: dict[str, str] = {
-    "data/silver/parquet/planning_acp_cases.parquet": "planning/product/core/precedents.py "
-    "(nearby appeal history on the siting-check page)",
-}
+# Public parquet reads from Python core modules rather than SQL views belong here.
+# Private overlays (including planning/product) are deliberately outside this public manifest.
+CORE_RUNTIME_READS: dict[str, str] = {}
 
 # Hand-curated ETL-input files kept deliberately for reproducibility — never read at runtime.
 # Seeded from doc/DATA_DISTRIBUTION_PLAN.md §"Candidate non-runtime": the per-source silver
