@@ -219,11 +219,18 @@ class Server:
         env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
         self._proc = subprocess.Popen(
             [
-                str(REPO / ".venv" / "Scripts" / "streamlit"), "run", str(APP_PY),
-                "--server.port", str(port), "--server.headless", "true",
+                str(REPO / ".venv" / "Scripts" / "streamlit"),
+                "run",
+                str(APP_PY),
+                "--server.port",
+                str(port),
+                "--server.headless",
+                "true",
             ],
-            cwd=REPO, env=env,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            cwd=REPO,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
@@ -432,8 +439,11 @@ def cmd_capture(args) -> int:
     from playwright.sync_api import sync_playwright
 
     routes = select_routes(
-        discover_routes(), only=args.route, include_hidden=args.include_hidden,
-        exclude=args.exclude, skip_heavy=not args.include_heavy,
+        discover_routes(),
+        only=args.route,
+        include_hidden=args.include_hidden,
+        exclude=args.exclude,
+        skip_heavy=not args.include_heavy,
     )
     viewports = [args.viewport] if args.viewport else list(VIEWPORTS)
     out_dir = _capture_dir(args)
@@ -459,9 +469,13 @@ def cmd_capture(args) -> int:
                 density = measure_density(page)
                 results.append(
                     {
-                        "route": route.url_path, "viewport": vp_name, "settled": state["settled"],
-                        "nodes": state.get("nodes"), "chars": state.get("chars"),
-                        "seconds": round(time.monotonic() - started, 1), "path": str(path.relative_to(REPO)),
+                        "route": route.url_path,
+                        "viewport": vp_name,
+                        "settled": state["settled"],
+                        "nodes": state.get("nodes"),
+                        "chars": state.get("chars"),
+                        "seconds": round(time.monotonic() - started, 1),
+                        "path": str(path.relative_to(REPO)),
                         **density,
                     }
                 )
@@ -469,7 +483,8 @@ def cmd_capture(args) -> int:
                 shape = (
                     f"  {density['screens']:>5.1f} screens  {density['chars_per_screen']:>5} ch/scr"
                     f"  fold: {density['above_fold_figures']:>3} figures"
-                    if density else ""
+                    if density
+                    else ""
                 )
                 print(f"  {vp_name:<8} /{route.url_path:<34} {results[-1]['seconds']:>5.1f}s{shape}{flag}")
             ctx.close()
@@ -503,18 +518,20 @@ def cmd_diff(args) -> int:
             continue
         a, b = Image.open(base_shot).convert("RGB"), Image.open(shot).convert("RGB")
         if a.size != b.size:
-            rows.append({"image": shot.name, "status": "size-changed", "ratio": None,
-                         "detail": f"{a.size} → {b.size}"})
+            rows.append({"image": shot.name, "status": "size-changed", "ratio": None, "detail": f"{a.size} → {b.size}"})
             continue
         diff = ImageChops.difference(a, b).convert("L")
         changed = sum(count for value, count in enumerate(diff.histogram()) if value > args.threshold)
         ratio = changed / (a.size[0] * a.size[1])
-        rows.append({"image": shot.name, "status": "changed" if ratio > args.min_ratio else "same",
-                     "ratio": round(ratio, 5)})
+        rows.append(
+            {"image": shot.name, "status": "changed" if ratio > args.min_ratio else "same", "ratio": round(ratio, 5)}
+        )
 
     for row in sorted(rows, key=lambda r: -(r["ratio"] or 1)):
         ratio = "  —  " if row["ratio"] is None else f"{row['ratio']:>7.3%}"
-        print(f"  {row['status']:<13} {ratio}  {row['image']}{'  ' + row.get('detail', '') if row.get('detail') else ''}")
+        print(
+            f"  {row['status']:<13} {ratio}  {row['image']}{'  ' + row.get('detail', '') if row.get('detail') else ''}"
+        )
     (run_dir / "diff.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
     moved = [r for r in rows if r["status"] in {"changed", "size-changed", "new"}]
     print(f"\n{len(moved)} of {len(rows)} image(s) differ from baseline")
@@ -534,12 +551,41 @@ _AXE_PATHS = (
 # An unattributed report reads as "80 accessibility problems" and buries the one
 # that can actually be fixed.
 OUR_CLASS_PREFIXES = (
-    "dt-", "site-", "section-", "stat-", "lob-", "lp3-", "att-", "part-", "pay-", "int-",
-    "mo-", "leg-", "q-", "vt-", "cmt-", "don-", "e24-", "jud-", "pr-", "mf-", "pp-",
-    "con-", "hou-", "lg-", "sup-", "td-",
+    "dt-",
+    "site-",
+    "section-",
+    "stat-",
+    "lob-",
+    "lp3-",
+    "att-",
+    "part-",
+    "pay-",
+    "int-",
+    "mo-",
+    "leg-",
+    "q-",
+    "vt-",
+    "cmt-",
+    "don-",
+    "e24-",
+    "jud-",
+    "pr-",
+    "mf-",
+    "pp-",
+    "con-",
+    "hou-",
+    "lg-",
+    "sup-",
+    "td-",
 )
 VENDOR_MARKERS = (
-    "st-emotion-cache", 'data-testid="st', "stApp", "rc-overflow", "rc-virtual", "glide-", "katex",
+    "st-emotion-cache",
+    'data-testid="st',
+    "stApp",
+    "rc-overflow",
+    "rc-virtual",
+    "glide-",
+    "katex",
     # Streamlit's short-form emotion classes (.st-ag, .st-c5) and its generated
     # tab ids (#tabs-bui11-tab-0). Without these they land in `unknown` and
     # inflate the "check by hand" bucket with things we cannot fix anyway.
@@ -591,8 +637,11 @@ def cmd_a11y(args) -> int:
         raise SystemExit("axe-core not installed. Run:  npm install --no-save axe-core")
 
     routes = select_routes(
-        discover_routes(), only=args.route, include_hidden=args.include_hidden,
-        exclude=args.exclude, skip_heavy=not args.include_heavy,
+        discover_routes(),
+        only=args.route,
+        include_hidden=args.include_hidden,
+        exclude=args.exclude,
+        skip_heavy=not args.include_heavy,
     )
     out_dir = RUNS_DIR / args.label
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -616,9 +665,12 @@ def cmd_a11y(args) -> int:
                 for target in violation["targets"]:
                     findings.append(
                         {
-                            "route": route.url_path, "id": violation["id"],
-                            "impact": violation["impact"], "help": violation["help"],
-                            "target": target, "owner": attribute(target),
+                            "route": route.url_path,
+                            "id": violation["id"],
+                            "impact": violation["impact"],
+                            "help": violation["help"],
+                            "target": target,
+                            "owner": attribute(target),
                         }
                     )
                     ours += attribute(target) == "ours"
@@ -632,8 +684,11 @@ def cmd_a11y(args) -> int:
     for owner in ("vendor", "unknown"):
         n = sum(1 for f in findings if f["owner"] == owner)
         if n:
-            print(f"  ({n} {owner} — Streamlit's own DOM, not fixable here)" if owner == "vendor"
-                  else f"  ({n} unattributed — check the selector by hand)")
+            print(
+                f"  ({n} {owner} — Streamlit's own DOM, not fixable here)"
+                if owner == "vendor"
+                else f"  ({n} unattributed — check the selector by hand)"
+            )
     if mine:
         # Grouped by rule + element: 71 instances of one rule on one card class is
         # ONE thing to fix, and printing it 71 times hides the other findings.
@@ -652,8 +707,11 @@ def cmd_probe(args) -> int:
     from playwright.sync_api import sync_playwright
 
     routes = select_routes(
-        discover_routes(), only=args.route, include_hidden=True,
-        exclude=args.exclude, skip_heavy=not args.include_heavy,
+        discover_routes(),
+        only=args.route,
+        include_hidden=True,
+        exclude=args.exclude,
+        skip_heavy=not args.include_heavy,
     )
     expression = Path(args.js_file).read_text(encoding="utf-8") if args.js_file else args.js
     if not expression:
@@ -690,7 +748,8 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("--include-hidden", action="store_true", help="also capture visibility='hidden' routes")
             sp.add_argument("--exclude", action="append", help="url_path to skip (repeatable)")
             sp.add_argument(
-                "--include-heavy", action="store_true",
+                "--include-heavy",
+                action="store_true",
                 help=f"also sweep the siting routes ({', '.join(sorted(HEAVY_ROUTES))}) — ~1.2 GB each",
             )
 

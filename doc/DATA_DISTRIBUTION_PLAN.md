@@ -34,9 +34,9 @@ An R2 mirror exists ([`tools/backup_to_r2.ps1`](../tools/backup_to_r2.ps1) — s
 [DATA_BACKUP.md](DATA_BACKUP.md)) — but it **cannot serve the runtime set as-is**, two
 reasons (both verified, both easy to miss):
 
-- It is **append-only** (`rclone copy --ignore-existing`, [backup_to_r2.ps1:9](../tools/backup_to_r2.ps1#L9)).
-  A *refreshed* parquet (same path) would never overwrite the stale R2 object — but a runtime
-  channel must serve the *current* table.
+- It is a **version-preserving archive** (`rclone sync --backup-dir`). It retains prior bytes,
+  but it is still not the runtime channel: the runtime-read set needs a separate manifest,
+  access policy, and fetch contract.
 - It mirrors **bronze + silver only, not gold** ([backup_to_r2.ps1:17](../tools/backup_to_r2.ps1#L17)
   — gold "is backed up by `git push`"). The runtime-read set is gold-heavy (101 runtime parquet,
   ~142 MB; gold dominates).

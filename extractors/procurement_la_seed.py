@@ -35,8 +35,8 @@ sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 from paths import runtime_path  # noqa: E402
+from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
 TMP = runtime_path("procurement_la")

@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 PYTHON = sys.executable
 UV = shutil.which("uv") or "uv"
 FAST_MARKERS = "not integration and not sql and not sources and not bronze and not layers"
@@ -239,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         args.remove("--dry-run")
 
     if name == "verify":
-        from verify_changed import main as verify_main
+        from tools.verify_changed import main as verify_main
 
         return verify_main(args)
     return run_task(name, tuple(args), dry_run=dry_run)

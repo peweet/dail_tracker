@@ -24,6 +24,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from reference.constituency_boundaries_extract import (  # noqa: E402
     _CONSTITUENCIES,
+)
+from reference.constituency_boundaries_extract import (
     build_outlines as build_constituency_outlines,
 )
 from reference.local_authority_boundaries_extract import (  # noqa: E402

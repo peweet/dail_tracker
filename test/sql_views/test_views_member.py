@@ -6,23 +6,21 @@ Split out of the former monolithic test_sql_views.py (REFACTORING_CANDIDATES C6)
 Shared fixtures/helpers live in _view_test_helpers.py.
 """
 
-
 import pytest
 
 from ._view_test_helpers import (
     _DATA_BASE,
-    MEMBER_PARQUET,
-    EXTERNAL_LINKS_PARQUET,
     CONTACT_DETAILS_PARQUET,
+    EXTERNAL_LINKS_PARQUET,
+    MEMBER_PARQUET,
     SILVER_PARQUET_DIR,
+    _assert_cols,
     _con,
     _load,
-    _skip_missing,
     _result,
+    _skip_missing,
     _src,
-    _assert_cols,
 )
-
 
 # ---------------------------------------------------------------------------
 # MEMBER REGISTRY

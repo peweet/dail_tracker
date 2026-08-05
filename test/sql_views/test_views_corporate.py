@@ -6,20 +6,18 @@ Split out of the former monolithic test_sql_views.py (REFACTORING_CANDIDATES C6)
 Shared fixtures/helpers live in _view_test_helpers.py.
 """
 
-
 import pytest
 
 from ._view_test_helpers import (
     DATA_DIR,
     GOLD_PARQUET_DIR,
+    _assert_cols,
     _con,
     _load,
-    _skip_missing,
     _result,
+    _skip_missing,
     _src,
-    _assert_cols,
 )
-
 
 # ---------------------------------------------------------------------------
 # CORPORATE VIEWS  (Iris Oifigiúil distress / register notices)

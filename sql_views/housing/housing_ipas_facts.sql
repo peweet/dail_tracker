@@ -30,8 +30,8 @@ SELECT
     subject,
     metric,
     value_numeric,
-    value_text,
-    unit,
+    CASE WHEN lower(trim(value_text)) IN ('-', 'n/a') THEN NULL ELSE value_text END AS value_text,
+    CASE WHEN lower(trim(unit)) IN ('-', 'n/a') THEN NULL ELSE unit END AS unit,
     qualifier,
     period,
     scope,
@@ -40,6 +40,6 @@ SELECT
     page,
     ref,
     source_url,
-    confidence,
+    CASE WHEN lower(trim(confidence)) IN ('-', 'n/a') THEN NULL ELSE confidence END AS confidence,
     value_safe_to_sum
 FROM read_parquet('data/gold/parquet/ipas_facts.parquet');

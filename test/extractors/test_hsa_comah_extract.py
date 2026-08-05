@@ -54,4 +54,4 @@ def test_region_link_regex_matches_both_tiers():
     )
     links = _REGION_LINK.findall(html)
     assert len(links) == 2
-    assert all("_tier_establishments_in_" in l for l in links)
+    assert all("_tier_establishments_in_" in link for link in links)

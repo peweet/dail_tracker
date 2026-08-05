@@ -249,14 +249,14 @@ def model_fallback(e: pl.DataFrame, subject_col: str = "subject") -> pl.DataFram
     margins = clf.decision_function(vec.transform(other[subject_col].to_list()))
     top = margins.max(axis=1)
     pred = clf.predict(vec.transform(other[subject_col].to_list()))
-    assign = [
-        p if p in MODEL_GATES and t >= MODEL_GATES[p] else None
-        for p, t in zip(pred, top, strict=True)
-    ]
+    assign = [p if p in MODEL_GATES and t >= MODEL_GATES[p] else None for p, t in zip(pred, top, strict=True)]
     other = other.with_columns(pl.Series("_model_class", assign, dtype=pl.String))
     n_assigned = other["_model_class"].is_not_null().sum()
-    log.info("model fallback: %d of %d 'other' rows reclassified (per-class gates; "
-             "external_meeting excluded)", n_assigned, len(other))
+    log.info(
+        "model fallback: %d of %d 'other' rows reclassified (per-class gates; external_meeting excluded)",
+        n_assigned,
+        len(other),
+    )
     # positional join back — entry_id is stamped LATER in the chain, so the row
     # index (added before the filter) is the only always-present stable key here
     e = e.join(other.select(["_row_idx", "_model_class"]), on="_row_idx", how="left")

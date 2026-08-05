@@ -60,10 +60,7 @@ def test_classify_import_statement_is_py_deps():
 
 def test_classify_unscoped_phrase_files_mode_is_search_project():
     mod = _load()
-    assert (
-        mod._classify({"pattern": "flood risk assessment", "output_mode": "files_with_matches"})
-        == "search_project"
-    )
+    assert mod._classify({"pattern": "flood risk assessment", "output_mode": "files_with_matches"}) == "search_project"
 
 
 def test_classify_scoped_or_regex_greps_stay_silent():

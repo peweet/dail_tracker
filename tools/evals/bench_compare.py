@@ -48,11 +48,7 @@ def seq_agreement(seqs: list[list[str]]) -> float | None:
     """Mean pairwise SequenceMatcher ratio over tool-name sequences (1.0 = identical)."""
     if len(seqs) < 2:
         return None
-    ratios = [
-        SequenceMatcher(a=seqs[i], b=seqs[j]).ratio()
-        for i in range(len(seqs))
-        for j in range(i + 1, len(seqs))
-    ]
+    ratios = [SequenceMatcher(a=seqs[i], b=seqs[j]).ratio() for i in range(len(seqs)) for j in range(i + 1, len(seqs))]
     return round(sum(ratios) / len(ratios), 3)
 
 
@@ -67,15 +63,9 @@ def first2_modal_share(seqs: list[list[str]]) -> str | None:
 def arm_stats(rows: list[dict]) -> dict:
     out: dict = {"n": len(rows), "head": rows[0].get("git_head")}
     for m in METRICS:
-        vals = [
-            v
-            for r in rows
-            if (v := (fresh_tokens(r) if m == "fresh_tokens" else r.get(m))) is not None
-        ]
+        vals = [v for r in rows if (v := (fresh_tokens(r) if m == "fresh_tokens" else r.get(m))) is not None]
         out[m] = (
-            {"median": round(median(vals), 4), "min": min(vals), "max": max(vals), "n": len(vals)}
-            if vals
-            else None
+            {"median": round(median(vals), 4), "min": min(vals), "max": max(vals), "n": len(vals)} if vals else None
         )
     seqs = [r.get("tool_sequence") or [] for r in rows]
     out["tool_seq_agreement"] = seq_agreement(seqs)
@@ -113,15 +103,15 @@ def compare(rows: list[dict], candidate: str, min_runs: int) -> list[str]:
     arms: dict[str, list[dict]] = {}
     for r in grp:  # insertion order = ts order (append-only log)
         arms.setdefault(r.get("git_head"), []).append(r)
-    lines = [f"{candidate} | prompt {key[0]} | model {key[1]}"
-             + (f" | {skipped} row(s) under other prompt/model ignored" if skipped else "")]
+    lines = [
+        f"{candidate} | prompt {key[0]} | model {key[1]}"
+        + (f" | {skipped} row(s) under other prompt/model ignored" if skipped else "")
+    ]
     for head, arm in arms.items():
         s = arm_stats(arm)
         lines.append(
             f"  arm {head} n={s['n']}: "
-            + "  ".join(
-                f"{m} {s[m]['median']:g} [{s[m]['min']:g}-{s[m]['max']:g}]" for m in METRICS if s[m]
-            )
+            + "  ".join(f"{m} {s[m]['median']:g} [{s[m]['min']:g}-{s[m]['max']:g}]" for m in METRICS if s[m])
             + f"  | tool_seq agreement {s['tool_seq_agreement']} first2 {s['first2_modal']}"
         )
         if s["n"] < min_runs:

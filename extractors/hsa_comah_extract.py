@@ -59,10 +59,7 @@ from services.parquet_io import save_parquet  # noqa: E402
 
 LOG = logging.getLogger("hsa_comah")
 
-_BASE = (
-    "https://www.hsa.ie/eng/your_industry/chemicals/legislation_enforcement/comah/"
-    "information_to_the_public/"
-)
+_BASE = "https://www.hsa.ie/eng/your_industry/chemicals/legislation_enforcement/comah/information_to_the_public/"
 # Region pages are DISCOVERED from each tier's index page at runtime — the two tiers group
 # counties differently (e.g. upper "dublin_louth_kildare" vs lower "dublin_louth"), the lower
 # index even links two Galway variants, and hardcoded slugs silently 404'd on first build
@@ -128,8 +125,10 @@ def _nominatim_query(query: str, cache: dict) -> dict | None:
     wait = _NOMINATIM_MIN_INTERVAL - (time.monotonic() - _last_request_ts)
     if wait > 0:
         time.sleep(wait)
-    url = _NOMINATIM + "?" + urlencode(
-        {"q": query, "format": "jsonv2", "countrycodes": "ie", "limit": 1, "addressdetails": 0}
+    url = (
+        _NOMINATIM
+        + "?"
+        + urlencode({"q": query, "format": "jsonv2", "countrycodes": "ie", "limit": 1, "addressdetails": 0})
     )
     data = fetch_bytes(url, headers=polite_headers(), curl_fallback=False)
     _last_request_ts = time.monotonic()
@@ -179,8 +178,7 @@ def geocode_unmatched(df: pl.DataFrame) -> pl.DataFrame:
             row["geocode_source"] = "name_join"
             row["geocode_precision"] = "site"
             row["geocode_note"] = (
-                f"EPA licensed-facility point ({row['epa_reg_cd']}, token overlap "
-                f"{row['match_score']})"
+                f"EPA licensed-facility point ({row['epa_reg_cd']}, token overlap {row['match_score']})"
             )
             out_rows.append(row)
             continue
@@ -199,8 +197,7 @@ def geocode_unmatched(df: pl.DataFrame) -> pl.DataFrame:
             row["geocode_source"] = "nominatim"
             row["geocode_precision"] = precision
             row["geocode_note"] = (
-                f"Nominatim {precision} match ({hit['osm_type']}/{hit['type']}): "
-                f"{hit['display_name'][:120]}"
+                f"Nominatim {precision} match ({hit['osm_type']}/{hit['type']}): {hit['display_name'][:120]}"
             )
         else:
             row["geocode_source"] = None
@@ -249,9 +246,7 @@ def fetch_register() -> tuple[pl.DataFrame, list[str]]:
     dead_links: list[str] = []
     for tier, index_path in _TIER_INDEX.items():
         index_html = _fetch_page(_BASE + index_path)
-        links = sorted(
-            {link for link in _REGION_LINK.findall(index_html) if f"{tier}_tier_establishments_in_" in link}
-        )
+        links = sorted({link for link in _REGION_LINK.findall(index_html) if f"{tier}_tier_establishments_in_" in link})
         if not links:
             raise SystemExit(f"{tier}-tier index page listed no region links — page moved?")
         for link in links:
@@ -266,9 +261,7 @@ def fetch_register() -> tuple[pl.DataFrame, list[str]]:
                 dead_links.append(url)
                 continue
             for name, addr in page_rows:
-                rows.append(
-                    {"establishment": name, "address": addr, "tier": tier, "region": region}
-                )
+                rows.append({"establishment": name, "address": addr, "tier": tier, "region": region})
     # the lower index links overlapping Galway variants — dedupe on establishment identity
     df = pl.DataFrame(rows).unique(subset=["establishment", "address", "tier"], keep="first")
     for tier, floor in _FLOOR.items():
@@ -359,9 +352,7 @@ def main() -> None:
     spatial = df.filter(pl.col("lat").is_not_null())
     spatial = spatial.with_columns(
         pl.struct(["lon", "lat"])
-        .map_elements(
-            lambda s: shapely.to_wkb(shapely.Point(s["lon"], s["lat"])), return_dtype=pl.Binary
-        )
+        .map_elements(lambda s: shapely.to_wkb(shapely.Point(s["lon"], s["lat"])), return_dtype=pl.Binary)
         .alias("wkb")
     ).drop("lon", "lat")
     save_parquet(spatial, _OUT_LAYER)

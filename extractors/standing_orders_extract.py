@@ -10,6 +10,7 @@ directly by extractors/councillors_promote_to_gold.py. Verbatim excerpts (displa
 project's no-inference rule). Graduated from the sandbox 2026-08-01 — see
 test_standing_orders_extract.py for the pinned parsing logic.
 """
+
 from __future__ import annotations
 
 import csv
@@ -62,7 +63,7 @@ def find_so_pdf(seed: str) -> str | None:
 def clause(text: str, *keywords: str, window: int = 320) -> str:
     """Return the first verbatim clause around any keyword (cleaned)."""
     for kw in keywords:
-        m = re.search(r"[^.]{0,40}\b" + kw + r"\b[^.]{0,%d}\." % window, text, re.I)
+        m = re.search(r"[^.]{0,40}\b" + kw + rf"\b[^.]{{0,{window}}}\.", text, re.I)
         if m:
             return re.sub(r"\s+", " ", m.group(0)).strip()[:window]
     return ""
@@ -78,12 +79,14 @@ def order_of_business(text: str) -> list[str]:
     for it in items:
         s = re.sub(r"\s+", " ", it).strip(" .;")
         if s and s not in seen:
-            seen.add(s); out.append(s)
+            seen.add(s)
+            out.append(s)
     return out[:10]
 
 
 def parse_so(la: str, url: str) -> dict:
     import fitz  # noqa: PLC0415
+
     r = get(url, 50)
     if not r:
         return {"local_authority": la, "source_url": url, "status": "fetch_fail"}
@@ -95,9 +98,14 @@ def parse_so(la: str, url: str) -> dict:
     if len(text) < 800:
         return {"local_authority": la, "source_url": url, "status": "scanned_or_thin", "chars": len(text)}
     voting = clause(text, "roll call", "recorded vote", "show of hands", "by a division", "Divisions")
-    records_named = bool(re.search(r"roll[\s-]?call|recorded vote|names?.{0,30}recorded|voting.{0,20}by name", text, re.I))
+    records_named = bool(
+        re.search(r"roll[\s-]?call|recorded vote|names?.{0,30}recorded|voting.{0,20}by name", text, re.I)
+    )
     return {
-        "local_authority": la, "source_url": url, "status": "ok", "n_pages": len(doc),
+        "local_authority": la,
+        "source_url": url,
+        "status": "ok",
+        "n_pages": len(doc),
         "order_of_business": order_of_business(text),
         "notice_of_motion": clause(text, "Notice of Motion", "notices of motion", window=360),
         "voting": voting,
@@ -118,7 +126,8 @@ CURATED = {
 
 
 def main():
-    councils = list(csv.DictReader(open(HERE / "council_seeds.csv", encoding="utf-8")))
+    with (HERE / "council_seeds.csv").open(encoding="utf-8") as handle:
+        councils = list(csv.DictReader(handle))
     rows = []
     for c in councils:
         la, seed = c["local_authority"], c["seed_url"]
@@ -134,14 +143,19 @@ def main():
             continue
         rec = parse_so(la, url)
         rows.append(rec)
-        print(f"{la:24} {rec['status']:14} OoB={len(rec.get('order_of_business',[]))} "
-              f"NoM={'Y' if rec.get('notice_of_motion') else '-'} vote={'Y' if rec.get('voting') else '-'} "
-              f"named_votes={rec.get('records_named_votes','')}")
+        print(
+            f"{la:24} {rec['status']:14} OoB={len(rec.get('order_of_business', []))} "
+            f"NoM={'Y' if rec.get('notice_of_motion') else '-'} vote={'Y' if rec.get('voting') else '-'} "
+            f"named_votes={rec.get('records_named_votes', '')}"
+        )
     (HERE / "standing_orders.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8"
+    )
     ok = [r for r in rows if r.get("status") == "ok"]
-    print(f"\nstanding_orders.jsonl: {len(ok)}/{len(rows)} councils parsed; "
-          f"{sum(r.get('records_named_votes') for r in ok)} have recorded/named-vote standing orders")
+    print(
+        f"\nstanding_orders.jsonl: {len(ok)}/{len(rows)} councils parsed; "
+        f"{sum(r.get('records_named_votes') for r in ok)} have recorded/named-vote standing orders"
+    )
 
 
 if __name__ == "__main__":

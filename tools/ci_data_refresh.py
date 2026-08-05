@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from collections.abc import Iterable
+from pathlib import Path
 
-try:  # ``python tools/ci_data_refresh.py`` runs with ``tools`` on sys.path.
-    from tools.publish_data import PUBLISH_PATHS
-except ModuleNotFoundError:  # pragma: no cover - exercised by the workflow invocation
-    from publish_data import PUBLISH_PATHS  # type: ignore[no-redef]
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.publish_data import PUBLISH_PATHS  # noqa: E402
 
 
 def is_publish_path(path: str) -> bool:

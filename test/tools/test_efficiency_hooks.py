@@ -281,11 +281,14 @@ def test_discovery_hint_caps_rows_and_fails_open(tmp_path, monkeypatch, capsys):
     )
     monkeypatch.setattr(hint, "DATA", str(rows))
 
-    assert _run(
-        hint,
-        {"prompt": "Review the planning evidence for this proposal.", "session_id": uuid.uuid4().hex},
-        monkeypatch,
-    ) == 0
+    assert (
+        _run(
+            hint,
+            {"prompt": "Review the planning evidence for this proposal.", "session_id": uuid.uuid4().hex},
+            monkeypatch,
+        )
+        == 0
+    )
     context = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
     assert context.count("\n-") == hint.MAX_ROWS
     assert "lesson-2" not in context

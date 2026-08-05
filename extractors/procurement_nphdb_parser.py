@@ -45,8 +45,8 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from services.parquet_io import save_parquet  # noqa: E402
 from paths import runtime_path  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")

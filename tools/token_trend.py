@@ -1,4 +1,5 @@
 """Weekly token-spend + adoption trend from session transcripts. Prints aggregates only."""
+
 import json
 from collections import defaultdict
 from datetime import datetime
@@ -66,16 +67,19 @@ for f in TDIR.rglob("*.jsonl"):  # rglob: subagent transcripts live in per-sessi
                     elif n in ("Agent", "Task"):
                         wk[week]["agents"] += 1
 
-print(f"{'week':>9} {'turns':>6} {'fresh/turn':>10} {'out(M)':>7} {'cacheRd(M)':>10} "
-      f"{'est$':>7} {'raw':>5} {'mcp':>4} {'agents':>6}")
+print(
+    f"{'week':>9} {'turns':>6} {'fresh/turn':>10} {'out(M)':>7} {'cacheRd(M)':>10} "
+    f"{'est$':>7} {'raw':>5} {'mcp':>4} {'agents':>6}"
+)
 for week in sorted(wk):
     w = wk[week]
     t = max(w["turns"], 1)
-    print(f"{week:>9} {int(w['turns']):>6} {w['fresh_in'] / t:>10,.0f} {w['out'] / 1e6:>7.2f} "
-          f"{w['cache_read'] / 1e6:>10.0f} {w['cost']:>7.0f} {int(w['raw_nav']):>5} "
-          f"{int(w['mcp']):>4} {int(w['agents']):>6}")
+    print(
+        f"{week:>9} {int(w['turns']):>6} {w['fresh_in'] / t:>10,.0f} {w['out'] / 1e6:>7.2f} "
+        f"{w['cache_read'] / 1e6:>10.0f} {w['cost']:>7.0f} {int(w['raw_nav']):>5} "
+        f"{int(w['mcp']):>4} {int(w['agents']):>6}"
+    )
 
 if unknown_models:
     tops = sorted(unknown_models.items(), key=lambda kv: -kv[1])[:4]
-    print("\nmodels priced at sonnet tier (no known rate):",
-          ", ".join(f"{m} ({c}t)" for m, c in tops))
+    print("\nmodels priced at sonnet tier (no known rate):", ", ".join(f"{m} ({c}t)" for m, c in tops))

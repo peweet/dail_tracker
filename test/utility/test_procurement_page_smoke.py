@@ -35,7 +35,19 @@ from dail_tracker_core.results import QueryResult  # noqa: E402
 # real fetcher (page.py routes, browse.py ranks, pay_profiles.py renders, …).
 _PR_MODULES = [procurement] + [
     getattr(procurement, m)
-    for m in ("page", "browse", "payments", "pay_profiles", "councils", "national", "ted", "tenders", "profiles", "patterns", "_shared")
+    for m in (
+        "page",
+        "browse",
+        "payments",
+        "pay_profiles",
+        "councils",
+        "national",
+        "ted",
+        "tenders",
+        "profiles",
+        "patterns",
+        "_shared",
+    )
 ]
 
 

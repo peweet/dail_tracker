@@ -28,7 +28,7 @@ import os
 import re
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _TRIAL_LOG = os.path.join(_REPO, "logs", "grep_vs_index_trial.jsonl")
@@ -116,7 +116,7 @@ def _log_trial(session: str, category: str, nudged: bool, pattern: str) -> None:
     """
     try:
         row = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "session": session[:12],
             "category": category,
             "nudged": nudged,

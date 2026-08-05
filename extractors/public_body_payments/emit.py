@@ -24,29 +24,30 @@ import polars as pl
 from shared.name_norm import name_norm_expr
 
 from .config import PARSER_VERSION
-from .readers import (
-    clean_supplier,
-    detect_roles_tab,
-    period_from_url,
-    read_csv,
-    read_pdf,
-    read_pdf_reading_order_fallback,
-    read_xls,
-    read_xlsx,
-    to_eur,
-)
+
 # The bespoke reading-order readers below are never called by NAME in this file's own
 # source text -- _RO_SPECS (below) resolves them via ``globals()[spec["fn"]]`` at run
 # time, so ruff's static F401 check cannot see the use. Each MUST stay imported under
 # its bare name (not module-qualified) for that dispatch to find it; do not remove.
-from .readers import read_courts  # noqa: F401
-from .readers import read_culture  # noqa: F401
-from .readers import read_defence  # noqa: F401
-from .readers import read_dper  # noqa: F401
-from .readers import read_housing  # noqa: F401
-from .readers import read_reading_order  # noqa: F401
-from .readers import read_revenue  # noqa: F401
-from .readers import read_tailte  # noqa: F401
+from .readers import (
+    clean_supplier,
+    detect_roles_tab,
+    period_from_url,
+    read_courts,  # noqa: F401
+    read_csv,
+    read_culture,  # noqa: F401
+    read_defence,  # noqa: F401
+    read_dper,  # noqa: F401
+    read_housing,  # noqa: F401
+    read_pdf,
+    read_pdf_reading_order_fallback,
+    read_reading_order,  # noqa: F401
+    read_revenue,  # noqa: F401
+    read_tailte,  # noqa: F401
+    read_xls,
+    read_xlsx,
+    to_eur,
+)
 
 # ----------------------------------------------------------------------------- regexes
 # A multi-word alphabetic string (e.g. "AN POST", "AIRNAV IRELAND") — used to recover a supplier

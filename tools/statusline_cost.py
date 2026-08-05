@@ -16,6 +16,7 @@ Fails open: any error prints a bare fallback and exits 0.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 import tempfile
@@ -43,7 +44,7 @@ def _fmt_tok(n: float) -> str:
 
 def main() -> int:
     try:
-        payload = json.loads(sys.stdin.read().lstrip('\ufeff') or "{}")
+        payload = json.loads(sys.stdin.read().lstrip("\ufeff") or "{}")
         tp = payload.get("transcript_path") or ""
         sid = str(payload.get("session_id") or "unknown")[:36]
         model_label = ((payload.get("model") or {}).get("id") or "").replace("claude-", "")
@@ -89,19 +90,17 @@ def main() -> int:
                 state["cache_read"] += cr
                 state["cost"] += (inp * ri + out * ro + cw * rcw + cr * rcr) / 1e6
             state["offset"] = int(state["offset"]) + last_nl + 1
-            try:
+            with contextlib.suppress(Exception):
                 cache_file.write_text(json.dumps(state), encoding="utf-8")
-            except Exception:
-                pass
 
         print(
-            f"est ${state['cost']:.2f} | out {_fmt_tok(state['out'])} | "
-            f"turns {state['turns']} | {model_label or '?'}"
+            f"est ${state['cost']:.2f} | out {_fmt_tok(state['out'])} | turns {state['turns']} | {model_label or '?'}"
         )
         return 0
     except Exception:
         import os
         import traceback
+
         if os.environ.get("STATUSLINE_DEBUG"):
             traceback.print_exc()
         print("statusline n/a")

@@ -182,7 +182,7 @@ shows old "data as of" dates. Most likely for the **manual / off-box** sources.
 - **Row-floor bypass** — `DAIL_SKIP_ROW_FLOOR=1` env var. Deliberate, scoped writes only.
 - **Restore a single good parquet from git** — `git checkout HEAD -- <path/to.parquet>`
   (or an earlier commit). The fastest "undo a bad write" for a git-tracked fact.
-- **Restore from R2** (bronze/silver only) — see `doc/DISASTER_RECOVERY.md`; `rclone` pull,
+- **Restore from R2** (bronze/silver/raw_bq) — see `doc/DISASTER_RECOVERY.md`; `rclone` pull,
   then re-verify with `tools/data_manifest.py --check` (re-hashes against
   `backup_manifest.tsv`). R2 is append-only (`--ignore-existing`), so prior captures survive.
 - **Update a baseline after an intended change** —

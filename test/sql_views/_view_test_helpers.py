@@ -161,5 +161,3 @@ def _fixture_only():
     fixture — they don't hold against real pipeline output in integration mode."""
     if _USE_REAL_PATHS:
         pytest.skip("exact-value assertions are calibrated to the synthetic fixture (unset DAIL_INTEGRATION_TESTS)")
-
-

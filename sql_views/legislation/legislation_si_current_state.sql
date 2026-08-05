@@ -25,7 +25,7 @@ SELECT
     affecting_sis,
     affecting_si_urls,
     this_si_eli_url,
-    how_affected_raw,
+    CASE WHEN lower(trim(how_affected_raw)) IN ('none', 'n/a') THEN NULL ELSE how_affected_raw END AS how_affected_raw,
     state_source,
     state_source_url,
     directory_updated_to,

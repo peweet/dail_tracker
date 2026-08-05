@@ -6,14 +6,16 @@ The capability control distinguishes steering failure from missing MCP wiring.
 """
 
 import json
+import sys
 from pathlib import Path
 
 import anyio
 
-try:
-    from .provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
-except ImportError:  # direct script execution
-    from provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from tools.evals.provider_adapter import EvalRequest, dail_tracker_mcp, run_eval  # noqa: E402
 
 NAV = {
     "mcp__dail-tracker__describe_dataset",

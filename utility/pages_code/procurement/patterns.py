@@ -55,7 +55,6 @@ from ._shared import (
 from .payments import _paid_pill, _paid_publisher_href
 
 
-
 def _entity_search_hero() -> None:
     """Search-first entry (USAspending lesson: people type a NAME first). One box over
     suppliers + public bodies + categories — the reader never needs to know which register
@@ -308,8 +307,7 @@ def _render_patterns() -> None:
             supplier = company_link_html(r.supplier_norm, r.supplier, css_class="pr-auth-link")
             buyer = _authority_link(r.contracting_authority)
             name_html = (
-                f"<span>{supplier}</span>"
-                f'<span class="pr-sub">{_awards_word(_n(r.n_awards))} from {buyer}</span>'
+                f'<span>{supplier}</span><span class="pr-sub">{_awards_word(_n(r.n_awards))} from {buyer}</span>'
             )
             meta = f"{_n(r.first_year)}–{_n(r.last_year)}"
             pills = [f'<span class="pr-pill pr-pill-val">{yrs} winning years</span>'] + ([badge] if badge else [])

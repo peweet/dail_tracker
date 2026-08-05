@@ -44,10 +44,7 @@ from datetime import UTC, datetime  # noqa: E402
 
 import anyio  # noqa: E402
 
-try:  # noqa: E402
-    from .provider_adapter import EvalRequest, EvalResult, run_eval
-except ImportError:  # direct script execution  # noqa: E402
-    from provider_adapter import EvalRequest, EvalResult, run_eval
+from tools.evals.provider_adapter import EvalRequest, EvalResult, run_eval  # noqa: E402
 
 PROMPT_DIR = REPO / "tools" / "evals" / "bench_prompts"
 LOG_PATH = REPO / "logs" / "cost_of_change.jsonl"
@@ -184,13 +181,10 @@ async def run_one(
     selfreport = _parse_selfreport(final_text)
     usage = dict(result.usage) if result else {}
     total_input = sum(
-        usage.get(k) or 0
-        for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
+        usage.get(k) or 0 for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
     )
     selfreport_chars = (
-        sum(f.get("chars") or 0 for f in selfreport.get("files_read", []))
-        if isinstance(selfreport, dict)
-        else None
+        sum(f.get("chars") or 0 for f in selfreport.get("files_read", [])) if isinstance(selfreport, dict) else None
     )
     row = {
         "ts": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -238,9 +232,7 @@ async def run_one(
         # take the max across the sibling report_*.py modules too so the label reflects the
         # actual largest file, not just the shim.
         if primary.endswith("report.py"):
-            siblings = _git(
-                ["ls-tree", "--name-only", ref, f"{Path(primary).parent}/"], git_dir=git_dir
-            ).splitlines()
+            siblings = _git(["ls-tree", "--name-only", ref, f"{Path(primary).parent}/"], git_dir=git_dir).splitlines()
             sib_locs = [
                 len(_git(["show", f"{ref}:{name}"], git_dir=git_dir).splitlines())
                 for name in siblings
@@ -263,16 +255,20 @@ async def main() -> None:
     ap.add_argument("--smoke", action="store_true", help="run plumbing check only")
     ap.add_argument("--keep-worktree", action="store_true")
     ap.add_argument(
-        "--runs", type=int, default=1,
+        "--runs",
+        type=int,
+        default=1,
         help="repeats per candidate (>=5 for a decidable A/B — see bench_compare.py)",
     )
     ap.add_argument(
-        "--ref", default="HEAD",
+        "--ref",
+        default="HEAD",
         help="git ref the worktree is created from — lets an arm run at its exact "
         "before/after commit (rows record rev-parse of this ref as git_head)",
     )
     ap.add_argument(
-        "--git-dir", default=None,
+        "--git-dir",
+        default=None,
         help="alternate --git-dir to worktree from (e.g. .git-siting) for a candidate whose "
         "primary_file lives in a path the main .git ignores — see the git_siting alias",
     )
@@ -281,15 +277,15 @@ async def main() -> None:
     if args.smoke:
         jobs = [("SMOKE", SMOKE_PROMPT)]
     else:
-        names = list(CANDIDATES) if args.candidates == "all" else [
-            c.strip() for c in args.candidates.split(",") if c.strip()
-        ]
+        names = (
+            list(CANDIDATES)
+            if args.candidates == "all"
+            else [c.strip() for c in args.candidates.split(",") if c.strip()]
+        )
         unknown = [c for c in names if c not in CANDIDATES]
         if unknown or not names:
             ap.error(f"unknown/empty candidates: {unknown or '(none given)'}")
-        jobs = [
-            (c, (PROMPT_DIR / CANDIDATES[c][0]).read_text(encoding="utf-8")) for c in names
-        ]
+        jobs = [(c, (PROMPT_DIR / CANDIDATES[c][0]).read_text(encoding="utf-8")) for c in names]
 
     git_dir = str((REPO / args.git_dir).resolve()) if args.git_dir else None
 
@@ -303,9 +299,7 @@ async def main() -> None:
                 f"ref={args.ref}, max_turns={max_turns}) ===",
                 flush=True,
             )
-            row = await run_one(
-                cand, prompt, args.model, max_turns, args.keep_worktree, ref=args.ref, git_dir=git_dir
-            )
+            row = await run_one(cand, prompt, args.model, max_turns, args.keep_worktree, ref=args.ref, git_dir=git_dir)
             with LOG_PATH.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
             summary = {

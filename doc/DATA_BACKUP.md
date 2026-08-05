@@ -10,15 +10,10 @@ key: PLAN|LIVE|infra
 
 # Data backup — off-box durability for the 9 GB of raw + derived data
 
-> **Tooling note (2026-08-01):** `restic` 0.19.1 is now installed on this machine
-> (`winget install --id restic.restic`, resolves to
-> `%LOCALAPPDATA%\Microsoft\WinGet\Packages\restic.restic_Microsoft.Winget.Source_8wekyb3d8bbwe\`)
-> as a prerequisite for a planned migration to encrypted, deduplicated, compressed
-> backups (restic speaks S3 natively, so it targets the same R2 bucket). **The live
-> backup mechanism described below — the plain `rclone` mirror — is unchanged and
-> still what runs weekly.** No restic repository has been initialized, no data has
-> been backed up with it yet, and nothing here should be treated as restorable via
-> restic until that migration is actually built and drilled.
+> **Two backup lanes:** this document covers the R2 data lane. The encrypted restic
+> lane separately protects `planning/` and the rest of the checkout; register it
+> with `tools\register_restic_task.ps1` and restore it as described in
+> [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md).
 
 ## The problem this solves
 
@@ -38,16 +33,15 @@ some SIPO candidate documents already return 403. Once gone upstream, a lost loc
 copy is gone for good. The silver OCR layer is reproducible in theory but
 PaddleOCR hard-crashes this box, so regenerating it is genuinely painful.
 
-This setup mirrors `data/bronze` + `data/silver` to **Cloudflare R2** — first 10 GB
-free, zero egress fees, S3-compatible.
+This setup mirrors `data/bronze`, `data/silver`, and `data/raw_bq` to **Cloudflare
+R2** — first 10 GB free, zero egress fees, S3-compatible.
 
-The backup is **append-only**: `rclone copy --ignore-existing` uploads anything not
-already in the bucket and never overwrites or deletes what is. Our captures are
-date/run-stamped (e.g. `companies_20260504.csv`), so when a council re-publishes a
-PDF it arrives under a new filename and lands as a new object next to the old one —
-nothing is lost, and we don't need object versioning (which R2 lacks anyway:
-`PutBucketVersioning` is [unimplemented](https://developers.cloudflare.com/r2/api/s3/api/)).
-Leave **Bucket Lock Rules** off.
+The backup is **version-preserving**: `rclone sync --backup-dir` updates the normal
+restore path, but moves every displaced remote object to `versions/<UTC run id>/`
+first. This preserves a source or silver output that changes at the same path;
+`--ignore-existing` would not. R2 object versioning is unavailable, so do not remove
+the `versions/` archive by hand. A dated manifest is uploaded to `manifests/` for
+each successful run.
 
 ## One-time setup
 
@@ -106,9 +100,11 @@ tools\register_backup_task.ps1     # weekly Sun 02:00 thereafter
    bronze/silver file). It's the restore-verification record and a change log:
    `git diff` on it shows exactly which files were added or changed since last run.
    Optional — skip with `-SkipManifest` if you want the leanest possible backup.
-2. **`rclone copy --ignore-existing`** of `data/bronze` and `data/silver` into
-   `r2:dail-tracker-backup/`. Additive only: new files go up, existing objects are
-   never touched, nothing is deleted.
+2. **`rclone sync --backup-dir`** of `data/bronze`, `data/silver`, and
+   `data/raw_bq` into `r2:dail-tracker-backup/`. The normal paths are current; prior
+   versions displaced by an update are retained under `versions/<UTC run id>/`.
+   The script then size-checks every current source path against R2 and uploads its
+   matching SHA-256 manifest under `manifests/`.
 
 Logs: a one-line run summary at `logs/standalone/backup_to_r2.log`; full rclone
 transfer detail at `logs/standalone/backup_to_r2.rclone.log`.
@@ -125,16 +121,17 @@ cd dail_tracker
 # ... recreate the venv (uv sync), reinstall + reconfigure rclone (steps 1 & 4) ...
 rclone copy r2:dail-tracker-backup/bronze data\bronze
 rclone copy r2:dail-tracker-backup/silver data\silver
-python tools\data_manifest.py --check   # exit 0 == every file matches the committed hashes
+rclone copy r2:dail-tracker-backup/raw_bq data\raw_bq
+rclone copyto r2:dail-tracker-backup/manifests/latest.tsv data\_meta\backup_manifest.tsv
+python tools\data_manifest.py --check   # exit 0 == every file matches the backup hashes
 ```
 
 The `--check` step is the proof of a clean restore: it re-hashes the restored
 trees and fails if any file differs from the committed manifest.
 
-Because the backup is append-only, **every version of a file you ever captured is
-already in the bucket under its own (date-stamped) name** — recovering an old
-council PDF is just copying that specific object back; there is no separate archive
-to dig through.
+Older bytes displaced by a refresh are in `versions/<UTC run id>/`; recover a
+specific older object from that archive rather than replacing the current restore
+path blindly.
 
 ## Cost
 
@@ -149,6 +146,5 @@ large, add an R2 **Object Lifecycle** rule to expire objects older than N days.
   to rebuild from code + bronze. The runtime gold slice and curated `_meta` are
   already in git. If you'd rather have a fully self-contained restore without git,
   add `_meta` and `gold` as extra `foreach` trees in `backup_to_r2.ps1`.
-- This is an **append-only mirror**: it accumulates every capture and never deletes.
-  Combined with the date-stamped capture names, that gives you full history for free
-  without object versioning.
+- This is a **version-preserving mirror**. The ordinary paths are current and the
+  dated `versions/` archive retains remote objects displaced by an update or delete.

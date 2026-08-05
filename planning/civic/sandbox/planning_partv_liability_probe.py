@@ -44,6 +44,7 @@ def df(sql: str):
 def one(sql: str):
     return con.execute(sql).fetchone()[0]
 
+
 total = one(f"SELECT count(*) FROM '{P}'")
 
 # --- coverage caveats -----------------------------------------------------------------------------
@@ -61,10 +62,14 @@ liable_outcome = df(f"""
   GROUP BY 1 ORDER BY n DESC
 """)
 
+
 def grant_rate(where_extra: str) -> tuple[int, int, float]:
-    dec = one(f"SELECT count(*) FROM '{P}' WHERE decision_category IN ('granted','granted_conditional','refused') {where_extra}")
+    dec = one(
+        f"SELECT count(*) FROM '{P}' WHERE decision_category IN ('granted','granted_conditional','refused') {where_extra}"
+    )
     gr = one(f"SELECT count(*) FROM '{P}' WHERE decision_category IN ('granted','granted_conditional') {where_extra}")
     return gr, dec, (100 * gr / dec if dec else 0.0)
+
 
 g_liable = grant_rate(f"AND NumResidentialUnits >= {UNIT_THRESHOLD}")
 g_all = grant_rate("")
@@ -97,13 +102,19 @@ biggest = df(f"""
 
 # ---- report --------------------------------------------------------------------------------------
 print(f"Corpus: {total:,} applications")
-print(f"NumResidentialUnits coverage: {units_nonnull:,} non-null ({100*units_nonnull/total:.1f}%), "
-      f"{units_pos:,} with >0 ({100*units_pos/total:.1f}%)\n")
-print(f"PART V LIABLE (unit limb, >= {UNIT_THRESHOLD} units): {liable:,}  [conservative FLOOR — units null on "
-      f"{100*(total-units_nonnull)/total:.0f}% of rows]")
+print(
+    f"NumResidentialUnits coverage: {units_nonnull:,} non-null ({100 * units_nonnull / total:.1f}%), "
+    f"{units_pos:,} with >0 ({100 * units_pos / total:.1f}%)\n"
+)
+print(
+    f"PART V LIABLE (unit limb, >= {UNIT_THRESHOLD} units): {liable:,}  [conservative FLOOR — units null on "
+    f"{100 * (total - units_nonnull) / total:.0f}% of rows]"
+)
 print(f"  + 5-8 unit band (liable only via the >0.1 ha limb / pre-2021 thresholds): {band_5_8:,}")
-print(f"\nGrant rate (decided): liable schemes {g_liable[2]:.1f}% ({g_liable[0]:,}/{g_liable[1]:,})  "
-      f"vs all apps {g_all[2]:.1f}% ({g_all[0]:,}/{g_all[1]:,})")
+print(
+    f"\nGrant rate (decided): liable schemes {g_liable[2]:.1f}% ({g_liable[0]:,}/{g_liable[1]:,})  "
+    f"vs all apps {g_all[2]:.1f}% ({g_all[0]:,}/{g_all[1]:,})"
+)
 print("\nLiable-scheme outcomes:\n", liable_outcome.to_string(index=False))
 print("\nLiable schemes by year received (2015-2026):\n", by_year.to_string(index=False))
 print("\nTop councils by liable-scheme count:\n", by_council.to_string(index=False))

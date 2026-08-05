@@ -6,7 +6,7 @@ import secrets
 import shutil
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from urllib.parse import quote
 
@@ -28,6 +28,10 @@ RETRY_MAX_ATTEMPTS = 3  # total attempts (1 initial + 2 retries)
 RETRY_BACKOFF_BASE = 0.5  # seconds; sleep before retry N = BASE * 2 ** (N - 1)
 RETRY_STATUS_FORCELIST = frozenset({429, 500, 502, 503, 504})
 _RETRYABLE_EXC = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
+
+type QueryScalar = str | bytes | int | float
+type QueryValue = QueryScalar | Iterable[QueryScalar] | None
+type QueryParams = Mapping[str, QueryValue] | Iterable[tuple[str, QueryValue]] | str | bytes | None
 
 
 def new_session(
@@ -91,7 +95,7 @@ def fetch_json(
     timeout: tuple[int, int] | int = (10, 60),
     *,
     headers: dict[str, str] | None = None,
-    params: dict[str, object] | None = None,
+    params: QueryParams = None,
     attempts: int = RETRY_MAX_ATTEMPTS,
 ) -> tuple[dict, int]:
     """Fetch one URL using the shared session, retrying transient faults.
@@ -201,7 +205,7 @@ def fetch_text(
     timeout: tuple[int, int] | int = (10, 60),
     *,
     headers: dict[str, str] | None = None,
-    params: dict[str, object] | None = None,
+    params: QueryParams = None,
     attempts: int = RETRY_MAX_ATTEMPTS,
 ) -> tuple[str, int]:
     """Fetch one URL as raw text, retrying transient faults.
@@ -487,7 +491,7 @@ def fetch_bytes(
     url: str,
     *,
     headers: dict[str, str] | None = None,
-    params: dict[str, object] | None = None,
+    params: QueryParams = None,
     timeout: int = 90,
     curl_fallback: bool = True,
     validate: Callable[[bytes], bool] | None = None,

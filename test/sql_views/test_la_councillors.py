@@ -142,9 +142,7 @@ def test_coverage_counts_match_the_data_they_describe(con):
     for la, tier, has_votes in con.execute(
         "SELECT local_authority, tier, has_votes FROM v_la_council_meeting_coverage"
     ).fetchall():
-        n = con.execute(
-            "SELECT COUNT(*) FROM v_la_councillor_votes WHERE local_authority = ?", [la]
-        ).fetchone()[0]
+        n = con.execute("SELECT COUNT(*) FROM v_la_councillor_votes WHERE local_authority = ?", [la]).fetchone()[0]
         assert bool(has_votes) == (n > 0), f"{la}: has_votes={has_votes} but {n} vote rows"
         if n > 0:
             assert tier == "roll_call", f"{la} has named votes but tier={tier}"
@@ -168,9 +166,7 @@ def test_unseeded_means_nothing_harvested(con):
 def test_decisions_tally_columns_stay_numeric(con):
     """Only 5 of ~6,500 rows carry a tally, so AUTO_DETECT types an all-empty column VARCHAR
     and its siblings BIGINT — the schema would change shape with the data. The view casts."""
-    types = {
-        r[0]: r[1] for r in con.execute("DESCRIBE v_la_council_decisions").fetchall() if r[0].startswith("tally_")
-    }
+    types = {r[0]: r[1] for r in con.execute("DESCRIBE v_la_council_decisions").fetchall() if r[0].startswith("tally_")}
     assert set(types.values()) == {"BIGINT"}, types
     assert len(types) == 3
 
@@ -186,7 +182,10 @@ def test_decisions_keep_rows_with_no_recorded_outcome(con):
     # read_csv yields NULL for an empty field; the view coalesces so that "not recorded" is
     # ONE value a page can filter on. Without this, `WHERE outcome = ''` matches nothing.
     assert con.execute("SELECT COUNT(*) FROM v_la_council_decisions WHERE outcome IS NULL").fetchone()[0] == 0
-    assert con.execute("SELECT COUNT(*) FROM v_la_council_decisions WHERE outcome = ''").fetchone()[0] == total - with_outcome
+    assert (
+        con.execute("SELECT COUNT(*) FROM v_la_council_decisions WHERE outcome = ''").fetchone()[0]
+        == total - with_outcome
+    )
 
 
 def test_decision_coverage_agrees_with_the_base_view(con):

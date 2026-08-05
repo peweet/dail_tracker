@@ -11,11 +11,10 @@
 --
 -- amount_semantics = po_committed (purchase-order committed, NOT confirmed cash).
 --
--- Two complementary sources, NO overlap: the published payments fact never contained the
--- Dept of Children (DCEDIY), so the DCEDIY 2023-2024 legacy extract
--- (dceidy_ipas_legacy_spend.parquet — the years IPAS sat under DCEDIY) is purely additive.
--- DCEDIY 2025+ is EXCLUDED (the Dept of Justice register already covers 2025+ in the fact,
--- and IPAS transferred to Justice in 2025 — including both would double-count that year).
+-- Two complementary source partitions: the dedicated DCEDIY legacy extract is canonical for
+-- that department in 2023-2024, so DCEDIY rows now present in the consolidated fact are excluded
+-- for those years. DCEDIY 2025+ is also excluded because the Department of Justice register covers
+-- 2025+ after the IPAS transfer. Other publishers (for example Tusla) remain in the fact.
 -- 2020-2022 remain thin (pre-surge; not separately published in a parsable register).
 CREATE OR REPLACE VIEW v_accommodation_spend_by_year AS
 WITH fact AS (
@@ -27,6 +26,8 @@ WITH fact AS (
         supplier_normalised AS provider
     FROM read_parquet('data/gold/parquet/procurement_payments_fact.parquet')
     WHERE value_safe_to_sum = TRUE
+      -- The legacy extract below is canonical for DCEDIY 2023-2024; Justice owns 2025+.
+      AND NOT (publisher_id = 'dept_children' AND year >= 2023)
       AND (
         lower(spend_category) LIKE '%asylum%'
         OR lower(spend_category) LIKE '%ip accommodation%'

@@ -27,7 +27,6 @@ from ._shared import (
 from .councils import _lane_header
 
 
-
 def _render_afs_national() -> None:
     """NATIONAL amalgamated AFS — what all 31 county & city councils spend by service, audited
     (2016–2023). The only COMPLETE, AUDITED national picture of local-government finance: a BUDGET

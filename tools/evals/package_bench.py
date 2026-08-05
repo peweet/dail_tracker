@@ -15,16 +15,18 @@ wired explicitly or every probe measures tool-absence.
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import anyio
 
-try:
-    from .provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
-except ImportError:  # direct script execution
-    from provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
+PROJ_PATH = Path(__file__).resolve().parents[2]
+if str(PROJ_PATH) not in sys.path:
+    sys.path.insert(0, str(PROJ_PATH))
 
-PROJ = str(Path(__file__).resolve().parents[2])
+from tools.evals.provider_adapter import EvalRequest, dail_tracker_mcp, run_eval  # noqa: E402
+
+PROJ = str(PROJ_PATH)
 
 NEW_TOOLS = [
     "mcp__dail-tracker__search_speeches",

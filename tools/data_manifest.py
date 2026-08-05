@@ -37,7 +37,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import logging
-import sys
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -116,7 +116,11 @@ def main() -> int:
     # whole exercise exists to catch. Surface it separately from ordinary churn.
     changed_pdfs = [k for k in changed if k.lower().endswith(".pdf")]
 
-    _write(current)
+    # A restore check must not mutate its expected baseline. Otherwise a failed
+    # check overwrites the manifest with the damaged restore and a retry can
+    # falsely pass.
+    if not args.check:
+        _write(current)
 
     total_gb = sum(size for _sha, size in current.values()) / 1e9
     log.info("manifest: %d files, %.2f GB -> %s", len(current), total_gb, MANIFEST_PATH)
@@ -143,4 +147,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    exit_code = main()
+    # Explicitly release the rotating file handler before interpreter teardown.
+    # On this Windows workstation an inherited handler has occasionally held the
+    # standalone process open after the manifest was already written.
+    logging.shutdown()
+    os._exit(exit_code)

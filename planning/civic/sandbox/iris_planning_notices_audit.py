@@ -33,7 +33,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import duckdb
-import pandas as pd
 
 SILVER = Path("data/silver/iris_oifigiuil/iris_notice_events_clean.csv")
 OUT = Path("pipeline_sandbox/_iris_planning_output")
@@ -104,18 +103,19 @@ def main() -> None:
         FROM read_csv_auto('{SILVER.as_posix()}')
     """
     con.execute(f"CREATE TABLE notices AS {base}")
-    con.execute(f"ALTER TABLE notices ADD COLUMN planning_subtype VARCHAR")
+    con.execute("ALTER TABLE notices ADD COLUMN planning_subtype VARCHAR")
     con.execute(f"UPDATE notices SET planning_subtype = ({SUBTYPE_CASE})")
 
     total = con.execute("SELECT count(*) FROM notices").fetchone()[0]
     planning = con.execute("SELECT count(*) FROM notices WHERE planning_subtype IS NOT NULL").fetchone()[0]
 
     # --- row-level planning notices -----------------------------------------
-    cols = ("issue_date, issue_number, planning_subtype, notice_category, notice_subtype, "
-            "title, display_title, si_number, si_year, si_parent_legislation, classification_flags")
+    cols = (
+        "issue_date, issue_number, planning_subtype, notice_category, notice_subtype, "
+        "title, display_title, si_number, si_year, si_parent_legislation, classification_flags"
+    )
     df = con.execute(
-        f"SELECT {cols} FROM notices WHERE planning_subtype IS NOT NULL "
-        "ORDER BY planning_subtype, issue_date"
+        f"SELECT {cols} FROM notices WHERE planning_subtype IS NOT NULL ORDER BY planning_subtype, issue_date"
     ).df()
     df.to_parquet(OUT / "iris_planning_notices.parquet", compression="zstd")
     df.to_csv(OUT / "iris_planning_notices.csv", index=False)
@@ -136,8 +136,7 @@ def main() -> None:
 
     # --- CPO slice (the follow-up) ------------------------------------------
     cpo = con.execute(
-        f"SELECT {cols}, raw_text FROM notices WHERE planning_subtype = 'cpo_or_road_scheme' "
-        "ORDER BY issue_date"
+        f"SELECT {cols}, raw_text FROM notices WHERE planning_subtype = 'cpo_or_road_scheme' ORDER BY issue_date"
     ).df()
     cpo.drop(columns=["raw_text"]).to_csv(OUT / "iris_cpo_notices.csv", index=False)
 
@@ -155,7 +154,7 @@ def main() -> None:
         "# Iris Oifigiúil — Planning Notices Audit",
         "",
         f"Source: `{SILVER.as_posix()}` · notices: **{total:,}** · date range 2016-01 .. 2026-06.",
-        f"Planning-related notices identified: **{planning:,}** ({planning/total*100:.1f}% of corpus).",
+        f"Planning-related notices identified: **{planning:,}** ({planning / total * 100:.1f}% of corpus).",
         "",
         "> No-inference: Iris carries national planning **legislation** + State (Section 181) /",
         "> marine (Foreshore) consents + An Bord Pleanála items + a thin band of local-authority",
@@ -186,7 +185,7 @@ def main() -> None:
     (OUT / "SUMMARY.md").write_text("\n".join(lines), encoding="utf-8")
 
     # --- console report ------------------------------------------------------
-    print(f"Iris notices: {total:,} | planning-related: {planning:,} ({planning/total*100:.1f}%)")
+    print(f"Iris notices: {total:,} | planning-related: {planning:,} ({planning / total * 100:.1f}%)")
     print("\nBy sub-type:")
     for _, r in by_sub.iterrows():
         print(f"  {r.n:>5}  {r.planning_subtype}  ({r.first_seen} .. {r.last_seen})")

@@ -68,14 +68,12 @@ from services.parquet_io import save_parquet
 OUT_GOLD = Path(__file__).resolve().parents[1] / "data" / "gold" / "parquet" / "nphdb_bam_disclosures.parquet"
 
 _SLIPPAGE_SOURCE_DATE = date(2025, 9, 17)
-_SLIPPAGE_SOURCE_PQ_REF = "Dáil PQ (Dept. of Health, \"Departmental Data\") answered 2025-09-17"
-_SLIPPAGE_SOURCE_URL = (
-    "https://data.oireachtas.ie/akn/ie/debateRecord/dail/2025-09-17/writtens/mul@/dbsect_1150.xml"
-)
+_SLIPPAGE_SOURCE_PQ_REF = 'Dáil PQ (Dept. of Health, "Departmental Data") answered 2025-09-17'
+_SLIPPAGE_SOURCE_URL = "https://data.oireachtas.ie/akn/ie/debateRecord/dail/2025-09-17/writtens/mul@/dbsect_1150.xml"
 
 _COST_SOURCE_DATE = date(2021, 7, 27)
 _COST_SOURCE_PQ_REF = (
-    "PQ 2598 (Deputy Dessie Ellis), Dáil, answered 2021-07-27 — \"National Children's Hospital\" "
+    'PQ 2598 (Deputy Dessie Ellis), Dáil, answered 2021-07-27 — "National Children\'s Hospital" '
     "(reports 2017 vs 2018 cost ESTIMATES, not current project cost)"
 )
 _COST_SOURCE_URL = "https://data.oireachtas.ie/akn/ie/debateRecord/dail/2021-07-27/writtens/mul@/dbsect_2198.xml"
@@ -100,7 +98,11 @@ _SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
 _SLIPPAGE_ROWS: list[tuple[str, str, str]] = [
     ("January 2019 – GMP Programme (ER Compliant)", "August 2022", ""),
     ("March 2020", "February 2023", "6 months"),
-    ("February 2021 – Amended GMP Programme (ER Compliant)", "December 2023", "16 months (+10 months on previous update)"),
+    (
+        "February 2021 – Amended GMP Programme (ER Compliant)",
+        "December 2023",
+        "16 months (+10 months on previous update)",
+    ),
     ("May 2021", "January 2024", "17 months (+1 month on previous update)"),
     ("January 2022 (Baseline – ER Non-compliant)", "January 2024", "17 months"),
     ("July 2022", "February 2024", "18 months (+1 month on previous update)"),
@@ -122,14 +124,14 @@ _SLIPPAGE_NOTES: dict[int, str] = {
     ),
     15: (
         "The 2025-06-17 PQ answer's identical final row instead reads "
-        "\"37 Months (+3 months on previous update)\" — a discrepancy in BAM's own reporting "
+        '"37 Months (+3 months on previous update)" — a discrepancy in BAM\'s own reporting '
         "between the two PQ dates, not resolved here."
     ),
 }
 
 # The 2017-vs-2018 cost table from PQ 2598 (2021-07-27): (row_label, 2017 €m, 2018 €m, notes).
 _COST_ROWS: list[tuple[str, float, float, str | None]] = [
-    ("Capital Build Sub Total", 983.0, 1433.0, "2018 figure also reported in the source table as \"€1.433bn\"."),
+    ("Capital Build Sub Total", 983.0, 1433.0, '2018 figure also reported in the source table as "€1.433bn".'),
     (
         "Sub Total (Children's Research & Innovation Centre, ICT, Children's Hospital Integration "
         "Programme, Electronic Healthcare Record, Mater Campus)",
@@ -137,7 +139,7 @@ _COST_ROWS: list[tuple[str, float, float, str | None]] = [
         293.0,
         None,
     ),
-    ("Grand Total", 1260.0, 1700.0, "Also reported in the source table as \"€1.26bn\" (2017) / \"€1.7bn\" (2018)."),
+    ("Grand Total", 1260.0, 1700.0, 'Also reported in the source table as "€1.26bn" (2017) / "€1.7bn" (2018).'),
     ("Gross Construction Costs", 717.1, 1093.8, "Sub-item within Capital Build Sub Total."),
     ("Main NCH", 637.0, 890.0, "Sub-item within Gross Construction Costs."),
 ]

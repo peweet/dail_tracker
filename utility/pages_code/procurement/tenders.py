@@ -33,8 +33,6 @@ from ._shared import (
 )
 
 
-
-
 # Human label for how the estimated end date was derived (carried from the view; the
 # basis is part of the fact being presented, not a UI judgement).
 _END_BASIS_LABEL = {

@@ -198,16 +198,14 @@ def distinguish_truncations(texts: list[str], limit: int = 170, tail: int = 70) 
             if 0 <= space < start + 25:
                 start = space + 1
             window = texts[i][start : start + tail]
-            out[i] = f"{texts[i][:head].rstrip()}… …{window}".rstrip() + (
-                "…" if len(texts[i]) > start + tail else ""
-            )
+            out[i] = f"{texts[i][:head].rstrip()}… …{window}".rstrip() + ("…" if len(texts[i]) > start + tail else "")
     return out
 
 
 def _first_difference(a: str, b: str) -> int:
     """Index of the first character at which two strings differ (len of the shorter if one
     is a prefix of the other)."""
-    for i, (ca, cb) in enumerate(zip(a, b)):
+    for i, (ca, cb) in enumerate(zip(a, b, strict=False)):
         if ca != cb:
             return i
     return min(len(a), len(b))

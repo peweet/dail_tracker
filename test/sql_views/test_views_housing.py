@@ -6,19 +6,17 @@ Split out of the former monolithic test_sql_views.py (REFACTORING_CANDIDATES C6)
 Shared fixtures/helpers live in _view_test_helpers.py.
 """
 
-
-import pytest
 import duckdb
+import pytest
 
 from ._view_test_helpers import (
     _DATA_BASE,
     GOLD_PARQUET_DIR,
     _con,
     _load,
-    _skip_missing,
     _result,
+    _skip_missing,
 )
-
 
 # ---------------------------------------------------------------------------
 # CONSTITUENCY HOUSING-ENRICHMENT TRIPWIRE (2026-06-19)
@@ -184,7 +182,7 @@ def test_ssha_waiting_list_national_views_build():
 def test_accommodation_spend_views_build():
     """Asylum/Ukraine accommodation spend views — the precise spend-category filter must
     NOT pull in Homeless/Student/Conference accommodation or Coastal/Data Protection, and
-    the Ukraine stream only appears once it exists in the data (2025+)."""
+    the Ukraine stream only appears from the first published 2022 register onward."""
     import polars as pl
 
     _skip_missing(
@@ -207,9 +205,10 @@ def test_accommodation_spend_views_build():
     # Ukraine combined, incl. the 2023-2024 DCEDIY surge) tops out ~€1.8bn; a leak would
     # balloon it past ~€2.5bn (well over the C&AG IP+Ukraine envelope).
     assert yr["total_eur"].max() < 2_500_000_000
-    # Ukraine stream only from 2023+ (the war began 2022; no Ukraine accommodation before)
-    pre = yr.filter(pl.col("year") < 2023)
+    # The first published Ukraine-accommodation register is 2022; none may predate it.
+    pre = yr.filter(pl.col("year") < 2022)
     assert pre["ukraine_eur"].fill_null(0).sum() == 0
+    assert yr.filter((pl.col("year") == 2022) & (pl.col("ukraine_eur") > 0)).height == 1
 
     prov = con.execute("SELECT * FROM v_accommodation_spend_providers").pl()
     assert prov.height > 50 and (prov["total_eur"] > 0).all()

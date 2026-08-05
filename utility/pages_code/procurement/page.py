@@ -54,8 +54,6 @@ from .payments import _render_payments_bridge
 from .tenders import _render_national_expiring, _render_expiring_contracts, _render_national_open_tenders
 
 
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 @dt_page
 def procurement_page() -> None:
