@@ -33,7 +33,17 @@ DEV_PROFILE_ARGS = (
     "--extra",
     "mcp",
 )
-DEV_PROFILE_MODULES = ("fastapi", "hypothesis", "jedi", "mcp", "openpyxl", "pandera", "polars", "sqlglot")
+DEV_PROFILE_MODULES = (
+    "cosmic_ray",
+    "fastapi",
+    "hypothesis",
+    "jedi",
+    "mcp",
+    "openpyxl",
+    "pandera",
+    "polars",
+    "sqlglot",
+)
 
 
 @dataclass(frozen=True)
@@ -60,6 +70,10 @@ TASKS: dict[str, Task] = {
     "mcp-catalog": Task(
         "Check the MCP read-only and always-loaded context budget",
         ((PYTHON, "tools/check_mcp_catalog.py"),),
+    ),
+    "agent-context": Task(
+        "Check reusable prompt contracts, budgets, and review rubrics",
+        ((PYTHON, "tools/check_agent_context.py"),),
     ),
     "ui-contracts": Task(
         "Check live URL, CSS-class, and anonymous-markup contracts",
@@ -89,6 +103,10 @@ TASKS: dict[str, Task] = {
         "Run SQL contracts against committed gold data",
         ((PYTHON, "-m", "pytest", "-q", "-m", "sql"),),
     ),
+    "mutation-data-contracts": Task(
+        "Run the opt-in Cosmic Ray audit for data-contract business rules",
+        ((PYTHON, "tools/run_mutation_pilot.py"),),
+    ),
 }
 
 CHECK_TASKS = (
@@ -99,6 +117,7 @@ CHECK_TASKS = (
     "firewall",
     "conventions",
     "mcp-catalog",
+    "agent-context",
     "ui-contracts",
     "doc-index",
     "test-fast",

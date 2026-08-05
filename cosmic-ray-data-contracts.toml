@@ -1,0 +1,27 @@
+# Narrow mutation-testing pilot for the project's high-consequence money and
+# provenance rules. Keep this focused: Cosmic Ray runs the test command once for
+# every mutation, so pointing it at the full repository would be prohibitively
+# slow and would mix deterministic logic with source/corpus integration tests.
+[cosmic-ray]
+module-path = "services/data_contracts.py"
+timeout = 45.0
+excluded-modules = []
+# The repository wrapper replaces this placeholder in an ignored runtime copy.
+# This is required on Windows, where a child `python` process can resolve the
+# system interpreter rather than the uv environment that launched Cosmic Ray.
+test-command = "__PYTHON__ -m pytest -q --hypothesis-profile=mutation -m \"not integration and not sql\" test/contracts/test_contract_engine_properties.py test/contracts/test_data_fidelity.py test/contracts/test_payment_fact_contract.py test/contracts/test_procurement_awards_contract.py test/contracts/test_trust_tier.py"
+
+[cosmic-ray.distributor]
+name = "local"
+
+# Cosmic Ray otherwise expands every arithmetic operator into every other
+# arithmetic/bitwise operator. Keep plausible arithmetic-direction mistakes,
+# but filter bitwise/shift/power variants and identity comparisons that add
+# substantial runtime with little signal for these Polars contract rules.
+[cosmic-ray.filters.operators-filter]
+exclude-operators = [
+    "^core/ReplaceBinaryOperator_(BitAnd|BitOr|BitXor|LShift|RShift|Pow|Mod|FloorDiv)_",
+    "^core/ReplaceBinaryOperator_.*_(BitAnd|BitOr|BitXor|LShift|RShift|Pow|Mod|FloorDiv)$",
+    "^core/ReplaceComparisonOperator_(Is|IsNot)_",
+    "^core/ReplaceComparisonOperator_.*_(Is|IsNot)$",
+]

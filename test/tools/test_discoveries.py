@@ -37,3 +37,13 @@ def test_cli_testing_lesson_has_a_portable_detail_card():
     assert resolve_memory(row["memory"], [root / "memory"]) == (
         root / "memory" / "feedback_cli_testing_profile_and_console.md"
     )
+
+
+def test_mcp_session_pileup_lesson_has_a_portable_detail_card():
+    root = Path(__file__).resolve().parents[2]
+    row = next(item for item in load() if item.get("id") == "windows-mcp-session-pileup")
+
+    assert row["memory"] == "windows_mcp_session_pileup_2026_08_05"
+    assert resolve_memory(row["memory"], [root / "memory"]) == (
+        root / "memory" / "windows_mcp_session_pileup_2026_08_05.md"
+    )

@@ -457,6 +457,36 @@ def _current_session_id() -> str:
     return ""
 
 
+SESSION_CONTEXT_MAX_CHARS = 1600
+_DATA_ROUTING_SUFFIX = (
+    ". Data lives behind the dail-tracker MCP (describe_dataset / list_datasets / search_project) — don't scan parquet."
+)
+
+
+def _bounded_context(parts: list[str], max_chars: int = SESSION_CONTEXT_MAX_CHARS) -> str:
+    """Render prioritized status notes under a hard SessionStart context budget."""
+    prefix = "Project status — "
+    kept: list[str] = []
+    for index, part in enumerate(parts):
+        candidate = prefix + " · ".join([*kept, part]) + _DATA_ROUTING_SUFFIX
+        remaining = len(parts) - index - 1
+        if remaining:
+            candidate += f" {remaining} lower-priority note(s) omitted."
+        if len(candidate) > max_chars:
+            break
+        kept.append(part)
+
+    omitted = len(parts) - len(kept)
+    context = prefix + " · ".join(kept) + _DATA_ROUTING_SUFFIX
+    if omitted:
+        context += f" {omitted} lower-priority note(s) omitted."
+    if len(context) <= max_chars:
+        return context
+    # The branch is always retained; an unexpectedly long branch name is the
+    # only realistic way to reach this final defensive truncation.
+    return context[: max_chars - 1].rstrip() + "…"
+
+
 def main() -> int:
     current_id = _current_session_id()
     parts = [f"branch: {_git_branch()}"]
@@ -475,14 +505,7 @@ def main() -> int:
     ):
         if note:
             parts.append(note)
-    ctx = (
-        "Project status — "
-        + " · ".join(parts)
-        + (
-            ". Data lives behind the dail-tracker MCP (describe_dataset / list_datasets / "
-            "search_project) — don't scan parquet."
-        )
-    )
+    ctx = _bounded_context(parts)
     out = {
         "additionalContext": ctx,
         "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ctx},

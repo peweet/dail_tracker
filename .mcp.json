@@ -12,6 +12,19 @@
         "MKL_NUM_THREADS": "1",
         "NUMEXPR_NUM_THREADS": "1"
       }
+    },
+    "siting-private": {
+      "command": "uv",
+      "args": ["run", "--frozen", "--extra", "mcp", "--extra", "siting", "python", "planning/product/mcp/server.py"],
+      "timeout": 360000,
+      "env": {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+        "OPENBLAS_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1"
+      }
     }
   }
 }

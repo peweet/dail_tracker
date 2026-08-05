@@ -226,7 +226,18 @@ def _is_portable_context_path(path: str) -> bool:
     return (
         p.name in {"AGENTS.md", "CLAUDE.md"}
         or path.startswith(".github/prompts/")
-        or path in {".gitignore", ".mcp.json", ".vscode/mcp.json", "CONTRIBUTING.md"}
+        or path.startswith(".codex/agents/")
+        or path.startswith("dail_tracker_bold_ui_contract_pack_v5/prompts/")
+        or path
+        in {
+            ".codex/config.toml",
+            ".gitignore",
+            ".mcp.json",
+            ".vscode/mcp.json",
+            "CONTRIBUTING.md",
+            "dail_tracker_bold_ui_contract_pack_v5/tools/check_prompt_context_budget.py",
+            "tools/check_agent_context.py",
+        }
     )
 
 
@@ -291,6 +302,11 @@ def _focused_test_target(path: str, *, exists: bool) -> str | None:
     """Return a reliable focused pytest target, or ``None`` to force fallback."""
 
     p = PurePosixPath(path)
+    if path in {
+        "tools/check_agent_context.py",
+        "dail_tracker_bold_ui_contract_pack_v5/tools/check_prompt_context_budget.py",
+    }:
+        return "test/tools/test_agent_context.py"
     if path.startswith("test/"):
         return path if exists and p.suffix == ".py" else None
     if path.startswith("planning/civic/extractors/"):
@@ -332,6 +348,7 @@ def build_checks(
             _python_check("dependency-state", py, "tools/check_dependency_state.py", "full verification"),
             _python_check("doc-index", py, "tools/build_doc_index.py", "full verification", "--check"),
             _python_check("mcp-catalog", py, "tools/check_mcp_catalog.py", "full verification"),
+            _python_check("agent-context", py, "tools/check_agent_context.py", "full verification"),
             CheckSpec("typecheck", (py, "-m", "basedpyright"), "full verification"),
             _python_check("expected-failures", py, "tools/check_expected_failures.py", "full verification"),
             _pytest_check("pytest-fast", py, (), "full fast test lane"),

@@ -37,6 +37,15 @@ with:
   uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify
   uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py check
   ```
+- Periodically audit the high-consequence data-contract assertions with the opt-in
+  mutation pilot (it is intentionally not part of `check`):
+  ```bash
+  uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py mutation-data-contracts
+  ```
+  The resumable session is stored under `.cosmic-ray/`. Use `--fresh` to replace
+  that generated session or `--prepare-only` to initialize and baseline without
+  executing the mutations. The wrapper refuses to run when its target file has
+  tracked changes because Cosmic Ray temporarily rewrites that file.
 - Keep the project conventions (see `AGENTS.md`; `CLAUDE.md` exposes the same portable
   project guidance to Claude Code): Polars for ETL, pandas only in
   the UI layer; Streamlit pages carry no business logic; never sum the three

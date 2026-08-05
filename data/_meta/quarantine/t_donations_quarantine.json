@@ -1,0 +1,23 @@
+{
+  "generated_utc": "2026-08-05T18:59:52.072381+00:00",
+  "fact": "t_donations",
+  "n_rows_total": 61,
+  "n_rows_quarantined": 1,
+  "frac_quarantined": 0.0164,
+  "breaches": {
+    "value_eur": {
+      "severity": "bound",
+      "n_offending": 1,
+      "frac": 0.0164,
+      "samples": [
+        "5000000000.0"
+      ],
+      "escalated": false,
+      "bounds": [
+        0,
+        1000000000
+      ]
+    }
+  },
+  "note": "Out-of-vocabulary / mis-aligned values held for investigation. Full rows in the sibling .parquet. HARD/ESCALATED breaches also halt the pipeline."
+}

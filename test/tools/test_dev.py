@@ -20,7 +20,15 @@ def test_canonical_task_surface_contains_required_checks():
         "ui-contracts",
         "doc-index",
         "test-fast",
+        "mutation-data-contracts",
     } <= set(dev.task_names())
+
+
+def test_mutation_pilot_is_opt_in_not_a_check_gate():
+    assert "mutation-data-contracts" in dev.task_names()
+    assert "mutation-data-contracts" not in dev.CHECK_TASKS
+    command = dev.commands_for("mutation-data-contracts")
+    assert command == ((dev.PYTHON, "tools/run_mutation_pilot.py"),)
 
 
 def test_check_expands_to_each_fast_gate():

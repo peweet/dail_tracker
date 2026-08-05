@@ -3,21 +3,16 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.check_agent_context import main as check_agent_context  # noqa: E402
+
 
 def main() -> int:
-    paths = [Path(p) for p in sys.argv[1:]]
-    if not paths:
-        paths = list(Path(".").glob("prompts/*.md")) + list(Path(".").glob("page_runbooks/*.md"))
-
-    failed = False
-    for path in paths:
-        if not path.exists():
-            continue
-        words = path.read_text(encoding="utf-8", errors="ignore").split()
-        if len(words) > 2500:
-            print(f"WARN {path}: {len(words)} words. Consider splitting.")
-            failed = True
-    return 1 if failed else 0
+    """Compatibility entry point; the repository-wide ratchet is canonical."""
+    return check_agent_context(sys.argv[1:])
 
 
 if __name__ == "__main__":

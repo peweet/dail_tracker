@@ -8,6 +8,13 @@ project_doc_fallback_filenames = ["CLAUDE.md"]
 hooks = true
 memories = true
 
+# Keep the primary agent focused on requirements, decisions, and final output while
+# allowing a small number of bounded supporting threads. Role-specific model,
+# reasoning, and sandbox settings live in .codex/agents/.
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 3
+
 # Local Codex memories are a personal recall layer, never the source of truth for
 # repository rules.  Keep external-context turns out of automatic extraction: this
 # workspace uses MCP and web evidence that may include private planning material.
@@ -15,6 +22,19 @@ memories = true
 generate_memories = false
 use_memories = true
 disable_on_external_context = true
+
+# Inject bounded, prioritized project status at startup, resume, clear, and
+# post-compaction. Project hooks require one explicit review with `/hooks`.
+[[hooks.SessionStart]]
+matcher = "^(startup|resume|clear|compact)$"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/session_context.py"'
+command_windows = 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/session_context.py) }"'
+timeout = 15
+statusMessage = "Loading bounded project status"
+additionalContextLimit = 1600
 
 # Inject at most two curated, checked-in discovery one-liners when a prompt matches.
 # Codex requires each project hook definition to be reviewed once with `/hooks`.
@@ -61,10 +81,10 @@ OMP_NUM_THREADS = "1"
 MKL_NUM_THREADS = "1"
 NUMEXPR_NUM_THREADS = "1"
 
-# Private overlay only. Enable this server in a personal Codex config/profile when
-# planning/product and its external layer data are present. It stays disabled so a
-# clean public clone neither installs Siting dependencies nor exposes private tools.
-[mcp_servers.siting]
+# Private overlay only. It is a separate server: the public project index must not
+# see the private Git worktree. Keep this shared configuration disabled in a clean
+# public clone; enable it in a private local Codex profile when the overlay is present.
+[mcp_servers.siting_private]
 enabled = false
 required = false
 command = "uv"
@@ -76,18 +96,12 @@ args = [
   "--extra",
   "siting",
   "python",
-  "mcp_server/server.py",
+  "planning/product/mcp/server.py",
 ]
 startup_timeout_sec = 360.0
 tool_timeout_sec = 360.0
 default_tools_approval_mode = "auto"
-enabled_tools = [
-  "search_planning_precedents",
-  "siting_check",
-  "siting_decision_documents",
-]
-
-[mcp_servers.siting.env]
+[mcp_servers.siting_private.env]
 PYTHONUTF8 = "1"
 PYTHONIOENCODING = "utf-8"
 OPENBLAS_NUM_THREADS = "1"

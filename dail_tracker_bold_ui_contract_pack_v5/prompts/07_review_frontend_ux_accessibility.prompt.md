@@ -43,4 +43,8 @@ at the bottom of the page.
 - URL columns use labelled links, not raw URLs
 - Only approved_url_columns from the contract are used
 
-Return high-severity and medium-severity issues only.
+Result contract:
+- `Verdict: PASS | FAIL` (`PASS` requires no blocker or major finding)
+- each issue with `Severity: blocker | major | minor`, `Evidence: path:line` or screenshot,
+  user consequence, and smallest required action
+- checks performed, checks not run, and residual risk

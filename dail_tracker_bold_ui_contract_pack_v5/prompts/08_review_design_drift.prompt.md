@@ -13,3 +13,8 @@ It should preserve:
 - shared CSS
 - reusable UI helpers
 - evidence-first layout
+
+Result contract:
+- `Verdict: PASS | FAIL` (`PASS` requires no blocker or major finding)
+- each finding with `Severity`, concrete `Evidence`, user consequence, and required action
+- checks or screenshots used, plus residual risk
