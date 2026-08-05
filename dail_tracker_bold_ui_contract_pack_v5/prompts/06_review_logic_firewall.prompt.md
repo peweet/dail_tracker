@@ -19,3 +19,8 @@ Run if possible:
 python tools/check_streamlit_logic_firewall.py utility/pages_code/<PAGE_FILE>.py
 python tools/check_contract_shape.py utility/page_contracts/<PAGE_ID>.yaml
 ```
+
+Result contract:
+- `Verdict: PASS | FAIL` (`PASS` requires no blocker or major finding)
+- each finding with `Severity`, `Evidence: path:line`, consequence, and required action
+- commands run and observed results; label unavailable checks `NOT RUN`

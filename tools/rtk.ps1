@@ -1,30 +1,33 @@
 <#
 .SYNOPSIS
-  Run the deliberately narrow, project-local RTK pilot.
+  Run the deliberately narrow, project-local RTK failure-triage pilot.
 
 .DESCRIPTION
-  Provides compact pytest output while preserving this repository's .venv
-  selection. Telemetry is disabled for every invocation; token history and failure
-  tees stay under the ignored .cache/rtk directory.
+  Provides compact output only for the last known pytest failures while preserving
+  this repository's .venv selection. Telemetry is disabled for every invocation;
+  token history and failure tees stay under the ignored .cache/rtk directory.
 
   Allowed commands:
-    pytest [args]          Triage normal test runs.
-    gain                   Project-filtered pilot statistics.
-    version                Verify the pinned executable.
-    adoption [gate args]   Measure the pilot or record a review; never auto-adopts.
+  pytest-last-failed [args]  Triage only the last known failures; it never falls
+                              back to a full green suite and stops after one failure.
+  gain                       Project-filtered pilot statistics.
+  version                    Verify the pinned executable.
+  adoption [gate args]       Measure the pilot or record a review; never auto-adopts.
 
   Ruff is excluded because v0.44.2 misclassified unsafe hidden fixes during parity
   testing. Git is excluded because the repository's existing short status/log forms
   were already as compact as RTK. Search remains on the repository's scoped MCP/rg
   paths so the large-data read boundaries are not weakened.
 
+  RTK suppressed a FastAPI/Starlette deprecation warning from a green API suite
+  during this pilot. Therefore it is not available for normal or API test runs.
   Keep coverage, collection, diagnostic/interactive output, expected-failure
   ledgers, machine-parsed output, final diffs, and authoritative final verification
   on the repository's raw commands. If compact failure output is insufficient,
   inspect the full tee named by RTK instead of rerunning the command.
 
 .EXAMPLE
-  powershell -NoProfile -ExecutionPolicy Bypass -File tools/rtk.ps1 pytest test/tools/test_efficiency_hooks.py -q
+  powershell -NoProfile -ExecutionPolicy Bypass -File tools/rtk.ps1 pytest-last-failed
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File tools/rtk.ps1 adoption --require-eligible
 #>
@@ -55,7 +58,7 @@ $hookFreeConfigPath = Join-Path ([IO.Path]::GetTempPath()) (
 
 function Assert-NoBlockedArgument {
     param(
-        [Parameter(Mandatory = $true)][string[]]$Values,
+        [AllowEmptyCollection()][string[]]$Values = @(),
         [Parameter(Mandatory = $true)][string[]]$Patterns,
         [Parameter(Mandatory = $true)][string]$RawAlternative
     )
@@ -126,8 +129,8 @@ $rtkRunStartedAt = $null
 $rtkRunTimer = $null
 
 try {
-    if ($Command -notin @('pytest', 'gain', 'version', 'adoption')) {
-        throw "Unsupported command '$Command'. The RTK pilot allows only pytest, gain, version, and adoption."
+    if ($Command -notin @('pytest-last-failed', 'gain', 'version', 'adoption')) {
+        throw "Unsupported command '$Command'. The RTK pilot allows only pytest-last-failed, gain, version, and adoption."
     }
     if (-not (Test-Path -LiteralPath $rtkExe -PathType Leaf)) {
         throw "Pinned RTK is not installed. Run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/install_rtk.ps1"
@@ -151,7 +154,7 @@ try {
     Set-Location -LiteralPath $repoRoot
 
     switch ($Command) {
-        'pytest' {
+        'pytest-last-failed' {
             if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf) -or
                 -not (Test-Path -LiteralPath (Join-Path $venvScripts 'pytest.exe') -PathType Leaf)) {
                 throw 'The project .venv Python/pytest launchers are missing; run the raw environment setup first.'
@@ -181,10 +184,16 @@ try {
                 '^--pdbcls(?:$|=)',
                 '^--trace$'
             ) -RawAlternative '.venv/Scripts/python -m pytest ...'
+            Assert-NoBlockedArgument -Values $CommandArgs -Patterns @(
+                '^--(?:last-failed|lf)(?:$|=)',
+                '^--(?:last-failed-no-failures|lfnf)(?:$|=)',
+                '^--maxfail(?:$|=)',
+                '^-x$'
+            ) -RawAlternative '.venv/Scripts/python -m pytest --last-failed --last-failed-no-failures=none --maxfail=1 ...'
             $rtkRunId = [Guid]::NewGuid().ToString('N')
             $rtkRunStartedAt = [DateTime]::UtcNow
             $rtkRunTimer = [Diagnostics.Stopwatch]::StartNew()
-            & $rtkExe pytest @CommandArgs
+            & $rtkExe pytest --last-failed --last-failed-no-failures=none --maxfail=1 @CommandArgs
             $exitCode = $LASTEXITCODE
             $rtkRunTimer.Stop()
         }

@@ -79,9 +79,13 @@ tools/
 ## Start here
 
 1. Copy the contents of this pack into the root of your Dáil Tracker repository.
-2. Start Claude Code from the repo root.
-3. Tell Claude to read `CLAUDE.md` only.
+2. Start the coding agent from the repo root.
+3. Let the agent load repository `AGENTS.md` and the nearest nested `AGENTS.md`; `CLAUDE.md`
+   remains a Claude compatibility fallback, not the shared prompt entry point.
 4. Then open one page runbook, for example `page_runbooks/attendance.md`, and paste Step 1 only.
 5. Move through the runbook one step at a time.
 
-Do not ask Claude to redesign the whole app in one pass.
+Do not ask an agent to redesign the whole app in one pass.
+
+Run `python tools/check_agent_context.py` from the repository root after changing reusable
+prompts. Use `--catalog` to inspect the generated prompt inventory and word counts.

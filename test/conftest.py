@@ -25,6 +25,16 @@ import services.runtime_env  # noqa: E402,F401
 import pytest  # noqa: E402
 import yaml  # noqa: E402
 
+try:
+    from hypothesis import settings  # noqa: E402
+except ImportError:  # focused non-dev environments can still run tests that do not use Hypothesis
+    settings = None
+else:
+    # Mutation testing repeats these property tests hundreds of times. Twenty
+    # generated examples plus deterministic regressions retain boundary pressure
+    # without turning the opt-in audit into an hours-long run.
+    settings.register_profile("mutation", max_examples=20, deadline=None)
+
 # ── Expected-failure ledger ──────────────────────────────────────────────────
 # Environment-dependent failures only (untracked siting lane vs CI, baselined
 # data present in one env only). Entries get xfail(strict=False) when the current

@@ -1,0 +1,29 @@
+{
+  "generated_utc": "2026-08-05T18:59:52.467409+00:00",
+  "fact": "prop",
+  "n_rows_total": 10,
+  "n_rows_quarantined": 7,
+  "frac_quarantined": 0.7,
+  "breaches": {
+    "x": {
+      "severity": "bound",
+      "n_offending": 7,
+      "frac": 0.7,
+      "samples": [
+        "175995065461.5088",
+        "974451395621.2671",
+        "909759758575.594",
+        "838026837625.8745",
+        "873589175667.5928",
+        "-1.9",
+        "488711511973.1792"
+      ],
+      "escalated": false,
+      "bounds": [
+        0.0,
+        1000.0
+      ]
+    }
+  },
+  "note": "Out-of-vocabulary / mis-aligned values held for investigation. Full rows in the sibling .parquet. HARD/ESCALATED breaches also halt the pipeline."
+}

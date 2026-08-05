@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 import tools.build_doc_index as doc_index
+import tools.check_agent_context as agent_context
 import tools.dev as dev
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -57,7 +59,23 @@ def test_canonical_tasks_are_documented_and_accepted():
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     assert "tools/dev.py verify" in contributing
     assert "tools/dev.py check" in contributing
-    assert {"verify", "check", "mcp-catalog", "ui-contracts", "doc-index"} <= set(dev.task_names())
+    assert {"verify", "check", "mcp-catalog", "agent-context", "ui-contracts", "doc-index"} <= set(dev.task_names())
+
+
+def test_reusable_agent_prompts_keep_the_context_contract():
+    assert agent_context.check_repository() == []
+
+
+def test_codex_roles_and_bounded_session_hook_are_portable():
+    config = tomllib.loads((ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"))
+    assert config["features"]["hooks"] is True
+    session_hook = config["hooks"]["SessionStart"][0]
+    assert session_hook["matcher"] == "^(startup|resume|clear|compact)$"
+    command = session_hook["hooks"][0]
+    assert command["additionalContextLimit"] == 1600
+    assert "tools/hooks/session_context.py" in command["command"]
+    assert "tools/hooks/session_context.py" in command["command_windows"]
+    assert {"reviewer.toml", "scout.toml"} <= {path.name for path in (ROOT / ".codex" / "agents").glob("*.toml")}
 
 
 def test_doc_index_is_current(monkeypatch):

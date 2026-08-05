@@ -54,3 +54,15 @@ def test_mcp_note_rejects_missing_bare_executable(tmp_path, monkeypatch):
     monkeypatch.setattr(module.shutil, "which", lambda command: None)
 
     assert "NOT FOUND" in module._mcp_note()
+
+
+def test_session_start_context_has_a_hard_budget_and_reports_omissions():
+    module = _load()
+    parts = ["branch: test", *(f"note-{index}: " + "x" * 300 for index in range(20))]
+
+    context = module._bounded_context(parts)
+
+    assert len(context) <= module.SESSION_CONTEXT_MAX_CHARS
+    assert "branch: test" in context
+    assert "lower-priority note(s) omitted" in context
+    assert "don't scan parquet" in context

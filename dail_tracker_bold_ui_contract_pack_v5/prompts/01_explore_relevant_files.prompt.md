@@ -3,7 +3,7 @@ Explore the relevant files for page: `<PAGE_ID>`.
 Do not edit files.
 
 Read only:
-1. `CLAUDE.md`
+1. repository `AGENTS.md` and `utility/pages_code/AGENTS.md`
 2. `page_runbooks/<PAGE_ID>.md`
 3. `utility/page_contracts/<PAGE_ID>.yaml`
 4. matching page file in `utility/pages_code/`
@@ -20,3 +20,6 @@ Return:
 3. apparent data access pattern
 4. likely UI redesign opportunities
 5. files that must not be modified
+
+For each claim, cite the file or contract section that supports it. Mark unresolved questions
+instead of filling gaps from another page.

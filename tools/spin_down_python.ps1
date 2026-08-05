@@ -10,17 +10,18 @@ that were Ctrl-C'd or TaskStop'd (which orphans their child python). The box get
 lethargic. This tool finds them, categorises them, and - only when you ask - kills
 the stale ones while protecting anything live.
 
-Three protections (always on)
+Protections (always on)
 ------------------------------
   1. CURRENT SESSION  - every process in this script's own ancestry (the shell,
      its Claude/node host, etc.) is never touched.
-  2. LIVE MCP SERVER  - the dail-tracker MCP server parented by THIS session's
-     Claude (resolved by walking the ancestry) is protected, with its children.
-     Other sessions' MCP servers are spin-down candidates - killing one is benign,
-     the owning session just re-spawns it on next use.
-  3. AGE GUARD        - processes younger than -MinAgeMinutes (default 20) are
+  2. AGE GUARD        - processes younger than -MinAgeMinutes (default 20) are
      skipped, so a refresh/run you kicked off moments ago survives. Override with
      -IncludeYoung.
+
+MCP clients launched under a shared VS Code/Codex extension host cannot be attributed
+reliably to one chat session: all their `uv -> python -> python` trees have the same
+parent. The age guard is therefore the safe protection for those MCP sessions. The
+scan reports their logical-server count and warns above -McpWarnAbove (default 7).
 
 Usage
 -----
@@ -30,6 +31,7 @@ Usage
   tools/spin_down_python.ps1 -Category mcp,streamlit -SpinDown   # only those kinds
   tools/spin_down_python.ps1 -SpinDown -All       # also include uncategorised python
   tools/spin_down_python.ps1 -SpinDown -MinAgeMinutes 0 -IncludeYoung  # nuke everything stale-or-not
+  tools/spin_down_python.ps1 -Category mcp -McpWarnAbove 7       # scan and alert only
 
 Categories: mcp, streamlit, pipeline, extractor, sandbox, other.
 By default the spin-downable kinds are mcp/streamlit/pipeline/extractor/sandbox;
@@ -41,13 +43,15 @@ param(
     [string[]]$Category,
     [switch]$SpinDown,
     [switch]$IncludeYoung,
-    [switch]$All
+    [switch]$All,
+    [ValidateRange(0, 1000)]
+    [int]$McpWarnAbove = 7
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Walk up from this process to the root; these PIDs are the current session and are
-# never killed. Also lets us find which Claude owns the live MCP server.
+# never killed.
 function Get-AncestryPids {
     $ids = @()
     $cur = $PID
@@ -72,7 +76,37 @@ function Get-Category([string]$cmd) {
     return 'other'
 }
 
-$procs = @(Get-CimInstance Win32_Process -Filter "Name='python.exe'")
+function Get-McpSessionSummary([object[]]$allProcs, [object[]]$pythonProcs) {
+    # The shipped configuration launches `uv -> venv python -> system python`.
+    # Count the uv process as one logical stdio server. Also support a future direct
+    # Python configuration so this alert remains truthful if we remove the uv wrapper.
+    $byPid = @{}
+    foreach ($p in $allProcs) { $byPid[[int]$p.ProcessId] = $p }
+    $uvRoots = @($allProcs | Where-Object {
+        $_.Name -ieq 'uv.exe' -and (Get-Category $_.CommandLine) -eq 'mcp'
+    })
+    $mcpPython = @($pythonProcs | Where-Object { (Get-Category $_.CommandLine) -eq 'mcp' })
+    $directPythonRoots = @($mcpPython | Where-Object {
+        $parent = $byPid[[int]$_.ParentProcessId]
+        -not $parent -or (Get-Category $parent.CommandLine) -ne 'mcp'
+    })
+    return [pscustomobject]@{
+        LogicalServers = $uvRoots.Count + $directPythonRoots.Count
+        UvRoots = $uvRoots.Count
+        DirectPythonRoots = $directPythonRoots.Count
+        PythonProcesses = $mcpPython.Count
+    }
+}
+
+$allProcs = @(Get-CimInstance Win32_Process)
+$procs = @($allProcs | Where-Object { $_.Name -ieq 'python.exe' })
+$mcpSummary = Get-McpSessionSummary $allProcs $procs
+$mcpStatus = "MCP status: {0} logical server(s) ({1} uv root(s), {2} direct Python root(s); {3} Python process(es))." -f $mcpSummary.LogicalServers, $mcpSummary.UvRoots, $mcpSummary.DirectPythonRoots, $mcpSummary.PythonProcesses
+Write-Host $mcpStatus
+if ($McpWarnAbove -gt 0 -and $mcpSummary.LogicalServers -gt $McpWarnAbove) {
+    $mcpWarning = "MCP session pileup: {0} logical server(s), above the warning threshold of {1}. " -f $mcpSummary.LogicalServers, $McpWarnAbove
+    Write-Warning ($mcpWarning + "Preview cleanup with: tools/spin_down_python.ps1 -Category mcp -SpinDown -WhatIf")
+}
 if (-not $procs) {
     Write-Host "No python.exe processes running. Nothing to do."
     return
@@ -82,9 +116,9 @@ $ancestry = Get-AncestryPids
 $byPid = @{}
 foreach ($p in $procs) { $byPid[[int]$p.ProcessId] = $p }
 
-# Protected set = ancestry, plus (transitively) any python whose parent is already
-# protected. That captures the live MCP server (parent = my Claude) AND its child
-# python launcher pair.
+# Protect Python processes that are direct descendants of this shell/session. A shared
+# IDE host launches MCP through an intervening uv.exe process and can own many chats,
+# so those processes rely on the age guard instead of unsafe per-session attribution.
 $protected = [System.Collections.Generic.HashSet[int]]::new()
 foreach ($id in $ancestry) { [void]$protected.Add([int]$id) }
 $changed = $true

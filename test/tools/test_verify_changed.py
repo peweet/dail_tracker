@@ -118,7 +118,10 @@ def test_agent_guides_and_prompts_select_the_portable_context_contract() -> None
             ".mcp.json",
             ".vscode/mcp.json",
             "CONTRIBUTING.md",
+            ".codex/config.toml",
+            ".codex/agents/reviewer.toml",
             ".github/prompts/build-page.prompt.md",
+            "dail_tracker_bold_ui_contract_pack_v5/prompts/11_design_critique_after_implementation.prompt.md",
             "utility/pages_code/AGENTS.md",
             "extractors/AGENTS.md",
             "sql_views/AGENTS.md",
@@ -129,6 +132,24 @@ def test_agent_guides_and_prompts_select_the_portable_context_contract() -> None
     )
     assert _keys(checks) == ["pytest-agent-context", "mcp-catalog"]
     assert checks[0].argv[-1] == "test/tools/test_agent_context.py"
+
+
+def test_agent_context_checker_changes_select_focused_contract_tests() -> None:
+    checks = vc.build_checks(
+        [
+            "tools/check_agent_context.py",
+            "dail_tracker_bold_ui_contract_pack_v5/tools/check_prompt_context_budget.py",
+        ],
+        python_executable="python",
+    )
+    assert _keys(checks) == [
+        "ruff-check",
+        "ruff-format",
+        "dependency-declarations",
+        "pytest-agent-context",
+        "pytest-focused",
+    ]
+    assert checks[-1].argv[-1] == "test/tools/test_agent_context.py"
 
 
 def test_dependency_manifest_expands_to_global_checks_and_fast_tests() -> None:
@@ -171,6 +192,7 @@ def test_full_selects_every_deterministic_lane() -> None:
         "dependency-state",
         "doc-index",
         "mcp-catalog",
+        "agent-context",
         "typecheck",
         "expected-failures",
         "pytest-fast",

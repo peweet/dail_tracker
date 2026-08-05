@@ -109,6 +109,9 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Cosmic Ray mutation sessions are resumable local SQLite state, not source.
+.cosmic-ray/
+
 # Translations
 *.mo
 *.pot

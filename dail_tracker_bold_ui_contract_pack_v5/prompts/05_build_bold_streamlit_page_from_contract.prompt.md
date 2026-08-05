@@ -6,7 +6,7 @@ If an existing page file exists: it is a functional reference, not a design refe
 If no existing page file exists (greenfield): build from the contract and runbook only.
 
 Read only:
-1. `CLAUDE.md`
+1. repository `AGENTS.md` and `utility/pages_code/AGENTS.md`
 2. `page_runbooks/<PAGE_ID>.md`
 3. `utility/page_contracts/<PAGE_ID>.yaml`
 4. `utility/page_contracts/_shared_ui_policy.yaml`
@@ -49,3 +49,9 @@ Forbidden:
 
 Missing data:
 `TODO_PIPELINE_VIEW_REQUIRED: <specific missing item>`
+
+Result contract:
+- changed files and why
+- acceptance checks with commands and observed results
+- visual checks distinguished from automated checks
+- unresolved TODOs and residual risk
