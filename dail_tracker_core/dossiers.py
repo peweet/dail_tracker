@@ -1119,6 +1119,11 @@ def public_body_payments(
 ) -> dict[str, Any]:
     """Public-body payments / POs over €20k (realised SPEND). ``side`` is 'publisher' (paying
     body) or 'supplier' (who was paid); ``order_by`` is 'value' (sum-safe €) or 'lines'."""
+    if side not in {"publisher", "supplier"}:
+        raise ValueError("side must be 'publisher' or 'supplier'")
+    if order_by not in {"value", "lines"}:
+        raise ValueError("order_by must be 'value' or 'lines'")
+
     res = (
         pubpay.supplier_summary(conn, order_by=order_by, limit=limit)
         if side == "supplier"
@@ -1127,7 +1132,7 @@ def public_body_payments(
     if not res.ok:
         return {"error": res.unavailable_reason}
     return {
-        "side": "supplier" if side == "supplier" else "publisher",
+        "side": side,
         "coverage": serialize.first_record(pubpay.coverage_stats(conn).data),
         "ranking": serialize.to_records(res.data),
         "caveat": _PUBPAY_CAVEAT,

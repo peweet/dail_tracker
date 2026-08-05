@@ -1912,20 +1912,11 @@ def interest_declaration_item(text: str, status: str = "unchanged") -> None:
 # anchor survives and the app stays free of third-party cookies and the consent
 # banner they would require.
 #
-# TWO ENV GATES, both OFF by default, so a fresh checkout publishes neither a
-# payment link nor an email address:
-#   DT_COFFEE_URL     — the Buy Me a Coffee page. Unset → no ask panel, no
-#                       footer coffee link. The page is still useful: it says
-#                       what the site costs and how to report an error.
-#   DT_CONTACT_EMAIL  — a burnable hide-my-email alias forwarding to a mailbox
-#                       kept for this project. Unset → no private-contact box.
-#                       Env, not a constant, so the alias can be burned and
-#                       reminted without a commit or a redeploy — that
-#                       rotatability is the actual defence against scraping.
-#                       Obfuscating it in markup would be theatre: the
-#                       sanitiser strips <script>, so it cannot be assembled
-#                       client-side anyway.
+# The public coffee-page default can be replaced via DT_COFFEE_URL or disabled
+# with an empty value. DT_CONTACT_EMAIL is a rotatable alias and remains off when
+# unset. Both stay out of HTML until runtime; Streamlit blocks client assembly.
 _SUPPORT_PATH = "/support"
+_DEFAULT_COFFEE_URL = "https://buymeacoffee.com/peweet"
 
 # Public repo with issues enabled (GitHub API, 2026-07-27: private=false,
 # has_issues=true), so an anonymous reader can actually file one.
@@ -1952,8 +1943,8 @@ turns out the data is already here under a different name.
 
 
 def coffee_url() -> str:
-    """The configured Buy Me a Coffee page, or "" when unset."""
-    return os.getenv("DT_COFFEE_URL", "").strip()
+    """The deployment override, public default, or empty kill switch."""
+    return os.getenv("DT_COFFEE_URL", _DEFAULT_COFFEE_URL).strip()
 
 
 def contact_email() -> str:
@@ -1974,6 +1965,7 @@ def _issue_url(*, labels: str, title: str, body: str) -> str:
 def support_hero_html() -> str:
     return (
         '<div class="sup-hero">'
+        '<p class="sup-kicker">Public records, kept public</p>'
         "<h1>Dáil Tracker is free.<br>It is <em>not</em> free to run.</h1>"
         "<p>Every figure on this site is pulled from a public register, cleaned, and "
         "published with its source attached. That work is a person and a server bill, "
@@ -2037,20 +2029,23 @@ def coffee_button_html(url: str, *, label: str = "Buy me a coffee") -> str:
 
 
 def support_ask_html() -> str:
-    """The coffee ask. Empty string when DT_COFFEE_URL is unset — the rest of
-    the page stands on its own without it."""
+    """The coffee ask. Empty only when DT_COFFEE_URL is explicitly disabled."""
     url = coffee_url()
     if not url:
         return ""
     return (
         '<div class="sup-ask">'
-        "<h2>Buy me a coffee</h2>"
-        "<p>One-off, any amount, no account needed. Payment is handled entirely by "
-        "Buy&nbsp;Me&nbsp;a&nbsp;Coffee — this site never sees your card details, your "
-        "name, or your email, and sets no tracking cookie on you for clicking.</p>"
-        f'<div class="sup-btn-row">{coffee_button_html(url)}</div>'
-        '<p class="sup-btn-note">There is no membership tier and no subscription. '
-        "One cup, whenever you feel like it.</p>"
+        '<div class="sup-ask-copy">'
+        '<p class="sup-kicker">Optional support</p>'
+        "<h2>Keep the records open</h2>"
+        "<p>If this work has saved you time or helped you check a public claim, a small "
+        "one-off contribution helps cover the server and the maintenance behind it.</p>"
+        "</div>"
+        '<div class="sup-ask-action">'
+        f"{coffee_button_html(url)}"
+        '<p class="sup-btn-note">No account, membership or subscription. Buy Me a Coffee '
+        "handles payment; Dáil Tracker never receives your card details, name or email.</p>"
+        "</div>"
         "</div>"
     )
 
@@ -2077,13 +2072,13 @@ def support_help_html() -> str:
         )
     return (
         '<div class="sup-help">'
-        "<h2>Spot something wrong? Want something added?</h2>"
+        "<h2>Help improve the record</h2>"
         '<p class="sup-help-intro">This site republishes other people\'s registers, so it '
         "inherits their mistakes as well as their facts. If a figure looks wrong, it "
         "probably is — and telling me is worth more than a coffee.</p>"
         '<div class="sup-routes">'
         '<div class="sup-route">'
-        "<h3>A figure looks wrong</h3>"
+        "<h3>Correct the record</h3>"
         "<p>Opens a pre-filled report asking which page, what it shows, and the source "
         "that says otherwise.</p>"
         f'<a class="sup-btn-ghost" href="{_h(correction, quote=True)}" '
@@ -2091,7 +2086,7 @@ def support_help_html() -> str:
         '<span class="sup-icon">bug_report</span><span>Report a correction</span></a>'
         "</div>"
         '<div class="sup-route">'
-        "<h3>Something is missing</h3>"
+        "<h3>Suggest a useful view</h3>"
         "<p>A register that should be here, a view that would help, a page that is hard "
         "to use. Tell me what you were trying to find out.</p>"
         f'<a class="sup-btn-ghost" href="{_h(enhancement, quote=True)}" '
@@ -2134,7 +2129,7 @@ def support_honesty_html() -> str:
         ),
     ]
     lis = "".join(f"<li><strong>{_h(head)}</strong> {_h(body)}</li>" for head, body in items)
-    return f'<div class="sup-honest"><h2>What your money does not buy</h2><ul>{lis}</ul></div>'
+    return f'<div class="sup-honest"><h2>What support never changes</h2><ul>{lis}</ul></div>'
 
 
 def support_page_html(stats) -> str:

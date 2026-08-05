@@ -155,7 +155,7 @@ Per-publisher SPENT / COMMITTED detail (each tier its own cell, never blended): 
 Charts (optional): **paired panels** — "Awarded ceiling by year" | "Paid (SPENT) by year" — same x-axis, **separate y-axes, hard divider, two grain labels.** COMMITTED is a third, separately labelled panel. Never one axis, never a stack.
 
 **Data source:**
-- Side-by-side footprint: `fetch_entity_chain_for_company_result(company_num: str)` → grain **multi-grain (NEVER sum)**; fields `etenders_awarded_value_safe_eur`, `ted_value_safe_eur`, `paid_safe_eur`, `committed_safe_eur`, `in_etenders/in_ted/in_payments`, `n_registers`.
+- Side-by-side footprint: `fetch_entity_chain_for_company_result(company_num: str)` → grain **multi-grain (NEVER sum)**; fields `etenders_awarded_value_safe_eur`, `ted_awards`, `ted_n_buyers`, `paid_safe_eur`, `committed_safe_eur`, `in_etenders/in_ted/in_payments`, `n_registers`. TED is count-only here; monetary values stay at individual-notice level.
 - Per-publisher SPENT / COMMITTED for this supplier: **[requires Phase 2 view]** — a supplier-scoped (`supplier_norm`-keyed) per-publisher registered view. `fetch_payments_supplier_summary_result(tier=…)` is an **unscoped top-60 leaderboard** over `v_procurement_payments_supplier_summary` and must **not** be filtered/reshaped to the supplier in the report.
 - Leaf lines (known pair): `fetch_payment_lines_for_pair_result(supplier_norm, publisher_name, tier=...)`; grain **PAID / COMMITTED (line-level)**.
 
@@ -168,7 +168,7 @@ SPENT-vs-COMMITTED (payments) —
 > SPENT (paid) and COMMITTED (ordered) are different tiers — never blend them in one total. VAT basis varies by publisher and is unconfirmed for most: see the vat_matrix reference in this manifest before comparing across publishers.
 
 TED lane (do not union with national, do not total) —
-> Pan-EU framework outliers (is_pan_eu_outlier) carry ceilings that dwarf the Irish market — exclude them from totals. Single-bid is a factual signal, never a verdict. Sum only value_safe_to_sum rows; never add to payments (different grain).
+> TED values are individual-notice context only and are never totaled; value_safe_to_sum is always false. Pan-EU framework outliers (is_pan_eu_outlier) may cover many countries. Single-bid is a factual signal, never a verdict; never add TED values to payments or national awards.
 
 ---
 

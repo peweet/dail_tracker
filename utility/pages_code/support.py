@@ -10,10 +10,10 @@ in ``ui.components``. Nothing is computed here, and no figure is typed into
 copy — a hard-coded number is true the day it is written and quietly wrong
 after the next refresh.
 
-CONFIG: both outward-facing links are env-gated and OFF by default, so a fresh
-checkout publishes neither a payment link nor an email address.
-``DT_COFFEE_URL`` unset hides the coffee ask; ``DT_CONTACT_EMAIL`` unset hides
-the private-contact box. See the note above the builders in ui/components.py.
+CONFIG: the public Buy Me a Coffee page is the checked-in default;
+``DT_COFFEE_URL`` can replace it or explicitly disable it with an empty value.
+``DT_CONTACT_EMAIL`` remains env-gated and unset by default, so a fresh checkout
+publishes no private-contact address. See the builders in ui/components.py.
 """
 
 from __future__ import annotations

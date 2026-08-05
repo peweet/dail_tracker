@@ -150,9 +150,10 @@ EXPORTS: dict[str, ExportSpec] = {
         licence="EU open data (Commission Decision 2011/833/EU)",
         attribution=_TED_ATTRIBUTION,
         caveat=(
-            "Pan-EU framework outliers (is_pan_eu_outlier) carry ceilings that dwarf the Irish "
-            "market — exclude them from totals. Single-bid is a factual signal, never a verdict. "
-            "Sum only value_safe_to_sum rows; never add to payments (different grain)."
+            "TED values are individual-notice context only and are never totaled; "
+            "value_safe_to_sum is always false. Pan-EU framework outliers may cover many "
+            "countries. Single-bid is a factual signal, never a verdict; never add TED values "
+            "to payments or national awards."
         ),
         privacy_filter=_TED_PERSON_FILTER,
         privacy_note=_NO_PERSONS_NOTE,
@@ -166,7 +167,10 @@ EXPORTS: dict[str, ExportSpec] = {
         ),
         licence="EU open data (Commission Decision 2011/833/EU)",
         attribution=_TED_ATTRIBUTION,
-        caveat="Same value rules as ted_awards: ceilings not spend; sum only value_safe_to_sum; exclude pan-EU outliers from totals.",
+        caveat=(
+            "TED values are individual-notice context only and are never totaled; "
+            "value_safe_to_sum is always false. Never add them to payments or national awards."
+        ),
         privacy_filter=_TED_PERSON_FILTER,
         privacy_note=_NO_PERSONS_NOTE,
         date_expr="MAX(dispatch_date)",
@@ -176,7 +180,10 @@ EXPORTS: dict[str, ExportSpec] = {
         description="TED Irish buyer-side award notices 2016–2023 (buyer, total value, CPV, procedure type — no winner data in this era's API).",
         licence="EU open data (Commission Decision 2011/833/EU)",
         attribution=_TED_ATTRIBUTION,
-        caveat="Buyer-side grain — never union with winner-grain files. Sum only value_safe_to_sum.",
+        caveat=(
+            "Buyer-side grain — never union with winner-grain files. Values are individual-notice "
+            "context only and value_safe_to_sum is always false."
+        ),
         date_expr="MAX(dispatch_date)",
     ),
     "ted_tenders": ExportSpec(

@@ -457,10 +457,10 @@ def test_curl_bytes_tries_discovered_executables_in_order(monkeypatch):
     import services.http_engine as he
 
     monkeypatch.setattr(he, "_curl_candidates", lambda: ("first-curl", "second-curl"))
-    calls: list[str] = []
+    calls: list[list[str]] = []
 
     def fake_run(args, **_kwargs):
-        calls.append(args[0])
+        calls.append(args)
         if args[0] == "first-curl":
             return he.subprocess.CompletedProcess(args, 61, stdout=b"")
         return he.subprocess.CompletedProcess(args, 0, stdout=b"decoded")
@@ -468,7 +468,8 @@ def test_curl_bytes_tries_discovered_executables_in_order(monkeypatch):
     monkeypatch.setattr(he.subprocess, "run", fake_run)
 
     assert he._curl_bytes("https://example.test", "agent", 10) == b"decoded"
-    assert calls == ["first-curl", "second-curl"]
+    assert [args[0] for args in calls] == ["first-curl", "second-curl"]
+    assert all("-k" not in args and "--insecure" not in args for args in calls)
 
 
 @responses.activate

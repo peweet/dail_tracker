@@ -12,11 +12,9 @@ needs the per-notice-XML lane (doc/TED_ENRICHMENT.md §3.5 "bulk legacy lane").
 GRAIN: ONE ROW PER NOTICE (no winner dimension — the winner is not in this layer).
 
 VALUE DISCIPLINE: total-value is the notice's TOTAL awarded value (all lots/winners). Without
-a winner count we cannot reliably tell a single contract from a framework CEILING, so framework
-detection here is VALUE-THRESHOLD-ONLY (blunter than the winner silver). The trustworthy metric
-is COUNT of notices (and MEDIAN value); value_safe_to_sum is conservative (excludes large +
-pan-EU) and totals must be labelled "awarded (notice totals)", never "spend". A published award
-notice is a fact, not evidence of influence.
+a winner count we cannot reliably tell a single contract from a framework CEILING. Values are
+retained for individual-notice display and median/distribution diagnostics only;
+value_safe_to_sum is always FALSE. A published award notice is a fact, not evidence of influence.
 
 NOT wired into pipeline.py. Silver is regenerable from the API (left untracked). Gold only when
 a sql_views/ted_*.sql view exposes it.
@@ -49,6 +47,7 @@ from extractors.ted_ireland_extract import (  # noqa: E402
     hr,
     to_eur,
 )
+from services.coverage_io import save_coverage  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from services.ted_search import fetch_ted_search  # noqa: E402
 from shared.buyer_clean import clean_buyer_display  # noqa: E402
@@ -179,16 +178,9 @@ def main() -> None:
     df = clean_buyer_display(pl.DataFrame(build_rows(raw), infer_schema_length=None), "buyer_name").with_columns(
         name_norm_expr("buyer_name").alias("buyer_name_norm"),
     )
-    # Conservative sum-safe gate: value present, single-grade (not large), not pan-EU. Framework
-    # detection is threshold-only here (no winner count) — totals stay "awarded (notice totals)".
+    # The legacy column remains for schema compatibility. TED notice values are never summable.
     df = df.with_columns(
-        (
-            (pl.col("value_kind") == "contract_award_value")
-            & ~pl.col("is_large_award_review")
-            & ~pl.col("is_pan_eu_outlier")
-            & pl.col("total_value_eur").is_not_null()
-            & (pl.col("total_value_eur") > 0)
-        ).alias("value_safe_to_sum"),
+        pl.lit(False).alias("value_safe_to_sum"),
         pl.lit("TED").alias("source"),
         pl.lit("buyer_side_award_notice").alias("grain"),
         pl.lit(datetime.now(UTC).strftime("%Y-%m-%d")).alias("retrieved_utc"),
@@ -203,11 +195,10 @@ def main() -> None:
         f"distinct notices: {df['publication_number'].n_unique():,}  distinct buyers: {df['buyer_name_norm'].n_unique():,}"
     )
     print(df.group_by("year").len().sort("year"))
-    safe = df.filter(pl.col("value_safe_to_sum"))
     has_val = df.filter(pl.col("total_value_eur").is_not_null())
     print(
         f"\nvalue present: {has_val.height:,} ({has_val.height / df.height:.0%})  "
-        f"| value_safe_to_sum: {safe.height:,}  €{(safe['total_value_eur'].sum() or 0):,.0f} (notice totals, excl. large + pan-EU)"
+        "| value_safe_to_sum: 0 (TED notice values are display-only and never aggregated)"
     )
     print("\ntop buyers by notice count:")
     print(df.group_by("buyer_name").len().sort("len", descending=True).head(8))
@@ -218,9 +209,7 @@ def main() -> None:
         "distinct_buyers": int(df["buyer_name_norm"].n_unique()),
         "rows_with_value": int(df["total_value_eur"].is_not_null().sum()),
         "value_fill_rate": round(int(df["total_value_eur"].is_not_null().sum()) / max(1, df.height), 3),
-        "value_safe_to_sum_rows": safe.height,
-        "value_safe_to_sum_total_eur": float(safe["total_value_eur"].sum() or 0),
-        "value_naive_sum_eur_DO_NOT_USE": float(df["total_value_eur"].sum() or 0),
+        "value_safe_to_sum_rows": 0,
         "large_award_review_rows_ge_50m": int(df["is_large_award_review"].sum()),
         "median_value_eur": float(df.filter(pl.col("total_value_eur") > 0)["total_value_eur"].median() or 0),
         "by_year": {str(r["year"]): r["len"] for r in df.group_by("year").len().sort("year").iter_rows(named=True)},
@@ -240,11 +229,11 @@ def main() -> None:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "BUYER-SIDE award-notice activity. One row per notice; the WINNER is NOT present "
         "(API returns 0% winner fields for pre-2024 legacy notices). total-value is the notice's "
-        "total awarded value; framework ceilings cannot be separated without a winner count, so "
-        "framework detection is value-threshold-only and value_safe_to_sum is conservative. Lead "
+        "total awarded value; framework ceilings cannot be separated without a winner count. "
+        "Values are individual-notice display only and value_safe_to_sum is always false. Lead "
         "with COUNT. Never merge with or sum against the winner silver or eTenders.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"wrote coverage {OUT_COV}")
     print("\nLAYER=silver (buyer-side sibling). Gold only when a sql_views/ted_*.sql view exposes it.")
 

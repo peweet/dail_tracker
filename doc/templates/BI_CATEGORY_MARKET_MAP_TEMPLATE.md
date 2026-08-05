@@ -266,7 +266,7 @@ The **grain identity** of every cell (which ledger: AWARD / PLANNED / TED / enri
 > procurement AWARDS, public-body PAYMENTS, and T&A allowances are three different value grains — NEVER sum across them
 
 **[TED / EU]** (verbatim, `api/routers/exports.py` `ted_awards` caveat)
-> Pan-EU framework outliers (is_pan_eu_outlier) carry ceilings that dwarf the Irish market — exclude them from totals. Single-bid is a factual signal, never a verdict. Sum only value_safe_to_sum rows; never add to payments (different grain).
+> TED values are individual-notice context only and are never totaled; value_safe_to_sum is always false. Pan-EU framework outliers may cover many countries. Single-bid is a factual signal, never a verdict; never add TED values to payments or national awards.
 
 **[ENTITY MATCHING]** (verbatim, `utility/pages_code/procurement.py:2383-2385`)
 > Grouped by name only; these may be different legal entities — confirm via the CRO number on each notice before treating them as one firm.

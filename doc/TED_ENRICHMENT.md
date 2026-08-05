@@ -40,13 +40,12 @@ enrichment moves that remain. Companion to:
 | Page | `utility/pages_code/procurement.py` | "EU-level awards (TED)" tab + per-firm TED cross-reference panel on the supplier profile. |
 | Pipeline | `pipeline.py` — `("ted", "extractors/ted_ireland_extract.py")` | Committed chain; runs after the procurement/lobbying chains. |
 
-**Verified value figures (from `PROCUREMENT_MASTER.md` §1):**
+**Verified value discipline (from `PROCUREMENT_MASTER.md` §1):**
 
 | measure | value | note |
 |---|---|---|
-| naive Σ of every TED `value_eur` | absurd | never display as a total |
-| └ 375 pan-EU outliers | €586bn | GÉANT-type research frameworks; Ireland is one of dozens of participants — already flagged `is_pan_eu_outlier` |
-| **sum-safe** (excl. outliers) | **€5.82bn** | award-grain, `value_safe_to_sum=true` |
+| TED monetary total | not computed | values are individual-notice context only; `value_safe_to_sum=false` on every row |
+| pan-EU outliers | 375 rows | GÉANT-type research frameworks; Ireland is one of dozens of participants — flagged `is_pan_eu_outlier` |
 | TED winners also in eTenders (by norm name) | 4,207 / 6,391 (**66%**) | ⇒ **never union/sum**; cross-reference per firm |
 
 ---
@@ -60,8 +59,8 @@ enrichment moves that remain. Companion to:
    *upgrades* `supplier_class` (`sole_trader_or_individual` → `company`) and the
    `privacy_status` gate, because real firms often drop suffix words in TED naming.
 2. **Value taxonomy tagging:** every row carries `value_kind`
-   (`contract_award_value` vs `framework_or_dps_ceiling`) and a derived
-   `value_safe_to_sum`. Pan-EU outliers flagged `is_pan_eu_outlier`.
+   (`contract_award_value` vs `framework_or_dps_ceiling`), while
+   `value_safe_to_sum` is always false. Pan-EU outliers are flagged `is_pan_eu_outlier`.
 3. **Privacy quarantine:** `supplier_class` + `privacy_status`; sole-traders /
    individuals withheld from rankings (company-class only).
 4. **In-view name cleanup:** the `_NNNNN` org-id suffix stripped for display and
@@ -125,7 +124,8 @@ samples per year, fields checked against the API's full 1,373-field list):
 and the award value is recoverable via `total-value` (not `tender-value`). **But the
 winner name/identifier is genuinely 0% for legacy notices** — it isn't a wrong
 field name (every winner/org field in the API was tested). This silver is
-winner-centric: winner→CRO match, supplier rankings, per-winner `value_safe_to_sum`.
+winner-centric: winner→CRO match, supplier rankings, and individual-notice values with
+`value_safe_to_sum=false`.
 Backfilling ~10k winner-less rows corrupts that grain (and crashes the build on the
 all-null `winner_name` column). **So the date filter stays at 2024.**
 
@@ -193,8 +193,8 @@ value, highest matching/privacy care. Depends on 3.1 + 3.3 being solid first.
    `framework_or_dps_ceiling` / committed / paid.
 4. **Registers are siblings, never summed** — eTenders + TED overlap 66% by name;
    a firm's profile shows both, labelled, never added.
-5. **Pan-EU default-hidden** — the 375 outliers (€586bn) sit behind a "show pan-EU
-   frameworks" toggle that reveals the shared-ceiling mirage.
+5. **Pan-EU default-hidden** — the 375 outliers sit behind a "show pan-EU frameworks"
+   toggle; their notice-level ceilings are never totaled.
 6. **Company-class only in rankings** — sole-traders/individuals quarantined.
 7. **Co-occurrence ≠ causation** — lobbying overlap is "appears on both registers".
 8. **Provenance on everything** — register named (eTenders national vs TED EU),
@@ -264,7 +264,7 @@ per-contract `VALUE` (€2.688m, €0.672m…) plus the framework `VAL_TOTAL` �
      (this restores the *real* framework flag the buyer-side layer can't compute)
 4. **Map onto the existing silver schema** so the rows union cleanly with the 2024+
    API rows: reuse `supplier_class` classification, `COMPANY_SUFFIX`/`FOREIGN_FORM`
-   regexes, the CRO join, the value-flag block, and `value_safe_to_sum` from
+   regexes, the CRO join, the value-review flags, and never-sum `value_safe_to_sum` from
    `ted_ireland_extract.py` (factor those into a shared module rather than copy).
 5. **Tag provenance**: `source_lane = "per_notice_xml"` vs `"api"` so the two eras
    are auditable and the eForms-only competition fields stay null pre-2024.

@@ -36,10 +36,10 @@ procurement_payments_fact:
   purpose: "Actual purchase-order/payment lines >€20k from public bodies + councils"
 
 ted_ie_awards:
-  grain: "one row per TED award notice"
+  grain: "one row per (TED award notice, winner)"
   money_grain: ted
   never_sum_with: awarded|payments|budget
-  purpose: "EU TED contract-award notices — OVERLAPS procurement_awards, never sum the two"
+  purpose: "EU TED notice-winner records — values are display-only per notice and never summed"
 
 la_budget_divisions:
   grain: "one row per (council,year,division)"

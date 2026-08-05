@@ -131,9 +131,15 @@ def test_exact_counts_are_shown_beside_rounded_ones(stats: SupportStats) -> None
     assert f"{stats.judges} judges" in body
 
 
-# ── Env gates: both OFF by default, so a fresh checkout publishes neither ─────
-def test_no_coffee_link_when_url_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+# ── Coffee URL: public default, replaceable and explicitly disableable ─────────
+def test_default_coffee_link_is_published_when_url_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DT_COFFEE_URL", raising=False)
+    assert "https://buymeacoffee.com/peweet" in C.support_ask_html()
+    assert "/support?from=footer" in C.site_footer_html()
+
+
+def test_coffee_link_can_be_explicitly_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DT_COFFEE_URL", "")
     assert C.support_ask_html() == ""
     assert "buymeacoffee" not in C.support_page_html(None).lower()
     assert "from=footer" not in C.site_footer_html()

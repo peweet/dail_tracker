@@ -63,7 +63,7 @@ def test_public_body_adapter_extracts_compiled_regex():
     assert rec["value_semantics"] == "payment_actual"
     assert rec["status"] == "tier_A"
     assert rec["caveat"] is None  # empty string normalised to None
-    assert rec["parser_wired"] is False
+    assert rec["parser_wired"] is True
 
 
 def test_la_adapter_status_gates_pollable():
@@ -88,6 +88,7 @@ def test_la_adapter_status_gates_pollable():
     recs = {r["source_id"]: r for r in adapt_la(rows)}
     assert recs["local_authority_payments:cork_city"]["pollable"] is True
     assert recs["local_authority_payments:mayo"]["pollable"] is True
+    assert all(rec["parser_wired"] for rec in recs.values())
     # NEEDS-RENDER and NON-PUBLISHER must NOT be pollable (else permanent false alarms)
     assert recs["local_authority_payments:carlow"]["pollable"] is False
     assert recs["local_authority_payments:dublin_city"]["pollable"] is False
@@ -119,7 +120,7 @@ def test_hse_tusla_listing_from_seed_landing():
     assert tusla["listing_url"] is None
     assert tusla["pollable"] is False and tusla["status"] == "url_unresolved"
     assert hse["privacy_risk"] == "high"
-    assert hse["parser_wired"] is False
+    assert hse["parser_wired"] is True
 
 
 def test_manual_adapter_carries_glob_and_threshold():

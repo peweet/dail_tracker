@@ -1,4 +1,4 @@
-"""Sandbox: national per-decision PROFILE over the whole 495k planning corpus.
+"""Live civic extractor: national per-decision profile over the planning corpus.
 
 Generalises the Galway SAC case study (doc/archive/PLANNING_PERMISSION_SCOPING.md §13) to the ENTIRE
 country: for every planning application it attaches (a) the structured DECISION-FUNCTION fields
@@ -7,7 +7,7 @@ nature-conservation designations the site sits in (NPWS SAC / SPA / NHA / pNHA).
 per-decision profile parquet + a national dose-response (refusal rate by trigger), the data spine
 for the "rulebook as axioms" model (§16) and the mitigation-profile triage.
 
-Inputs:  pipeline_sandbox/_planning_output/planning_applications_silver.parquet (495,632 pts, lon/lat)
+Inputs:  data/silver/parquet/planning_applications_silver.parquet (points with lon/lat)
          NPWS Designated Areas FeatureServer (registry PC09 SAC / PC10 SPA / PC11 NHA+pNHA)
 Output:  pipeline_sandbox/_planning_output/planning_decision_profiles.parquet
          data/_meta/planning_decision_profiles_coverage.json
@@ -23,7 +23,6 @@ Spatial method (lessons from §13.6 / project_planning_arcgis_validation):
 from __future__ import annotations
 
 import datetime as dt
-import json
 import logging
 from pathlib import Path
 
@@ -33,6 +32,7 @@ from shapely import points as shp_points
 from shapely.geometry import shape
 from shapely.validation import make_valid
 
+from services.coverage_io import save_coverage
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
@@ -189,7 +189,7 @@ def main() -> None:
 
     cov = {
         "generated_utc": dt.datetime.now(dt.UTC).isoformat(),
-        "layer": "sandbox",
+        "layer": "silver",
         "n_applications": profile.height,
         "n_decided": dec.height,
         "national_refusal_pct": round(base, 1),
@@ -206,7 +206,7 @@ def main() -> None:
             "PC28 SMR archaeology zone",
         ],
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2))
+    save_coverage(cov, OUT_COV)
     LOG.info("coverage -> %s", OUT_COV)
 
 

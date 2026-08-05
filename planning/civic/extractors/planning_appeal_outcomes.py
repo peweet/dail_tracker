@@ -43,7 +43,6 @@ Output:  data/silver/parquet/planning_appeal_outcomes.parquet
 from __future__ import annotations
 
 import datetime as dt
-import json
 import logging
 import re
 import unicodedata
@@ -51,6 +50,7 @@ from pathlib import Path
 
 import polars as pl
 
+from services.coverage_io import save_coverage
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
@@ -511,7 +511,7 @@ def main() -> None:
         "council_refuse_to_abp_grant": r2g,
         "caveat": "ABP appeals are de novo; overturn = outcome flipped. ACP feed 2016+. Correlation/record, not a quality judgement.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2))
+    save_coverage(cov, OUT_COV)
     LOG.info("wrote %d outcomes -> %s ; coverage -> %s", n, OUT, OUT_COV)
 
 

@@ -1,13 +1,10 @@
-"""Seed / sync the curated source-cadence ledger — the UNIFIED index of every
-source we target, across every registry, with its refresh cadence + poller + tests.
+"""Seed / sync the curated source-cadence ledger for the public source registry.
 
-The registries in this repo form a LAYER, not a duplicate set (see
-doc/SOURCE_CADENCE_PROCEDURE.md):
-  * `source_registry.generated.json` (129) — the canonical LIVE pipeline sources,
-    generated from 5 in-code configs. THE spine.
-  * `planning_rules/_corpus_registry/planning_corpus_seed.csv` (36) — a PARALLEL
-    live registry for the planning corpus, which independently grew its own
-    `update_cadence` column. Folded in here so cadence lives in ONE place.
+`source_registry.generated.json` is the canonical public pipeline-source spine,
+generated from in-code configs. Private product overlays maintain their own registries
+and cadence metadata; they are deliberately outside this public-checkout ratchet.
+
+Other source-like files have distinct roles:
   * seeds that FEED the canonical registry (procurement publishers_seed, la_seed)
     — inputs, not sources; NOT ingested (they arrive via the generated registry).
   * sandbox seeds (council_minutes, public_decisions, disclosed_po) — experimental
@@ -23,8 +20,8 @@ release_window, poller, runner, test_packages, curated, notes.
 
 Usage
 -----
-    python tools/build_source_cadence.py            # create/sync + report drift
-    python tools/build_source_cadence.py --check    # exit 1 on drift (CI ratchet)
+    python tools/migration/build_source_cadence.py            # create/sync + report drift
+    python tools/migration/build_source_cadence.py --check    # exit 1 on drift (CI ratchet)
 """
 
 from __future__ import annotations
@@ -44,7 +41,6 @@ if str(PROJECT_ROOT) not in sys.path:
 from tools.cadence_constants import CADENCE_DAYS  # noqa: E402 — one home for the label→days map
 
 REGISTRY = PROJECT_ROOT / "data" / "_meta" / "source_registry.generated.json"
-PLANNING_CORPUS = PROJECT_ROOT / "planning_rules" / "_corpus_registry" / "planning_corpus_seed.csv"
 TEST_DIR = PROJECT_ROOT / "test"
 LEDGER = PROJECT_ROOT / "data" / "_meta" / "source_cadence.csv"
 
@@ -71,17 +67,6 @@ def _label_for_days(days: int) -> str:
         if d and abs(d - days) < best:
             best, name = abs(d - days), label
     return name
-
-
-def cadence_from_text(text: str) -> tuple[str, int]:
-    """Map a free-text cadence hint (planning corpus `update_cadence`) to a band."""
-    t = (text or "").lower()
-    for label in ("daily", "weekly", "fortnightly", "monthly", "quarterly", "annual"):
-        if label in t:
-            return label, CADENCE_DAYS[label]
-    if "near-weekly" in t or "near weekly" in t:
-        return "weekly", 7
-    return "review", 0
 
 
 def guess_cadence(group: str, check_type: str, stale_after_days) -> tuple[str, int]:
@@ -149,13 +134,6 @@ def load_registry() -> list[dict]:
     return json.loads(REGISTRY.read_text(encoding="utf-8")).get("sources", [])
 
 
-def load_planning_corpus() -> list[dict]:
-    if not PLANNING_CORPUS.exists():
-        return []
-    with PLANNING_CORPUS.open(encoding="utf-8", newline="") as fh:
-        return list(csv.DictReader(fh))
-
-
 def load_ledger() -> dict[str, dict]:
     if not LEDGER.exists():
         return {}
@@ -184,34 +162,8 @@ def seed_registry_row(src: dict) -> dict:
     }
 
 
-def seed_planning_row(row: dict) -> dict:
-    cadence, days = cadence_from_text(row.get("update_cadence", ""))
-    urls = [row.get("resolved_url", "")]
-    return {
-        "source_id": f"planning_corpus:{row.get('id', '?')}",
-        "name": row.get("dataset", ""),
-        "group": f"planning_{row.get('category', '')}",
-        "registry": "planning_corpus",
-        "cadence": cadence,
-        "cadence_days": days,
-        "next_expected": "",
-        "release_window": row.get("update_cadence", ""),
-        "poller": (row.get("poll_method", "") or "")[:60],
-        "runner": guess_runner(urls),
-        "test_packages": test_packages_for("planning_layers") or "<none>",
-        "curated": "no",
-        "notes": f"AUTO-SEEDED from planning_corpus_seed (status={row.get('status', '?')})",
-    }
-
-
 def all_seed_rows() -> dict[str, dict]:
-    rows: dict[str, dict] = {}
-    for s in load_registry():
-        rows[s["source_id"]] = seed_registry_row(s)
-    for r in load_planning_corpus():
-        row = seed_planning_row(r)
-        rows[row["source_id"]] = row
-    return rows
+    return {source["source_id"]: seed_registry_row(source) for source in load_registry()}
 
 
 def write_ledger(rows: list[dict]) -> None:
@@ -251,9 +203,9 @@ def main() -> int:
             for sid in sorted(gone_ids):
                 print(f"  - {sid}", file=sys.stderr)
         if drift:
-            print("\nRun `python tools/build_source_cadence.py` to sync.", file=sys.stderr)
+            print("\nRun `python tools/migration/build_source_cadence.py` to sync.", file=sys.stderr)
             return 1
-        print(f"OK — ledger covers all {len(all_ids)} sources across all registries, no orphans.")
+        print(f"OK — ledger covers all {len(all_ids)} public sources, no orphans.")
         return 0
 
     # Preserve curated rows verbatim, but BACKFILL any newly-added column onto them.

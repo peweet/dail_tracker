@@ -163,8 +163,7 @@ def adapt_ipas(sources: list[dict]) -> list[dict]:
 
 
 def adapt_public_body(publishers: list[dict]) -> list[dict]:
-    """procurement_public_body_extract.PUBLISHERS — list of cfg() dicts. Parse
-    targets, not yet wired into pipeline.py (parser_wired=False)."""
+    """Live public-body payment sources parsed by the pipeline chain."""
     out = []
     for p in publishers:
         out.append(
@@ -181,6 +180,7 @@ def adapt_public_body(publishers: list[dict]) -> list[dict]:
                 privacy_risk=p.get("privacy_risk"),
                 status=f"tier_{p.get('tier', '?')}",
                 pollable=True,
+                parser_wired=True,
                 include_pattern=_pattern_of(p.get("include")),
                 caveat=p.get("caveat") or None,
             )
@@ -209,6 +209,7 @@ def adapt_la(schema_map: list[dict]) -> list[dict]:
                 grain="payment_or_po",
                 status=status,
                 pollable=status in {"READY", "DIRECT"},
+                parser_wired=True,
                 include_pattern=_pattern_of(c.get("include")),
                 caveat=c.get("caveat") or None,
             )
@@ -279,7 +280,7 @@ def adapt_la_afs(registry: list[dict], deferred: list[dict]) -> list[dict]:
 def adapt_hse_tusla(specs: dict, seed_landing: dict[str, str]) -> list[dict]:
     """procurement_hse_tusla_parser.SPECS — parser geometry only (no URLs). The
     listing URL comes from the committed seed's landing_url; pollable only if a
-    durable landing URL exists. Bespoke parser, not yet wired (parser_wired=False)."""
+    durable landing URL exists. The pipeline's materializer runs the bespoke parser."""
     out = []
     for pid, spec in specs.items():
         landing = seed_landing.get(pid)
@@ -295,10 +296,8 @@ def adapt_hse_tusla(specs: dict, seed_landing: dict[str, str]) -> list[dict]:
                 privacy_risk="high",
                 status="landing_only" if landing else "url_unresolved",
                 pollable=bool(landing),
-                caveat=(
-                    "listing from seed; runtime parser resolves the file URL from "
-                    "an ephemeral probe JSON — promote that before wiring to pipeline"
-                ),
+                parser_wired=True,
+                caveat=("listing from seed; runtime parser resolves the file URL from an ephemeral probe JSON"),
             )
         )
     return out

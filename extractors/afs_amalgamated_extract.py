@@ -1,10 +1,11 @@
-"""INGEST (full, sandbox): amalgamated Local Authority Annual Financial Statements —
-Income & Expenditure by SERVICE DIVISION, every published year (2009–2024).
+"""Live pipeline ingest: amalgamated Local Authority Annual Financial Statements.
+
+Income & Expenditure by service division for every configured published year.
 
 Source: Dept of Housing 'Local Authority Annual Financial Statements' collection (gov.ie),
 audited amalgamation of all 31 LAs. The unique BUDGET/SPENT-by-function macro layer (the
-only COMPLETE, AUDITED total — see doc/PROCUREMENT_MASTER.md). PRE-ETL: writes a
-tidy parquet to data/sandbox/parquet/ (NOT gold, NOT wired to pipeline.py).
+only COMPLETE, AUDITED total — see doc/PROCUREMENT_MASTER.md). The ``afs`` chain
+in ``pipeline.py`` writes the conformed silver fact consumed by registered AFS views.
 
 Per year: download → find the I&E-by-division statement page (≥6 division labels + a
 "Gross Expenditure" header) → parse 8 divisions × (gross, income, net, prior-net) by
@@ -20,25 +21,33 @@ from __future__ import annotations
 import contextlib
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import fitz
-import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
+# isort: off
+import services.runtime_env  # noqa: E402,F401 — thread caps before Polars
+
+import polars as pl  # noqa: E402
+
 import config  # noqa: E402
 from paths import runtime_path  # noqa: E402
 from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 from services.http_engine import polite_headers  # noqa: E402
+from services.coverage_io import save_coverage  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
+# isort: on
 
 # medallion: raw PDFs -> bronze; reconciled conformed fact -> silver. (Gold = SQL views.)
 CACHE = config.BRONZE_PDF_DIR / "afs"
 OUT_PARQUET = config.SILVER_PARQUET_DIR / "afs_amalgamated_divisions.parquet"
+OUT_COV = ROOT / "data/_meta/afs_amalgamated_coverage.json"
 OUT_CSV = runtime_path("afs", "afs_amalgamated_divisions.csv")  # debug copy only
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research)"}
 
@@ -152,6 +161,28 @@ def parse_ie(page_text: str) -> tuple[dict[str, list[float]], tuple[float, float
     return out, total
 
 
+def build_coverage(df: pl.DataFrame, dq: list[tuple]) -> dict:
+    """Build the source-specific coverage sidecar from the completed run."""
+    return {
+        "schema_version": 1,
+        "generated_at_utc": datetime.now(UTC).isoformat(),
+        "source": "Dept Housing amalgamated Local Authority Annual Financial Statements",
+        "rows": df.height,
+        "years_configured": len(URLS),
+        "years_extracted": df["year"].n_unique(),
+        "per_year": {
+            str(year): {
+                "source_url": URLS[year],
+                "status": status,
+                "divisions": divisions,
+                "gross_expenditure_eur": gross_sum,
+                "reconciliation": reconciliation,
+            }
+            for year, status, divisions, gross_sum, reconciliation in dq
+        },
+    }
+
+
 def main() -> None:
     hr("FULL INGEST — amalgamated AFS, Income & Expenditure by division, all years")
     all_rows, dq = [], []
@@ -182,6 +213,7 @@ def main() -> None:
             all_rows.append(
                 {
                     "year": year,
+                    "source_url": url,
                     "division": canon,
                     "gross_expenditure": v[0],
                     "income": v[1],
@@ -207,6 +239,7 @@ def main() -> None:
     )
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_PARQUET)
+    save_coverage(build_coverage(df, dq), OUT_COV)
     with contextlib.suppress(Exception):  # debug CSV; c:/tmp may not exist headless
         OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
         df.write_csv(OUT_CSV)
@@ -233,7 +266,7 @@ def main() -> None:
     with pl.Config(tbl_rows=10, tbl_cols=12, fmt_str_lengths=42):
         print(piv.select(show) if len(show) > 1 else piv)
 
-    print(f"\nwrote {OUT_PARQUET}\n      {OUT_CSV}")
+    print(f"\nwrote {OUT_PARQUET}\n      {OUT_COV}\n      {OUT_CSV}")
     print("realisation_tier=SPENT / value_kind=net_expenditure_actual (accrual; national;")
     print("NOT per-LA, NOT cash-PO grain — do not reconcile against the procurement layers).")
 

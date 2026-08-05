@@ -452,17 +452,18 @@ def _curl_candidates() -> tuple[str, ...]:
 
 
 def _curl_bytes(url: str, user_agent: str, timeout: int) -> bytes | None:
-    """Last-resort fetch via the curl binary. -k tolerates council cert quirks
-    (Meath/Sligo fail Python's TLS stack but answer curl fine — NOT a server
-    block); --compressed lets curl negotiate only encodings it can decode
-    (avoids the gov.ie brotli trap seen on the diary refresh)."""
+    """Last-resort fetch via curl with normal certificate verification.
+
+    ``--compressed`` lets curl negotiate only encodings it can decode (avoids
+    the gov.ie brotli trap seen on the diary refresh). A certificate failure is
+    a failed source fetch, never a reason to accept unverified bytes.
+    """
     for executable in _curl_candidates():
         try:
             process = subprocess.run(
                 [
                     executable,
                     "-sS",
-                    "-k",
                     "-L",
                     "--compressed",
                     "--max-time",

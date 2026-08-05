@@ -14,9 +14,11 @@ parsed, never executed):
   include signatures and lexical children. A ~4k-token file outlines in a few hundred
   tokens; the caller then reads only the one span it needs.
 
-Repository-wide scans use Git's visible/non-ignored file set plus an explicit policy
-that excludes dot, private, sandbox and generated trees. Source is decoded with its
-PEP 263 declaration and parse failures are surfaced instead of silently omitted.
+Repository-wide scans use Git's tracked file set plus an explicit policy that excludes
+dot, private, sandbox and generated trees. This makes retrieval provenance explicit:
+unreviewed working files cannot enter an agent's search context. Source is decoded
+with its PEP 263 declaration and parse failures are surfaced instead of silently
+omitted.
 
 Kept separate from server.py (which registers the MCP tool wrappers) so it is
 importable and testable without the optional ``mcp`` extra installed.
@@ -101,7 +103,12 @@ def _skip(rel_parts: tuple[str, ...]) -> bool:
 
 
 def _git_visible_paths(repo: Path) -> list[PurePosixPath] | None:
-    """Tracked plus untracked/non-ignored paths, or ``None`` outside a Git worktree."""
+    """Tracked paths, or ``None`` outside a Git worktree.
+
+    Repository-navigation is an evidence surface. In a Git worktree it therefore
+    indexes only reviewed, versioned files; untracked files may be experiments,
+    generated output, or material intentionally left outside the repository.
+    """
     try:
         top = subprocess.run(
             ["git", "-C", os.fspath(repo), "rev-parse", "--show-toplevel"],
@@ -115,7 +122,7 @@ def _git_visible_paths(repo: Path) -> list[PurePosixPath] | None:
         if Path(top).resolve() != repo.resolve():
             return None
         proc = subprocess.run(
-            ["git", "-C", os.fspath(repo), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            ["git", "-C", os.fspath(repo), "ls-files", "-z", "--cached"],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -132,9 +139,8 @@ def iter_repository_files(
 ) -> Iterator[Path]:
     """Yield contained, policy-allowed source files in stable relative-path order.
 
-    A Git checkout uses ``git ls-files --exclude-standard`` so all repository ignore
-    sources (including the global excludes configured for that checkout) are honoured.
-    A non-Git synthetic repository falls back to a contained filesystem walk.
+    A Git checkout uses ``git ls-files --cached`` so only versioned public source is
+    exposed. A non-Git synthetic repository falls back to a contained filesystem walk.
     """
     root = repo.resolve()
     wanted = {suffix.casefold() for suffix in suffixes}
@@ -159,6 +165,34 @@ def iter_repository_files(
             accepted.append((rel.as_posix(), path))
     for _, path in sorted(accepted):
         yield path
+
+
+def is_tracked_file(repo: Path, path: Path) -> bool:
+    """Whether a contained file is eligible for public navigation.
+
+    Non-Git directories are used by focused tests and have no version-control
+    provenance to enforce. A Git lookup failure fails closed, matching
+    ``iter_repository_files``.
+    """
+    root = repo.resolve()
+    try:
+        relative = path.resolve(strict=True).relative_to(root)
+    except (OSError, ValueError):
+        return False
+    visible = _git_visible_paths(root)
+    if visible is None:
+        return not (root / ".git").exists()
+    return PurePosixPath(relative.as_posix()) in set(visible)
+
+
+def is_navigable_file(repo: Path, path: Path, policy: ScanPolicy = DEFAULT_SCAN_POLICY) -> bool:
+    """Whether a file is contained, policy-allowed, and eligible for public navigation."""
+    root = repo.resolve()
+    try:
+        relative = path.resolve(strict=True).relative_to(root)
+    except (OSError, ValueError):
+        return False
+    return path.is_file() and policy.allows(relative) and is_tracked_file(root, path)
 
 
 def read_python_source(path: Path) -> str:
@@ -427,9 +461,14 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
     if not target.exists():
         return {"error": f"no such path: {path}"}
 
+    if target.is_file() and not is_tracked_file(root, target):
+        return {"error": f"path is not tracked by Git and cannot be navigated: {path}"}
+
     if target.is_dir():
         files: list[Path] = []
-        for candidate in target.glob("*.py"):
+        for candidate in iter_repository_files(root, {".py"}):
+            if candidate.parent != target.resolve():
+                continue
             try:
                 requested_rel = candidate.relative_to(root)
                 resolved = candidate.resolve(strict=True)
@@ -463,6 +502,7 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
             if (
                 resolved.is_dir()
                 and init.is_file()
+                and is_tracked_file(root, init)
                 and DEFAULT_SCAN_POLICY.allows(requested_rel)
                 and DEFAULT_SCAN_POLICY.allows(rel)
             ):

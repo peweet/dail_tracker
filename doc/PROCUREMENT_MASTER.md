@@ -39,13 +39,12 @@ to a powerful, multi-register, non-misleading procurement page.
 one multi-year ceiling across every supplier row. This *is* the page's signature
 open-data-literacy story — show the vast number, then demolish it.
 
-**TED silver** (`ted_ie_awards.parquet`, 13,126 EU-journal award notices, 2023–2026):
+**TED silver** (`ted_ie_awards.parquet`, EU-journal award notices):
 
 | measure | value | note |
 |---|---:|---|
-| Naive Σ | €624bn | absurd |
-| └ of which 375 pan-EU outliers | €586bn | GÉANT-type research frameworks; Ireland is one of dozens of participants — already flagged `is_pan_eu_outlier` |
-| **Sum-safe** (excl. outliers) | **€5.82bn** | award-grain, CRO-matched 69% |
+| Monetary total | not computed | values are individual-notice context only; `value_safe_to_sum=false` on every row |
+| Pan-EU outliers | 375 rows | GÉANT-type research frameworks; Ireland is one of dozens of participants — flagged `is_pan_eu_outlier` |
 | TED winners also in eTenders (by norm name) | 4,207 / 6,391 (66%) | ⇒ **never union/sum**; cross-reference per firm instead |
 
 ---
@@ -173,8 +172,7 @@ consultancy spend rising?" using counts, not summed ceilings.
   **silver** parquet directly (same precedent as the lobbying-overlap view — no gold-parquet
   duplication / gitignore dance, and the extractor's own design says "gold only when a view
   exposes it"). Winner-name `_NNNNN` suffix stripped in-view (display + recovered join-norm).
-  New "EU-level awards (TED)" tab (count-led ranking, pan-EU **default-hidden** behind a
-  toggle that reveals the €586bn shared-ceiling mirage) + a per-firm TED cross-reference
+  New "EU-level awards (TED)" tab (count-led ranking, pan-EU **default-hidden**) + a per-firm TED cross-reference
   panel on the eTenders supplier profile (matched on normalised name, **never summed**).
   Core/query/UI tests added. *Follow-up:* clean the suffix at the extractor source so
   `winner_name_norm` is clean for all rows (currently ~9% recovered in-view).

@@ -2,6 +2,7 @@
   "rows_notice_x_winner": 23263,
   "distinct_notices": 10667,
   "rows_with_winner": 22002,
+  "value_safe_to_sum_rows": 0,
   "cro_match_rate": 0.501,
   "by_year": {
     "2016": 1249,
@@ -30,5 +31,5 @@
   },
   "schema_version": 1,
   "generated_at": "2026-06-08T17:37:46+00:00",
-  "caveat": "Pre-2024 winners recovered from per-notice TED_EXPORT XML (the Search API drops them). Notice-level facts (buyer/date/CPV/total-value) reused from the API buyer layer. award_value_eur is the NOTICE total repeated per winner; value_safe_to_sum excludes frameworks + pan-EU + large, same as the API lane. COUNT is the trustworthy metric."
+  "caveat": "Pre-2024 winners recovered from per-notice TED_EXPORT XML (the Search API drops them). Notice-level facts (buyer/date/CPV/total-value) reused from the API buyer layer. award_value_eur is the NOTICE total repeated per winner, retained for individual-notice display only; value_safe_to_sum is always false. COUNT is the trustworthy metric."
 }

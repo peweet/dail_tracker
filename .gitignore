@@ -708,3 +708,7 @@ data/_meta/siting_national_sweep_baseline.json
 # Node dependencies — installed via npm, never tracked (added 2026-08-01 after
 # node_modules/axe-core was committed by accident in 39bda48 "planning features").
 node_modules/
+
+# PublicSignal is a deployable Worker app; its reproducible npm manifests are source files.
+!apps/public-signal/package.json
+!apps/public-signal/package-lock.json

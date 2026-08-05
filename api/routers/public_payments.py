@@ -8,14 +8,26 @@ sum-safe column is addable.
 from __future__ import annotations
 
 import duckdb
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
 from dail_tracker_core import dossiers
 from dail_tracker_core.models.responses import PublicBodyPaymentsResponse
 
-router = APIRouter(tags=["public-payments"], responses=ERROR_RESPONSES)
+_SELECTORS = {"side": {"publisher", "supplier"}, "order_by": {"value", "lines"}}
+
+
+def _validate_selectors(request: Request) -> None:
+    """Reject selector typos rather than silently defaulting a public response."""
+    for name, allowed in _SELECTORS.items():
+        value = request.query_params.get(name)
+        if value is not None and value not in allowed:
+            choices = ", ".join(sorted(allowed))
+            raise HTTPException(status_code=422, detail=f"{name} must be one of: {choices}")
+
+
+router = APIRouter(tags=["public-payments"], responses=ERROR_RESPONSES, dependencies=[Depends(_validate_selectors)])
 
 
 @router.get(

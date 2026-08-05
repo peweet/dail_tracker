@@ -41,7 +41,6 @@ from ui.format import truthy as _truthy
 from ._shared import (
     _TOP,
     _eur,
-    _eur_scale,
     _awards_word,
     _authority_link,
     _buyer_link,
@@ -52,19 +51,9 @@ from ._shared import (
 )
 
 
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Tab: EU-level awards (TED) — a SEPARATE register, never summed with eTenders.
 # ──────────────────────────────────────────────────────────────────────────────
-def _ted_value_pill(val) -> str:
-    """Sum-safe TED value pill; omitted when the firm has no summable value (all its EU
-    notices are framework ceilings) so the card shows the trustworthy count instead of '—'."""
-    if _eur(val) == "—":
-        return ""
-    return f'<span class="pr-pill pr-pill-val">{_eur(val)} awarded (EU)</span>'
-
-
 def _ted_competition_strip() -> None:
     """Neutral competition-intensity facts from the eForms award notices: how many received
     only one tender, ran without an open call, or were awarded on lowest price alone. Framed
@@ -98,8 +87,6 @@ def _ted_competition_strip() -> None:
     )
 
 
-
-
 def _render_ted() -> None:
     stats_res = fetch_ted_corpus_stats_result()
     if not stats_res.ok or stats_res.data.empty:
@@ -114,25 +101,23 @@ def _render_ted() -> None:
         "Include pan-EU research frameworks",
         value=False,
         key="pr_ted_paneu",
-        help="375 notices (e.g. GÉANT) where Ireland is one of dozens of participants. Their "
-        "vast shared ceilings are never summable, so this only changes the notice count.",
+        help=f"{_n(s.get('n_pan_eu')):,} notices (e.g. GÉANT) where Ireland is one of dozens "
+        "of participants. Their shared ceilings are never totaled, so this only changes the notice count.",
     )
     n_shown = _n(s.get("n_notices")) if show_pan_eu else _n(s.get("n_notices_ex_pan_eu"))
     span = f"{_n(s.get('min_year'))}–{_n(s.get('max_year'))}"
     caption = (
         f"{n_shown:,} EU Official Journal award notices ({span}), from {_n(s.get('n_buyers')):,} "
-        f"Irish public buyers. {_eur_scale(s.get('value_safe_eur'))} in summable awarded value — "
-        "a different register from eTenders (some firms appear in both; the two are never added "
-        "together)."
+        "Irish public buyers. This is a different register from eTenders (some firms appear in both). "
+        "TED values are shown only on individual notices and are never totaled."
     )
     if show_pan_eu:
         caption += (
-            f" Including the {_n(s.get('n_pan_eu')):,} pan-EU frameworks adds "
-            f"{_eur_scale(s.get('pan_eu_ceiling_eur'))} of <em>shared</em> ceilings — a mirage like "
-            "the €570bn headline, never real Irish spend."
+            f" The {_n(s.get('n_pan_eu')):,} included pan-EU frameworks carry shared multinational "
+            "ceilings, not Irish spend."
         )
     else:
-        caption += f" {_n(s.get('n_pan_eu')):,} pan-EU research frameworks are excluded from totals."
+        caption += f" {_n(s.get('n_pan_eu')):,} pan-EU research frameworks are excluded from the count."
     st.html(f'<p class="pr-cap">{caption}</p>')
 
     _ted_competition_strip()
@@ -159,7 +144,7 @@ def _render_ted() -> None:
     for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
         meta = f"{_awards_word(_n(r.n_awards))} · {_n(r.n_buyers):,} buyer{'s' if _n(r.n_buyers) != 1 else ''}"
         cro = _cro_pill_from(getattr(r, "cro_company_num", None), getattr(r, "cro_company_status", None))
-        pills = [p for p in (_ted_value_pill(r.ted_value_safe_eur), cro) if p]
+        pills = [cro] if cro else []
         inner = _card(f"<span>{_esc(r.winner_name)}</span>", meta, pills, rank=i)
         cards.append(
             clickable_card_link(
@@ -198,12 +183,10 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
     n = _n(r.get("n_awards"))
     if n <= 0:
         return
-    val = _eur(r.get("ted_value_safe_eur"))
-    val_clause = f" worth {val} in summable awarded value" if val != "—" else ""
     st.html(
         '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Also in the EU register (TED)</div>'
         f'<div class="pr-ted-xref-b">This firm also won <strong>{n:,} EU Official Journal award '
-        f"notice{'' if n == 1 else 's'}</strong>{val_clause}, from {_n(r.get('n_buyers')):,} buyers "
+        f"notice{'' if n == 1 else 's'}</strong>, from {_n(r.get('n_buyers')):,} buyers "
         "(2016–2026). A separate register — these are <em>not</em> added to the national total above.</div></div>"
     )
 
@@ -305,10 +288,7 @@ def _ted_notice_li(nr, *, show_name: bool) -> str:
     is_fw = _coalesce(getattr(nr, "value_kind", None)) == "framework_or_dps_ceiling"
     tag = "framework — shared ceiling, not a payment" if is_fw else "contract award"
     name_pre = f"<strong>{_esc(_coalesce(getattr(nr, 'winner_name', None)))}</strong> — " if show_name else ""
-    return (
-        f'<li class="pr-notice">{name_pre}{buyer} · {date} '
-        f'<span class="pr-notice-tag">{tag}</span> · {source}</li>'
-    )
+    return f'<li class="pr-notice">{name_pre}{buyer} · {date} <span class="pr-notice-tag">{tag}</span> · {source}</li>'
 
 
 _TED_NOTICES_INTRO = (
@@ -382,14 +362,8 @@ def _render_ted_winner_profile(join_norm: str) -> None:
         f'<div class="pr-prof-head"><div class="pr-prof-kicker">EU REGISTER · TED</div>'
         f'<h1 class="pr-prof-name">{name}</h1><div class="pr-prof-sub">{sub}</div></div>'
     )
-    pills = [
-        p
-        for p in (
-            _ted_value_pill(row.get("ted_value_safe_eur")),
-            _cro_pill_from(row.get("cro_company_num"), row.get("cro_company_status")),
-        )
-        if p
-    ]
+    cro_pill = _cro_pill_from(row.get("cro_company_num"), row.get("cro_company_status"))
+    pills = [cro_pill] if cro_pill else []
     if pills:
         st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
 

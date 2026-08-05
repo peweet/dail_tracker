@@ -45,7 +45,6 @@ _PAYMENTS_REAL_TIERS = {"SPENT", "COMMITTED"}  # whitelist — no raw tier strin
 # excluded from value totals by default; the page's toggle re-includes them.
 _TED_ORDER = {
     "awards": "n_awards DESC",
-    "value": "ted_value_safe_eur DESC, n_awards DESC",
 }
 
 # ── Public-body PAYMENTS (the SPENT / COMMITTED tiers) — a DIFFERENT grain from awards ──

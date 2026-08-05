@@ -6,9 +6,12 @@
 
 - **27 sources** sit behind a HIGH-risk host (gov.ie WAF) — these can 403 from a datacenter IP even with a browser-UA spoof.
 - **93 sources** on MEDIUM-risk hosts (council TLS quirks / archive.org).
-- **14 runtime modules** hardcode a `c:/tmp` or Windows path — hard blockers on Linux.
-- **21 runtime modules** bypass the resilient `fetch_bytes` engine with bare `requests`.
-- Polling: **123/129** sources pollable; but only **15** have a wired parser.
+- **0 runtime modules** hardcode a `c:/tmp` or Windows path — hard blockers on Linux.
+- **0 runtime modules** bypass the resilient HTTP engine without an approved stateful-transport rationale.
+- **0 runtime modules** could not be parsed; any such error fails the scan.
+- **0 direct-transport exemptions** no longer match a call; stale suppressions fail the scan.
+- **0 stateful exemptions** bypass the public retry-session factory; policy violations fail the scan.
+- Polling: **128/134** sources pollable; but only **94** have a wired parser.
 
 ## Axis 1 — source host exposure
 
@@ -18,7 +21,7 @@ Each source graded by its worst host. WAF_GOVIE is the axis that actually decide
 |---|---:|---|
 | HIGH (gov.ie WAF) | 27 | datacenter ASN may block even spoofed → residential/self-hosted runner only |
 | MEDIUM (council/archive) | 93 | flaky; needs curl fallback + retries |
-| LOW (open APIs) | 9 | cloud-safe |
+| LOW (open APIs) | 14 | cloud-safe |
 
 Top exposed hosts by source-URL count:
 
@@ -46,9 +49,9 @@ A source with no poller and no canary goes stale silently once nobody is watchin
 
 | Measure | Count |
 |---|---:|
-| Sources total | 129 |
-| Pollable (freshness checkable) | 123 |
-| Parser wired into pipeline | 15 |
+| Sources total | 134 |
+| Pollable (freshness checkable) | 128 |
+| Parser wired into pipeline | 94 |
 
 By check type:
 
@@ -56,71 +59,53 @@ By check type:
 |---|---:|
 | index_poll | 113 |
 | fixed_file | 12 |
+| api_canary | 5 |
 | file_age | 4 |
 
 Last recorded `source_health.json` status:
 
 | Status | Sources |
 |---|---:|
-| skipped | 125 |
+| skipped | 130 |
 | ok | 4 |
 
 ## Axis 3 — runtime resilience
 
-Scanned 115 modules in `extractors/` + `iris/`. 10 use the `fetch_bytes` engine (retry + curl fallback + WAF-spoof option).
+Scanned 409 modules across runtime packages, root refresh orchestrators and pipeline tools. 67 import the shared HTTP engine (bounded pooling/retries plus scraper validation and curl fallback where needed).
 
-### Hard blockers — 14 modules with hardcoded local paths
+### Hard blockers — 0 modules with hardcoded local paths
 
 Each of these writes or reads a Windows/`c:/tmp` path that does not exist on a Linux cloud runner. Parameterise via env/config before migrating.
 
 | Module | Path literal(s) |
 |---|---|
-| `extractors/afs_amalgamated_extract.py` | `c:/tmp/afs/afs_amalgamated_divisions.csv` |
-| `extractors/diary_ocr.py` | `C:/tmp/min_diaries_ocr`, `C:/tmp/min_diaries_pdfs` |
-| `extractors/ipas_promote_to_gold.py` | `c:/tmp/dail_new_sources/silver` |
-| `extractors/la_afs_capital_extract.py` | `c:/tmp/afs_camelot_venv/Scripts/python.exe` |
-| `extractors/la_afs_extract.py` | `c:/tmp/afs_camelot_venv/Scripts/python.exe` |
-| `extractors/legal_diary_extract.py` | `C:/tmp/diary.docx` |
-| `extractors/ministerial_diaries_extract.py` | `C:/tmp/min_diaries_pdfs` |
-| `extractors/persist_judiciary_data.py` | `C:/tmp` |
-| `extractors/procurement_etenders_extract.py` | `c:/tmp/etenders_opendata.csv` |
-| `extractors/procurement_hse_tusla_materialize.py` | `c:/tmp/procurement_publishers` |
-| `extractors/procurement_la_seed.py` | `c:/tmp/procurement_la` |
-| `extractors/procurement_nphdb_parser.py` | `c:/tmp/procurement_publishers` |
-| `extractors/procurement_public_body_extract.py` | `c:/tmp/procurement_publishers` |
-| `extractors/sample_extract_procurement_pdf.py` | `c:/tmp/procurement_publishers` |
 
-### Fragile fetches — 21 modules bypass `fetch_bytes`
+### Fragile fetches — 0 modules bypass the shared HTTP engine
 
-Bare `requests`/`urlopen`: no shared-session retry, no curl fallback, no WAF-interstitial validation. Fine for a CKAN API resolve; risky for a file download from a WAF'd host.
+Unreviewed `requests`/`urlopen` calls bypass the shared pooling/retry policy, scraper validation and curl fallback. Move ordinary calls to the engine or document the response/session state the direct transport must retain.
 
-- `extractors/afs_amalgamated_extract.py`
-- `extractors/cso_pxstat_extract.py`
-- `extractors/derelict_sites_levy_extract.py`
-- `extractors/housing_construction_pipeline_extract.py`
-- `extractors/la_budgets_extract.py`
-- `extractors/la_councillor_payments_extract.py`
-- `extractors/lgas_audit_reports_extract.py`
-- `extractors/news_mentions_extract.py`
-- `extractors/opr_plan_directions_extract.py`
-- `extractors/planning_acp_precedents.py`
-- `extractors/planning_appeal_outcomes.py`
-- `extractors/planning_decision_profiles.py`
-- `extractors/planning_layers_freshness.py`
-- `extractors/planning_layers_ingest.py`
-- `extractors/procurement_etenders_extract.py`
-- `extractors/procurement_la_payments_extract.py`
-- `extractors/procurement_public_body_extract.py`
-- `extractors/sample_extract_procurement_pdf.py`
-- `extractors/si_legislation_directory_extract.py`
-- `extractors/si_lrc_classlist_extract.py`
-- `extractors/ted_ireland_tenders_extract.py`
 
-### gov.ie fetches with no browser-UA in the module — 1
+### Reviewed direct transports — 17
 
-These touch a gov.ie host but the module shows no browser-UA spoof. Verify each threads `polite_headers(browser=True)` or it will 403.
+These modules intentionally own response/session state that the generic helpers do not expose. Their rationale is part of the generated report so suppressions cannot become invisible.
 
-- `extractors/planning_layers_ingest.py`
+- `corporate/cro_poller.py` — pooled CKAN resolve plus redirecting 46 MB ZIP stream owns byte accounting and pre-publication schema gates [shared session factory] (requests.Session.get:134, requests.Session.get:177)
+- `extractors/_gnews_resolve.py` — cookie-bearing Google News resolver performs a stateful landing-page plus batchexecute RPC exchange [shared session factory] (requests.Session.get:69, requests.Session.post:94)
+- `extractors/cbi_registers_extract.py` — ASP.NET postback crawler must retain VIEWSTATE, event-validation fields and cookies across GET/form-POST [shared session factory] (requests.Session.get:388, requests.Session.get:414, requests.Session.post:429)
+- `extractors/cro_financial_statements_extract.py` — pooled CKAN metadata resolve plus multi-year streamed CSV downloads retain atomic partial-file handling [shared session factory] (requests.Session.get:110, requests.Session.get:137)
+- `extractors/ministerial_diaries_extract.py` — WAF clearance cookie, listing-to-PDF referer state and endpoint-specific circuit breaker span each crawl [shared session factory] (requests.Session.get:128, requests.Session.get:320, requests.Session.get:406)
+- `iris/iris_archive_backfill.py` — archive index and its companion status-aware atomic PDF downloader intentionally share one pooled session [shared session factory] (requests.Session.get:80)
+- `iris/iris_oifigiuil_poller.py` — exact HEAD status selects slug variants before a validated streamed atomic PDF download [shared session factory] (requests.Session.head:165, requests.Session.get:179)
+- `pdf_infra/legal_diary_openview_poller.py` — Domino OpenView crawl retains connection/cookie state across jurisdiction index and detail documents [shared session factory] (requests.Session.get:92)
+- `pdf_infra/legal_diary_poller.py` — Domino landing, chooser and current DOCX hops retain connection/cookie state and response bytes [shared session factory] (requests.Session.get:83)
+- `pdf_infra/oireachtas_pdf_poller.py` — stateful manifest poller compares remote HEAD lengths before resumable streamed downloads [shared session factory] (requests.Session.head:247, requests.Session.get:315)
+- `pdf_infra/pdf_downloader.py` — dedicated streamed PDF transport owns response streaming and per-file diagnostics [shared session factory] (requests.Session.get:39)
+- `pdf_infra/pdf_endpoint_check.py` — diagnostic probe must retain exact HEAD status and requests exception classes instead of downloading content [shared session factory] (requests.Session.head:396)
+- `services/http_engine.py` — canonical shared retry, validation, streaming and curl-fallback transport [standalone transport] (requests.Session.get:109, requests.Session.post:167, requests.Session.get:221, requests.Session.post:401, requests.Session.get:522, requests.Session.get:581)
+- `services/ted_search.py` — stateful TED iteration-token paginator with declared-total completeness checks and endpoint-specific retries [shared session factory] (requests.Session.post:57, requests.Session.get:162)
+- `tools/build_source_health.py` — source-health probe intentionally observes HEAD/Range status and headers without fetching full files [shared session factory] (requests.Session.head:108, requests.Session.get:111)
+- `tools/procurement_source_poller.py` — freshness probe requires response status/headers and a source-specific permissive TLS context [standalone transport] (urllib.request.urlopen:197)
+- `wikidata/wiki_data.py` — thumbnail downloader derives the safe file extension from response Content-Type before persisting bytes [shared session factory] (requests.Session.get:191)
 
 ## How to read this before migrating
 

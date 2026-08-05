@@ -74,6 +74,7 @@ from ui.components import (
     text_search_mask,
 )
 from ui.entity_links import buyer_dossier_cta_html, company_profile_url, entity_cta_html, source_link_html
+from ui.export_controls import export_button
 from ui.format import coalesce, esc, eur, to_int
 
 # Shared council audited-accounts (AFS by-division) context block. Cross-page
@@ -305,6 +306,12 @@ def _render_publishers() -> None:
             )
         )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    export_button(
+        ranked,
+        label="Download publishers (CSV)",
+        filename="public-payments-publishers.csv",
+        key="pp_publishers_export",
+    )
     if (
         not show_all
         and len(ranked) > _LEAD
@@ -379,6 +386,12 @@ def _render_suppliers() -> None:
     pagination_controls(
         total, key_prefix="pp_sup", page_sizes=(_PUB_PAGE,), default_page_size=_PUB_PAGE, label="suppliers"
     )
+    export_button(
+        view,
+        label="Download filtered suppliers (CSV)",
+        filename="public-payments-suppliers.csv",
+        key="pp_suppliers_export",
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -413,6 +426,12 @@ def _render_line_list(df: pd.DataFrame, *, key: str) -> None:
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html('<div style="height:1rem"></div>')
     pagination_controls(total, key_prefix=key, page_sizes=(_LINE_PAGE,), default_page_size=_LINE_PAGE, label="lines")
+    export_button(
+        df,
+        label="Download payment lines (CSV)",
+        filename=f"{key}.csv",
+        key=f"{key}_export",
+    )
 
 
 def _quarter_header_html(period: str, subtotal, n_lines: int) -> str:
@@ -459,6 +478,12 @@ def _render_supplier_quarters(lines: pd.DataFrame, quarters: pd.DataFrame, *, ke
     st.html("".join(blocks))
     st.html('<div style="height:1rem"></div>')
     pagination_controls(total_q, key_prefix=key, page_sizes=(_Q_PAGE,), default_page_size=_Q_PAGE, label="quarters")
+    export_button(
+        lines,
+        label="Download payment lines (CSV)",
+        filename=f"{key}.csv",
+        key=f"{key}_export",
+    )
 
 
 def _render_publisher_profile(publisher_id: str) -> None:
@@ -610,7 +635,8 @@ def _provenance_footer() -> None:
         "€20,000 published by individual public bodies under Circular 07/2012, plus the HSE and "
         "Tusla FOI model-publication PDFs. Two registers unioned here; figures are the bodies' own "
         "reported amounts (purchase-order commitments or actual payments), never added to eTenders / "
-        "TED award values. Likely-personal suppliers (sole traders / individuals) are withheld. "
+        "TED award values. VAT treatment varies by publisher and is unconfirmed for most. "
+        "Likely-personal suppliers (sole traders / individuals) are withheld. "
         "A line is a procurement record, not evidence of influence or wrongdoing.</div>"
     )
 
@@ -724,6 +750,12 @@ def _render_categories() -> None:
             )
         )
     st.html(f'<div class="pr-afsbars pp-cat-bars">{"".join(cards)}</div>')
+    export_button(
+        view,
+        label="Download categories (CSV)",
+        filename="public-payments-categories.csv",
+        key="pp_categories_export",
+    )
     if total_cats > len(shown):
         st.caption(
             f"+ {total_cats - len(shown):,} smaller purpose labels not shown — most are one-off "
@@ -819,6 +851,12 @@ def _render_category_profile(category: str) -> None:
             else:
                 cards.append(inner)
         st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+        export_button(
+            sv,
+            label="Download category vendors (CSV)",
+            filename="public-payments-category-vendors.csv",
+            key="pp_category_vendors_export",
+        )
         st.html(
             '<div class="pr-foot">Vendors are shown <strong>as published — not operator-merged</strong>: '
             "“Mosney” and “Mosney Holidays” can appear separately and we don’t assert they’re one company. "
@@ -872,7 +910,9 @@ def public_payments_page() -> None:
         "(<em>paid</em>) a public body published itself. Totals only ever add up the "
         "<em>sum-safe</em> value (explained below the headline). These figures are a "
         "different register from eTenders / TED contract awards and are <strong>never added to "
-        "them</strong>. A line is a procurement record, not evidence of influence or wrongdoing.</div>"
+        "them</strong>. VAT treatment varies by publisher and is unknown for most sources, so "
+        "cross-publisher totals do not share a confirmed VAT basis. A line is a procurement "
+        "record, not evidence of influence or wrongdoing.</div>"
     )
     _stats_strip(stats, cov)
     # Go-deeper entry cards (Money nav declutter Phase 1; upgraded in Phase 3 to

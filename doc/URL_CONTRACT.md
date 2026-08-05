@@ -10,36 +10,36 @@ This is the one part of the UI that outside parties depend on: bookmarks, shared
 
 | Route (`url_path`) | Title | Page module | app.py line |
 |---|---|---|---:|
-| `?page=accommodation-spend` | Accommodation Spend | `pages_code.accommodation_spend` | 254 |
-| `?page=body` | Public bodies | `pages_code.body` | 279 |
-| `?page=company` | Companies | `pages_code.company` | 269 |
-| `?page=constituencies` | Constituencies | `pages_code.constituency` | 125 |
-| `?page=follow-the-money` | Follow the Money | `pages_code.follow_the_money` | 247 |
-| `?page=glossary` | Glossary | `pages_code.glossary` | 328 |
-| `?page=home` | Home | `_home_page` | 181 |
-| `?page=housing` | Housing | `pages_code.housing` | 173 |
-| `?page=local-government` | Who Runs Your County | `pages_code.local_government` | 146 |
-| `?page=member-overview` | Member Overview | `pages_code.member_overview` | 188 |
-| `?page=rankings-appointments` | Appointments | `pages_code.public_appointments` | 320 |
-| `?page=rankings-attendance` | Attendance | `pages_code.attendance` | 194 |
-| `?page=rankings-committees` | Committees | `pages_code.committees` | 213 |
-| `?page=rankings-corporate` | Corporate Notices | `pages_code.corporate` | 299 |
-| `?page=rankings-council-spending` | Council Spending | `pages_code.council_spending` | 166 |
-| `?page=rankings-election-spending` | Election Finance | `pages_code.election_2024` | 228 |
-| `?page=rankings-interests` | Interests | `_interests_redirect_page` | 207 |
-| `?page=rankings-judiciary` | Courts & Judiciary | `pages_code.judiciary` | 305 |
-| `?page=rankings-legislation` | Legislation | `pages_code.legislation` | 287 |
-| `?page=rankings-lobbying` | Lobbying | `pages_code.lobbying_3` | 313 |
-| `?page=rankings-ministerial-diaries` | Who Ministers Meet | `pages_code.ministerial_diaries` | 314 |
-| `?page=rankings-payments` | TD Payments | `pages_code.payments` | 224 |
-| `?page=rankings-procurement` | Procurement | `pages_code.procurement` | 234 |
-| `?page=rankings-public-payments` | Public Payments | `pages_code.public_payments` | 260 |
-| `?page=rankings-statutory-instruments` | Statutory Instruments | `pages_code.statutory_instruments` | 293 |
-| `?page=rankings-votes` | Votes | `pages_code.votes` | 200 |
-| `?page=support` | Support | `pages_code.support` | 333 |
-| `?page=what-they-own` | What They Own | `pages_code.what_they_own` | 113 |
-| `?page=your-council` | Your Council | `pages_code.your_council` | 135 |
-| `?page=your-councillors` | Your Councillors | `pages_code.your_councillors` | 156 |
+| `/accommodation-spend` | Accommodation Spend | `pages_code.accommodation_spend` | 258 |
+| `/body` | Public bodies | `pages_code.body` | 283 |
+| `/company` | Companies | `pages_code.company` | 273 |
+| `/constituencies` | Constituencies | `pages_code.constituency` | 129 |
+| `/follow-the-money` | Follow the Money | `pages_code.follow_the_money` | 251 |
+| `/glossary` | Glossary | `pages_code.glossary` | 332 |
+| `/home` | Home | `_home_page` | 185 |
+| `/housing` | Housing | `pages_code.housing` | 177 |
+| `/local-government` | Who Runs Your County | `pages_code.local_government` | 150 |
+| `/member-overview` | Member Overview | `pages_code.member_overview` | 192 |
+| `/rankings-appointments` | Appointments | `pages_code.public_appointments` | 324 |
+| `/rankings-attendance` | Attendance | `pages_code.attendance` | 198 |
+| `/rankings-committees` | Committees | `pages_code.committees` | 217 |
+| `/rankings-corporate` | Corporate Notices | `pages_code.corporate` | 303 |
+| `/rankings-council-spending` | Council Spending | `pages_code.council_spending` | 170 |
+| `/rankings-election-spending` | Election Finance | `pages_code.election_2024` | 232 |
+| `/rankings-interests` | Interests | `_interests_redirect_page` | 211 |
+| `/rankings-judiciary` | Courts & Judiciary | `pages_code.judiciary` | 309 |
+| `/rankings-legislation` | Legislation | `pages_code.legislation` | 291 |
+| `/rankings-lobbying` | Lobbying | `pages_code.lobbying_3` | 317 |
+| `/rankings-ministerial-diaries` | Who Ministers Meet | `pages_code.ministerial_diaries` | 318 |
+| `/rankings-payments` | TD Payments | `pages_code.payments` | 228 |
+| `/rankings-procurement` | Procurement | `pages_code.procurement` | 238 |
+| `/rankings-public-payments` | Public Payments | `pages_code.public_payments` | 264 |
+| `/rankings-statutory-instruments` | Statutory Instruments | `pages_code.statutory_instruments` | 297 |
+| `/rankings-votes` | Votes | `pages_code.votes` | 204 |
+| `/support` | Support | `pages_code.support` | 337 |
+| `/what-they-own` | What They Own | `pages_code.what_they_own` | 117 |
+| `/your-council` | Your Council | `pages_code.your_council` | 139 |
+| `/your-councillors` | Your Councillors | `pages_code.your_councillors` | 160 |
 
 ## Query parameters (58 distinct)
 

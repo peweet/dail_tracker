@@ -1,7 +1,7 @@
 fact,grain,money_grain,never_sum_with,purpose
 procurement_awards,one row per awarded contract/lot,awarded,payments|budget|ted,"Contract AWARDS from eTenders/OGP — the ceiling awarded, NOT cash paid"
 procurement_payments_fact,one row per disclosed payment/PO line,payments,awarded|budget|ted,"Actual purchase-order/payment lines >€20k from public bodies + councils"
-ted_ie_awards,one row per TED award notice,ted,awarded|payments|budget,"EU TED contract-award notices — OVERLAPS procurement_awards, never sum the two"
+ted_ie_awards,"one row per (TED award notice, winner)",ted,awarded|payments|budget,"EU TED notice-winner records — values are display-only per notice and never summed"
 la_budget_divisions,one row per (council,year,division),budget,awarded|payments|accounts,"ADOPTED council budgets (a PLAN) — the 4th money grain, never union with actuals"
 la_afs_divisions,one row per (council,year,division),accounts,awarded|payments|budget,"Audited council revenue accounts (outturn) by service division"
 la_afs_capital_divisions,one row per (council,year,division),accounts,awarded|payments|budget,"Audited council CAPITAL accounts — distinct from revenue; never sum the two"

@@ -160,8 +160,8 @@ Columns: **Source / domain · Status · Chain / extractor · Output / view / API
 |---|---|---|
 | National Planning Applications (ArcGIS REST) | `partial` | Committed `planning_applications_silver` is a **static input**; the national ingest is **not yet a chain**. |
 | An Coimisiún Pleanála appeals (PC02) | `partial` | Fetched live by `planning_appeal_outcomes` (ArcGIS FeatureServer). |
-| Siting Check (geospatial designation engine) | `implemented-not-api-exposed` (experimental) | Planning page; MCP `siting_check`. Deployment held on a `nearest()` lon-bug. |
-| MyPlan zoning / NPWS designated areas + derogation / OPW flood zones / BCMS commencement (CKAN) / CSO planning permissions (PxStat) / Tailte boundaries | `partial` / `candidate` (scoped in registry) | Present in the planning corpus registry (`planning_corpus_seed.csv`). **This is a scoped registry of specific endpoints, not a general data.gov.ie crawler.** |
+| Siting Check (geospatial designation engine) | `private-overlay` | Not shipped in the public app or API. The optional MCP tool reports unavailable when the local `planning/product` overlay is absent. |
+| MyPlan zoning / NPWS designated areas + derogation / OPW flood zones / BCMS commencement (CKAN) / CSO planning permissions (PxStat) / Tailte boundaries | `private-overlay` / `candidate` | The endpoint registry belongs to the untracked private planning overlay; it is not a public-checkout source contract. |
 
 ### CSO / denominators
 
@@ -186,7 +186,7 @@ Columns: **Source / domain · Status · Chain / extractor · Output / view / API
 
 ## API resources
 
-The `/v1/catalog` endpoint exposes a **curated public subset** (16 resources +
+The `/v1/catalog` endpoint exposes a **curated public subset** (22 resources +
 two meta endpoints). It is intentionally not every table/view: some carry PII or
 need review before exposure.
 
@@ -215,22 +215,33 @@ need review before exposure.
 > **CC-BY-4.0**, with interactive docs at `/docs`. Routers are thin
 > (parse → core → serialize); all retrieval lives in `dail_tracker_core`.
 
+The catalogue also includes these six current public resources:
+
+| Resource | List endpoint | Item / extras | Count view |
+|---|---|---|---|
+| attendance | `/v1/attendance/turnout` | `/absences`, `/taa-compliance`, `/missing-members`, `/years` | `v_attendance_participation_turnout` |
+| housing | `/v1/housing/waiting-list` | `/supply`, `/accommodation-spend` | `v_ssha_waiting_list_totals` |
+| public-finance | `/v1/public-finance/government-finance` | — | `v_gov_finance_annual` |
+| local-government | `/v1/local-government/councils` | `/councils/{local_authority}` | `v_la_chief_executives` |
+| constituencies | `/v1/constituencies` | `/constituencies/{name}/dossier` | `v_constituency_registry` |
+| councillors | `/v1/councillors` | `/councillors/councils` | `v_la_councillors` |
+
 ---
 
 ## Data products / app surfaces
 
-The Streamlit app ships **27 pages** across **8 top-nav sections**:
+The Streamlit app ships **30 routable pages** (24 visible and 6 hidden routes kept
+for bookmarks/internal links) across **7 top-nav sections**:
 
 | Section | Pages |
 |---|---|
 | **What They Own** | Register of Members' Interests (property / shares / companies, sitting + former) |
 | **Your Area** | Constituencies, Your Council, Who Runs Your County, Your Councillors, Council Spending, Housing (SSHA) |
-| **Members & Parliament** | Member Overview, Attendance, Votes, Committees |
-| **The Money** | Payments, Election Finance (donations + GE2024/GE2020), Procurement, Follow the Money, Accommodation Spend, Public Payments, Companies |
+| **Members & Parliament** | Home (hidden default), Member Overview, Attendance, Votes, Committees, legacy Interests redirect (hidden) |
+| **The Money** | Payments, Election Finance (donations + GE2024/GE2020), Procurement, Follow the Money, Accommodation Spend, Public Payments, Companies, Public bodies |
 | **Law & Records** | Legislation, Statutory Instruments, Corporate Notices, Courts & Judiciary |
 | **Influence** | Lobbying, Who Ministers Meet (ministerial diaries), Appointments / State Boards |
-| **Planning** | Siting Check (experimental geospatial engine) |
-| **Glossary** | — |
+| **Glossary** | Glossary, Support |
 
 Pages read **only** through registered DuckDB views (logic firewall:
 `SELECT / WHERE / ORDER BY / LIMIT` only). All transformation lives in the

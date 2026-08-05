@@ -70,7 +70,7 @@ row, it is never inferred at read time:
 | Trap | Naive total | Sum-safe / honest figure | Multiplier |
 |---|---|---|---|
 | eTenders awards (sum all rows) | ~€649bn | ~€15.6bn (`value_safe_to_sum`) | ~40× overstated |
-| TED awards (sum all rows) | ~€624bn | meaningless — 375 pan-EU outliers ≈ €586bn | trust **count + median**, never sum |
+| TED awards | not computed | values are individual-notice context only | trust **count + median**, never sum |
 | eTenders ∪ TED | — | **never union** — ~66% of TED winners also appear in eTenders by name | siblings, cross-referenced per firm |
 | NPHDB raw sum | dominated by one row | one €107.6m BAM adjudicator award ≈ 49% of corpus | never headline the raw sum |
 

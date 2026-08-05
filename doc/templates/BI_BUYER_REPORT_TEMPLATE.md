@@ -239,7 +239,7 @@ Multi-supplier frameworks currently mapped to this buyer (TED expiring feed): **
 - Contract end-dates are as published, frequently missing, and nominal; frameworks may extend. The timeline shows only awards with a stated end date — a discovery calendar, not a forecast of volume or re-award.
 - Award values are AWARDED-grain ceilings (display-only); never summed, and the national and TED lanes are never unioned into one total.
 - TED rail (verbatim — `api/routers/exports.py`, `ted_awards`):
-  > Pan-EU framework outliers (is_pan_eu_outlier) carry ceilings that dwarf the Irish market — exclude them from totals. Single-bid is a factual signal, never a verdict. Sum only value_safe_to_sum rows; never add to payments (different grain).
+  > TED values are individual-notice context only and are never totaled; value_safe_to_sum is always false. Pan-EU framework outliers may cover many countries. Single-bid is a factual signal, never a verdict; never add TED values to payments or national awards.
 
 ---
 
@@ -291,7 +291,7 @@ Award-data caveat:
 > Contains information from TED (© European Union), reused under Decision 2011/833/EU.
 
 TED caveat:
-> Pan-EU framework outliers (is_pan_eu_outlier) carry ceilings that dwarf the Irish market — exclude them from totals. Single-bid is a factual signal, never a verdict. Sum only value_safe_to_sum rows; never add to payments (different grain).
+> TED values are individual-notice context only and are never totaled; value_safe_to_sum is always false. Pan-EU framework outliers may cover many countries. Single-bid is a factual signal, never a verdict; never add TED values to payments or national awards.
 
 **CRO (Companies Registration Office)** (supplier identity resolution):
 > Contains Irish Public Sector Data licensed under a Creative Commons Attribution 4.0 International (CC BY 4.0) licence.

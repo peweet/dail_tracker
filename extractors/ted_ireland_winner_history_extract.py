@@ -28,7 +28,6 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import contextlib
-import json
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -46,6 +45,7 @@ from extractors.ted_ireland_extract import (  # noqa: E402
     clean_identifier,
     hr,
 )
+from services.coverage_io import save_coverage  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from services.ted_search import fetch_notice_xml  # noqa: E402
 from shared.buyer_clean import clean_buyer_display  # noqa: E402
@@ -245,6 +245,7 @@ def main() -> None:
         "rows_notice_x_winner": df.height,
         "distinct_notices": int(df["publication_number"].n_unique()),
         "rows_with_winner": int(df["winner_name"].is_not_null().sum()),
+        "value_safe_to_sum_rows": 0,
         "cro_match_rate": round(cro_hit.height / max(1, df.height), 3),
         "by_year": {str(r["year"]): r["len"] for r in df.group_by("year").len().sort("year").iter_rows(named=True)},
         "date_span": [df["dispatch_date"].min(), df["dispatch_date"].max()],
@@ -256,10 +257,10 @@ def main() -> None:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "Pre-2024 winners recovered from per-notice TED_EXPORT XML (the Search API drops "
         "them). Notice-level facts (buyer/date/CPV/total-value) reused from the API buyer layer. "
-        "award_value_eur is the NOTICE total repeated per winner; value_safe_to_sum excludes "
-        "frameworks + pan-EU + large, same as the API lane. COUNT is the trustworthy metric.",
+        "award_value_eur is the NOTICE total repeated per winner, retained for individual-notice "
+        "display only; value_safe_to_sum is always false. COUNT is the trustworthy metric.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"wrote coverage {OUT_COV}")
     print(
         "\nLAYER=silver. UNION with ted_ie_awards.parquet via a sql_views/ted_*.sql view for the full 2016+ winner history."

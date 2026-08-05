@@ -7,8 +7,8 @@
 -- ⚠️ AWARD GRAIN, never summed with eTenders. 66% of TED winners also appear in eTenders
 -- (same firm, two registers) — cross-reference per firm, but NEVER add the totals.
 -- ⚠️ pan-EU outliers (is_pan_eu_outlier, e.g. GÉANT research frameworks where Ireland is
--- one of dozens of participants) carry vast ceilings and are EXCLUDED from value totals by
--- default downstream — €586bn of the €624bn naive TED total is just 375 such rows.
+-- one of dozens of participants) carry vast ceilings. All values are individual-notice
+-- context only: value_safe_to_sum is always FALSE and no TED monetary total is computed.
 --
 -- winner_name carries a `_NNNNN` org-id suffix on ~9% of rows (a TED eForms artefact); it
 -- is stripped here for display and a recovered join-norm is derived so those rows can still

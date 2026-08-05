@@ -220,7 +220,7 @@ jobs:
           container_id="$(docker run --detach --publish 8080:8080 dailtracker-api:ci)"
           trap 'docker rm --force "$container_id" >/dev/null' EXIT
           for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:8080/v1/health >/dev/null; then
+            if curl --fail --silent http://127.0.0.1:8080/v1/readiness >/dev/null; then
               exit 0
             fi
             sleep 2

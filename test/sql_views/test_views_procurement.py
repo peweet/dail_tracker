@@ -6,21 +6,19 @@ Split out of the former monolithic test_sql_views.py (REFACTORING_CANDIDATES C6)
 Shared fixtures/helpers live in _view_test_helpers.py.
 """
 
-
 import pytest
 
 from ._view_test_helpers import (
     _USE_REAL_PATHS,
     SILVER_DIR,
+    _assert_cols,
     _con,
-    _view_path,
+    _fixture_only,
     _load,
     _skip_missing,
     _src,
-    _assert_cols,
-    _fixture_only,
+    _view_path,
 )
-
 
 # ---------------------------------------------------------------------------
 # PROCUREMENT VIEWS
@@ -638,6 +636,10 @@ def test_v_procurement_ted_winner_history_union():
         r"SELECT count(*) FROM v_procurement_ted_winner_history WHERE regexp_matches(winner_name, '_[0-9]+$')"
     ).fetchone()[0]
     assert suffix == 0, "winner_name _NNNNN suffix not stripped"
+    summable = con.execute("SELECT count(*) FROM v_procurement_ted_winner_history WHERE value_safe_to_sum").fetchone()[
+        0
+    ]
+    assert summable == 0, "a TED award value was marked summable"
 
 
 @pytest.mark.sql
@@ -738,6 +740,8 @@ def test_procurement_authority_views_agree_on_dirty_value_filters(tmp_path):
     assert alltime == {"Dublin City Council", "Health Service Executive"}
     assert set(yearly["contracting_authority"]) == {"Dublin City Council"}
     assert set(yearly["year"]) == {2023, 2024}
+
+
 # --- v_procurement_expiring_contracts (TED advertised-term projection) ---
 
 

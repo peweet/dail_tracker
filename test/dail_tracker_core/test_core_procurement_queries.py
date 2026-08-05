@@ -197,6 +197,7 @@ def test_value_contrast_naive_dwarfs_safe(conn):
         "framework_once_eur",
     }
     assert expected.issubset(set(r.data.columns))
+    assert {"value_safe_eur", "pan_eu_ceiling_eur"}.isdisjoint(r.data.columns)
     naive, safe = float(row["naive_total_eur"]), float(row["safe_total_eur"])
     assert safe > 0 and naive > safe * 5  # honesty story holds (real ratio ~24x)
     # A framework ceiling repeated across suppliers inflates the once-counted figure.
@@ -344,16 +345,12 @@ def test_ted_corpus_stats_single_row(conn):
         "n_winners",
         "n_buyers",
         "n_pan_eu",
-        "value_safe_eur",
-        "pan_eu_ceiling_eur",
     }
     assert expected.issubset(set(r.data.columns))
     row = r.data.iloc[0]
-    # The default (ex-pan-EU) count must not exceed the full count, and pan-EU ceilings
-    # dwarf the real safe value (the TED echo of the eTenders mirage).
+    # Every headline count is at distinct-notice grain, never winner-row grain.
     assert row["n_notices_ex_pan_eu"] <= row["n_notices"]
-    if row["n_pan_eu"] > 0:
-        assert float(row["pan_eu_ceiling_eur"]) > float(row["value_safe_eur"])
+    assert row["n_notices"] == row["n_notices_ex_pan_eu"] + row["n_pan_eu"]
 
 
 def test_ted_supplier_summary_company_class_and_order(conn):
@@ -363,10 +360,9 @@ def test_ted_supplier_summary_company_class_and_order(conn):
         "winner_join_norm",
         "n_awards",
         "n_buyers",
-        "ted_value_safe_eur",
-        "ted_value_safe_incl_eu_eur",
         "has_pan_eu",
     }.issubset(set(r.data.columns))
+    assert {"ted_value_safe_eur", "ted_value_safe_incl_eu_eur"}.isdisjoint(r.data.columns)
     counts = r.data["n_awards"].tolist()
     assert counts == sorted(counts, reverse=True)  # count-led ranking
 

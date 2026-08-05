@@ -158,7 +158,7 @@ values **only** where a view explicitly marks them safe (`value_safe_to_sum`).
 - Do **not** union or sum eTenders and TED (siblings, ~66% overlap by name).
 - Do **not** add public-body payments to procurement awards.
 - Do **not** add SIPO donations to election expenses, or sum GE2020 with GE2024.
-- Naive sums are wildly wrong (eTenders ~€649bn naive vs ~€15.6bn sum-safe; TED ~€624bn naive is meaningless — trust count + median).
+- Naive eTenders sums are wildly wrong (~€649bn naive vs ~€15.6bn sum-safe). TED notice values are never totaled; trust count, median, and individual-notice context.
 
 Full definitions, magnitudes, and the disclosure-regime table are in
 [`doc/DATA_GRAINS.md`](doc/DATA_GRAINS.md).
@@ -235,9 +235,10 @@ uv sync --locked --extra pipeline --extra api --extra mcp --group dev
 streamlit run utility/app.py
 ```
 
-A Streamlit app with **27 pages** across **8 top-nav sections** — *What They Own,
-Your Area, Members & Parliament, The Money, Law & Records, Influence, Planning,
-Glossary*. Pages read **only** through registered DuckDB views; all
+A Streamlit app with **30 routable pages** (24 visible, 6 retained for deep links)
+across **7 top-nav sections** — *What They Own, Your Area, Members & Parliament,
+The Money, Law & Records, Influence, Glossary*. Pages read **only** through
+registered DuckDB views; all
 transformation lives in the pipeline, SQL views, or gold layer. Query and
 composition logic lives in `dail_tracker_core`, which both the dashboard and the
 JSON API read. The full page list is in
@@ -269,7 +270,7 @@ lives in `dail_tracker_core`.
 > view/parquet.** Some underlying tables carry PII (SIPO donor addresses,
 > personal insolvency) or are sandbox-only / experimental and must not be exposed
 > without review. Only resources with a dedicated, reviewed endpoint appear. The
-> 16 published resources are listed in
+> 22 published resources are listed in
 > [`doc/SOURCES.md`](doc/SOURCES.md#api-resources).
 
 ---
@@ -298,7 +299,6 @@ gold/silver before they get a dedicated page.
 
 - **Government-finance denominators** — the `cso` chain lands `v_gov_finance_annual`; a dedicated national government-finance page is still to come ([`doc/PER_LA_AFS_BUILD_PLAN.md`](doc/PER_LA_AFS_BUILD_PLAN.md)).
 - **GE2024 candidate expenses** — 473 of ~614 sourced candidates extracted; OCR of the remainder in progress, coverage shown in-app.
-- **Bulk data exports** — parquet downloads of the gold layer via the API (demand-gated).
 - **Scheduled data refresh** — read-only canaries already run on GitHub Actions; a fully automated cloud refresh of the data itself is the remaining step.
 
 Candidate future datasets, the monetization analysis, and the workflow-led
