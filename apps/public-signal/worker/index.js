@@ -1,4 +1,5 @@
 import { opportunities as sampleOpportunities } from "../public/sample-data.js";
+import { Container, getContainer } from "@cloudflare/containers";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 
@@ -215,27 +216,84 @@ export async function consumeSubscriptionLimit(env, email) {
   }
 }
 
-async function loadOpportunities(env) {
-  if (!env.PROCUREMENT_FEED_URL) return sampleOpportunities;
+export function normaliseFeedOpportunity(item = {}) {
+  return {
+    id: item.id || item.source_identity || item.publication_number || item.resource_id,
+    title: item.title || item.contract_name || item.source_identity || "Public procurement opportunity",
+    buyer: item.buyer || item.buyer_display_name || item.buyer_name || "Buyer not stated",
+    sector: item.sector || item.cpv_division || item.cpv || "Other",
+    deadline: item.deadline || item.submission_deadline,
+    daysToDeadline: item.daysToDeadline ?? item.days_to_deadline ?? daysUntil(item.deadline || item.submission_deadline),
+    estimate: item.estimate ?? item.value_eur ?? item.estimated_value_eur ?? 0,
+    evidence: item.evidence ?? item.evidence_coverage ?? 70,
+    source: item.source || item.source_lane || "Feed",
+    sourceUrl: item.sourceUrl || item.source_url || item.notice_url || item.detail_url || "",
+    caution: item.caution || "Review the source notice before relying on this summary.",
+  };
+}
+
+export class PublicSignalProcurementContainer extends Container {
+  defaultPort = 8080;
+  sleepAfter = "30m";
+  enableInternet = false;
+  pingEndpoint = "localhost/v1/health";
+}
+
+function isLocalDevelopment(env) {
+  return env.PUBLIC_SIGNAL_ENV === "local" || env.ENVIRONMENT === "development";
+}
+
+function forwardedFeedUrl(baseUrl, request) {
+  const feedUrl = new URL(baseUrl);
+  if (!request) return feedUrl;
+  const requestUrl = new URL(request.url);
+  for (const key of ["within_days", "sector", "source_lane", "limit"]) {
+    const value = requestUrl.searchParams.get(key);
+    if (value) feedUrl.searchParams.set(key, value);
+  }
+  return feedUrl;
+}
+
+async function loadContainerOpportunities(env, request) {
+  if (!env.PROCUREMENT_FEED_TOKEN) throw new Error("Procurement feed token is not configured");
+  const container = getContainer(env.PROCUREMENT_API, "publicsignal-procurement-v1");
+  await container.startAndWaitForPorts({
+    ports: [8080],
+    startOptions: { enableInternet: false, envVars: { PUBLIC_SIGNAL_FEED_TOKEN: env.PROCUREMENT_FEED_TOKEN } },
+    cancellationOptions: { portReadyTimeoutMS: 30_000 },
+  });
+  const response = await container.fetch(new Request(forwardedFeedUrl("http://publicsignal-container/v1/procurement/opportunities", request), {
+    headers: { accept: "application/json", authorization: `Bearer ${env.PROCUREMENT_FEED_TOKEN}` },
+  }));
+  if (!response.ok) throw new Error(`Procurement container returned ${response.status}`);
+  const payload = await response.json();
+  return (payload.opportunities || []).map(normaliseFeedOpportunity).filter((item) => item.id);
+}
+
+async function loadOpportunities(env, request) {
+  if (env.PROCUREMENT_API) return loadContainerOpportunities(env, request);
+  if (!env.PROCUREMENT_FEED_URL) {
+    if (isLocalDevelopment(env)) return sampleOpportunities;
+    throw new Error("Procurement feed is not configured");
+  }
+  if (!env.PROCUREMENT_FEED_TOKEN) throw new Error("Procurement feed token is not configured");
+  const feedUrl = forwardedFeedUrl(env.PROCUREMENT_FEED_URL, request);
   const headers = { accept: "application/json" };
-  if (env.PROCUREMENT_FEED_TOKEN) headers.authorization = `Bearer ${env.PROCUREMENT_FEED_TOKEN}`;
-  const response = await fetch(env.PROCUREMENT_FEED_URL, { headers });
+  headers.authorization = `Bearer ${env.PROCUREMENT_FEED_TOKEN}`;
+  const response = await fetch(feedUrl, { headers });
   if (!response.ok) throw new Error(`Procurement feed returned ${response.status}`);
   const payload = await response.json();
-  const rows = Array.isArray(payload) ? payload : payload.result || payload.items || payload.data || [];
-  return rows.map((item) => ({
-    id: item.id || item.publication_number || item.resource_id,
-    title: item.title || item.contract_name || "Public procurement opportunity",
-    buyer: item.buyer || item.buyer_name || "Buyer not stated",
-    sector: item.sector || item.cpv_division || "Other",
-    deadline: item.deadline || item.submission_deadline,
-    daysToDeadline: item.daysToDeadline ?? item.days_to_deadline ?? daysUntil(item.submission_deadline),
-    estimate: item.estimate ?? item.estimated_value_eur ?? 0,
-    evidence: item.evidence ?? item.evidence_coverage ?? 70,
-    source: item.source || "Feed",
-    sourceUrl: item.sourceUrl || item.notice_url || item.detail_url || "",
-    caution: item.caution || "Review the source notice before relying on this summary.",
-  }));
+  const rows = Array.isArray(payload) ? payload : payload.opportunities || payload.result || payload.items || payload.data || [];
+  return rows.map(normaliseFeedOpportunity).filter((item) => item.id);
+}
+
+export async function proxyOpportunities(request, env) {
+  try {
+    const opportunities = await loadOpportunities(env, request);
+    return json({ source: env.PROCUREMENT_API ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "dail_tracker" : "sample_local", opportunities });
+  } catch {
+    return json({ error: "Opportunity feed unavailable." }, 503);
+  }
 }
 
 function daysUntil(value) {
@@ -428,9 +486,10 @@ async function previewDigest(request, env) {
 
 async function handleApi(request, env) {
   const url = new URL(request.url);
-  if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, app: "public-signal", emailConfigured: Boolean(env.RESEND_API_KEY), analyticsConfigured: Boolean(String(env.ANALYTICS_HASH_SALT || "").trim()) && typeof env.ANALYTICS_LIMITER?.limit === "function", feed: env.PROCUREMENT_FEED_URL ? "remote" : "sample" });
+  if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, app: "public-signal", emailConfigured: Boolean(env.RESEND_API_KEY), analyticsConfigured: Boolean(String(env.ANALYTICS_HASH_SALT || "").trim()) && typeof env.ANALYTICS_LIMITER?.limit === "function", feed: env.PROCUREMENT_API ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "remote" : isLocalDevelopment(env) ? "sample_local" : "unavailable" });
   if (url.pathname === "/api/config" && request.method === "GET") return json({ turnstileSiteKey: env.TURNSTILE_SECRET_KEY ? env.TURNSTILE_SITE_KEY || null : null });
   if (url.pathname === "/api/events" && request.method === "POST") return ingestAnalytics(request, env);
+  if (url.pathname === "/api/opportunities" && request.method === "GET") return proxyOpportunities(request, env);
   if (url.pathname === "/api/subscriptions" && request.method === "POST") return createSubscription(request, env);
   if (url.pathname === "/api/subscriptions/confirm" && request.method === "GET") return confirmSubscription(request, env);
   if (url.pathname === "/api/subscriptions/unsubscribe" && request.method === "GET") return unsubscribe(request, env);

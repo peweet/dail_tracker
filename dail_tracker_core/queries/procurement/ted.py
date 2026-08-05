@@ -163,6 +163,7 @@ def ted_tenders(
     limit: int | None = 60,
     only_open: bool = False,
     sector: str | None = None,
+    within_days: int | None = None,
 ) -> QueryResult:
     """The tender-pipeline listing (most recent first). ``only_open`` keeps notices whose
     submission deadline has not yet passed. ``sector`` narrows to one CPV division (the TED
@@ -179,6 +180,9 @@ def ted_tenders(
     params: list = []
     if only_open:
         where.append("is_still_open")
+    if within_days is not None:
+        where.append("TRY_CAST(submission_deadline AS DATE) <= CURRENT_DATE + (? * INTERVAL 1 DAY)")
+        params.append(int(within_days))
     if sector:
         where.append("cpv_division = ?")
         params.append(sector)
@@ -189,6 +193,18 @@ def ted_tenders(
         sql += " LIMIT ?"
         params.append(int(limit))
     return _run(conn, sql, params)
+
+
+def ted_tender_by_id(conn: duckdb.DuckDBPyConnection, publication_number: str) -> QueryResult:
+    """One TED competition notice, selected by its stable publication number."""
+    return _run(
+        conn,
+        "SELECT publication_number, notice_url, buyer_name, cpv_code, cpv_division, procedure_type,"
+        " is_uncompetitive_procedure, submission_deadline, is_still_open, estimated_value_eur, currency,"
+        " value_kind, dispatch_date, year"
+        " FROM v_procurement_ted_tenders WHERE publication_number = ? LIMIT 1",
+        [publication_number],
+    )
 
 
 def ted_tender_sectors(conn: duckdb.DuckDBPyConnection, *, only_open: bool = False) -> QueryResult:

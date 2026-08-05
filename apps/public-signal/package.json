@@ -16,5 +16,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.7"
   }
 }

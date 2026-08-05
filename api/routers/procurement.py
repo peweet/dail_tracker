@@ -9,9 +9,10 @@ no-inference caveat the core composition layer attaches — never re-derived her
 from __future__ import annotations
 
 import os
+import secrets
 
 import duckdb
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
@@ -20,9 +21,12 @@ from dail_tracker_core.models.envelope import ListEnvelope
 from dail_tracker_core.models.responses import (
     ProcurementCompetitionResponse,
     ProcurementLobbyingOverlapResponse,
+    ProcurementOpportunityBriefResponse,
+    ProcurementOpportunityFeedResponse,
     SupplierDossierResponse,
 )
 from dail_tracker_core.queries import procurement as _q
+from dail_tracker_core.queries.procurement.opportunities import opportunity_brief, opportunity_feed
 from services.deflator import list_indices
 
 router = APIRouter(tags=["procurement"], responses=ERROR_RESPONSES)
@@ -38,6 +42,17 @@ _REAL_CAVEAT = (
     "materials, labour-rate or tender-price inflation; public spend uses the government-consumption "
     "deflator. Each figure names the index it used. See /procurement/inflation/indices."
 )
+
+
+def require_public_signal_feed_token(request: Request) -> None:
+    """Fail closed for the private PublicSignal feed boundary."""
+    expected = os.getenv("PUBLIC_SIGNAL_FEED_TOKEN", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="private procurement feed is not configured")
+    authorization = request.headers.get("authorization", "")
+    scheme, _, supplied = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not supplied or not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="private procurement feed token required")
 
 
 def _require_experimental() -> None:
@@ -153,6 +168,76 @@ def open_tenders(
 ) -> dict:
     records, total, truncated = dossiers.list_open_tenders(cur, only_open=only_open, skip=page.skip, limit=page.limit)
     return serialize.envelope(records, limit=page.limit, offset=page.skip, total=total, truncated=truncated)
+
+
+def _tender_lookup(result) -> dict:
+    if not result.ok:
+        raise HTTPException(status_code=503, detail="tender source is unavailable")
+    records = serialize.to_records(result.data)
+    if not records:
+        raise HTTPException(status_code=404, detail="tender not found")
+    return serialize.envelope(records, total=1)
+
+
+@router.get(
+    "/procurement/open-tenders/national/{resource_id}",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="One national eTenders opportunity by stable resource id",
+)
+def national_tender(
+    resource_id: str,
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    return _tender_lookup(_q.live_tender_by_id(cur, resource_id))
+
+
+@router.get(
+    "/procurement/open-tenders/ted/{publication_number}",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="One TED opportunity by stable publication number",
+)
+def ted_tender(
+    publication_number: str,
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    return _tender_lookup(_q.ted_tender_by_id(cur, publication_number))
+
+
+@router.get(
+    "/procurement/opportunities",
+    response_model=ProcurementOpportunityFeedResponse,
+    dependencies=[Depends(require_public_signal_feed_token)],
+    summary="Private PublicSignal opportunity feed across national live and TED lanes",
+)
+def private_opportunities(
+    within_days: int | None = Query(None, ge=0, le=1095),
+    sector: str | None = Query(None),
+    source_lane: str | None = Query(None, pattern="^(national_live|ted_tender)$"),
+    limit: int = Query(100, ge=1, le=200),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    data = opportunity_feed(cur, limit=limit, within_days=within_days, sector=sector, source_lane=source_lane)
+    if not data["coverage"] or all(item.get("status") == "unavailable" for item in data["coverage"]):
+        raise HTTPException(status_code=503, detail="procurement opportunity sources are unavailable")
+    return data
+
+
+@router.get(
+    "/procurement/opportunities/{opportunity_id}/brief",
+    response_model=ProcurementOpportunityBriefResponse,
+    dependencies=[Depends(require_public_signal_feed_token)],
+    summary="Private PublicSignal evidence brief for one verified opportunity",
+)
+def private_opportunity_brief(
+    opportunity_id: str,
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    data = opportunity_brief(cur, opportunity_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="opportunity not found")
+    return data
 
 
 # ── EXPERIMENTAL real-terms (inflation-adjusted) endpoints (gated) ────────────────────────────

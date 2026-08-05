@@ -155,7 +155,7 @@ class IndexEntry:
 
 
 def fetch_index_html(source: PollSource, page: int = 1) -> str:
-    text, _ = fetch_text(source.index_url_for(page), headers={"User-Agent": USER_AGENT}, timeout=30)
+    text, _ = fetch_text(source.index_url_for(page), headers={"User-Agent": USER_AGENT}, timeout=30, encoding="utf-8")
     return text
 
 

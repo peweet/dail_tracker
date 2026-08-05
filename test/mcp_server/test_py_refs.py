@@ -111,6 +111,7 @@ def test_allowed_python_paths_honours_git_ignores_and_policy(tmp_path):
     for directory in ("public", "ignored", "pipeline_sandbox"):
         (repo / directory).mkdir()
         (repo / directory / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "public/module.py"], check=True)
 
     assert py_refs._allowed_python_paths(repo.resolve()) == {"public/module.py"}
 

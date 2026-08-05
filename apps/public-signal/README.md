@@ -84,21 +84,21 @@ Set `TURNSTILE_SITE_KEY` in the Worker environment, or `.dev.vars` for local dev
 Set `PROCUREMENT_FEED_URL` to a JSON endpoint. The existing Dáil Tracker route is shaped like:
 
 ```text
-/v1/procurement/open-tenders?only_open=true&limit=100
+/v1/procurement/opportunities?limit=100
 ```
 
-The Worker accepts an array or an envelope under `data`, `result` or `items`. It recognises these source fields:
+It requires `PROCUREMENT_FEED_TOKEN` to match the API's `PUBLIC_SIGNAL_FEED_TOKEN`. Keep both values server-side: the Worker sends the bearer token upstream and never returns it to a browser. The API fails closed when the token is absent or invalid.
 
-- `publication_number` or `resource_id`
-- `buyer_name` or `buyer`
-- `cpv_division` or `sector`
-- `submission_deadline`
-- `estimated_value_eur`
-- `notice_url` or `detail_url`
+The feed returns an `opportunities` envelope with lane-level coverage and cautions. The Worker only passes through these stable display fields:
 
-If the feed is private, store its bearer token with `npx wrangler secret put PROCUREMENT_FEED_TOKEN`.
+- `id`, `title`, `buyer_display_name`
+- `cpv_division`, when supplied by the source
+- `deadline`, `value_eur`, `source_url`
+- `source_lane` and the source's own caution label
 
-The current open-tenders route supplies opportunity facts but not the full buyer and supplier evidence brief. A production feed should compose those extra lanes server-side and attach a per-lane freshness and coverage manifest.
+National eTenders live records have no CPV field in this snapshot, so they remain unclassified rather than being inferred from their title. Values in both forward lanes are advertised/planned estimates, not awards, payments, or market totals.
+
+The corresponding private API evidence route is `/v1/procurement/opportunities/{opportunity_id}/brief`. It adds cross-register buyer context only for a curated exact buyer match; award and payment disclosures remain separate lanes. The public Worker does not proxy this detail endpoint yet.
 
 ## Privacy-bounded product analytics
 
@@ -143,6 +143,7 @@ These are approximate session counts because a session is an ephemeral browser t
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Binding and feed mode check |
+| `GET` | `/api/opportunities` | Public-safe proxy for the configured private opportunity feed |
 | `POST` | `/api/events` | Validate and store bounded, anonymous product events |
 | `POST` | `/api/subscriptions` | Store a pending watch and send confirmation |
 | `GET` | `/api/subscriptions/confirm?token=...` | Activate a watch |

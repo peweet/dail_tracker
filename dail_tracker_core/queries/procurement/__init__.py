@@ -47,6 +47,10 @@ from dail_tracker_core.queries.procurement.awards import (  # noqa: F401
     supplier_year_trend,
     value_contrast,
 )
+from dail_tracker_core.queries.procurement.opportunities import (  # noqa: F401
+    opportunity_brief,
+    opportunity_feed,
+)
 from dail_tracker_core.queries.procurement.payments import (  # noqa: F401
     _tier,  # noqa: F401
     council_summary,
@@ -99,12 +103,14 @@ from dail_tracker_core.queries.procurement.ted import (  # noqa: F401
     ted_for_supplier,
     ted_notices_for_supplier,
     ted_supplier_summary,
+    ted_tender_by_id,
     ted_tender_sectors,
     ted_tenders,
     ted_tenders_stats,
 )
 from dail_tracker_core.queries.procurement.tenders_live import (  # noqa: F401
     expiring_contracts_etenders,
+    live_tender_by_id,
     live_tender_sectors,
     live_tenders,
     live_tenders_stats,

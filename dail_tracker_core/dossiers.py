@@ -1699,3 +1699,15 @@ def council_powers(conn: duckdb.DuckDBPyConnection, *, council: str) -> dict[str
         "split": serialize.first_record(yc.power_split(conn, council).data),
         "classes": serialize.to_records(yc.power_classes(conn, council).data),
     }
+
+
+def council_minutes_search(
+    conn: duckdb.DuckDBPyConnection, *, council: str, query: str, limit: int = 20
+) -> dict[str, Any]:
+    """Literal, council-scoped minutes search with its document-coverage denominator."""
+    return {
+        "council": council,
+        "query": query,
+        "matches": serialize.to_records(yc.search_minutes(conn, council, query, limit).data),
+        "coverage": serialize.first_record(yc.minutes_coverage(conn, council).data),
+    }

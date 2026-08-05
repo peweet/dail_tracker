@@ -40,6 +40,27 @@
   "triggers": {
     "crons": ["10 7 * * MON-FRI"]
   },
+  "containers": [
+    {
+      "class_name": "PublicSignalProcurementContainer",
+      "image": "./private-api/Dockerfile",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PROCUREMENT_API",
+        "class_name": "PublicSignalProcurementContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "publicsignal-procurement-v1",
+      "new_sqlite_classes": ["PublicSignalProcurementContainer"]
+    }
+  ],
   "vars": {
     "APP_URL": "https://publicsignal.ie",
     "EMAIL_FROM": "PublicSignal <alerts@publicsignal.ie>",

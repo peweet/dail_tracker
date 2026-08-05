@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { analyticsLimiterKey, consumeAnalyticsLimit, consumeSubscriptionLimit, hashAnalyticsSession, ingestAnalytics, matchOpportunity, normaliseAnalyticsPayload, normaliseSubscription, purgeAnalytics, renderDigest, validateAnalyticsEvent, validateTurnstile } from "./index.js";
+import { analyticsLimiterKey, consumeAnalyticsLimit, consumeSubscriptionLimit, hashAnalyticsSession, ingestAnalytics, matchOpportunity, normaliseAnalyticsPayload, normaliseFeedOpportunity, normaliseSubscription, proxyOpportunities, purgeAnalytics, renderDigest, validateAnalyticsEvent, validateTurnstile } from "./index.js";
 
 test("normaliseSubscription bounds user-controlled filters", () => {
   const result = normaliseSubscription({
@@ -200,4 +200,36 @@ test("watch Turnstile lifecycle invalidates stale async renders", async () => {
   assert.match(source, /generation !== watchTurnstile\.generation/);
   assert.match(source, /!form\.isConnected/);
   assert.match(source, /turnstile\.reset/);
+});
+
+test("opportunity proxy preserves only the stable feed fields", async () => {
+  const originalFetch = globalThis.fetch;
+  let call;
+  globalThis.fetch = async (url, options) => {
+    call = { url: String(url), options };
+    return new Response(JSON.stringify({ opportunities: [{ id: "ted:ABC", buyer_display_name: "Buyer", value_eur: 10, source_url: "https://source.example/notice", private_field: "drop" }] }), { status: 200 });
+  };
+  try {
+    const response = await proxyOpportunities(new Request("https://publicsignal.ie/api/opportunities?within_days=30"), { PROCUREMENT_FEED_URL: "https://api.example/v1/procurement/opportunities", PROCUREMENT_FEED_TOKEN: "secret" });
+    assert.equal(response.status, 200);
+    const expected = normaliseFeedOpportunity({ id: "ted:ABC", buyer_display_name: "Buyer", value_eur: 10, source_url: "https://source.example/notice", private_field: "drop" });
+    delete expected.deadline;
+    assert.deepEqual(await response.json(), { source: "dail_tracker", opportunities: [expected] });
+    assert.equal(call.options.headers.authorization, "Bearer secret");
+    assert.match(call.url, /within_days=30/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("opportunity proxy returns a bounded unavailable response on remote failure", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("upstream details", { status: 503 });
+  try {
+    const response = await proxyOpportunities(new Request("https://publicsignal.ie/api/opportunities"), { PROCUREMENT_FEED_URL: "https://api.example/v1/procurement/opportunities", PROCUREMENT_FEED_TOKEN: "secret" });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: "Opportunity feed unavailable." });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

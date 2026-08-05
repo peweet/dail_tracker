@@ -219,6 +219,15 @@ class CouncilPowersResponse(OpenResponse):
     classes: JsonRows
 
 
+class CouncilMinutesSearchResponse(OpenResponse):
+    """Literal search results from one council's vetted minutes corpus."""
+
+    council: str
+    query: str
+    matches: JsonRows
+    coverage: JsonObject | None
+
+
 class CouncillorRosterResponse(OpenResponse):
     """A council roster plus coverage state and Chief Executive context."""
 
@@ -459,6 +468,26 @@ class ProcurementLobbyingOverlapResponse(OpenResponse):
     summary: JsonObject
     suppliers: JsonRows
     caveat: str
+
+
+class ProcurementOpportunityFeedResponse(OpenResponse):
+    """Private PublicSignal opportunity feed with lane-level provenance."""
+
+    opportunities: JsonRows
+    coverage: JsonRows
+    caveats: list[str]
+
+
+class ProcurementOpportunityBriefResponse(OpenResponse):
+    """Private PublicSignal evidence brief; buyer enrichment is exact-match gated."""
+
+    opportunity: JsonObject
+    buyer_match: JsonObject
+    award_lane: JsonObject | None
+    payment_lane: JsonObject | None
+    market_competition: JsonObject | None
+    contract_end: JsonObject | None
+    caveats: list[str]
 
 
 class PublicBodyPaymentsResponse(OpenResponse):

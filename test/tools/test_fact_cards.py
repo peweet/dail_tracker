@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from tools import build_fact_cards
+
 ROOT = Path(__file__).resolve().parents[2]
 CARDS = ROOT / "data" / "_meta" / "fact_cards.json"
 GOLD = ROOT / "data" / "gold" / "parquet"
@@ -28,7 +30,7 @@ def cards() -> dict:
 
 
 def test_every_parquet_has_a_card(cards):
-    on_disk = {p.stem for p in list(GOLD.glob("*.parquet")) + list(SILVER.glob("*.parquet"))}
+    on_disk = {p.stem for p in build_fact_cards.public_parquet_paths()}
     missing = on_disk - set(cards)
     assert not missing, f"parquets without a fact card (run build_fact_cards.py): {sorted(missing)[:8]}"
 
