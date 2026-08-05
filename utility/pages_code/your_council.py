@@ -46,8 +46,10 @@ from data_access.procurement_data import (
 )
 from data_access.your_councillors_data import (
     fetch_coverage,
+    fetch_minutes_coverage,
     fetch_power_split,
     fetch_roster_council,
+    search_minutes,
 )
 from pages_code.local_government import (
     _card_audit,
@@ -365,6 +367,89 @@ def _power_evidence(council: str) -> None:
     )
 
 
+_MINUTES_SCOPE = {
+    "plenary": "Full council",
+    "municipal_district": "Municipal district",
+    "committee": "Committee",
+}
+
+
+def _render_minutes_search(council: str) -> None:
+    """Search the vetted minute text with document-grain coverage and provenance."""
+    subsection_heading("Search the published minutes")
+    coverage = fetch_minutes_coverage(council)
+    if not coverage.ok:
+        empty_state(
+            "Minutes search unavailable",
+            "The searchable corpus could not be loaded. The council may still publish minutes on its own website.",
+        )
+        return
+    if coverage.data is None or coverage.data.empty:
+        empty_state(
+            "No searchable minutes yet",
+            f"We have not harvested searchable minutes for {council}. This does not mean the council held no meetings.",
+        )
+        return
+
+    row = coverage.data.iloc[0]
+    documents = int(row["documents"])
+    st.caption(
+        f"{documents} meeting documents in this corpus: {int(row['plenary_documents'])} full council, "
+        f"{int(row['municipal_documents'])} municipal district and {int(row['committee_documents'])} committee. "
+        f"{int(row['dated_documents'])} carry a parsed date; {int(row['sourced_documents'])} retain a source link; "
+        f"{int(row['ocr_documents'])} were read from scans by OCR. These are harvested documents, not a complete "
+        "count of every meeting the council held."
+    )
+    query = st.text_input(
+        "Search this council's minutes",
+        placeholder="Try housing, section 183, flood relief or a place name",
+        key=f"yc_minutes_query_{council}",
+    ).strip()
+    if not query:
+        st.caption(
+            "Searches the wording in the documents we hold. No result means no match in this corpus, not silence by the council."
+        )
+        return
+    if len(query) < 3:
+        st.caption("Enter at least three characters to search.")
+        return
+
+    result = search_minutes(council, query)
+    if not result.ok:
+        empty_state("Search unavailable", "The minute index could not be queried just now.")
+        return
+    if result.data is None or result.data.empty:
+        empty_state(
+            "No matching passage",
+            f'Nothing in the {documents} harvested documents for {council} matched "{query}".',
+        )
+        return
+
+    st.caption(
+        f"{len(result.data)} matching meeting document{'s' if len(result.data) != 1 else ''}. One passage per document."
+    )
+    for _, hit in result.data.iterrows():
+        date = str(hit.get("meeting_date") or "")[:10] or "Date not parsed"
+        scope = _MINUTES_SCOPE.get(str(hit.get("meeting_scope") or ""), "Meeting")
+        method = (
+            "OCR text, verify against the scan"
+            if str(hit.get("source_status") or "") == "ocr_winocr"
+            else "Machine-extracted text"
+        )
+        source_url = str(hit.get("source_url") or "")
+        source = (
+            f'<a class="dt-source-link" href="{_h(source_url)}" target="_blank" rel="noopener">Open source</a>'
+            if source_url
+            else "Source link not retained"
+        )
+        info_card(
+            f'<div style="color:var(--text-meta);font-size:.78rem;margin-bottom:.25rem">'
+            f"{_h(date)} · {_h(scope)}</div>"
+            f'<div style="line-height:1.5">{_h(str(hit.get("snippet") or ""))}</div>'
+            f'<div style="color:var(--text-meta);font-size:.72rem;margin-top:.4rem">{source} · {_h(method)}</div>'
+        )
+
+
 def _section_councillors(council: str) -> None:
     # Inline (no longer a cross-link): the roster is PROMOTED gold (v_la_councillors), read via
     # data_access. The whole-council roster is grouped by electoral area for display; per-councillor
@@ -433,6 +518,7 @@ def _section_councillors(council: str) -> None:
     _render_standing_orders(council)
     subsection_heading("What the council is deciding")
     _tab_agendas(council)
+    _render_minutes_search(council)
 
 
 # ── the money flow (Spending section) ─────────────────────────────────────────

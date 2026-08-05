@@ -1,18 +1,18 @@
 {
   "link_version": "1.2.0",
-  "generated_at": "2026-07-31T19:00:13.786534+00:00",
+  "generated_at": "2026-08-05T20:29:39.298112+00:00",
   "judge_court_pairs": 8903,
   "matched_pairs": 5996,
   "match_methods": {
-    "office-title": 649,
-    "surname-bench-wide": 1164,
-    "exact": 159,
-    "honorific-conflict": 142,
     "no-candidate": 1623,
-    "ambiguous": 399,
+    "exact": 159,
+    "surname-bench-wide": 1164,
     "surname-court": 4673,
+    "ambiguous": 399,
+    "roster-notice": 4,
+    "honorific-conflict": 142,
     "honorific-other-person": 90,
-    "roster-notice": 4
+    "office-title": 649
   },
   "unmatched": [
     {
@@ -14553,12 +14553,12 @@
   ],
   "row_level": {
     "cases": {
-      "rows_with_judge": 11881,
-      "rows_matched": 11010
+      "rows_with_judge": 11913,
+      "rows_matched": 11042
     },
     "schedule": {
-      "rows_with_judge": 2519,
-      "rows_matched": 2377
+      "rows_with_judge": 2540,
+      "rows_matched": 2398
     }
   },
   "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."

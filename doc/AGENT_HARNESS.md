@@ -10,6 +10,8 @@ key: REFERENCE|LIVE|infra
 
 # Agent harness decisions and prompt contract
 
+Latest measured result: [Agent harness measurement — 2026-08-05](AGENT_HARNESS_MEASUREMENT_2026_08_05.md).
+
 This is the repository decision record for the harness-guide audit completed on 2026-08-05.
 A recommendation is adopted only when it closes an observed gap, can be enforced or measured,
 does not weaken a data or product boundary, and has regression coverage. The guide and its

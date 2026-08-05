@@ -141,6 +141,38 @@ def decision_coverage(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     return _run(conn, "SELECT * FROM v_la_council_decision_coverage WHERE local_authority = ?", [la])
 
 
+def minutes_coverage(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Document-grain coverage for the vetted searchable minutes corpus."""
+    return _run(conn, "SELECT * FROM v_la_council_minutes_coverage WHERE local_authority = ?", [la])
+
+
+def search_minutes(conn: duckdb.DuckDBPyConnection, la: str, query: str, limit: int = 20) -> QueryResult:
+    """Search one council's vetted minutes, returning one matching passage per document.
+
+    This is literal case-insensitive containment for a selected council, not the
+    corpus-wide BM25 ranking exposed by the MCP tool. The result retains meeting
+    scope, extraction method and source URL so the page can display uncertainty.
+    """
+    needle = str(query or "").strip()
+    if not needle:
+        return _run(conn, "SELECT * FROM v_la_council_minutes_docs WHERE false")
+    return _run(
+        conn,
+        "WITH matches AS ("
+        " SELECT document_id, meeting, meeting_date, doc_type, meeting_scope, source_status, source_url, chunk, body,"
+        " strpos(lower(body), lower(?)) AS match_pos,"
+        " row_number() OVER (PARTITION BY document_id ORDER BY chunk) AS passage_rank"
+        " FROM v_la_council_minutes_docs"
+        " WHERE local_authority = ? AND contains(lower(body), lower(?))"
+        ")"
+        " SELECT document_id, meeting, meeting_date, doc_type, meeting_scope, source_status, source_url,"
+        " regexp_replace(substr(body, greatest(1, match_pos - 120), 360), '\\s+', ' ', 'g') AS snippet"
+        " FROM matches WHERE passage_rank = 1"
+        " ORDER BY nullif(meeting_date, '') DESC NULLS LAST, meeting LIMIT ?",
+        [needle, la, needle, max(1, min(int(limit), 50))],
+    )
+
+
 def councillor_payments(conn: duckdb.DuckDBPyConnection, la: str, member: str) -> QueryResult:
     """ACTUAL s.142 register payments for one councillor (year × category, pre-aggregated in
     the view). Only the open-data councils (South Dublin, Dublin City) return rows — the page

@@ -5,6 +5,8 @@
 -- Consumed by mcp_server/text_fts.py corpus 'council_minutes' (search_council_minutes).
 CREATE OR REPLACE VIEW v_council_minutes_docs AS
 SELECT
+    document_id,
+    entity_type,
     council,
     meeting,
     -- Typed DATE: text_fts's year() filter needs a DATE column (year(VARCHAR) has no
@@ -12,6 +14,7 @@ SELECT
     -- '2026 February' forms. try_cast nulls those; they stay retrievable via `meeting`.
     try_cast(meeting_date AS DATE) AS meeting_date,
     doc_type,
+    meeting_scope,
     source_status,
     source_url,
     chunk,

@@ -1,4 +1,4 @@
-name: Money-flow pipeline refresh (daily, R2-backed)
+name: Money-flow pipeline refresh (manual while readiness is verified)
 
 # The full continuous-refresh lane for the money-flow data (payments, procurement, TED,
 # LA/HSE/Tusla, CRO, CBI, AFS, CSO) and everything they depend on. This is the project's
@@ -20,7 +20,7 @@ name: Money-flow pipeline refresh (daily, R2-backed)
 # timeout below and the 6 h GitHub job ceiling BEFORE relying on the schedule. Until R2
 # secrets are set, a scheduled run will restore nothing, likely thin some tables, and the
 # publish gate will (correctly) abort — safe, but it will open a failure issue each day, so
-# keep this on workflow_dispatch until the secrets + probe are done (see the doc).
+# It remains workflow_dispatch-only until the secrets and probe are verified (see the doc).
 
 on:
   schedule:
@@ -41,11 +41,16 @@ permissions:
   issues: write
 
 concurrency:
-  group: money-flow-refresh
+  # Every refresh can publish overlapping runtime data. Serialise the whole
+  # workflow rather than risk a stale checkout pushing after another lane.
+  group: data-refresh-publish
   cancel-in-progress: false
 
 jobs:
   refresh:
+    # Keep the cron declaration as an explicit re-enable point, but consume no
+    # runner until the R2-backed manual path has been measured and repaired.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 350   # just under the 6 h GitHub ceiling; tighten once the probe measures the real time
     env:
@@ -59,6 +64,13 @@ jobs:
       R2_BUCKET: dail-tracker-backup
     steps:
       - uses: actions/checkout@v4
+
+      - name: Require the R2 state restore prerequisites
+        run: |
+          if [ -z "${RCLONE_CONFIG_R2_ACCESS_KEY_ID}" ] || [ -z "${RCLONE_CONFIG_R2_SECRET_ACCESS_KEY}" ] || [ -z "${RCLONE_CONFIG_R2_ENDPOINT}" ]; then
+            echo "::error::R2 state is required for a safe money-flow refresh. Configure the R2 secrets before running this workflow."
+            exit 1
+          fi
 
       - uses: astral-sh/setup-uv@v3
         with:
@@ -78,8 +90,12 @@ jobs:
           fi
           curl -fsSL https://rclone.org/install.sh | sudo bash
           echo "Restoring bronze + silver from r2:${R2_BUCKET} ..."
+          # Bronze is an append-only raw archive. A clean runner has no bronze
+          # state, so retain existing archive objects rather than rewrite captures.
           rclone copy "r2:${R2_BUCKET}/bronze" data/bronze --ignore-existing --transfers 16 --fast-list -q
-          rclone copy "r2:${R2_BUCKET}/silver" data/silver --ignore-existing --transfers 16 --fast-list -q
+          # Silver is mutable state. The checkout contains an older committed
+          # copy, so overlay changed R2 objects instead of preserving it.
+          rclone copy "r2:${R2_BUCKET}/silver" data/silver --transfers 16 --fast-list -q
           du -sh data/bronze data/silver 2>/dev/null || true
 
       - name: Run pipeline (timed; chain failures are reported, not fatal here)
@@ -99,6 +115,12 @@ jobs:
           echo "pipeline_exit=$code" >> "$GITHUB_OUTPUT"
           echo "pipeline exit $code (elapsed $(( $(date +%s) - start ))s)"
 
+      - name: Stop after a failed pipeline
+        if: ${{ steps.run.outputs.pipeline_exit != '0' }}
+        run: |
+          echo "::error::The pipeline exited ${{ steps.run.outputs.pipeline_exit }}. Publishing and R2 backup are blocked."
+          exit 1
+
       # Per-lane freshness beat — only when the pipeline ran clean (exit 0), written before
       # publish so it ships in the same gated commit. tools/freshness_status.py reads this to
       # confirm the money-flow lane ran on time. Gated on pipeline_exit because the run step
@@ -109,19 +131,25 @@ jobs:
 
       # Gate + publish. Skipped on a dry validation run. The gate aborts (non-zero) on any
       # gold regression, which fails the job and opens the issue below — nothing ships.
+      # In its current manual-only mode, that failure is reported by this job; the
+      # historical scheduled-run issue hook is dormant.
       - name: Publish refreshed gold (gated allow-list)
-        if: ${{ github.event.inputs.skip_publish != 'true' }}
+        if: ${{ steps.run.outputs.pipeline_exit == '0' && github.event.inputs.skip_publish != 'true' }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           uv run python tools/publish_data.py -m "data: daily money-flow refresh ($(date -u +%F))"
 
       - name: Back up refreshed bronze + silver to R2
-        if: ${{ always() && env.RCLONE_CONFIG_R2_ACCESS_KEY_ID != '' }}
+        if: ${{ success() && steps.run.outputs.pipeline_exit == '0' && env.RCLONE_CONFIG_R2_ACCESS_KEY_ID != '' }}
         run: |
           command -v rclone >/dev/null || { curl -fsSL https://rclone.org/install.sh | sudo bash; }
+          # Preserve the immutable raw-capture archive; a repeated source name
+          # must not overwrite prior bronze evidence.
           rclone copy data/bronze "r2:${R2_BUCKET}/bronze" --ignore-existing --transfers 16 --fast-list -q
-          rclone copy data/silver "r2:${R2_BUCKET}/silver" --ignore-existing --transfers 16 --fast-list -q
+          # Silver is mutable state, so copy changed objects back for the next
+          # restore rather than preserving stale same-name R2 files.
+          rclone copy data/silver "r2:${R2_BUCKET}/silver" --transfers 16 --fast-list -q
           echo "R2 backup complete."
 
       - name: Runtime summary

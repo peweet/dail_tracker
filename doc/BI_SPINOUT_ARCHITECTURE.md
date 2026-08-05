@@ -1,11 +1,12 @@
 ---
 tier: SPEC
-status: STALE
+status: SUPERSEDED
 domain: commercial
 updated: 2026-06-28
 supersedes: []
-read_when: scoping the BI spinout's business model, data reuse inventory, licensing, or ethics firewall before building any of it
-key: SPEC|LIVE|commercial
+superseded_by: PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md
+read_when: reviewing the superseded BI spinout architecture; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current commercial decisions
+key: SPEC|SUPERSEDED|commercial
 ---
 
 # Commercial BI Spinout — Architecture & Business Model

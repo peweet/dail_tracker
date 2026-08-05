@@ -69,10 +69,12 @@ def test_search_rejects_bad_response_format_before_touching_data():
 
 _CM_ROW = {
     "rid": 3,
+    "document_id": "doc-3",
     "council": "Kerry",
     "meeting": "mar26.pdf",
     "meeting_date": "2026-03-23",
     "doc_type": "plenary_minutes",
+    "meeting_scope": "plenary",
     "source_status": "ocr_winocr",
     "source_url": "https://example.ie/mar26.pdf",
     "chunk": 4,
@@ -108,7 +110,8 @@ def test_council_minutes_concise_shape() -> None:
     snippet; detailed keeps provenance (source_status for the Extracted-band badge,
     source_url, chunk)."""
     concise = text_fts.shape_hit("council_minutes", dict(_CM_ROW), "concise")
-    assert set(concise) <= {"council", "meeting_date", "doc_type", "body", "score"}
+    assert set(concise) <= {"council", "meeting_date", "doc_type", "meeting_scope", "body", "score"}
+    assert concise["meeting_scope"] == "plenary"
     assert len(concise["body"]) < 400
     detailed = text_fts.shape_hit("council_minutes", dict(_CM_ROW), "detailed")
     assert detailed["source_status"] == "ocr_winocr"

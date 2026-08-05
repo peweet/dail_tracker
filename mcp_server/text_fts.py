@@ -56,14 +56,25 @@ CORPORA = {
         ),
         "concise_cols": ("question_date", "ministry", "topic", "question_ref", "question_text"),
     },
-    # Council-minutes corpus (2026-08-01): 870+ clean docs, 28 councils, 2015-2026.
+    # Council-minutes corpus (2026-08-05): 810 vetted docs, 27 councils, 2015-2026.
     # source_status='ocr_winocr' rows are OCR text (Extracted band) — cite with the badge.
     "council_minutes": {
         "view": "v_council_minutes_docs",
         "date_col": "meeting_date",
         "text_col": "body",
-        "cols": ("council", "meeting", "meeting_date", "doc_type", "source_status", "source_url", "chunk", "body"),
-        "concise_cols": ("council", "meeting_date", "doc_type", "body"),
+        "cols": (
+            "document_id",
+            "council",
+            "meeting",
+            "meeting_date",
+            "doc_type",
+            "meeting_scope",
+            "source_status",
+            "source_url",
+            "chunk",
+            "body",
+        ),
+        "concise_cols": ("council", "meeting_date", "doc_type", "meeting_scope", "body"),
     },
 }
 

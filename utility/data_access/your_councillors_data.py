@@ -83,6 +83,16 @@ def fetch_decision_coverage(la: str) -> QueryResult:
 
 
 @st.cache_data(ttl=600)
+def fetch_minutes_coverage(la: str) -> QueryResult:
+    return _q.minutes_coverage(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def search_minutes(la: str, query: str, limit: int = 20) -> QueryResult:
+    return _q.search_minutes(get_constituency_conn(), la, query, limit)
+
+
+@st.cache_data(ttl=600)
 def fetch_councillor_payments(la: str, member: str) -> QueryResult:
     return _q.councillor_payments(get_constituency_conn(), la, member)
 

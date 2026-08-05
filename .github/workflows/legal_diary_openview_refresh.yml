@@ -1,4 +1,4 @@
-name: Legal Diary OpenView refresh (daily)
+name: Legal Diary OpenView refresh (manual while publish failure is investigated)
 
 # Keeps the Circuit Court + higher-court diary gold current on the deployed site.
 #
@@ -36,11 +36,14 @@ permissions:
   issues: write     # open a tracking issue if a scheduled run fails
 
 concurrency:
-  group: legal-diary-openview-refresh
+  group: data-refresh-publish
   cancel-in-progress: false   # let an in-flight publish finish rather than racing the next run
 
 jobs:
   refresh:
+    # Extraction has completed but publish has failed. Leave the cron declaration
+    # available for a measured re-enable, but run only explicit dispatches now.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 90   # watchdog: covers a cold-start full re-fetch of the whole archive
     steps:
