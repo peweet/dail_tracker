@@ -450,6 +450,6 @@
   ],
   "value_kind": "loan_movement",
   "scope": "per-LA audited AFS Note 7 — movement in Loans Payable (gross borrowing) by year",
-  "generated_at": "2026-07-31T14:37:26.742653+00:00",
+  "generated_at": "2026-08-05T20:40:21.597611+00:00",
   "caveat": "MIXED grain, tagged by is_flow: opening_balance/closing_balance are STOCKS; borrowings/repayment_of_principal/early_redemptions/other_adjustments are in-year FLOWS (repayments/redemptions negative). Reconcile gate is INTERNAL (opening + flows == closing per year); the Note-7 closing is GROSS and legitimately differs from the Balance-Sheet Loans Payable line — never reconcile the two facts. Never sum a flow with a stock, nor either with any spend fact."
 }

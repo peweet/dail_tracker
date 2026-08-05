@@ -109,7 +109,8 @@ def shape_hit(kind: str, rec: dict, response_format: str) -> dict:
         rec[spec["text_col"]] = txt[:cap] + "…"
     rec["score"] = round(float(rec["score"]), 3)
     if spec["date_col"] in rec:
-        rec[spec["date_col"]] = str(rec[spec["date_col"]])
+        value = rec[spec["date_col"]]
+        rec[spec["date_col"]] = str(value) if value is not None else ""
     return rec
 
 
@@ -140,6 +141,16 @@ def _build(kind: str, cur, repo: Path, fp: tuple[int, str]) -> None:
     cache = repo / CACHE_REL
     cache.parent.mkdir(parents=True, exist_ok=True)
     cols = ", ".join(spec["cols"])
+    # DuckDB FTS creates macros, stopword tables and stemmer dependencies around
+    # the source table. Drop that graph before replacing the table; doing this in
+    # the opposite order can corrupt a refresh with "subject stopwords deleted".
+    if cache.exists():
+        con = resource_policy.capped_connect(str(cache))
+        try:
+            with contextlib.suppress(Exception):
+                con.execute(f"PRAGMA drop_fts_index('{kind}')")
+        finally:
+            con.close()
     with contextlib.suppress(Exception):
         cur.execute("DETACH textfts")
     cur.execute(f"ATTACH '{cache.as_posix()}' AS textfts")
@@ -151,8 +162,6 @@ def _build(kind: str, cur, repo: Path, fp: tuple[int, str]) -> None:
         cur.execute("DETACH textfts")
     con = resource_policy.capped_connect(str(cache))
     try:
-        with contextlib.suppress(Exception):  # first build — no index yet
-            con.execute(f"PRAGMA drop_fts_index('{kind}')")
         # defaults: porter stemmer, english stopwords, lowercase — exactly what we want.
         # ignore overridden to _FTS_IGNORE (see module docstring above it) so citation
         # queries (bill/SI numbers, question refs, section numbers) are searchable.
