@@ -1,17 +1,17 @@
--- v_council_minutes_docs — the searchable council-minutes text corpus (gold parquet
--- materialised by extractors/council_minutes_corpus_build.py). One row per clean doc:
--- council, meeting file, best-known date, doc_type, source_status (text|ocr_winocr|html
--- — ocr_winocr = Extracted-band OCR text, badge accordingly), source_url, full body.
--- Consumed by mcp_server/text_fts.py corpus 'council_minutes' (search_council_minutes).
+-- v_council_minutes_docs: searchable council-minute passages from the gold parquet
+-- materialised by extractors/council_minutes_corpus_build.py. Grain is one bounded
+-- passage (document_id + chunk), not one document or decision. Agendas are excluded;
+-- doc_type/meeting_scope preserve plenary, municipal-district and committee scope.
+-- source_status=ocr_winocr is machine OCR and must carry that caveat.
+-- Consumed by mcp_server/text_fts.py corpus 'council_minutes'.
 CREATE OR REPLACE VIEW v_council_minutes_docs AS
 SELECT
     document_id,
     entity_type,
     council,
     meeting,
-    -- Typed DATE: text_fts's year() filter needs a DATE column (year(VARCHAR) has no
-    -- overload — found in-practice 2026-08-01), and the raw field holds '' and
-    -- '2026 February' forms. try_cast nulls those; they stay retrievable via `meeting`.
+    -- Typed DATE: text_fts's year filter needs DATE. The raw field also holds
+    -- blanks and month-grain strings; try_cast keeps those documents searchable.
     try_cast(meeting_date AS DATE) AS meeting_date,
     doc_type,
     meeting_scope,

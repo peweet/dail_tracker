@@ -1,13 +1,13 @@
 {
-  "rows_notices": 13456,
-  "distinct_notices": 13456,
-  "rows_with_estimated_value": 11112,
-  "rows_with_deadline": 12527,
-  "still_open_by_deadline": 446,
+  "rows_notices": 13511,
+  "distinct_notices": 13511,
+  "rows_with_estimated_value": 11165,
+  "rows_with_deadline": 12577,
+  "still_open_by_deadline": 425,
   "uncompetitive_procedure_rows": 2,
   "date_span": [
     "2023-12-29",
-    "2026-07-30"
+    "2026-08-04"
   ],
   "grain": "one row per cn-standard notice (lots aggregated: earliest deadline, summed estimate)",
   "layer": "silver",
@@ -21,6 +21,6 @@
     "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 1,
-  "generated_at": "2026-07-31T15:39:35+00:00",
+  "generated_at": "2026-08-05T20:38:46+00:00",
   "caveat": "PRE-AWARD competition notices. estimated_value_eur is a BUYER ESTIMATE \u2014 never an award value and never a payment; value_safe_to_sum is always FALSE. NEVER sum with award or payment figures (three-grain firewall). A tender notice is a procurement opportunity, not a contract."
 }

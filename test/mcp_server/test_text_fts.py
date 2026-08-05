@@ -116,3 +116,39 @@ def test_council_minutes_concise_shape() -> None:
     detailed = text_fts.shape_hit("council_minutes", dict(_CM_ROW), "detailed")
     assert detailed["source_status"] == "ocr_winocr"
     assert detailed["source_url"].startswith("https://")
+
+
+def test_shape_hit_keeps_unknown_date_empty() -> None:
+    row = {**_CM_ROW, "meeting_date": None}
+    assert text_fts.shape_hit("council_minutes", row, "concise")["meeting_date"] == ""
+
+
+def test_refresh_drops_fts_dependencies_before_replacing_table(tmp_path, monkeypatch) -> None:
+    """DuckDB's FTS macros depend on the indexed table. Replacing that table
+    first corrupted live refreshes with a deleted-stopwords dependency error."""
+    events: list[str] = []
+    cache = tmp_path / text_fts.CACHE_REL
+    cache.parent.mkdir(parents=True)
+    cache.touch()
+
+    class FakeConnection:
+        def __init__(self, label: str):
+            self.label = label
+
+        def execute(self, sql: str, _params=None):
+            events.append(f"{self.label}:{sql}")
+            return self
+
+        def close(self) -> None:
+            events.append(f"{self.label}:close")
+
+    direct = iter((FakeConnection("drop"), FakeConnection("index")))
+    monkeypatch.setattr(text_fts.resource_policy, "capped_connect", lambda *_a, **_k: next(direct))
+    union = FakeConnection("union")
+
+    text_fts._build("council_minutes", union, tmp_path, (10, "2026-01-01"))
+
+    drop_pos = next(i for i, event in enumerate(events) if "drop_fts_index" in event)
+    replace_pos = next(i for i, event in enumerate(events) if "CREATE OR REPLACE TABLE" in event)
+    create_pos = next(i for i, event in enumerate(events) if "create_fts_index" in event)
+    assert drop_pos < replace_pos < create_pos
