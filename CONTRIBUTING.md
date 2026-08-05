@@ -44,8 +44,10 @@ with:
   ```
   The resumable session is stored under `.cosmic-ray/`. Use `--fresh` to replace
   that generated session or `--prepare-only` to initialize and baseline without
-  executing the mutations. The wrapper refuses to run when its target file has
-  tracked changes because Cosmic Ray temporarily rewrites that file.
+  executing the mutations. Add `--show-survivors` for Cosmic Ray's detailed
+  survivor list. The wrapper audits the current commit in a detached temporary
+  worktree, refuses a dirty target, and binds resumable state to the audited
+  commit so Cosmic Ray's temporary rewrites never touch the main checkout.
 - Keep the project conventions (see `AGENTS.md`; `CLAUDE.md` exposes the same portable
   project guidance to Claude Code): Polars for ETL, pandas only in
   the UI layer; Streamlit pages carry no business logic; never sum the three

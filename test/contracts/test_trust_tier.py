@@ -23,6 +23,7 @@ Pure + fast — no markers, always runs.
 import sys
 from pathlib import Path
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -129,6 +130,25 @@ def test_no_join_attempted_does_not_cap_but_a_failed_join_does():
     assert derive_trust_tier({**CLEAN, "match_method": "none"}) == "A"
     # Attempted and failed: the stored `no_match` carries match_confidence 0.0.
     assert derive_trust_tier({**CLEAN, "match_method": "no_match", "match_confidence": 0.0}) == "D"
+
+
+@pytest.mark.parametrize(
+    ("confidence", "expected"),
+    [
+        (-0.1, "D"),
+        (0.0, "D"),
+        (0.1, "A"),
+        (1.0, "A"),
+    ],
+)
+def test_none_match_confidence_uses_the_documented_zero_boundary(confidence, expected):
+    record = {**CLEAN, "match_method": "none", "match_confidence": confidence}
+    assert derive_trust_tier(record) == expected
+
+
+def test_non_numeric_none_match_confidence_uses_the_unknown_floor():
+    record = {**CLEAN, "match_method": "none", "match_confidence": "junk"}
+    assert derive_trust_tier(record, unknown_ceiling="B") == "B"
 
 
 def test_failed_join_caps_the_grade_even_when_confidence_is_null():

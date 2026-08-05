@@ -66,6 +66,19 @@ def test_reusable_agent_prompts_keep_the_context_contract():
     assert agent_context.check_repository() == []
 
 
+def test_codex_agent_files_must_be_parseable_and_complete(tmp_path, monkeypatch):
+    invalid = tmp_path / "worker.toml"
+    monkeypatch.setattr(agent_context, "CODEX_ROLE_ROOT", tmp_path)
+
+    invalid.write_text("name = [", encoding="utf-8")
+    assert any("invalid Codex agent TOML" in error for error in agent_context.check_prompt(invalid))
+
+    invalid.write_text('name = "other"\ndescription = ""\n', encoding="utf-8")
+    errors = agent_context.check_prompt(invalid)
+
+    assert any("missing required fields: description, developer_instructions" in error for error in errors)
+
+
 def test_codex_roles_and_bounded_session_hook_are_portable():
     config = tomllib.loads((ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"))
     assert config["features"]["hooks"] is True
@@ -75,7 +88,14 @@ def test_codex_roles_and_bounded_session_hook_are_portable():
     assert command["additionalContextLimit"] == 1600
     assert "tools/hooks/session_context.py" in command["command"]
     assert "tools/hooks/session_context.py" in command["command_windows"]
-    assert {"reviewer.toml", "scout.toml"} <= {path.name for path in (ROOT / ".codex" / "agents").glob("*.toml")}
+    assert {"reviewer.toml", "scout.toml", "worker.toml"} <= {
+        path.name for path in (ROOT / ".codex" / "agents").glob("*.toml")
+    }
+    pre_tool = config["hooks"]["PreToolUse"][0]
+    assert pre_tool["matcher"] == "^(Agent|spawn_agent)$"
+    guard = pre_tool["hooks"][0]
+    assert "tools/hooks/guard_subagent_spawn.py" in guard["command"]
+    assert "tools/hooks/guard_subagent_spawn.py" in guard["command_windows"]
 
 
 def test_doc_index_is_current(monkeypatch):

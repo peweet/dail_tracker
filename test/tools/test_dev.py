@@ -17,6 +17,7 @@ def test_canonical_task_surface_contains_required_checks():
         "firewall",
         "conventions",
         "mcp-catalog",
+        "agent-context",
         "ui-contracts",
         "doc-index",
         "test-fast",
@@ -90,3 +91,14 @@ def test_available_dev_profile_does_not_reexec(monkeypatch):
     monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: True)
 
     assert dev._reexec_in_dev_profile(["test-fast"]) is None
+
+
+def test_agent_context_does_not_bootstrap_the_full_dev_profile(monkeypatch):
+    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
+    monkeypatch.setattr(
+        dev.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected bootstrap")),
+    )
+
+    assert dev._reexec_in_dev_profile(["agent-context"]) is None

@@ -67,6 +67,7 @@ class EvalRequest:
     max_turns: int = 12
     sandbox: SandboxMode = "read-only"
     project_settings: bool = True
+    trusted_project_hooks: bool = False
     mcp_servers: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     env: Mapping[str, str] = field(default_factory=dict)
     system_prompt: str | None = None
@@ -133,18 +134,14 @@ def select_provider(
         return "codex"
     if value == "claude":
         if not claude_available():
-            raise EvalProviderError(
-                "DAIL_EVAL_PROVIDER=claude but the 'claude_agent_sdk' package is not installed"
-            )
+            raise EvalProviderError("DAIL_EVAL_PROVIDER=claude but the 'claude_agent_sdk' package is not installed")
         return "claude"
 
     if codex_path:
         return "codex"
     if claude_available():
         return "claude"
-    raise EvalProviderError(
-        "DAIL_EVAL_PROVIDER=auto found neither the 'codex' executable nor 'claude_agent_sdk'"
-    )
+    raise EvalProviderError("DAIL_EVAL_PROVIDER=auto found neither the 'codex' executable nor 'claude_agent_sdk'")
 
 
 def resolve_model(
@@ -173,9 +170,7 @@ def resolve_reasoning_effort(*, environ: Mapping[str, str] | None = None) -> str
     value = env.get("DAIL_EVAL_REASONING_EFFORT", _DEFAULT_CODEX_REASONING_EFFORT).strip().lower()
     if value not in _VALID_REASONING_EFFORTS:
         allowed = ", ".join(sorted(_VALID_REASONING_EFFORTS))
-        raise EvalProviderError(
-            f"invalid DAIL_EVAL_REASONING_EFFORT={value!r}; expected one of: {allowed}"
-        )
+        raise EvalProviderError(f"invalid DAIL_EVAL_REASONING_EFFORT={value!r}; expected one of: {allowed}")
     return value
 
 
@@ -276,6 +271,12 @@ def build_codex_command(
     _append_config(command, "web_search", "disabled")
     _append_config(command, "model_reasoning_effort", reasoning_effort)
 
+    if request.trusted_project_hooks:
+        if not request.project_settings:
+            raise ValueError("trusted_project_hooks requires project_settings")
+        _append_config(command, f"projects.{_toml_key(str(cwd))}.trust_level", "trusted")
+        command.append("--dangerously-bypass-hook-trust")
+
     if not request.project_settings:
         command.append("--ignore-rules")
         _append_config(command, "project_doc_max_bytes", 0)
@@ -301,11 +302,7 @@ def build_codex_command(
         )
         disabled = [str(tool) for tool in config.get("disabled_tools", [])]
         marker = f"mcp__{name}__"
-        disabled.extend(
-            str(tool)[len(marker) :]
-            for tool in request.disallowed_tools
-            if str(tool).startswith(marker)
-        )
+        disabled.extend(str(tool)[len(marker) :] for tool in request.disallowed_tools if str(tool).startswith(marker))
         if disabled:
             _append_config(command, f"{prefix}.disabled_tools", list(dict.fromkeys(disabled)))
         enabled = [str(tool) for tool in config.get("enabled_tools", [])]
@@ -346,9 +343,7 @@ def _classify_command(command: str) -> str:
     """Map common Codex shell reads back to the legacy benchmark categories."""
 
     lower = command.lower()
-    if re.search(r"\brg(?:\.exe)?\b[^\n]*(?:--files|-g\b)", lower) or re.search(
-        r"\b(?:find|get-childitem)\b", lower
-    ):
+    if re.search(r"\brg(?:\.exe)?\b[^\n]*(?:--files|-g\b)", lower) or re.search(r"\b(?:find|get-childitem)\b", lower):
         return "Glob"
     if re.search(r"\b(?:rg|grep|select-string)(?:\.exe)?\b", lower):
         return "Grep"
@@ -482,20 +477,13 @@ def _decode_timeout_output(value: str | bytes | None) -> str:
 def codex_parity_diagnostics(request: EvalRequest) -> list[str]:
     """Describe Claude controls the current Codex CLI cannot mirror exactly."""
 
-    notes = [
-        "Codex CLI has no max-turns flag; timeout_seconds is the execution bound instead."
-    ]
+    notes = ["Codex CLI has no max-turns flag; timeout_seconds is the execution bound instead."]
     if request.allowed_tools is not None:
-        notes.append(
-            "Codex CLI has no generic allowed-tools flag; sandbox and MCP configuration are enforced instead."
-        )
-    non_mcp_denials = [
-        tool for tool in request.disallowed_tools if not str(tool).startswith("mcp__")
-    ]
+        notes.append("Codex CLI has no generic allowed-tools flag; sandbox and MCP configuration are enforced instead.")
+    non_mcp_denials = [tool for tool in request.disallowed_tools if not str(tool).startswith("mcp__")]
     if non_mcp_denials:
         notes.append(
-            "Codex CLI cannot mirror these provider-specific tool denials: "
-            + ", ".join(map(str, non_mcp_denials))
+            "Codex CLI cannot mirror these provider-specific tool denials: " + ", ".join(map(str, non_mcp_denials))
         )
     return notes
 

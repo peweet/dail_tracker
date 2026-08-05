@@ -158,11 +158,31 @@ def test_guard_halts_on_unknown_value_kind(tmp_path):
         guard_award_fact(bad, name="t_awards", hard=True, quarantine_dir=tmp_path)
 
 
+def test_guard_defaults_to_hard_halt(tmp_path):
+    bad = _GUARD_GOOD.with_columns(pl.lit("mystery_value").alias("value_kind"))
+    with pytest.raises(ContractViolation):
+        guard_award_fact(bad, name="t_awards_default", quarantine_dir=tmp_path)
+
+
 def test_guard_halts_on_summable_ceiling(tmp_path):
     # value_safe_to_sum on a framework ceiling re-opens the multi-supplier double-count.
     bad = _GUARD_GOOD.with_columns(pl.lit(True).alias("value_safe_to_sum"))
     with pytest.raises(ContractViolation):
         guard_award_fact(bad, name="t_awards", hard=True, quarantine_dir=tmp_path)
+
+
+@pytest.mark.parametrize("value", [None, 0.0, -1.0])
+def test_guard_halts_on_summable_award_without_positive_value(tmp_path, value):
+    bad = pl.DataFrame(
+        {
+            "supplier_class": ["company"],
+            "value_eur": [value],
+            "value_kind": ["contract_award_value"],
+            "value_safe_to_sum": [True],
+        }
+    ).with_columns(pl.col("value_eur").cast(pl.Float64))
+    with pytest.raises(ContractViolation):
+        guard_award_fact(bad, name="t_awards_value", quarantine_dir=tmp_path)
 
 
 def test_guard_halts_on_dropped_derived_column(tmp_path):

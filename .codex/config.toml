@@ -48,6 +48,18 @@ timeout = 10
 statusMessage = "Checking durable project lessons"
 additionalContextLimit = 1200
 
+# Reject ambiguous or policy-bypassing subagent spawns before they start. This
+# makes role selection, fresh context, and the task-packet contract mechanical.
+[[hooks.PreToolUse]]
+matcher = "^(Agent|spawn_agent)$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/guard_subagent_spawn.py"'
+command_windows = 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/guard_subagent_spawn.py) }"'
+timeout = 5
+statusMessage = "Validating subagent contract"
+
 # After a substantive session, require one explicit durable-learning assessment.
 # The existing hook understands Codex's Stop payload and fires at most once per session.
 [[hooks.Stop]]

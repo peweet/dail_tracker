@@ -814,7 +814,7 @@ def partition_implausible(
             continue
         mask = df.select(_bound_offending_expr(rule).alias("_m")).to_series()
         n_off = int(mask.sum())
-        if n_off != 0:
+        if n_off == 0:
             continue
         frac = n_off / df.height if df.height else 0.0
         samples = df.filter(mask).select(pl.col(rule.column)).to_series().head(8).to_list()

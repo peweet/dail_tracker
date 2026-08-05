@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -19,7 +20,8 @@ PROMPT_ROOTS = (
     ROOT / ".github" / "prompts",
     ROOT / "dail_tracker_bold_ui_contract_pack_v5" / "prompts",
 )
-ROLE_ROOTS = (ROOT / ".claude" / "agents", ROOT / ".codex" / "agents")
+CODEX_ROLE_ROOT = ROOT / ".codex" / "agents"
+ROLE_ROOTS = (ROOT / ".claude" / "agents", CODEX_ROLE_ROOT)
 MAX_PROMPT_WORDS = 600
 TASK_PACKET_HEADINGS = (
     "## Objective",
@@ -28,6 +30,7 @@ TASK_PACKET_HEADINGS = (
     "## Acceptance",
     "## Result contract",
 )
+REQUIRED_CODEX_ROLE_FIELDS = ("name", "description", "developer_instructions")
 NUMERIC_SCORE_RE = re.compile(r"\bscore\s+\d+\s*[-–]\s*\d+", re.IGNORECASE)
 
 
@@ -75,6 +78,22 @@ def check_prompt(path: Path) -> list[str]:
         missing = [heading for heading in TASK_PACKET_HEADINGS if heading not in text]
         if missing:
             errors.append(f"{rel}: missing task-packet headings: {', '.join(missing)}")
+
+    if path.resolve().parent == CODEX_ROLE_ROOT and path.suffix == ".toml":
+        try:
+            role = tomllib.loads(text)
+        except tomllib.TOMLDecodeError as exc:
+            errors.append(f"{rel}: invalid Codex agent TOML: {exc}")
+        else:
+            missing = [
+                field
+                for field in REQUIRED_CODEX_ROLE_FIELDS
+                if not isinstance(role.get(field), str) or not role[field].strip()
+            ]
+            if missing:
+                errors.append(f"{rel}: Codex agent is missing required fields: {', '.join(missing)}")
+            elif role["name"] != path.stem:
+                errors.append(f"{rel}: Codex agent name must match its filename stem ({path.stem})")
 
     if _kind(path) == "review":
         if NUMERIC_SCORE_RE.search(text):
