@@ -95,6 +95,8 @@ SENTINEL_ALLOWLIST: dict[tuple[str, str], str] = {
 
 # (view, column) -> reason, for columns where EVERY row is '' by design.
 ALL_EMPTY_ALLOWLIST: dict[tuple[str, str], str] = {
+    # The curated alias CSV currently has no notes field; the view reserves it for display stability.
+    ("v_corporate_brand_alias_groups", "notes_concat"): "documented placeholder until curated alias notes exist",
     # Documented placeholders: payments_member_enrichment.py not yet built.
     ("v_payments_alltime_ranking", "party_name"): "documented placeholder until member enrichment lands",
     ("v_payments_alltime_ranking", "constituency"): "documented placeholder until member enrichment lands",

@@ -172,10 +172,7 @@ def anchor_check(df: pl.DataFrame) -> dict:
     if df.is_empty():
         return {"envelope": _IE_ENVELOPE, "checked": 0, "outside": 0}
     bad = df.filter(
-        (pl.col("lon") < lon_min)
-        | (pl.col("lon") > lon_max)
-        | (pl.col("lat") < lat_min)
-        | (pl.col("lat") > lat_max)
+        (pl.col("lon") < lon_min) | (pl.col("lon") > lon_max) | (pl.col("lat") < lat_min) | (pl.col("lat") > lat_max)
     )
     if bad.height:
         raise SystemExit(
@@ -188,9 +185,7 @@ def anchor_check(df: pl.DataFrame) -> dict:
 def to_wkb_frame(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(
         pl.struct(["lon", "lat"])
-        .map_elements(
-            lambda s: shapely.to_wkb(shapely.Point(s["lon"], s["lat"])), return_dtype=pl.Binary
-        )
+        .map_elements(lambda s: shapely.to_wkb(shapely.Point(s["lon"], s["lat"])), return_dtype=pl.Binary)
         .alias("wkb")
     ).drop("lon", "lat")
 

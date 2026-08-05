@@ -2,6 +2,108 @@ import { opportunities as sampleOpportunities } from "../public/sample-data.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 
+export const ANALYTICS_EVENT_TARGETS = Object.freeze({
+  app_open: ["app"],
+  page_open: ["page-pipeline", "page-markets", "page-buyers", "page-suppliers", "page-watches"],
+  opportunity_brief_open: ["opportunity-brief"],
+  primary_cta_click: ["primary-cta"],
+  watch_start: ["watch-start", "watch-notice"],
+  opportunity_saved: ["notice-bookmark"],
+  filter_apply: ["filter-sector", "filter-deadline", "filter-value", "filter-evidence", "filter-buyer"],
+  table_search_apply: ["table-search"],
+  source_notice_open: ["source-notice"],
+  watch_preview: ["watch-preview"],
+  watch_saved: ["watch-saved"],
+});
+
+const ANALYTICS_MAX_BODY_BYTES = 8192;
+const ANALYTICS_MAX_EVENTS = 1;
+const ANALYTICS_SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function validateAnalyticsEvent(input) {
+  if (!input || typeof input !== "object") return null;
+  const eventType = String(input.eventType || "");
+  const targetSlug = String(input.targetSlug || "");
+  if (!Object.hasOwn(ANALYTICS_EVENT_TARGETS, eventType)) return null;
+  if (!ANALYTICS_EVENT_TARGETS[eventType].includes(targetSlug)) return null;
+  return { eventType, targetSlug };
+}
+
+export function normaliseAnalyticsPayload(input) {
+  if (!input || typeof input !== "object") throw new Error("Analytics payload must be an object.");
+  const sessionId = String(input.sessionId || "");
+  if (!ANALYTICS_SESSION_ID.test(sessionId)) throw new Error("Analytics session is invalid.");
+  const rawEvents = Array.isArray(input.events) ? input.events : [input];
+  if (!rawEvents.length || rawEvents.length > ANALYTICS_MAX_EVENTS) throw new Error("Analytics event batch is out of bounds.");
+  const events = rawEvents.map(validateAnalyticsEvent).filter(Boolean);
+  if (events.length !== rawEvents.length) throw new Error("Analytics event is not allowed.");
+  return { sessionId, events };
+}
+
+export async function hashAnalyticsSession(sessionId, env = {}) {
+  const salt = String(env.ANALYTICS_HASH_SALT || "").trim();
+  if (!salt) throw new Error("Analytics hash salt is not configured.");
+  const bytes = new TextEncoder().encode(`${salt}:session:${sessionId}`);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
+export async function analyticsLimiterKey(request, env, sessionHash) {
+  const salt = String(env.ANALYTICS_HASH_SALT || "").trim();
+  if (!salt) throw new Error("Analytics hash salt is not configured.");
+  const ip = String(request.headers.get("cf-connecting-ip") || "").trim();
+  const material = ip ? `ip:${ip}` : `session:${sessionHash}`;
+  const bytes = new TextEncoder().encode(`${salt}:limiter:${material}`);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
+export async function consumeAnalyticsLimit(env, sessionHash) {
+  if (typeof env.ANALYTICS_LIMITER?.limit !== "function") return { allowed: false, configured: false, unavailable: true };
+  try {
+    const { success } = await env.ANALYTICS_LIMITER.limit({ key: `analytics:${sessionHash}` });
+    return { allowed: success, configured: true };
+  } catch {
+    return { allowed: false, configured: true, unavailable: true };
+  }
+}
+
+export async function ingestAnalytics(request, env) {
+  if (!env.DB) return json({ error: "D1 binding DB is not configured." }, 503);
+  if (!String(env.ANALYTICS_HASH_SALT || "").trim()) return json({ error: "Analytics is not configured." }, 503);
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > ANALYTICS_MAX_BODY_BYTES) return json({ error: "Analytics payload is too large." }, 413);
+  let payload;
+  try {
+    const raw = await request.text();
+    if (new TextEncoder().encode(raw).length > ANALYTICS_MAX_BODY_BYTES) return json({ error: "Analytics payload is too large." }, 413);
+    payload = normaliseAnalyticsPayload(JSON.parse(raw));
+  } catch (error) {
+    return json({ error: error.message }, 400);
+  }
+  const sessionHash = await hashAnalyticsSession(payload.sessionId, env);
+  const rate = await consumeAnalyticsLimit(env, await analyticsLimiterKey(request, env, sessionHash));
+  if (!rate.allowed) return json({ error: rate.unavailable ? "Analytics protection is temporarily unavailable." : "Too many analytics events." }, rate.unavailable ? 503 : 429);
+  const statements = payload.events.map(({ eventType, targetSlug }) => env.DB.prepare(
+    "INSERT INTO analytics_events (session_hash, event_type, target_slug) VALUES (?, ?, ?)",
+  ).bind(sessionHash, eventType, targetSlug));
+  try {
+    await env.DB.batch(statements);
+  } catch {
+    return json({ error: "Analytics storage is temporarily unavailable." }, 503);
+  }
+  return json({ accepted: statements.length }, 202);
+}
+
+export async function purgeAnalytics(env, now = Date.now()) {
+  if (!env.DB) return { deleted: 0, retentionDays: 90 };
+  const configured = Number(env.ANALYTICS_RETENTION_DAYS || 90);
+  const retentionDays = Number.isFinite(configured) ? Math.min(365, Math.max(30, Math.round(configured))) : 90;
+  const cutoff = new Date(now - retentionDays * 86_400_000).toISOString().slice(0, 19).replace("T", " ");
+  const result = await env.DB.prepare("DELETE FROM analytics_events WHERE occurred_at < ?").bind(cutoff).run();
+  return { deleted: Number(result.meta?.changes || 0), retentionDays };
+}
+
 export function normaliseSubscription(input = {}) {
   const email = String(input.email || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid delivery email.");
@@ -24,6 +126,7 @@ export function normaliseSubscription(input = {}) {
     deadlineDays,
     minEvidence,
     includeExpiries: input.includeExpiries !== false,
+    turnstileToken: String(input.turnstileToken || "").slice(0, 2048),
   };
 }
 
@@ -76,6 +179,40 @@ function appUrl(env, request) {
   const configured = String(env.APP_URL || "").trim();
   if (configured && !configured.includes("example.com")) return configured.replace(/\/$/, "");
   return request ? new URL(request.url).origin : configured.replace(/\/$/, "");
+}
+
+export async function validateTurnstile(token, env, request) {
+  if (!env.TURNSTILE_SECRET_KEY) return { valid: true, configured: false };
+  if (!token) return { valid: false, status: 403, error: "Complete the verification before saving this watch." };
+
+  let response;
+  try {
+    response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        secret: env.TURNSTILE_SECRET_KEY,
+        response: token,
+        remoteip: request.headers.get("cf-connecting-ip") || undefined,
+        idempotency_key: crypto.randomUUID(),
+      }),
+    });
+  } catch {
+    return { valid: false, status: 503, error: "Verification is temporarily unavailable. Try again shortly." };
+  }
+  const result = await response.json().catch(() => ({}));
+  if (response.ok && result.success) return { valid: true, configured: true };
+  return { valid: false, status: 403, error: "Verification failed or expired. Complete it again and retry." };
+}
+
+export async function consumeSubscriptionLimit(env, email) {
+  if (typeof env.SUBSCRIPTION_LIMITER?.limit !== "function") return { allowed: true, configured: false };
+  try {
+    const { success } = await env.SUBSCRIPTION_LIMITER.limit({ key: `subscription:${email}` });
+    return { allowed: success, configured: true };
+  } catch {
+    return { allowed: false, configured: true, unavailable: true };
+  }
 }
 
 async function loadOpportunities(env) {
@@ -156,6 +293,16 @@ async function createSubscription(request, env) {
     subscription = normaliseSubscription(await request.json());
   } catch (error) {
     return json({ error: error.message }, 400);
+  }
+
+  const verification = await validateTurnstile(subscription.turnstileToken, env, request);
+  if (!verification.valid) return json({ error: verification.error }, verification.status);
+  const rate = await consumeSubscriptionLimit(env, subscription.email);
+  if (!rate.allowed) {
+    return json(
+      { error: rate.unavailable ? "Subscription protection is temporarily unavailable. Try again shortly." : "Too many recent watch requests for this email. Try again shortly." },
+      rate.unavailable ? 503 : 429,
+    );
   }
 
   const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM subscriptions WHERE email=? AND created_at >= datetime('now', '-15 minutes')").bind(subscription.email).first();
@@ -281,7 +428,9 @@ async function previewDigest(request, env) {
 
 async function handleApi(request, env) {
   const url = new URL(request.url);
-  if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, app: "public-signal", emailConfigured: Boolean(env.RESEND_API_KEY), feed: env.PROCUREMENT_FEED_URL ? "remote" : "sample" });
+  if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, app: "public-signal", emailConfigured: Boolean(env.RESEND_API_KEY), analyticsConfigured: Boolean(String(env.ANALYTICS_HASH_SALT || "").trim()) && typeof env.ANALYTICS_LIMITER?.limit === "function", feed: env.PROCUREMENT_FEED_URL ? "remote" : "sample" });
+  if (url.pathname === "/api/config" && request.method === "GET") return json({ turnstileSiteKey: env.TURNSTILE_SECRET_KEY ? env.TURNSTILE_SITE_KEY || null : null });
+  if (url.pathname === "/api/events" && request.method === "POST") return ingestAnalytics(request, env);
   if (url.pathname === "/api/subscriptions" && request.method === "POST") return createSubscription(request, env);
   if (url.pathname === "/api/subscriptions/confirm" && request.method === "GET") return confirmSubscription(request, env);
   if (url.pathname === "/api/subscriptions/unsubscribe" && request.method === "GET") return unsubscribe(request, env);
@@ -295,8 +444,8 @@ export default {
     if (url.pathname.startsWith("/api/")) return handleApi(request, env);
     const response = await env.ASSETS.fetch(request);
     const secured = new Response(response.body, response);
-    secured.headers.set("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
-    secured.headers.set("referrer-policy", "strict-origin-when-cross-origin");
+    secured.headers.set("content-security-policy", "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+    secured.headers.set("referrer-policy", "no-referrer");
     secured.headers.set("x-content-type-options", "nosniff");
     secured.headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
     if (url.protocol === "https:") secured.headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
@@ -304,6 +453,7 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
+    ctx.waitUntil(purgeAnalytics(env));
     ctx.waitUntil(sendDueDigests(env, controller.scheduledTime));
   },
 };

@@ -8,25 +8,25 @@ Split out of the former monolithic test_sql_views.py (REFACTORING_CANDIDATES C6)
 Shared fixtures/helpers live in _view_test_helpers.py.
 """
 
-
-import pytest
-import duckdb
 import re
+
+import duckdb
+import pytest
+
 from dail_tracker_core.db import register_views
 
 from ._view_test_helpers import (
-    SQL_VIEWS_DIR,
-    VOTE_PARQUET,
     GOLD_SPEECHES_FACT_PARQUET,
     GOLD_VOTE_HISTORY_PARQUET,
+    SQL_VIEWS_DIR,
+    VOTE_PARQUET,
+    _assert_cols,
     _con,
     _load,
-    _skip_missing,
     _result,
+    _skip_missing,
     _src,
-    _assert_cols,
 )
-
 
 # ---------------------------------------------------------------------------
 # VOTE VIEWS  ({PARQUET_PATH} substituted)

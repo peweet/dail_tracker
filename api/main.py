@@ -230,9 +230,10 @@ def _public_get_resources() -> list[str]:
     """Derive the discovery list from registered routes so it cannot drift."""
     return sorted(
         {
-            route.path
+            path
             for route in app.routes
-            if route.path.startswith("/v1")
+            if isinstance((path := getattr(route, "path", None)), str)
+            and path.startswith("/v1")
             and getattr(route, "include_in_schema", True)
             and "GET" in (getattr(route, "methods", None) or set())
         }

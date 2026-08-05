@@ -19,13 +19,32 @@
       "migrations_dir": "migrations"
     }
   ],
+  "ratelimits": [
+    {
+      "name": "SUBSCRIPTION_LIMITER",
+      "namespace_id": "801503",
+      "simple": {
+        "limit": 3,
+        "period": 60
+      }
+    },
+    {
+      "name": "ANALYTICS_LIMITER",
+      "namespace_id": "801504",
+      "simple": {
+        "limit": 100,
+        "period": 60
+      }
+    }
+  ],
   "triggers": {
     "crons": ["10 7 * * MON-FRI"]
   },
   "vars": {
     "APP_URL": "https://publicsignal.ie",
     "EMAIL_FROM": "PublicSignal <alerts@publicsignal.ie>",
-    "PROCUREMENT_FEED_URL": ""
+    "PROCUREMENT_FEED_URL": "",
+    "ANALYTICS_RETENTION_DAYS": "90"
   },
   // publicsignal.ie is purchased but was not yet present in the .IE registry on
   // 2026-08-05. Once the zone is active in Cloudflare, uncomment and deploy:

@@ -12,9 +12,8 @@ sys.path.insert(0, str(ROOT / "extractors"))
 
 pytest.importorskip("polars")
 
-import ted_ireland_tenders_extract as ted_tenders  # noqa: E402
-
 from extractors import housing_construction_pipeline_extract as housing_pipeline  # noqa: E402
+from extractors import ted_ireland_tenders_extract as ted_tenders  # noqa: E402
 from extractors.public_body_payments import harvest as public_body_harvest  # noqa: E402
 from services.http_engine import BROWSER_UA  # noqa: E402
 

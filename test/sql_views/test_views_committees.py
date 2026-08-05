@@ -6,21 +6,19 @@ Split out of the former monolithic test_sql_views.py (REFACTORING_CANDIDATES C6)
 Shared fixtures/helpers live in _view_test_helpers.py.
 """
 
-
-import pytest
 import duckdb
+import pytest
 
 from ._view_test_helpers import (
     GOLD_PARQUET_DIR,
-    _con,
-    _view_path,
-    _load,
-    _skip_missing,
-    _result,
-    _src,
     _assert_cols,
+    _con,
+    _load,
+    _result,
+    _skip_missing,
+    _src,
+    _view_path,
 )
-
 
 # ---------------------------------------------------------------------------
 # COMMITTEES VIEWS

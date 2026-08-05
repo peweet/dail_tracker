@@ -29,8 +29,8 @@ except Exception:
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
-from services.parquet_io import save_parquet  # noqa: E402
 from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 _OUT = _ROOT / "data" / "gold" / "parquet"
 _API = "https://ws.cso.ie/public/api.restful/PxStat.Data.Cube_API.ReadDataset/{code}/CSV/1.0/en"

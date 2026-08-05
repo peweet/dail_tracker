@@ -51,9 +51,7 @@ def _assert_separate_links(fragment: str, expected: int = 2) -> None:
 
 def test_procurement_register_builders_declare_and_retain_register_state():
     assert procurement_register_url("ted") == "/rankings-procurement?tab=wins&reg=ted"
-    assert procurement_ted_winner_url("ACME & CO", relative=True) == (
-        "?tab=wins&reg=ted&ted_winner=ACME%20%26%20CO"
-    )
+    assert procurement_ted_winner_url("ACME & CO", relative=True) == ("?tab=wins&reg=ted&ted_winner=ACME%20%26%20CO")
     with pytest.raises(ValueError, match="unknown procurement register"):
         procurement_register_url("unknown")
 

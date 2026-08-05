@@ -11,6 +11,7 @@ Outputs (all in this dir):
 
 Usage: python decisions_extract.py
 """
+
 from __future__ import annotations
 
 import json
@@ -33,12 +34,8 @@ _PROP_A = re.compile(
     re.I,
 )
 _PROP_B = re.compile(r"Proposed by\s*" + _NAME + r"[,\s]+(?:and\s+)?[Ss]econded by\s*" + _NAME)
-_OUTCOME = re.compile(
-    r"\b(AGREED|ADOPTED|CARRIED|APPROVED|NOTED|RESOLVED|DEFEATED|LOST|DEFERRED|REJECTED|WITHDRAWN)\b"
-)
-_RESULT = re.compile(
-    r"Result[:\s]+(\d+)\s*For[,\s]+(?:(\d+)\s*Against)?[,\s]*(?:(\d+)\s*Abstain\w*)?", re.I
-)
+_OUTCOME = re.compile(r"\b(AGREED|ADOPTED|CARRIED|APPROVED|NOTED|RESOLVED|DEFEATED|LOST|DEFERRED|REJECTED|WITHDRAWN)\b")
+_RESULT = re.compile(r"Result[:\s]+(\d+)\s*For[,\s]+(?:(\d+)\s*Against)?[,\s]*(?:(\d+)\s*Abstain\w*)?", re.I)
 _ROLL = re.compile(r"roll[\s-]?call", re.I)
 _DATE_FN = re.compile(r"(\d{1,2})[.\-\s_](\d{1,2})[.\-\s_](20\d{2})")
 _DATE_ISO = re.compile(r"(20\d{2})[.\-\s_](\d{1,2})[.\-\s_](\d{1,2})")
@@ -139,11 +136,7 @@ def main() -> int:
     prop = Counter((r["local_authority"], r["proposer"]) for r in all_rows if r["proposer"])
     sec = Counter((r["local_authority"], r["seconder"]) for r in all_rows if r["seconder"])
     tallied = [r for r in all_rows if r["tally_for"] is not None]
-    contested = [
-        r
-        for r in tallied
-        if (r["tally_against"] or 0) > 0
-    ]
+    contested = [r for r in tallied if (r["tally_against"] or 0) > 0]
 
     L = ["# Council decisions & steering — extracted from the clean corpus\n"]
     L.append(

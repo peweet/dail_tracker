@@ -69,18 +69,42 @@ LAYOUT: dict[str, tuple[int, int]] = {
 # the city councils distinguished from their counties — the distinction the choropleth
 # could not show at all.
 ABBREV: dict[str, str] = {
-    "Carlow": "CW", "Cavan": "CN", "Clare": "CE", "Cork City": "CKC", "Cork County": "CK",
-    "Donegal": "DL", "Dublin City": "DUB", "Dun Laoghaire-Rathdown": "DLR", "Fingal": "FGL",
-    "Galway City": "GYC", "Galway County": "GY", "Kerry": "KY", "Kildare": "KE",
-    "Kilkenny": "KK", "Laois": "LS", "Leitrim": "LM", "Limerick": "LK", "Longford": "LD",
-    "Louth": "LH", "Mayo": "MO", "Meath": "MH", "Monaghan": "MN", "Offaly": "OY",
-    "Roscommon": "RN", "Sligo": "SO", "South Dublin": "SDU", "Tipperary": "TY",
-    "Waterford": "WD", "Westmeath": "WH", "Wexford": "WX", "Wicklow": "WW",
+    "Carlow": "CW",
+    "Cavan": "CN",
+    "Clare": "CE",
+    "Cork City": "CKC",
+    "Cork County": "CK",
+    "Donegal": "DL",
+    "Dublin City": "DUB",
+    "Dun Laoghaire-Rathdown": "DLR",
+    "Fingal": "FGL",
+    "Galway City": "GYC",
+    "Galway County": "GY",
+    "Kerry": "KY",
+    "Kildare": "KE",
+    "Kilkenny": "KK",
+    "Laois": "LS",
+    "Leitrim": "LM",
+    "Limerick": "LK",
+    "Longford": "LD",
+    "Louth": "LH",
+    "Mayo": "MO",
+    "Meath": "MH",
+    "Monaghan": "MN",
+    "Offaly": "OY",
+    "Roscommon": "RN",
+    "Sligo": "SO",
+    "South Dublin": "SDU",
+    "Tipperary": "TY",
+    "Waterford": "WD",
+    "Westmeath": "WH",
+    "Wexford": "WX",
+    "Wicklow": "WW",
 }
 
-_TILE = 62          # tile edge in user units
-_GAP = 6            # gutter between tiles
-_PAD = 4            # outer padding so focus rings are not clipped
+_TILE = 62  # tile edge in user units
+_GAP = 6  # gutter between tiles
+_PAD = 4  # outer padding so focus rings are not clipped
 
 
 def _luminance(hex_colour: str) -> float:
@@ -136,7 +160,7 @@ def cartogram_svg(
         label = ABBREV.get(name, name[:3].upper())
         hover = f"{name}: {value}" if value else f"{name}: no data"
         parts.append(
-            f'<g><title>{_esc(hover)}</title>'
+            f"<g><title>{_esc(hover)}</title>"
             f'<rect x="{x}" y="{y}" width="{_TILE}" height="{_TILE}" rx="7" fill="{_esc(fill)}"/>'
             f'<text x="{x + _TILE / 2}" y="{y + (25 if value else 37)}" text-anchor="middle" '
             f'font-family="system-ui,sans-serif" font-size="16" font-weight="700" '

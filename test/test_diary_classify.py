@@ -158,11 +158,7 @@ def test_model_fallback_invariants() -> None:
         "party": "Fine Gael party meeting {i}",
         "constituency": "Constituency day {i}",
     }
-    rows = [
-        {"subject": tpl.format(i=i)}
-        for tpl in train_templates.values()
-        for i in range(160)
-    ]
+    rows = [{"subject": tpl.format(i=i)} for tpl in train_templates.values() for i in range(160)]
     # rules-"other" rows: OCR-mangled variants + genuinely unclassifiable
     others = ["Government Rusiness", "Leaden Questions", "Pre- Brief", "Funeral", "xq"]
     df = pl.DataFrame({"subject": [r["subject"] for r in rows] + others})

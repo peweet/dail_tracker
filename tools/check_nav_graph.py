@@ -131,11 +131,7 @@ def _docstring_values(tree: ast.AST) -> set[ast.AST]:
         if not isinstance(node, owners) or not node.body:
             continue
         first = node.body[0]
-        if (
-            isinstance(first, ast.Expr)
-            and isinstance(first.value, ast.Constant)
-            and isinstance(first.value.value, str)
-        ):
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
             values.add(first.value)
     return values
 

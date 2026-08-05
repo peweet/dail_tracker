@@ -65,6 +65,7 @@ PAYMENTS_FACT_SCHEMA_COLS = [
     "source_caveat",
 ]
 
+
 # ============================================================================ CONFIG
 # amount_semantics controlled vocab (PROCUREMENT_INVESTIGATION.md value taxonomy):
 #   po_committed     -> "ordered €X"  (PO-over-20k order lists)  summable
@@ -730,5 +731,3 @@ PUBLISHERS: list[dict] = [
     # ie_rsa: list-probe harvested 0 files (the /about/reporting page links no PO/payment files) —
     # deferred to the Playwright/direct-URL tail rather than shipped empty.
 ]
-
-

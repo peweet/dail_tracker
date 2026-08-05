@@ -24,9 +24,10 @@ working machine. The backup side (what runs, how it's configured) is in
 | What | Backed up where | How to get it back |
 |---|---|---|
 | Code, curated `data/_meta/*`, runtime gold slice (~16 MB) | GitHub `peweet/dail_tracker` | `git clone` |
-| `data/_meta/backup_manifest.tsv` (restore-verification baseline) | GitHub (committed) | comes with the clone |
+| `data/_meta/backup_manifest.tsv` (restore-verification baseline) | GitHub when committed and R2 `manifests/latest.tsv` | pull the R2 copy before verification |
 | `data/bronze/` (~7.4 GB raw captures) | R2 bucket `dail-tracker-backup/bronze/` | `rclone copy` (below) |
 | `data/silver/` (~1.7 GB derived) | R2 bucket `dail-tracker-backup/silver/` | `rclone copy` (below) |
+| `data/raw_bq/` (raw bulk-query captures) | R2 bucket `dail-tracker-backup/raw_bq/` | `rclone copy` (below) |
 | `data/gold/` (beyond the git slice), rest of `data/silver` | **not backed up** — regenerable | rebuild via the pipeline from bronze |
 | `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
 | `planning/` **+ `.git-siting/`** (~4.1 GB private IP: the working tree *and* the separate git history for `peweet/pre-siting-private`) | restic repo `restic_private` → R2 bucket **`dail-siting`** | `restic restore` (below) |
@@ -78,6 +79,8 @@ rclone lsd r2:dail-tracker-backup            # sanity check: lists cleanly
 # 4. Pull the data back (R2 egress is free)
 rclone copy r2:dail-tracker-backup/bronze data\bronze
 rclone copy r2:dail-tracker-backup/silver data\silver
+rclone copy r2:dail-tracker-backup/raw_bq data\raw_bq
+rclone copyto r2:dail-tracker-backup/manifests/latest.tsv data\_meta\backup_manifest.tsv
 
 # 5. PROVE the restore is bit-perfect — re-hashes every file vs the committed manifest
 python tools\data_manifest.py --check        # exit 0 = all match; exit 1 = something differs
@@ -158,16 +161,16 @@ rclone copy "r2:dail-tracker-backup/bronze/pdfs/la_procurement/cork_city/<file>.
 
 ## Re-arm the scheduled tasks on the new machine
 
-Once restored and verified, both scheduled tasks this project depends on need
+Once restored and verified, all scheduled tasks this project depends on need
 re-registering — not just the backup one:
 
 ```powershell
 tools\register_backup_task.ps1                # DailTracker-BackupR2, weekly Sun 02:00
+tools\register_restic_task.ps1                # DailTracker-BackupRestic, weekly Sun 03:00
 tools\register_legal_diary_task.ps1            # DailTracker-LegalDiary
-tools\backup_restic_to_r2.ps1 -SkipUpload      # re-seed the restic repos locally
 ```
 
-The restic lane has **no scheduled task yet** — it is run by hand. Recreate
+Recreate
 `C:\Users\pglyn\dail_tracker_backup\restic_passwords.txt` from your password manager
 first (format: a line starting `restic_private`, then the password on the next line;
 same for `restic_sandbox`) or the script exits 3.
@@ -177,10 +180,9 @@ Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` aft
 
 ## Notes
 
-- The backup is **append-only** (`rclone copy --ignore-existing`): every capture you
-  ever made is still in the bucket under its own date-stamped name, so old versions
-  of a re-published council PDF are recoverable too — just copy the older-named
-  object back.
+- The data backup is **version-preserving**: its normal R2 paths hold the latest
+  bytes and any displaced object is moved to `versions/<UTC run id>/` first. Restore
+  an older source file from that version archive if needed.
 - `data/gold/` (beyond the committed runtime slice) and intermediate silver are
   **not** in R2 by design — they're cheap to rebuild from bronze via the pipeline.
   If you want a no-rebuild restore, add `gold` to the `foreach` trees in

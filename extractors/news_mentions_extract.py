@@ -43,8 +43,8 @@ from dateutil import parser as dateparser
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from services.parquet_io import save_parquet  # noqa: E402
 from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 SILVER = ROOT / "data/silver/parquet"
 OUT = SILVER / "news_mentions.parquet"

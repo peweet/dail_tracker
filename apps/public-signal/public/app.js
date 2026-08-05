@@ -1,5 +1,57 @@
 import { buyers, opportunities, sectors, snapshot, suppliers, watchRules } from "./sample-data.js";
 
+const ANALYTICS_STORAGE_KEY = "publicSignalAnalyticsSession";
+const ANALYTICS_TARGETS = Object.freeze({
+  app_open: ["app"],
+  page_open: ["page-pipeline", "page-markets", "page-buyers", "page-suppliers", "page-watches"],
+  opportunity_brief_open: ["opportunity-brief"],
+  primary_cta_click: ["primary-cta"],
+  watch_start: ["watch-start", "watch-notice"],
+  opportunity_saved: ["notice-bookmark"],
+  filter_apply: ["filter-sector", "filter-deadline", "filter-value", "filter-evidence", "filter-buyer"],
+  table_search_apply: ["table-search"],
+  source_notice_open: ["source-notice"],
+  watch_preview: ["watch-preview"],
+  watch_saved: ["watch-saved"],
+});
+
+export function analyticsOptedOut(globalObject = globalThis) {
+  const navigatorObject = globalObject.navigator || {};
+  const doNotTrack = navigatorObject.doNotTrack ?? globalObject.doNotTrack;
+  return navigatorObject.globalPrivacyControl === true
+    || doNotTrack === true
+    || ["1", "yes", "true"].includes(String(doNotTrack).toLowerCase());
+}
+
+function analyticsSessionId() {
+  if (analyticsOptedOut()) return null;
+  try {
+    const existing = window.sessionStorage.getItem(ANALYTICS_STORAGE_KEY);
+    if (existing && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)) return existing;
+    const generated = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : ([...crypto.getRandomValues(new Uint8Array(16))].map((value, index) => (index === 6 ? (value & 0x0f) | 0x40 : index === 8 ? (value & 0x3f) | 0x80 : value).toString(16).padStart(2, "0")).join("").replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5"));
+    window.sessionStorage.setItem(ANALYTICS_STORAGE_KEY, generated);
+    return generated;
+  } catch {
+    return null;
+  }
+}
+
+let analyticsSent = 0;
+function trackAnalytics(eventType, targetSlug) {
+  if (analyticsSent >= 100 || analyticsOptedOut() || !ANALYTICS_TARGETS[eventType]?.includes(targetSlug)) return;
+  const sessionId = analyticsSessionId();
+  if (!sessionId) return;
+  analyticsSent += 1;
+  const body = JSON.stringify({ sessionId, events: [{ eventType, targetSlug }] });
+  const blob = new Blob([body], { type: "application/json" });
+  try {
+    if (typeof navigator.sendBeacon === "function" && navigator.sendBeacon("/api/events", blob)) return;
+  } catch {
+    // Analytics must never interfere with the product flow.
+  }
+  void fetch("/api/events", { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true }).catch(() => {});
+}
+
 const icons = {
   inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16v13H4z"/><path d="M4 13h4l2 3h4l2-3h4"/></svg>',
   layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg>',
@@ -31,6 +83,12 @@ const state = {
   evidence: 0,
   tableSearch: "",
   saved: new Set(JSON.parse(localStorage.getItem("publicSignalSaved") || "[]")),
+};
+
+const watchTurnstile = {
+  id: null,
+  token: "",
+  generation: 0,
 };
 
 const viewRoot = document.querySelector("#view-root");
@@ -78,7 +136,9 @@ function showToast(message) {
 }
 
 function setView(view) {
+  if (view !== "watches") resetWatchTurnstile();
   state.view = view;
+  trackAnalytics("page_open", `page-${view}`);
   document.querySelectorAll(".nav-item").forEach((item) => {
     const active = item.dataset.view === view;
     item.classList.toggle("is-active", active);
@@ -192,14 +252,14 @@ function detailPane(item) {
       <div class="detail-actions">
         <button class="button ${saved ? "" : "button-primary"}" type="button" id="save-opportunity">${icon(saved ? "bookmarkFilled" : "bookmark")}<span>${saved ? "Watching" : "Watch notice"}</span></button>
         <button class="button" type="button" id="email-brief">${icon("mail")}<span>Email brief</span></button>
-        <a class="button button-quiet" href="${item.sourceUrl}" target="_blank" rel="noreferrer">${icon("external")}<span>Source</span></a>
+        <a class="button button-quiet" data-analytics-event="source_notice_open" href="${item.sourceUrl}" target="_blank" rel="noreferrer">${icon("external")}<span>Source</span></a>
       </div>
       <div class="fact-line">
         <div class="fact"><strong>${formatCurrency(item.estimate)}</strong><span>advertised estimate</span></div>
         <div class="fact"><strong>${item.deadline}</strong><span>submission deadline</span></div>
         <div class="fact"><strong>${item.evidence}%</strong><span>evidence coverage</span></div>
       </div>
-      <div class="section-heading"><h3>Buyer and market evidence</h3><a class="source-link" href="${item.sourceUrl}" target="_blank" rel="noreferrer">Open notice ${icon("external")}</a></div>
+      <div class="section-heading"><h3>Buyer and market evidence</h3><a class="source-link" data-analytics-event="source_notice_open" href="${item.sourceUrl}" target="_blank" rel="noreferrer">Open notice ${icon("external")}</a></div>
       <ul class="signal-list">
         <li><span>Previous buyer awards</span><strong>${formatNumber(item.signals.buyerAwards)}</strong></li>
         <li><span>Previous awards in this sector</span><strong>${formatNumber(item.signals.sectorAwards)}</strong></li>
@@ -218,6 +278,7 @@ function detailPane(item) {
 function bindPipelineEvents() {
   document.querySelectorAll("[data-opportunity]").forEach((row) => row.addEventListener("click", () => {
     state.selectedId = row.dataset.opportunity;
+    trackAnalytics("opportunity_brief_open", "opportunity-brief");
     renderPipeline();
     if (window.matchMedia("(max-width: 960px)").matches) {
       requestAnimationFrame(() => document.querySelector(".detail-pane")?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -232,22 +293,31 @@ function bindPipelineEvents() {
   ];
   mappings.forEach(([id, key, event, transform]) => document.querySelector(`#${id}`)?.addEventListener(event, (e) => {
     state[key] = transform(e.target.value);
+    const target = { sector: "filter-sector", deadline: "filter-deadline", minValue: "filter-value", evidence: "filter-evidence", buyer: "filter-buyer" }[key];
+    if (target && (event !== "input" || e.target.value.trim())) trackAnalytics("filter_apply", target);
     if (event === "input") window.clearTimeout(e.target._timer);
     if (event === "input") e.target._timer = window.setTimeout(renderPipeline, 120);
     else renderPipeline();
   }));
   document.querySelector("#clear-filters")?.addEventListener("click", () => {
     Object.assign(state, { sector: "All sectors", deadline: 90, minValue: 0, buyer: "", evidence: 0 });
+    trackAnalytics("filter_apply", "filter-sector");
     renderPipeline();
   });
   document.querySelector("#save-opportunity")?.addEventListener("click", () => {
-    if (state.saved.has(state.selectedId)) state.saved.delete(state.selectedId);
-    else state.saved.add(state.selectedId);
+    const adding = !state.saved.has(state.selectedId);
+    if (adding) state.saved.add(state.selectedId);
+    else state.saved.delete(state.selectedId);
     localStorage.setItem("publicSignalSaved", JSON.stringify([...state.saved]));
+    if (adding) trackAnalytics("opportunity_saved", "notice-bookmark");
     showToast(state.saved.has(state.selectedId) ? "Notice added to your watchlist." : "Notice removed from your watchlist.");
     renderPipeline();
   });
-  document.querySelector("#email-brief")?.addEventListener("click", () => setView("watches"));
+  document.querySelector("#email-brief")?.addEventListener("click", () => {
+    trackAnalytics("primary_cta_click", "primary-cta");
+    trackAnalytics("watch_start", "watch-start");
+    setView("watches");
+  });
   document.querySelector("#coverage-help")?.addEventListener("click", () => showToast("Coverage reflects available source lanes. It is not a confidence score or bid recommendation."));
   injectIcons(viewRoot);
 }
@@ -300,6 +370,7 @@ function renderSuppliers() {
 function bindTableSearch() {
   document.querySelector("#table-search")?.addEventListener("input", (event) => {
     state.tableSearch = event.target.value;
+    if (event.target.value.trim()) trackAnalytics("table_search_apply", "table-search");
     window.clearTimeout(event.target._timer);
     event.target._timer = window.setTimeout(render, 100);
   });
@@ -330,6 +401,10 @@ function renderWatches() {
             <div class="field"><label for="watch-cadence">Digest cadence</label><select id="watch-cadence" name="cadence"><option value="weekday">Weekday morning</option><option value="weekly">Monday summary</option></select></div>
             <div class="field is-wide"><label for="watch-evidence">Minimum evidence coverage</label><div class="range-line"><input id="watch-evidence" name="evidence" type="range" min="50" max="95" step="5" value="70" /><output class="range-value" for="watch-evidence">70%</output></div></div>
           </div>
+          <div class="turnstile-field" id="turnstile-field" hidden>
+            <div id="turnstile-widget"></div>
+            <p id="turnstile-status" role="status"></p>
+          </div>
           <div class="automation-preview" aria-live="polite"><h3>Digest preview</h3><div id="watch-preview"></div></div>
           <div class="form-actions"><button class="button button-primary" type="submit">${icon("bell")}<span>Save watch</span></button><button class="button" type="button" id="preview-email">${icon("mail")}<span>Preview email</span></button><small>Double opt-in. Unsubscribe link in every email.</small></div>
         </form>
@@ -352,7 +427,81 @@ function getWatchFormValues() {
     cadence: String(data.get("cadence") || "weekday"),
     minEvidence: Number(data.get("evidence") || 70),
     includeExpiries: true,
+    turnstileToken: watchTurnstile.token,
   };
+}
+
+function resetWatchTurnstile() {
+  watchTurnstile.generation += 1;
+  try {
+    if (watchTurnstile.id !== null && typeof window.turnstile?.reset === "function") window.turnstile.reset(watchTurnstile.id);
+  } catch {
+    // A stale widget must never prevent navigation.
+  }
+  document.querySelector("#turnstile-widget")?.replaceChildren();
+  watchTurnstile.id = null;
+  watchTurnstile.token = "";
+}
+
+async function turnstileApi(generation) {
+  if (window.turnstile) return window.turnstile;
+  let loader = document.querySelector("script[data-turnstile-loader]");
+  if (!loader) {
+    loader = document.createElement("script");
+    loader.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    loader.async = true;
+    loader.defer = true;
+    loader.dataset.turnstileLoader = "true";
+    document.head.appendChild(loader);
+  }
+  const deadline = Date.now() + 8_000;
+  while (!window.turnstile && Date.now() < deadline && generation === watchTurnstile.generation) {
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+  }
+  return generation === watchTurnstile.generation ? window.turnstile || null : null;
+}
+
+async function configureTurnstile(form) {
+  const generation = watchTurnstile.generation;
+  const field = document.querySelector("#turnstile-field");
+  const status = document.querySelector("#turnstile-status");
+  try {
+    const response = await fetch("/api/config");
+    if (!response.ok) throw new Error("Verification settings are unavailable.");
+    const config = await response.json();
+    if (generation !== watchTurnstile.generation || !form.isConnected) return;
+    if (!config.turnstileSiteKey) return;
+
+    field.hidden = false;
+    form.dataset.turnstileRequired = "true";
+    status.textContent = "Complete the verification before saving this watch.";
+    const api = await turnstileApi(generation);
+    if (generation !== watchTurnstile.generation || !form.isConnected) return;
+    if (!api) throw new Error("Verification did not load. Refresh the page and try again.");
+    watchTurnstile.id = api.render("#turnstile-widget", {
+      sitekey: config.turnstileSiteKey,
+      theme: "light",
+      callback: (token) => {
+        if (generation !== watchTurnstile.generation || !form.isConnected) return;
+        watchTurnstile.token = token;
+        status.textContent = "Verification complete.";
+      },
+      "expired-callback": () => {
+        if (generation !== watchTurnstile.generation || !form.isConnected) return;
+        watchTurnstile.token = "";
+        status.textContent = "Verification expired. Complete it again before saving.";
+      },
+      "error-callback": () => {
+        if (generation !== watchTurnstile.generation || !form.isConnected) return;
+        watchTurnstile.token = "";
+        status.textContent = "Verification could not load. Refresh the page and try again.";
+      },
+    });
+  } catch (error) {
+    if (generation !== watchTurnstile.generation || !form.isConnected) return;
+    field.hidden = false;
+    status.textContent = error.message || "Verification is unavailable. Try again shortly.";
+  }
 }
 
 function watchMatches(values) {
@@ -376,27 +525,41 @@ function updateWatchPreview() {
 
 function bindWatchForm() {
   const form = document.querySelector("#watch-form");
+  resetWatchTurnstile();
   form.addEventListener("input", updateWatchPreview);
   form.addEventListener("change", updateWatchPreview);
   updateWatchPreview();
   document.querySelector("#preview-email").addEventListener("click", () => {
+    trackAnalytics("watch_preview", "watch-preview");
     const matches = watchMatches(getWatchFormValues());
     showToast(matches.length ? `Preview ready with ${matches.length} matching opportunities.` : "Preview ready. No current notices clear this rule.");
   });
+  void configureTurnstile(form);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
     const values = getWatchFormValues();
+    if (form.dataset.turnstileRequired === "true" && !values.turnstileToken) {
+      showToast("Complete the verification before saving this watch.");
+      return;
+    }
     button.disabled = true;
     button.textContent = "Saving…";
+    let apiResponded = false;
     try {
       const response = await fetch("/api/subscriptions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) });
+      apiResponded = true;
       if (!response.ok) throw new Error((await response.json()).error || "Unable to save watch");
       const result = await response.json();
+      trackAnalytics("watch_saved", "watch-saved");
       showToast(result.emailSent ? "Watch saved. Check your inbox to confirm delivery." : "Watch saved in preview mode. Add Resend credentials to send confirmation email.");
     } catch (error) {
-      localStorage.setItem("publicSignalDraftWatch", JSON.stringify(values));
-      showToast("Prototype watch saved in this browser. Connect the Worker API to activate email.");
+      if (apiResponded) {
+        showToast(error.message || "Unable to save watch.");
+      } else {
+        localStorage.setItem("publicSignalDraftWatch", JSON.stringify(values));
+        showToast("Prototype watch saved in this browser. Connect the Worker API to activate email.");
+      }
     } finally {
       button.disabled = false;
       button.innerHTML = `${icon("bell")}<span>Save watch</span>`;
@@ -421,7 +584,13 @@ function closeMobileNav() {
   document.querySelector("#mobile-menu").setAttribute("aria-expanded", "false");
 }
 
-document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => {
+  if (button.dataset.view === "watches") {
+    trackAnalytics("watch_start", "watch-start");
+    if (button.classList.contains("button-primary")) trackAnalytics("primary_cta_click", "primary-cta");
+  }
+  setView(button.dataset.view);
+}));
 document.querySelector("#mobile-menu").addEventListener("click", () => sidebar.classList.contains("is-open") ? closeMobileNav() : openMobileNav());
 scrim.addEventListener("click", closeMobileNav);
 document.querySelector("#global-search").addEventListener("click", () => {
@@ -437,5 +606,12 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeMobileNav();
 });
 
+document.addEventListener("click", (event) => {
+  const target = event.target.closest?.("[data-analytics-event]");
+  if (target?.dataset.analyticsEvent === "source_notice_open") trackAnalytics("source_notice_open", "source-notice");
+});
+
 injectIcons();
 render();
+trackAnalytics("app_open", "app");
+trackAnalytics("page_open", "page-pipeline");

@@ -30,8 +30,6 @@ from ._shared import (
 )
 
 
-
-
 def _council_tier_pills(row) -> list[str]:
     """The lifecycle pill(s) a council carries: solid 'paid' (actual payments, the firmest
     fact) and/or dashed 'ordered' (purchase-order commitments, provisional). Different stages

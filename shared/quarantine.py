@@ -32,15 +32,15 @@ Run as a smoke test:
   python pipeline_sandbox/quarantine.py
 """
 
-import tempfile
 import re
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
 
-from services.parquet_io import save_parquet
 from paths import PROJECT_ROOT
+from services.parquet_io import save_parquet
 
 QUARANTINE_DIR = PROJECT_ROOT / "data" / "silver" / "_quarantine"
 

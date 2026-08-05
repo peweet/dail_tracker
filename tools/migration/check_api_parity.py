@@ -164,9 +164,7 @@ def _attribute_parts(node: ast.Attribute) -> list[str] | None:
     return list(reversed(parts))
 
 
-def referenced_names(
-    paths: list[Path], modules: set[str], exports: dict[Symbol, Symbol]
-) -> set[Symbol]:
+def referenced_names(paths: list[Path], modules: set[str], exports: dict[Symbol, Symbol]) -> set[Symbol]:
     """Module-qualified query symbols referenced by the consumer surface."""
     referenced: set[Symbol] = set()
     files: list[Path] = []
@@ -233,11 +231,7 @@ def referenced_names(
 
 
 def analyse() -> tuple[list[tuple[str, str, int]], set[Symbol], list[tuple[str, str, int]]]:
-    query_files = [
-        path
-        for path in sorted(QUERIES_DIR.rglob("*.py"))
-        if "__pycache__" not in path.parts
-    ]
+    query_files = [path for path in sorted(QUERIES_DIR.rglob("*.py")) if "__pycache__" not in path.parts]
     modules = {module_name(path) for path in query_files}
     defined: list[tuple[str, str, int]] = []
     for path in query_files:

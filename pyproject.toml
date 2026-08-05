@@ -241,6 +241,7 @@ line-length = 120
 # pipeline experiments that aren't shipped code. Linting them buries real
 # app/pipeline findings under hundreds of capture-script semicolon warnings.
 extend-exclude = [
+    ".tmp",
     "audit_screenshots",
     "pipeline_sandbox",
     "experimental",

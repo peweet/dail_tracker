@@ -216,16 +216,16 @@ def scan(stale_days: int) -> dict:
     # lists stay mtime-based so archive candidacy doesn't shift under this change.
     recall = _recall_ages()
     currency = {
-        n: currency_band(n, c["body"], min(c["age_d"], recall.get(n, float("inf"))), hot_linked, linked, n in broken_names)
+        n: currency_band(
+            n, c["body"], min(c["age_d"], recall.get(n, float("inf"))), hot_linked, linked, n in broken_names
+        )
         for n, c in cards.items()
     }
     # Feedback cards (behavioral corrections) never once recalled in any transcript —
     # the write-heavy/read-light gap measured 2026-07-31 (95/334 cards ever recalled).
     # A correction that is never re-read never changes behavior: triage these into
     # promote-to-HOT-one-liner or archive.
-    never_recalled_feedback = sorted(
-        n for n in cards if n.startswith("feedback_") and n not in recall
-    )
+    never_recalled_feedback = sorted(n for n in cards if n.startswith("feedback_") and n not in recall)
     return {
         "total": len(cards),
         "orphans": orphans,
@@ -266,7 +266,9 @@ def main() -> None:
         print(f"  {b}")
 
     nrf = r["never_recalled_feedback"]
-    print(f"\nnever-recalled feedback cards ({len(nrf)}) — corrections that never changed behavior; promote or archive:")
+    print(
+        f"\nnever-recalled feedback cards ({len(nrf)}) — corrections that never changed behavior; promote or archive:"
+    )
     for n in nrf[:60]:
         print(f"  {n}")
 

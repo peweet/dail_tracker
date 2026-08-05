@@ -130,9 +130,7 @@ def run_checks(page, base: str, host: str, timeout: float) -> tuple[list[tuple],
     # forward #2 test had a single member to try — indistinguishable from a real
     # regression. The pool must be wide enough that trap 1 cannot masquerade as a
     # defect.
-    bill_candidates = all_param_vals(
-        visit(page, f"{base}/rankings-legislation", timeout=timeout), "bill", limit=40
-    )
+    bill_candidates = all_param_vals(visit(page, f"{base}/rankings-legislation", timeout=timeout), "bill", limit=40)
     # Suppliers seeded from PROCUREMENT, not payments: the payments→company CTA is
     # awards-register gated, and most paid suppliers are payments-only by design.
     supplier_candidates = all_param_vals(visit(page, f"{base}/rankings-procurement", timeout=timeout), "supplier")
@@ -144,7 +142,9 @@ def run_checks(page, base: str, host: str, timeout: float) -> tuple[list[tuple],
     for candidate in bill_candidates:
         hits = edges_to(
             visit(page, f"{base}/rankings-legislation?bill={candidate}", timeout=timeout),
-            "member-overview", "member", host,
+            "member-overview",
+            "member",
+            host,
         )
         if not hits:
             continue
@@ -172,32 +172,46 @@ def run_checks(page, base: str, host: str, timeout: float) -> tuple[list[tuple],
     for member in [*sponsors, *[m for m in landing_members if m not in sponsors]]:
         hits = edges_to(
             visit(page, f"{base}/member-overview?member={member}&section=legislation", timeout=timeout),
-            "rankings-legislation", "bill", host,
+            "rankings-legislation",
+            "bill",
+            host,
         )
         if hits:
             forward_member, forward_hit = member, hits[:1]
             break
-    record(f"member(section=legislation) -> legislation(bill) [#2]  (member={forward_member})",
-           bool(forward_hit), True, forward_hit)
+    record(
+        f"member(section=legislation) -> legislation(bill) [#2]  (member={forward_member})",
+        bool(forward_hit),
+        True,
+        forward_hit,
+    )
 
     # #1: public-payments(supplier) → company, registry-gated.
     supplier_used, payment_hit = None, None
     for candidate in supplier_candidates:
         hits = edges_to(
             visit(page, f"{base}/rankings-public-payments?supplier={candidate}", timeout=timeout),
-            "company", "supplier", host,
+            "company",
+            "supplier",
+            host,
         )
         if hits:
             supplier_used, payment_hit = candidate, hits[:1]
             break
-    record(f"public-payments(supplier) -> company [#1, gated]  (supplier={supplier_used})",
-           bool(payment_hit), True, payment_hit)
+    record(
+        f"public-payments(supplier) -> company [#1, gated]  (supplier={supplier_used})",
+        bool(payment_hit),
+        True,
+        payment_hit,
+    )
 
     # #4: committees(committee) → member. Fixed 2026-06-20 (roster LinkColumn).
     if committee:
         hits = edges_to(
             visit(page, f"{base}/rankings-committees?committee={committee}", timeout=timeout),
-            "member-overview", "member", host,
+            "member-overview",
+            "member",
+            host,
         )
         record("committees(committee) -> member [#4]", bool(hits), True, hits[:1])
 
@@ -206,7 +220,9 @@ def run_checks(page, base: str, host: str, timeout: float) -> tuple[list[tuple],
     if si:
         hits = edges_to(
             visit(page, f"{base}/rankings-statutory-instruments?si={si}", timeout=timeout),
-            "member-overview", "member", host,
+            "member-overview",
+            "member",
+            host,
         )
         record("statutory-instruments(si) -> member(minister) [info]", bool(hits), None, hits[:1])
 

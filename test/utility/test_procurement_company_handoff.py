@@ -32,7 +32,19 @@ from dail_tracker_core.results import QueryResult  # noqa: E402
 # (same idiom as test_procurement_page_smoke.py).
 _PR_MODULES = [pr] + [
     getattr(pr, m)
-    for m in ("page", "browse", "payments", "pay_profiles", "councils", "national", "ted", "tenders", "profiles", "patterns", "_shared")
+    for m in (
+        "page",
+        "browse",
+        "payments",
+        "pay_profiles",
+        "councils",
+        "national",
+        "ted",
+        "tenders",
+        "profiles",
+        "patterns",
+        "_shared",
+    )
 ]
 
 
@@ -43,6 +55,7 @@ def _patch_pr(monkeypatch, name, fn):
             monkeypatch.setattr(mod, name, fn)
             hit = True
     assert hit, f"no procurement module binds {name!r}"
+
 
 _HDR = pd.DataFrame(
     [
@@ -75,7 +88,9 @@ def _drive_supplier_dossier(monkeypatch, *, awarded: bool) -> str:
     sink: list[str] = []
     _patch_pr(monkeypatch, "fetch_payments_supplier_header_result", lambda *a, **k: QueryResult.success(_HDR))
     _patch_pr(
-        monkeypatch, "fetch_payments_publishers_for_supplier_result", lambda *a, **k: QueryResult.success(pd.DataFrame())
+        monkeypatch,
+        "fetch_payments_publishers_for_supplier_result",
+        lambda *a, **k: QueryResult.success(pd.DataFrame()),
     )
     _patch_pr(monkeypatch, "awards_register_norms", lambda: frozenset({"ACME"}) if awarded else frozenset())
     _patch_pr(monkeypatch, "back_button", lambda *a, **k: False)

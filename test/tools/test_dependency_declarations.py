@@ -29,8 +29,7 @@ def test_no_undeclared_imports(capsys):
         "undeclared import(s) — declare the package, extend known_first_party, or "
         "justify an ignore in [tool.deptry.per_rule_ignores]:\n"
         + "\n".join(
-            f"  {f.get('location', {}).get('file', '?')}:"
-            f"{f.get('location', {}).get('line', '?')} '{f.get('module')}'"
+            f"  {f.get('location', {}).get('file', '?')}:{f.get('location', {}).get('line', '?')} '{f.get('module')}'"
             for f in hard
         )
     )

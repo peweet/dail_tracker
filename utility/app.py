@@ -1,6 +1,13 @@
+# ruff: noqa: E402
 # isort: off
-import _bootstrap  # noqa: F401  -- repository path + BLAS cap must precede Streamlit/pandas
-# isort: on
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+import services.runtime_env  # noqa: F401  -- BLAS cap must precede Streamlit/pandas
 
 import streamlit as st
 from pages_code.accommodation_spend import accommodation_spend_page
@@ -35,6 +42,7 @@ from shared_css import inject_css
 from ui.components import site_footer_html
 from ui.page_analytics import log_page_view
 from ui.spa_links import install_spa_links
+# isort: on
 
 st.set_page_config(
     page_title="Dáil Tracker",

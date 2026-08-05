@@ -104,8 +104,8 @@ def _direct(tool: str, args: dict):
     """Call the deployed tool function in-process (mcp.tool returns the plain function)."""
     global _DIRECT_MOD
     if _DIRECT_MOD is None:
-        import services.runtime_env  # noqa: F401 — BLAS cap before anything heavy
         import mcp_server.server as _DIRECT_MOD  # noqa: PLW0603
+        import services.runtime_env  # noqa: F401 — BLAS cap before anything heavy
     fn = getattr(_DIRECT_MOD, tool)
     fn = getattr(fn, "fn", fn)  # tolerate a wrapping decorator variant
     return fn(**args)
@@ -167,8 +167,10 @@ async def suite_precedents(session: ClientSession, n: int) -> None:
         res = await _call(session, "search_planning_precedents", {"query": case, "limit": 10})
         if _rank_of_case(res, case) is not None:
             dhits += 1
-    print(f"precedents (raw case-NUMBER probe, n={len(digit_probe)}):  found {dhits}/{len(digit_probe)}"
-          f"  {'— digits ARE searchable' if dhits else '— digits stripped by the FTS tokenizer (DuckDB ignore default)'}")
+    print(
+        f"precedents (raw case-NUMBER probe, n={len(digit_probe)}):  found {dhits}/{len(digit_probe)}"
+        f"  {'— digits ARE searchable' if dhits else '— digits stripped by the FTS tokenizer (DuckDB ignore default)'}"
+    )
 
 
 async def suite_project(session: ClientSession) -> None:
@@ -191,7 +193,9 @@ async def suite_project(session: ClientSession) -> None:
             print(f"  MISS '{q}' -> {g}  rank={p}")
 
 
-async def _roundtrip(session: ClientSession | None, feed_tool: str, search_tool: str, member: str) -> tuple[str, int | None]:
+async def _roundtrip(
+    session: ClientSession | None, feed_tool: str, search_tool: str, member: str
+) -> tuple[str, int | None]:
     feed = await _call(session, feed_tool, {"name_or_code": member, "limit": 5})
     text = _longest_text(feed)
     # Strip the member's own name first — PQ text opens with 'Deputy X asked the
@@ -246,17 +250,25 @@ async def main() -> int:
         return 0
 
     env = os.environ.copy()
-    env.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8",
-                "OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1",
-                "MKL_NUM_THREADS": "1", "NUMEXPR_NUM_THREADS": "1"})
+    env.update(
+        {
+            "PYTHONUTF8": "1",
+            "PYTHONIOENCODING": "utf-8",
+            "OPENBLAS_NUM_THREADS": "1",
+            "OMP_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+            "NUMEXPR_NUM_THREADS": "1",
+        }
+    )
     params = StdioServerParameters(
         command=str(REPO / ".venv" / "Scripts" / "python.exe"),
-        args=["mcp_server/server.py"], cwd=str(REPO), env=env,
+        args=["mcp_server/server.py"],
+        cwd=str(REPO),
+        env=env,
     )
-    async with stdio_client(params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            await _run_suites(session, args)
+    async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
+        await session.initialize()
+        await _run_suites(session, args)
     return 0
 
 

@@ -45,7 +45,7 @@ SELECT
     section,
     category                 AS category_label,
     ref,
-    item_description,
+    CASE WHEN lower(trim(item_description)) IN ('none', 'n/a') THEN NULL ELSE item_description END AS item_description,
     cost_eur,
     cost_confidence,
     flag,

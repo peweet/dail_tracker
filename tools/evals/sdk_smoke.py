@@ -1,15 +1,15 @@
 """Smoke test: can the selected coding-agent provider drive a session?"""
 
+import sys
 from pathlib import Path
 
 import anyio
 
-try:
-    from .provider_adapter import EvalRequest, run_eval
-except ImportError:  # direct ``python tools/evals/sdk_smoke.py`` execution
-    from provider_adapter import EvalRequest, run_eval
-
 REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from tools.evals.provider_adapter import EvalRequest, run_eval  # noqa: E402
 
 
 async def main():

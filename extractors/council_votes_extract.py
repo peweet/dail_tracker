@@ -24,6 +24,7 @@ Output: member_votes.jsonl (one row per councillor-per-vote) + member_votes.csv.
 Each row: local_authority, meeting (file), motion (nearest preceding context), member, vote
 (+ meeting_date ISO for corpus-parsed rows).
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -66,6 +67,7 @@ def header_map(row: list[str]) -> dict[int, str] | None:
 
 def parse_pdf(la: str, fname: str, pdf: bytes) -> list[dict]:
     import fitz  # noqa: PLC0415
+
     doc = fitz.open(stream=pdf, filetype="pdf")
     out = []
     last_motion = ""  # carry across page-breaks (motion often on the page before the table)
@@ -77,7 +79,7 @@ def parse_pdf(la: str, fname: str, pdf: bytes) -> list[dict]:
         page_motion = _nearest_motion(page.get_text())
         if page_motion:
             last_motion = page_motion
-        for tbl in (tables.tables if tables else []):
+        for tbl in tables.tables if tables else []:
             rows = tbl.extract()
             if not rows:
                 continue
@@ -94,8 +96,9 @@ def parse_pdf(la: str, fname: str, pdf: bytes) -> list[dict]:
                     continue
                 vote = next((hmap[i] for i in hmap if i < len(r) and is_mark(r[i])), None)
                 if vote:
-                    out.append({"local_authority": la, "meeting": fname,
-                                "motion": motion[:240], "member": name, "vote": vote})
+                    out.append(
+                        {"local_authority": la, "meeting": fname, "motion": motion[:240], "member": name, "vote": vote}
+                    )
     return out
 
 
@@ -103,11 +106,11 @@ def normalise_members(rows: list[dict]) -> list[dict]:
     """Fold split/garbled names onto the council's real roster (high-frequency names)."""
     import difflib
     from collections import Counter
+
     by_la: dict[str, Counter] = {}
     for r in rows:
         by_la.setdefault(r["local_authority"], Counter())[r["member"]] += 1
-    rosters = {la: [n for n, c in cnt.items() if c >= 3 and len(n) > 6 and " " in n]
-               for la, cnt in by_la.items()}
+    rosters = {la: [n for n, c in cnt.items() if c >= 3 and len(n) > 6 and " " in n] for la, cnt in by_la.items()}
     cleaned = []
     for r in rows:
         roster = rosters.get(r["local_authority"], [])
@@ -130,7 +133,7 @@ def _nearest_motion(text_above: str) -> str:
     # the closest preceding motion-ish line is the last match in reading order
     if hits:
         m = list(_MOT.finditer(text_above))[-1]
-        return re.sub(r"\s+", " ", text_above[m.start():m.start() + 220]).strip()
+        return re.sub(r"\s+", " ", text_above[m.start() : m.start() + 220]).strip()
     return ""
 
 
@@ -167,6 +170,7 @@ def _fix_mojibake(s: str) -> str:
 def _fold(s: str) -> str:
     """Accent/apostrophe/case fold for name matching (NFKD, same family as shared/name_norm)."""
     import unicodedata
+
     s = unicodedata.normalize("NFKD", _fix_mojibake(s))
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = re.sub(r"[’'`´.]", "", s)
@@ -175,6 +179,7 @@ def _fold(s: str) -> str:
 
 def _titlecase_name(s: str) -> str:
     """ALL-CAPS surname → display case, keeping Mc/Mac/O' prefixes ("MCDONALD" → "McDonald")."""
+
     def _word(w: str) -> str:
         wt = w.capitalize()
         if wt.startswith("Mc") and len(wt) > 2:
@@ -183,6 +188,7 @@ def _titlecase_name(s: str) -> str:
         if m:
             wt = f"{m.group(1).upper()}'{m.group(2).capitalize()}"
         return wt
+
     return " ".join(_word(w) for w in s.split())
 
 
@@ -270,8 +276,10 @@ class RosterResolver:
         cands = [k for k in self.keyed if k[0] == initial and k[1] == surname]
         if not cands:  # spelling drift (Dinneen/Dineen) — fuzzy surname, same initial
             import difflib
+
             cands = [
-                k for k in self.keyed
+                k
+                for k in self.keyed
                 if k[0] == initial and difflib.SequenceMatcher(None, k[1], surname).ratio() >= 0.86
             ]
         if len(cands) == 1:
@@ -375,7 +383,7 @@ def parse_cork_prose(la: str, fname: str, text: str, cov: Coverage, resolver: Ro
         ok = True
         for gi, gm in enumerate(group):
             seg_end = group[gi + 1].start() if gi + 1 < len(group) else min(gm.end() + 1200, len(text))
-            names, tally = _cork_side_names(text[gm.end():seg_end])
+            names, tally = _cork_side_names(text[gm.end() : seg_end])
             if names is None or tally is None or len(names) != tally:  # RECONCILE GATE
                 ok = False
                 break
@@ -391,7 +399,7 @@ def parse_cork_prose(la: str, fname: str, text: str, cov: Coverage, resolver: Ro
         # motion silently degrades to "A vote was taken where there appeared as follows:".
         # Widening is safe because `quotes[-1]` still takes the NEAREST preceding quote — a
         # larger window only adds older candidates that the -1 never selects.
-        win = text[max(0, group[0].start() - 1800): group[0].start()]
+        win = text[max(0, group[0].start() - 1800) : group[0].start()]
         flat = re.sub(r"\s+", " ", win)
         quotes = _CORK_QUOTE.findall(flat)
         sentences = _CORK_MOTION.findall(flat)
@@ -420,9 +428,17 @@ def parse_cork_prose(la: str, fname: str, text: str, cov: Coverage, resolver: Ro
                         cov.unmatched_kept += 1
                     resolved = _fix_mojibake(printed)
                 cov.rows += 1
-                out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                            "motion": motion[:240], "member": resolved, "vote": vote,
-                            "_div": cov.divisions_kept})
+                out.append(
+                    {
+                        "local_authority": la,
+                        "meeting": fname,
+                        "meeting_date": mdate,
+                        "motion": motion[:240],
+                        "member": resolved,
+                        "vote": vote,
+                        "_div": cov.divisions_kept,
+                    }
+                )
         i = j
     return _dedupe_motions(out)
 
@@ -442,7 +458,7 @@ def _kk_names(seg: str) -> list[str]:
 def parse_kilkenny_prose(la: str, fname: str, text: str, cov: Coverage, resolver: RosterResolver) -> list[dict]:
     text = _fix_mojibake(text)
     mdate = _corpus_meeting_date(fname)
-    marks = [m for m in _KK_MARKER.finditer(text) if "roll call" in text[max(0, m.start() - 700): m.start()].lower()]
+    marks = [m for m in _KK_MARKER.finditer(text) if "roll call" in text[max(0, m.start() - 700) : m.start()].lower()]
     out: list[dict] = []
     i = 0
     while i < len(marks):
@@ -459,7 +475,7 @@ def parse_kilkenny_prose(la: str, fname: str, text: str, cov: Coverage, resolver
         ok = True
         for gi, gm in enumerate(group):
             seg_end = group[gi + 1].start() if gi + 1 < len(group) else min(gm.end() + 900, len(text))
-            seg = text[gm.end():seg_end]
+            seg = text[gm.end() : seg_end]
             seg = re.split(r"\bTherefore\b|\bA roll call vote\b|“", seg)[0]
             names = _kk_names(seg)
             # names segments end where the enumeration word of the NEXT side begins
@@ -474,7 +490,7 @@ def parse_kilkenny_prose(la: str, fname: str, text: str, cov: Coverage, resolver
             i = j
             continue
         cov.divisions_kept += 1
-        win = re.sub(r"\s+", " ", text[max(0, group[0].start() - 900): group[0].start()])
+        win = re.sub(r"\s+", " ", text[max(0, group[0].start() - 900) : group[0].start()])
         quotes = re.findall(r"“[^”]{15,300}”", win)
         sent = re.findall(r"A roll call vote was taken[^:]{0,220}", win)
         motion = _fix_mojibake((quotes[-1] if quotes else (sent[-1] if sent else "")).strip())
@@ -484,9 +500,17 @@ def parse_kilkenny_prose(la: str, fname: str, text: str, cov: Coverage, resolver
                 if not resolver.full(printed):
                     cov.unmatched_kept += 1
                 cov.rows += 1
-                out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                            "motion": motion[:240], "member": member, "vote": vote,
-                            "_div": cov.divisions_kept})
+                out.append(
+                    {
+                        "local_authority": la,
+                        "meeting": fname,
+                        "meeting_date": mdate,
+                        "motion": motion[:240],
+                        "member": member,
+                        "vote": vote,
+                        "_div": cov.divisions_kept,
+                    }
+                )
         i = j
     return _dedupe_motions(out)
 
@@ -526,9 +550,10 @@ def _grid_rows(rows: list[list], hmap: dict[int, str], split_name: bool) -> list
 
 def parse_laois_grid(la: str, path: Path, cov: Coverage, resolver: RosterResolver) -> list[dict]:
     import fitz  # noqa: PLC0415
+
     doc = fitz.open(str(path))
     fname = path.name
-    divisions: list[dict] = []   # {motion, pairs}
+    divisions: list[dict] = []  # {motion, pairs}
     open_div: dict | None = None
     last_motion = ""
     for page in doc:
@@ -546,8 +571,12 @@ def parse_laois_grid(la: str, path: Path, cov: Coverage, resolver: RosterResolve
                 split_name = len(rows) > 1 and any("SURNAME" in ((c or "").upper()) for c in rows[1])
                 above = "\n".join(b[4] for b in page.get_text("blocks") if b[1] < tbl.bbox[1])
                 motion = _laois_motion(above) or last_motion
-                open_div = {"motion": motion, "pairs": _grid_rows(rows[1:], hmap, split_name),
-                            "hmap": hmap, "split": split_name}
+                open_div = {
+                    "motion": motion,
+                    "pairs": _grid_rows(rows[1:], hmap, split_name),
+                    "hmap": hmap,
+                    "split": split_name,
+                }
                 divisions.append(open_div)
             elif open_div is not None and rows and len(rows[0]) >= 3:
                 # headerless continuation across a page break — same column signature
@@ -567,7 +596,9 @@ def parse_laois_grid(la: str, path: Path, cov: Coverage, resolver: RosterResolve
         counts = {v: sum(1 for _n, vv in div["pairs"] if vv == v) for v in ("for", "against", "absent")}
         printed = results[idx] if idx < len(results) else None
         if not printed or (int(printed[0]), int(printed[1]), int(printed[2])) != (
-            counts["for"], counts["against"], counts["absent"]
+            counts["for"],
+            counts["against"],
+            counts["absent"],
         ):
             cov.reconcile_drops += 1
             continue
@@ -577,15 +608,24 @@ def parse_laois_grid(la: str, path: Path, cov: Coverage, resolver: RosterResolve
             if not resolver.full(name):
                 cov.unmatched_kept += 1
             cov.rows += 1
-            out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                        "motion": _fix_mojibake(div["motion"])[:240], "member": member, "vote": vote,
-                        # Stamped at the point of truth, like the Galway parser's 'ocr_winocr':
-                        # this reads a locally-held PDF with fitz find_tables(), which recovers
-                        # ✓-grid CELLS — a scanned page yields no table structure at all, so a
-                        # row reaching here came from born-digital text. The harvest ledger
-                        # can't supply it: the ledger's copy of this meeting is a differently
-                        # named file ("Minutes%20Council%20Meeting%20April%202026.pdf").
-                        "source_status": "text", "_div": cov.divisions_kept})
+            out.append(
+                {
+                    "local_authority": la,
+                    "meeting": fname,
+                    "meeting_date": mdate,
+                    "motion": _fix_mojibake(div["motion"])[:240],
+                    "member": member,
+                    "vote": vote,
+                    # Stamped at the point of truth, like the Galway parser's 'ocr_winocr':
+                    # this reads a locally-held PDF with fitz find_tables(), which recovers
+                    # ✓-grid CELLS — a scanned page yields no table structure at all, so a
+                    # row reaching here came from born-digital text. The harvest ledger
+                    # can't supply it: the ledger's copy of this meeting is a differently
+                    # named file ("Minutes%20Council%20Meeting%20April%202026.pdf").
+                    "source_status": "text",
+                    "_div": cov.divisions_kept,
+                }
+            )
     return _dedupe_motions(out)
 
 
@@ -614,8 +654,20 @@ def _doc_meeting_date(text: str) -> str:
     )
     if not m:
         return ""
-    months = ["january", "february", "march", "april", "may", "june", "july", "august",
-              "september", "october", "november", "december"]
+    months = [
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    ]
     return f"{m.group(3)}-{months.index(m.group(2).lower()) + 1:02d}-{int(m.group(1)):02d}"
 
 
@@ -624,9 +676,7 @@ def _doc_meeting_date(text: str) -> str:
 #   FOR:      18   EIGHTEEN / AGAINST: 19  NINETEEN / ABSTAIN: 0  ZERO
 # followed by full-name lists:  FOR: Councillors A, B, C. / AGAINST: Councillors D, E.
 # The numeric block is the RECONCILE GATE: each side's parsed names must count to it.
-_FG_TALLY = re.compile(
-    r"FOR:\s*(\d+)\s+[A-Z]+\s*\n\s*AGAINST:\s*(\d+)\s+[A-Z]+\s*\n\s*ABSTAIN:\s*(\d+)", re.I
-)
+_FG_TALLY = re.compile(r"FOR:\s*(\d+)\s+[A-Z]+\s*\n\s*AGAINST:\s*(\d+)\s+[A-Z]+\s*\n\s*ABSTAIN:\s*(\d+)", re.I)
 _FG_SIDE = re.compile(r"(FOR|AGAINST|ABSTAIN(?:ED)?):\s*(Councillors?|Cllrs?\.?)\s+", re.I)
 
 
@@ -646,25 +696,23 @@ def parse_fingal_prose(la: str, fname: str, text: str, cov: Coverage, resolver: 
     for tm in _FG_TALLY.finditer(text):
         cov.divisions_found += 1
         tallies = {"for": int(tm.group(1)), "against": int(tm.group(2)), "abstain": int(tm.group(3))}
-        window = text[tm.end(): tm.end() + 4000]
+        window = text[tm.end() : tm.end() + 4000]
         sides: dict[str, list[str]] = {}
         marks = list(_FG_SIDE.finditer(window))
         for gi, gm in enumerate(marks):
             seg_end = marks[gi + 1].start() if gi + 1 < len(marks) else len(window)
             key = gm.group(1).lower().replace("abstained", "abstain")
-            sides.setdefault(key, _fg_names(window[gm.end(): seg_end]))
+            sides.setdefault(key, _fg_names(window[gm.end() : seg_end]))
         # RECONCILE GATE: every non-zero side must list names that count to its printed tally
-        ok = all(
-            len(sides.get(side, [])) == n
-            for side, n in tallies.items()
-            if n > 0
-        ) and any(n > 0 for n in tallies.values())
+        ok = all(len(sides.get(side, [])) == n for side, n in tallies.items() if n > 0) and any(
+            n > 0 for n in tallies.values()
+        )
         if not ok:
             cov.reconcile_drops += 1
             continue
         cov.divisions_kept += 1
         # motion = nearest preceding quoted resolution / motion sentence
-        win = re.sub(r"\s+", " ", text[max(0, tm.start() - 1400): tm.start()])
+        win = re.sub(r"\s+", " ", text[max(0, tm.start() - 1400) : tm.start()])
         quotes = re.findall(r"[“\"][^”\"]{15,300}[”\"]", win)
         sent = re.findall(r"(It was (?:proposed|resolved)[^.]{0,220}|The following motion[^.]{0,220})", win, re.I)
         motion = _fix_mojibake((quotes[-1] if quotes else (sent[-1] if sent else "")).strip())
@@ -676,9 +724,17 @@ def parse_fingal_prose(la: str, fname: str, text: str, cov: Coverage, resolver: 
                 if not resolver.full(printed):
                     cov.unmatched_kept += 1
                 cov.rows += 1
-                out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                            "motion": motion[:240], "member": member, "vote": side,
-                            "_div": cov.divisions_kept})
+                out.append(
+                    {
+                        "local_authority": la,
+                        "meeting": fname,
+                        "meeting_date": mdate,
+                        "motion": motion[:240],
+                        "member": member,
+                        "vote": side,
+                        "_div": cov.divisions_kept,
+                    }
+                )
     return _dedupe_motions(out)
 
 
@@ -695,11 +751,13 @@ def parse_fingal_prose(la: str, fname: str, text: str, cov: Coverage, resolver: 
 # "l. Byrne") — the roster fold carries more load here than any born-digital council.
 _GW_TALLY = re.compile(
     r"In\s+Favou?r\s*:\s*([0-9OolI]{1,2})\s+Against\s*:\s*([0-9OolI]{1,2})"
-    r"(?:\s+Abstain\w*\s*:\s*([0-9OolI]{1,2}))?", re.I)
+    r"(?:\s+Abstain\w*\s*:\s*([0-9OolI]{1,2}))?",
+    re.I,
+)
 _GW_SIDE = re.compile(r"\b(In\s+[Ff]avou?r|Against|Abstain\w*)\s*:")
 _GW_MOTION = re.compile(
-    r"Proposed\s+by\s*:\s*Cllr[^\n]{0,60}Seconded\s+by\s*:\s*Cllr[^\n]{0,60}\n(.{0,300}?)\n\s*In\s+[Ff]avou?r",
-    re.S)
+    r"Proposed\s+by\s*:\s*Cllr[^\n]{0,60}Seconded\s+by\s*:\s*Cllr[^\n]{0,60}\n(.{0,300}?)\n\s*In\s+[Ff]avou?r", re.S
+)
 
 
 def _gw_int(s: str) -> int:
@@ -712,8 +770,11 @@ def _gw_names(seg: str) -> list[str]:
         return []
     seg = re.sub(r"\bCllrs?\.?,?\s*", "", seg)
     seg = re.sub(r"\s*&\s*", ", ", seg)
-    return [p.strip(" .;:'’") for p in seg.split(",")
-            if re.search(r"[A-Za-zÀ-ÿ]{2,}", p) and not re.fullmatch(r"[\d\sOolI]+", p.strip())]
+    return [
+        p.strip(" .;:'’")
+        for p in seg.split(",")
+        if re.search(r"[A-Za-zÀ-ÿ]{2,}", p) and not re.fullmatch(r"[\d\sOolI]+", p.strip())
+    ]
 
 
 def parse_galway_prose(la: str, fname: str, text: str, cov: Coverage, resolver: RosterResolver) -> list[dict]:
@@ -722,25 +783,29 @@ def parse_galway_prose(la: str, fname: str, text: str, cov: Coverage, resolver: 
     out: list[dict] = []
     for tm in _GW_TALLY.finditer(text):
         cov.divisions_found += 1
-        tallies = {"for": _gw_int(tm.group(1)), "against": _gw_int(tm.group(2)),
-                   "abstain": _gw_int(tm.group(3)) if tm.group(3) else 0}
-        window = text[max(0, tm.start() - 2200): tm.start()]
+        tallies = {
+            "for": _gw_int(tm.group(1)),
+            "against": _gw_int(tm.group(2)),
+            "abstain": _gw_int(tm.group(3)) if tm.group(3) else 0,
+        }
+        window = text[max(0, tm.start() - 2200) : tm.start()]
         marks = list(_GW_SIDE.finditer(window))
         sides: dict[str, list[str]] = {}
         for gi, gm in enumerate(marks):
             seg_end = marks[gi + 1].start() if gi + 1 < len(marks) else len(window)
             key = gm.group(1).lower().replace("in favour", "for").replace("in favor", "for")
             key = "abstain" if key.startswith("abstain") else key
-            names = _gw_names(window[gm.end(): seg_end])
+            names = _gw_names(window[gm.end() : seg_end])
             if names or key not in sides:  # keep the last non-empty list per side
                 sides[key] = names
-        ok = all(len(sides.get(side, [])) == n for side, n in tallies.items() if n > 0) \
-            and any(n > 0 for n in tallies.values())
+        ok = all(len(sides.get(side, [])) == n for side, n in tallies.items() if n > 0) and any(
+            n > 0 for n in tallies.values()
+        )
         if not ok:
             cov.reconcile_drops += 1
             continue
         cov.divisions_kept += 1
-        mmatch = list(_GW_MOTION.finditer(text[max(0, tm.start() - 2200): tm.start()]))
+        mmatch = list(_GW_MOTION.finditer(text[max(0, tm.start() - 2200) : tm.start()]))
         motion = _fix_mojibake(re.sub(r"\s+", " ", mmatch[-1].group(1)).strip(" '‘’\"")) if mmatch else ""
         for side, n in tallies.items():
             if n == 0:
@@ -756,9 +821,18 @@ def parse_galway_prose(la: str, fname: str, text: str, cov: Coverage, resolver: 
                         cov.unmatched_kept += 1
                     resolved = _fix_mojibake(printed)
                 cov.rows += 1
-                out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                            "motion": motion[:240], "member": resolved, "vote": side,
-                            "source_status": "ocr_winocr", "_div": cov.divisions_kept})
+                out.append(
+                    {
+                        "local_authority": la,
+                        "meeting": fname,
+                        "meeting_date": mdate,
+                        "motion": motion[:240],
+                        "member": resolved,
+                        "vote": side,
+                        "source_status": "ocr_winocr",
+                        "_div": cov.divisions_kept,
+                    }
+                )
     return _dedupe_motions(out)
 
 
@@ -785,15 +859,16 @@ def parse_galway_prose(la: str, fname: str, text: str, cov: Coverage, resolver: 
 # the legend is read from each document and AS is dropped when the document does not gloss it.
 # Neither reading affects the gate: the tally counts only for/against.
 _WX_TALLY = re.compile(
-    r"(\d{1,2})\s+in\s+favou?r\s+and\s+(\d{1,2})\s+against[^\n]{0,80}?voting\s+was\s+as\s+follows",
-    re.I | re.S)
+    r"(\d{1,2})\s+in\s+favou?r\s+and\s+(\d{1,2})\s+against[^\n]{0,80}?voting\s+was\s+as\s+follows", re.I | re.S
+)
 _WX_LEGEND = re.compile(r"\bAS\s*[=–-]\s*(Absent|Abstain\w*)", re.I)
 # NAME line(s) then a bare code line. Wexford prints either "SURNAME FORENAME" on one line or
 # surname and forename on consecutive lines; both end at a line holding only the code.
 _WX_ENTRY = re.compile(
     r"\n[ \t]*([A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú’'\-]+(?:[ \t]+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú’'\-]+)?)"
     r"[ \t]*\n[ \t]*([A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú’'\-]+[ \t]*\n[ \t]*)?"
-    r"(F|A|AS|ABS)[ \t]*(?=\n)")
+    r"(F|A|AS|ABS)[ \t]*(?=\n)"
+)
 _WX_MOTION = re.compile(r"([^\n.]{15,200}?)\s*(?:was\s+(?:defeated|carried|passed|agreed)|\.)\s*$", re.S)
 
 
@@ -810,7 +885,7 @@ def parse_wexford_grid(la: str, fname: str, text: str, cov: Coverage, resolver: 
         # the grid follows the tally sentence; stop at the next tally so two divisions in one
         # document cannot bleed into each other
         nxt = _WX_TALLY.search(text, tm.end())
-        block = text[tm.end(): nxt.start() if nxt else min(len(text), tm.end() + 4000)]
+        block = text[tm.end() : nxt.start() if nxt else min(len(text), tm.end() + 4000)]
         sides: dict[str, list[str]] = {"for": [], "against": [], "abstain": [], "absent": []}
         for em in _WX_ENTRY.finditer(block):
             name = re.sub(r"\s+", " ", f"{em.group(1)} {(em.group(2) or '').strip()}").strip()
@@ -829,7 +904,7 @@ def parse_wexford_grid(la: str, fname: str, text: str, cov: Coverage, resolver: 
             cov.reconcile_drops += 1
             continue
         cov.divisions_kept += 1
-        head = text[max(0, tm.start() - 400): tm.start() + 120]
+        head = text[max(0, tm.start() - 400) : tm.start() + 120]
         mm = _WX_MOTION.search(re.sub(r"\s+", " ", head))
         motion = mm.group(1).strip() if mm else re.sub(r"\s+", " ", head[-200:]).strip()
         for side in ("for", "against", "abstain", "absent"):
@@ -846,9 +921,18 @@ def parse_wexford_grid(la: str, fname: str, text: str, cov: Coverage, resolver: 
                     elif not resolved:
                         cov.unmatched_kept += 1
                 cov.rows += 1
-                out.append({"local_authority": la, "meeting": fname, "meeting_date": mdate,
-                            "motion": motion[:240], "member": member, "vote": side,
-                            "source_status": "text", "_div": cov.divisions_kept})
+                out.append(
+                    {
+                        "local_authority": la,
+                        "meeting": fname,
+                        "meeting_date": mdate,
+                        "motion": motion[:240],
+                        "member": member,
+                        "vote": side,
+                        "source_status": "text",
+                        "_div": cov.divisions_kept,
+                    }
+                )
     return _dedupe_motions(out)
 
 
@@ -887,6 +971,7 @@ def fold_initial_forms(rows: list[dict]) -> list[dict]:
     (Boyle/Boylan). Ambiguous or no match -> left as printed: no misattribution."""
     import difflib
     from collections import defaultdict
+
     by_la: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_la[r["local_authority"]].append(r)
@@ -896,7 +981,8 @@ def fold_initial_forms(rows: list[dict]) -> list[dict]:
             out += la_rows
             continue
         full_names = {
-            r["member"] for r in la_rows
+            r["member"]
+            for r in la_rows
             if len(_fold(r["member"]).split()) >= 2 and len(_fold(r["member"]).split()[0]) > 3
         }
         keyed = [(_fold(n).split()[0][0], _fold(n).split()[-1], n) for n in full_names]
@@ -909,8 +995,7 @@ def fold_initial_forms(rows: list[dict]) -> list[dict]:
             cands = [k for k in keyed if k[0] == initial and k[1] == surname]
             if not cands:  # spelling drift, same as RosterResolver.initials()
                 cands = [
-                    k for k in keyed
-                    if k[0] == initial and difflib.SequenceMatcher(None, k[1], surname).ratio() >= 0.86
+                    k for k in keyed if k[0] == initial and difflib.SequenceMatcher(None, k[1], surname).ratio() >= 0.86
                 ]
             out.append({**r, "member": cands[0][2]} if len(cands) == 1 else r)
     return out
@@ -928,9 +1013,14 @@ SWEEP = [
     # named votes are a flattened table. Kerry stays here: inspected the same day, its 29 docs
     # carry attendance roll-calls and budget "Division A/B" headings (both false positives for
     # the vote-language markers) and exactly ONE printed tally, with no named list.
-    ("Kerry", "kerry"), ("Dublin City", "dublin_city"),
-    ("Louth", "louth"), ("Meath", "meath"), ("Waterford", "waterford"),
-    ("Clare", "clare"), ("Donegal", "donegal"), ("Kildare", "kildare"),
+    ("Kerry", "kerry"),
+    ("Dublin City", "dublin_city"),
+    ("Louth", "louth"),
+    ("Meath", "meath"),
+    ("Waterford", "waterford"),
+    ("Clare", "clare"),
+    ("Donegal", "donegal"),
+    ("Kildare", "kildare"),
 ]
 
 
@@ -1028,9 +1118,10 @@ def main() -> int:
         w.writerows([{k: r.get(k, "") for k in fields} for r in rows])
     print(f"\nTOTAL member-vote rows: {len(rows)}  -> member_votes.jsonl / .csv")
     from collections import Counter
+
     print("by council:", dict(Counter(r["local_authority"] for r in rows)))
     print("by vote:", dict(Counter(r["vote"] for r in rows)))
-    print("distinct members:", len({(r['local_authority'], r['member']) for r in rows}))
+    print("distinct members:", len({(r["local_authority"], r["member"]) for r in rows}))
     return 0
 
 

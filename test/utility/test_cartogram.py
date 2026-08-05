@@ -111,5 +111,5 @@ def test_label_ink_flips_on_dark_and_pale_tiles():
     """One fixed ink colour is unreadable at one end of any sequential ramp."""
     dark = cartogram_svg({n: "#12303f" for n in LAYOUT})
     pale = cartogram_svg({n: "#eef3f6" for n in LAYOUT})
-    assert '#ffffff' in dark
-    assert '#16243a' in pale
+    assert "#ffffff" in dark
+    assert "#16243a" in pale

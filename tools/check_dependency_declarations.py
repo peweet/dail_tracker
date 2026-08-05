@@ -43,9 +43,7 @@ def run_deptry() -> list[dict] | None:
     Returns None when deptry is not importable in this venv (core-only sync) —
     the caller treats that as a skip, not a pass.
     """
-    probe = subprocess.run(
-        [sys.executable, "-c", "import deptry"], capture_output=True, cwd=str(ROOT)
-    )
+    probe = subprocess.run([sys.executable, "-c", "import deptry"], capture_output=True, cwd=str(ROOT))
     if probe.returncode != 0:
         return None
     with tempfile.TemporaryDirectory() as td:

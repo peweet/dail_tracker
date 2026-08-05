@@ -77,7 +77,9 @@ class BM25:
                 if w not in tf:
                     continue
                 f = tf[w]
-                s += self.idf.get(w, 0.0) * f * (self.k1 + 1) / (f + self.k1 * (1 - self.b + self.b * dl / self.avg_len))
+                s += (
+                    self.idf.get(w, 0.0) * f * (self.k1 + 1) / (f + self.k1 * (1 - self.b + self.b * dl / self.avg_len))
+                )
             if s > 0:
                 scores[d] = s
         return sorted(scores.items(), key=lambda kv: -kv[1])
@@ -106,10 +108,7 @@ def main() -> int:
     if uncovered:
         print(f"note: {len(uncovered)} catalog tools have no queries (not scored): {uncovered}")
 
-    docs = {
-        name: _tokens(t["name"]) * NAME_WEIGHT + _tokens(t.get("description") or "")
-        for name, t in catalog.items()
-    }
+    docs = {name: _tokens(t["name"]) * NAME_WEIGHT + _tokens(t.get("description") or "") for name, t in catalog.items()}
     bm25 = BM25(docs)
 
     rows = []
@@ -121,8 +120,10 @@ def main() -> int:
             rows.append({"tool": gold, "query": q, "rank": pos, "top5": ranked[:5]})
 
     n = len(rows)
-    print(f"\n{n} queries over {len({r['tool'] for r in rows})} tools "
-          f"(catalog: {len(catalog)} tools, retriever: BM25 name×{NAME_WEIGHT}+description)\n")
+    print(
+        f"\n{n} queries over {len({r['tool'] for r in rows})} tools "
+        f"(catalog: {len(catalog)} tools, retriever: BM25 name×{NAME_WEIGHT}+description)\n"
+    )
     for k in K_VALUES:
         hit = sum(1 for r in rows if r["rank"] is not None and r["rank"] <= k)
         print(f"  Recall@{k}: {hit}/{n} = {hit / n:.3f}")

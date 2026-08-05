@@ -36,8 +36,6 @@ from ._shared import (
 from .browse import _render_real_terms_rail
 
 
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Tab: Money actually paid — public-body PAYMENTS (SPENT/COMMITTED), a different grain
 # from awards, never summed with them. Suppliers named per published source.

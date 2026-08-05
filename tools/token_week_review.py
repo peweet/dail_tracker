@@ -130,7 +130,15 @@ def main():
                     cr = u.get("cache_read_input_tokens", 0) or 0
                     cache_read += cr
                     max_cr = max(max_cr, cr)
-                    k = "<100k" if cr < 100_000 else "100-200k" if cr < 200_000 else "200-400k" if cr < 400_000 else ">400k"
+                    k = (
+                        "<100k"
+                        if cr < 100_000
+                        else "100-200k"
+                        if cr < 200_000
+                        else "200-400k"
+                        if cr < 400_000
+                        else ">400k"
+                    )
                     b = buckets.setdefault(k, [0, 0])
                     b[0] += 1
                     b[1] += cr
@@ -172,10 +180,18 @@ def main():
                                 elif name.startswith("mcp__dail-tracker__"):
                                     mcp_domain += 1
         if turns:
-            sessions.append({
-                "sid": sid, "out": out, "fresh": fresh_in, "cc": cache_create,
-                "cr": cache_read, "max_cr": max_cr, "turns": turns, "prompt": first_prompt,
-            })
+            sessions.append(
+                {
+                    "sid": sid,
+                    "out": out,
+                    "fresh": fresh_in,
+                    "cc": cache_create,
+                    "cr": cache_read,
+                    "max_cr": max_cr,
+                    "turns": turns,
+                    "prompt": first_prompt,
+                }
+            )
 
     tot_out = sum(s["out"] for s in sessions)
     tot_fresh = sum(s["fresh"] for s in sessions)
@@ -186,8 +202,10 @@ def main():
     print(f"output={tot_out:,}  fresh_input={tot_fresh:,}  cache_CREATE={tot_cc:,}  cache_READ={tot_cr:,}")
     grand = tot_out + tot_fresh + tot_cc + tot_cr
     weighted = tot_out * W_OUT + tot_fresh * W_IN + tot_cc * W_CC + tot_cr * W_CR
-    print(f"cache_read: {100 * tot_cr / max(1, grand):.1f}% of raw tokens, "
-          f"{100 * tot_cr * W_CR / max(1, weighted):.0f}% of price-weighted spend")
+    print(
+        f"cache_read: {100 * tot_cr / max(1, grand):.1f}% of raw tokens, "
+        f"{100 * tot_cr * W_CR / max(1, weighted):.0f}% of price-weighted spend"
+    )
 
     print("\n=== CACHE_READ BY PER-TURN CONTEXT SIZE (the /clear lever) ===")
     for k in ["<100k", "100-200k", "200-400k", ">400k"]:
@@ -222,8 +240,10 @@ def main():
     print("a recurring escalation rate means that TOOL's return shape isn't answering — fix the tool, not the caller")
 
     print("\n=== NAV REFLEX ===")
-    print(f"raw Read/Grep/Glob={raw_nav}  mcp_nav={mcp_nav}  mcp_domain={mcp_domain}  "
-          f"ratio raw:mcp_nav = {raw_nav}:{mcp_nav}")
+    print(
+        f"raw Read/Grep/Glob={raw_nav}  mcp_nav={mcp_nav}  mcp_domain={mcp_domain}  "
+        f"ratio raw:mcp_nav = {raw_nav}:{mcp_nav}"
+    )
     print(f"agent spawns: {dict(agent_spawns)}")
 
 

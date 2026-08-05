@@ -30,7 +30,19 @@ from dail_tracker_core.results import QueryResult  # noqa: E402
 # (same idiom as test_procurement_page_smoke.py).
 _PR_MODULES = [pr] + [
     getattr(pr, m)
-    for m in ("page", "browse", "payments", "pay_profiles", "councils", "national", "ted", "tenders", "profiles", "patterns", "_shared")
+    for m in (
+        "page",
+        "browse",
+        "payments",
+        "pay_profiles",
+        "councils",
+        "national",
+        "ted",
+        "tenders",
+        "profiles",
+        "patterns",
+        "_shared",
+    )
 ]
 
 

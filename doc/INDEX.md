@@ -3,7 +3,7 @@
 
 # doc/ index
 
-67 docs · ~340.8k tokens total · 26 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+67 docs · ~340.7k tokens total · 26 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -19,7 +19,7 @@
 | [AGENT_HARNESS_MEASUREMENT_2026_08_05.md](AGENT_HARNESS_MEASUREMENT_2026_08_05.md) | infra | 1.0k | 2026-08-05 | deciding whether the current agent harness improves correctness or efficiency |
 | [CI_CD.md](CI_CD.md) | infra | 4.9k | 2026-06-21 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
-| [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
+| [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.6k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 3.4k | 2026-06-13 | the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2 |
 | [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.8k | 2026-08-04 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
 | [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.1k | 2026-08-04 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |

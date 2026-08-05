@@ -97,8 +97,14 @@ def test_cutoff_constant_is_2018() -> None:
 
 
 def _vrow(la: str, member: str) -> dict:
-    return {"local_authority": la, "meeting": "m.pdf", "meeting_date": "2024-01-01",
-            "motion": "x", "member": member, "vote": "for"}
+    return {
+        "local_authority": la,
+        "meeting": "m.pdf",
+        "meeting_date": "2024-01-01",
+        "motion": "x",
+        "member": member,
+        "vote": "for",
+    }
 
 
 def test_fold_merges_initial_form_onto_observed_full_name() -> None:
@@ -116,14 +122,13 @@ def test_fold_leaves_unmatched_initial_form_unchanged() -> None:
 
 def test_fold_does_not_merge_ambiguous_initial_surname_pair() -> None:
     # two distinct full names share the same (initial, surname) -> stays printed
-    rows = [_vrow("Cork City", "J. Maher"), _vrow("Cork City", "John Maher"),
-            _vrow("Cork City", "Jane Maher")]
+    rows = [_vrow("Cork City", "J. Maher"), _vrow("Cork City", "John Maher"), _vrow("Cork City", "Jane Maher")]
     out = fold_initial_forms(rows)
     assert "J. Maher" in {r["member"] for r in out}
 
 
 def test_percent20_slug_does_not_fake_a_2011_date() -> None:
-    """"Meeting%2011.12.23" slugs to "meeting_2011_12_23" and the ISO branch read it as
+    """ "Meeting%2011.12.23" slugs to "meeting_2011_12_23" and the ISO branch read it as
     2011-12-23. The true date is 11 Dec 2023 — and dated 2011 the row falls below
     MIN_VOTE_YEAR and is DELETED, so the bug costs rows, it does not just mislabel them."""
     assert _corpus_meeting_date("county_20council_20meeting_2011_12_23_20_20minutes_docx_pdf.txt") == "2023-12-11"
@@ -165,8 +170,9 @@ def test_wexford_grid_reconciles_and_reads_both_name_layouts() -> None:
     """Wexford prints the tally in prose and the names in a table fitz flattens to one token
     per line, in TWO layouts: "SURNAME FORENAME" on one line, or split over two."""
     cov = Coverage()
-    out = parse_wexford_grid("Wexford", "county_council_meeting_12_06_23_minutes_pdf.txt",
-                             WEXFORD_OK, cov, RosterResolver("Wexford"))
+    out = parse_wexford_grid(
+        "Wexford", "county_council_meeting_12_06_23_minutes_pdf.txt", WEXFORD_OK, cov, RosterResolver("Wexford")
+    )
     assert cov.divisions_kept == 1
     assert cov.reconcile_drops == 0
     assert len([r for r in out if r["vote"] == "for"]) == 2
@@ -179,9 +185,13 @@ def test_wexford_grid_drops_a_division_that_misses_the_tally() -> None:
     """The same gate as every other adapter: a name list that does not count to the printed
     tally is dropped whole, never emitted partially."""
     cov = Coverage()
-    out = parse_wexford_grid("Wexford", "county_council_meeting_12_06_23_minutes_pdf.txt",
-                             WEXFORD_OK.replace("2 in favour and 3 against", "4 in favour and 3 against"),
-                             cov, RosterResolver("Wexford"))
+    out = parse_wexford_grid(
+        "Wexford",
+        "county_council_meeting_12_06_23_minutes_pdf.txt",
+        WEXFORD_OK.replace("2 in favour and 3 against", "4 in favour and 3 against"),
+        cov,
+        RosterResolver("Wexford"),
+    )
     assert out == []
     assert cov.divisions_kept == 0
     assert cov.reconcile_drops == 1
@@ -191,8 +201,9 @@ def test_wexford_unglossed_AS_code_is_not_guessed() -> None:
     """'AS' is glossed Absent in some Wexford documents and Abstain in others. With no legend
     in the document the code is recorded nowhere rather than assigned a meaning."""
     cov = Coverage()
-    out = parse_wexford_grid("Wexford", "x_12_06_23.txt",
-                             WEXFORD_OK + "WHELAN\nMAURA\nAS\n", cov, RosterResolver("Wexford"))
+    out = parse_wexford_grid(
+        "Wexford", "x_12_06_23.txt", WEXFORD_OK + "WHELAN\nMAURA\nAS\n", cov, RosterResolver("Wexford")
+    )
     assert "Maura Whelan" not in {r["member"] for r in out}
     assert cov.divisions_kept == 1  # the for/against tally still reconciles
 

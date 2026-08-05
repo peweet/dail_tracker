@@ -324,6 +324,11 @@ a {
   font-size: 12px;
 }
 
+.privacy-note {
+  color: var(--ink-faint);
+  font-size: 10px;
+}
+
 .demo-pill {
   padding: 3px 7px;
   border: 1px solid oklch(83% 0.04 78);
@@ -1196,6 +1201,20 @@ kbd {
   background: var(--panel);
   font-size: 10px;
   text-align: center;
+}
+
+.turnstile-field {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--canvas);
+}
+
+.turnstile-field p {
+  margin: 9px 0 0;
+  color: var(--ink-soft);
+  font-size: 10px;
 }
 
 .automation-preview {

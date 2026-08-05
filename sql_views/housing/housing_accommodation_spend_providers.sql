@@ -2,9 +2,9 @@
 -- and Ukraine accommodation, ranked by total committed spend. The "who collects the
 -- money" list. One row per provider.
 --
--- UNION of the published payments fact + the DCEDIY 2023-2024 legacy extract (the years
--- IPAS sat under the Dept of Children). Disjoint publishers => additive, no double-count;
--- DCEDIY 2025+ excluded (Dept of Justice covers 2025+ in the fact). amount = PO-committed.
+-- UNION of explicit source partitions: the dedicated DCEDIY legacy extract is canonical for
+-- that department in 2023-2024, while DCEDIY fact rows from 2023 onward are excluded. The
+-- Department of Justice fact covers 2025+ after the IPAS transfer. amount = PO-committed.
 -- Provider names are as published; some entities still fragment (e.g. "MOSNEY" vs
 -- "MOSNEY HOLIDAYS") — a known supplier-spine limitation, so treat ranks as indicative.
 --
@@ -14,7 +14,13 @@
 -- The aggregate totals view (v_accommodation_spend_by_year) intentionally keeps the full,
 -- ungated sum — only NAMES are gated, not the anonymous spend total.
 CREATE OR REPLACE VIEW v_accommodation_spend_providers AS
-WITH acc AS (
+WITH quarantined_names AS (
+    SELECT DISTINCT supplier_normalised AS provider
+    FROM read_parquet('data/gold/parquet/procurement_payments_fact.parquet')
+    WHERE privacy_status = 'review_personal_data'
+      AND supplier_normalised IS NOT NULL
+),
+acc AS (
     SELECT
         supplier_normalised AS provider,
         CASE WHEN lower(spend_category) LIKE '%ukraine%' THEN 'Ukraine'
@@ -25,6 +31,9 @@ WITH acc AS (
     WHERE value_safe_to_sum = TRUE
       AND public_display = TRUE
       AND supplier_normalised IS NOT NULL
+      -- The legacy extract below is canonical for DCEDIY 2023-2024; Justice owns 2025+.
+      AND NOT (publisher_id = 'dept_children' AND year >= 2023)
+      AND supplier_normalised NOT IN (SELECT provider FROM quarantined_names)
       AND (
         lower(spend_category) LIKE '%asylum%'
         OR lower(spend_category) LIKE '%ip accommodation%'
@@ -41,12 +50,7 @@ WITH acc AS (
     SELECT provider, stream, CAST(amount_eur AS DOUBLE) AS amount_eur, year
     FROM read_parquet('data/gold/parquet/dceidy_ipas_legacy_spend.parquet')
     WHERE year IN (2023, 2024) AND provider IS NOT NULL
-      AND provider NOT IN (
-          SELECT DISTINCT supplier_normalised
-          FROM read_parquet('data/gold/parquet/procurement_payments_fact.parquet')
-          WHERE privacy_status = 'review_personal_data'
-            AND supplier_normalised IS NOT NULL
-      )
+      AND provider NOT IN (SELECT provider FROM quarantined_names)
 )
 SELECT
     provider,

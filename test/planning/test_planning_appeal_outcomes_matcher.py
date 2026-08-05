@@ -17,7 +17,17 @@ pl = pytest.importorskip("polars")
 
 from planning.civic.extractors.planning_appeal_outcomes import _auth_key, _spatial_temporal_matches  # noqa: E402
 
-_RESIDUAL_COLS = ["abp_case", "lon", "lat", "auth_key", "lodged_date", "abp_decision", "PLANINGATY", "CATEGORY", "DECIDED_ON"]
+_RESIDUAL_COLS = [
+    "abp_case",
+    "lon",
+    "lat",
+    "auth_key",
+    "lodged_date",
+    "abp_decision",
+    "PLANINGATY",
+    "CATEGORY",
+    "DECIDED_ON",
+]
 _APPS_COLS = ["ApplicationNumber", "PlanningAuthority", "decision_normalised", "DecisionDate", "lon", "lat"]
 
 
@@ -64,7 +74,11 @@ def test_still_matches_within_the_tight_radius_when_recent():
     # The common case (unchanged by the fix): a genuinely close, recently-decided application still
     # matches on the tight (validated) radius without needing the wide fallback.
     residual = _residual(
-        abp_case="321970", lon=-9.120162, lat=53.273865, lodged_date=dt.date(2025, 2, 25), authority="Galway City Council"
+        abp_case="321970",
+        lon=-9.120162,
+        lat=53.273865,
+        lodged_date=dt.date(2025, 2, 25),
+        authority="Galway City Council",
     )
     apps = _apps([["2460270", "Galway City Council", "Refused", dt.date(2025, 1, 29), -9.120500, 53.273900]])
     out = _spatial_temporal_matches(residual, apps)

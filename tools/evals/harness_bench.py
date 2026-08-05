@@ -45,14 +45,13 @@ from typing import Any
 
 import anyio
 
-try:
-    from .cleanroom import prepare_cleanroom, validate_cleanroom
-    from .provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
-except ImportError:  # direct script execution
-    from cleanroom import prepare_cleanroom, validate_cleanroom
-    from provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
-
 PROJ_PATH = Path(__file__).resolve().parents[2]
+if str(PROJ_PATH) not in sys.path:
+    sys.path.insert(0, str(PROJ_PATH))
+
+from tools.evals.cleanroom import prepare_cleanroom, validate_cleanroom  # noqa: E402
+from tools.evals.provider_adapter import EvalRequest, dail_tracker_mcp, run_eval  # noqa: E402
+
 PROJ = str(PROJ_PATH)
 VARIANTS = ("off", "offclean", "on")
 PREFLIGHT_REQUIRED_FILES = (

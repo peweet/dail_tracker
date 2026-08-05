@@ -1,41 +1,5 @@
 {
     "files": {
-        "./dail_tracker_core/siting/dem.py": [
-            {
-                "code": "reportCallIssue",
-                "range": {
-                    "startColumn": 25,
-                    "endColumn": 27,
-                    "lineCount": 1
-                }
-            }
-        ],
-        "./dail_tracker_core/siting/layers.py": [
-            {
-                "code": "reportCallIssue",
-                "range": {
-                    "startColumn": 20,
-                    "endColumn": 45,
-                    "lineCount": 1
-                }
-            },
-            {
-                "code": "reportArgumentType",
-                "range": {
-                    "startColumn": 35,
-                    "endColumn": 44,
-                    "lineCount": 1
-                }
-            },
-            {
-                "code": "reportAttributeAccessIssue",
-                "range": {
-                    "startColumn": 28,
-                    "endColumn": 40,
-                    "lineCount": 1
-                }
-            }
-        ],
         "./services/coverage_qa.py": [
             {
                 "code": "reportCallIssue",

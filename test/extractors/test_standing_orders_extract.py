@@ -24,9 +24,7 @@ from extractors.standing_orders_extract import SO_RX, clause, order_of_business
 
 # The exact detector inside parse_so() — duplicated here (not imported) because it lives
 # inline in that function; kept byte-identical so this test fails the moment it drifts.
-_NAMED_VOTES_RX = re.compile(
-    r"roll[\s-]?call|recorded vote|names?.{0,30}recorded|voting.{0,20}by name", re.I
-)
+_NAMED_VOTES_RX = re.compile(r"roll[\s-]?call|recorded vote|names?.{0,30}recorded|voting.{0,20}by name", re.I)
 
 
 def test_clause_returns_verbatim_sentence_around_keyword() -> None:
