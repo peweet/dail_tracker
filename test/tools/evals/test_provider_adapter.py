@@ -59,10 +59,7 @@ def test_provider_and_model_environment_overrides_are_validated(tmp_path):
     assert adapter.resolve_model("claude", request, environ={}) == "claude-old"
     assert adapter.resolve_model("codex", request, environ={"DAIL_EVAL_MODEL": "gpt-test"}) == "gpt-test"
     assert adapter.resolve_reasoning_effort(environ={}) == "medium"
-    assert (
-        adapter.resolve_reasoning_effort(environ={"DAIL_EVAL_REASONING_EFFORT": "HIGH"})
-        == "high"
-    )
+    assert adapter.resolve_reasoning_effort(environ={"DAIL_EVAL_REASONING_EFFORT": "HIGH"}) == "high"
     with pytest.raises(adapter.EvalProviderError, match="DAIL_EVAL_REASONING_EFFORT"):
         adapter.resolve_reasoning_effort(environ={"DAIL_EVAL_REASONING_EFFORT": "turbo"})
     with pytest.raises(adapter.EvalProviderError, match="DAIL_EVAL_PROVIDER"):
@@ -106,6 +103,34 @@ def test_codex_command_is_noninteractive_scoped_and_reproducible(tmp_path):
     assert 'web_search="disabled"' in rendered
     assert 'model_reasoning_effort="high"' in rendered
     assert 'mcp_servers.dail-tracker.disabled_tools=["search_speeches"]' in rendered
+
+
+def test_codex_on_arm_explicitly_trusts_vetted_cleanroom_hooks(tmp_path):
+    request = adapter.EvalRequest(prompt="x", cwd=tmp_path, trusted_project_hooks=True)
+
+    command = adapter.build_codex_command(
+        request,
+        executable="codex",
+        model="gpt-5.6-sol",
+        reasoning_effort="high",
+    )
+
+    rendered = "\n".join(command)
+    assert "--dangerously-bypass-hook-trust" in command
+    assert 'trust_level="trusted"' in rendered
+    assert str(tmp_path.resolve()).replace("\\", "\\\\") in rendered
+
+
+def test_codex_hook_trust_cannot_be_enabled_when_project_settings_are_off(tmp_path):
+    request = adapter.EvalRequest(
+        prompt="x",
+        cwd=tmp_path,
+        project_settings=False,
+        trusted_project_hooks=True,
+    )
+
+    with pytest.raises(ValueError, match="requires project_settings"):
+        adapter.build_codex_command(request, executable="codex", model=None)
 
 
 def test_codex_jsonl_parser_normalizes_text_tools_and_usage():

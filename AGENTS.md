@@ -22,9 +22,10 @@ Before re-deriving a known project trap, run `uv run python tools/discoveries.py
 
 - The primary agent is the captain: it owns requirements, decisions, integration, and the final response.
 - Delegate only genuinely independent, bounded exploration, review, verification, or log-analysis tracks. Keep tightly coupled work in the primary thread.
-- Use the project `scout` role for read-only codebase mapping and the project `reviewer` role for independent correctness, regression, provenance, and test review.
-- Give each subagent a self-contained brief with the relevant paths, constraints, required evidence or verification, and expected output. Prefer fresh context over copying the primary thread's full history.
+- Use the project `scout` role for read-only codebase mapping, the project `reviewer` role for independent correctness, regression, provenance, and test review, and the project `worker` role for bounded implementation after the approach is decided.
+- Every spawn must select one of those project roles, start with fresh context, and receive a self-contained five-part brief: Objective, Scope, Invariants, Acceptance, and Result contract. The project `PreToolUse` hook rejects non-conforming spawns.
 - Scouts and reviewers stay read-only, return concise evidence with file references, and never post externally or make product, legal, or commercial decisions.
+- A worker owns only the files named in its brief, preserves concurrent edits, and returns changed files plus verification evidence to the captain; it never commits, pushes, or posts externally.
 - Wait for every requested result, adjudicate disagreements against repository evidence, and report unresolved uncertainty explicitly.
 - Permit at most one write-capable agent in a checkout. Parallel implementation requires separate Git worktrees and explicit integration ownership; do not improvise worktrees for `planning/product`, which uses the separate `.git-siting` worktree.
 
@@ -60,7 +61,7 @@ When the configured `dail-tracker` MCP server is available, prefer `search_proje
 - Inspect the selected checks without running them: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify --plan`
 - Fast suite: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py test-fast`
 - Full local merge-gate approximation: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py check`
-- Agent prompt changes: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py agent-context`
+- Agent prompt changes: `python tools/dev.py agent-context` (stdlib-only; no environment bootstrap)
 - SQL contract changes also need `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py sql-contracts` with committed gold data present.
 
 Successful focused verification is cached against the exact Git/worktree fingerprint. A changed file, commit, interpreter, or verification policy invalidates the receipt. Failed runs are never cached.

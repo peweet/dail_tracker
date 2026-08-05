@@ -44,6 +44,7 @@ DEV_PROFILE_MODULES = (
     "polars",
     "sqlglot",
 )
+STDLIB_TASKS = frozenset({"agent-context"})
 
 
 @dataclass(frozen=True)
@@ -158,6 +159,8 @@ def _requires_dev_profile(args: list[str]) -> bool:
     """Whether an invocation runs a check rather than only inspecting it."""
 
     if not args or args[0] not in task_names() or "--dry-run" in args:
+        return False
+    if args[0] in STDLIB_TASKS:
         return False
     return not (args[0] == "verify" and "--plan" in args)
 

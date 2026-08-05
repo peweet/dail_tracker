@@ -121,6 +121,19 @@ def test_unknown_enum_value_halts(col, bad_value):
         rep.raise_if_failed()
 
 
+def test_contract_failure_message_preserves_reviewer_evidence(tmp_path):
+    """A halt must say what failed, not merely signal that something failed."""
+    report = enforce_contract(_bad(supplier_class="alien"), name="t_explained", quarantine_dir=tmp_path)
+
+    with pytest.raises(ContractViolation) as exc:
+        report.raise_if_failed()
+
+    message = str(exc.value)
+    assert "[HARD] supplier_class: 2 rows (100.0%)" in message
+    assert "out-of-vocab" in message
+    assert "offending rows quarantined ->" in message
+
+
 def test_guard_raises_on_drift(tmp_path):
     with pytest.raises(ContractViolation):
         guard_payment_fact(_bad(supplier_class="alien"), name="t_guard", quarantine_dir=tmp_path)
@@ -136,6 +149,14 @@ def test_null_in_nonnull_key_column_fails():
     bad = _GOOD.with_columns(pl.lit(None, dtype=pl.Float64).alias("amount_eur"))
     errors = check_structure(bad, required_columns=("amount_eur",), nonnull_columns=("amount_eur",))
     assert any("amount_eur" in e for e in errors)
+
+
+def test_structure_rejects_empty_frames_and_skips_absent_optional_nonnull_columns():
+    empty = pl.DataFrame(schema={"amount_eur": pl.Float64})
+    assert "frame is empty (0 rows)" in check_structure(empty, required_columns=("amount_eur",))
+
+    errors = check_structure(pl.DataFrame({"present": [1]}), required_columns=(), nonnull_columns=("not_here",))
+    assert errors == []
 
 
 def test_paid_flag_dirt_quarantines_without_halting(tmp_path):
@@ -164,6 +185,21 @@ def test_paid_flag_dirt_escalates_above_threshold(tmp_path):
     assert rep.vocab_breaches["paid_flag"]["escalated"] is True
     with pytest.raises(ContractViolation):
         rep.raise_if_failed()
+
+
+def test_multiple_vocab_breaches_are_all_quarantined_and_explained(tmp_path):
+    report = enforce_contract(
+        _bad(supplier_class="alien", privacy_status="secret"),
+        name="t_multiple_breaches",
+        quarantine_dir=tmp_path,
+    )
+
+    assert set(report.vocab_breaches) == {"supplier_class", "privacy_status"}
+    assert report.n_quarantined_rows == 2
+    quarantined = pl.read_parquet(tmp_path / "t_multiple_breaches_quarantine.parquet")
+    assert all(
+        {"supplier_class", "privacy_status"} <= set(reason.split(";")) for reason in quarantined["_quarantine_reason"]
+    )
 
 
 # --------------------------------------------------------------------------- invariant tests
@@ -196,6 +232,19 @@ def test_invariant_cro_num_on_non_company_fires():
     assert any("CRO" in v for v in payment_fact_invariant_violations(bad))
 
 
+@pytest.mark.parametrize(
+    "mutation,expect_fragment",
+    [
+        ({"supplier_class": "sole_trader_or_individual"}, "likely-person"),
+        ({"privacy_status": "review_personal_data"}, "likely-person"),
+        ({"realisation_tier": "COMMITTED"}, "disagree"),
+    ],
+)
+def test_remaining_payment_invariant_branches_fire(mutation, expect_fragment):
+    violations = payment_fact_invariant_violations(_bad(**mutation))
+    assert any(expect_fragment in violation for violation in violations), violations
+
+
 def test_guard_halts_on_invariant_violation(tmp_path):
     bad = _GOOD.with_columns(supplier_class=pl.lit("public_body"))  # summable public-body transfer
     with pytest.raises(ContractViolation):
@@ -217,11 +266,30 @@ def test_reconciliation_flags_dropped_rows():
     assert any("row count drift" in v for v in out)
 
 
+def test_reconciliation_flags_duplicated_rows_and_every_absent_source():
+    out = reconciliation_violations(
+        {"duplicated": (10, 100.0), "missing_one": (1, 1.0), "missing_two": (1, 1.0)},
+        {"duplicated": (11, 100.0)},
+    )
+    assert "duplicated: row count drift +1 (allowed +0)" in out[0]
+    assert {"missing_one", "missing_two"} <= {line.split(":", 1)[0] for line in out}
+
+
 def test_reconciliation_flags_money_drift():
     exp = {"src_a": (100, 5000.0)}
     act = {"src_a": (100, 4200.0)}
     out = reconciliation_violations(exp, act)
     assert any("total drift" in v for v in out)
+
+
+def test_reconciliation_honours_the_exact_money_tolerance_boundary():
+    expected = {"src": (1, 100.0)}
+    assert reconciliation_violations(expected, {"src": (1, 101.0)}) == []
+    out = reconciliation_violations(expected, {"src": (1, 101.01)})
+    assert len(out) == 1
+    assert out[0].startswith("src:")
+    assert "+1.01" in out[0]
+    assert out[0].endswith("money not preserved")
 
 
 def test_reconciliation_allows_documented_carry_forward():
@@ -243,7 +311,10 @@ def test_quarantine_summary_json_written(tmp_path):
 
     payload = json.loads(summary.read_text(encoding="utf-8"))
     assert payload["fact"] == "t_json"
-    assert payload["n_rows_quarantined"] >= 1
+    assert payload["n_rows_total"] == 2
+    assert payload["n_rows_quarantined"] == 2
+    assert payload["frac_quarantined"] == 1.0
+    assert payload["breaches"]["supplier_class"]["n_offending"] == 2
 
 
 # --------------------------------------------------------------------------- Pandera schemas

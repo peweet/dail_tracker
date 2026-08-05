@@ -6,6 +6,10 @@ overlay, eval prompts, scorer, or tests for the scorer. OFFCLEAN disables projec
 settings and MCP. The legacy OFF arm runs in the source checkout and is retained
 only to reproduce the known auto-memory contamination.
 
+The ON arm explicitly trusts the validated ephemeral project layer and bypasses
+the interactive hook-hash prompt so project hooks are not silently omitted. The
+paid path runs the same preflight checks before starting either provider.
+
 This is cwd-level contamination resistance, not a host security boundary. For a
 strict secret holdout, run the benchmark in a container/VM that mounts only the
 cleanroom plus the provider runtime, with the holdout mounted evaluator-side.
@@ -33,6 +37,7 @@ import re
 import statistics
 import subprocess
 import sys
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -55,7 +60,13 @@ PREFLIGHT_REQUIRED_FILES = (
     ".codex/config.toml",
     ".codex/agents/reviewer.toml",
     ".codex/agents/scout.toml",
+    ".codex/agents/worker.toml",
     "mcp_server/server.py",
+    "tools/check_agent_context.py",
+    "tools/hooks/closeout_gate.py",
+    "tools/hooks/discovery_hint.py",
+    "tools/hooks/guard_subagent_spawn.py",
+    "tools/hooks/session_context.py",
 )
 
 PUBLIC_TASKS: dict[str, dict[str, Any]] = {
@@ -255,6 +266,7 @@ async def run_task(
     run_id: str,
 ) -> dict[str, Any]:
     on = variant == "on"
+    started_at = time.perf_counter()
     result = None
     error = None
     try:
@@ -266,6 +278,7 @@ async def run_task(
                 max_turns=12,
                 sandbox="read-only",
                 project_settings=on,
+                trusted_project_hooks=on,
                 env={"PYTHONUTF8": "1"},
                 mcp_servers=dail_tracker_mcp(PROJ) if on else {},
             )
@@ -292,6 +305,7 @@ async def run_task(
         "provider": result.provider if result else None,
         "model": result.model if result else None,
         "usage": result.usage if result else {},
+        "elapsed_seconds": round(time.perf_counter() - started_at, 3),
     }
     if error:
         row["error"] = error
@@ -304,6 +318,15 @@ def summary_rows(attempts: list[dict[str, Any]], run_id: str) -> list[dict[str, 
     for variant, task_id in keys:
         selected = [row for row in attempts if row["variant"] == variant and row["task"] == task_id]
         scores = [float(row["score"]) for row in selected]
+        latencies = [float(row.get("elapsed_seconds", 0.0)) for row in selected]
+        costs = [float(row["cost_usd"]) for row in selected if row.get("cost_usd") is not None]
+        usage_keys = (
+            "input_tokens",
+            "cache_read_input_tokens",
+            "raw_input_tokens",
+            "output_tokens",
+            "reasoning_output_tokens",
+        )
         rows.append(
             {
                 "type": "summary",
@@ -315,6 +338,15 @@ def summary_rows(attempts: list[dict[str, Any]], run_id: str) -> list[dict[str, 
                 "score_min": min(scores),
                 "score_max": max(scores),
                 "error_count": sum("error" in row for row in selected),
+                "elapsed_seconds_mean": round(statistics.fmean(latencies), 3),
+                "elapsed_seconds_min": min(latencies),
+                "elapsed_seconds_max": max(latencies),
+                "tool_calls_total": sum(int(row.get("tool_calls", 0)) for row in selected),
+                "mcp_calls_total": sum(int(row.get("mcp_calls", 0)) for row in selected),
+                "cost_usd_total": round(sum(costs), 4) if costs else None,
+                **{
+                    f"{key}_total": sum(int(row.get("usage", {}).get(key, 0)) for row in selected) for key in usage_keys
+                },
             }
         )
     return rows
@@ -376,7 +408,7 @@ async def main(argv: list[str] | None = None) -> None:
     needs_cleanroom = any(variant != "off" for variant in variants)
     if needs_cleanroom:
         with prepare_cleanroom(PROJ_PATH) as clean_path:
-            clean_meta = validate_cleanroom(clean_path)
+            clean_meta = preflight_report(clean_path)
             manifest = run_manifest(tasks, repeats=args.repeat, cleanroom=clean_meta)
             print(json.dumps(manifest, ensure_ascii=False), flush=True)
             for repeat_index in range(1, args.repeat + 1):

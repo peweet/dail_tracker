@@ -4,6 +4,7 @@ import sqlite3
 import subprocess
 import tomllib
 from collections import Counter
+from pathlib import Path
 
 import pytest
 
@@ -16,7 +17,6 @@ def test_new_session_initializes_baselines_executes_and_reports():
         ("cr-filter-operators", str(pilot.SESSION), str(pilot.CONFIG)),
         ("cosmic-ray", "baseline", "--session-file", str(pilot.BASELINE), str(pilot.CONFIG)),
         ("cosmic-ray", "exec", str(pilot.CONFIG), str(pilot.SESSION)),
-        ("cr-report", str(pilot.SESSION), "--surviving-only"),
     )
 
 
@@ -24,8 +24,17 @@ def test_existing_session_resumes_pending_mutations_without_reinitializing():
     assert pilot._commands(session_exists=True, baseline_exists=True, prepare_only=False) == (
         ("cr-filter-operators", str(pilot.SESSION), str(pilot.CONFIG)),
         ("cosmic-ray", "exec", str(pilot.CONFIG), str(pilot.SESSION)),
-        ("cr-report", str(pilot.SESSION), "--surviving-only"),
     )
+
+
+def test_detailed_survivor_report_is_opt_in():
+    commands = pilot._commands(
+        session_exists=True,
+        baseline_exists=True,
+        prepare_only=False,
+        show_survivors=True,
+    )
+    assert commands[-1] == ("cr-report", str(pilot.SESSION), "--surviving-only")
 
 
 def test_prepare_only_stops_after_baseline():
@@ -64,7 +73,7 @@ def test_plan_does_not_resolve_tools_or_touch_session(monkeypatch, capsys, tmp_p
     assert pilot.main(["--fresh", "--plan"]) == 0
     output = capsys.readouterr().out
     assert "cosmic-ray" in output
-    assert "cr-report" in output
+    assert "cr-report" not in output
 
 
 def test_dirty_target_is_rejected_before_cosmic_ray_runs(monkeypatch, capsys):
@@ -92,6 +101,50 @@ def test_nonzero_tool_exit_is_reported(monkeypatch):
         raise AssertionError("expected PilotError")
 
 
+def test_run_uses_the_supplied_isolated_worktree(monkeypatch, tmp_path):
+    calls = []
+
+    def succeed(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(pilot.subprocess, "run", succeed)
+    pilot._run((("cosmic-ray", "exec"),), cwd=tmp_path)
+
+    assert calls[0][1]["cwd"] == tmp_path
+
+
+def test_existing_session_must_match_the_current_commit(monkeypatch, tmp_path):
+    session_head = tmp_path / "session.git-head"
+    session_head.write_text("a" * 40 + "\n", encoding="ascii")
+    monkeypatch.setattr(pilot, "SESSION_HEAD", session_head)
+
+    with pytest.raises(pilot.PilotError, match="belongs to commit"):
+        pilot._check_session_head("b" * 40, session_exists=True)
+
+
+def test_detached_worktree_is_added_and_force_removed(monkeypatch, tmp_path):
+    temporary_root = tmp_path / "cosmic-ray-temp"
+    temporary_root.mkdir()
+    calls = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(tuple(command))
+        if command[:3] == ["git", "worktree", "add"]:
+            Path(command[4]).mkdir(parents=True)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(pilot.tempfile, "mkdtemp", lambda **_kwargs: str(temporary_root))
+    monkeypatch.setattr(pilot.subprocess, "run", fake_run)
+
+    with pilot._detached_worktree("a" * 40) as worktree:
+        assert worktree == temporary_root / "worktree"
+
+    assert calls[0][:4] == ("git", "worktree", "add", "--detach")
+    assert calls[-1][:4] == ("git", "worktree", "remove", "--force")
+    assert not temporary_root.exists()
+
+
 def test_incompetent_mutations_are_rejected_even_when_cosmic_ray_exits_zero(monkeypatch):
     monkeypatch.setattr(
         pilot,
@@ -114,7 +167,7 @@ def test_valid_mutation_outcomes_report_each_disposition(monkeypatch, capsys):
     )
 
     pilot._validate_mutations()
-    assert "killed=7 survived=2 filtered=3" in capsys.readouterr().out
+    assert "killed=7 survived=2 filtered=3 active-kill-rate=77.8%" in capsys.readouterr().out
 
 
 def test_retry_invalid_mutations_preserves_valid_and_filtered_results(monkeypatch, tmp_path):

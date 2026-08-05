@@ -93,6 +93,47 @@ def test_quarantine_artifacts_written_to_disk(tmp_path):
     assert report.quarantine_parquet == str(pq)
 
 
+def test_multiple_bounds_keep_each_reason_and_report_precise_fractions(tmp_path):
+    df = pl.DataFrame(
+        {
+            "amount_eur": [100.0, -5.0, 100.0],
+            "value_eur": [100.0, 100.0, 2_000_000_000.0],
+        }
+    )
+    plausible, implausible, report = partition_implausible(
+        df,
+        name="t_multi_bound",
+        bounds=(
+            BoundRule("amount_eur", min_value=0.0, max_offending_frac=1.0),
+            BoundRule("value_eur", max_value=1_000_000_000.0, max_offending_frac=1.0),
+        ),
+        quarantine_dir=tmp_path,
+    )
+
+    assert plausible.height == 1
+    assert implausible.height == 2
+    assert set(report.vocab_breaches) == {"amount_eur", "value_eur"}
+    assert report.vocab_breaches["amount_eur"]["frac"] == pytest.approx(1 / 3, abs=0.0001)
+    assert report.vocab_breaches["value_eur"]["frac"] == pytest.approx(1 / 3, abs=0.0001)
+    held = pl.read_parquet(tmp_path / "t_multi_bound_quarantine.parquet")
+    assert held["_quarantine_reason"].to_list() == ["amount_eur", "value_eur"]
+
+
+def test_clean_partition_writes_no_empty_quarantine_artifact(tmp_path):
+    plausible, implausible, report = partition_implausible(
+        _donations(),
+        name="t_clean_partition",
+        bounds=(BoundRule("value_eur", 0, 1_000_000_000),),
+        quarantine_dir=tmp_path,
+    )
+
+    assert plausible.height == 60
+    assert implausible.height == 0
+    assert report.n_quarantined_rows == 0
+    assert not (tmp_path / "t_clean_partition_quarantine.parquet").exists()
+    assert not (tmp_path / "t_clean_partition_quarantine.json").exists()
+
+
 # --------------------------------------------------------------------------- property
 # Each example builds a Polars frame, so disable the per-example deadline / slow-data
 # health check — this is real (light) compute, not slow strategy generation.

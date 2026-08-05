@@ -42,6 +42,7 @@ instructions, but shared prompt packs do not route to it directly.
 | Canonical layered guidance | Already effective; shared UI prompts bypassed it | UI prompts now load root and nested `AGENTS.md`; `CLAUDE.md` remains a fallback |
 | Fixed task and result contracts | Existing entry prompts varied and reviewers returned unstructured prose | `.github/prompts/` uses the five-section packet; reviewers use evidence-bearing verdicts |
 | Provider-neutral task packets | The UI pack named one provider | Shared prompts no longer require Claude-specific guidance |
+| Bounded subagent roles | Generic or inherited-context spawns could bypass ownership and result contracts | Tracked scout, reviewer, and worker roles plus a fail-closed `PreToolUse` hook require fresh five-part task packets |
 | Binary review rubrics | A 1–5 design score was subjective and not regression-testable | Review and critique prompts use PASS/FAIL/NOT APPLICABLE plus evidence and severity |
 | Phase separation | Already implemented by navigator/explorer, builder, and fresh verifier roles | Retained; no duplicate orchestration layer added |
 | Bounded injected context | Discovery hints were capped, but SessionStart aggregation had no hard ceiling | SessionStart is capped at 1,600 characters and reports omitted lower-priority notes |
@@ -71,6 +72,13 @@ instructions, but shared prompt packs do not route to it directly.
 
 ## Operating the benchmark
 
+Validate the tracked prompt, role, and hook contracts without bootstrapping the full dependency
+profile:
+
+```powershell
+python tools/dev.py agent-context
+```
+
 No-cost wiring and isolation check:
 
 ```powershell
@@ -82,6 +90,11 @@ Public smoke comparison:
 ```powershell
 .venv\Scripts\python tools/evals/harness_bench.py --repeat 3 offclean on
 ```
+
+The ON arm marks only its validated ephemeral cleanroom as trusted and uses Codex's
+automation-only hook-trust bypass so tracked project hooks actually execute. The paid path reruns
+the no-cost preflight before the first provider call; OFFCLEAN continues to disable project
+settings and hooks.
 
 Private holdout schema, stored outside the checkout:
 
@@ -100,7 +113,9 @@ Set `DAIL_EVAL_INFRA_LABEL` to the stable runner or machine class. Pin provider/
 with the existing `DAIL_EVAL_PROVIDER`, `DAIL_EVAL_MODEL`, and
 `DAIL_EVAL_REASONING_EFFORT` variables. Set `DAIL_EVAL_HOLDOUT_VERSION` to an opaque private
 suite version. Compare multiple attempts; do not present a single run or a public smoke suite
-as proof of general harness quality.
+as proof of general harness quality. Attempt rows record elapsed time, score, errors, tool and
+MCP calls, usage, and provider-reported cost; summaries aggregate those measures per task and
+variant.
 
 The local cleanroom removes the direct cwd and Git-history route to the scorer; it is not an OS
 sandbox. A provider with arbitrary host-file read access could still escape that boundary. Run
