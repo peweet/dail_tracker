@@ -13,8 +13,8 @@
 -- / value flags are byte-identical and the UNION is sound. See doc/TED_ENRICHMENT.md §6.
 --
 -- ⚠️ AWARD GRAIN — never summed with eTenders or the public-payments spend facts (different
---    value_kind). pan-EU outliers + frameworks + large awards are excluded from sum-safe
---    totals downstream; COUNT is the trustworthy metric.
+--    value_kind), or with other TED notices. value_safe_to_sum is always FALSE: values are
+--    individual-notice context only; COUNT is the trustworthy aggregate metric.
 -- ⚠️ The eForms competition-intensity fields (procedure_type, single-bid, criteria) only exist
 --    for source_lane='api' (2024+); they are NULL for the per-notice-XML backfill.
 -- winner_name carries a `_NNNNN` org-id suffix on some 2024+ rows (eForms artefact); stripped

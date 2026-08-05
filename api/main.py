@@ -167,19 +167,28 @@ async def _source_unavailable(_request: Request, exc: SourceUnavailable) -> JSON
     # masquerade as 404/"no data" (the distinction QueryResult exists to keep).
     # Logged at ERROR: this is an outage, not a client mistake.
     log.error("source unavailable: %s", exc, extra={"event": "source_unavailable"})
-    return JSONResponse(status_code=503, content={"detail": str(exc), "kind": "unavailable"})
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "A required data source is temporarily unavailable.", "kind": "unavailable"},
+    )
 
 
 # Machine-readable error kinds: clients branch on `kind`, never on parsing the
 # detail string (the string-match disease the votes router once had). Applied
 # centrally so the ~45 endpoints' HTTPException raises need no edits.
 _ERROR_KINDS = {400: "bad_request", 404: "not_found", 422: "bad_request", 503: "unavailable"}
+_PUBLIC_UNAVAILABLE_DETAIL = "A required data source is temporarily unavailable."
 
 
 @app.exception_handler(StarletteHTTPException)
 async def _http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
     kind = _ERROR_KINDS.get(exc.status_code, "error")
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "kind": kind})
+    if exc.status_code == 503:
+        log.error("source unavailable: %s", exc.detail, extra={"event": "source_unavailable"})
+        detail = _PUBLIC_UNAVAILABLE_DETAIL
+    else:
+        detail = exc.detail
+    return JSONResponse(status_code=exc.status_code, content={"detail": detail, "kind": kind})
 
 
 @app.exception_handler(RequestValidationError)
@@ -223,7 +232,9 @@ def _public_get_resources() -> list[str]:
         {
             route.path
             for route in app.routes
-            if route.path.startswith("/v1") and "GET" in (getattr(route, "methods", None) or set())
+            if route.path.startswith("/v1")
+            and getattr(route, "include_in_schema", True)
+            and "GET" in (getattr(route, "methods", None) or set())
         }
     )
 

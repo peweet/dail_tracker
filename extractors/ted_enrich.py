@@ -3,7 +3,7 @@
 Both the eForms API lane (ted_ireland_extract.py, 2024+) and the legacy per-notice-XML
 lane (ted_ireland_winner_history_extract.py, 2016-2023) produce raw (notice x winner) rows
 from different sources, then run the SAME enrichment: supplier-class classification ->
-CRO match (by identifier then name) -> CRO-evidence privacy upgrade -> award-value safety
+CRO match (by identifier then name) -> CRO-evidence privacy upgrade -> award-value review
 flags. Factoring it here keeps the two lanes byte-identical in classification so their
 silver UNIONs cleanly (see doc/TED_ENRICHMENT.md §6).
 
@@ -45,7 +45,7 @@ FOREIGN_FORM = re.compile(
 
 
 def enrich_winner_rows(df: pl.DataFrame) -> pl.DataFrame:
-    """Apply the shared TED winner classification + CRO match + privacy + value flags."""
+    """Apply shared TED classification, CRO/privacy enrichment, and value flags."""
     # ---- winner classification + privacy (sole-trader quarantine flag, NOT dropped) ----
     df = (
         df.with_columns(
@@ -122,21 +122,14 @@ def enrich_winner_rows(df: pl.DataFrame) -> pl.DataFrame:
     )
 
     # ---- value flags ----------------------------------------------------------------
-    # TED award values are ceiling/award-grade, not transactions. Even SINGLE-winner notices
-    # above EU thresholds are routinely multi-year framework/operating CEILINGS. So a
-    # "single-winner" test is NOT enough — gate large awards out of value_safe_to_sum and flag
-    # them for review. Trustworthy metrics are COUNT and MEDIAN, never a naive sum.
+    # TED award values are notice-level ceiling/award-grade figures, not transactions. They
+    # remain useful on individual notices and for median/distribution diagnostics, but they
+    # must never be aggregated. Keep the legacy boolean column for schema compatibility and
+    # make the never-sum contract explicit on every row. Large values are still flagged for review.
     df = df.with_columns(
         (pl.col("award_value_eur") >= LARGE_AWARD).alias("is_large_award_review"),
     ).with_columns(
-        (
-            (pl.col("value_kind") == "contract_award_value")
-            & ~pl.col("is_multi_supplier_framework")
-            & ~pl.col("is_pan_eu_outlier")
-            & ~pl.col("is_large_award_review")
-            & pl.col("award_value_eur").is_not_null()
-            & (pl.col("award_value_eur") > 0)
-        ).alias("value_safe_to_sum"),
+        pl.lit(False).alias("value_safe_to_sum"),
         pl.lit("TED").alias("source"),
         pl.lit(datetime.now(UTC).strftime("%Y-%m-%d")).alias("retrieved_utc"),
     )

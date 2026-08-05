@@ -83,6 +83,13 @@ def test_bad_format_rejected(client):
     assert client.get("/v1/data/procurement_awards", params={"format": "xlsx"}).status_code == 422
 
 
+@pytest.mark.parametrize("resource", ["ted_awards", "ted_winner_history", "ted_buyer_history"])
+def test_ted_export_caveats_enforce_never_sum(resource):
+    caveat = EXPORTS[resource].caveat.lower()
+    assert "value_safe_to_sum is always false" in caveat
+    assert "sum only" not in caveat
+
+
 def test_snapshot_cache_invalidates_when_privacy_policy_changes(tmp_path, monkeypatch):
     source = tmp_path / "source.parquet"
     con = duckdb.connect()

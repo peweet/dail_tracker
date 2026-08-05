@@ -55,6 +55,6 @@ USER 10001:10001
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
-    CMD python -c "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8080/v1/health', timeout=5); sys.exit(0 if r.status==200 else 1)"
+    CMD python -c "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8080/v1/readiness', timeout=5); sys.exit(0 if r.status==200 else 1)"
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080"]

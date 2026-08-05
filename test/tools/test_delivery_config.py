@@ -54,6 +54,7 @@ def test_public_docker_context_excludes_the_private_planning_overlay() -> None:
 def test_ci_installs_api_and_mcp_and_smokes_delivery() -> None:
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     audit = (ROOT / ".github" / "workflows" / "audit.yml").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "--extra pipeline --extra api --extra mcp --group dev" in ci
     assert 'dail-pipeline" --list' in ci
@@ -61,5 +62,7 @@ def test_ci_installs_api_and_mcp_and_smokes_delivery() -> None:
     assert "tools/build_delivery_smoke_fixture.py" in ci
     assert 'uvicorn" api.main:app' in ci
     assert "127.0.0.1:8091/v1/health" in ci
+    assert "127.0.0.1:8080/v1/readiness" in ci
+    assert "/v1/readiness" in dockerfile
     assert "docker build --tag dailtracker-api:ci ." in ci
     assert "uv sync --frozen --all-extras --group dev" in audit

@@ -44,8 +44,8 @@ imported by a test:
 | `committee_evidence/` | `extractors/committee_witnesses_extract.py` (→ silver) | ⚠️ view-registration only |
 | `disclosed_po_spend/` | `extractors/disclosed_bq_po_extract.py` + `DISCLOSED_PO_INTEGRATION_PLAN.md` | — (TIER1-B, not promoted yet) |
 | `courts_reader/` | validated in `procurement_public_body_extract.py` | (covered by public-body tests) |
-| `_planning_output/` (data dir) | read by `extractors/planning_decision_profiles.py` etc. | ✅ `test/siting/` |
-| `procurement_payee_cro_anchor_probe.py`, `iris_planning_notices_audit.py`, `planning_areaofsite_normalise.py`, `planning_scale_gated_triggers.py` | cited as provenance / registered audit tools in `extractors/`, `doc/`, `planning_corpus_seed.csv` | — |
+| `planning/civic/extractors/` | live civic planning extractors writing `data/silver/parquet/` | ✅ `test/planning/` |
+| `procurement_payee_cro_anchor_probe.py` | cited as provenance for the promoted CRO override map | — |
 
 **Before retiring anything from sandbox**, confirm it isn't referenced by path:
 ```bash
@@ -92,10 +92,6 @@ or `git checkout 18dd551 -- pipeline_sandbox/<f>`. See that folder's `README.md`
 `procurement_la_registry.py` (routes merged into `extractors/procurement_la_payments_extract.py`).
 
 ### Still under review (NOT archived — confirm before moving)
-- **Siting probes** `siting_api_bench.py`, `siting_api_prototype.py`,
-  `siting_grid_precompute_experimental.py`, `siting_layers_simplify_experimental.py`
-  (`_finalize` sibling shipped) — no live refs, but may be intentional hand-run
-  benchmarks; awaiting owner call.
 - **`pipeline_sandbox/housing/` experimental cluster** (~19 probes) — the Housing PAGE is
   LIVE and integrated; a handful of these feed it (see below), the rest are exploratory.
   Needs a per-file producer check before any move.

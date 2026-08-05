@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="PublicSignal procurement intelligence workspace prototype." />
+    <title>PublicSignal | Procurement intelligence</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#view-root">Skip to workspace</a>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">PS</span>
+          <span><strong>PublicSignal</strong><small>Procurement intelligence</small></span>
+        </div>
+
+        <nav class="primary-nav">
+          <button class="nav-item is-active" type="button" data-view="pipeline" aria-current="page">
+            <span data-icon="inbox"></span><span>Opportunity desk</span><span class="nav-count">8</span>
+          </button>
+          <button class="nav-item" type="button" data-view="markets">
+            <span data-icon="layers"></span><span>Sector map</span>
+          </button>
+          <button class="nav-item" type="button" data-view="buyers">
+            <span data-icon="building"></span><span>Buyer dossiers</span>
+          </button>
+          <button class="nav-item" type="button" data-view="suppliers">
+            <span data-icon="briefcase"></span><span>Supplier footprints</span>
+          </button>
+          <button class="nav-item" type="button" data-view="watches">
+            <span data-icon="bell"></span><span>Watches & digests</span><span class="nav-count">3</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-section">
+          <p class="eyebrow">Workspace</p>
+          <button class="workspace-switcher" type="button">
+            <span class="avatar">NB</span>
+            <span><strong>Northbank Advisory</strong><small>Bid team</small></span>
+            <span data-icon="chevrons"></span>
+          </button>
+        </div>
+
+        <div class="data-health">
+          <div><span class="status-dot"></span><strong>Sources available</strong></div>
+          <p>TED refreshed 30 Jul. National feed refreshed 13 Jul.</p>
+          <button type="button" data-view="markets">Review coverage</button>
+        </div>
+      </aside>
+
+      <div class="page-shell">
+        <header class="topbar">
+          <button class="icon-button mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false">
+            <span data-icon="menu"></span>
+          </button>
+          <div class="topbar-title"><span class="demo-pill">Prototype</span><span>Irish public market workspace</span></div>
+          <div class="topbar-actions">
+            <button class="search-button" type="button" id="global-search">
+              <span data-icon="search"></span><span>Search buyers, suppliers, notices</span><kbd>/</kbd>
+            </button>
+            <button class="button button-primary" type="button" data-view="watches">
+              <span data-icon="plus"></span><span>New watch</span>
+            </button>
+          </div>
+        </header>
+        <main id="view-root" tabindex="-1"></main>
+      </div>
+    </div>
+    <div class="mobile-scrim" id="mobile-scrim" hidden></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

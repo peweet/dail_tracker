@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from html import escape
+from urllib.parse import urlparse
+
 import pandas as pd
 import streamlit as st
 from ui.components import todo_callout
@@ -35,19 +38,26 @@ def render_source_links(df: pd.DataFrame) -> None:
 
     for _, row in df.iterrows():
         for col in present_cols:
-            url = row.get(col)
-            if not url or not isinstance(url, str):
+            raw_url = row.get(col)
+            if not isinstance(raw_url, str):
                 continue
-            if not url.startswith("http"):
+            url = raw_url.strip()
+            parsed = urlparse(url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
                 continue
-            label_text = row.get("source_label") or _LABELS.get(col, col)
+            raw_label = row.get("source_label")
+            label_text = (
+                raw_label.strip() if isinstance(raw_label, str) and raw_label.strip() else _LABELS.get(col, col)
+            )
+            safe_url = escape(url, quote=True)
+            safe_label = escape(label_text)
             links_html += (
-                f'<a href="{url}" target="_blank" rel="noopener noreferrer"'
+                f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer"'
                 f' style="display:inline-flex;align-items:center;gap:0.3rem;'
                 f"color:var(--accent);font-weight:600;font-size:0.85rem;"
                 f"text-decoration:none;border:1px solid var(--border);"
                 f'border-radius:2px;padding:0.25rem 0.65rem;background:var(--surface)">'
-                f"{label_text} ↗</a>"
+                f"{safe_label} ↗</a>"
             )
 
     if links_html:

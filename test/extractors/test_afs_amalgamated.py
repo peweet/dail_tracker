@@ -23,7 +23,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "extractors"))
-from afs_amalgamated_extract import DIVISIONS, parse_ie, to_num  # noqa: E402
+from afs_amalgamated_extract import DIVISIONS, URLS, build_coverage, parse_ie, to_num  # noqa: E402
 
 FX = Path(__file__).resolve().parents[1] / "fixtures" / "afs"
 PAGE = FX / "afs_2020_ie_page.txt"
@@ -119,3 +119,17 @@ def test_taxonomy_tags_present(golden: pl.DataFrame):
     assert (golden["value_kind"] == "net_expenditure_actual").all()
     assert golden["scope"].unique().to_list() == ["all-31-LAs (amalgamated)"]
     assert golden["source"].str.contains("AFS").all()
+
+
+def test_coverage_preserves_year_source_and_run_status():
+    frame = pl.DataFrame({"year": [2023, 2023], "division": ["Housing", "Roads"]})
+    payload = build_coverage(frame, [(2023, "2/8", 2, 123.0, "diff €1")])
+    assert payload["rows"] == 2
+    assert payload["years_extracted"] == 1
+    assert payload["per_year"]["2023"] == {
+        "source_url": URLS[2023],
+        "status": "2/8",
+        "divisions": 2,
+        "gross_expenditure_eur": 123.0,
+        "reconciliation": "diff €1",
+    }

@@ -4,9 +4,7 @@
   "rows_with_value": 6183,
   "multi_supplier_framework_rows": 6152,
   "pan_eu_outlier_rows": 375,
-  "value_safe_to_sum_rows": 4629,
-  "value_safe_to_sum_total_eur": 6506302726.940001,
-  "value_naive_sum_eur_DO_NOT_USE": 626241613607.6101,
+  "value_safe_to_sum_rows": 0,
   "large_award_review_rows_ge_50m": 347,
   "median_award_eur": 319348.0,
   "trustworthy_metrics": "COUNT of awards + MEDIAN award value; never the naive sum (ceiling/award-grade values, tail-dominated)",
@@ -58,6 +56,6 @@
     "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 2,
-  "generated_at": "2026-08-05T20:37:51+00:00",
-  "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the framework CEILING, never per-winner \u2014 only value_safe_to_sum (single-winner, non-framework, non-pan-EU) may be totalled, labelled 'awarded', not spend. winner-identifier matched to CRO company_num after digit-strip; bare personal-name winners flagged review_personal_data (quarantine deferred). A contract award is a fact, not evidence of influence."
+  "generated_at": "2026-08-05T20:46:55+00:00",
+  "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the framework CEILING, never per-winner. It is retained for individual-notice display and distribution diagnostics only; value_safe_to_sum is always false. winner-identifier matched to CRO company_num after digit-strip; bare personal-name winners flagged review_personal_data (quarantine deferred). A contract award is a fact, not evidence of influence."
 }

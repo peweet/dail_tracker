@@ -30,7 +30,7 @@ Run everything from the repo root (the tools resolve paths relative to it):
 - [SOURCE_CADENCE_PROCEDURE.md](../../doc/SOURCE_CADENCE_PROCEDURE.md) — the registry map + new-source procedure
 
 **Data** — in `data/_meta/` so the `.gitignore` negation keeps it tracked:
-- [source_cadence.csv](../../data/_meta/source_cadence.csv) — the 165-source unified cadence ledger
+- [source_cadence.csv](../../data/_meta/source_cadence.csv) — the public source-registry cadence ledger
 
 **Baselines** — in `tools/baselines/` (the ratchet baseline convention):
 - `api_parity_baseline.txt` · `unstyled_classes_baseline.txt` · `markup_inline_baseline.json`

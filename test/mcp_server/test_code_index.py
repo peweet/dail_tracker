@@ -159,9 +159,22 @@ def test_scan_policy_excludes_dot_private_and_sandbox_trees(tmp_path):
     for directory in ("public", ".agents", "doc/private", "pipeline_sandbox", "ignored"):
         (repo / directory).mkdir(parents=True, exist_ok=True)
         (repo / directory / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "public/module.py"], check=True)
 
     paths = {entry["path"] for entry in code_index.build_code_index(repo)}
     assert paths == {"public/module.py"}
+
+
+def test_git_navigation_excludes_untracked_files_even_when_not_ignored(tmp_path):
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / "tracked.py").write_text("VALUE = 'reviewed'\n", encoding="utf-8")
+    (repo / "untracked.py").write_text("VALUE = 'scratch'\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "tracked.py"], check=True)
+
+    assert [path.name for path in code_index.iter_repository_files(repo, {".py"})] == ["tracked.py"]
+    assert code_index.outline(repo, "tracked.py")["path"] == "tracked.py"
+    assert "not tracked" in code_index.outline(repo, "untracked.py")["error"]
 
 
 def test_outline_enforces_scan_policy_for_explicit_files_and_subpackages(tmp_path):

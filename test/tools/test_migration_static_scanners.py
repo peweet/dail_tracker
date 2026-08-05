@@ -144,7 +144,7 @@ def test_url_contract_route_records_ignore_lines_but_keep_public_fields():
     first = """## Routes (1)
 | Route (`url_path`) | Title | Page module | app.py line |
 |---|---|---|---:|
-| `?page=members` | Members | `utility.pages_code.members` | 10 |
+| `/members` | Members | `utility.pages_code.members` | 10 |
 
 ## Query parameters (0 distinct)
 """
@@ -159,14 +159,14 @@ def test_url_contract_check_fails_when_route_changes_but_parameters_do_not(tmp_p
     committed = """## Routes (1)
 | Route (`url_path`) | Title | Page module | app.py line |
 |---|---|---|---:|
-| `?page=members` | Members | `utility.pages_code.members` | 10 |
+| `/members` | Members | `utility.pages_code.members` | 10 |
 
 ## Query parameters (1 distinct)
 | Parameter | Modules | Shared? |
 |---|---|---|
 | `member` | `utility/pages_code/members.py` | no |
 """
-    current = committed.replace("`?page=members`", "`?page=representatives`")
+    current = committed.replace("`/members`", "`/representatives`")
     contract = tmp_path / "URL_CONTRACT.md"
     contract.write_text(committed, encoding="utf-8")
     monkeypatch.setattr(extract_url_contract, "DEFAULT_OUT", contract)

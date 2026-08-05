@@ -102,6 +102,13 @@ def test_public_body_payments_sides(client):
         assert "caveat" in body and isinstance(body["ranking"], list)
 
 
+def test_public_body_payments_rejects_unknown_selectors(client):
+    for params in ({"side": "suplier"}, {"order_by": "largest"}):
+        response = client.get("/v1/public-body-payments", params=params)
+        assert response.status_code == 422
+        assert response.json()["kind"] == "bad_request"
+
+
 # ── Public appointments / procurement deep cuts (envelope lists) ──────────────
 
 

@@ -515,6 +515,7 @@ def refresh(
             "indexed": changed,
             "removed": removed,
             "total_files": len(src),
+            "source_scope": "git-tracked public files" if (root / ".git").exists() else "non-Git fixture files",
             "error_count": len(errors),
             "errors": errors[:25],
             "ms": int((time.perf_counter() - t0) * 1000),

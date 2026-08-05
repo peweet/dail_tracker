@@ -30,6 +30,11 @@ Run:
 
 from __future__ import annotations
 
+# isort: off
+# Apply native thread caps before Polars/NumPy loads. Ordering is the contract.
+import services.runtime_env  # noqa: F401
+# isort: on
+
 import argparse
 import contextlib
 import html as _html

@@ -4,9 +4,7 @@
   "distinct_buyers": 1315,
   "rows_with_value": 15895,
   "value_fill_rate": 0.821,
-  "value_safe_to_sum_rows": 15426,
-  "value_safe_to_sum_total_eur": 35107427966.53099,
-  "value_naive_sum_eur_DO_NOT_USE": 143490584887.75098,
+  "value_safe_to_sum_rows": 0,
   "large_award_review_rows_ge_50m": 439,
   "median_value_eur": 425000.0,
   "by_year": {
@@ -60,5 +58,5 @@
   },
   "schema_version": 1,
   "generated_at": "2026-06-08T16:32:05+00:00",
-  "caveat": "BUYER-SIDE award-notice activity. One row per notice; the WINNER is NOT present (API returns 0% winner fields for pre-2024 legacy notices). total-value is the notice's total awarded value; framework ceilings cannot be separated without a winner count, so framework detection is value-threshold-only and value_safe_to_sum is conservative. Lead with COUNT. Never merge with or sum against the winner silver or eTenders."
+  "caveat": "BUYER-SIDE award-notice activity. One row per notice; the WINNER is NOT present (API returns 0% winner fields for pre-2024 legacy notices). total-value is the notice's total awarded value; framework ceilings cannot be separated without a winner count. Values are individual-notice display only and value_safe_to_sum is always false. Lead with COUNT. Never merge with or sum against the winner silver or eTenders."
 }

@@ -1770,9 +1770,7 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     question → this tool; specific view/module → the per-kind tool. Optional `kind`
     filter: 'dataset' | 'doc' | 'sql_view' | 'code' | 'memory'. `memory` searches only
     checked-in public cards under `memory/`. Workstation-local assistant memory is
-    excluded by default and requires explicit `kind='external_memory'`; those results
-    use a separate `memory://external/` namespace. Repository source scanning
-    excludes ignored, dot, private, sandbox and generated trees. Use this as the first
+    excluded by default and requires explicit `kind='external_memory'`; those results use a separate `memory://external/` namespace. Repository source scanning includes only Git-tracked public source and excludes dot, private, sandbox and generated trees. Use this as the first
     move on any "which dataset/view/doc/module covers …?" question, before Grep/Glob.
     v2: the reply may also carry `content_spans` — BM25-ranked AST/heading CHUNKS with
     path + line span + snippet, so you Read only that span instead of the whole file."""
@@ -1854,7 +1852,9 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     else:
         out = {"query": query, "count": len(top), "results": top}
     if spans:
-        out["content_spans"] = spans
+        out.update(
+            content_spans=spans, content_source_scope=_FTS_REPORT.get("source_scope", "git-tracked public files")
+        )
         out["span_hint"] = (
             "Repository spans give path+line span — Read(path, offset=start, limit=span_len). "
             "memory://external/ paths are deliberately non-repository namespaces; use only the bounded snippet."
@@ -1904,7 +1904,7 @@ def py_deps(path: str) -> dict:
         rel = target.relative_to(REPO).as_posix()
     except (OSError, ValueError):
         return {"error": f"path escapes the repository: {path}"}
-    if not code_index.DEFAULT_SCAN_POLICY.allows(rel) or not target.is_file():
+    if not code_index.is_navigable_file(REPO, target):
         return {"error": f"no such module: {path}"}
     if not _fts_ready(include_external_memory=False):
         return {"error": "index unavailable — try again"}

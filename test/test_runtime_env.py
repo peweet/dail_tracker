@@ -39,6 +39,8 @@ ENTRY_POINTS = (
     ("extractors/npws_datasheets_extract.py", "polars"),
     ("extractors/ppr_sales_extract.py", "polars"),
     ("extractors/census_saps_2022_fetch.py", "polars"),
+    ("extractors/etenders_live_tenders_extract.py", "polars"),
+    ("extractors/legal_diary_openview_extract.py", "polars"),
     # Added 2026-08-01: the API entry point imports dail_tracker_core (→ polars/numpy)
     # via its routers. Found missing the cap in the 07-31 scaling audit; fixed same sweep.
     ("api/main.py", "fastapi"),

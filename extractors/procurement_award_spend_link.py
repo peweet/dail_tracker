@@ -15,7 +15,8 @@ Sides:
                       data/silver/parquet/ted_ie_winner_history.parquet (2016-2023, per-notice
                       XML — the "old tenders" the API carries no winners for). Without this second
                       layer ~⅔ of pre-2024 TED award winners are invisible and payments to them
-                      look unlinked (money-linkage was ~30%, this lifts it to ~42%).
+                      look unlinked. TED contributes presence and notice counts only; its values
+                      are individual-notice context and are never aggregated.
 
 Entity key is HYBRID: CRO company_num when available (most reliable, merges name variants),
 else the normalised name. ALL THREE sides resolve to CRO the SAME way — an exact-unique join of
@@ -33,7 +34,6 @@ Run: ./.venv/Scripts/python.exe extractors/procurement_award_spend_link.py
 from __future__ import annotations
 
 import contextlib
-import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,6 +42,7 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.coverage_io import save_coverage  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
@@ -191,24 +192,21 @@ def load_ted(cro_map: pl.DataFrame) -> pl.DataFrame:
     # history layer most "old tender" winners are missing and their payments look unlinked. The two
     # layers share the (publication_number, winner_name_norm) grain and overlap on ~1 notice (the
     # 2023 boundary) — dedupe so a notice-winner is never counted twice.
-    keep = ["publication_number", "winner_name", "winner_name_norm", "award_value_eur", "value_safe_to_sum"]
+    keep = ["publication_number", "winner_name", "winner_name_norm"]
     frames = []
     for fp in (TED, TED_WINNER_HISTORY):
         if fp.exists():
             d = pl.read_parquet(fp)
             frames.append(d.select([c for c in keep if c in d.columns]))
     ted = pl.concat(frames, how="vertical_relaxed")
-    ted = ted.filter(pl.col("value_safe_to_sum") & pl.col("winner_name_norm").is_not_null()).unique(
-        subset=["publication_number", "winner_name_norm"]
-    )
+    ted = ted.filter(pl.col("winner_name_norm").is_not_null()).unique(subset=["publication_number", "winner_name_norm"])
     # re-derive CRO from the shared map (not ted's own cro_company_num) so the key matches the
     # other two sides exactly.
     ted = attach_cro(ted.drop("company_num", strict=False), "winner_name_norm", cro_map)
     ted = ted.with_columns(_entity("company_num", "winner_name_norm"))
     return ted.group_by("entity").agg(
         pl.col("winner_name").drop_nulls().first().alias("ted_name"),
-        pl.col("award_value_eur").sum().alias("ted_award_eur"),
-        pl.len().alias("ted_awards"),
+        pl.col("publication_number").n_unique().alias("ted_awards"),
     )
 
 
@@ -222,30 +220,24 @@ def main() -> None:
     print(f"entities — spend {spend.height:,} | eTenders {et.height:,} | TED {ted.height:,}")
 
     link = spend.join(et, on="entity", how="full", coalesce=True).join(ted, on="entity", how="full", coalesce=True)
-    link = (
-        link.with_columns(
-            [
-                pl.col("realised_spend_eur").fill_null(0.0),
-                pl.col("etenders_award_eur").fill_null(0.0),
-                pl.col("ted_award_eur").fill_null(0.0),
-                (pl.col("spend_rows").fill_null(0) > 0).alias("in_spend"),
-                (pl.col("etenders_awards").fill_null(0) > 0).alias("in_etenders"),
-                (pl.col("ted_awards").fill_null(0) > 0).alias("in_ted"),
-                pl.coalesce(["spend_name", "etenders_name", "ted_name"]).alias("supplier_name"),
-                pl.col("entity").str.starts_with("CRO:").alias("keyed_by_cro"),
-            ]
-        )
-        .with_columns(
-            (pl.col("etenders_award_eur") + pl.col("ted_award_eur")).alias("total_award_eur"),
-        )
-        .with_columns(
-            (pl.col("in_spend") & (pl.col("in_etenders") | pl.col("in_ted"))).alias("award_and_spend"),
-            # realised/award ratio — only meaningful when both sides present and award>0
-            pl.when((pl.col("total_award_eur") > 0) & (pl.col("realised_spend_eur") > 0))
-            .then(pl.col("realised_spend_eur") / pl.col("total_award_eur"))
-            .otherwise(None)
-            .alias("spend_to_award_ratio"),
-        )
+    link = link.with_columns(
+        [
+            pl.col("realised_spend_eur").fill_null(0.0),
+            pl.col("etenders_award_eur").fill_null(0.0),
+            (pl.col("spend_rows").fill_null(0) > 0).alias("in_spend"),
+            (pl.col("etenders_awards").fill_null(0) > 0).alias("in_etenders"),
+            (pl.col("ted_awards").fill_null(0) > 0).alias("in_ted"),
+            pl.coalesce(["spend_name", "etenders_name", "ted_name"]).alias("supplier_name"),
+            pl.col("entity").str.starts_with("CRO:").alias("keyed_by_cro"),
+        ]
+    ).with_columns(
+        (pl.col("in_spend") & (pl.col("in_etenders") | pl.col("in_ted"))).alias("award_and_spend"),
+        # Ratio is restricted to national eTenders values. TED is count-only and must not
+        # be combined with the national award register.
+        pl.when((pl.col("etenders_award_eur") > 0) & (pl.col("realised_spend_eur") > 0))
+        .then(pl.col("realised_spend_eur") / pl.col("etenders_award_eur"))
+        .otherwise(None)
+        .alias("spend_to_etenders_award_ratio"),
     )
 
     cols = [
@@ -259,10 +251,8 @@ def main() -> None:
         "in_ted",
         "award_and_spend",
         "realised_spend_eur",
-        "total_award_eur",
         "etenders_award_eur",
-        "ted_award_eur",
-        "spend_to_award_ratio",
+        "spend_to_etenders_award_ratio",
         "spend_rows",
         "n_spend_publishers",
         "etenders_awards",
@@ -280,17 +270,16 @@ def main() -> None:
     print(
         f"  in spend: {int(link['in_spend'].sum()):,} | in eTenders: {int(link['in_etenders'].sum()):,} | in TED: {int(link['in_ted'].sum()):,}"
     )
-    print(
-        f"  AWARD+SPEND (linkable): {both.height:,}  -> realised €{both['realised_spend_eur'].sum():,.0f} vs awards €{both['total_award_eur'].sum():,.0f}"
-    )
+    print(f"  AWARD+SPEND (linkable): {both.height:,}  -> realised €{both['realised_spend_eur'].sum():,.0f}")
     print(
         f"  spend-only (no award, sub-threshold long tail): {spend_only.height:,} -> €{spend_only['realised_spend_eur'].sum():,.0f}"
     )
     print(f"  keyed by CRO number: {int(link['keyed_by_cro'].sum()):,} / {link.height:,}")
-    print("\nTop award+spend suppliers (realised vs awarded):")
+    print("\nTop award+spend suppliers (TED is count-only; eTenders value shown separately):")
     for r in both.head(10).iter_rows(named=True):
         print(
-            f"  {str(r['supplier_name'])[:34]:<34} spend €{r['realised_spend_eur']:>13,.0f} | award €{r['total_award_eur']:>13,.0f} | x{r['spend_to_award_ratio'] or 0:.2f}"
+            f"  {str(r['supplier_name'])[:34]:<34} spend €{r['realised_spend_eur']:>13,.0f} "
+            f"| eTenders award €{r['etenders_award_eur']:>13,.0f} | TED notices {r['ted_awards'] or 0}"
         )
 
     summary = {
@@ -300,7 +289,6 @@ def main() -> None:
         "in_ted": int(link["in_ted"].sum()),
         "award_and_spend_entities": both.height,
         "award_and_spend_realised_eur": float(both["realised_spend_eur"].sum()),
-        "award_and_spend_award_eur": float(both["total_award_eur"].sum()),
         "spend_only_entities": spend_only.height,
         "spend_only_eur": float(spend_only["realised_spend_eur"].sum()),
         "keyed_by_cro": int(link["keyed_by_cro"].sum()),
@@ -312,7 +300,7 @@ def main() -> None:
         "Entity key is CRO company_num where available else normalised name; CRO coverage "
         "is partial so name-keyed entities may still be the same firm under a variant spelling.",
     }
-    OUT_SUMMARY.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    save_coverage(summary, OUT_SUMMARY)
     print(f"\nwrote {OUT}\nwrote {OUT_SUMMARY}")
 
 

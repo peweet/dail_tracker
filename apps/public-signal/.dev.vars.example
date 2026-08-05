@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local development. Never commit the real values.
+RESEND_API_KEY=re_replace_me
+ADMIN_API_KEY=replace-with-a-long-random-value
+PROCUREMENT_FEED_TOKEN=

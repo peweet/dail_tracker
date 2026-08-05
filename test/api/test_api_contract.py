@@ -4,6 +4,7 @@ convention. These tests lock the cross-cutting guarantees (not per-resource data
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 
@@ -13,11 +14,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytest.importorskip("fastapi")
 import duckdb  # noqa: E402
-from fastapi import FastAPI  # noqa: E402
+from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from api.main import app  # noqa: E402
+from api.main import _PUBLIC_UNAVAILABLE_DETAIL, _http_error, _source_unavailable, app  # noqa: E402
 from api.routers import health  # noqa: E402
+from dail_tracker_core.results import SourceUnavailable  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -62,7 +64,8 @@ def test_health_is_not_ready_without_registered_views():
         with TestClient(probe) as client:
             response = client.get("/v1/health")
         assert response.status_code == 503
-        assert response.json()["detail"] == "database missing required data views: v_payments_base"
+        assert response.json()["detail"].startswith("database missing required data views: ")
+        assert "v_payments_base" in response.json()["detail"]
     finally:
         conn.close()
 
@@ -76,9 +79,27 @@ def test_health_requires_a_data_backed_core_view():
     try:
         with TestClient(probe) as client:
             assert client.get("/v1/health").status_code == 503
-            conn.execute("CREATE VIEW v_payments_base AS SELECT 1 AS payment")
+            for view in health._LIVENESS_VIEWS:
+                conn.execute(f"CREATE VIEW {view} AS SELECT 1 AS value")
             response = client.get("/v1/health")
+            assert client.get("/v1/readiness").status_code == 503
+            for view in health._REQUIRED_VIEWS - health._LIVENESS_VIEWS:
+                conn.execute(f"CREATE VIEW {view} AS SELECT 1 AS value")
+            ready = client.get("/v1/readiness")
         assert response.status_code == 200
-        assert response.json() == {"status": "ok", "views_registered": 2}
+        assert response.json()["status"] == "ok"
+        assert response.json()["views_registered"] == len(health._LIVENESS_VIEWS) + 1
+        assert ready.status_code == 200
+        assert ready.json()["views_registered"] == len(health._REQUIRED_VIEWS) + 1
     finally:
         conn.close()
+
+
+def test_unavailable_http_errors_do_not_expose_internal_detail():
+    response = asyncio.run(_http_error(None, HTTPException(status_code=503, detail="DuckDB at /private/path failed")))
+    assert response.status_code == 503
+    assert response.body == (f'{{"detail":"{_PUBLIC_UNAVAILABLE_DETAIL}","kind":"unavailable"}}'.encode())
+
+    source_response = asyncio.run(_source_unavailable(None, SourceUnavailable("DuckDB at /private/path failed")))
+    assert source_response.status_code == 503
+    assert _PUBLIC_UNAVAILABLE_DETAIL.encode() in source_response.body

@@ -1,4 +1,4 @@
-"""Phase 0 (sandbox): ingest national Irish planning applications -> silver parquet.
+"""Live civic extractor: ingest national Irish planning applications -> silver parquet.
 
 Implements the LOCKED plan in doc/archive/PLANNING_PERMISSION_SCOPING.md §8:
   ArcGIS REST FeatureServer Layer 0 (paginated geometry pull, EPSG:4326)
@@ -7,7 +7,7 @@ Implements the LOCKED plan in doc/archive/PLANNING_PERMISSION_SCOPING.md §8:
      Ireland-bbox geo guard, row-count assertion)
   -> parquet via services.parquet_io.save_parquet (atomic, zstd L3, statistics).
 
-Sandbox only until validated. SMOKE-TEST one council first:
+For a bounded smoke test, pull one council first:
     python planning/civic/extractors/planning_applications_ingest.py --authority "Carlow County Council"
 Full national sweep (~248 pages / ~495k rows):
     python planning/civic/extractors/planning_applications_ingest.py

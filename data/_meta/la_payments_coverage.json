@@ -1,22 +1,22 @@
 {
   "councils_attempted": 24,
   "councils_with_rows": 23,
-  "rows_extracted": 99795,
-  "rows_public_display": 80010,
-  "rows_quarantined": 19785,
+  "rows_extracted": 100237,
+  "rows_public_display": 80412,
+  "rows_quarantined": 19825,
   "supplier_class_counts": {
-    "sole_trader_or_individual": 19273,
-    "company": 78023,
-    "public_body": 1958,
+    "company": 78423,
+    "sole_trader_or_individual": 19313,
+    "public_body": 1960,
     "foreign_company": 29,
     "id_code": 512
   },
   "value_kind_counts": {
-    "po_committed": 91943,
+    "po_committed": 92385,
     "payment_actual": 7852
   },
-  "public_safe_to_sum_rows": 80010,
-  "public_safe_to_sum_total_eur": 9277331506.970001,
+  "public_safe_to_sum_rows": 80412,
+  "public_safe_to_sum_total_eur": 9326016917.87,
   "by_council": [
     {
       "slug": "south_dublin",
@@ -78,7 +78,7 @@
       "files_parsed": 38,
       "rows": 5564,
       "total_eur": 944738334.08,
-      "cro_rate": 0.445,
+      "cro_rate": 0.446,
       "periods": [
         "2017",
         "2017-Q1",
@@ -121,10 +121,10 @@
       "council": "Wicklow",
       "region": "Leinster",
       "value_kind": "po_committed",
-      "files_parsed": 80,
-      "rows": 10409,
-      "total_eur": 918309990.0,
-      "cro_rate": 0.472,
+      "files_parsed": 82,
+      "rows": 10693,
+      "total_eur": 953090345.59,
+      "cro_rate": 0.474,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -163,10 +163,10 @@
       "council": "Monaghan",
       "region": "Ulster",
       "value_kind": "po_committed",
-      "files_parsed": 41,
-      "rows": 3121,
-      "total_eur": 332236309.53,
-      "cro_rate": 0.562,
+      "files_parsed": 42,
+      "rows": 3245,
+      "total_eur": 346976516.21999997,
+      "cro_rate": 0.574,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -176,6 +176,7 @@
         "2017-Q2",
         "2017-Q3",
         "2017-Q4",
+        "2018-Q1",
         "2018-Q2",
         "2018-Q3",
         "2018-Q4",
@@ -202,6 +203,7 @@
         "2024-Q1",
         "2024-Q2",
         "2024-Q3",
+        "2024-Q4",
         "2025-Q1",
         "2025-Q2",
         "2025-Q3",
@@ -268,7 +270,7 @@
       "files_parsed": 42,
       "rows": 5731,
       "total_eur": 603531667.51,
-      "cro_rate": 0.392,
+      "cro_rate": 0.393,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -322,7 +324,7 @@
       "files_parsed": 38,
       "rows": 9790,
       "total_eur": 683906557.36,
-      "cro_rate": 0.308,
+      "cro_rate": 0.309,
       "periods": [
         "2017-Q1",
         "2017-Q2",
@@ -422,9 +424,9 @@
       "region": "Leinster",
       "value_kind": "po_committed",
       "files_parsed": 41,
-      "rows": 3943,
-      "total_eur": 331987822.05,
-      "cro_rate": 0.336,
+      "rows": 3975,
+      "total_eur": 332025782.48,
+      "cro_rate": 0.395,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -464,9 +466,9 @@
         "2024-Q4",
         "2025-Q1",
         "2025-Q2",
-        "2025-Q3",
         "2025-Q4",
-        "2026-Q1"
+        "2026-Q1",
+        "2026-Q2"
       ]
     },
     {
@@ -477,7 +479,7 @@
       "files_parsed": 36,
       "rows": 3253,
       "total_eur": 629087393.43,
-      "cro_rate": 0.192,
+      "cro_rate": 0.193,
       "periods": [
         "2017-Q2",
         "2017-Q3",
@@ -525,7 +527,7 @@
       "files_parsed": 22,
       "rows": 5776,
       "total_eur": 591839588.9,
-      "cro_rate": 0.511,
+      "cro_rate": 0.513,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -665,7 +667,7 @@
       "files_parsed": 42,
       "rows": 5969,
       "total_eur": 888395358.75,
-      "cro_rate": 0.31,
+      "cro_rate": 0.311,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -705,7 +707,7 @@
       "files_parsed": 23,
       "rows": 2042,
       "total_eur": 279219139.12,
-      "cro_rate": 0.092,
+      "cro_rate": 0.093,
       "periods": [
         "2016-Q2",
         "2016-Q3",
@@ -740,7 +742,7 @@
       "files_parsed": 29,
       "rows": 4516,
       "total_eur": 431593470.22,
-      "cro_rate": 0.52,
+      "cro_rate": 0.521,
       "periods": [
         "2018-Q2",
         "2018-Q4",
@@ -812,7 +814,7 @@
       "files_parsed": 40,
       "rows": 7849,
       "total_eur": 918435874.38,
-      "cro_rate": 0.315,
+      "cro_rate": 0.316,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -864,7 +866,7 @@
       "files_parsed": 8,
       "rows": 5664,
       "total_eur": 750754530.24,
-      "cro_rate": 0.307,
+      "cro_rate": 0.308,
       "periods": [
         "2019",
         "2020",
@@ -882,6 +884,6 @@
   "parser_version": "0.1.0",
   "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
   "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
-  "generated_at": "2026-07-20T10:55:01+00:00",
+  "generated_at": "2026-08-05T21:14:52+00:00",
   "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
 }

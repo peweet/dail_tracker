@@ -37,15 +37,15 @@ WHERE feed = 'cft'
   AND TRY_CAST(deadline_date AS DATE) < CURRENT_DATE + INTERVAL 3 YEAR  -- exclude far-future DPS application windows
 ORDER BY submission_deadline ASC;                         -- soonest-closing first
 
--- "Who is buying right now" — open opportunities by contracting authority (counts + an indicative
--- estimated-value floor that is PLANNED-tier and must be labelled as such, never as committed/paid).
+-- "Who is buying right now" — open opportunities by contracting authority. Planned estimates
+-- remain on individual notices and are never aggregated.
 CREATE OR REPLACE VIEW v_procurement_live_tenders_summary AS
 SELECT
     buyer,
     COUNT(*)                                                 AS n_open_tenders,
     MIN(submission_deadline)                                 AS next_closing,
     COUNT(*) FILTER (WHERE days_to_deadline <= 14)           AS closing_within_14d,
-    SUM(estimated_value_eur)                                 AS est_value_floor_eur  -- PLANNED estimates only; never "spend"
+    COUNT(*) FILTER (WHERE estimated_value_eur IS NOT NULL)  AS n_with_estimate
 FROM v_procurement_live_tenders
 GROUP BY buyer
 ORDER BY n_open_tenders DESC;

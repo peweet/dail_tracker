@@ -50,6 +50,7 @@ from ui.components import (
     render_notable_chips,
 )
 from ui.entity_links import member_profile_url
+from ui.export_controls import export_button
 from ui.source_pdfs import interests_pdf_links, provenance_expander
 
 # ── Ownership category filters ─────────────────────────────────────────────────
@@ -314,7 +315,7 @@ def what_they_own_page() -> None:
         none_declared = int((~declared).sum())
         members_df = members_df[declared].reset_index(drop=True)
 
-    member_label = "TDs and senators" if house == "Dáil" else "senators"
+    member_label = "TDs" if house == "Dáil" else "senators"
     # Scope phrase shared by every caption — makes clear the count is a single
     # year's snapshot, never a running total across years.
     if selected_year is None:
@@ -343,6 +344,13 @@ def what_they_own_page() -> None:
         )
         _render_provenance(house)
         return
+
+    export_button(
+        members_df,
+        label="Download filtered members (CSV)",
+        filename="what-they-own.csv",
+        key="wto_export",
+    )
 
     # Keep the leaderboard rank only on the unfiltered "Everyone" view, where it
     # reads as a true 1..N ranking. Filtered views would otherwise show gapped

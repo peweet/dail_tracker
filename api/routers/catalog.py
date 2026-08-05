@@ -230,6 +230,11 @@ _RESOURCES = [
 ]
 
 
+def required_catalog_views() -> frozenset[str]:
+    """Views that back resources explicitly promised by the public catalogue."""
+    return frozenset(str(resource["count_view"]) for resource in _RESOURCES)
+
+
 def _count(conn, view: str) -> int | None:
     if conn is None:
         return None

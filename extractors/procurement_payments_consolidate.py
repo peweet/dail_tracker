@@ -46,7 +46,6 @@ from __future__ import annotations
 
 import contextlib
 import csv
-import json
 import re
 import sys
 import unicodedata
@@ -62,6 +61,7 @@ from _publisher_regime import regime_for  # noqa: E402
 
 from extractors._paid_flag_clean import clean_paid_flag  # noqa: E402
 from services import parse_qa  # noqa: E402
+from services.coverage_io import save_coverage  # noqa: E402
 from services.data_contracts import guard_payment_fact, reconciliation_violations  # noqa: E402
 from services.deflator import value_plausible_expr  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
@@ -1012,7 +1012,7 @@ def main() -> None:
         "counting the same money across those two legs, exclude supplier_class='public_body' "
         "from spend totals at the consuming view/page.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"wrote coverage -> {OUT_COV}")
     print("\nsafe €/tier:", cov["safe_eur_by_tier"])
 

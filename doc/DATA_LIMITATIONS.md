@@ -637,7 +637,7 @@ Two award registers sit side by side and **must never be unioned or summed** —
 **TED (EU):**
 
 - Still a **silver** layer, regenerable, not gold. The Search-API lane covers **2024 onward only** — pre-2024 winner names are genuinely null in that API, so the date floor is a source limit, not a choice. A separate per-notice XML lane recovers 2016–2023 winners (~50% CRO-matched).
-- The naive TED sum (~€624bn) is meaningless: **375 pan-EU outlier rows** (research frameworks such as GÉANT, where Ireland is one of dozens of participants, flagged `is_pan_eu_outlier`) account for ~€586bn. Trust **count and median**, never the sum.
+- TED notice values are retained only as individual-notice context. Framework ceilings can repeat across winners and pan-EU notices can cover many countries, so `value_safe_to_sum` is always false; trust **count and median**, never a total.
 
 Live / open tenders are a forward-looking planned-value *estimate* (`value_kind=estimate_advertised`, never sum-safe), include already-closed and DPS records back to 2023, and carry no CPV category.
 

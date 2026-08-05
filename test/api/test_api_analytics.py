@@ -63,10 +63,13 @@ def test_root_discovery_is_derived_from_every_registered_get_route() -> None:
         {
             route.path
             for route in app.routes
-            if route.path.startswith("/v1") and "GET" in (getattr(route, "methods", None) or set())
+            if route.path.startswith("/v1")
+            and getattr(route, "include_in_schema", True)
+            and "GET" in (getattr(route, "methods", None) or set())
         }
     )
 
     resources = root()["resources"]
     assert resources == expected
     assert "/v1/analytics/payments/summary" in resources
+    assert "/v1/procurement/real-trends" not in resources

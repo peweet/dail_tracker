@@ -7,8 +7,8 @@
       "metric": "cro_match",
       "kind": "MATCH_RATE_DROP",
       "baseline_ratio": 0.6458,
-      "ratio": 0.2281,
-      "pct_of_baseline": 35.3
+      "ratio": 0.232,
+      "pct_of_baseline": 35.9
     }
   ]
 }

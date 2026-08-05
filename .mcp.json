@@ -25,6 +25,14 @@
         "MKL_NUM_THREADS": "1",
         "NUMEXPR_NUM_THREADS": "1"
       }
+    },
+    "next-devtools": {
+      "command": "npx",
+      "args": ["-y", "next-devtools-mcp@latest"]
+    },
+    "storybook-siting": {
+      "type": "http",
+      "url": "http://127.0.0.1:6006/mcp"
     }
   }
 }

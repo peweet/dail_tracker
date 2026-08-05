@@ -38,6 +38,7 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.coverage_io import save_coverage  # noqa: E402
 from services.http_engine import post_json  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.buyer_clean import clean_buyer_display  # noqa: E402
@@ -270,7 +271,7 @@ def main() -> None:
         "award value and never a payment; value_safe_to_sum is always FALSE. NEVER sum with award or "
         "payment figures (three-grain firewall). A tender notice is a procurement opportunity, not a contract.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"SILVER WRITTEN: {df.height:,} notices -> {OUT_SILVER}")
     print(f"  with estimated value: {cov['rows_with_estimated_value']:,}  with deadline: {cov['rows_with_deadline']:,}")
     print(f"wrote coverage {OUT_COV}")

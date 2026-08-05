@@ -61,6 +61,17 @@ def test_summary_reconciles_to_open_count(con):
     assert detail == summ
 
 
+def test_summary_never_aggregates_planned_estimates(con):
+    columns = {row[0] for row in con.execute("DESCRIBE v_procurement_live_tenders_summary").fetchall()}
+    assert "est_value_floor_eur" not in columns
+    assert "n_with_estimate" in columns
+    bad = _q(
+        con,
+        "SELECT COUNT(*) FROM v_procurement_live_tenders_summary WHERE n_with_estimate > n_open_tenders",
+    )
+    assert bad == 0
+
+
 def test_buyer_name_is_clean(con):
     # The eTenders grid appends an internal org id ("Cork County Council_424") and school roll
     # numbers ("Scoil Ailbhe - (18030I)") to the buyer name; the extractor strips both. A real

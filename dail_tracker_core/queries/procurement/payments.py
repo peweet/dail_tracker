@@ -393,7 +393,7 @@ def entity_chain_for_company(conn: duckdb.DuckDBPyConnection, company_num: str) 
         conn,
         "SELECT company_num, display_name, in_etenders, in_ted, in_payments, n_registers,"
         " etenders_award_rows, etenders_n_authorities, etenders_awarded_value_safe_eur,"
-        " ted_awards, ted_n_buyers, ted_value_safe_eur,"
+        " ted_awards, ted_n_buyers,"
         " payment_lines, payments_n_publishers, paid_safe_eur, committed_safe_eur"
         " FROM v_procurement_entity_chain WHERE company_num = ?",
         [company_num],

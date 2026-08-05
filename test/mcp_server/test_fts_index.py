@@ -10,6 +10,7 @@ returning nothing.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -216,6 +217,18 @@ def test_scan_policy_and_external_memory_are_explicit(tmp_path):
     assert external_hits[0]["kind"] == "external-memory"
     with pytest.raises(ValueError, match="invalid chunk kind"):
         fts_index.search(repo, "widgets", kind="private")
+
+
+def test_git_content_index_excludes_untracked_source_and_reports_scope(tmp_path):
+    repo = _mini_repo(tmp_path)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "pkg/widgets.py", "doc.md", "sql_views/v_widgets.sql"], check=True)
+    (repo / "scratch.md").write_text("unreviewed retrieval marker\n", encoding="utf-8")
+
+    report = fts_index.refresh(repo)
+
+    assert report["source_scope"] == "git-tracked public files"
+    assert not fts_index.search(repo, "unreviewed retrieval marker")
 
 
 def test_parse_errors_are_reported_and_stale_chunks_removed(tmp_path):

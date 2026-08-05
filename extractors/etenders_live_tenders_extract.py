@@ -27,6 +27,11 @@ Run:
 
 from __future__ import annotations
 
+# isort: off
+# Apply native thread caps before Polars/NumPy loads. Ordering is the contract.
+import services.runtime_env  # noqa: F401
+# isort: on
+
 import argparse
 import contextlib
 import json
@@ -38,7 +43,6 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import polars as pl
-from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -285,6 +289,11 @@ def _snapshot_age_hours() -> float | None:
 
 
 def main() -> None:
+    # Keep the browser dependency lazy so parser/unit-test imports work in the
+    # base pipeline environment. The live extractor still fails clearly at run
+    # time when the optional scrape extra is not installed.
+    from playwright.sync_api import sync_playwright
+
     # logging + UTF-8 + exit-code handling live in run_extractor (__main__ below)
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-pages", type=int, default=120, help="page cap per feed (politeness)")

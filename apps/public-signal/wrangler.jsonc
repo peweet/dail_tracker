@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "public-signal",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-05",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "public-signal",
+      "database_id": "bafe7412-de1d-4d71-9b18-52f8b7b3b833",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["10 7 * * MON-FRI"]
+  },
+  "vars": {
+    "APP_URL": "https://publicsignal.ie",
+    "EMAIL_FROM": "PublicSignal <alerts@publicsignal.ie>",
+    "PROCUREMENT_FEED_URL": ""
+  },
+  // publicsignal.ie is purchased but was not yet present in the .IE registry on
+  // 2026-08-05. Once the zone is active in Cloudflare, uncomment and deploy:
+  // "routes": [
+  //   {
+  //     "pattern": "publicsignal.ie",
+  //     "custom_domain": true
+  //   }
+  // ],
+  "observability": {
+    "enabled": true
+  }
+}

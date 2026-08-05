@@ -6451,12 +6451,9 @@ def inject_css() -> None:
               renders after pg.run() on every page, so it must win any equal-specificity
               collision with a page family above it. Defines no tokens of its own. */
         .sup-wrap { max-width: 62rem; margin: 0 auto; }
-        /* One optical column: the hero's 4px stripe + 1.4rem gutter pushes its text
-           right, so every block below is inset by the same amount. */
-        .sup-costs, .sup-ask, .sup-help, .sup-honest { margin-left: calc(1.4rem + 4px); }
-
-        .sup-hero { border-left: 4px solid var(--accent); padding: 0.15rem 0 0.15rem 1.4rem;
+        .sup-hero { border-top: 3px solid var(--accent); padding: 1.15rem 0 0;
             margin: 0.4rem 0 2.2rem 0; }
+        .sup-kicker { font-family: 'Epilogue', sans-serif; font-size: 0.71rem; font-weight: 700; letter-spacing: 0.09em; line-height: 1.25; text-transform: uppercase; color: var(--accent); margin: 0 0 0.48rem 0; }
         .sup-hero h1 {
             font-family: 'Zilla Slab', Georgia, serif; font-weight: 700; font-size: 2.45rem;
             line-height: 1.12; letter-spacing: -0.012em; color: var(--text-primary);
@@ -6491,7 +6488,8 @@ def inject_css() -> None:
 
         .sup-ask {
             background: var(--accent-subtle); border: 1px solid var(--accent-dim);
-            border-radius: 10px; padding: 1.7rem 1.8rem 1.8rem; margin-bottom: 2.2rem;
+            border-radius: 10px; padding: 1.5rem 1.65rem; margin-bottom: 2.2rem; display: grid; grid-template-columns: minmax(0, 1fr) minmax(15.5rem, 0.58fr);
+            gap: 1.35rem 2rem; align-items: center;
         }
         .sup-ask h2 {
             font-family: 'Zilla Slab', Georgia, serif; font-weight: 600; font-size: 1.42rem;
@@ -6499,7 +6497,7 @@ def inject_css() -> None:
         }
         .sup-ask p {
             font-family: 'Epilogue', sans-serif; font-size: 0.97rem; line-height: 1.62;
-            color: var(--text-secondary); margin: 0 0 1.3rem 0; max-width: 42rem;
+            color: var(--text-secondary); margin: 0; max-width: 42rem;
         }
         /* Material Symbols ligature; the font is already loaded by the @import above.
            Inherits `color`, unlike the ☕ emoji, which the OS paints in its own colours
@@ -6512,21 +6510,22 @@ def inject_css() -> None:
         .sup-btn {
             display: inline-flex; align-items: center; gap: 0.6rem; background: var(--accent);
             color: #fff !important; font-family: 'Epilogue', sans-serif; font-weight: 600;
-            font-size: 1.02rem; text-decoration: none !important; padding: 0.82rem 1.6rem;
+            font-size: 1.02rem; text-decoration: none !important; min-height: 2.75rem;
+            padding: 0.7rem 1.35rem;
             border-radius: 8px; border: 1px solid transparent;
             box-shadow: 0 1px 2px oklch(0% 0 0 / .10);
-            transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+            transition: box-shadow .12s ease, background .12s ease;
         }
         .sup-btn:hover {
-            background: var(--signal-bad-deep); box-shadow: 0 4px 14px oklch(0% 0 0 / .16);
-            transform: translateY(-1px); color: #fff !important;
+            background: var(--signal-bad-deep); box-shadow: 0 3px 10px oklch(0% 0 0 / .14);
+            color: #fff !important;
         }
-        /* The gap belongs to this row: Streamlit's markdown container styles <p>
-           margins with enough specificity to flatten a margin-top on the note. */
-        .sup-btn-row { margin: 0 0 1.15rem 0; }
+        .sup-btn:active { box-shadow: inset 0 1px 2px oklch(0% 0 0 / .18); }
+        .sup-btn:focus-visible, .sup-btn-ghost:focus-visible, .sup-footer-coffee:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 3px; }
+        .sup-ask-action { display: flex; flex-direction: column; align-items: flex-start; gap: 0.65rem; }
         .sup-btn-note {
-            font-family: 'Epilogue', sans-serif; font-size: 0.8rem; color: var(--text-meta);
-            margin: 0 !important; display: block;
+            font-family: 'Epilogue', sans-serif; font-size: 0.78rem; line-height: 1.48;
+            color: var(--text-meta); margin: 0 !important; display: block; max-width: 21rem;
         }
 
         .sup-help { margin-bottom: 2.4rem; }
@@ -6540,8 +6539,8 @@ def inject_css() -> None:
         }
         .sup-routes { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
         .sup-route {
-            border: 1px solid var(--border); border-left: 3px solid var(--accent);
-            border-radius: 8px; background: #ffffff; padding: 1.25rem 1.35rem 1.35rem;
+            border: 1px solid var(--border); border-top: 3px solid var(--accent);
+            border-radius: 8px; background: var(--surface); padding: 1.1rem 1.25rem 1.25rem;
             display: flex; flex-direction: column;
         }
         .sup-route h3 {
@@ -6558,7 +6557,8 @@ def inject_css() -> None:
             display: inline-flex; align-items: center; gap: 0.5rem; align-self: flex-start;
             font-family: 'Epilogue', sans-serif; font-weight: 600; font-size: 0.9rem;
             color: var(--accent) !important; text-decoration: none !important;
-            padding: 0.55rem 1.05rem; border: 1px solid var(--accent-dim); border-radius: 7px;
+            min-height: 2.75rem; padding: 0.55rem 1rem;
+            border: 1px solid var(--accent-dim); border-radius: 7px;
             background: var(--accent-subtle);
             transition: border-color .12s ease, background .12s ease;
         }
@@ -6582,8 +6582,8 @@ def inject_css() -> None:
         .sup-private a:hover { border-bottom-color: var(--accent); }
 
         .sup-honest {
-            border: 1px solid var(--border); border-left: 3px solid var(--ink-muted);
-            border-radius: 8px; background: #ffffff; padding: 1.5rem 1.7rem 1.55rem;
+            border: 1px solid var(--border); border-top: 3px solid var(--ink-muted);
+            border-radius: 8px; background: var(--surface); padding: 1.4rem 1.55rem 1.45rem;
             margin-bottom: 2.4rem;
         }
         .sup-honest h2 {
@@ -6621,20 +6621,19 @@ def inject_css() -> None:
         .sup-footer-coffee {
             display: inline-flex; align-items: center; gap: 0.4rem;
             color: var(--accent) !important; font-weight: 600;
+            min-height: 2.75rem; padding: 0.2rem 0;
             border-bottom: 1px solid var(--accent-dim) !important; white-space: nowrap;
         }
         .sup-footer-coffee:hover { border-bottom-color: var(--accent) !important; }
 
         @media (max-width: 640px) {
             .sup-hero h1 { font-size: 1.85rem; }
-            /* Reclaim the optical inset — 26px of gutter is worth more than
-               alignment on a 390px screen. */
-            .sup-costs, .sup-ask, .sup-help, .sup-honest { margin-left: 0; }
             .sup-costs { grid-template-columns: 1fr; }
             .sup-cost + .sup-cost {
                 border-left: none; border-top: 1px solid var(--border); padding-left: 0;
             }
             .sup-routes { grid-template-columns: 1fr; }
+            .sup-ask { grid-template-columns: 1fr; padding: 1.3rem 1.2rem; gap: 1.1rem; }
             .sup-footer-spacer { display: none; }
         }
         [data-testid="stTopNavLink"]:focus-visible, [data-testid="stTopNavSection"]:focus-visible { outline: 2px solid oklch(78% 0.14 72) !important; outline-offset: -2px !important; background: rgba(255,255,255,0.08) !important; }

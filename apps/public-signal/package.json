@@ -1,0 +1,20 @@
+{
+  "name": "public-signal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply public-signal --local",
+    "db:migrate:remote": "wrangler d1 migrations apply public-signal --remote",
+    "check": "node --check public/app.js && node --check public/sample-data.js && node --check worker/index.js && node --test worker/index.test.js",
+    "test": "node --test worker/index.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.86.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

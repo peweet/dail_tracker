@@ -270,7 +270,7 @@ def build_report() -> str:
     w("| Route (`url_path`) | Title | Page module | app.py line |")
     w("|---|---|---|---:|")
     for r in sorted(routes, key=lambda x: x["url_path"] or x["title"]):
-        path_disp = f"`?page={r['url_path']}`" if r["url_path"] else "_(default)_"
+        path_disp = f"`/{r['url_path']}`" if r["url_path"] else "_(default)_"
         w(f"| {path_disp} | {r['title']} | `{r['module']}` | {r['line']} |")
     w("")
 
@@ -340,7 +340,11 @@ def extract_routes_from_doc(text: str) -> list[tuple[str, str, str]]:
         route, title, module, _line_number = cells
         if route == "_(default)_":
             url_path = ""
+        elif route.startswith("`/") and route.endswith("`"):
+            url_path = route[2:-1]
         elif route.startswith("`?page=") and route.endswith("`"):
+            # Backward-compatible parser for contracts generated before the
+            # Streamlit multipage app switched to path-based ``url_path`` routes.
             url_path = route[len("`?page=") : -1]
         else:
             continue

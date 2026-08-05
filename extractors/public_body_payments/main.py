@@ -17,12 +17,20 @@ from datetime import UTC, datetime
 import polars as pl
 
 from extractors._paid_flag_clean import clean_paid_flag
+from services.coverage_io import save_coverage
 from services.fetch_report import Breaker, classify_body, write_sentinel
 from services.parquet_io import save_parquet
 
 from .config import DATA_EXT, MIN_FACT_ROWS, OUT_COV, OUT_FACT, PARSER_VERSION, PAYMENTS_FACT_SCHEMA_COLS, PUBLISHERS
-from .emit import canonicalise_supplier_raw, classify_and_flag, dedup_source_repeats, emit_rows, flag_unidentifiable_suppliers
+from .emit import (
+    canonicalise_supplier_raw,
+    classify_and_flag,
+    dedup_source_repeats,
+    emit_rows,
+    flag_unidentifiable_suppliers,
+)
 from .harvest import LAST_ERR, REPORT, fetch_to_bronze, harvest_files
+
 
 # ============================================================================ main
 def main() -> None:
@@ -256,7 +264,7 @@ def main() -> None:
         "UI use; they are retained here for analysis only. "
         "A line is a purchase order or payment record, not evidence of influence.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"wrote coverage {OUT_COV}")
 
     report_path = REPORT.write()

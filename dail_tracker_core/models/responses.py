@@ -67,7 +67,7 @@ class RootMetadataResponse(OpenResponse):
 
 
 class HealthResponse(OpenResponse):
-    """Readiness state after successfully probing the registered DuckDB views."""
+    """Health/readiness state after successfully probing registered DuckDB views."""
 
     status: Literal["ok"]
     views_registered: int

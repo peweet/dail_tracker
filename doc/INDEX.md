@@ -3,7 +3,7 @@
 
 # doc/ index
 
-67 docs · ~340.2k tokens total · 26 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+67 docs · ~340.8k tokens total · 26 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -23,17 +23,17 @@
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 3.4k | 2026-06-13 | the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2 |
 | [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.8k | 2026-08-04 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
 | [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.1k | 2026-08-04 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
-| [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
+| [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.6k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |
 | [LOCAL_AUTHORITY_ACCOUNTABILITY.md](LOCAL_AUTHORITY_ACCOUNTABILITY.md) | local-gov | 2.1k | 2026-06-20 | when working on local-authority accountability data — CE roster, NOAC collection rates, planning overturn rate, or derelict sites levy |
 | [LOCAL_DEMOCRACY_FEATURE_DESIGN.md](LOCAL_DEMOCRACY_FEATURE_DESIGN.md) | local-gov | 3.9k | 2026-07-14 | before building or refining the "Who decides in your county?" feature, or deciding which local-democracy claims are promotable to the app front end |
 | [LOCAL_DEMOCRACY_OVERRIDE_RESEARCH.md](LOCAL_DEMOCRACY_OVERRIDE_RESEARCH.md) | local-gov | 5.7k | 2026-07-14 | when researching or fact-checking how councillors are overruled (OPR/Ministerial Directions, s.4 motions, budget-rejection dissolution) for a local-democracy piece |
 | [PUBLIC_PAYMENTS_FACT_SCHEMA.md](PUBLIC_PAYMENTS_FACT_SCHEMA.md) | money | 7.2k | 2026-06-04 | designing/building the unified procurement+payments gold model or the value_kind/realisation_tier taxonomy |
-| [PROCUREMENT_MASTER.md](PROCUREMENT_MASTER.md) | procurement | 5.0k | 2026-06-28 | making any procurement-page change — authoritative money-grain rules and verified headline figures |
+| [PROCUREMENT_MASTER.md](PROCUREMENT_MASTER.md) | procurement | 4.9k | 2026-06-28 | making any procurement-page change — authoritative money-grain rules and verified headline figures |
 | [SOURCE_CONFIDENCE_SYSTEM.md](SOURCE_CONFIDENCE_SYSTEM.md) | procurement | 9.5k | 2026-06-28 | designing confidence badges, trust grades, or caveat wording across mixed-provenance procurement/BI data |
 | [TED_ENRICHMENT.md](TED_ENRICHMENT.md) | procurement | 5.1k | 2026-06-08 | checking what TED enrichment already exists before proposing new TED ingestion/enrichment work |
 | [ROADMAP_SOURCES.md](ROADMAP_SOURCES.md) | sources | 3.1k | 2026-07-17 | scoping a candidate new ingestion source before claiming it's built, or prioritising the ingestion backlog |
-| [SOURCES.md](SOURCES.md) | sources | 6.2k | 2026-07-17 | checking whether a data source is actually implemented/API-exposed before claiming it exists or is built |
+| [SOURCES.md](SOURCES.md) | sources | 6.4k | 2026-07-17 | checking whether a data source is actually implemented/API-exposed before claiming it exists or is built |
 | [NAVIGATION_GRAPH.md](NAVIGATION_GRAPH.md) | ui | 2.9k | 2026-06-20 | before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel) |
 
 ## Superseded / stale
@@ -73,8 +73,8 @@
 
 | doc | domain | ~tok | updated | read when |
 |---|---|---:|---|---|
-| [CLASS_CONTRACT.md](CLASS_CONTRACT.md) | — | 0.9k | — |  |
-| [CLOUD_READINESS.md](CLOUD_READINESS.md) | — | 1.5k | — |  |
+| [CLASS_CONTRACT.md](CLASS_CONTRACT.md) | — | 1.0k | — |  |
+| [CLOUD_READINESS.md](CLOUD_READINESS.md) | — | 2.1k | — |  |
 | [COMMUNICATION_STYLE.md](COMMUNICATION_STYLE.md) | — | 6.7k | — |  |
 | [COMPETITOR_LANDSCAPE.md](COMPETITOR_LANDSCAPE.md) | — | 3.6k | — |  |
 | [EXTRACTION_QUALITY_CHECKLIST.md](EXTRACTION_QUALITY_CHECKLIST.md) | — | 1.0k | — |  |
@@ -86,7 +86,7 @@
 | [PUBLISHED_MINUTES_AND_CAPITAL_PIPELINE_REGISTER.md](PUBLISHED_MINUTES_AND_CAPITAL_PIPELINE_REGISTER.md) | — | 3.6k | — |  |
 | [REFACTORING_CANDIDATES.md](REFACTORING_CANDIDATES.md) | — | 4.9k | — |  |
 | [REFACTORING_TOKEN_ECONOMICS.md](REFACTORING_TOKEN_ECONOMICS.md) | — | 2.1k | — |  |
-| [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.4k | — |  |
+| [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
 <!-- generated 2026-08-05 -->

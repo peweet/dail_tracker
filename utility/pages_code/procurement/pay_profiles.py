@@ -46,8 +46,6 @@ from .payments import _paid_verb, _paid_pill
 from .councils import _render_council_accounts_context
 
 
-
-
 def _render_payments_publisher_profile(
     publisher_name: str,
     tier: str = "SPENT",
@@ -579,13 +577,12 @@ def _render_supplier_register_footprint(company_num) -> None:
             '<span class="pr-notice-tag">award ceiling</span></li>'
         )
     if _truthy(r.get("in_ted")):
-        v = _eur(r.get("ted_value_safe_eur"))
         nb = _n(r.get("ted_awards"))
-        val_pre = f"{v} awarded across " if v != "—" else ""
+        buyers = _n(r.get("ted_n_buyers"))
         items.append(
-            f"<li><strong>TED (EU Official Journal)</strong> — {val_pre}{nb:,} award "
-            f"notice{'' if nb == 1 else 's'} "
-            '<span class="pr-notice-tag">award ceiling</span></li>'
+            f"<li><strong>TED (EU Official Journal)</strong> — {nb:,} award "
+            f"notice{'' if nb == 1 else 's'} from {buyers:,} buyer{'' if buyers == 1 else 's'} "
+            '<span class="pr-notice-tag">notice count</span></li>'
         )
     if _truthy(r.get("in_payments")):
         paid, comm = _eur(r.get("paid_safe_eur")), _eur(r.get("committed_safe_eur"))

@@ -25,7 +25,6 @@ import argparse
 import contextlib
 import html
 import io
-import json
 import os
 import re
 import sys
@@ -38,6 +37,7 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from paths import configured_path, runtime_path  # noqa: E402
+from services.coverage_io import save_coverage  # noqa: E402
 from services.data_contracts import guard_award_fact  # noqa: E402
 from services.deflator import value_plausible_expr  # noqa: E402
 from services.http_engine import download_file, fetch_json, polite_headers  # noqa: E402
@@ -440,7 +440,7 @@ def main() -> None:
     # mislabelled as a one-off award (Go-Ahead bus €1.486bn, Applus NCT €650m, Valero fuel
     # €280m, PFH IT €475m). Without it, ~50 such rows = 38% of the entire "safe" total and
     # dominate every supplier-by-value ranking. Flag them for review, keep them OUT of
-    # value_safe_to_sum, so eTenders and TED apply the identical honesty rail.
+    # value_safe_to_sum. TED applies the stricter rule that no notice value is summable.
     LARGE_AWARD_REVIEW_EUR = 50_000_000.0
     # The source carries the literal string "NULL" for ~7% of award rows. Make it an honest
     # null so it can't (a) collapse 4k unrelated awards into one group_by bucket, nor (b) be
@@ -478,7 +478,7 @@ def main() -> None:
             .otherwise(pl.lit("contract_award_value"))
             .alias("value_kind"),
             # Mega single-supplier "awards" are almost always multi-year operating/framework
-            # ceilings — flag for review and exclude from value_safe_to_sum (TED-consistent).
+            # ceilings — flag for review and exclude from value_safe_to_sum.
             (pl.col("value_eur") >= LARGE_AWARD_REVIEW_EUR).alias("is_large_award_review"),
         )
         .with_columns(
@@ -632,7 +632,7 @@ def main() -> None:
         "frameworks repeat one ceiling across every supplier row. Only sum value_safe_to_sum, "
         "and even then label it 'awarded value, not actual expenditure'.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"\nwrote {OUT_MATCH}\nwrote coverage {OUT_COV}")
 
 

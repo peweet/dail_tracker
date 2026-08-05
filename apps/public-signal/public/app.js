@@ -1,0 +1,441 @@
+import { buyers, opportunities, sectors, snapshot, suppliers, watchRules } from "./sample-data.js";
+
+const icons = {
+  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16v13H4z"/><path d="M4 13h4l2 3h4l2-3h4"/></svg>',
+  layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg>',
+  building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 21V6l8-3 8 3v15"/><path d="M8 9h2m4 0h2M8 13h2m4 0h2M8 17h2m4 0h2M2 21h20"/></svg>',
+  briefcase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg>',
+  chevrons: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m8 9 4-4 4 4m0 6-4 4-4-4"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>',
+  bookmark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 4h12v17l-6-4-6 4z"/></svg>',
+  bookmarkFilled: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor"><path d="M6 4h12v17l-6-4-6 4z"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m5 12 4 4L19 6"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></svg>',
+  file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6m-6 4h6"/></svg>',
+  filter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M7 12h10m-7 6h4"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+};
+
+const state = {
+  view: "pipeline",
+  selectedId: opportunities[0].id,
+  sector: "All sectors",
+  deadline: 90,
+  minValue: 0,
+  buyer: "",
+  evidence: 0,
+  tableSearch: "",
+  saved: new Set(JSON.parse(localStorage.getItem("publicSignalSaved") || "[]")),
+};
+
+const viewRoot = document.querySelector("#view-root");
+const toast = document.querySelector("#toast");
+const sidebar = document.querySelector("#sidebar");
+const scrim = document.querySelector("#mobile-scrim");
+let toastTimer;
+
+function icon(name) {
+  return icons[name] || "";
+}
+
+function injectIcons(root = document) {
+  root.querySelectorAll("[data-icon]").forEach((node) => {
+    node.innerHTML = icon(node.dataset.icon);
+    node.setAttribute("aria-hidden", "true");
+  });
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatCurrency(value) {
+  if (!Number.isFinite(value)) return "Not stated";
+  if (value >= 1_000_000) return `€${(value / 1_000_000).toLocaleString("en-IE", { maximumFractionDigits: 2 })}m`;
+  if (value >= 1_000) return `€${Math.round(value / 1_000).toLocaleString("en-IE")}k`;
+  return `€${value.toLocaleString("en-IE")}`;
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("en-IE");
+}
+
+function showToast(message) {
+  clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.classList.add("is-visible");
+  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3400);
+}
+
+function setView(view) {
+  state.view = view;
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    const active = item.dataset.view === view;
+    item.classList.toggle("is-active", active);
+    if (active) item.setAttribute("aria-current", "page");
+    else item.removeAttribute("aria-current");
+  });
+  closeMobileNav();
+  render();
+  viewRoot.focus({ preventScroll: true });
+}
+
+function viewHeader(title, description, metaLabel, metaValue) {
+  return `
+    <header class="view-header">
+      <div class="view-heading"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(description)}</p></div>
+      <div class="header-meta"><strong>${escapeHtml(metaValue)}</strong>${escapeHtml(metaLabel)}</div>
+    </header>`;
+}
+
+function filteredOpportunities() {
+  const buyerQuery = state.buyer.trim().toLowerCase();
+  return opportunities.filter((item) => {
+    const sectorMatch = state.sector === "All sectors" || item.sector === state.sector;
+    const deadlineMatch = item.daysToDeadline <= Number(state.deadline);
+    const valueMatch = item.estimate >= Number(state.minValue);
+    const buyerMatch = !buyerQuery || item.buyer.toLowerCase().includes(buyerQuery) || item.title.toLowerCase().includes(buyerQuery);
+    const evidenceMatch = item.evidence >= Number(state.evidence);
+    return sectorMatch && deadlineMatch && valueMatch && buyerMatch && evidenceMatch;
+  });
+}
+
+function renderPipeline() {
+  const results = filteredOpportunities();
+  if (!results.some((item) => item.id === state.selectedId)) state.selectedId = results[0]?.id || null;
+  const selected = opportunities.find((item) => item.id === state.selectedId);
+  const urgent = results.filter((item) => item.daysToDeadline <= 14).length;
+  const highEvidence = results.filter((item) => item.evidence >= 85).length;
+  const sectorOptions = ["All sectors", ...new Set(opportunities.map((item) => item.sector))];
+
+  viewRoot.innerHTML = `
+    ${viewHeader(
+      "Opportunity desk",
+      "Filter the live market, then open an evidence brief around the buyer, sector and disclosed supplier landscape.",
+      `TED ${snapshot.tedRefreshed}`,
+      snapshot.label,
+    )}
+    <section class="summary-strip" aria-label="Opportunity summary">
+      <div class="summary-item"><strong>${results.length}</strong><span>matched opportunities</span></div>
+      <div class="summary-item"><strong>${urgent}</strong><span>closing within 14 days</span></div>
+      <div class="summary-item"><strong>${highEvidence}</strong><span>strong evidence coverage</span></div>
+      <div class="summary-item"><strong>${snapshot.tedOpen}</strong><span>open TED notices in snapshot</span></div>
+    </section>
+    <section class="filters" aria-label="Opportunity filters">
+      <div class="field"><label for="buyer-filter">Buyer, notice or keyword</label><input id="buyer-filter" type="search" value="${escapeHtml(state.buyer)}" placeholder="Try Tipperary or engineering" /></div>
+      <div class="field"><label for="sector-filter">Sector</label><select id="sector-filter">${sectorOptions.map((value) => `<option ${value === state.sector ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
+      <div class="field"><label for="deadline-filter">Deadline</label><select id="deadline-filter">
+        <option value="14" ${state.deadline === 14 ? "selected" : ""}>Next 14 days</option>
+        <option value="30" ${state.deadline === 30 ? "selected" : ""}>Next 30 days</option>
+        <option value="60" ${state.deadline === 60 ? "selected" : ""}>Next 60 days</option>
+        <option value="90" ${state.deadline === 90 ? "selected" : ""}>Next 90 days</option>
+      </select></div>
+      <div class="field"><label for="value-filter">Advertised estimate</label><select id="value-filter">
+        <option value="0" ${state.minValue === 0 ? "selected" : ""}>Any stated value</option>
+        <option value="250000" ${state.minValue === 250000 ? "selected" : ""}>€250k and above</option>
+        <option value="1000000" ${state.minValue === 1000000 ? "selected" : ""}>€1m and above</option>
+        <option value="5000000" ${state.minValue === 5000000 ? "selected" : ""}>€5m and above</option>
+      </select></div>
+      <div class="field"><label for="evidence-filter">Evidence coverage</label><select id="evidence-filter">
+        <option value="0" ${state.evidence === 0 ? "selected" : ""}>Any coverage</option>
+        <option value="70" ${state.evidence === 70 ? "selected" : ""}>70% and above</option>
+        <option value="85" ${state.evidence === 85 ? "selected" : ""}>85% and above</option>
+        <option value="90" ${state.evidence === 90 ? "selected" : ""}>90% and above</option>
+      </select></div>
+      <div class="filter-count">Showing ${results.length} of ${opportunities.length}</div>
+    </section>
+    <section class="pipeline-workspace">
+      <div class="opportunity-list" aria-label="Filtered opportunities">
+        <div class="list-header"><span>Opportunity</span><span>Buyer</span><span>Estimate</span><span>Deadline</span><span aria-label="Evidence coverage"></span></div>
+        ${results.length ? results.map(opportunityRow).join("") : emptyResults()}
+      </div>
+      ${selected ? detailPane(selected) : '<aside class="detail-pane"><p>Select an opportunity to inspect its evidence.</p></aside>'}
+    </section>`;
+
+  bindPipelineEvents();
+}
+
+function opportunityRow(item) {
+  const selected = item.id === state.selectedId;
+  return `
+    <button class="opportunity-row ${selected ? "is-selected" : ""}" type="button" data-opportunity="${item.id}" aria-pressed="${selected}">
+      <span class="opportunity-name" data-mobile-estimate="${formatCurrency(item.estimate)}"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.sector)} · CPV ${item.cpv}</span></span>
+      <span class="buyer-cell"><strong>${escapeHtml(item.buyer)}</strong><span>${item.source} · ${item.published}</span></span>
+      <span class="money-cell"><strong>${formatCurrency(item.estimate)}</strong><span>planned estimate</span></span>
+      <span class="deadline-cell ${item.daysToDeadline <= 14 ? "is-urgent" : ""}"><strong>${item.daysToDeadline} days</strong><span>${item.deadline}</span></span>
+      <span class="evidence-ring" style="--score:${item.evidence}" title="${item.evidence}% evidence coverage" aria-label="${item.evidence}% evidence coverage"></span>
+    </button>`;
+}
+
+function emptyResults() {
+  return `<div class="empty-state"><div><span class="empty-icon">${icon("filter")}</span><h2>No notices match these filters</h2><p>Broaden the deadline or evidence threshold. A zero result is retained as information, not hidden.</p><button class="button" type="button" id="clear-filters">Clear filters</button></div></div>`;
+}
+
+function detailPane(item) {
+  const saved = state.saved.has(item.id);
+  const singleBid = item.signals.singleBidPct == null ? "Sample too small" : `${item.signals.singleBidPct}% of lots`;
+  return `
+    <aside class="detail-pane" aria-label="Opportunity evidence brief">
+      <div class="detail-kicker"><span class="source-badge">${item.source}</span><span class="sector-badge">${escapeHtml(item.sector)}</span></div>
+      <h2>${escapeHtml(item.title)}</h2>
+      <p class="detail-buyer">${escapeHtml(item.buyer)} · Notice ${item.id}</p>
+      <div class="detail-actions">
+        <button class="button ${saved ? "" : "button-primary"}" type="button" id="save-opportunity">${icon(saved ? "bookmarkFilled" : "bookmark")}<span>${saved ? "Watching" : "Watch notice"}</span></button>
+        <button class="button" type="button" id="email-brief">${icon("mail")}<span>Email brief</span></button>
+        <a class="button button-quiet" href="${item.sourceUrl}" target="_blank" rel="noreferrer">${icon("external")}<span>Source</span></a>
+      </div>
+      <div class="fact-line">
+        <div class="fact"><strong>${formatCurrency(item.estimate)}</strong><span>advertised estimate</span></div>
+        <div class="fact"><strong>${item.deadline}</strong><span>submission deadline</span></div>
+        <div class="fact"><strong>${item.evidence}%</strong><span>evidence coverage</span></div>
+      </div>
+      <div class="section-heading"><h3>Buyer and market evidence</h3><a class="source-link" href="${item.sourceUrl}" target="_blank" rel="noreferrer">Open notice ${icon("external")}</a></div>
+      <ul class="signal-list">
+        <li><span>Previous buyer awards</span><strong>${formatNumber(item.signals.buyerAwards)}</strong></li>
+        <li><span>Previous awards in this sector</span><strong>${formatNumber(item.signals.sectorAwards)}</strong></li>
+        <li><span>Known company suppliers in sector</span><strong>${formatNumber(item.signals.knownSuppliers)}</strong></li>
+        <li><span>Recent buyer competition sample</span><strong>${formatNumber(item.signals.competitionLots)} lots</strong></li>
+        <li><span>Single-bid context</span><strong>${singleBid}</strong></li>
+        <li><span>Related estimated expiries</span><strong>${formatNumber(item.signals.expiring)}</strong></li>
+        <li><span>${escapeHtml(item.signals.paymentMeaning)}</span><strong>${formatNumber(item.signals.paymentLines)} lines</strong></li>
+      </ul>
+      <div class="section-heading"><h3>Evidence included</h3><button type="button" id="coverage-help">How coverage works</button></div>
+      <div class="coverage-list">${item.coverage.map((label) => `<span class="coverage-item">${icon("check")}${escapeHtml(label)}</span>`).join("")}</div>
+      <div class="caution-box"><strong>Analyst note:</strong> ${escapeHtml(item.caution)}</div>
+    </aside>`;
+}
+
+function bindPipelineEvents() {
+  document.querySelectorAll("[data-opportunity]").forEach((row) => row.addEventListener("click", () => {
+    state.selectedId = row.dataset.opportunity;
+    renderPipeline();
+    if (window.matchMedia("(max-width: 960px)").matches) {
+      requestAnimationFrame(() => document.querySelector(".detail-pane")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  }));
+  const mappings = [
+    ["buyer-filter", "buyer", "input", (value) => value],
+    ["sector-filter", "sector", "change", (value) => value],
+    ["deadline-filter", "deadline", "change", Number],
+    ["value-filter", "minValue", "change", Number],
+    ["evidence-filter", "evidence", "change", Number],
+  ];
+  mappings.forEach(([id, key, event, transform]) => document.querySelector(`#${id}`)?.addEventListener(event, (e) => {
+    state[key] = transform(e.target.value);
+    if (event === "input") window.clearTimeout(e.target._timer);
+    if (event === "input") e.target._timer = window.setTimeout(renderPipeline, 120);
+    else renderPipeline();
+  }));
+  document.querySelector("#clear-filters")?.addEventListener("click", () => {
+    Object.assign(state, { sector: "All sectors", deadline: 90, minValue: 0, buyer: "", evidence: 0 });
+    renderPipeline();
+  });
+  document.querySelector("#save-opportunity")?.addEventListener("click", () => {
+    if (state.saved.has(state.selectedId)) state.saved.delete(state.selectedId);
+    else state.saved.add(state.selectedId);
+    localStorage.setItem("publicSignalSaved", JSON.stringify([...state.saved]));
+    showToast(state.saved.has(state.selectedId) ? "Notice added to your watchlist." : "Notice removed from your watchlist.");
+    renderPipeline();
+  });
+  document.querySelector("#email-brief")?.addEventListener("click", () => setView("watches"));
+  document.querySelector("#coverage-help")?.addEventListener("click", () => showToast("Coverage reflects available source lanes. It is not a confidence score or bid recommendation."));
+  injectIcons(viewRoot);
+}
+
+function renderMarkets() {
+  viewRoot.innerHTML = `
+    ${viewHeader("Sector map", "Compare where the corpus is commercially useful before building a watch or commissioning a brief.", "Rows are not market-size estimates", "Evidence readiness")}
+    <section class="summary-strip" aria-label="Sector data summary">
+      <div class="summary-item"><strong>20,597</strong><span>awards with usable CPV</span></div>
+      <div class="summary-item"><strong>49,225</strong><span>awards with bid counts</span></div>
+      <div class="summary-item"><strong>2,655</strong><span>expiry signals across sources</span></div>
+      <div class="summary-item"><strong>1,393</strong><span>entities in three registers</span></div>
+    </section>
+    <section class="table-region">
+      <div class="table-toolbar"><div><h2>Sector evidence profile</h2><p>Classified national awards, national expiry signals and current TED notices.</p></div><div class="field"><label for="table-search">Filter sectors</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Search by sector or CPV" /></div></div>
+      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Sector</th><th>CPV</th><th class="numeric">Awards</th><th class="numeric">Valued</th><th>Bid-count coverage</th><th class="numeric">18m expiries</th><th class="numeric">Open TED</th><th>Commercial readiness</th></tr></thead><tbody>
+        ${sectors.filter((s) => `${s.name} ${s.cpv}`.toLowerCase().includes(state.tableSearch.toLowerCase())).map((sector) => `<tr><td><strong>${escapeHtml(sector.name)}</strong></td><td>${sector.cpv}</td><td class="numeric">${formatNumber(sector.awards)}</td><td class="numeric">${formatNumber(sector.valued)} <small>${Math.round((sector.valued / sector.awards) * 100)}%</small></td><td><div class="coverage-bar" aria-label="${sector.bidCoverage}%"><span style="width:${sector.bidCoverage}%"></span></div><small>${sector.bidCoverage}%</small></td><td class="numeric">${sector.expiries}</td><td class="numeric">${sector.openTed}</td><td><span class="quality-badge ${sector.readiness.startsWith("Strong") ? "is-strong" : "is-developing"}">${escapeHtml(sector.readiness)}</span></td></tr>`).join("")}
+      </tbody></table></div>
+    </section>
+    <div class="page-note">${icon("info")}<span>Award values, advertised estimates, disclosed payments and purchase orders remain separate. Expiry dates are procurement signals derived from advertised terms, not verified contract events.</span></div>`;
+  bindTableSearch();
+}
+
+function renderBuyers() {
+  viewRoot.innerHTML = `
+    ${viewHeader("Buyer dossiers", "Find public bodies with enough award, competition and payment evidence to support account planning.", "Payment meaning shown per publisher", "Buyer evidence")}
+    <section class="table-region">
+      <div class="table-toolbar"><div><h2>Evidence-rich buyers</h2><p>High-volume examples from the current corpus.</p></div><div class="field"><label for="table-search">Find a buyer</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Council, department or agency" /></div></div>
+      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Buyer</th><th class="numeric">Awards</th><th class="numeric">Known suppliers</th><th class="numeric">Disclosure lines</th><th>Money meaning</th><th class="numeric">Competition lots</th><th class="numeric">Single-bid context</th><th class="numeric">Expiry signals</th></tr></thead><tbody>
+        ${buyers.filter((b) => b.name.toLowerCase().includes(state.tableSearch.toLowerCase())).map((buyer) => `<tr><td><strong>${escapeHtml(buyer.name)}</strong></td><td class="numeric">${formatNumber(buyer.awards)}</td><td class="numeric">${formatNumber(buyer.suppliers)}</td><td class="numeric">${formatNumber(buyer.paymentLines)}</td><td><span class="state-badge ${buyer.money === "Spent" ? "is-active" : ""}">${buyer.money}</span></td><td class="numeric">${buyer.lots}</td><td class="numeric">${buyer.singleBidPct}%</td><td class="numeric">${buyer.expiries}</td></tr>`).join("")}
+      </tbody></table></div>
+    </section>
+    <div class="page-note">${icon("info")}<span>Single-bid rates are factual context with a denominator, never a buyer score. Central purchasing bodies also require separate interpretation from ordinary contracting authorities.</span></div>`;
+  bindTableSearch();
+}
+
+function renderSuppliers() {
+  viewRoot.innerHTML = `
+    ${viewHeader("Supplier footprints", "Trace known company activity across national awards, TED and public-body disclosures.", "Human verification required", "Entity chain")}
+    <section class="table-region">
+      <div class="table-toolbar"><div><h2>Cross-register supplier examples</h2><p>Company-number anchored where the source match supports it.</p></div><div class="field"><label for="table-search">Find a supplier</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Company or CRO number" /></div></div>
+      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Supplier</th><th>CRO</th><th class="numeric">National awards</th><th class="numeric">National buyers</th><th class="numeric">TED awards</th><th class="numeric">Disclosure lines</th><th class="numeric">Publishers</th><th>Entity status</th></tr></thead><tbody>
+        ${suppliers.filter((s) => `${s.name} ${s.company}`.toLowerCase().includes(state.tableSearch.toLowerCase())).map((supplier) => `<tr><td><strong>${escapeHtml(supplier.name)}</strong></td><td>${supplier.company}</td><td class="numeric">${supplier.awards}</td><td class="numeric">${supplier.authorities}</td><td class="numeric">${supplier.tedAwards}</td><td class="numeric">${formatNumber(supplier.paymentLines)}</td><td class="numeric">${supplier.publishers}</td><td><span class="quality-badge ${supplier.match.startsWith("Verified") ? "is-strong" : "is-developing"}">${escapeHtml(supplier.match)}</span></td></tr>`).join("")}
+      </tbody></table></div>
+    </section>
+    <div class="page-note">${icon("info")}<span>Trading names, acquisitions, professional partnerships and ambiguous CRO matches can create false joins. Paid briefs should verify the subject entity before making a current-status claim.</span></div>`;
+  bindTableSearch();
+}
+
+function bindTableSearch() {
+  document.querySelector("#table-search")?.addEventListener("input", (event) => {
+    state.tableSearch = event.target.value;
+    window.clearTimeout(event.target._timer);
+    event.target._timer = window.setTimeout(render, 100);
+  });
+  injectIcons(viewRoot);
+}
+
+function renderWatches() {
+  const selected = opportunities.find((item) => item.id === state.selectedId);
+  viewRoot.innerHTML = `
+    ${viewHeader("Watches & digests", "Turn a sector, buyer or value threshold into a focused email brief. Confirmation and unsubscribe are built into the delivery flow.", "07:10 UTC on weekdays", "Automated delivery")}
+    <section class="watches-layout">
+      <div class="watch-list">
+        <div class="panel-heading"><div><h2>Active watches</h2><p>Rules already monitoring the prototype workspace.</p></div><span class="state-badge is-active">3 active</span></div>
+        ${watchRules.map((rule) => `<article class="watch-rule"><div class="watch-rule-head"><strong>${escapeHtml(rule.name)}</strong><span class="state-badge is-active">Active</span></div><p>${rule.sectors.length ? escapeHtml(rule.sectors.join(", ")) : "All sectors"}${rule.buyer ? ` · ${escapeHtml(rule.buyer)}` : ""}</p><div class="watch-rule-meta"><span>${rule.matches} current matches</span><span>${rule.cadence}</span></div></article>`).join("")}
+      </div>
+      <div class="automation-builder">
+        <div class="panel-heading"><div><h2>Create an email watch</h2><p>Only send when a notice clears your evidence threshold.</p></div>${icon("mail")}</div>
+        <form class="automation-form" id="watch-form">
+          <div class="form-grid">
+            <div class="field"><label for="watch-name">Watch name</label><input id="watch-name" name="name" value="${selected ? escapeHtml(`${selected.sector} opportunities`) : "New opportunity watch"}" required /></div>
+            <div class="field"><label for="watch-email">Delivery email</label><input id="watch-email" name="email" type="email" placeholder="bidteam@company.ie" required /></div>
+            <div class="field is-wide"><span class="field-label">Sectors</span><div class="check-group">
+              ${["Architecture & Engineering", "IT Services", "Construction", "Business & Consulting", "Software"].map((sector) => `<label class="check-pill"><input type="checkbox" name="sectors" value="${sector}" ${selected?.sector === sector ? "checked" : ""} /><span>${sector}</span></label>`).join("")}
+            </div></div>
+            <div class="field"><label for="watch-buyers">Buyer name contains</label><input id="watch-buyers" name="buyers" placeholder="Council, HSE, OPW" value="${selected ? escapeHtml(selected.buyer) : ""}" /></div>
+            <div class="field"><label for="watch-value">Minimum advertised estimate</label><select id="watch-value" name="minValue"><option value="0">Any stated value</option><option value="250000">€250k</option><option value="500000">€500k</option><option value="1000000">€1m</option><option value="5000000">€5m</option></select></div>
+            <div class="field"><label for="watch-deadline">Deadline window</label><select id="watch-deadline" name="deadline"><option value="30">Next 30 days</option><option value="60" selected>Next 60 days</option><option value="90">Next 90 days</option></select></div>
+            <div class="field"><label for="watch-cadence">Digest cadence</label><select id="watch-cadence" name="cadence"><option value="weekday">Weekday morning</option><option value="weekly">Monday summary</option></select></div>
+            <div class="field is-wide"><label for="watch-evidence">Minimum evidence coverage</label><div class="range-line"><input id="watch-evidence" name="evidence" type="range" min="50" max="95" step="5" value="70" /><output class="range-value" for="watch-evidence">70%</output></div></div>
+          </div>
+          <div class="automation-preview" aria-live="polite"><h3>Digest preview</h3><div id="watch-preview"></div></div>
+          <div class="form-actions"><button class="button button-primary" type="submit">${icon("bell")}<span>Save watch</span></button><button class="button" type="button" id="preview-email">${icon("mail")}<span>Preview email</span></button><small>Double opt-in. Unsubscribe link in every email.</small></div>
+        </form>
+      </div>
+    </section>`;
+  bindWatchForm();
+  injectIcons(viewRoot);
+}
+
+function getWatchFormValues() {
+  const form = document.querySelector("#watch-form");
+  const data = new FormData(form);
+  return {
+    name: String(data.get("name") || "Opportunity watch"),
+    email: String(data.get("email") || ""),
+    sectors: data.getAll("sectors").map(String),
+    buyers: String(data.get("buyers") || "").split(",").map((value) => value.trim()).filter(Boolean),
+    minValue: Number(data.get("minValue") || 0),
+    deadlineDays: Number(data.get("deadline") || 60),
+    cadence: String(data.get("cadence") || "weekday"),
+    minEvidence: Number(data.get("evidence") || 70),
+    includeExpiries: true,
+  };
+}
+
+function watchMatches(values) {
+  return opportunities.filter((item) => {
+    const sectorMatch = !values.sectors.length || values.sectors.includes(item.sector);
+    const buyerMatch = !values.buyers.length || values.buyers.some((buyer) => item.buyer.toLowerCase().includes(buyer.toLowerCase()));
+    return sectorMatch && buyerMatch && item.estimate >= values.minValue && item.daysToDeadline <= values.deadlineDays && item.evidence >= values.minEvidence;
+  });
+}
+
+function updateWatchPreview() {
+  const values = getWatchFormValues();
+  const matches = watchMatches(values);
+  document.querySelector(".range-value").textContent = `${values.minEvidence}%`;
+  document.querySelector("#watch-preview").innerHTML = `
+    <div class="preview-line"><span>Current matches</span><strong>${matches.length}</strong></div>
+    <div class="preview-line"><span>Next delivery</span><strong>${values.cadence === "weekly" ? "Monday, 07:10 UTC" : "Next weekday, 07:10 UTC"}</strong></div>
+    <div class="preview-line"><span>Evidence rule</span><strong>${values.minEvidence}% or better</strong></div>
+    <div class="preview-line"><span>Lead item</span><strong>${matches[0] ? escapeHtml(matches[0].buyer) : "No current match"}</strong></div>`;
+}
+
+function bindWatchForm() {
+  const form = document.querySelector("#watch-form");
+  form.addEventListener("input", updateWatchPreview);
+  form.addEventListener("change", updateWatchPreview);
+  updateWatchPreview();
+  document.querySelector("#preview-email").addEventListener("click", () => {
+    const matches = watchMatches(getWatchFormValues());
+    showToast(matches.length ? `Preview ready with ${matches.length} matching opportunities.` : "Preview ready. No current notices clear this rule.");
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    const values = getWatchFormValues();
+    button.disabled = true;
+    button.textContent = "Saving…";
+    try {
+      const response = await fetch("/api/subscriptions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) });
+      if (!response.ok) throw new Error((await response.json()).error || "Unable to save watch");
+      const result = await response.json();
+      showToast(result.emailSent ? "Watch saved. Check your inbox to confirm delivery." : "Watch saved in preview mode. Add Resend credentials to send confirmation email.");
+    } catch (error) {
+      localStorage.setItem("publicSignalDraftWatch", JSON.stringify(values));
+      showToast("Prototype watch saved in this browser. Connect the Worker API to activate email.");
+    } finally {
+      button.disabled = false;
+      button.innerHTML = `${icon("bell")}<span>Save watch</span>`;
+    }
+  });
+}
+
+function render() {
+  const renderers = { pipeline: renderPipeline, markets: renderMarkets, buyers: renderBuyers, suppliers: renderSuppliers, watches: renderWatches };
+  renderers[state.view]?.();
+}
+
+function openMobileNav() {
+  sidebar.classList.add("is-open");
+  scrim.hidden = false;
+  document.querySelector("#mobile-menu").setAttribute("aria-expanded", "true");
+}
+
+function closeMobileNav() {
+  sidebar.classList.remove("is-open");
+  scrim.hidden = true;
+  document.querySelector("#mobile-menu").setAttribute("aria-expanded", "false");
+}
+
+document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+document.querySelector("#mobile-menu").addEventListener("click", () => sidebar.classList.contains("is-open") ? closeMobileNav() : openMobileNav());
+scrim.addEventListener("click", closeMobileNav);
+document.querySelector("#global-search").addEventListener("click", () => {
+  if (state.view !== "pipeline") setView("pipeline");
+  requestAnimationFrame(() => document.querySelector("#buyer-filter")?.focus());
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "/" && !["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) {
+    event.preventDefault();
+    if (state.view !== "pipeline") setView("pipeline");
+    requestAnimationFrame(() => document.querySelector("#buyer-filter")?.focus());
+  }
+  if (event.key === "Escape") closeMobileNav();
+});
+
+injectIcons();
+render();

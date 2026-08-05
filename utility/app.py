@@ -331,7 +331,7 @@ pg = st.navigation(
         "Glossary": [
             st.Page(glossary_page, title="Glossary", icon=":material/menu_book:", url_path="glossary"),
             # Support — what the site costs to run, how to report a wrong figure, and
-            # (when DT_COFFEE_URL is set) the coffee ask. Filed under Glossary rather
+            # the optional coffee ask. Filed under Glossary rather
             # than given its own top-level nav section: a tip jar does not earn a slot
             # beside the registers, and the bar is already at eight groups.
             st.Page(
@@ -362,5 +362,6 @@ pg.run()
 # Site footer — the ONLY thing rendered after pg.run(). App level and outside
 # the per-page subtree, so it stays mounted across navigation for the same
 # reason inject_css() and install_spa_links() sit above. Static markup, no data
-# access; the "Support this site" link appears only when DT_COFFEE_URL is set.
+# access; the "Support this site" link appears unless DT_COFFEE_URL is
+# explicitly disabled.
 st.html(site_footer_html())

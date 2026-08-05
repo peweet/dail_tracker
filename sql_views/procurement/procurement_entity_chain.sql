@@ -1,10 +1,10 @@
 -- v_procurement_entity_chain — one row per CRO-matched company, showing which of the
 -- three procurement registers it appears in: eTenders awards (national, ceilings), TED
--- awards (EU Official Journal, ceilings), and the public-body payments fact (realised
+-- notices (EU Official Journal, count only), and the public-body payments fact (realised
 -- SPENT/COMMITTED). This is the backbone of a unified supplier profile: the same legal
 -- entity currently surfaces in up to four disconnected places in the UI.
 --
--- ⚠️ THE THREE MONEY COLUMNS ARE DIFFERENT GRAINS AND MUST NEVER BE SUMMED OR COMPARED
+-- ⚠️ THE MONEY COLUMNS ARE DIFFERENT GRAINS AND MUST NEVER BE SUMMED OR COMPARED
 -- AS TOTALS (award ceilings ≠ realised payments — see doc/DATA_MAP.md). They appear
 -- side by side strictly so a profile can show each register's own number with its own
 -- label. Absence from a register is REGISTER COVERAGE, not missing money: only ~7% of
@@ -31,10 +31,8 @@ ted AS (
     SELECT
         cro_company_num                                           AS company_num,
         ANY_VALUE(winner_name)                                    AS ted_winner_name,
-        COUNT(*)                                                  AS ted_awards,
-        COUNT(DISTINCT buyer_name)                                AS ted_n_buyers,
-        SUM(award_value_eur) FILTER (WHERE value_safe_to_sum AND NOT is_pan_eu_outlier)
-                                                                  AS ted_value_safe_eur
+        COUNT(DISTINCT publication_number)                        AS ted_awards,
+        COUNT(DISTINCT buyer_name)                                AS ted_n_buyers
     FROM read_parquet('data/silver/parquet/ted_ie_awards.parquet')
     WHERE cro_company_num IS NOT NULL
     GROUP BY cro_company_num
@@ -67,7 +65,6 @@ SELECT
     e.etenders_awarded_value_safe_eur,
     t.ted_awards,
     t.ted_n_buyers,
-    t.ted_value_safe_eur,
     p.payment_lines,
     p.payments_n_publishers,
     p.paid_safe_eur,

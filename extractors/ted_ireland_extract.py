@@ -14,9 +14,9 @@ view + gold summary builds on top. Mirrors how procurement_awards sat in silver 
 was promoted on shipping.
 
 Grain: ONE ROW PER (notice x winner). A TED notice can list several winners (multi-supplier
-framework); tender-value is a NOTICE-level figure (the framework TOTAL), never per-winner —
-so value is carried but value_safe_to_sum is FALSE for multi-winner / framework / pan-EU
-rows (same discipline as procurement_etenders_extract.py). Winners are CRO-matched by name
+framework); tender-value is a NOTICE-level figure (the framework TOTAL), never per-winner.
+The value is carried for individual-notice display, but value_safe_to_sum is always FALSE.
+Winners are CRO-matched by name
 AND by winner-identifier (often the IE company number). Bare-personal-name identifiers ->
 sole-trader quarantine flag.
 
@@ -47,6 +47,7 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from extractors.ted_enrich import enrich_winner_rows  # noqa: E402
+from services.coverage_io import save_coverage  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from services.ted_search import fetch_ted_search  # noqa: E402
 from shared.buyer_clean import clean_buyer_display  # noqa: E402
@@ -475,13 +476,9 @@ def main() -> None:
     print(df.group_by("supplier_class").len().sort("len", descending=True))
     print(df.group_by("cro_match_method").len().sort("len", descending=True))
 
-    safe = df.filter(pl.col("value_safe_to_sum"))
     cro_hit = df.filter(pl.col("cro_match_method") != "none")
     by_id = df.filter(pl.col("cro_match_method") == "identifier")
-    print(
-        f"\nvalue_safe_to_sum rows: {safe.height:,}  €{(safe['award_value_eur'].sum() or 0):,.0f} "
-        f"(single-winner awards only; frameworks + pan-EU excluded)"
-    )
+    print("\nvalue_safe_to_sum rows: 0 (TED notice values are display-only and never aggregated)")
     print(
         f"CRO matched: {cro_hit.height:,} ({cro_hit.height / df.height:.0%})  "
         f"of which by exact identifier: {by_id.height:,}"
@@ -493,9 +490,7 @@ def main() -> None:
         "rows_with_value": int(df["award_value_eur"].is_not_null().sum()),
         "multi_supplier_framework_rows": int(df["is_multi_supplier_framework"].sum()),
         "pan_eu_outlier_rows": int(df["is_pan_eu_outlier"].sum()),
-        "value_safe_to_sum_rows": safe.height,
-        "value_safe_to_sum_total_eur": float(safe["award_value_eur"].sum() or 0),
-        "value_naive_sum_eur_DO_NOT_USE": float(df["award_value_eur"].sum() or 0),
+        "value_safe_to_sum_rows": 0,
         "large_award_review_rows_ge_50m": int(df["is_large_award_review"].sum()),
         "median_award_eur": float(df.filter(pl.col("award_value_eur") > 0)["award_value_eur"].median() or 0),
         "trustworthy_metrics": "COUNT of awards + MEDIAN award value; never the naive sum (ceiling/award-grade values, tail-dominated)",
@@ -537,13 +532,13 @@ def main() -> None:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. "
         "tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the "
-        "framework CEILING, never per-winner — only value_safe_to_sum (single-winner, "
-        "non-framework, non-pan-EU) may be totalled, labelled 'awarded', not spend. "
+        "framework CEILING, never per-winner. It is retained for individual-notice display "
+        "and distribution diagnostics only; value_safe_to_sum is always false. "
         "winner-identifier matched to CRO company_num after digit-strip; bare personal-name "
         "winners flagged review_personal_data (quarantine deferred). A contract award is a "
         "fact, not evidence of influence.",
     }
-    OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COV)
     print(f"wrote coverage {OUT_COV}")
     print("\nLAYER=silver. Gold only when a sql_views/ted_*.sql view exposes it to the UI.")
 

@@ -22,22 +22,22 @@ _run = make_runner("procurement", _log)
 
 
 def ted_corpus_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
-    """One-row TED corpus summary for the tab headline + the pan-EU toggle. The sum-safe
-    value already EXCLUDES pan-EU outliers (those vast research-framework ceilings are never
-    value_safe_to_sum), so the toggle does not change the real total — it only adds the 375
-    pan-EU notices back to the count and *reveals* their headline ceiling (the TED echo of
-    the eTenders €570bn mirage). Also the page's TED source-state gate."""
+    """One-row TED corpus summary for the tab headline + the pan-EU toggle.
+
+    The history view is notice x winner, so every notice metric is explicitly
+    distinct on ``publication_number``. TED monetary values are intentionally
+    absent: they are display-only per notice and must never be aggregated.
+    """
     return _run(
         conn,
         "SELECT"
-        "  COUNT(*) AS n_notices,"
-        "  COUNT(*) FILTER (WHERE NOT is_pan_eu_outlier) AS n_notices_ex_pan_eu,"
+        "  COUNT(DISTINCT publication_number) AS n_notices,"
+        "  COUNT(DISTINCT publication_number)"
+        "    - COUNT(DISTINCT publication_number) FILTER (WHERE is_pan_eu_outlier) AS n_notices_ex_pan_eu,"
         "  MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
         "  COUNT(DISTINCT winner_join_norm) FILTER (WHERE NOT is_pan_eu_outlier) AS n_winners,"
         "  COUNT(DISTINCT buyer_name) AS n_buyers,"
-        "  COUNT(*) FILTER (WHERE is_pan_eu_outlier) AS n_pan_eu,"
-        "  COALESCE(SUM(award_value_eur) FILTER (WHERE value_safe_to_sum), 0) AS value_safe_eur,"
-        "  COALESCE(SUM(award_value_eur) FILTER (WHERE is_pan_eu_outlier), 0) AS pan_eu_ceiling_eur"
+        "  COUNT(DISTINCT publication_number) FILTER (WHERE is_pan_eu_outlier) AS n_pan_eu"
         " FROM v_procurement_ted_winner_history",  # full 2016-2026 history (api + per-notice-XML lanes)
     )
 
@@ -85,9 +85,11 @@ def ted_awards_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 def ted_supplier_summary(
     conn: duckdb.DuckDBPyConnection, *, limit: int | None = 60, order_by: str = "awards"
 ) -> QueryResult:
-    """Top TED winners (company-class), ranked by award-notice count (trustworthy) or
-    sum-safe value (excl. pan-EU). Carries both value columns so the page's pan-EU toggle
-    needs no second query."""
+    """Top TED winners (company-class), ranked by distinct award-notice count.
+
+    No monetary aggregate crosses this boundary; individual notice values remain
+    available in the notice drill-down for source-level context.
+    """
     order = _TED_ORDER.get(order_by, _TED_ORDER["awards"])
     sql = f"SELECT * FROM v_procurement_ted_supplier_summary ORDER BY {order}"
     params: list = []
