@@ -6637,15 +6637,15 @@ def inject_css() -> None:
             .sup-routes { grid-template-columns: 1fr; }
             .sup-footer-spacer { display: none; }
         }
-
-        </style>
-        """,
+        [data-testid="stTopNavLink"]:focus-visible, [data-testid="stTopNavSection"]:focus-visible { outline: 2px solid oklch(78% 0.14 72) !important; outline-offset: -2px !important; background: rgba(255,255,255,0.08) !important; }
+        [data-testid="stSidebarNav"] a:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 2px !important; background: var(--accent-subtle) !important; color: var(--text-primary) !important; }
+        [data-testid="stExpandSidebarButton"]:focus-visible { outline: 2px solid oklch(78% 0.14 72) !important; outline-offset: 2px !important; }
+        [data-testid="stMain"] [data-testid="stButton"] button:focus-visible, [data-testid="stMain"] [data-testid="stDownloadButton"] button:focus-visible, [data-testid="stMain"] [data-testid="stButtonGroup"] button:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 2px !important; box-shadow: 0 0 0 2px var(--bg) !important; }
+        @media (max-width: 767.98px) { [data-testid="stSidebar"][aria-expanded="false"] { visibility: hidden !important; } [data-testid="stMain"] [data-testid="stButton"] button, [data-testid="stMain"] [data-testid="stDownloadButton"] button, [data-testid="stMain"] [data-testid="stTextInput"] input, [data-testid="stMain"] [data-testid="stSelectbox"] [data-baseweb="select"] > div { min-height: 2.75rem !important; } }
+        @media (prefers-reduced-motion: reduce) { [data-testid="stAppViewContainer"] *, [data-testid="stAppViewContainer"] *::before, [data-testid="stAppViewContainer"] *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+        </style>""",
         unsafe_allow_html=True,
     )
-    # Banner only — no nav links. Streamlit's native top nav widget
-    # (st.navigation(position="top") in utility/app.py) renders the
-    # cross-page navigation below this band with internal routing and
-    # built-in active-state painting; no custom HTML or JS needed.
     st.html(
         """
         <div class="site-banner">

@@ -173,5 +173,12 @@
     "bytes": 53941,
     "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary August 4th.docx",
     "revisions": 1
+  },
+  "2026-08-06": {
+    "sha256": "8a575b277eb3cef8e97ee100982b1be667fa1861f4fe53512ff67ab00c71e0d4",
+    "filename": "2026-08-06.docx",
+    "bytes": 47057,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary August 6th.docx",
+    "revisions": 1
   }
 }

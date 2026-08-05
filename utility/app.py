@@ -1,3 +1,7 @@
+# isort: off
+import _bootstrap  # noqa: F401  -- repository path + BLAS cap must precede Streamlit/pandas
+# isort: on
+
 import streamlit as st
 from pages_code.accommodation_spend import accommodation_spend_page
 from pages_code.attendance import attendance_page

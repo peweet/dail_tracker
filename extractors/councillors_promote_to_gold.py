@@ -130,6 +130,31 @@ def _source_status_map() -> dict[str, str]:
     return out
 
 
+def _published_document_types() -> dict[tuple[str, str], str]:
+    """Return the defensive publication type for every available manifest document.
+
+    The harvest ledger's historical labels include agenda PDFs as minutes and
+    committee minutes as plenary. Reusing the corpus publication contract here
+    prevents those rows from contaminating app-level decision and power counts.
+    """
+    from extractors.council_minutes_contract import classify_document
+
+    out: dict[tuple[str, str], str] = {}
+    for record in _jsonl(SBX / "meetings_clean.jsonl"):
+        text_path = str(record.get("text_path") or "")
+        path = SBX / text_path if text_path else None
+        if path is None or not path.exists():
+            continue
+        local_authority = _CANON_LA.get(str(record.get("local_authority") or ""), record.get("local_authority") or "")
+        out[(str(local_authority), str(record.get("meeting") or ""))] = classify_document(
+            meeting=str(record.get("meeting") or ""),
+            source_url=str(record.get("url") or ""),
+            text=path.read_text(encoding="utf-8", errors="replace"),
+            upstream_doc_type=str(record.get("doc_type") or ""),
+        )
+    return out
+
+
 def _roster_folds() -> dict[str, set[str]]:
     """{council -> folded gold-roster names}, using the vote extractor's own fold.
 
@@ -157,6 +182,7 @@ def _write(name: str, fieldnames: list[str], rows: list[dict]) -> None:
 def main() -> int:
     META.mkdir(parents=True, exist_ok=True)
     print("Promoting Your-Councillors sandbox -> data/_meta gold CSVs")
+    published_types = _published_document_types()
 
     # 1. roster
     with open(SBX / "councillors_roster.csv", encoding="utf-8") as fh:
@@ -182,7 +208,7 @@ def main() -> int:
     #     about how it votes). 'unseeded' means not-yet-harvested, never "does not publish".
     with open(SBX / "council_coverage.csv", encoding="utf-8") as fh:
         cov = list(csv.DictReader(fh))
-    clean = Counter(m["local_authority"] for m in _jsonl(SBX / "meetings_clean.jsonl") if m.get("clean"))
+    clean = Counter(la for (la, _meeting), doc_type in published_types.items() if doc_type.endswith("_minutes"))
     vote_rows = Counter(v["local_authority"] for v in _jsonl(SBX / "member_votes.jsonl"))
     # A placeholder row is one where the Wikipedia parse lost the councillor's name and left
     # the LEA name in its place — those rows have an EMPTY lea. Testing the name prefix alone
@@ -190,7 +216,8 @@ def main() -> int:
     roster_n = Counter(
         r["local_authority"]
         for r in roster
-        if " " in r["name"].strip() and not (not r.get("lea", "").strip() and r["name"].strip().startswith(r["local_authority"]))
+        if " " in r["name"].strip()
+        and not (not r.get("lea", "").strip() and r["name"].strip().startswith(r["local_authority"]))
     )
     cov_rows = []
     for r in cov:
@@ -246,9 +273,7 @@ def main() -> int:
                 "vote": v["vote"],
                 "source_status": v.get("source_status") or status_by_file.get(str(v.get("meeting") or ""), ""),
                 "join_status": (
-                    "resolved"
-                    if _fold(v["member"]) in folds.get(v["local_authority"], set())
-                    else "printed_form"
+                    "resolved" if _fold(v["member"]) in folds.get(v["local_authority"], set()) else "printed_form"
                 ),
             }
             for v in votes
@@ -313,7 +338,17 @@ def main() -> int:
     #     because that is all the source document names.
     # The sandbox writes Python repr strings ('None', 'True') into these fields; they are
     # normalised here so gold never ships the literal text "None" in a count column.
-    dec = _jsonl(SBX / "decisions.jsonl")
+    dec = [
+        row
+        for row in _jsonl(SBX / "decisions.jsonl")
+        if published_types.get(
+            (
+                _CANON_LA.get(str(row.get("local_authority") or ""), row.get("local_authority") or ""),
+                str(row.get("meeting") or ""),
+            )
+        )
+        in {"plenary_minutes", "md_minutes"}
+    ]
 
     # Topic labels are the SAME events, not a second dataset: motion_topics.jsonl and
     # decisions.jsonl describe the identical 6,435 motion events (verified 2026-08-01 —
@@ -338,8 +373,12 @@ def main() -> int:
     deduped = []
     for r in dec:
         k = (
-            r.get("local_authority"), r.get("meeting_date"), r.get("item_context"),
-            r.get("motion_snippet"), r.get("proposer"), r.get("seconder"),
+            r.get("local_authority"),
+            r.get("meeting_date"),
+            r.get("item_context"),
+            r.get("motion_snippet"),
+            r.get("proposer"),
+            r.get("seconder"),
         )
         if k in seen:
             continue
@@ -356,9 +395,20 @@ def main() -> int:
     _write(
         "la_council_decisions.csv",
         [
-            "local_authority", "meeting_date", "item_context", "motion_snippet", "proposer",
-            "seconder", "outcome", "topics", "tally_for", "tally_against", "tally_abstain",
-            "rollcall", "source_url", "source_status",
+            "local_authority",
+            "meeting_date",
+            "item_context",
+            "motion_snippet",
+            "proposer",
+            "seconder",
+            "outcome",
+            "topics",
+            "tally_for",
+            "tally_against",
+            "tally_abstain",
+            "rollcall",
+            "source_url",
+            "source_status",
         ],
         [
             {
@@ -399,7 +449,20 @@ def main() -> int:
     #
     # BAND: Extracted. Rows are document-grain (a class and a hit count per document), so a
     # citation reaches the document, NOT the line — do not render these as quotes.
-    pw = _jsonl(SBX / "power_events.jsonl")
+    # Reserved/executive powers belong to the full elected council. Municipal
+    # districts and committees can make other decisions, but mixing their records
+    # into this split changes the legal grain of the claim.
+    pw = [
+        row
+        for row in _jsonl(SBX / "power_events.jsonl")
+        if published_types.get(
+            (
+                _CANON_LA.get(str(row.get("local_authority") or ""), row.get("local_authority") or ""),
+                str(row.get("meeting") or ""),
+            )
+        )
+        == "plenary_minutes"
+    ]
 
     def _power_type(cls: str) -> str:
         if cls.startswith(("reserved_", "requisition_")):
@@ -413,7 +476,13 @@ def main() -> int:
             {
                 "local_authority": r["local_authority"],
                 "meeting": r.get("meeting") or "",
-                "doc_type": r.get("doc_type") or "",
+                "doc_type": published_types.get(
+                    (
+                        _CANON_LA.get(str(r.get("local_authority") or ""), r.get("local_authority") or ""),
+                        str(r.get("meeting") or ""),
+                    ),
+                    "",
+                ),
                 "power_class": r.get("power_class") or "",
                 "power_type": _power_type(str(r.get("power_class") or "")),
                 "n_hits": r.get("n_hits") or 0,

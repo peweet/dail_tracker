@@ -114,11 +114,16 @@ def _validate(root: Path, changed: list[str], *, tolerance: float) -> None:
     """
     import pyarrow.parquet as pq  # core runtime dep; lazy so --help stays light
 
+    missing = [rel for rel in changed if not (root / rel).is_file()]
+    if missing:
+        raise SystemExit(
+            "publish: ABORT — an allowed runtime artifact was deleted: "
+            f"{', '.join(sorted(missing))}. Nothing committed."
+        )
+
     parquets = [r for r in changed if r.endswith(".parquet")]
     for rel in parquets:
         p = root / rel
-        if not p.exists():
-            continue
         try:
             n_rows = pq.ParquetFile(p).metadata.num_rows
         except Exception as e:  # noqa: BLE001 — an unreadable output must abort, not crash

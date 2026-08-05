@@ -1,11 +1,12 @@
 ---
 tier: PLAN
-status: STALE
+status: SUPERSEDED
 domain: commercial
 updated: 2026-07-08
 supersedes: []
-read_when: implementing the Stage A trust-UI primitives or running Stage B reports-first design-partner operations for the BI spinout
-key: PLAN|LIVE|commercial
+superseded_by: PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md
+read_when: reviewing the superseded Stage A/B proposal; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current sequencing and pilot gates
+key: PLAN|SUPERSEDED|commercial
 ---
 
 # BI Spinout — Stage A/B Build-Ready Execution Plan

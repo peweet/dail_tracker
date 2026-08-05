@@ -1,11 +1,12 @@
 ---
 tier: RECORD
-status: STALE
+status: SUPERSEDED
 domain: commercial
 updated: 2026-07-08
 supersedes: []
-read_when: deciding whether to proceed with the BI spinout plan, or checking its named load-bearing risks (unvalidated demand, PHASE-2-TODO dependency, diary-data ethics) before greenlighting Stage A build
-key: RECORD|LIVE|commercial
+superseded_by: PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md
+read_when: reviewing historical BI spinout risks; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for the current go or park decision
+key: RECORD|SUPERSEDED|commercial
 ---
 
 # BI Spinout — Independent Assessment (Fable model)

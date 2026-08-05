@@ -62,6 +62,19 @@ function markLandmarks() {
 }
 markLandmarks();
 
+// Streamlit 1.58 renders both mobile drawer controls with an empty aria-label.
+// Their icon ligatures are visual-only and read as implementation names, so
+// give each native button a stable action label without replacing its handler.
+function labelMobileNavigationButtons() {
+  var openButton = doc.querySelector('[data-testid="stExpandSidebarButton"]');
+  if (openButton) openButton.setAttribute("aria-label", "Open navigation menu");
+  var closeButton = doc.querySelector(
+    '[data-testid="stSidebarCollapseButton"] button'
+  );
+  if (closeButton) closeButton.setAttribute("aria-label", "Close navigation menu");
+}
+labelMobileNavigationButtons();
+
 if (!app.__dtSpaInstalled) {
   app.__dtSpaInstalled = true;
   doc.addEventListener(

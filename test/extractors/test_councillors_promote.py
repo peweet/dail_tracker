@@ -31,7 +31,9 @@ def _read(d: Path, name: str) -> list[dict]:
 
 
 @pytest.fixture(scope="module")
-def out(tmp_path_factory, ) -> Path:
+def out(
+    tmp_path_factory,
+) -> Path:
     d = tmp_path_factory.mktemp("gold")
     original = promote.META
     promote.META = d
@@ -93,15 +95,11 @@ def test_no_bare_galway_in_the_join_key(out):
 def test_coverage_is_recounted_not_copied(out):
     """council_coverage.csv still carries the counts from a ~150-document corpus. Promoting them
     unchanged is what made the page claim Galway City had no minutes while we held 104."""
-    import json
-
     cov = {r["local_authority"]: r for r in _read(out, "la_council_meeting_coverage.csv")}
     clean: dict[str, int] = {}
-    for line in (SBX / "meetings_clean.jsonl").read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            rec = json.loads(line)
-            if rec.get("clean"):
-                clean[rec["local_authority"]] = clean.get(rec["local_authority"], 0) + 1
+    for (local_authority, _meeting), doc_type in promote._published_document_types().items():
+        if doc_type.endswith("_minutes"):
+            clean[local_authority] = clean.get(local_authority, 0) + 1
     for la, row in cov.items():
         assert int(row["clean_minutes"]) == clean.get(la, 0), la
     assert sum(int(r["clean_minutes"]) for r in cov.values()) == sum(clean.values())
@@ -152,6 +150,14 @@ def test_decisions_carry_no_duplicate_motion_events(out):
     key = ("local_authority", "meeting_date", "item_context", "motion_snippet", "proposer", "seconder")
     seen = [tuple(r[k] for k in key) for r in rows]
     assert len(seen) == len(set(seen)), f"{len(seen) - len(set(seen))} duplicate motion events"
+
+
+def test_power_split_contains_plenary_council_minutes_only(out):
+    """Reserved/executive powers are a full-council legal grain, not a committee
+    or municipal-district metric and never an agenda-text metric."""
+    rows = _read(out, "la_council_power_events.csv")
+    assert rows
+    assert {row["doc_type"] for row in rows} == {"plenary_minutes"}
 
 
 def test_promote_is_idempotent(out, tmp_path):

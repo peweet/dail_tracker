@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-07-31T19:00:12.708549+00:00",
+  "generated_at": "2026-08-05T20:29:38.053654+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -185,14 +185,21 @@
       "sha256": "482941073091354b",
       "sessions": 54,
       "cases": 357
+    },
+    {
+      "file": "2026-08-06.docx",
+      "diary_date": "2026-08-06",
+      "sha256": "8a575b277eb3cef8",
+      "sessions": 21,
+      "cases": 34
     }
   ],
-  "n_days": 26,
-  "tier_a_sessions": 2519,
-  "tier_b_counts": 1463,
-  "case_lines_parsed": 18189,
+  "n_days": 27,
+  "tier_a_sessions": 2540,
+  "tier_b_counts": 1469,
+  "case_lines_parsed": 18223,
   "cases_dropped_protected": 3009,
-  "cases_kept_anonymised": 15160,
+  "cases_kept_anonymised": 15194,
   "drop_reasons": {
     "asylum": 1857,
     "minor": 523,
@@ -208,9 +215,9 @@
     "special education": 1
   },
   "plaintiff_kinds": {
-    "individual": 9648,
-    "state-prosecutor": 3011,
-    "organisation": 2298,
+    "individual": 9665,
+    "state-prosecutor": 3027,
+    "organisation": 2299,
     "state-body": 203
   },
   "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."

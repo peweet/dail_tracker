@@ -1,32 +1,32 @@
 local_authority,tier,clean_minutes,roster_councillors,has_votes
 Carlow,roll_call,12,18,True
-Cavan,proposer_seconder,2,18,False
+Cavan,proposer_seconder,1,18,False
 Clare,proposer_seconder,51,28,False
 Cork City,roll_call,105,28,True
-Cork County,proposer_seconder,14,55,False
+Cork County,proposer_seconder,5,55,False
 Donegal,proposer_seconder,42,32,False
 Dublin City,proposer_seconder,25,56,False
 Dun Laoghaire-Rathdown,unseeded,0,34,False
 Fingal,roll_call,35,40,True
 Galway City,roll_call,104,17,True
 Galway County,proposer_seconder,30,39,False
-Kerry,proposer_seconder,29,32,False
-Kildare,proposer_seconder,30,40,False
+Kerry,proposer_seconder,27,32,False
+Kildare,proposer_seconder,18,40,False
 Kilkenny,roll_call,18,21,True
 Laois,roll_call,17,19,True
 Leitrim,proposer_seconder,2,18,False
-Limerick,proposer_seconder,2,37,False
-Longford,proposer_seconder,9,18,False
+Limerick,proposer_seconder,1,37,False
+Longford,proposer_seconder,8,18,False
 Louth,proposer_seconder,13,29,False
 Mayo,unseeded,0,30,False
-Meath,proposer_seconder,23,40,False
-Monaghan,proposer_seconder,30,18,False
-Offaly,proposer_seconder,15,18,False
+Meath,proposer_seconder,16,40,False
+Monaghan,proposer_seconder,29,18,False
+Offaly,proposer_seconder,3,18,False
 Roscommon,unseeded,0,15,False
 Sligo,unseeded,0,18,False
 South Dublin,proposer_seconder,1,40,False
 Tipperary,proposer_seconder,3,39,False
 Waterford,proposer_seconder,14,32,False
 Westmeath,proposer_seconder,56,19,False
-Wexford,roll_call,98,29,True
-Wicklow,proposer_seconder,99,32,False
+Wexford,roll_call,95,29,True
+Wicklow,proposer_seconder,79,32,False

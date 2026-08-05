@@ -2068,16 +2068,16 @@ def search_speeches(query: str, year: int = 0, limit: int = 10, response_format:
 @mcp.tool(annotations=_RO)
 def search_council_minutes(query: str, year: int = 0, limit: int = 10, response_format: str = "concise") -> dict:
     """WHICH COUNCILS discussed a topic: BM25-ranked (porter-stemmed) search over the
-    council-minutes corpus (879 meeting documents, 27 of 31 councils, 2015-2026; DLR,
+    council-minutes corpus (810 vetted minute documents, 27 of 31 councils, 2015-2026; DLR,
     Mayo, Roscommon and Sligo hold ZERO documents — absence of hits for them means
     nothing was harvested, not that nothing was said) — the local-government sibling of
-    search_speeches. Use for cross-council topic questions
-    ('which councils debated data centres / IPAS / flood relief') and for locating the
+    search_speeches. Use for cross-council topics and for locating the
     meeting that discussed a named site or scheme. Scoring is per-token, not phrase:
     'data centre' also ranks 'data collection'. Hits carry source_status:
     'ocr_winocr' rows are OCR-derived text (Extracted band) — carry that caveat into
-    anything cited. Default hits are concise (council, date, doc_type, snippet); pass
-    response_format='detailed' for meeting file / source_url provenance. First call
+    anything cited. Agenda documents are excluded and meeting_scope keeps full-council,
+    municipal-district and committee minutes distinct. Concise hits include council,
+    date, type, scope and snippet; use detailed mode for source URL provenance. First call
     after a corpus refresh rebuilds the index (one-off, seconds)."""
     return text_fts.search(
         "council_minutes", query, _cur(), REPO, year=year, limit=limit, response_format=response_format

@@ -10,7 +10,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # When GitHub delivers a bot-originated data-only push, this cheap classifier
+  # lets it skip code-only lint/typecheck/test/container jobs while the SQL/data
+  # contracts still run below. The GITHUB_TOKEN refresh lanes are independently
+  # protected by tools.publish_data's pre-publish integrity gate: their pushes
+  # do not create a second CI event. Any unknown actor, diff, rename, or path
+  # falls back to the full CI matrix.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      data_refresh_only: ${{ steps.classify.outputs.data_refresh_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: classify
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "push" ] || [ "${{ github.actor }}" != "github-actions[bot]" ]; then
+            echo "data_refresh_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          before="${{ github.event.before }}"
+          if [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            echo "data_refresh_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          data_refresh_only="$(python tools/ci_data_refresh.py --base "$before" --head "${{ github.sha }}")"
+          echo "data_refresh_only=$data_refresh_only" >> "$GITHUB_OUTPUT"
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +66,8 @@ jobs:
   # a hand-edited requirements.txt fails the PR instead of silently shipping the
   # deployed app on different versions than CI tested.
   deps:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +87,8 @@ jobs:
   # render-time aggregation is exempted inline with `# logic_firewall:
   # display_only`). The checker is pure-stdlib AST, so a core sync is enough.
   firewall:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +106,8 @@ jobs:
   # baselined 2026-08-01 at zero real secrets across 1,015 commits). Also runs
   # locally via .githooks/pre-push when gitleaks is installed.
   secrets:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,6 +118,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   typecheck:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,6 +135,8 @@ jobs:
       - run: uv run basedpyright
 
   test:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -136,6 +177,8 @@ jobs:
   # and boot the API image. Source-tree tests cannot catch missing wheel or
   # Docker resources.
   delivery:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -3,18 +3,20 @@
 
 # doc/ index
 
-65 docs · ~334.8k tokens total · 24 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+67 docs · ~340.2k tokens total · 26 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
 | doc | domain | ~tok | updated | read when |
 |---|---|---:|---|---|
 | [COMMERCIALISATION_PLAN.md](COMMERCIALISATION_PLAN.md) | commercial | 3.0k | 2026-06-28 | setting up, reviewing, or invoking the AGPL/commercial dual-licensing scaffolding (CLA, COMMERCIAL-LICENSE.md) before a first commercial sale |
+| [PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md](PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md) | commercial | 4.4k | 2026-08-05 | deciding whether or how to commercialise Dail Tracker procurement data, recruiting pilot customers, pricing an evidence pack, or considering procurement alerts, API access, or SaaS |
 | [DATA_GRAINS.md](DATA_GRAINS.md) | data | 2.5k | 2026-07-17 | before summing or comparing any money figure across procurement, payments, budgets, donations, or allowances |
 | [DATA_LIMITATIONS.md](DATA_LIMITATIONS.md) | data | 12.1k | 2026-07-17 | before citing any dataset's completeness, scope, or coverage of a person/topic — check known caveats and silent-failure risks first |
 | [JOIN_MAP.md](JOIN_MAP.md) | data | 1.7k | 2026-07-14 | before attempting any cross-register association/join between datasets (ORG name-norm or PERSON anagram key) |
 | [AST_SCANNER_FAILURE_MODES.md](AST_SCANNER_FAILURE_MODES.md) | engineering | 7.3k | 2026-08-04 | auditing an AST-based code scanner, contract extractor, repository indexer, or migration ratchet for false positives and false negatives |
 | [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 2.2k | 2026-08-05 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
+| [AGENT_HARNESS_MEASUREMENT_2026_08_05.md](AGENT_HARNESS_MEASUREMENT_2026_08_05.md) | infra | 1.0k | 2026-08-05 | deciding whether the current agent harness improves correctness or efficiency |
 | [CI_CD.md](CI_CD.md) | infra | 4.9k | 2026-06-21 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-07-17 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
@@ -39,10 +41,10 @@
 
 | doc | domain | ~tok | updated | read when |
 |---|---|---:|---|---|
-| [BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md) | commercial | 8.1k | 2026-06-28 | scoping the BI spinout's business model, data reuse inventory, licensing, or ethics firewall before building any of it |
-| [BI_SPINOUT_BLIND_SPOTS.md](BI_SPINOUT_BLIND_SPOTS.md) | commercial | 10.0k | 2026-07-09 | sizing the BI spinout market/TAM or unit economics, or picking up the unfinished competitive-landscape section before a pricing decision |
-| [BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) | commercial | 22.4k | 2026-07-08 | deciding whether to proceed with the BI spinout plan, or checking its named load-bearing risks (unvalidated demand, PHASE-2-TODO dependency, diary-data ethics) before greenlighting Stage A build |
-| [BI_SPINOUT_STAGE_AB_PLAN.md](BI_SPINOUT_STAGE_AB_PLAN.md) | commercial | 9.4k | 2026-07-08 | implementing the Stage A trust-UI primitives or running Stage B reports-first design-partner operations for the BI spinout |
+| [BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md) | commercial | 8.1k | 2026-06-28 | reviewing the superseded BI spinout architecture; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current commercial decisions |
+| [BI_SPINOUT_BLIND_SPOTS.md](BI_SPINOUT_BLIND_SPOTS.md) | commercial | 10.0k | 2026-07-09 | reviewing historical BI spinout market and unit-economics work; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current pricing tests |
+| [BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) | commercial | 22.4k | 2026-07-08 | reviewing historical BI spinout risks; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for the current go or park decision |
+| [BI_SPINOUT_STAGE_AB_PLAN.md](BI_SPINOUT_STAGE_AB_PLAN.md) | commercial | 9.4k | 2026-07-08 | reviewing the superseded Stage A/B proposal; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current sequencing and pilot gates |
 | [SIPO_OCR_REMAINING_QUEUE.md](SIPO_OCR_REMAINING_QUEUE.md) | elections | 1.0k | 2026-06-26 | before running or resuming a SIPO OCR job (candidate expenses, party national-agent returns) |
 | [DATA_DISTRIBUTION_PLAN.md](DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
 | [DUCKDB_ENGINEERING_PLAN.md](DUCKDB_ENGINEERING_PLAN.md) | infra | 3.8k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |

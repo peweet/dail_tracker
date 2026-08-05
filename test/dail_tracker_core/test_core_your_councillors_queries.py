@@ -52,6 +52,30 @@ def conn():
         ) AS t(local_authority, chief_executive, head_title, appointed_year, source_url)
         """
     )
+    c.execute(
+        """
+        CREATE TABLE v_la_council_minutes_docs AS SELECT * FROM (VALUES
+            ('doc-1', 'Carlow', 'March minutes.pdf', '2026-03-01', DATE '2026-03-01', 'plenary_minutes',
+             'plenary', 'text', 'https://carlow.ie/march', 0, 'Housing and roads were discussed.'),
+            ('doc-1', 'Carlow', 'March minutes.pdf', '2026-03-01', DATE '2026-03-01', 'plenary_minutes',
+             'plenary', 'text', 'https://carlow.ie/march', 1, 'A second housing passage.'),
+            ('doc-2', 'Carlow', 'Committee.pdf', '', NULL, 'committee_minutes',
+             'committee', 'ocr_winocr', '', 0, 'The target was 100% complete.'),
+            ('doc-3', 'Cork County', 'April minutes.pdf', '2026-04-01', DATE '2026-04-01', 'plenary_minutes',
+             'plenary', 'text', 'https://corkcoco.ie/april', 0, 'Housing in another council.')
+        ) AS t(document_id, local_authority, meeting, meeting_date, meeting_date_parsed, doc_type, meeting_scope,
+               source_status, source_url, chunk, body)
+        """
+    )
+    c.execute(
+        """
+        CREATE TABLE v_la_council_minutes_coverage AS SELECT * FROM (VALUES
+            ('Carlow', 2, 1, 0, 1, 1, 1, 1, DATE '2026-03-01', DATE '2026-03-01')
+        ) AS t(local_authority, documents, plenary_documents, municipal_documents,
+               committee_documents, ocr_documents, dated_documents, sourced_documents,
+               first_meeting_date, last_meeting_date)
+        """
+    )
     return c
 
 
@@ -99,6 +123,26 @@ def test_chief_executive_reused_from_ce_view(conn):
     res = q.chief_executive(conn, "Carlow")
     assert res.ok and len(res.data) == 1
     assert res.data.iloc[0]["chief_executive"] == "Coilin O Reilly"
+
+
+def test_minutes_coverage_is_document_grain(conn):
+    res = q.minutes_coverage(conn, "Carlow")
+    assert res.ok and len(res.data) == 1
+    assert int(res.data.iloc[0]["documents"]) == 2
+    assert int(res.data.iloc[0]["ocr_documents"]) == 1
+
+
+def test_minutes_search_is_council_scoped_and_one_passage_per_document(conn):
+    res = q.search_minutes(conn, "Carlow", "housing")
+    assert res.ok
+    assert res.data["document_id"].tolist() == ["doc-1"]
+    assert "another council" not in " ".join(res.data["snippet"].tolist())
+
+
+def test_minutes_search_treats_sql_wildcards_literally(conn):
+    res = q.search_minutes(conn, "Carlow", "%")
+    assert res.ok
+    assert res.data["document_id"].tolist() == ["doc-2"]
 
 
 def test_unavailable_when_view_absent(conn):

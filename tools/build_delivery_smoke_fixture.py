@@ -13,6 +13,8 @@ from pathlib import Path
 
 import duckdb
 
+from services.parquet_io import save_parquet
+
 _EMPTY_PAYMENTS_SQL = """
 SELECT
     NULL::VARCHAR AS member_name,
@@ -45,9 +47,9 @@ def build_fixture(data_dir: Path) -> tuple[Path, Path]:
     )
     connection = duckdb.connect()
     try:
-        relation = connection.sql(_EMPTY_PAYMENTS_SQL)
+        frame = connection.sql(_EMPTY_PAYMENTS_SQL).pl()
         for output in outputs:
-            relation.write_parquet(str(output))
+            save_parquet(frame, output)
     finally:
         connection.close()
     return outputs

@@ -206,6 +206,7 @@ CONSTITUENCY_FILES = [
     "constituency_la_councillor_votes.sql",  # named roll-call votes + their provenance counts (6 councils)
     "constituency_la_council_decisions.sql",  # proposer/seconder motion events from minute prose (Extracted band)
     "constituency_la_council_power_events.sql",  # reserved vs executive power split (doc grain; Extracted band)
+    "constituency_la_council_minutes.sql",  # vetted searchable minute passages + document-grain coverage
     "constituency_la_councillor_payments.sql",  # ACTUAL s.142 payments (open-data councils; reads _meta CSV; no deps)
     "constituency_la_plan_directions.sql",  # OPR/Minister overrides of the MEMBERS' plan+zoning votes (reserved function; reads _meta CSV; no deps)
     "constituency_la_meeting_agendas.sql",  # what each council tabled (agenda)

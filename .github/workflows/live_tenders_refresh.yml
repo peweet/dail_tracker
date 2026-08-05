@@ -1,4 +1,4 @@
-name: Live tenders refresh (daily)
+name: Live tenders refresh (manual while timeout is investigated)
 
 # Keeps the LIVE national tender snapshot current on the deployed site.
 #
@@ -29,11 +29,14 @@ permissions:
   issues: write     # open a tracking issue if a scheduled run fails
 
 concurrency:
-  group: live-tenders-refresh
+  group: data-refresh-publish
   cancel-in-progress: false   # let an in-flight publish finish rather than racing the next run
 
 jobs:
   refresh:
+    # Scheduled runs repeatedly hit the watchdog. Leave the cron declaration
+    # available for a measured re-enable, but run only explicit dispatches now.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30   # the scrape + publish finishes in minutes; this is a watchdog
     steps:

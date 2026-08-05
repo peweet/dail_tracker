@@ -28,6 +28,7 @@ REPO = Path(__file__).resolve().parents[1]
 ENTRY_POINTS = (
     ("mcp_server/server.py", "dail_tracker_core"),
     ("pipeline.py", "manifest"),
+    ("utility/app.py", None),
     ("utility/_bootstrap.py", None),
     ("test/conftest.py", None),
     # Added 2026-07-27. These are `python -m` entry points that import polars, and therefore
