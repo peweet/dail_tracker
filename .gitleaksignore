@@ -26,3 +26,17 @@ b669c981d0906eb6aec105c433f3b77c384e238e:extractors/noac_scorecard_history_extra
 b669c981d0906eb6aec105c433f3b77c384e238e:extractors/noac_scorecard_history_extract.py:generic-api-key:153
 2c030572297ea19f3a2dad251aff7e61c8e190cf:extractors/noac_scorecard_history_extract.py:generic-api-key:138
 2c030572297ea19f3a2dad251aff7e61c8e190cf:extractors/noac_scorecard_history_extract.py:generic-api-key:153
+# Rewritten equivalents after the owner-email metadata rewrite (2026-08-06).
+# These remain the same classified historical false positives above.
+5a85ab298b5e1f45022ad37dfaef660436552748:doc/PAYMENTS_AUDIT.md:generic-api-key:92
+87616200bfd6922bcf608556b2e25d819a710224:ida/2.12 Oranmore _ Galway County Council Online Consultation Portal.htm:generic-api-key:44
+87616200bfd6922bcf608556b2e25d819a710224:ida/Consultations _ Galway County Council Online Consultation Portal.htm:generic-api-key:50
+8cc500044c5dec891357086260674d694b049b2d:payments.py:generic-api-key:57
+925b58e7e7f603a13f97e3c1d38b5fffcf0e7678:payments.py:generic-api-key:59
+98ac37fc734f4196e939b64af6e7da50801f58b9:extractors/noac_scorecard_history_extract.py:generic-api-key:138
+98ac37fc734f4196e939b64af6e7da50801f58b9:extractors/noac_scorecard_history_extract.py:generic-api-key:153
+a575d12f8ee41d52c9166ed0592b051cab1a3913:utility/pages_code/payments.py:generic-api-key:149
+d2504fb9335fc7aef546499670477513cc0a9a1d:payments.py:generic-api-key:48
+e7c9bc7ab5535fecbeb55a38f63a3295404b8ab5:enrich.py:generic-api-key:164
+e7e8fd72bc624cad0274fc4aae67460db8027b02:extractors/noac_scorecard_history_extract.py:generic-api-key:138
+e7e8fd72bc624cad0274fc4aae67460db8027b02:extractors/noac_scorecard_history_extract.py:generic-api-key:153
