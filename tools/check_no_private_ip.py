@@ -10,8 +10,9 @@ sensitive pattern. Designed for CI (.github/workflows/ci.yml) and the versioned
 `.githooks/pre-push` hook.
 
 WHY THIS EXISTS
-    The siting planning engine + council rulebooks are commercial IP that was
-    deliberately removed from the public repo (see the siting-made-private note).
+    The siting planning engine, commercial product apps, their app-level tests,
+    and council rulebooks are commercial IP deliberately removed from the public
+    repo (see the siting-made-private note).
     `.gitignore` is not enough on its own: it is bypassable with `git add -f`, and
     a newly-named sensitive file (e.g. a fresh `doc/private/*` strategy doc) slips
     straight through. This guard is the belt to that suspenders — it blocks the
@@ -50,6 +51,9 @@ DENY_DIR_PREFIXES: tuple[str, ...] = (
     # one prefix instead of the ~30 hand-maintained globs that produced every leak recorded
     # to date. planning/civic/ is the deliberately-public sibling and must never appear here.
     "planning/product/",
+    "apps/planspec-demo/",
+    "apps/public-signal/",
+    "test/apps/",
     "doc/private/",
     "siting_reports/",
     "data/silver/parquet/planning_layers/",
