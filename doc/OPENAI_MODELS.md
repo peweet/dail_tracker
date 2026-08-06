@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-08-04
+updated: 2026-08-06
 supersedes: []
 read_when: configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -38,12 +38,12 @@ $env:SITING_LLM_PROVIDER = "openai"
 
 Supported provider values are `openai`, `claude`, and `auto`. When resolving a provider, `auto` selects
 configured OpenAI first and selects the local Claude CLI only when OpenAI is not configured; it does not
-retry a failed OpenAI request through Claude. Provider-specific defaults are `gpt-5.6-sol` for OpenAI and
+retry a failed OpenAI request through Claude. Provider-specific defaults are `gpt-5.6-luna` for OpenAI and
 `sonnet` for Claude. Override them only when evaluating a deliberate model change:
 
 ```powershell
-$env:SITING_OPENAI_MODEL = "gpt-5.6-sol"
-$env:SITING_OPENAI_REASONING_EFFORT = "medium"
+$env:SITING_OPENAI_MODEL = "gpt-5.6-luna"
+$env:SITING_OPENAI_REASONING_EFFORT = "low"
 ```
 
 `SITING_LLM_MODEL` and `SITING_LLM_REASONING_EFFORT` are provider-neutral aliases. A direct function
@@ -51,17 +51,23 @@ or CLI argument takes precedence over environment configuration. If an applicati
 end users, set `SITING_OPENAI_SAFETY_IDENTIFIER` to a stable internal identifier; the adapter hashes
 it before sending it to OpenAI.
 
-The OpenAI path uses the Responses API, sends `store=False`, sets reasoning effort explicitly, and
-uses strict JSON Schema output for intake and consultant-report structures. Every object schema
+The OpenAI path uses the Responses API, sends `store=False`, sets reasoning effort explicitly,
+applies a per-call output-token cap, records token counts without request/response bodies, and uses
+strict JSON Schema output for intake and consultant-report structures. Every object schema
 rejects additional properties and requires all declared fields. Refusals, incomplete responses,
 missing content, timeouts, and malformed output fail as `AssistantError`; SDK exceptions are not
 echoed because they may contain request data.
 
-The model receives a project description and deterministic engine output. A consultant appraisal
-can additionally receive verbatim authority case evidence. Treat those inputs as confidential and
-untrusted: they cannot override system instructions, and model prose remains non-citable. The
-deterministic report is the evidence artefact. The private HTTP API intentionally remains the
-deterministic tier; enabling the SDK does not create a model-backed network endpoint.
+The legacy appraisal writer can receive a project description, deterministic engine output and
+explicitly supplied authority case evidence. The customer API uses the narrower controlled path:
+an explicitly requested AI supplement receives only a bounded deterministic fact packet, must cite
+every packet fact id, and is rejected locally if it changes section order, invents a number, removes
+an evidence caveat, omits a fact or predicts an outcome. There is no automatic paid retry. Treat all
+inputs as confidential and untrusted. The deterministic report remains the evidence artefact and
+works when no model is configured. The hosted job route always selects direct OpenAI rather than a
+developer CLI, limits packet fact text to 24,000 characters, defaults to 20 attempted calls per UTC
+day (`SITING_AI_DAILY_CALL_LIMIT=0` disables it), and expires local artifacts after seven days by
+default.
 
 Current API choices follow the official [GPT-5.6 model guidance](https://developers.openai.com/api/docs/guides/latest-model)
 and [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs).

@@ -11,6 +11,17 @@ This file is the portable, tool-neutral entry point for work in this repository.
 
 Before re-deriving a known project trap, run `uv run python tools/discoveries.py <topic>`. For a source file over roughly 1,500 lines, read its leading `SECTION MAP` first and then open only the relevant span.
 
+## Pi Firstmate preflight
+
+When Pi Firstmate is available, invoke it proactively as an advisory check for a
+task that could benefit from an independent public-signal or implementation
+specification review. Ask it to check both **Public Signal** and **SpecPlan**,
+then use its findings as evidence rather than authority: verify material claims
+against the current repository and applicable sources, preserve uncertainty, and
+keep final product and engineering decisions with the primary agent. Skip the
+preflight for small, local, mechanical changes, and state when the integration
+is unavailable or not applicable.
+
 ## Durable project knowledge
 
 - Put rules that must apply on every run in this file or the nearest nested `AGENTS.md`.
