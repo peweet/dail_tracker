@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-08-05T22:47:37+00:00",
+  "generated_utc": "2026-08-06T05:41:08+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 192,
   "facts": {
@@ -767,7 +767,7 @@
         2026
       ],
       "read_by": [
-        "read by council_minutes/council_minutes_docs.sql"
+        "read by constituency/constituency_la_council_minutes.sql, council_minutes/council_minutes_docs.sql"
       ],
       "size_bytes": 9092647
     },
@@ -5886,7 +5886,7 @@
     "planning_appeal_outcomes": {
       "file": "data/silver/parquet/planning_appeal_outcomes.parquet",
       "layer": "silver",
-      "rows": 14916,
+      "rows": 14918,
       "columns": [
         "ApplicationNumber",
         "PlanningAuthority",
@@ -5922,7 +5922,7 @@
       "read_by": [
         "read by constituency/constituency_la_planning_overturn.sql"
       ],
-      "size_bytes": 200496
+      "size_bytes": 200502
     },
     "policy_area_breakdown": {
       "file": "data/gold/parquet/policy_area_breakdown.parquet",
