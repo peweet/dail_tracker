@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { analyticsLimiterKey, consumeAnalyticsLimit, consumeSubscriptionLimit, hashAnalyticsSession, ingestAnalytics, matchOpportunity, normaliseAnalyticsPayload, normaliseFeedOpportunity, normaliseSubscription, proxyOpportunities, purgeAnalytics, renderDigest, validateAnalyticsEvent, validateTurnstile } from "./index.js";
+import { analyticsLimiterKey, consumeAnalyticsLimit, consumeSubscriptionLimit, createSubscription, emailConfiguration, hashAnalyticsSession, ingestAnalytics, matchOpportunity, normaliseAnalyticsPayload, normaliseFeedOpportunity, normaliseSubscription, proxyContracts, proxyOpportunities, purgeAnalytics, purgeOperationalData, renderDigest, snapshotFreshness, validateAnalyticsEvent, validateTurnstile } from "./index.js";
 
 test("normaliseSubscription bounds user-controlled filters", () => {
   const result = normaliseSubscription({
@@ -25,6 +25,24 @@ test("normaliseSubscription bounds user-controlled filters", () => {
 
 test("normaliseSubscription rejects malformed email", () => {
   assert.throws(() => normaliseSubscription({ email: "not-an-email" }), /valid delivery email/);
+});
+
+test("email delivery is ready only with a key, sender and reviewed domain", () => {
+  assert.deepEqual(emailConfiguration({ EMAIL_FROM: "PublicSignal <alerts@publicsignal.ie>" }), { ready: false, status: "missing_api_key" });
+  assert.deepEqual(emailConfiguration({ RESEND_API_KEY: "secret", EMAIL_FROM: "PublicSignal <alerts@publicsignal.ie>" }), { ready: false, status: "domain_not_verified" });
+  assert.deepEqual(emailConfiguration({ RESEND_API_KEY: "secret", EMAIL_FROM: "PublicSignal <alerts@publicsignal.ie>", RESEND_DOMAIN_VERIFIED: "true" }), { ready: true, status: "ready" });
+});
+
+test("subscription creation fails before a database write when Resend is not ready", async () => {
+  let prepared = false;
+  const response = await createSubscription(new Request("https://publicsignal.ie/api/subscriptions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "bid@example.ie" }),
+  }), { DB: { prepare: () => { prepared = true; } }, EMAIL_FROM: "PublicSignal <alerts@publicsignal.ie>" });
+  assert.equal(response.status, 503);
+  assert.equal(prepared, false);
+  assert.deepEqual(await response.json(), { error: "Email delivery is not configured yet." });
 });
 
 test("matchOpportunity keeps money, deadline and evidence filters independent", () => {
@@ -111,6 +129,7 @@ test("consumeAnalyticsLimit bounds a hashed session independently", async () => 
 test("analytics payload only accepts known semantic events and UUID sessions", () => {
   const sessionId = "123e4567-e89b-42d3-a456-426614174000";
   assert.deepEqual(validateAnalyticsEvent({ eventType: "page_open", targetSlug: "page-pipeline", query: "ignored" }), { eventType: "page_open", targetSlug: "page-pipeline" });
+  assert.deepEqual(validateAnalyticsEvent({ eventType: "page_open", targetSlug: "page-overview" }), { eventType: "page_open", targetSlug: "page-overview" });
   assert.equal(validateAnalyticsEvent({ eventType: "page_open", targetSlug: "search-term" }), null);
   assert.deepEqual(normaliseAnalyticsPayload({ sessionId, events: [{ eventType: "app_open", targetSlug: "app", path: "/?email=secret" }] }), { sessionId, events: [{ eventType: "app_open", targetSlug: "app" }] });
   assert.throws(() => normaliseAnalyticsPayload({ sessionId: "bid@example.ie", events: [{ eventType: "app_open", targetSlug: "app" }] }), /session is invalid/);
@@ -204,12 +223,45 @@ test("analytics retention uses the configured bounded window", async () => {
   assert.equal(query, "DELETE FROM analytics_events WHERE occurred_at < ?");
 });
 
+test("snapshot freshness uses a bounded threshold and fails closed", () => {
+  const now = Date.parse("2026-08-06T12:00:00Z");
+  assert.deepEqual(snapshotFreshness("2026-08-06T00:00:00Z", {}, now), { status: "fresh", stale: false, ageHours: 12, maxAgeHours: 48 });
+  assert.deepEqual(snapshotFreshness("2026-08-03T00:00:00Z", { SNAPSHOT_MAX_AGE_HOURS: "24" }, now), { status: "stale", stale: true, ageHours: 84, maxAgeHours: 24 });
+  assert.deepEqual(snapshotFreshness(null, {}, now), { status: "unavailable", stale: true, ageHours: null, maxAgeHours: 48 });
+});
+
+test("operational retention removes abandoned watches and old delivery logs", async () => {
+  const queries = [];
+  const db = { prepare(sql) { queries.push(sql); return { async run() { return { meta: { changes: 2 } }; } }; } };
+  assert.deepEqual(await purgeOperationalData({ DB: db }), { pendingSubscriptions: 2, deliveryLogs: 2 });
+  assert.match(queries[0], /status='pending'.*'-7 days'/);
+  assert.match(queries[1], /delivery_log.*'-365 days'/);
+});
+
 test("watch Turnstile lifecycle invalidates stale async renders", async () => {
   const source = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
   assert.match(source, /function resetWatchTurnstile\(\)/);
   assert.match(source, /generation !== watchTurnstile\.generation/);
   assert.match(source, /!form\.isConnected/);
   assert.match(source, /turnstile\.reset/);
+});
+
+test("launch shell publishes the overview and trust surfaces", async () => {
+  const [index, privacy, terms, methodology, robots, sitemap] = await Promise.all([
+    readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/privacy.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/terms.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/methodology.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/robots.txt", import.meta.url), "utf8"),
+    readFile(new URL("../public/sitemap.xml", import.meta.url), "utf8"),
+  ]);
+  assert.match(index, /data-view="overview"/);
+  assert.match(index, /rel="canonical" href="https:\/\/publicsignal\.ie\/"/);
+  assert.match(privacy, /Analytics events are deleted after 90 days/);
+  assert.match(terms, /source notice/);
+  assert.match(methodology, /never unioned into one total/);
+  assert.match(robots, /Disallow: \/_private\//);
+  assert.match(sitemap, /publicsignal\.ie\/methodology\.html/);
 });
 
 test("opportunity proxy preserves only the stable feed fields", async () => {
@@ -250,17 +302,37 @@ test("opportunity proxy reads the private snapshot through the asset binding", a
     built_at: "2026-08-06T10:30:00+00:00",
     feed: {
       opportunities: [
-        { id: "ted:live", source_identity: "live", source_lane: "ted_tender", buyer_display_name: "Buyer", deadline: "2099-01-01", cpv_division: "72", source_url: "https://source.example/live" },
+        ...Array.from({ length: 250 }, (_, index) => ({ id: `ted:live-${index}`, source_identity: `live-${index}`, source_lane: "ted_tender", buyer_display_name: "Buyer", deadline: "2099-01-01", cpv_division: "72", source_url: `https://source.example/live-${index}` })),
         { id: "national:other", source_identity: "other", source_lane: "national_live", buyer_display_name: "Other", deadline: "2099-01-01", cpv_division: null, source_url: "https://source.example/other" },
       ],
     },
+    contracts: {
+      sectors: { status: "reviewed", rows: [] },
+      buyers: { status: "reviewed", rows: [] },
+      suppliers: { status: "reviewed", rows: [] },
+    },
   };
-  const response = await proxyOpportunities(new Request("https://publicsignal.ie/api/opportunities?sector=72"), {
+  const response = await proxyOpportunities(new Request("https://publicsignal.ie/api/opportunities?sector=72&limit=2000"), {
     ASSETS: { fetch: async () => new Response(JSON.stringify(snapshot), { status: 200 }) },
   });
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.source, "private_snapshot");
   assert.equal(body.builtAt, "2026-08-06T10:30:00+00:00");
-  assert.deepEqual(body.opportunities.map((item) => item.id), ["ted:live"]);
+  assert.equal(body.opportunities.length, 250);
+  assert.equal(body.opportunities[0].id, "ted:live-0");
+  assert.equal(body.snapshotTotal, 251);
+});
+
+test("reviewed contract proxy exposes only the snapshot contracts", async () => {
+  const contracts = {
+    sectors: { status: "reviewed", rows: [] },
+    buyers: { status: "reviewed", rows: [] },
+    suppliers: { status: "reviewed", rows: [] },
+  };
+  const response = await proxyContracts({
+    ASSETS: { fetch: async () => new Response(JSON.stringify({ schema: "publicsignal-procurement-snapshot/1", built_at: "2026-08-06T10:30:00+00:00", feed: { opportunities: [] }, contracts }), { status: 200 }) },
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).contracts, contracts);
 });

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PublicSignal">
+  <rect width="64" height="64" rx="14" fill="#9b4735"/>
+  <path d="M18 45V18h16c8 0 13 5 13 12S42 42 34 42h-8v3h-8Zm8-11h8c3 0 5-1 5-4s-2-4-5-4h-8v8Z" fill="#fffaf4"/>
+</svg>

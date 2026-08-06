@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /_private/
+Disallow: /api/
+
+Sitemap: https://publicsignal.ie/sitemap.xml

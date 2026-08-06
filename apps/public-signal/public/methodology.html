@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="PublicSignal methodology and evidence boundaries for procurement notices, buyers, sectors and suppliers." />
+    <link rel="canonical" href="https://publicsignal.ie/methodology.html" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="trust.css" />
+    <title>Methodology | PublicSignal</title>
+  </head>
+  <body>
+    <header class="trust-header"><a class="trust-brand" href="/"><span class="trust-mark">PS</span>PublicSignal</a><nav aria-label="Trust pages"><a href="methodology.html" aria-current="page">Methodology</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></nav></header>
+    <main class="trust-main">
+      <p class="trust-kicker">Evidence methodology</p>
+      <h1>Keep every commercial signal tied to its data grain.</h1>
+      <p class="trust-lede">PublicSignal is a presentation layer over reviewed Dáil Tracker procurement contracts. It is designed to help a person find and inspect evidence, not manufacture a commercial conclusion.</p>
+      <p class="trust-note">Every current opportunity should link to its originating notice. If a source link or field appears wrong, report it to <a href="mailto:hello@publicsignal.ie">hello@publicsignal.ie</a>.</p>
+      <section class="trust-section"><h2>Current opportunities</h2><p>The opportunity desk uses a private, public-safe snapshot of active forward notices. Filters operate over published buyer names, stated CPV divisions, deadlines and advertised values. Missing values remain missing; PublicSignal does not infer them.</p></section>
+      <section class="trust-section"><h2>Sectors and buyers</h2><p>Sector rows are grouped by stated CPV division. Buyer rows use the exact published buyer display name. Spelling variants are not silently merged in the public view. Counts describe the loaded snapshot, not the whole addressable market.</p></section>
+      <section class="trust-section"><h2>Suppliers and awards</h2><p>Supplier rows describe historic national award records. TED award-notice activity is attached only when both sources resolve to the same unique CRO company number. A name resemblance is not treated as an entity match.</p></section>
+      <section class="trust-section"><h2>Money fields</h2><ul><li>Advertised notice estimates, awarded contract values and disclosed public-body payments are different measures.</li><li>They are never unioned into one total.</li><li>TED notice values are not summed because a notice value may be a framework ceiling or cover multiple lots.</li><li>Where award values are explicitly sum-safe, that status is shown separately.</li></ul></section>
+      <section class="trust-section"><h2>Freshness and continuity</h2><p>The beta targets a weekday snapshot refresh. The build time and age are shown in the product. Once the snapshot is older than 48 hours, the interface labels it overdue and scheduled email digests are suppressed. The last-known-good copy remains visible for research so an upstream failure does not replace evidence with invented or partial records.</p></section>
+      <section class="trust-section"><h2>How to use the result</h2><p>Treat PublicSignal as a discovery and triage tool. Open the source notice, inspect the complete procurement documents, confirm the deadline and ask the contracting authority where clarification is required. PublicSignal does not provide a probability of success, legal advice or a bid/no-bid decision.</p></section>
+      <p class="trust-meta">Methodology v1 · Updated 6 August 2026 · Data contracts are versioned in the underlying snapshot.</p>
+    </main>
+    <footer class="trust-footer"><span>PublicSignal free beta</span><a href="/">Browse current opportunities</a></footer>
+  </body>
+</html>

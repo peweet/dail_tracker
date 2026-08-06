@@ -53,8 +53,11 @@
   "vars": {
     "APP_URL": "https://publicsignal.ie",
     "EMAIL_FROM": "PublicSignal <alerts@publicsignal.ie>",
+    "EMAIL_REPLY_TO": "hello@publicsignal.ie",
+    "RESEND_DOMAIN_VERIFIED": "false",
     "PROCUREMENT_FEED_URL": "",
-    "ANALYTICS_RETENTION_DAYS": "90"
+    "ANALYTICS_RETENTION_DAYS": "90",
+    "SNAPSHOT_MAX_AGE_HOURS": "48"
   },
   // publicsignal.ie is purchased but was not yet present in the .IE registry on
   // 2026-08-05. Once the zone is active in Cloudflare, uncomment and deploy:

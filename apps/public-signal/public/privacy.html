@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="How PublicSignal handles watch subscriptions, delivery records and privacy-bounded product analytics." />
+    <link rel="canonical" href="https://publicsignal.ie/privacy.html" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="trust.css" />
+    <title>Privacy | PublicSignal</title>
+  </head>
+  <body>
+    <header class="trust-header"><a class="trust-brand" href="/"><span class="trust-mark">PS</span>PublicSignal</a><nav aria-label="Trust pages"><a href="methodology.html">Methodology</a><a href="privacy.html" aria-current="page">Privacy</a><a href="terms.html">Terms</a></nav></header>
+    <main class="trust-main">
+      <p class="trust-kicker">Privacy notice</p>
+      <h1>Useful product signals, deliberately limited personal data.</h1>
+      <p class="trust-lede">This notice explains the information PublicSignal uses to deliver procurement watches, protect the service and understand whether the free beta is useful.</p>
+      <p class="trust-note">PublicSignal does not use advertising trackers, sell personal data, or record search terms and watch-form values in product analytics.</p>
+
+      <section class="trust-section"><h2>Who operates the service</h2><p>PublicSignal is an independent beta service operated in Ireland under the PublicSignal name. Privacy questions, access requests and correction or removal requests can be sent to <a href="mailto:privacy@publicsignal.ie">privacy@publicsignal.ie</a>.</p></section>
+      <section class="trust-section"><h2>Information used</h2><ul><li><strong>Email watches:</strong> the delivery email, watch name and the buyer, sector, deadline, value, cadence and evidence filters you choose.</li><li><strong>Delivery records:</strong> confirmation state, unsubscribe state, delivery time, provider message reference, match count and bounded error details.</li><li><strong>Product analytics:</strong> a random per-tab session identifier, hashed by the Worker, plus an allowlisted action such as opening a page or source notice.</li><li><strong>Browser-only data:</strong> saved notice identifiers and draft-watch rules remain in your browser's local storage.</li><li><strong>Abuse prevention:</strong> an IP address may be used transiently to derive a one-way rate-limit key. It is not written to the analytics database.</li></ul></section>
+      <section class="trust-section"><h2>Why it is used</h2><p>Watch details and delivery records are used to provide the alerts you request, confirm control of the delivery address and honour unsubscribes. Minimal service logs and rate limits are used to keep the service reliable and secure. Privacy-bounded analytics are used to improve navigation and understand beta activation.</p><p>A watch is not active until its confirmation link is used. Watch consent is not consent to unrelated marketing.</p></section>
+      <section class="trust-section"><h2>Retention and choices</h2><ul><li>Analytics events are deleted after 90 days.</li><li>Unconfirmed watches older than seven days are deleted automatically.</li><li>Delivery logs older than 365 days are deleted automatically.</li><li>An active watch remains until its watch-specific unsubscribe link is used or a removal request is processed.</li><li>Global Privacy Control and Do Not Track disable product analytics in the browser.</li></ul></section>
+      <section class="trust-section"><h2>Processors and transfers</h2><p>Cloudflare hosts the application, database, rate limiting and operational logs. Resend is used for confirmation and digest delivery when email delivery is enabled. Those providers process limited data on PublicSignal's behalf under their own service and privacy terms.</p></section>
+      <section class="trust-section"><h2>Your rights and complaints</h2><p>You may ask for access, correction, deletion, restriction or a copy of personal data associated with your email. You may withdraw a watch at any time using its unsubscribe link. You may also complain to the Irish Data Protection Commission.</p></section>
+      <p class="trust-meta">Effective 6 August 2026 · Beta notice v1. This notice should be reviewed again before paid accounts or advertising are introduced.</p>
+    </main>
+    <footer class="trust-footer"><span>PublicSignal free beta</span><a href="mailto:hello@publicsignal.ie">Send feedback or report a data issue</a></footer>
+  </body>
+</html>

@@ -6,7 +6,7 @@ let privateSnapshotPromise;
 
 export const ANALYTICS_EVENT_TARGETS = Object.freeze({
   app_open: ["app"],
-  page_open: ["page-pipeline", "page-markets", "page-buyers", "page-suppliers", "page-watches"],
+  page_open: ["page-overview", "page-pipeline", "page-markets", "page-buyers", "page-suppliers", "page-watches"],
   opportunity_brief_open: ["opportunity-brief"],
   primary_cta_click: ["primary-cta"],
   watch_start: ["watch-start", "watch-notice"],
@@ -16,6 +16,7 @@ export const ANALYTICS_EVENT_TARGETS = Object.freeze({
   source_notice_open: ["source-notice"],
   watch_preview: ["watch-preview"],
   watch_saved: ["watch-saved"],
+  feedback_open: ["feedback"],
 });
 
 const ANALYTICS_MAX_BODY_BYTES = 8192;
@@ -104,6 +105,30 @@ export async function purgeAnalytics(env, now = Date.now()) {
   const cutoff = new Date(now - retentionDays * 86_400_000).toISOString().slice(0, 19).replace("T", " ");
   const result = await env.DB.prepare("DELETE FROM analytics_events WHERE occurred_at < ?").bind(cutoff).run();
   return { deleted: Number(result.meta?.changes || 0), retentionDays };
+}
+
+export function snapshotFreshness(builtAt, env = {}, now = Date.now()) {
+  const configured = Number(env.SNAPSHOT_MAX_AGE_HOURS || 48);
+  const maxAgeHours = Number.isFinite(configured) ? Math.min(168, Math.max(1, configured)) : 48;
+  const builtAtMs = Date.parse(String(builtAt || ""));
+  if (!Number.isFinite(builtAtMs)) return { status: "unavailable", stale: true, ageHours: null, maxAgeHours };
+  const ageHours = Math.max(0, (now - builtAtMs) / 3_600_000);
+  return {
+    status: ageHours > maxAgeHours ? "stale" : "fresh",
+    stale: ageHours > maxAgeHours,
+    ageHours: Math.round(ageHours * 10) / 10,
+    maxAgeHours,
+  };
+}
+
+export async function purgeOperationalData(env) {
+  if (!env.DB) return { pendingSubscriptions: 0, deliveryLogs: 0 };
+  const pending = await env.DB.prepare("DELETE FROM subscriptions WHERE status='pending' AND created_at < datetime('now', '-7 days')").run();
+  const delivery = await env.DB.prepare("DELETE FROM delivery_log WHERE sent_at < datetime('now', '-365 days')").run();
+  return {
+    pendingSubscriptions: Number(pending.meta?.changes || 0),
+    deliveryLogs: Number(delivery.meta?.changes || 0),
+  };
 }
 
 export function normaliseSubscription(input = {}) {
@@ -284,7 +309,7 @@ async function loadSnapshotOpportunities(env, request) {
   const withinDays = withinDaysValue === null ? null : Number(withinDaysValue);
   const sector = feedUrl.searchParams.get("sector");
   const sourceLane = feedUrl.searchParams.get("source_lane");
-  const limit = Math.min(Math.max(Number(feedUrl.searchParams.get("limit")) || 100, 1), 200);
+  const limit = Math.min(Math.max(Number(feedUrl.searchParams.get("limit")) || 100, 1), 2_000);
   return snapshotData.feed.opportunities
     .filter((item) => withinDays === null || !Number.isFinite(withinDays) || withinDays < 0 || daysUntil(item.deadline) <= withinDays)
     .filter((item) => !sector || item.cpv_division === sector)
@@ -315,13 +340,30 @@ export async function proxyOpportunities(request, env) {
   try {
     const opportunities = await loadOpportunities(env, request);
     const snapshotData = env.ASSETS ? await loadPrivateSnapshot(env) : null;
+    const freshness = snapshotData ? snapshotFreshness(snapshotData.built_at, env) : null;
     return json({
       source: env.ASSETS ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "dail_tracker" : "sample_local",
       builtAt: snapshotData?.built_at || null,
+      ...(freshness ? { freshness } : {}),
+      ...(snapshotData ? { snapshotTotal: snapshotData.feed.opportunities.length } : {}),
       opportunities,
     });
   } catch {
     return json({ error: "Opportunity feed unavailable." }, 503);
+  }
+}
+
+export async function proxyContracts(env) {
+  try {
+    if (!env.ASSETS) throw new Error("Reviewed contracts require the private snapshot");
+    const snapshotData = await loadPrivateSnapshot(env);
+    const contracts = snapshotData?.contracts;
+    if (!contracts || !["sectors", "buyers", "suppliers"].every((name) => contracts[name]?.status)) {
+      throw new Error("Reviewed procurement contracts are unavailable");
+    }
+    return json({ source: "private_snapshot", builtAt: snapshotData.built_at || null, freshness: snapshotFreshness(snapshotData.built_at, env), contracts });
+  } catch {
+    return json({ error: "Reviewed procurement contracts unavailable." }, 503);
   }
 }
 
@@ -331,8 +373,18 @@ function daysUntil(value) {
   return Math.ceil((deadline.getTime() - Date.now()) / 86_400_000);
 }
 
+export function emailConfiguration(env = {}) {
+  const hasApiKey = Boolean(String(env.RESEND_API_KEY || "").trim());
+  const hasSender = Boolean(String(env.EMAIL_FROM || "").trim());
+  const domainVerified = String(env.RESEND_DOMAIN_VERIFIED || "").toLowerCase() === "true";
+  const ready = hasApiKey && hasSender && domainVerified;
+  const status = ready ? "ready" : !hasApiKey ? "missing_api_key" : !domainVerified ? "domain_not_verified" : "missing_sender";
+  return { ready, status };
+}
+
 async function sendEmail(env, { to, subject, htmlBody, idempotencyKey }) {
-  if (!env.RESEND_API_KEY) return { sent: false, reason: "RESEND_API_KEY is not configured" };
+  const configuration = emailConfiguration(env);
+  if (!configuration.ready) throw new Error(`Email delivery is not ready: ${configuration.status}`);
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -340,7 +392,13 @@ async function sendEmail(env, { to, subject, htmlBody, idempotencyKey }) {
       "content-type": "application/json",
       "idempotency-key": idempotencyKey,
     },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html: htmlBody }),
+    body: JSON.stringify({
+      from: env.EMAIL_FROM,
+      to: [to],
+      subject,
+      html: htmlBody,
+      ...(env.EMAIL_REPLY_TO ? { reply_to: env.EMAIL_REPLY_TO } : {}),
+    }),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message || `Email provider returned ${response.status}`);
@@ -373,8 +431,9 @@ export function renderDigest(subscription, matches, unsubscribeUrl) {
   );
 }
 
-async function createSubscription(request, env) {
+export async function createSubscription(request, env) {
   if (!env.DB) return json({ error: "D1 binding DB is not configured." }, 503);
+  if (!emailConfiguration(env).ready) return json({ error: "Email delivery is not configured yet." }, 503);
   let subscription;
   try {
     subscription = normaliseSubscription(await request.json());
@@ -417,12 +476,18 @@ async function createSubscription(request, env) {
 
   const base = appUrl(env, request);
   const confirmUrl = `${base}/api/subscriptions/confirm?token=${encodeURIComponent(confirmToken)}`;
-  const delivery = await sendEmail(env, {
-    to: subscription.email,
-    subject: `Confirm your PublicSignal watch: ${subscription.name}`,
-    htmlBody: confirmationEmail(subscription, confirmUrl),
-    idempotencyKey: `confirm-${result.meta.last_row_id}`,
-  });
+  let delivery;
+  try {
+    delivery = await sendEmail(env, {
+      to: subscription.email,
+      subject: `Confirm your PublicSignal watch: ${subscription.name}`,
+      htmlBody: confirmationEmail(subscription, confirmUrl),
+      idempotencyKey: `confirm-${result.meta.last_row_id}`,
+    });
+  } catch {
+    await env.DB.prepare("DELETE FROM subscriptions WHERE id=? AND status='pending'").bind(result.meta.last_row_id).run();
+    return json({ error: "Confirmation email could not be sent. No watch was created." }, 502);
+  }
 
   return json({ id: result.meta.last_row_id, status: "pending", emailSent: delivery.sent }, 201);
 }
@@ -462,8 +527,16 @@ function rowToSubscription(row) {
   };
 }
 
-async function sendDueDigests(env, scheduledTime = Date.now()) {
+export async function sendDueDigests(env, scheduledTime = Date.now()) {
   if (!env.DB) throw new Error("D1 binding DB is not configured");
+  if (env.ASSETS) {
+    const snapshotData = await loadPrivateSnapshot(env);
+    const freshness = snapshotFreshness(snapshotData.built_at, env, scheduledTime);
+    if (freshness.stale) {
+      console.error(JSON.stringify({ event: "snapshot_stale_digest_suppressed", builtAt: snapshotData.built_at || null, ...freshness }));
+      return { sent: 0, skipped: "stale_snapshot", freshness };
+    }
+  }
   const date = new Date(scheduledTime);
   const isMonday = date.getUTCDay() === 1;
   const digestDate = date.toISOString().slice(0, 10);
@@ -471,6 +544,8 @@ async function sendDueDigests(env, scheduledTime = Date.now()) {
   const opportunities = await loadOpportunities(env);
   const base = appUrl(env);
 
+  let sent = 0;
+  let failed = 0;
   for (const row of results || []) {
     const subscription = rowToSubscription(row);
     const digestKey = `${digestDate}-${subscription.cadence}`;
@@ -495,11 +570,14 @@ async function sendDueDigests(env, scheduledTime = Date.now()) {
       errorMessage = delivery.reason || null;
     } catch (error) {
       status = "failed";
+      failed += 1;
       errorMessage = String(error.message || error).slice(0, 500);
     }
     await env.DB.prepare("INSERT INTO delivery_log (subscription_id, digest_key, provider_message_id, opportunity_count, status, error_message) VALUES (?, ?, ?, ?, ?, ?)")
       .bind(subscription.id, digestKey, providerId, matches.length, status, errorMessage).run();
+    if (status === "sent") sent += 1;
   }
+  return { sent, failed, skipped: null };
 }
 
 async function previewDigest(request, env) {
@@ -515,10 +593,27 @@ async function previewDigest(request, env) {
 
 async function handleApi(request, env) {
   const url = new URL(request.url);
-  if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, app: "public-signal", emailConfigured: Boolean(env.RESEND_API_KEY), analyticsConfigured: Boolean(String(env.ANALYTICS_HASH_SALT || "").trim()) && typeof env.ANALYTICS_LIMITER?.limit === "function", feed: env.ASSETS ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "remote" : isLocalDevelopment(env) ? "sample_local" : "unavailable" });
+  if (url.pathname === "/api/health" && request.method === "GET") {
+    const email = emailConfiguration(env);
+    let snapshot = { builtAt: null, opportunityCount: null, freshness: null };
+    if (env.ASSETS) {
+      try {
+        const snapshotData = await loadPrivateSnapshot(env);
+        snapshot = {
+          builtAt: snapshotData.built_at || null,
+          opportunityCount: snapshotData.feed.opportunities.length,
+          freshness: snapshotFreshness(snapshotData.built_at, env),
+        };
+      } catch {
+        snapshot.freshness = snapshotFreshness(null, env);
+      }
+    }
+    return json({ ok: true, app: "public-signal", emailConfigured: email.ready, emailStatus: email.status, analyticsConfigured: Boolean(String(env.ANALYTICS_HASH_SALT || "").trim()) && typeof env.ANALYTICS_LIMITER?.limit === "function", feed: env.ASSETS ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "remote" : isLocalDevelopment(env) ? "sample_local" : "unavailable", snapshot });
+  }
   if (url.pathname === "/api/config" && request.method === "GET") return json({ turnstileSiteKey: env.TURNSTILE_SECRET_KEY ? env.TURNSTILE_SITE_KEY || null : null });
   if (url.pathname === "/api/events" && request.method === "POST") return ingestAnalytics(request, env);
   if (url.pathname === "/api/opportunities" && request.method === "GET") return proxyOpportunities(request, env);
+  if (url.pathname === "/api/contracts" && request.method === "GET") return proxyContracts(env);
   if (url.pathname === "/api/subscriptions" && request.method === "POST") return createSubscription(request, env);
   if (url.pathname === "/api/subscriptions/confirm" && request.method === "GET") return confirmSubscription(request, env);
   if (url.pathname === "/api/subscriptions/unsubscribe" && request.method === "GET") return unsubscribe(request, env);
@@ -543,6 +638,7 @@ export default {
 
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(purgeAnalytics(env));
+    ctx.waitUntil(purgeOperationalData(env));
     ctx.waitUntil(sendDueDigests(env, controller.scheduledTime));
   },
 };

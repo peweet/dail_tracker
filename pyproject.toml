@@ -163,6 +163,9 @@ all = [
 # published runtime extra must not turn a CI lane silently green.
 #   uv sync --extra pipeline --extra api --extra mcp --group dev
 [dependency-groups]
+code-scanning = [
+    "ast-grep-cli>=0.44",
+]
 dev = [
     "scikit-learn>=1.9",      # TF-IDF/LinearSVC classifier exercises (works-type, council-minutes doc_type) — was pip-installed undeclared 2026-07-26; uv sync pruned such deps before (camelot, winocr)
     "pytest>=8.0",
@@ -173,13 +176,14 @@ dev = [
     "hypothesis>=6.100",      # property-based fuzzing of the data_contracts engine (uses polars.testing.parametric)
     "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
     "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
-    "ast-grep-cli>=0.44",     # structural code search — find real call-sites/usages before a signature change or convention audit (grep can't tell a call from a comment); NOT a grep replacement, see cheap-code-scanning memory
+    # structural code search — find real call-sites/usages before a signature change or convention audit (grep can't tell a call from a comment); NOT a grep replacement, see cheap-code-scanning memory
     "deptry>=0.20",           # undeclared/transitive dependency audit — a bare `uv sync` installs ONLY core, so an app-path import that's merely transitive is a latent Cloud crash. Config + rationale for every ignore in [tool.deptry].
     "pytest-testmon>=2.1",    # OPT-IN test selection (`pytest --testmon`) during iterative fixing; never the default command — its DB invalidates on wide refactors and silently degrades to a full run
     "cosmic-ray>=8.4,<9",     # opt-in mutation audit for small, deterministic business-rule modules; never part of the fast/check lanes
     "pypdf>=5.0",             # test-only: inspect the WeasyPrint PDF output (pages/outline/footer) in test/siting/test_pdf.py — import-guarded so the suite skips it when absent
     "pyyaml>=6.0",            # expected-failure ledger (test/expected_failures.yaml) read by test/conftest.py + tools/check_expected_failures.py; also in the siting extra, declared here so CI test jobs get it
     "sqlglot>=25",            # money-grain SQL lint (tools/check_money_grain_sums.py) — without this the test SKIPS in CI and the never-sum query gate only bites locally; also in the mcp extra
+    "httpx>=0.27",
 ]
 evals = [
     # Retained as the Claude provider; the OpenAI provider drives the installed

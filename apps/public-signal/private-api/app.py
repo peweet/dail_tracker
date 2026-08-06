@@ -13,15 +13,23 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 
 SNAPSHOT_PATH = Path(os.environ.get("PUBLIC_SIGNAL_SNAPSHOT_PATH", "/app/snapshot.json"))
 app = FastAPI(title="PublicSignal private procurement API", docs_url=None, redoc_url=None, openapi_url=None)
+_snapshot_cache: tuple[int, int, dict[str, Any]] | None = None
 
 
 def _snapshot() -> dict[str, Any]:
+    """Read the immutable build snapshot once, reloading only when it is replaced."""
+    global _snapshot_cache
     try:
+        stat = SNAPSHOT_PATH.stat()
+        cache_key = (stat.st_mtime_ns, stat.st_size)
+        if _snapshot_cache and _snapshot_cache[:2] == cache_key:
+            return _snapshot_cache[2]
         payload = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=503, detail="procurement snapshot unavailable") from exc
     if payload.get("schema") != "publicsignal-procurement-snapshot/1":
         raise HTTPException(status_code=503, detail="procurement snapshot is incompatible")
+    _snapshot_cache = (*cache_key, payload)
     return payload
 
 
@@ -63,6 +71,16 @@ def brief(opportunity_id: str) -> dict[str, Any]:
     value = _snapshot()["briefs"].get(opportunity_id)
     if value is None:
         raise HTTPException(status_code=404, detail="opportunity not found in this snapshot")
+    return value
+
+
+@app.get("/v1/procurement/contracts/{contract_name}", dependencies=[Depends(require_token)])
+def contract(contract_name: str) -> dict[str, Any]:
+    if contract_name not in {"sectors", "buyers", "suppliers"}:
+        raise HTTPException(status_code=404, detail="procurement contract not found")
+    value = _snapshot().get("contracts", {}).get(contract_name)
+    if value is None:
+        raise HTTPException(status_code=503, detail="procurement contract unavailable")
     return value
 
 

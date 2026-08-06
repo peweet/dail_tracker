@@ -13,19 +13,27 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from dail_tracker_core.connections import api_conn
-from dail_tracker_core.queries.procurement.opportunities import opportunity_brief, opportunity_feed
+from dail_tracker_core.queries.procurement.opportunities import (
+    opportunity_brief,
+    opportunity_feed,
+    public_signal_market_contracts,
+)
+
+OPPORTUNITY_LIMIT = 2_000
+BRIEF_LIMIT = 200
 
 
 def build_snapshot(output: Path) -> dict:
     """Write a compact, provenance-carrying snapshot for the private API."""
     conn = api_conn()
     try:
-        feed = opportunity_feed(conn, limit=200, within_days=365)
+        feed = opportunity_feed(conn, limit=OPPORTUNITY_LIMIT, within_days=365)
         briefs = {
             item["id"]: brief
-            for item in feed["opportunities"]
+            for item in feed["opportunities"][:BRIEF_LIMIT]
             if (brief := opportunity_brief(conn, item["id"])) is not None
         }
+        contracts = public_signal_market_contracts(conn, feed["opportunities"])
     finally:
         conn.close()
 
@@ -34,10 +42,19 @@ def build_snapshot(output: Path) -> dict:
         "built_at": datetime.now(UTC).isoformat(),
         "feed": feed,
         "briefs": briefs,
+        "contracts": contracts,
+        "limits": {"opportunities": OPPORTUNITY_LIMIT, "briefs": BRIEF_LIMIT},
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    return {"opportunities": len(feed["opportunities"]), "briefs": len(briefs), "output": str(output)}
+    return {
+        "opportunities": len(feed["opportunities"]),
+        "briefs": len(briefs),
+        "sectors": len(contracts["sectors"]["rows"]),
+        "buyers": len(contracts["buyers"]["rows"]),
+        "suppliers": len(contracts["suppliers"]["rows"]),
+        "output": str(output),
+    }
 
 
 def main() -> None:

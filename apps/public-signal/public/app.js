@@ -1,13 +1,14 @@
-import { buyers, opportunities as sampleOpportunities, sectors, snapshot, suppliers } from "./sample-data.js";
+import { opportunities as sampleOpportunities, snapshot } from "./sample-data.js";
 
 let opportunities = [];
-let opportunityFeed = { state: "loading", source: null, builtAt: null };
-let appCapabilities = { emailConfigured: false, loaded: false };
+let opportunityFeed = { state: "loading", source: null, builtAt: null, snapshotTotal: 0, freshness: null };
+let dataContracts = { state: "loading", sectors: null, buyers: null, suppliers: null };
+let appCapabilities = { emailConfigured: false, emailStatus: "loading", loaded: false };
 
 const ANALYTICS_STORAGE_KEY = "publicSignalAnalyticsSession";
 const ANALYTICS_TARGETS = Object.freeze({
   app_open: ["app"],
-  page_open: ["page-pipeline", "page-markets", "page-buyers", "page-suppliers", "page-watches"],
+  page_open: ["page-overview", "page-pipeline", "page-markets", "page-buyers", "page-suppliers", "page-watches"],
   opportunity_brief_open: ["opportunity-brief"],
   primary_cta_click: ["primary-cta"],
   watch_start: ["watch-start", "watch-notice"],
@@ -17,6 +18,7 @@ const ANALYTICS_TARGETS = Object.freeze({
   source_notice_open: ["source-notice"],
   watch_preview: ["watch-preview"],
   watch_saved: ["watch-saved"],
+  feedback_open: ["feedback"],
 });
 
 export function analyticsOptedOut(globalObject = globalThis) {
@@ -57,6 +59,7 @@ function trackAnalytics(eventType, targetSlug) {
 }
 
 const icons = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 10 8-7 8 7v10H4z"/><path d="M9 20v-6h6v6"/></svg>',
   inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16v13H4z"/><path d="M4 13h4l2 3h4l2-3h4"/></svg>',
   layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg>',
   building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 21V6l8-3 8 3v15"/><path d="M8 9h2m4 0h2M8 13h2m4 0h2M8 17h2m4 0h2M2 21h20"/></svg>',
@@ -78,7 +81,7 @@ const icons = {
 };
 
 const state = {
-  view: ["pipeline", "markets", "buyers", "suppliers", "watches"].includes(new URL(window.location.href).searchParams.get("view")) ? new URL(window.location.href).searchParams.get("view") : "pipeline",
+  view: ["overview", "pipeline", "markets", "buyers", "suppliers", "watches"].includes(new URL(window.location.href).searchParams.get("view")) ? new URL(window.location.href).searchParams.get("view") : "overview",
   selectedId: null,
   sector: "All sectors",
   deadline: 90,
@@ -139,6 +142,13 @@ function formatSnapshotDate(value) {
   return `built ${new Intl.DateTimeFormat("en-IE", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Dublin" }).format(date)}`;
 }
 
+function freshnessLabel(freshness) {
+  if (!freshness || freshness.status === "unavailable") return "refresh time unavailable";
+  if (freshness.stale) return `${Math.round(freshness.ageHours)} hours old — refresh overdue`;
+  if (freshness.ageHours < 1) return "refreshed within the last hour";
+  return `refreshed ${Math.round(freshness.ageHours)} hours ago`;
+}
+
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Not stated";
@@ -166,9 +176,22 @@ function classificationLabel(item) {
 
 function updateNavigationCounts() {
   const pipelineCount = document.querySelector('[data-view="pipeline"] .nav-count');
+  const marketCount = document.querySelector('[data-view="markets"] .nav-count');
+  const buyerCount = document.querySelector('[data-view="buyers"] .nav-count');
+  const supplierCount = document.querySelector('[data-view="suppliers"] .nav-count');
   const watchCount = document.querySelector('[data-view="watches"] .nav-count');
   if (pipelineCount) pipelineCount.textContent = opportunityFeed.state === "loading" ? "…" : String(opportunities.length);
+  if (marketCount) marketCount.textContent = dataContracts.state === "loading" ? "…" : String(dataContracts.sectors?.rows?.length || 0);
+  if (buyerCount) buyerCount.textContent = dataContracts.state === "loading" ? "…" : String(dataContracts.buyers?.rows?.length || 0);
+  if (supplierCount) supplierCount.textContent = dataContracts.state === "loading" ? "…" : String(dataContracts.suppliers?.rows?.length || 0);
   if (watchCount) watchCount.textContent = String(state.saved.size);
+  const health = document.querySelector("#sidebar-data-health");
+  if (health) {
+    const stale = opportunityFeed.freshness?.stale === true;
+    health.classList.toggle("is-stale", stale);
+    health.querySelector("strong").textContent = stale ? "Snapshot refresh overdue" : opportunityFeed.state === "live" ? "Snapshot available" : "Checking snapshot";
+    health.querySelector("p").textContent = opportunityFeed.state === "live" ? `${formatNumber(opportunityFeed.snapshotTotal)} notices · ${freshnessLabel(opportunityFeed.freshness)}` : "Connecting to the reviewed procurement copy.";
+  }
 }
 
 function hasEvidenceScore(item) {
@@ -198,27 +221,35 @@ function liveOpportunity(item) {
 
 async function loadLiveOpportunities() {
   try {
-    const [response, healthResponse] = await Promise.all([
-      fetch("/api/opportunities?within_days=365&limit=200"),
+    const [response, healthResponse, contractsResponse] = await Promise.all([
+      fetch("/api/opportunities?within_days=365&limit=2000"),
       fetch("/api/health").catch(() => null),
+      fetch("/api/contracts").catch(() => null),
     ]);
     if (!response.ok) throw new Error("Opportunity feed unavailable");
     const payload = await response.json();
     if (healthResponse?.ok) {
       const health = await healthResponse.json();
-      appCapabilities = { emailConfigured: health.emailConfigured === true, loaded: true };
+      appCapabilities = { emailConfigured: health.emailConfigured === true, emailStatus: health.emailStatus || "unavailable", loaded: true };
     } else {
-      appCapabilities = { emailConfigured: false, loaded: true };
+      appCapabilities = { emailConfigured: false, emailStatus: "unavailable", loaded: true };
+    }
+    if (contractsResponse?.ok) {
+      const contractPayload = await contractsResponse.json();
+      dataContracts = { state: "reviewed", ...contractPayload.contracts };
+    } else {
+      dataContracts = { state: "unavailable", sectors: null, buyers: null, suppliers: null };
     }
     if (!Array.isArray(payload.opportunities) || !payload.opportunities.length) throw new Error("Opportunity feed is empty");
     opportunities = payload.opportunities.map(liveOpportunity).filter((item) => item.id);
     if (!opportunities.length) throw new Error("Opportunity feed is incompatible");
-    opportunityFeed = { state: "live", source: payload.source || "private_snapshot", builtAt: payload.builtAt || null };
+    opportunityFeed = { state: "live", source: payload.source || "private_snapshot", builtAt: payload.builtAt || null, snapshotTotal: Number(payload.snapshotTotal || opportunities.length), freshness: payload.freshness || null };
     state.selectedId = null;
   } catch {
     opportunities = sampleOpportunities;
     state.selectedId = sampleOpportunities[0].id;
-    opportunityFeed = { state: "fallback", source: "prototype", builtAt: null };
+    opportunityFeed = { state: "fallback", source: "prototype", builtAt: null, freshness: null };
+    dataContracts = { state: "unavailable", sectors: null, buyers: null, suppliers: null };
   }
   updateNavigationCounts();
   render();
@@ -244,7 +275,7 @@ function setView(view) {
   if (view !== "watches") resetWatchTurnstile();
   state.view = view;
   const viewUrl = new URL(window.location.href);
-  if (view === "pipeline") viewUrl.searchParams.delete("view");
+  if (view === "overview") viewUrl.searchParams.delete("view");
   else viewUrl.searchParams.set("view", view);
   window.history.replaceState(null, "", viewUrl);
   trackAnalytics("page_open", `page-${view}`);
@@ -260,6 +291,61 @@ function viewHeader(title, description, metaLabel, metaValue) {
       <div class="view-heading"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(description)}</p></div>
       <div class="header-meta"><strong>${escapeHtml(metaValue)}</strong>${escapeHtml(metaLabel)}</div>
     </header>`;
+}
+
+function renderOverview() {
+  const loaded = opportunityFeed.state === "live";
+  const stale = opportunityFeed.freshness?.stale === true;
+  const sectorCount = dataContracts.sectors?.rows?.length || 0;
+  const buyerCount = dataContracts.buyers?.rows?.length || 0;
+  const urgent = loaded ? opportunities.filter((item) => item.daysToDeadline >= 0 && item.daysToDeadline <= 30).length : 0;
+  viewRoot.innerHTML = `
+    <section class="overview-hero">
+      <div class="overview-copy">
+        <span class="beta-label">Free private beta for Irish bid teams</span>
+        <h1>Find public opportunities worth a closer look.</h1>
+        <p>Search a reviewed copy of Irish procurement notices by buyer, sector, deadline and advertised value. Every opportunity stays linked to its originating notice.</p>
+        <div class="overview-actions">
+          <button class="button button-primary" type="button" data-overview-view="pipeline">Browse opportunities</button>
+          <button class="button" type="button" data-overview-view="watches">Create a free watch</button>
+        </div>
+        <p class="overview-assurance">No ads. No bid score. No invented market value. Always check the source notice before acting.</p>
+      </div>
+      <aside class="overview-snapshot" aria-label="Current data snapshot">
+        <div class="snapshot-heading"><span class="status-dot ${stale ? "is-stale" : ""}"></span><span>${loaded ? stale ? "Refresh overdue" : "Current snapshot" : "Loading snapshot"}</span></div>
+        <strong>${loaded ? formatNumber(opportunityFeed.snapshotTotal) : "…"}</strong>
+        <span>source-linked notices in the loaded copy</span>
+        <dl>
+          <div><dt>Closing within 30 days</dt><dd>${loaded ? formatNumber(urgent) : "…"}</dd></div>
+          <div><dt>Stated sectors</dt><dd>${loaded ? formatNumber(sectorCount) : "…"}</dd></div>
+          <div><dt>Published buyers</dt><dd>${loaded ? formatNumber(buyerCount) : "…"}</dd></div>
+        </dl>
+        <small>${loaded ? `${formatSnapshotDate(opportunityFeed.builtAt)} · ${freshnessLabel(opportunityFeed.freshness)}` : "Connecting to the private Dáil Tracker snapshot."}</small>
+      </aside>
+    </section>
+    ${stale ? `<section class="overview-alert" role="alert"><strong>Data refresh overdue.</strong><span>The last-known-good snapshot remains available for research, but automated digests are paused until a fresh copy is deployed.</span></section>` : ""}
+    <section class="overview-steps" aria-labelledby="overview-how">
+      <div class="overview-section-heading"><span>How it works</span><h2 id="overview-how">From broad market scan to source evidence.</h2></div>
+      <ol>
+        <li><span>01</span><div><h3>Filter the market</h3><p>Narrow current notices by buyer, sector, deadline or advertised estimate.</p></div></li>
+        <li><span>02</span><div><h3>Review the evidence</h3><p>Open the original eTenders or TED notice before making a pursuit decision.</p></div></li>
+        <li><span>03</span><div><h3>Watch what matters</h3><p>Save notices now; confirmed email watches become available when delivery is enabled.</p></div></li>
+      </ol>
+    </section>
+    <section class="overview-proof" aria-label="PublicSignal data boundaries">
+      <div><span>Current opportunities</span><strong>Forward notices stay separate from past awards.</strong></div>
+      <div><span>Advertised values</span><strong>Shown as stated and never treated as spend.</strong></div>
+      <div><span>Supplier evidence</span><strong>Cross-register links require an exact CRO match.</strong></div>
+      <a href="methodology.html">Read the methodology ${icon("external")}</a>
+    </section>`;
+  document.querySelectorAll("[data-overview-view]").forEach((button) => button.addEventListener("click", () => {
+    if (button.dataset.overviewView === "watches") {
+      trackAnalytics("primary_cta_click", "primary-cta");
+      trackAnalytics("watch_start", "watch-start");
+    }
+    setView(button.dataset.overviewView);
+  }));
+  injectIcons(viewRoot);
 }
 
 function filteredOpportunities() {
@@ -294,8 +380,9 @@ function renderPipeline() {
   const sectorOptions = ["All sectors", ...new Set(opportunities.map((item) => item.sector))];
   const liveSnapshot = opportunityFeed.state === "live";
   const loadingSnapshot = opportunityFeed.state === "loading";
+  const staleSnapshot = opportunityFeed.freshness?.stale === true;
   const feedStatus = liveSnapshot
-    ? `<section class="feed-status is-live" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Dáil Tracker snapshot connected</strong><span>${opportunities.length} source-linked notices loaded, ${formatSnapshotDate(opportunityFeed.builtAt)}</span></section>`
+    ? `<section class="feed-status ${staleSnapshot ? "is-stale" : "is-live"}" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>${staleSnapshot ? "Snapshot refresh overdue" : "Dáil Tracker snapshot connected"}</strong><span>${opportunities.length} source-linked notices loaded, ${formatSnapshotDate(opportunityFeed.builtAt)} · ${freshnessLabel(opportunityFeed.freshness)}${staleSnapshot ? ". Automated digests are paused." : ""}</span></section>`
     : loadingSnapshot
       ? '<section class="feed-status is-loading" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Loading procurement snapshot</strong><span>Connecting to the current Dáil Tracker copy</span></section>'
       : '<section class="feed-status is-fallback" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Snapshot temporarily unavailable</strong><span>Showing labelled prototype records</span></section>';
@@ -497,55 +584,93 @@ function bindPipelineEvents() {
   injectIcons(viewRoot);
 }
 
-function prototypeNotice(message) {
-  return `<section class="feed-status is-preview" role="note"><span class="feed-status-dot" aria-hidden="true"></span><strong>Research preview</strong><span>${escapeHtml(message)} These figures are not part of the live opportunity feed.</span></section>`;
+function reviewedContractNotice(contract) {
+  if (dataContracts.state === "loading") return '<section class="feed-status is-loading" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Loading reviewed data contract</strong><span>Connecting this section to the current private snapshot.</span></section>';
+  if (!contract) return '<section class="feed-status is-fallback" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Reviewed data unavailable</strong><span>This section is withheld rather than replaced with illustrative figures.</span></section>';
+  return `<section class="feed-status is-live" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Reviewed snapshot contract</strong><span>${escapeHtml(contract.grain)} · ${escapeHtml(contract.schema)}</span></section>`;
+}
+
+function contractCaveats(contract) {
+  return (contract?.caveats || []).map((value) => escapeHtml(value)).join(" ");
 }
 
 function renderMarkets() {
+  const contract = dataContracts.sectors;
+  const rows = contract?.rows || [];
+  const query = state.tableSearch.toLowerCase();
+  const filtered = rows.filter((row) => row.sector.toLowerCase().includes(query));
+  const totalNotices = rows.reduce((sum, row) => sum + Number(row.notice_count || 0), 0);
+  const valued = rows.reduce((sum, row) => sum + Number(row.valued_notice_count || 0), 0);
+  const closing = rows.reduce((sum, row) => sum + Number(row.closing_within_30_days || 0), 0);
+  const classified = rows.filter((row) => row.sector !== "Unclassified").reduce((sum, row) => sum + Number(row.notice_count || 0), 0);
   viewRoot.innerHTML = `
-    ${viewHeader("Sector map", "Compare where the corpus is commercially useful before building a watch or commissioning a brief.", "Rows are not market-size estimates", "Evidence readiness")}
-    ${prototypeNotice("Illustrative sector analysis from the development corpus.")}
+    ${viewHeader("Sector map", "Compare current advertised demand by stated CPV division before building a watch.", "No blended market value", "Current notice contract")}
+    ${reviewedContractNotice(contract)}
     <section class="summary-strip" aria-label="Sector data summary">
-      <div class="summary-item"><strong>20,597</strong><span>awards with usable CPV</span></div>
-      <div class="summary-item"><strong>49,225</strong><span>awards with bid counts</span></div>
-      <div class="summary-item"><strong>2,655</strong><span>expiry signals across sources</span></div>
-      <div class="summary-item"><strong>1,393</strong><span>entities in three registers</span></div>
+      <div class="summary-item"><strong>${formatNumber(totalNotices)}</strong><span>current notices</span></div>
+      <div class="summary-item"><strong>${formatNumber(classified)}</strong><span>with stated CPV division</span></div>
+      <div class="summary-item"><strong>${formatNumber(valued)}</strong><span>with advertised value</span></div>
+      <div class="summary-item"><strong>${formatNumber(closing)}</strong><span>closing within 30 days</span></div>
     </section>
     <section class="table-region">
-      <div class="table-toolbar"><div><h2>Sector evidence profile</h2><p>Classified national awards, national expiry signals and current TED notices.</p></div><div class="field"><label for="table-search">Filter sectors</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Search by sector or CPV" /></div></div>
-      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Sector</th><th>CPV</th><th class="numeric">Awards</th><th class="numeric">Valued</th><th>Bid-count coverage</th><th class="numeric">18m expiries</th><th class="numeric">Open TED</th><th>Commercial readiness</th></tr></thead><tbody>
-        ${sectors.filter((s) => `${s.name} ${s.cpv}`.toLowerCase().includes(state.tableSearch.toLowerCase())).map((sector) => `<tr><td><strong>${escapeHtml(sector.name)}</strong></td><td>${sector.cpv}</td><td class="numeric">${formatNumber(sector.awards)}</td><td class="numeric">${formatNumber(sector.valued)} <small>${Math.round((sector.valued / sector.awards) * 100)}%</small></td><td><div class="coverage-bar" aria-label="${sector.bidCoverage}%"><span style="width:${sector.bidCoverage}%"></span></div><small>${sector.bidCoverage}%</small></td><td class="numeric">${sector.expiries}</td><td class="numeric">${sector.openTed}</td><td><span class="quality-badge ${sector.readiness.startsWith("Strong") ? "is-strong" : "is-developing"}">${escapeHtml(sector.readiness)}</span></td></tr>`).join("")}
+      <div class="table-toolbar"><div><h2>Advertised demand by sector</h2><p>Current eTenders and TED competition notices; values are counted as stated, never summed.</p></div><div class="field"><label for="table-search">Filter sectors</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Search stated CPV division" /></div></div>
+      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Stated sector</th><th class="numeric">Notices</th><th class="numeric">Buyers</th><th class="numeric">Value stated</th><th class="numeric">Closing 30d</th><th>Source lanes</th><th>Classification</th></tr></thead><tbody>
+        ${filtered.map((row) => `<tr><td><strong>${escapeHtml(row.sector)}</strong></td><td class="numeric">${formatNumber(row.notice_count)}</td><td class="numeric">${formatNumber(row.buyer_count)}</td><td class="numeric">${formatNumber(row.valued_notice_count)}</td><td class="numeric">${formatNumber(row.closing_within_30_days)}</td><td>${row.source_lanes.map(sourceLabel).map(escapeHtml).join(" · ")}</td><td><span class="quality-badge ${row.sector === "Unclassified" ? "is-developing" : "is-strong"}">${row.sector === "Unclassified" ? "Not stated" : "Source stated"}</span></td></tr>`).join("") || '<tr><td colspan="7">No reviewed sector rows match this search.</td></tr>'}
       </tbody></table></div>
     </section>
-    <div class="page-note">${icon("info")}<span>Award values, advertised estimates, disclosed payments and purchase orders remain separate. Expiry dates are procurement signals derived from advertised terms, not verified contract events.</span></div>`;
+    <div class="page-note">${icon("info")}<span>${contractCaveats(contract) || "Reviewed sector data is currently unavailable."}</span></div>`;
   bindTableSearch();
 }
 
 function renderBuyers() {
+  const contract = dataContracts.buyers;
+  const rows = contract?.rows || [];
+  const query = state.tableSearch.toLowerCase();
+  const filtered = rows.filter((row) => row.buyer.toLowerCase().includes(query));
+  const totalNotices = rows.reduce((sum, row) => sum + Number(row.notice_count || 0), 0);
+  const active30 = rows.filter((row) => Number(row.closing_within_30_days || 0) > 0).length;
   viewRoot.innerHTML = `
-    ${viewHeader("Buyer dossiers", "Find public bodies with enough award, competition and payment evidence to support account planning.", "Payment meaning shown per publisher", "Buyer evidence")}
-    ${prototypeNotice("Illustrative buyer profiles pending a reviewed public data contract.")}
+    ${viewHeader("Buyer dossiers", "See which published buyer names currently have active opportunities.", "Exact published names", "Current notice contract")}
+    ${reviewedContractNotice(contract)}
+    <section class="summary-strip" aria-label="Buyer data summary">
+      <div class="summary-item"><strong>${formatNumber(rows.length)}</strong><span>published buyer names</span></div>
+      <div class="summary-item"><strong>${formatNumber(totalNotices)}</strong><span>current notices</span></div>
+      <div class="summary-item"><strong>${formatNumber(active30)}</strong><span>buyers closing within 30 days</span></div>
+      <div class="summary-item"><strong>${formatNumber(rows.filter((row) => row.valued_notice_count > 0).length)}</strong><span>buyers with stated values</span></div>
+    </section>
     <section class="table-region">
-      <div class="table-toolbar"><div><h2>Evidence-rich buyers</h2><p>High-volume examples from the current corpus.</p></div><div class="field"><label for="table-search">Find a buyer</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Council, department or agency" /></div></div>
-      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Buyer</th><th class="numeric">Awards</th><th class="numeric">Known suppliers</th><th class="numeric">Disclosure lines</th><th>Money meaning</th><th class="numeric">Competition lots</th><th class="numeric">Single-bid context</th><th class="numeric">Expiry signals</th></tr></thead><tbody>
-        ${buyers.filter((b) => b.name.toLowerCase().includes(state.tableSearch.toLowerCase())).map((buyer) => `<tr><td><strong>${escapeHtml(buyer.name)}</strong></td><td class="numeric">${formatNumber(buyer.awards)}</td><td class="numeric">${formatNumber(buyer.suppliers)}</td><td class="numeric">${formatNumber(buyer.paymentLines)}</td><td><span class="state-badge ${buyer.money === "Spent" ? "is-active" : ""}">${buyer.money}</span></td><td class="numeric">${buyer.lots}</td><td class="numeric">${buyer.singleBidPct}%</td><td class="numeric">${buyer.expiries}</td></tr>`).join("")}
+      <div class="table-toolbar"><div><h2>Current buyer activity</h2><p>Exact-name roll-up of the current forward-notice snapshot.</p></div><div class="field"><label for="table-search">Find a buyer</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Council, department or agency" /></div></div>
+      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Published buyer</th><th class="numeric">Notices</th><th class="numeric">Sectors</th><th class="numeric">Value stated</th><th class="numeric">Closing 30d</th><th>Nearest deadline</th><th>Source lanes</th></tr></thead><tbody>
+        ${filtered.map((row) => `<tr><td><strong>${escapeHtml(row.buyer)}</strong></td><td class="numeric">${formatNumber(row.notice_count)}</td><td class="numeric">${formatNumber(row.sector_count)}</td><td class="numeric">${formatNumber(row.valued_notice_count)}</td><td class="numeric">${formatNumber(row.closing_within_30_days)}</td><td>${escapeHtml(formatDate(row.nearest_deadline))}</td><td>${row.source_lanes.map(sourceLabel).map(escapeHtml).join(" · ")}</td></tr>`).join("") || '<tr><td colspan="7">No reviewed buyer rows match this search.</td></tr>'}
       </tbody></table></div>
     </section>
-    <div class="page-note">${icon("info")}<span>Single-bid rates are factual context with a denominator, never a buyer score. Central purchasing bodies also require separate interpretation from ordinary contracting authorities.</span></div>`;
+    <div class="page-note">${icon("info")}<span>${contractCaveats(contract) || "Reviewed buyer data is currently unavailable."}</span></div>`;
   bindTableSearch();
 }
 
 function renderSuppliers() {
+  const contract = dataContracts.suppliers;
+  const rows = contract?.rows || [];
+  const query = state.tableSearch.toLowerCase();
+  const filtered = rows.filter((row) => `${row.supplier} ${row.company_number || ""}`.toLowerCase().includes(query));
+  const exact = rows.filter((row) => row.entity_match === "exact_cro").length;
+  const tedLinked = rows.filter((row) => Number(row.ted_award_notice_count || 0) > 0).length;
   viewRoot.innerHTML = `
-    ${viewHeader("Supplier footprints", "Trace known company activity across national awards, TED and public-body disclosures.", "Human verification required", "Entity chain")}
-    ${prototypeNotice("Illustrative supplier profiles pending entity-level review.")}
+    ${viewHeader("Supplier footprints", "Review national award activity and evidence-gated TED links without mixing register values.", "Top national award names", "Award contract")}
+    ${reviewedContractNotice(contract)}
+    <section class="summary-strip" aria-label="Supplier data summary">
+      <div class="summary-item"><strong>${formatNumber(rows.length)}</strong><span>supplier rows loaded</span></div>
+      <div class="summary-item"><strong>${formatNumber(exact)}</strong><span>exact unique CRO links</span></div>
+      <div class="summary-item"><strong>${formatNumber(tedLinked)}</strong><span>with CRO-linked TED activity</span></div>
+      <div class="summary-item"><strong>${formatNumber(rows.filter((row) => row.sum_safe_award_count > 0).length)}</strong><span>with sum-safe award rows</span></div>
+    </section>
     <section class="table-region">
-      <div class="table-toolbar"><div><h2>Cross-register supplier examples</h2><p>Company-number anchored where the source match supports it.</p></div><div class="field"><label for="table-search">Find a supplier</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Company or CRO number" /></div></div>
-      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Supplier</th><th>CRO</th><th class="numeric">National awards</th><th class="numeric">National buyers</th><th class="numeric">TED awards</th><th class="numeric">Disclosure lines</th><th class="numeric">Publishers</th><th>Entity status</th></tr></thead><tbody>
-        ${suppliers.filter((s) => `${s.name} ${s.company}`.toLowerCase().includes(state.tableSearch.toLowerCase())).map((supplier) => `<tr><td><strong>${escapeHtml(supplier.name)}</strong></td><td>${supplier.company}</td><td class="numeric">${supplier.awards}</td><td class="numeric">${supplier.authorities}</td><td class="numeric">${supplier.tedAwards}</td><td class="numeric">${formatNumber(supplier.paymentLines)}</td><td class="numeric">${supplier.publishers}</td><td><span class="quality-badge ${supplier.match.startsWith("Verified") ? "is-strong" : "is-developing"}">${escapeHtml(supplier.match)}</span></td></tr>`).join("")}
+      <div class="table-toolbar"><div><h2>National award supplier activity</h2><p>TED counts appear only where both registers resolve to the same unique CRO number.</p></div><div class="field"><label for="table-search">Find a supplier</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Company or CRO number" /></div></div>
+      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Published supplier</th><th>CRO</th><th class="numeric">National awards</th><th class="numeric">National buyers</th><th class="numeric">Sum-safe awards</th><th>Sum-safe awarded value</th><th class="numeric">Ceiling notices</th><th class="numeric">TED award notices</th><th>Entity link</th></tr></thead><tbody>
+        ${filtered.map((row) => `<tr><td><strong>${escapeHtml(row.supplier)}</strong></td><td>${escapeHtml(row.company_number || "Withheld")}</td><td class="numeric">${formatNumber(row.national_award_count)}</td><td class="numeric">${formatNumber(row.national_buyer_count)}</td><td class="numeric">${formatNumber(row.sum_safe_award_count)}</td><td>${formatCurrency(Number(row.sum_safe_awarded_eur))}</td><td class="numeric">${formatNumber(row.ceiling_notice_count)}</td><td class="numeric">${row.ted_award_notice_count == null ? "—" : formatNumber(row.ted_award_notice_count)}</td><td><span class="quality-badge ${row.entity_match === "exact_cro" ? "is-strong" : "is-developing"}">${row.entity_match === "exact_cro" ? "Exact CRO" : "Not cross-linked"}</span></td></tr>`).join("") || '<tr><td colspan="9">No reviewed supplier rows match this search.</td></tr>'}
       </tbody></table></div>
     </section>
-    <div class="page-note">${icon("info")}<span>Trading names, acquisitions, professional partnerships and ambiguous CRO matches can create false joins. Paid briefs should verify the subject entity before making a current-status claim.</span></div>`;
+    <div class="page-note">${icon("info")}<span>${contractCaveats(contract) || "Reviewed supplier data is currently unavailable."}</span></div>`;
   bindTableSearch();
 }
 
@@ -577,9 +702,15 @@ function renderWatches() {
   const watchSectors = [...new Set(opportunities.map((item) => item.sector))].slice(0, 8);
   const liveSnapshot = opportunityFeed.state === "live";
   const deliveryReady = appCapabilities.emailConfigured;
+  const deliveryReason = ({
+    missing_api_key: "The Resend API key has not been added to the Worker.",
+    domain_not_verified: "The sending domain has not been marked verified in the Worker configuration.",
+    missing_sender: "The verified sender address has not been configured.",
+    unavailable: "Email configuration could not be checked.",
+  })[appCapabilities.emailStatus] || "Resend setup is not complete.";
   viewRoot.innerHTML = `
-    ${viewHeader("Watches & digests", "Save useful notices and turn focused filters into an email digest when delivery is enabled.", deliveryReady ? "07:10 UTC on weekdays" : "Email provider not connected", deliveryReady ? "Automated delivery" : "Draft mode")}
-    ${deliveryReady ? "" : '<section class="feed-status is-preview" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Email delivery is not active</strong><span>You can save a watch draft locally. Connect the verified sending service before inviting subscribers.</span></section>'}
+    ${viewHeader("Watches & digests", "Save useful notices and turn focused filters into an email digest when delivery is enabled.", deliveryReady ? "07:10 UTC on weekdays" : "Resend not ready", deliveryReady ? "Automated delivery" : "Draft mode")}
+    ${deliveryReady ? "" : `<section class="feed-status is-preview" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Email delivery is not active</strong><span>${escapeHtml(deliveryReason)} Watch drafts stay in this browser and are not posted to the subscription database.</span></section>`}
     <section class="watches-layout">
       <div class="watch-list">
         <div class="panel-heading"><div><h2>Saved notices</h2><p>Stored in this browser for quick review.</p></div><span class="state-badge">${state.saved.size} saved</span></div>
@@ -779,7 +910,7 @@ function bindWatchForm() {
 }
 
 function render() {
-  const renderers = { pipeline: renderPipeline, markets: renderMarkets, buyers: renderBuyers, suppliers: renderSuppliers, watches: renderWatches };
+  const renderers = { overview: renderOverview, pipeline: renderPipeline, markets: renderMarkets, buyers: renderBuyers, suppliers: renderSuppliers, watches: renderWatches };
   renderers[state.view]?.();
 }
 
@@ -820,6 +951,7 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   const target = event.target.closest?.("[data-analytics-event]");
   if (target?.dataset.analyticsEvent === "source_notice_open") trackAnalytics("source_notice_open", "source-notice");
+  if (target?.dataset.analyticsEvent === "feedback_open") trackAnalytics("feedback_open", "feedback");
 });
 
 injectIcons();
@@ -828,4 +960,4 @@ updateNavigationCounts();
 render();
 void loadLiveOpportunities();
 trackAnalytics("app_open", "app");
-trackAnalytics("page_open", "page-pipeline");
+trackAnalytics("page_open", `page-${state.view}`);

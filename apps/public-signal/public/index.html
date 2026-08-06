@@ -3,8 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="PublicSignal helps Irish bid teams review source-linked public procurement opportunities and build focused watch rules." />
-    <title>PublicSignal | Procurement intelligence</title>
+    <meta name="description" content="Find source-linked Irish public procurement opportunities by buyer, sector, deadline and advertised value. Free private beta for bid teams." />
+    <meta name="theme-color" content="#9b4735" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="PublicSignal | Irish procurement opportunities" />
+    <meta property="og:description" content="A source-first procurement workspace for Irish SMEs and bid teams." />
+    <meta property="og:url" content="https://publicsignal.ie/" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="canonical" href="https://publicsignal.ie/" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <title>PublicSignal | Irish procurement opportunities</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -17,17 +25,20 @@
         </div>
 
         <nav class="primary-nav">
-          <button class="nav-item is-active" type="button" data-view="pipeline" aria-current="page">
+          <button class="nav-item is-active" type="button" data-view="overview" aria-current="page">
+            <span data-icon="home"></span><span>Overview</span>
+          </button>
+          <button class="nav-item" type="button" data-view="pipeline">
             <span data-icon="inbox"></span><span>Opportunity desk</span><span class="nav-count">...</span>
           </button>
           <button class="nav-item" type="button" data-view="markets">
-            <span data-icon="layers"></span><span>Sector map</span><span class="nav-preview">Preview</span>
+            <span data-icon="layers"></span><span>Sector map</span><span class="nav-count">...</span>
           </button>
           <button class="nav-item" type="button" data-view="buyers">
-            <span data-icon="building"></span><span>Buyer dossiers</span><span class="nav-preview">Preview</span>
+            <span data-icon="building"></span><span>Buyer dossiers</span><span class="nav-count">...</span>
           </button>
           <button class="nav-item" type="button" data-view="suppliers">
-            <span data-icon="briefcase"></span><span>Supplier footprints</span><span class="nav-preview">Preview</span>
+            <span data-icon="briefcase"></span><span>Supplier footprints</span><span class="nav-count">...</span>
           </button>
           <button class="nav-item" type="button" data-view="watches">
             <span data-icon="bell"></span><span>Watches & digests</span><span class="nav-count">0</span>
@@ -38,14 +49,14 @@
           <p class="eyebrow">Workspace</p>
           <div class="workspace-switcher">
             <span class="avatar">PS</span>
-            <span><strong>Private preview</strong><small>Single-user workspace</small></span>
+          <span><strong>Free beta</strong><small>Evidence-first workspace</small></span>
           </div>
         </div>
 
-        <div class="data-health">
+        <div class="data-health" id="sidebar-data-health">
           <div><span class="status-dot"></span><strong>Sources available</strong></div>
           <p>Current procurement notices are served from the reviewed snapshot.</p>
-          <button type="button" data-view="pipeline">Open live feed</button>
+          <button type="button" data-view="pipeline">Open opportunity desk</button>
         </div>
       </aside>
 
@@ -54,7 +65,7 @@
           <button class="icon-button mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false">
             <span data-icon="menu"></span>
           </button>
-          <div class="topbar-title"><span class="demo-pill">Snapshot</span><span>Irish public market workspace</span><span class="privacy-note" title="Analytics are anonymous and first-party">Anonymous product analytics. GPC and Do Not Track are respected.</span></div>
+          <div class="topbar-title"><span class="demo-pill">Beta</span><span>Irish public procurement workspace</span><span class="privacy-note" title="Analytics are privacy-bounded and first-party">Privacy-bounded product analytics. GPC and Do Not Track are respected.</span></div>
           <div class="topbar-actions">
             <button class="search-button" type="button" id="global-search">
               <span data-icon="search"></span><span>Search live notices</span><kbd>/</kbd>
@@ -65,10 +76,19 @@
           </div>
         </header>
         <main id="view-root" tabindex="-1"></main>
+        <footer class="site-footer">
+          <span>PublicSignal free beta</span>
+          <nav aria-label="Trust and support">
+            <a href="methodology.html">Methodology</a>
+            <a href="privacy.html">Privacy</a>
+            <a href="terms.html">Terms</a>
+            <a href="mailto:hello@publicsignal.ie" data-analytics-event="feedback_open">Feedback</a>
+          </nav>
+        </footer>
       </div>
     </div>
     <div class="mobile-scrim" id="mobile-scrim" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=20260806-6"></script>
+    <script type="module" src="app.js?v=20260806-8"></script>
   </body>
 </html>

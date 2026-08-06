@@ -8,6 +8,8 @@ planned estimates, awards, or payments.
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
+from datetime import date, datetime
 from typing import Any
 
 import duckdb
@@ -23,6 +25,8 @@ _LANE_NOTES = {
     "national_live": "National eTenders live pipeline; advertised estimates are PLANNED and not sums.",
     "ted_tender": "TED competition notices; advertised estimates are PLANNED and not sums.",
 }
+
+PUBLIC_SIGNAL_OPPORTUNITY_LIMIT = 2_000
 
 
 def _value(row: dict[str, Any], *names: str) -> Any:
@@ -77,7 +81,7 @@ def opportunity_feed(
     source_lane: str | None = None,
 ) -> dict[str, Any]:
     """Return a bounded, flat opportunity list plus lane-level coverage metadata."""
-    limit = max(1, min(int(limit), 200))
+    limit = max(1, min(int(limit), PUBLIC_SIGNAL_OPPORTUNITY_LIMIT))
     lanes = [source_lane] if source_lane else ["national_live", "ted_tender"]
     opportunities: list[dict[str, Any]] = []
     coverage: list[dict[str, Any]] = []
@@ -111,6 +115,182 @@ def opportunity_feed(
         "opportunities": opportunities[:limit],
         "coverage": coverage,
         "caveats": [caveats.MONEY_GRAINS, "Historical winners are not included in the forward opportunity list."],
+    }
+
+
+def _deadline_days(value: Any, *, today: date) -> int | None:
+    if value is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+    return (parsed - today).days
+
+
+def public_signal_market_contracts(
+    conn: duckdb.DuckDBPyConnection,
+    opportunity_rows: list[dict[str, Any]],
+    *,
+    supplier_limit: int = 250,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """Compose reviewed PublicSignal tables without crossing procurement money grains.
+
+    Sector and buyer rows are exact roll-ups of the supplied forward-notice snapshot.
+    Supplier rows come only from national award records; TED counts are attached only
+    when both registers carry the same exact CRO company number. No payment values or
+    TED notice values are joined or summed into these contracts.
+    """
+    today = today or date.today()
+    sectors: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "notice_count": 0,
+            "valued_notice_count": 0,
+            "closing_within_30_days": 0,
+            "buyers": set(),
+            "source_lanes": set(),
+        }
+    )
+    buyers: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "notice_count": 0,
+            "valued_notice_count": 0,
+            "closing_within_30_days": 0,
+            "sectors": set(),
+            "source_lanes": set(),
+            "nearest_deadline": None,
+            "sample_source_url": None,
+        }
+    )
+    for row in opportunity_rows:
+        sector = str(row.get("cpv_division") or "Unclassified").strip() or "Unclassified"
+        buyer = str(row.get("buyer_display_name") or "Buyer not stated").strip() or "Buyer not stated"
+        lane = str(row.get("source_lane") or "unknown")
+        deadline = row.get("deadline")
+        days = _deadline_days(deadline, today=today)
+        has_value = isinstance(row.get("value_eur"), (int, float)) and row["value_eur"] > 0
+
+        sector_row = sectors[sector]
+        sector_row["notice_count"] += 1
+        sector_row["valued_notice_count"] += int(has_value)
+        sector_row["closing_within_30_days"] += int(days is not None and 0 <= days <= 30)
+        sector_row["buyers"].add(buyer)
+        sector_row["source_lanes"].add(lane)
+
+        buyer_row = buyers[buyer]
+        buyer_row["notice_count"] += 1
+        buyer_row["valued_notice_count"] += int(has_value)
+        buyer_row["closing_within_30_days"] += int(days is not None and 0 <= days <= 30)
+        buyer_row["sectors"].add(sector)
+        buyer_row["source_lanes"].add(lane)
+        if deadline and (buyer_row["nearest_deadline"] is None or str(deadline) < str(buyer_row["nearest_deadline"])):
+            buyer_row["nearest_deadline"] = deadline
+            buyer_row["sample_source_url"] = row.get("source_url")
+
+    sector_rows = [
+        {
+            "sector": name,
+            "notice_count": values["notice_count"],
+            "valued_notice_count": values["valued_notice_count"],
+            "closing_within_30_days": values["closing_within_30_days"],
+            "buyer_count": len(values["buyers"]),
+            "source_lanes": sorted(values["source_lanes"]),
+        }
+        for name, values in sectors.items()
+    ]
+    sector_rows.sort(key=lambda row: (-row["notice_count"], row["sector"].casefold()))
+    buyer_rows = [
+        {
+            "buyer": name,
+            "notice_count": values["notice_count"],
+            "valued_notice_count": values["valued_notice_count"],
+            "closing_within_30_days": values["closing_within_30_days"],
+            "sector_count": len(values["sectors"] - {"Unclassified"}),
+            "source_lanes": sorted(values["source_lanes"]),
+            "nearest_deadline": values["nearest_deadline"],
+            "sample_source_url": values["sample_source_url"],
+        }
+        for name, values in buyers.items()
+    ]
+    buyer_rows.sort(key=lambda row: (-row["notice_count"], row["buyer"].casefold()))
+
+    national = proc.supplier_summary(conn, limit=supplier_limit, order_by="awards")
+    ted_by_company = _run(
+        conn,
+        "SELECT cro_company_num, COUNT(DISTINCT publication_number) AS n_ted_awards,"
+        " COUNT(DISTINCT buyer_name) AS n_ted_buyers"
+        " FROM v_procurement_ted_winner_history"
+        " WHERE cro_company_num IS NOT NULL"
+        " GROUP BY cro_company_num",
+    )
+    ted_rows = serialize.to_records(ted_by_company.data) if ted_by_company.ok else []
+    ted_index = {str(row["cro_company_num"]): row for row in ted_rows}
+    supplier_rows: list[dict[str, Any]] = []
+    if national.ok:
+        for row in serialize.to_records(national.data):
+            exact_company = row.get("cro_match_method") == "exact_unique" and row.get("company_num") is not None
+            company_number = str(row["company_num"]) if exact_company else None
+            ted = ted_index.get(company_number, {}) if company_number else {}
+            supplier_rows.append(
+                {
+                    "supplier": row.get("supplier"),
+                    "supplier_normalised": row.get("supplier_norm"),
+                    "national_award_count": row.get("n_awards"),
+                    "national_buyer_count": row.get("n_authorities"),
+                    "sum_safe_award_count": row.get("n_value_safe_awards"),
+                    "sum_safe_awarded_eur": row.get("awarded_value_safe_eur"),
+                    "ceiling_notice_count": row.get("n_ceiling_notices"),
+                    "company_number": company_number,
+                    "company_status_at_snapshot": row.get("company_status") if exact_company else None,
+                    "entity_match": "exact_cro" if exact_company else "unresolved",
+                    "ted_award_notice_count": ted.get("n_ted_awards") if exact_company else None,
+                    "ted_buyer_count": ted.get("n_ted_buyers") if exact_company else None,
+                }
+            )
+
+    return {
+        "sectors": {
+            "schema": "publicsignal-sector-notice-summary/1",
+            "status": "reviewed",
+            "grain": "one row per stated CPV division in the forward-notice snapshot",
+            "source_lanes": ["national_live", "ted_tender"],
+            "rows": sector_rows,
+            "caveats": [
+                "Counts are current advertised notices, not market size or awarded contracts.",
+                "National notices without a CPV remain Unclassified; no sector is inferred.",
+                "Advertised values are not summed.",
+            ],
+        },
+        "buyers": {
+            "schema": "publicsignal-buyer-notice-summary/1",
+            "status": "reviewed",
+            "grain": "one row per exact buyer display name in the forward-notice snapshot",
+            "source_lanes": ["national_live", "ted_tender"],
+            "rows": buyer_rows,
+            "caveats": [
+                "Names are grouped exactly as published; aliases and related bodies are not merged.",
+                "Counts describe current notices, not historical spend or buyer quality.",
+                "Advertised values are not summed.",
+            ],
+        },
+        "suppliers": {
+            "schema": "publicsignal-supplier-award-summary/1",
+            "status": "reviewed" if national.ok else "unavailable",
+            "grain": "one row per normalised company-class supplier in national award records",
+            "source_lanes": ["national_awards", "ted_awards"],
+            "source_status": {
+                "national_awards": "ok" if national.ok else "unavailable",
+                "ted_awards": "ok" if ted_by_company.ok else "unavailable",
+            },
+            "rows": supplier_rows,
+            "caveats": [
+                "National award counts and TED award-notice counts remain separate.",
+                "TED activity is attached only through an exact unique CRO company-number match.",
+                "Unresolved or ambiguous CRO matches are not joined across registers.",
+                "Sum-safe national awarded values exclude framework and shared ceilings and are never combined with TED values or payments.",
+            ],
+        },
     }
 
 

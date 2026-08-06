@@ -1,6 +1,6 @@
 # PublicSignal
 
-PublicSignal is a Cloudflare-ready procurement intelligence prototype for Irish bid teams and public-sector market advisers. It turns live notices into evidence briefs built around buyer history, previous suppliers, competition context, disclosed payments or purchase orders, and estimated contract-end signals.
+PublicSignal is a Cloudflare-ready procurement intelligence workspace for Irish SMEs and bid teams. The current product is a free, invite-only beta with no advertising. It exposes a bounded copy of Dáil Tracker procurement data through reviewed, provenance-carrying contracts.
 
 `PublicSignal` is a working product name. A professional trademark and domain search is still required before launch.
 
@@ -8,14 +8,14 @@ PublicSignal is a Cloudflare-ready procurement intelligence prototype for Irish 
 
 - Opportunity desk with sector, buyer, deadline, value and evidence-coverage filters.
 - Evidence brief for each notice, with source links and explicit data cautions.
-- Sector map showing where the underlying corpus is commercially usable.
-- Buyer dossiers that keep paid and committed disclosures separate.
-- Supplier footprints across national awards, TED and public-body disclosures.
+- Sector map summarising current notices by source-stated CPV division.
+- Buyer dossiers grouped only on the exact buyer names published in current notices.
+- Supplier footprints over national award records, with TED activity linked only by exact unique CRO number.
 - Saved watches and weekday or weekly email digests.
 - Double opt-in confirmation, one-click unsubscribe and delivery logging.
 - Responsive desktop and mobile layouts with keyboard and reduced-motion support.
 
-The Opportunity Desk and email-watch matching use the Worker’s reviewed procurement snapshot. The Sector map, Buyer dossiers and Supplier footprints remain labelled prototype views until each gets a separate, reviewed public data contract.
+The Opportunity Desk and email-watch matching use the Worker’s reviewed procurement snapshot. Sector, buyer and supplier pages use separate versioned contracts so opportunity estimates, national awards, TED award notices and payments cannot be silently blended.
 
 ## Cloudflare architecture
 
@@ -32,7 +32,7 @@ Cloudflare Worker
   `-- Dáil Tracker API: optional live opportunity feed
 ```
 
-The scheduled handler sends weekday subscriptions on every weekday and weekly subscriptions on Monday. A delivery key prevents the same subscription and cadence being sent twice on the same date.
+The scheduled handler sends weekday subscriptions on every weekday and weekly subscriptions on Monday. A delivery key prevents the same subscription and cadence being sent twice on the same date. Digests are suppressed when the embedded snapshot is missing a valid build time or is older than `SNAPSHOT_MAX_AGE_HOURS` (48 hours by default); the resulting structured error is visible in Cloudflare observability.
 
 ## Local setup
 
@@ -56,13 +56,14 @@ The app works without a Resend key in clearly labelled draft mode. Watch drafts 
 
 ## Email configuration
 
-1. Verify a sending domain in Resend.
+1. Verify `publicsignal.ie` (or a dedicated sending subdomain) in Resend and add the DNS records Resend supplies.
 2. Put `RESEND_API_KEY` in `.dev.vars` locally.
 3. For production, run `npx wrangler secret put RESEND_API_KEY`.
 4. Set `EMAIL_FROM` and `APP_URL` in `wrangler.jsonc` to the verified production domain.
-5. Apply the production migration with `npm run db:migrate:remote`.
+5. Change `RESEND_DOMAIN_VERIFIED` to `"true"` only after Resend reports the domain as verified, then deploy.
+6. Apply the production migration with `npm run db:migrate:remote`.
 
-Confirmation emails are idempotent per stored watch. Digests carry their own idempotency key and every message includes a watch-specific unsubscribe link.
+The Worker reports email as ready only when an API key, sender and explicit domain-verification flag are present. It rejects subscription writes while delivery is unavailable, and removes a pending row if the confirmation send fails. Confirmation emails are idempotent per stored watch. Digests carry their own idempotency key and every message includes a watch-specific unsubscribe link.
 
 Before public signup, configure Cloudflare Turnstile. The Worker also enforces a three-request-per-minute, per-email Worker Rate Limiting binding, with the existing D1 fifteen-minute backstop.
 
@@ -89,7 +90,7 @@ Set `PROCUREMENT_FEED_URL` to a JSON endpoint. The existing Dáil Tracker route 
 
 It requires `PROCUREMENT_FEED_TOKEN` to match the API's `PUBLIC_SIGNAL_FEED_TOKEN`. Keep both values server-side: the Worker sends the bearer token upstream and never returns it to a browser. The API fails closed when the token is absent or invalid.
 
-The feed returns an `opportunities` envelope with lane-level coverage and cautions. The Worker only passes through these stable display fields:
+The feed returns up to 2,000 opportunities with lane-level coverage and cautions. The current corpus contains more than 200 open notices, so the built snapshot is no longer truncated at the former 200-row ceiling. The Worker only passes through these stable display fields:
 
 - `id`, `title`, `buyer_display_name`
 - `cpv_division`, when supplied by the source
@@ -97,6 +98,12 @@ The feed returns an `opportunities` envelope with lane-level coverage and cautio
 - `source_lane` and the source's own caution label
 
 National eTenders live records have no CPV field in this snapshot, so they remain unclassified rather than being inferred from their title. Values in both forward lanes are advertised/planned estimates, not awards, payments, or market totals.
+
+The same snapshot contains three reviewed public contracts:
+
+- `publicsignal-sector-notice-summary/1`: one row per stated CPV division in current forward notices.
+- `publicsignal-buyer-notice-summary/1`: one row per exact published buyer display name in current forward notices.
+- `publicsignal-supplier-award-summary/1`: one row per normalised company-class supplier in national awards. TED award-notice counts are attached only through an exact unique CRO company number. National and TED figures stay in separate columns, and no payment values are joined.
 
 The corresponding private API evidence route is `/v1/procurement/opportunities/{opportunity_id}/brief`. It adds cross-register buyer context only for a curated exact buyer match; award and payment disclosures remain separate lanes. The public Worker does not proxy this detail endpoint yet.
 
@@ -111,6 +118,15 @@ uv run --no-sync python apps/public-signal/private-api/build_snapshot.py --outpu
 Set-Location apps/public-signal
 npx wrangler deploy
 ```
+
+For the beta operator workflow, the guarded script builds the snapshot, rejects a row count at or below the former 200-row cap, checks all three reviewed contracts, runs the Node suite and performs a Wrangler dry run. Add `-Deploy` only after reviewing its timestamp and counts:
+
+```powershell
+& apps/public-signal/scripts/refresh.ps1
+& apps/public-signal/scripts/refresh.ps1 -Deploy
+```
+
+The public UI keeps the last-known-good snapshot visible, labels it overdue after 48 hours, and tells users that email digests are paused. Configure a Cloudflare log alert for the structured `snapshot_stale_digest_suppressed` event before moving beyond the invite-only beta.
 
 `private-api/` is the companion FastAPI container implementation, tested locally and ready if the account is upgraded to Workers Paid. It is not deployed on the current plan because Cloudflare Containers require Workers Paid.
 
@@ -158,6 +174,7 @@ These are approximate session counts because a session is an ephemeral browser t
 | --- | --- | --- |
 | `GET` | `/api/health` | Binding and feed mode check |
 | `GET` | `/api/opportunities` | Public-safe proxy for the configured private opportunity feed |
+| `GET` | `/api/contracts` | Reviewed sector, buyer and supplier snapshot contracts |
 | `POST` | `/api/events` | Validate and store bounded, anonymous product events |
 | `POST` | `/api/subscriptions` | Store a pending watch and send confirmation |
 | `GET` | `/api/subscriptions/confirm?token=...` | Activate a watch |
@@ -190,12 +207,15 @@ custom-domain route remains commented in `wrangler.jsonc` until the domain is
 visible in the .IE registry and has an active Cloudflare zone. Once it is active,
 uncomment the `routes` block and run `npx wrangler deploy`.
 
-## Production work still required
+## Free-beta launch checklist
 
-- Add reviewed, separate public data contracts for the Sector map, Buyer dossiers and Supplier footprints before presenting them as live data.
-- Add authentication for private workspaces, team roles and shared pursuit notes.
+- Verify the Resend sending domain, add `RESEND_API_KEY` as a Worker secret and set `RESEND_DOMAIN_VERIFIED` only after verification succeeds.
 - Configure the live Turnstile hostname and secrets before opening subscriptions publicly.
-- Publish the reviewed privacy notice with the analytics vocabulary and 90-day retention policy described above.
-- Monitor feed freshness and suppress digests when freshness exceeds the agreed threshold.
+- Make `hello@publicsignal.ie` and `privacy@publicsignal.ie` operational, and review the published beta privacy notice and terms with the named operator details before invitations are sent.
+- Configure a Cloudflare observability alert for stale-snapshot digest suppression and run the guarded refresh workflow each weekday during the beta.
+- Activate the custom-domain route only after `publicsignal.ie` resolves in an active Cloudflare zone.
+- Rehearse browse, source-open, watch confirmation, digest link and unsubscribe flows on desktop and mobile.
 - Add amendment and deadline-change events, not just new-notice polling.
 - Complete trademark, company-name and domain clearance for PublicSignal.
+
+Authentication, team roles, billing and shared pursuit workflow are deliberately outside the free-beta launch. Add them only after the six-week beta shows repeat use and willingness to pay.
