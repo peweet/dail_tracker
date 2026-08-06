@@ -3,11 +3,11 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1
 
-COPY private-api/requirements.txt ./requirements.txt
+COPY requirements.txt ./requirements.txt
 RUN uv pip install --system --no-cache -r requirements.txt
 
-COPY private-api/app.py ./app.py
-COPY private-api/snapshot.json ./snapshot.json
+COPY app.py ./app.py
+COPY snapshot.json ./snapshot.json
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \

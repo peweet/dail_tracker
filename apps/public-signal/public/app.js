@@ -1,4 +1,8 @@
-import { buyers, opportunities, sectors, snapshot, suppliers, watchRules } from "./sample-data.js";
+import { buyers, opportunities as sampleOpportunities, sectors, snapshot, suppliers } from "./sample-data.js";
+
+let opportunities = [];
+let opportunityFeed = { state: "loading", source: null, builtAt: null };
+let appCapabilities = { emailConfigured: false, loaded: false };
 
 const ANALYTICS_STORAGE_KEY = "publicSignalAnalyticsSession";
 const ANALYTICS_TARGETS = Object.freeze({
@@ -74,13 +78,14 @@ const icons = {
 };
 
 const state = {
-  view: "pipeline",
-  selectedId: opportunities[0].id,
+  view: ["pipeline", "markets", "buyers", "suppliers", "watches"].includes(new URL(window.location.href).searchParams.get("view")) ? new URL(window.location.href).searchParams.get("view") : "pipeline",
+  selectedId: null,
   sector: "All sectors",
   deadline: 90,
   minValue: 0,
   buyer: "",
   evidence: 0,
+  sort: "deadline",
   tableSearch: "",
   saved: new Set(JSON.parse(localStorage.getItem("publicSignalSaved") || "[]")),
 };
@@ -118,7 +123,7 @@ function escapeHtml(value) {
 }
 
 function formatCurrency(value) {
-  if (!Number.isFinite(value)) return "Not stated";
+  if (!Number.isFinite(value) || value <= 0) return "Not stated";
   if (value >= 1_000_000) return `€${(value / 1_000_000).toLocaleString("en-IE", { maximumFractionDigits: 2 })}m`;
   if (value >= 1_000) return `€${Math.round(value / 1_000).toLocaleString("en-IE")}k`;
   return `€${value.toLocaleString("en-IE")}`;
@@ -128,6 +133,97 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString("en-IE");
 }
 
+function formatSnapshotDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "refresh time unavailable";
+  return `built ${new Intl.DateTimeFormat("en-IE", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Dublin" }).format(date)}`;
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not stated";
+  return new Intl.DateTimeFormat("en-IE", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Dublin" }).format(date);
+}
+
+function deadlineLabel(days) {
+  if (!Number.isFinite(days) || days === 9999) return "Deadline not stated";
+  if (days < 0) return "Closed";
+  if (days === 0) return "Closes today";
+  if (days === 1) return "Closes tomorrow";
+  return `Closes in ${days} days`;
+}
+
+function sourceLabel(value) {
+  return ({ ted_tender: "TED", national_live: "eTenders", dail_tracker: "Dáil Tracker", private_snapshot: "Dáil Tracker snapshot" })[value] || String(value || "Source").replaceAll("_", " ");
+}
+
+function classificationLabel(item) {
+  const cpv = String(item.cpv || "").trim();
+  const sector = String(item.sector || "Unclassified").trim();
+  if (!cpv || cpv.toLowerCase() === sector.toLowerCase()) return sector;
+  return `${sector} · CPV ${cpv}`;
+}
+
+function updateNavigationCounts() {
+  const pipelineCount = document.querySelector('[data-view="pipeline"] .nav-count');
+  const watchCount = document.querySelector('[data-view="watches"] .nav-count');
+  if (pipelineCount) pipelineCount.textContent = opportunityFeed.state === "loading" ? "…" : String(opportunities.length);
+  if (watchCount) watchCount.textContent = String(state.saved.size);
+}
+
+function hasEvidenceScore(item) {
+  return Number.isFinite(item.evidence);
+}
+
+function liveOpportunity(item) {
+  const evidence = item.evidence == null ? Number.NaN : Number(item.evidence);
+  return {
+    id: item.id,
+    title: item.title || item.id,
+    buyer: item.buyer || "Buyer not stated",
+    sector: item.sector || "Unclassified",
+    cpv: item.cpv || null,
+    deadline: item.deadline || "Not stated",
+    daysToDeadline: Number.isFinite(Number(item.daysToDeadline)) ? Number(item.daysToDeadline) : 9999,
+    estimate: item.estimate != null && Number(item.estimate) > 0 ? Number(item.estimate) : null,
+    evidence: Number.isFinite(evidence) ? evidence : null,
+    source: item.source || "Procurement snapshot",
+    sourceUrl: item.sourceUrl || "",
+    published: "Current snapshot",
+    coverage: ["Current procurement snapshot", "Source notice link"],
+    caution: item.caution || "Review the source notice before relying on this summary.",
+    liveSnapshot: true,
+  };
+}
+
+async function loadLiveOpportunities() {
+  try {
+    const [response, healthResponse] = await Promise.all([
+      fetch("/api/opportunities?within_days=365&limit=200"),
+      fetch("/api/health").catch(() => null),
+    ]);
+    if (!response.ok) throw new Error("Opportunity feed unavailable");
+    const payload = await response.json();
+    if (healthResponse?.ok) {
+      const health = await healthResponse.json();
+      appCapabilities = { emailConfigured: health.emailConfigured === true, loaded: true };
+    } else {
+      appCapabilities = { emailConfigured: false, loaded: true };
+    }
+    if (!Array.isArray(payload.opportunities) || !payload.opportunities.length) throw new Error("Opportunity feed is empty");
+    opportunities = payload.opportunities.map(liveOpportunity).filter((item) => item.id);
+    if (!opportunities.length) throw new Error("Opportunity feed is incompatible");
+    opportunityFeed = { state: "live", source: payload.source || "private_snapshot", builtAt: payload.builtAt || null };
+    state.selectedId = null;
+  } catch {
+    opportunities = sampleOpportunities;
+    state.selectedId = sampleOpportunities[0].id;
+    opportunityFeed = { state: "fallback", source: "prototype", builtAt: null };
+  }
+  updateNavigationCounts();
+  render();
+}
+
 function showToast(message) {
   clearTimeout(toastTimer);
   toast.textContent = message;
@@ -135,16 +231,24 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3400);
 }
 
-function setView(view) {
-  if (view !== "watches") resetWatchTurnstile();
-  state.view = view;
-  trackAnalytics("page_open", `page-${view}`);
+function syncNavigationState() {
   document.querySelectorAll(".nav-item").forEach((item) => {
-    const active = item.dataset.view === view;
+    const active = item.dataset.view === state.view;
     item.classList.toggle("is-active", active);
     if (active) item.setAttribute("aria-current", "page");
     else item.removeAttribute("aria-current");
   });
+}
+
+function setView(view) {
+  if (view !== "watches") resetWatchTurnstile();
+  state.view = view;
+  const viewUrl = new URL(window.location.href);
+  if (view === "pipeline") viewUrl.searchParams.delete("view");
+  else viewUrl.searchParams.set("view", view);
+  window.history.replaceState(null, "", viewUrl);
+  trackAnalytics("page_open", `page-${view}`);
+  syncNavigationState();
   closeMobileNav();
   render();
   viewRoot.focus({ preventScroll: true });
@@ -160,38 +264,68 @@ function viewHeader(title, description, metaLabel, metaValue) {
 
 function filteredOpportunities() {
   const buyerQuery = state.buyer.trim().toLowerCase();
-  return opportunities.filter((item) => {
+  const filtered = opportunities.filter((item) => {
     const sectorMatch = state.sector === "All sectors" || item.sector === state.sector;
     const deadlineMatch = item.daysToDeadline <= Number(state.deadline);
-    const valueMatch = item.estimate >= Number(state.minValue);
+    const valueMatch = state.minValue === 0 || (Number.isFinite(item.estimate) && item.estimate >= Number(state.minValue));
     const buyerMatch = !buyerQuery || item.buyer.toLowerCase().includes(buyerQuery) || item.title.toLowerCase().includes(buyerQuery);
-    const evidenceMatch = item.evidence >= Number(state.evidence);
+    const evidenceMatch = state.evidence === 0 || (hasEvidenceScore(item) && item.evidence >= Number(state.evidence));
     return sectorMatch && deadlineMatch && valueMatch && buyerMatch && evidenceMatch;
   });
+  return filtered.sort((left, right) => {
+    if (state.sort === "value") return (right.estimate || 0) - (left.estimate || 0) || left.daysToDeadline - right.daysToDeadline;
+    if (state.sort === "buyer") return left.buyer.localeCompare(right.buyer, "en-IE") || left.daysToDeadline - right.daysToDeadline;
+    return left.daysToDeadline - right.daysToDeadline || left.title.localeCompare(right.title, "en-IE");
+  });
+}
+
+function filtersAreActive() {
+  return state.buyer.trim() || state.sector !== "All sectors" || state.deadline !== 90 || state.minValue !== 0 || state.evidence !== 0 || state.sort !== "deadline";
 }
 
 function renderPipeline() {
   const results = filteredOpportunities();
   if (!results.some((item) => item.id === state.selectedId)) state.selectedId = results[0]?.id || null;
   const selected = opportunities.find((item) => item.id === state.selectedId);
-  const urgent = results.filter((item) => item.daysToDeadline <= 14).length;
-  const highEvidence = results.filter((item) => item.evidence >= 85).length;
+  const urgent = results.filter((item) => item.daysToDeadline <= 7).length;
+  const valued = results.filter((item) => Number.isFinite(item.estimate)).length;
+  const sourceCount = new Set(results.map((item) => item.source)).size;
+  const highEvidence = results.filter((item) => hasEvidenceScore(item) && item.evidence >= 85).length;
   const sectorOptions = ["All sectors", ...new Set(opportunities.map((item) => item.sector))];
+  const liveSnapshot = opportunityFeed.state === "live";
+  const loadingSnapshot = opportunityFeed.state === "loading";
+  const feedStatus = liveSnapshot
+    ? `<section class="feed-status is-live" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Dáil Tracker snapshot connected</strong><span>${opportunities.length} source-linked notices loaded, ${formatSnapshotDate(opportunityFeed.builtAt)}</span></section>`
+    : loadingSnapshot
+      ? '<section class="feed-status is-loading" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Loading procurement snapshot</strong><span>Connecting to the current Dáil Tracker copy</span></section>'
+      : '<section class="feed-status is-fallback" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Snapshot temporarily unavailable</strong><span>Showing labelled prototype records</span></section>';
+
+  if (loadingSnapshot) {
+    viewRoot.innerHTML = `
+      ${viewHeader("Opportunity desk", "Connecting to the current procurement snapshot.", "Please wait", "Loading data")}
+      ${feedStatus}
+      <section class="pipeline-loading" aria-label="Loading opportunities" aria-busy="true">
+        <div class="skeleton-filters"><span></span><span></span><span></span><span></span></div>
+        <div class="skeleton-workspace"><div>${Array.from({ length: 6 }, () => '<span class="skeleton-row"></span>').join("")}</div><aside><span></span><span></span><span></span><span></span></aside></div>
+      </section>`;
+    return;
+  }
 
   viewRoot.innerHTML = `
     ${viewHeader(
       "Opportunity desk",
-      "Filter the live market, then open an evidence brief around the buyer, sector and disclosed supplier landscape.",
-      `TED ${snapshot.tedRefreshed}`,
-      snapshot.label,
+      liveSnapshot ? "Browse the current procurement snapshot, then open the source notice or save a watch." : loadingSnapshot ? "Connecting to the current procurement snapshot." : "Browse the prototype workspace and sample evidence briefs.",
+      liveSnapshot ? "Dáil Tracker snapshot" : loadingSnapshot ? "Please wait" : `TED ${snapshot.tedRefreshed}`,
+      liveSnapshot ? `${opportunities.length} notices loaded` : loadingSnapshot ? "Loading data" : snapshot.label,
     )}
+    ${feedStatus}
     <section class="summary-strip" aria-label="Opportunity summary">
-      <div class="summary-item"><strong>${results.length}</strong><span>matched opportunities</span></div>
-      <div class="summary-item"><strong>${urgent}</strong><span>closing within 14 days</span></div>
-      <div class="summary-item"><strong>${highEvidence}</strong><span>strong evidence coverage</span></div>
-      <div class="summary-item"><strong>${snapshot.tedOpen}</strong><span>open TED notices in snapshot</span></div>
+      <div class="summary-item"><strong>${results.length}</strong><span>matched loaded notices</span></div>
+      <div class="summary-item"><strong>${urgent}</strong><span>closing within 7 days</span></div>
+      <div class="summary-item"><strong>${liveSnapshot ? valued : loadingSnapshot ? "…" : highEvidence}</strong><span>${liveSnapshot ? "with advertised value" : loadingSnapshot ? "checking provenance" : "strong evidence coverage"}</span></div>
+      <div class="summary-item"><strong>${liveSnapshot ? sourceCount : loadingSnapshot ? "…" : snapshot.tedOpen}</strong><span>${liveSnapshot ? "procurement sources" : loadingSnapshot ? "connecting feed" : "open TED notices in snapshot"}</span></div>
     </section>
-    <section class="filters" aria-label="Opportunity filters">
+    <section class="filters ${liveSnapshot ? "is-live" : ""}" aria-label="Opportunity filters">
       <div class="field"><label for="buyer-filter">Buyer, notice or keyword</label><input id="buyer-filter" type="search" value="${escapeHtml(state.buyer)}" placeholder="Try Tipperary or engineering" /></div>
       <div class="field"><label for="sector-filter">Sector</label><select id="sector-filter">${sectorOptions.map((value) => `<option ${value === state.sector ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
       <div class="field"><label for="deadline-filter">Deadline</label><select id="deadline-filter">
@@ -201,25 +335,30 @@ function renderPipeline() {
         <option value="90" ${state.deadline === 90 ? "selected" : ""}>Next 90 days</option>
       </select></div>
       <div class="field"><label for="value-filter">Advertised estimate</label><select id="value-filter">
-        <option value="0" ${state.minValue === 0 ? "selected" : ""}>Any stated value</option>
+        <option value="0" ${state.minValue === 0 ? "selected" : ""}>Any value</option>
         <option value="250000" ${state.minValue === 250000 ? "selected" : ""}>€250k and above</option>
         <option value="1000000" ${state.minValue === 1000000 ? "selected" : ""}>€1m and above</option>
         <option value="5000000" ${state.minValue === 5000000 ? "selected" : ""}>€5m and above</option>
       </select></div>
-      <div class="field"><label for="evidence-filter">Evidence coverage</label><select id="evidence-filter">
+      ${liveSnapshot ? `<div class="field"><label for="sort-filter">Sort by</label><select id="sort-filter">
+        <option value="deadline" ${state.sort === "deadline" ? "selected" : ""}>Deadline soonest</option>
+        <option value="value" ${state.sort === "value" ? "selected" : ""}>Highest value</option>
+        <option value="buyer" ${state.sort === "buyer" ? "selected" : ""}>Buyer name</option>
+      </select></div>` : `<div class="field"><label for="evidence-filter">Evidence coverage</label><select id="evidence-filter">
         <option value="0" ${state.evidence === 0 ? "selected" : ""}>Any coverage</option>
         <option value="70" ${state.evidence === 70 ? "selected" : ""}>70% and above</option>
         <option value="85" ${state.evidence === 85 ? "selected" : ""}>85% and above</option>
         <option value="90" ${state.evidence === 90 ? "selected" : ""}>90% and above</option>
-      </select></div>
-      <div class="filter-count">Showing ${results.length} of ${opportunities.length}</div>
+      </select></div>`}
+      <div class="filter-actions"><span>Showing ${results.length} of ${opportunities.length} loaded</span>${filtersAreActive() ? '<button type="button" id="clear-filters">Reset</button>' : ""}</div>
     </section>
+    ${liveSnapshot ? '<p class="filters-note">Evidence scores are not assigned to snapshot notices. Every record links to its originating notice for review.</p>' : ""}
     <section class="pipeline-workspace">
       <div class="opportunity-list" aria-label="Filtered opportunities">
-        <div class="list-header"><span>Opportunity</span><span>Buyer</span><span>Estimate</span><span>Deadline</span><span aria-label="Evidence coverage"></span></div>
+        <div class="list-header"><span>Opportunity</span><span>Buyer</span><span>Value</span><span>Deadline</span><span>Source</span></div>
         ${results.length ? results.map(opportunityRow).join("") : emptyResults()}
       </div>
-      ${selected ? detailPane(selected) : '<aside class="detail-pane"><p>Select an opportunity to inspect its evidence.</p></aside>'}
+      ${selected ? detailPane(selected) : '<aside class="detail-pane"><p>Select an opportunity to inspect its source record.</p></aside>'}
     </section>`;
 
   bindPipelineEvents();
@@ -229,20 +368,23 @@ function opportunityRow(item) {
   const selected = item.id === state.selectedId;
   return `
     <button class="opportunity-row ${selected ? "is-selected" : ""}" type="button" data-opportunity="${item.id}" aria-pressed="${selected}">
-      <span class="opportunity-name" data-mobile-estimate="${formatCurrency(item.estimate)}"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.sector)} · CPV ${item.cpv}</span></span>
-      <span class="buyer-cell"><strong>${escapeHtml(item.buyer)}</strong><span>${item.source} · ${item.published}</span></span>
-      <span class="money-cell"><strong>${formatCurrency(item.estimate)}</strong><span>planned estimate</span></span>
-      <span class="deadline-cell ${item.daysToDeadline <= 14 ? "is-urgent" : ""}"><strong>${item.daysToDeadline} days</strong><span>${item.deadline}</span></span>
-      <span class="evidence-ring" style="--score:${item.evidence}" title="${item.evidence}% evidence coverage" aria-label="${item.evidence}% evidence coverage"></span>
+      <span class="opportunity-name" data-mobile-estimate="${Number.isFinite(item.estimate) ? `${formatCurrency(item.estimate)} advertised estimate` : "Value not stated"}"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(classificationLabel(item))}</span></span>
+      <span class="buyer-cell"><strong>${escapeHtml(item.buyer)}</strong><span>${escapeHtml(sourceLabel(item.source))}</span></span>
+      <span class="money-cell"><strong>${formatCurrency(item.estimate)}</strong><span>${Number.isFinite(item.estimate) ? "advertised value" : "value not stated"}</span></span>
+      <span class="deadline-cell ${item.daysToDeadline <= 7 ? "is-urgent" : ""}"><strong>${deadlineLabel(item.daysToDeadline)}</strong><span>${formatDate(item.deadline)}</span></span>
+      ${hasEvidenceScore(item)
+    ? `<span class="evidence-ring" style="--score:${item.evidence}" title="${item.evidence}% evidence coverage" aria-label="${item.evidence}% evidence coverage"></span>`
+    : `<span class="source-badge">${escapeHtml(sourceLabel(item.source))}</span>`}
     </button>`;
 }
 
 function emptyResults() {
-  return `<div class="empty-state"><div><span class="empty-icon">${icon("filter")}</span><h2>No notices match these filters</h2><p>Broaden the deadline or evidence threshold. A zero result is retained as information, not hidden.</p><button class="button" type="button" id="clear-filters">Clear filters</button></div></div>`;
+  return `<div class="empty-state"><div><span class="empty-icon">${icon("filter")}</span><h2>No notices match these filters</h2><p>Broaden the deadline, sector or value range. A zero result is retained as useful information.</p><button class="button" type="button" id="clear-filters">Clear filters</button></div></div>`;
 }
 
 function detailPane(item) {
   const saved = state.saved.has(item.id);
+  if (item.liveSnapshot) return liveDetailPane(item, saved);
   const singleBid = item.signals.singleBidPct == null ? "Sample too small" : `${item.signals.singleBidPct}% of lots`;
   return `
     <aside class="detail-pane" aria-label="Opportunity evidence brief">
@@ -275,6 +417,37 @@ function detailPane(item) {
     </aside>`;
 }
 
+function liveDetailPane(item, saved) {
+  const sourceAction = item.sourceUrl
+    ? `<a class="button button-quiet" data-analytics-event="source_notice_open" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noreferrer">${icon("external")}<span>Source notice</span></a>`
+    : "";
+  return `
+    <aside class="detail-pane" aria-label="Opportunity source brief">
+      <div class="detail-kicker"><span class="source-badge">${escapeHtml(sourceLabel(item.source))}</span><span class="sector-badge">${escapeHtml(item.sector)}</span></div>
+      <h2>${escapeHtml(item.title)}</h2>
+      <p class="detail-buyer">${escapeHtml(item.buyer)} · Notice ${escapeHtml(item.id)}</p>
+      <div class="detail-actions">
+        <button class="button ${saved ? "" : "button-primary"}" type="button" id="save-opportunity">${icon(saved ? "bookmarkFilled" : "bookmark")}<span>${saved ? "Watching" : "Watch notice"}</span></button>
+        <button class="button" type="button" id="email-brief">${icon("mail")}<span>${appCapabilities.emailConfigured ? "Email watch" : "Build watch"}</span></button>
+        ${sourceAction}
+      </div>
+      <div class="fact-line">
+        <div class="fact"><strong>${formatCurrency(item.estimate)}</strong><span>advertised estimate</span></div>
+        <div class="fact"><strong>${formatDate(item.deadline)}</strong><span>${deadlineLabel(item.daysToDeadline)}</span></div>
+        <div class="fact"><strong>Not scored</strong><span>evidence coverage</span></div>
+      </div>
+      <div class="section-heading"><h3>Snapshot record</h3>${item.sourceUrl ? `<a class="source-link" data-analytics-event="source_notice_open" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noreferrer">Open source notice ${icon("external")}</a>` : ""}</div>
+      <ul class="signal-list">
+        <li><span>Source</span><strong>${escapeHtml(sourceLabel(item.source))}</strong></li>
+        <li><span>Classification</span><strong>${escapeHtml(classificationLabel(item))}</strong></li>
+        <li><span>Deadline status</span><strong>${deadlineLabel(item.daysToDeadline)}</strong></li>
+      </ul>
+      <div class="section-heading"><h3>Evidence included</h3></div>
+      <div class="coverage-list">${item.coverage.map((label) => `<span class="coverage-item">${icon("check")}${escapeHtml(label)}</span>`).join("")}</div>
+      <div class="caution-box"><strong>Review note:</strong> ${escapeHtml(item.caution)} Historic buyer and supplier signals are not inferred into this public notice view.</div>
+    </aside>`;
+}
+
 function bindPipelineEvents() {
   document.querySelectorAll("[data-opportunity]").forEach((row) => row.addEventListener("click", () => {
     state.selectedId = row.dataset.opportunity;
@@ -289,6 +462,7 @@ function bindPipelineEvents() {
     ["sector-filter", "sector", "change", (value) => value],
     ["deadline-filter", "deadline", "change", Number],
     ["value-filter", "minValue", "change", Number],
+    ["sort-filter", "sort", "change", (value) => value],
     ["evidence-filter", "evidence", "change", Number],
   ];
   mappings.forEach(([id, key, event, transform]) => document.querySelector(`#${id}`)?.addEventListener(event, (e) => {
@@ -300,7 +474,7 @@ function bindPipelineEvents() {
     else renderPipeline();
   }));
   document.querySelector("#clear-filters")?.addEventListener("click", () => {
-    Object.assign(state, { sector: "All sectors", deadline: 90, minValue: 0, buyer: "", evidence: 0 });
+    Object.assign(state, { sector: "All sectors", deadline: 90, minValue: 0, buyer: "", evidence: 0, sort: "deadline" });
     trackAnalytics("filter_apply", "filter-sector");
     renderPipeline();
   });
@@ -309,6 +483,7 @@ function bindPipelineEvents() {
     if (adding) state.saved.add(state.selectedId);
     else state.saved.delete(state.selectedId);
     localStorage.setItem("publicSignalSaved", JSON.stringify([...state.saved]));
+    updateNavigationCounts();
     if (adding) trackAnalytics("opportunity_saved", "notice-bookmark");
     showToast(state.saved.has(state.selectedId) ? "Notice added to your watchlist." : "Notice removed from your watchlist.");
     renderPipeline();
@@ -322,9 +497,14 @@ function bindPipelineEvents() {
   injectIcons(viewRoot);
 }
 
+function prototypeNotice(message) {
+  return `<section class="feed-status is-preview" role="note"><span class="feed-status-dot" aria-hidden="true"></span><strong>Research preview</strong><span>${escapeHtml(message)} These figures are not part of the live opportunity feed.</span></section>`;
+}
+
 function renderMarkets() {
   viewRoot.innerHTML = `
     ${viewHeader("Sector map", "Compare where the corpus is commercially useful before building a watch or commissioning a brief.", "Rows are not market-size estimates", "Evidence readiness")}
+    ${prototypeNotice("Illustrative sector analysis from the development corpus.")}
     <section class="summary-strip" aria-label="Sector data summary">
       <div class="summary-item"><strong>20,597</strong><span>awards with usable CPV</span></div>
       <div class="summary-item"><strong>49,225</strong><span>awards with bid counts</span></div>
@@ -344,6 +524,7 @@ function renderMarkets() {
 function renderBuyers() {
   viewRoot.innerHTML = `
     ${viewHeader("Buyer dossiers", "Find public bodies with enough award, competition and payment evidence to support account planning.", "Payment meaning shown per publisher", "Buyer evidence")}
+    ${prototypeNotice("Illustrative buyer profiles pending a reviewed public data contract.")}
     <section class="table-region">
       <div class="table-toolbar"><div><h2>Evidence-rich buyers</h2><p>High-volume examples from the current corpus.</p></div><div class="field"><label for="table-search">Find a buyer</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Council, department or agency" /></div></div>
       <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Buyer</th><th class="numeric">Awards</th><th class="numeric">Known suppliers</th><th class="numeric">Disclosure lines</th><th>Money meaning</th><th class="numeric">Competition lots</th><th class="numeric">Single-bid context</th><th class="numeric">Expiry signals</th></tr></thead><tbody>
@@ -357,6 +538,7 @@ function renderBuyers() {
 function renderSuppliers() {
   viewRoot.innerHTML = `
     ${viewHeader("Supplier footprints", "Trace known company activity across national awards, TED and public-body disclosures.", "Human verification required", "Entity chain")}
+    ${prototypeNotice("Illustrative supplier profiles pending entity-level review.")}
     <section class="table-region">
       <div class="table-toolbar"><div><h2>Cross-register supplier examples</h2><p>Company-number anchored where the source match supports it.</p></div><div class="field"><label for="table-search">Find a supplier</label><input id="table-search" type="search" value="${escapeHtml(state.tableSearch)}" placeholder="Company or CRO number" /></div></div>
       <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Supplier</th><th>CRO</th><th class="numeric">National awards</th><th class="numeric">National buyers</th><th class="numeric">TED awards</th><th class="numeric">Disclosure lines</th><th class="numeric">Publishers</th><th>Entity status</th></tr></thead><tbody>
@@ -377,36 +559,53 @@ function bindTableSearch() {
   injectIcons(viewRoot);
 }
 
+function savedNoticesMarkup() {
+  const savedItems = opportunities.filter((item) => state.saved.has(item.id));
+  if (!savedItems.length) {
+    return `<div class="saved-empty"><span>${icon("bookmark")}</span><h3>No saved notices yet</h3><p>Save a notice from the Opportunity desk to keep it close while you assess the source.</p><button class="button" type="button" data-view="pipeline">Browse opportunities</button></div>`;
+  }
+  return savedItems.slice(0, 10).map((item) => `
+    <button class="watch-rule saved-rule" type="button" data-saved-opportunity="${escapeHtml(item.id)}">
+      <span class="watch-rule-head"><strong>${escapeHtml(item.title)}</strong><span class="state-badge">Saved</span></span>
+      <span class="saved-rule-buyer">${escapeHtml(item.buyer)}</span>
+      <span class="watch-rule-meta"><span>${deadlineLabel(item.daysToDeadline)}</span><span>${formatCurrency(item.estimate)}</span></span>
+    </button>`).join("");
+}
+
 function renderWatches() {
   const selected = opportunities.find((item) => item.id === state.selectedId);
+  const watchSectors = [...new Set(opportunities.map((item) => item.sector))].slice(0, 8);
+  const liveSnapshot = opportunityFeed.state === "live";
+  const deliveryReady = appCapabilities.emailConfigured;
   viewRoot.innerHTML = `
-    ${viewHeader("Watches & digests", "Turn a sector, buyer or value threshold into a focused email brief. Confirmation and unsubscribe are built into the delivery flow.", "07:10 UTC on weekdays", "Automated delivery")}
+    ${viewHeader("Watches & digests", "Save useful notices and turn focused filters into an email digest when delivery is enabled.", deliveryReady ? "07:10 UTC on weekdays" : "Email provider not connected", deliveryReady ? "Automated delivery" : "Draft mode")}
+    ${deliveryReady ? "" : '<section class="feed-status is-preview" role="status"><span class="feed-status-dot" aria-hidden="true"></span><strong>Email delivery is not active</strong><span>You can save a watch draft locally. Connect the verified sending service before inviting subscribers.</span></section>'}
     <section class="watches-layout">
       <div class="watch-list">
-        <div class="panel-heading"><div><h2>Active watches</h2><p>Rules already monitoring the prototype workspace.</p></div><span class="state-badge is-active">3 active</span></div>
-        ${watchRules.map((rule) => `<article class="watch-rule"><div class="watch-rule-head"><strong>${escapeHtml(rule.name)}</strong><span class="state-badge is-active">Active</span></div><p>${rule.sectors.length ? escapeHtml(rule.sectors.join(", ")) : "All sectors"}${rule.buyer ? ` · ${escapeHtml(rule.buyer)}` : ""}</p><div class="watch-rule-meta"><span>${rule.matches} current matches</span><span>${rule.cadence}</span></div></article>`).join("")}
+        <div class="panel-heading"><div><h2>Saved notices</h2><p>Stored in this browser for quick review.</p></div><span class="state-badge">${state.saved.size} saved</span></div>
+        ${savedNoticesMarkup()}
       </div>
       <div class="automation-builder">
-        <div class="panel-heading"><div><h2>Create an email watch</h2><p>Only send when a notice clears your evidence threshold.</p></div>${icon("mail")}</div>
+        <div class="panel-heading"><div><h2>${deliveryReady ? "Create an email watch" : "Create a watch draft"}</h2><p>${liveSnapshot ? "Filter the current snapshot by sector, buyer, value and deadline." : "Only send when a notice clears your evidence threshold."}</p></div>${icon("mail")}</div>
         <form class="automation-form" id="watch-form">
           <div class="form-grid">
             <div class="field"><label for="watch-name">Watch name</label><input id="watch-name" name="name" value="${selected ? escapeHtml(`${selected.sector} opportunities`) : "New opportunity watch"}" required /></div>
-            <div class="field"><label for="watch-email">Delivery email</label><input id="watch-email" name="email" type="email" placeholder="bidteam@company.ie" required /></div>
+            <div class="field"><label for="watch-email">Delivery email</label><input id="watch-email" name="email" type="email" placeholder="${deliveryReady ? "bidteam@company.ie" : "Delivery not configured"}" ${deliveryReady ? "required" : "disabled"} /></div>
             <div class="field is-wide"><span class="field-label">Sectors</span><div class="check-group">
-              ${["Architecture & Engineering", "IT Services", "Construction", "Business & Consulting", "Software"].map((sector) => `<label class="check-pill"><input type="checkbox" name="sectors" value="${sector}" ${selected?.sector === sector ? "checked" : ""} /><span>${sector}</span></label>`).join("")}
+              ${watchSectors.map((sector) => `<label class="check-pill"><input type="checkbox" name="sectors" value="${escapeHtml(sector)}" ${selected?.sector === sector ? "checked" : ""} /><span>${escapeHtml(sector)}</span></label>`).join("")}
             </div></div>
             <div class="field"><label for="watch-buyers">Buyer name contains</label><input id="watch-buyers" name="buyers" placeholder="Council, HSE, OPW" value="${selected ? escapeHtml(selected.buyer) : ""}" /></div>
-            <div class="field"><label for="watch-value">Minimum advertised estimate</label><select id="watch-value" name="minValue"><option value="0">Any stated value</option><option value="250000">€250k</option><option value="500000">€500k</option><option value="1000000">€1m</option><option value="5000000">€5m</option></select></div>
+            <div class="field"><label for="watch-value">Minimum advertised estimate</label><select id="watch-value" name="minValue"><option value="0">Any value</option><option value="250000">€250k</option><option value="500000">€500k</option><option value="1000000">€1m</option><option value="5000000">€5m</option></select></div>
             <div class="field"><label for="watch-deadline">Deadline window</label><select id="watch-deadline" name="deadline"><option value="30">Next 30 days</option><option value="60" selected>Next 60 days</option><option value="90">Next 90 days</option></select></div>
             <div class="field"><label for="watch-cadence">Digest cadence</label><select id="watch-cadence" name="cadence"><option value="weekday">Weekday morning</option><option value="weekly">Monday summary</option></select></div>
-            <div class="field is-wide"><label for="watch-evidence">Minimum evidence coverage</label><div class="range-line"><input id="watch-evidence" name="evidence" type="range" min="50" max="95" step="5" value="70" /><output class="range-value" for="watch-evidence">70%</output></div></div>
+            <div class="field is-wide"><label for="watch-evidence">Minimum evidence coverage</label><div class="range-line"><input id="watch-evidence" name="evidence" type="range" min="0" max="95" step="5" value="${liveSnapshot ? "0" : "70"}" ${liveSnapshot ? "disabled" : ""} /><output class="range-value" for="watch-evidence">${liveSnapshot ? "Not scored" : "70%"}</output></div>${liveSnapshot ? '<small>Current snapshot notices have source links but are not assigned an evidence score.</small>' : ""}</div>
           </div>
           <div class="turnstile-field" id="turnstile-field" hidden>
             <div id="turnstile-widget"></div>
             <p id="turnstile-status" role="status"></p>
           </div>
           <div class="automation-preview" aria-live="polite"><h3>Digest preview</h3><div id="watch-preview"></div></div>
-          <div class="form-actions"><button class="button button-primary" type="submit">${icon("bell")}<span>Save watch</span></button><button class="button" type="button" id="preview-email">${icon("mail")}<span>Preview email</span></button><small>Double opt-in. Unsubscribe link in every email.</small></div>
+          <div class="form-actions"><button class="button button-primary" type="submit">${icon("bell")}<span>${deliveryReady ? "Save watch" : "Save draft"}</span></button><button class="button" type="button" id="preview-email">${icon("mail")}<span>Preview matches</span></button><small>${deliveryReady ? "Double opt-in. Unsubscribe link in every email." : "Drafts stay in this browser until delivery is connected."}</small></div>
         </form>
       </div>
     </section>`;
@@ -425,7 +624,7 @@ function getWatchFormValues() {
     minValue: Number(data.get("minValue") || 0),
     deadlineDays: Number(data.get("deadline") || 60),
     cadence: String(data.get("cadence") || "weekday"),
-    minEvidence: Number(data.get("evidence") || 70),
+    minEvidence: Number(data.get("evidence") || 0),
     includeExpiries: true,
     turnstileToken: watchTurnstile.token,
   };
@@ -508,24 +707,30 @@ function watchMatches(values) {
   return opportunities.filter((item) => {
     const sectorMatch = !values.sectors.length || values.sectors.includes(item.sector);
     const buyerMatch = !values.buyers.length || values.buyers.some((buyer) => item.buyer.toLowerCase().includes(buyer.toLowerCase()));
-    return sectorMatch && buyerMatch && item.estimate >= values.minValue && item.daysToDeadline <= values.deadlineDays && item.evidence >= values.minEvidence;
+    const evidenceMatch = values.minEvidence === 0 || (hasEvidenceScore(item) && item.evidence >= values.minEvidence);
+    return sectorMatch && buyerMatch && item.estimate >= values.minValue && item.daysToDeadline <= values.deadlineDays && evidenceMatch;
   });
 }
 
 function updateWatchPreview() {
   const values = getWatchFormValues();
   const matches = watchMatches(values);
-  document.querySelector(".range-value").textContent = `${values.minEvidence}%`;
+  document.querySelector(".range-value").textContent = opportunityFeed.state === "live" ? "Not scored" : `${values.minEvidence}%`;
   document.querySelector("#watch-preview").innerHTML = `
     <div class="preview-line"><span>Current matches</span><strong>${matches.length}</strong></div>
-    <div class="preview-line"><span>Next delivery</span><strong>${values.cadence === "weekly" ? "Monday, 07:10 UTC" : "Next weekday, 07:10 UTC"}</strong></div>
-    <div class="preview-line"><span>Evidence rule</span><strong>${values.minEvidence}% or better</strong></div>
+    <div class="preview-line"><span>Next delivery</span><strong>${appCapabilities.emailConfigured ? values.cadence === "weekly" ? "Monday, 07:10 UTC" : "Next weekday, 07:10 UTC" : "Not scheduled"}</strong></div>
+    <div class="preview-line"><span>Evidence rule</span><strong>${opportunityFeed.state === "live" ? "No score filter" : `${values.minEvidence}% or better`}</strong></div>
     <div class="preview-line"><span>Lead item</span><strong>${matches[0] ? escapeHtml(matches[0].buyer) : "No current match"}</strong></div>`;
 }
 
 function bindWatchForm() {
   const form = document.querySelector("#watch-form");
   resetWatchTurnstile();
+  document.querySelectorAll("[data-saved-opportunity]").forEach((button) => button.addEventListener("click", () => {
+    state.selectedId = button.dataset.savedOpportunity;
+    setView("pipeline");
+  }));
+  document.querySelector(".saved-empty [data-view='pipeline']")?.addEventListener("click", () => setView("pipeline"));
   form.addEventListener("input", updateWatchPreview);
   form.addEventListener("change", updateWatchPreview);
   updateWatchPreview();
@@ -534,11 +739,17 @@ function bindWatchForm() {
     const matches = watchMatches(getWatchFormValues());
     showToast(matches.length ? `Preview ready with ${matches.length} matching opportunities.` : "Preview ready. No current notices clear this rule.");
   });
-  void configureTurnstile(form);
+  if (appCapabilities.emailConfigured) void configureTurnstile(form);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
     const values = getWatchFormValues();
+    if (!appCapabilities.emailConfigured) {
+      const { email: _email, turnstileToken: _turnstileToken, ...draft } = values;
+      localStorage.setItem("publicSignalDraftWatch", JSON.stringify(draft));
+      showToast("Watch draft saved in this browser. Email delivery is not connected yet.");
+      return;
+    }
     if (form.dataset.turnstileRequired === "true" && !values.turnstileToken) {
       showToast("Complete the verification before saving this watch.");
       return;
@@ -562,7 +773,7 @@ function bindWatchForm() {
       }
     } finally {
       button.disabled = false;
-      button.innerHTML = `${icon("bell")}<span>Save watch</span>`;
+      button.innerHTML = `${icon("bell")}<span>${appCapabilities.emailConfigured ? "Save watch" : "Save draft"}</span>`;
     }
   });
 }
@@ -612,6 +823,9 @@ document.addEventListener("click", (event) => {
 });
 
 injectIcons();
+syncNavigationState();
+updateNavigationCounts();
 render();
+void loadLiveOpportunities();
 trackAnalytics("app_open", "app");
 trackAnalytics("page_open", "page-pipeline");

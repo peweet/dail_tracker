@@ -15,7 +15,7 @@ PublicSignal is a Cloudflare-ready procurement intelligence prototype for Irish 
 - Double opt-in confirmation, one-click unsubscribe and delivery logging.
 - Responsive desktop and mobile layouts with keyboard and reduced-motion support.
 
-The browser currently uses a small, labelled prototype dataset derived from the August 2026 local snapshot. The Worker can instead fetch an authenticated JSON opportunity feed.
+The Opportunity Desk and email-watch matching use the Worker’s reviewed procurement snapshot. The Sector map, Buyer dossiers and Supplier footprints remain labelled prototype views until each gets a separate, reviewed public data contract.
 
 ## Cloudflare architecture
 
@@ -52,7 +52,7 @@ npm run db:migrate:local
 npm run dev
 ```
 
-The app works without a Resend key. Subscriptions are stored as pending and the API reports preview mode, but no email leaves the system.
+The app works without a Resend key in clearly labelled draft mode. Watch drafts are stored in the browser and are not posted as subscriptions until verified email delivery is configured.
 
 ## Email configuration
 
@@ -99,6 +99,20 @@ The feed returns an `opportunities` envelope with lane-level coverage and cautio
 National eTenders live records have no CPV field in this snapshot, so they remain unclassified rather than being inferred from their title. Values in both forward lanes are advertised/planned estimates, not awards, payments, or market totals.
 
 The corresponding private API evidence route is `/v1/procurement/opportunities/{opportunity_id}/brief`. It adds cross-register buyer context only for a curated exact buyer match; award and payment disclosures remain separate lanes. The public Worker does not proxy this detail endpoint yet.
+
+### Private snapshot deployment
+
+On the current Cloudflare Workers Free plan, PublicSignal serves a compact, reviewed snapshot through the Worker itself. The snapshot is built from the Dail Tracker procurement views, uploaded as a Worker asset, and explicitly blocked from direct public paths. The Worker exposes only the public-safe opportunity fields to the website and email scheduler.
+
+Refresh the snapshot after a Dail Tracker data refresh, then deploy the Worker:
+
+```powershell
+uv run --no-sync python apps/public-signal/private-api/build_snapshot.py --output apps/public-signal/public/_private/procurement-snapshot.json
+Set-Location apps/public-signal
+npx wrangler deploy
+```
+
+`private-api/` is the companion FastAPI container implementation, tested locally and ready if the account is upgraded to Workers Paid. It is not deployed on the current plan because Cloudflare Containers require Workers Paid.
 
 ## Privacy-bounded product analytics
 
@@ -178,7 +192,7 @@ uncomment the `routes` block and run `npx wrangler deploy`.
 
 ## Production work still required
 
-- Connect the opportunity feed to the deployed API and add the composed evidence endpoint.
+- Add reviewed, separate public data contracts for the Sector map, Buyer dossiers and Supplier footprints before presenting them as live data.
 - Add authentication for private workspaces, team roles and shared pursuit notes.
 - Configure the live Turnstile hostname and secrets before opening subscriptions publicly.
 - Publish the reviewed privacy notice with the analytics vocabulary and 90-day retention policy described above.

@@ -40,6 +40,16 @@ test("matchOpportunity keeps money, deadline and evidence filters independent", 
   assert.equal(matchOpportunity(opportunity, subscription), true);
   assert.equal(matchOpportunity({ ...opportunity, estimate: 500_000 }, subscription), false);
   assert.equal(matchOpportunity({ ...opportunity, evidence: 70 }, subscription), false);
+  assert.equal(matchOpportunity({ ...opportunity, evidence: null }, subscription), false);
+  assert.equal(matchOpportunity({ ...opportunity, evidence: null }, { ...subscription, minEvidence: 0 }), true);
+});
+
+test("normaliseFeedOpportunity does not invent an evidence score", () => {
+  const unscored = normaliseFeedOpportunity({ id: "ted:no-score", source_identity: "no-score", source_lane: "ted_tender" });
+  assert.equal(unscored.evidence, null);
+  assert.equal(unscored.estimate, null);
+  assert.equal(unscored.title, "TED notice no-score");
+  assert.equal(normaliseFeedOpportunity({ id: "ted:scored", evidence: "82" }).evidence, 82);
 });
 
 test("renderDigest escapes supplier-facing content and labels estimates", () => {
@@ -214,7 +224,7 @@ test("opportunity proxy preserves only the stable feed fields", async () => {
     assert.equal(response.status, 200);
     const expected = normaliseFeedOpportunity({ id: "ted:ABC", buyer_display_name: "Buyer", value_eur: 10, source_url: "https://source.example/notice", private_field: "drop" });
     delete expected.deadline;
-    assert.deepEqual(await response.json(), { source: "dail_tracker", opportunities: [expected] });
+    assert.deepEqual(await response.json(), { source: "dail_tracker", builtAt: null, opportunities: [expected] });
     assert.equal(call.options.headers.authorization, "Bearer secret");
     assert.match(call.url, /within_days=30/);
   } finally {
@@ -232,4 +242,25 @@ test("opportunity proxy returns a bounded unavailable response on remote failure
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("opportunity proxy reads the private snapshot through the asset binding", async () => {
+  const snapshot = {
+    schema: "publicsignal-procurement-snapshot/1",
+    built_at: "2026-08-06T10:30:00+00:00",
+    feed: {
+      opportunities: [
+        { id: "ted:live", source_identity: "live", source_lane: "ted_tender", buyer_display_name: "Buyer", deadline: "2099-01-01", cpv_division: "72", source_url: "https://source.example/live" },
+        { id: "national:other", source_identity: "other", source_lane: "national_live", buyer_display_name: "Other", deadline: "2099-01-01", cpv_division: null, source_url: "https://source.example/other" },
+      ],
+    },
+  };
+  const response = await proxyOpportunities(new Request("https://publicsignal.ie/api/opportunities?sector=72"), {
+    ASSETS: { fetch: async () => new Response(JSON.stringify(snapshot), { status: 200 }) },
+  });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.source, "private_snapshot");
+  assert.equal(body.builtAt, "2026-08-06T10:30:00+00:00");
+  assert.deepEqual(body.opportunities.map((item) => item.id), ["ted:live"]);
 });

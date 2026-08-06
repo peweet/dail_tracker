@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="PublicSignal procurement intelligence workspace prototype." />
+    <meta name="description" content="PublicSignal helps Irish bid teams review source-linked public procurement opportunities and build focused watch rules." />
     <title>PublicSignal | Procurement intelligence</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -18,35 +18,34 @@
 
         <nav class="primary-nav">
           <button class="nav-item is-active" type="button" data-view="pipeline" aria-current="page">
-            <span data-icon="inbox"></span><span>Opportunity desk</span><span class="nav-count">8</span>
+            <span data-icon="inbox"></span><span>Opportunity desk</span><span class="nav-count">...</span>
           </button>
           <button class="nav-item" type="button" data-view="markets">
-            <span data-icon="layers"></span><span>Sector map</span>
+            <span data-icon="layers"></span><span>Sector map</span><span class="nav-preview">Preview</span>
           </button>
           <button class="nav-item" type="button" data-view="buyers">
-            <span data-icon="building"></span><span>Buyer dossiers</span>
+            <span data-icon="building"></span><span>Buyer dossiers</span><span class="nav-preview">Preview</span>
           </button>
           <button class="nav-item" type="button" data-view="suppliers">
-            <span data-icon="briefcase"></span><span>Supplier footprints</span>
+            <span data-icon="briefcase"></span><span>Supplier footprints</span><span class="nav-preview">Preview</span>
           </button>
           <button class="nav-item" type="button" data-view="watches">
-            <span data-icon="bell"></span><span>Watches & digests</span><span class="nav-count">3</span>
+            <span data-icon="bell"></span><span>Watches & digests</span><span class="nav-count">0</span>
           </button>
         </nav>
 
         <div class="sidebar-section">
           <p class="eyebrow">Workspace</p>
-          <button class="workspace-switcher" type="button">
-            <span class="avatar">NB</span>
-            <span><strong>Northbank Advisory</strong><small>Bid team</small></span>
-            <span data-icon="chevrons"></span>
-          </button>
+          <div class="workspace-switcher">
+            <span class="avatar">PS</span>
+            <span><strong>Private preview</strong><small>Single-user workspace</small></span>
+          </div>
         </div>
 
         <div class="data-health">
           <div><span class="status-dot"></span><strong>Sources available</strong></div>
-          <p>TED refreshed 30 Jul. National feed refreshed 13 Jul.</p>
-          <button type="button" data-view="markets">Review coverage</button>
+          <p>Current procurement notices are served from the reviewed snapshot.</p>
+          <button type="button" data-view="pipeline">Open live feed</button>
         </div>
       </aside>
 
@@ -55,10 +54,10 @@
           <button class="icon-button mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false">
             <span data-icon="menu"></span>
           </button>
-          <div class="topbar-title"><span class="demo-pill">Prototype</span><span>Irish public market workspace</span><span class="privacy-note" title="Analytics are anonymous and first-party">Anonymous product analytics. GPC and Do Not Track are respected.</span></div>
+          <div class="topbar-title"><span class="demo-pill">Snapshot</span><span>Irish public market workspace</span><span class="privacy-note" title="Analytics are anonymous and first-party">Anonymous product analytics. GPC and Do Not Track are respected.</span></div>
           <div class="topbar-actions">
             <button class="search-button" type="button" id="global-search">
-              <span data-icon="search"></span><span>Search buyers, suppliers, notices</span><kbd>/</kbd>
+              <span data-icon="search"></span><span>Search live notices</span><kbd>/</kbd>
             </button>
             <button class="button button-primary" type="button" data-view="watches">
               <span data-icon="plus"></span><span>New watch</span>
@@ -70,6 +69,6 @@
     </div>
     <div class="mobile-scrim" id="mobile-scrim" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=20260806-6"></script>
   </body>
 </html>

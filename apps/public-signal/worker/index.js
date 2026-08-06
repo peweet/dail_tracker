@@ -1,7 +1,8 @@
 import { opportunities as sampleOpportunities } from "../public/sample-data.js";
-import { Container, getContainer } from "@cloudflare/containers";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+const PRIVATE_SNAPSHOT_PATH = "/_private/procurement-snapshot.json";
+let privateSnapshotPromise;
 
 export const ANALYTICS_EVENT_TARGETS = Object.freeze({
   app_open: ["app"],
@@ -115,7 +116,7 @@ export function normaliseSubscription(input = {}) {
   const cadence = input.cadence === "weekly" ? "weekly" : "weekday";
   const minValue = clampInteger(input.minValue, 0, 2_000_000_000, 0);
   const deadlineDays = clampInteger(input.deadlineDays, 1, 365, 60);
-  const minEvidence = clampInteger(input.minEvidence, 0, 100, 70);
+  const minEvidence = clampInteger(input.minEvidence, 0, 100, 0);
 
   return {
     name,
@@ -149,8 +150,9 @@ export function matchOpportunity(item, subscription) {
   const buyerMatch = !buyers.length || buyers.some((buyer) => String(item.buyer || "").toLowerCase().includes(buyer.toLowerCase()));
   const estimate = Number(item.estimate || item.estimated_value_eur || 0);
   const deadline = Number(item.daysToDeadline ?? item.days_to_deadline ?? 9999);
-  const evidence = Number(item.evidence ?? item.evidence_coverage ?? 0);
-  return sectorMatch && buyerMatch && estimate >= subscription.minValue && deadline <= subscription.deadlineDays && evidence >= subscription.minEvidence;
+  const evidence = Number(item.evidence ?? item.evidence_coverage);
+  const evidenceMatch = subscription.minEvidence === 0 || (Number.isFinite(evidence) && evidence >= subscription.minEvidence);
+  return sectorMatch && buyerMatch && estimate >= subscription.minValue && deadline <= subscription.deadlineDays && evidenceMatch;
 }
 
 function json(data, status = 200) {
@@ -217,26 +219,28 @@ export async function consumeSubscriptionLimit(env, email) {
 }
 
 export function normaliseFeedOpportunity(item = {}) {
+  const candidateEvidence = Number(item.evidence ?? item.evidence_coverage);
+  const candidateEstimate = Number(item.estimate ?? item.value_eur ?? item.estimated_value_eur);
+  const id = item.id || item.source_identity || item.publication_number || item.resource_id;
+  const sourceIdentity = item.source_identity || item.publication_number || item.resource_id || id;
+  const source = item.source || item.source_lane || "Feed";
+  const candidateTitle = item.title || item.contract_name;
+  const hasMeaningfulTitle = candidateTitle && candidateTitle !== sourceIdentity && candidateTitle !== id;
+  const title = hasMeaningfulTitle ? candidateTitle : String(source).startsWith("ted") ? `TED notice ${sourceIdentity}` : `Procurement notice ${sourceIdentity}`;
   return {
-    id: item.id || item.source_identity || item.publication_number || item.resource_id,
-    title: item.title || item.contract_name || item.source_identity || "Public procurement opportunity",
+    id,
+    title,
     buyer: item.buyer || item.buyer_display_name || item.buyer_name || "Buyer not stated",
     sector: item.sector || item.cpv_division || item.cpv || "Other",
+    cpv: item.cpv || item.cpv_code || item.cpv_division || null,
     deadline: item.deadline || item.submission_deadline,
     daysToDeadline: item.daysToDeadline ?? item.days_to_deadline ?? daysUntil(item.deadline || item.submission_deadline),
-    estimate: item.estimate ?? item.value_eur ?? item.estimated_value_eur ?? 0,
-    evidence: item.evidence ?? item.evidence_coverage ?? 70,
-    source: item.source || item.source_lane || "Feed",
+    estimate: Number.isFinite(candidateEstimate) && candidateEstimate > 0 ? candidateEstimate : null,
+    evidence: Number.isFinite(candidateEvidence) ? candidateEvidence : null,
+    source,
     sourceUrl: item.sourceUrl || item.source_url || item.notice_url || item.detail_url || "",
     caution: item.caution || "Review the source notice before relying on this summary.",
   };
-}
-
-export class PublicSignalProcurementContainer extends Container {
-  defaultPort = 8080;
-  sleepAfter = "30m";
-  enableInternet = false;
-  pingEndpoint = "localhost/v1/health";
 }
 
 function isLocalDevelopment(env) {
@@ -254,24 +258,44 @@ function forwardedFeedUrl(baseUrl, request) {
   return feedUrl;
 }
 
-async function loadContainerOpportunities(env, request) {
-  if (!env.PROCUREMENT_FEED_TOKEN) throw new Error("Procurement feed token is not configured");
-  const container = getContainer(env.PROCUREMENT_API, "publicsignal-procurement-v1");
-  await container.startAndWaitForPorts({
-    ports: [8080],
-    startOptions: { enableInternet: false, envVars: { PUBLIC_SIGNAL_FEED_TOKEN: env.PROCUREMENT_FEED_TOKEN } },
-    cancellationOptions: { portReadyTimeoutMS: 30_000 },
-  });
-  const response = await container.fetch(new Request(forwardedFeedUrl("http://publicsignal-container/v1/procurement/opportunities", request), {
-    headers: { accept: "application/json", authorization: `Bearer ${env.PROCUREMENT_FEED_TOKEN}` },
-  }));
-  if (!response.ok) throw new Error(`Procurement container returned ${response.status}`);
-  const payload = await response.json();
-  return (payload.opportunities || []).map(normaliseFeedOpportunity).filter((item) => item.id);
+async function loadPrivateSnapshot(env) {
+  if (!privateSnapshotPromise) {
+    privateSnapshotPromise = env.ASSETS.fetch(new Request(`https://publicsignal.internal${PRIVATE_SNAPSHOT_PATH}`))
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Private procurement snapshot is unavailable");
+        const payload = await response.json();
+        if (payload?.schema !== "publicsignal-procurement-snapshot/1" || !Array.isArray(payload?.feed?.opportunities)) {
+          throw new Error("Private procurement snapshot is incompatible");
+        }
+        return payload;
+      })
+      .catch((error) => {
+        privateSnapshotPromise = null;
+        throw error;
+      });
+  }
+  return privateSnapshotPromise;
+}
+
+async function loadSnapshotOpportunities(env, request) {
+  const snapshotData = await loadPrivateSnapshot(env);
+  const feedUrl = forwardedFeedUrl(`https://publicsignal.internal${PRIVATE_SNAPSHOT_PATH}`, request);
+  const withinDaysValue = feedUrl.searchParams.get("within_days");
+  const withinDays = withinDaysValue === null ? null : Number(withinDaysValue);
+  const sector = feedUrl.searchParams.get("sector");
+  const sourceLane = feedUrl.searchParams.get("source_lane");
+  const limit = Math.min(Math.max(Number(feedUrl.searchParams.get("limit")) || 100, 1), 200);
+  return snapshotData.feed.opportunities
+    .filter((item) => withinDays === null || !Number.isFinite(withinDays) || withinDays < 0 || daysUntil(item.deadline) <= withinDays)
+    .filter((item) => !sector || item.cpv_division === sector)
+    .filter((item) => !sourceLane || item.source_lane === sourceLane)
+    .slice(0, limit)
+    .map(normaliseFeedOpportunity)
+    .filter((item) => item.id);
 }
 
 async function loadOpportunities(env, request) {
-  if (env.PROCUREMENT_API) return loadContainerOpportunities(env, request);
+  if (env.ASSETS) return loadSnapshotOpportunities(env, request);
   if (!env.PROCUREMENT_FEED_URL) {
     if (isLocalDevelopment(env)) return sampleOpportunities;
     throw new Error("Procurement feed is not configured");
@@ -290,7 +314,12 @@ async function loadOpportunities(env, request) {
 export async function proxyOpportunities(request, env) {
   try {
     const opportunities = await loadOpportunities(env, request);
-    return json({ source: env.PROCUREMENT_API ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "dail_tracker" : "sample_local", opportunities });
+    const snapshotData = env.ASSETS ? await loadPrivateSnapshot(env) : null;
+    return json({
+      source: env.ASSETS ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "dail_tracker" : "sample_local",
+      builtAt: snapshotData?.built_at || null,
+      opportunities,
+    });
   } catch {
     return json({ error: "Opportunity feed unavailable." }, 503);
   }
@@ -335,7 +364,7 @@ export function renderDigest(subscription, matches, unsubscribeUrl) {
       <div style="font-size:11px;color:#746f68">${escapeHtml(item.sector)} · ${escapeHtml(item.source || "Source")}</div>
       <h2 style="margin:5px 0 4px;font-size:16px">${escapeHtml(item.title)}</h2>
       <p style="margin:0 0 8px;color:#4f4a45;font-size:13px">${escapeHtml(item.buyer)}</p>
-      <table role="presentation" style="width:100%;font-size:12px"><tr><td>${formatCurrency(item.estimate)}</td><td style="text-align:center">${escapeHtml(item.deadline || `${item.daysToDeadline} days`)}</td><td style="text-align:right">${Number(item.evidence || 0)}% evidence</td></tr></table>
+      <table role="presentation" style="width:100%;font-size:12px"><tr><td>${formatCurrency(item.estimate)}</td><td style="text-align:center">${escapeHtml(item.deadline || `${item.daysToDeadline} days`)}</td><td style="text-align:right">${item.evidence != null && Number.isFinite(Number(item.evidence)) ? `${Number(item.evidence)}% evidence` : "Source linked"}</td></tr></table>
       ${item.sourceUrl ? `<p style="margin:10px 0 0"><a href="${escapeHtml(item.sourceUrl)}" style="color:#a24731">Open source notice</a></p>` : ""}
     </div>`).join("");
   return emailShell(
@@ -486,7 +515,7 @@ async function previewDigest(request, env) {
 
 async function handleApi(request, env) {
   const url = new URL(request.url);
-  if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, app: "public-signal", emailConfigured: Boolean(env.RESEND_API_KEY), analyticsConfigured: Boolean(String(env.ANALYTICS_HASH_SALT || "").trim()) && typeof env.ANALYTICS_LIMITER?.limit === "function", feed: env.PROCUREMENT_API ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "remote" : isLocalDevelopment(env) ? "sample_local" : "unavailable" });
+  if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, app: "public-signal", emailConfigured: Boolean(env.RESEND_API_KEY), analyticsConfigured: Boolean(String(env.ANALYTICS_HASH_SALT || "").trim()) && typeof env.ANALYTICS_LIMITER?.limit === "function", feed: env.ASSETS ? "private_snapshot" : env.PROCUREMENT_FEED_URL ? "remote" : isLocalDevelopment(env) ? "sample_local" : "unavailable" });
   if (url.pathname === "/api/config" && request.method === "GET") return json({ turnstileSiteKey: env.TURNSTILE_SECRET_KEY ? env.TURNSTILE_SITE_KEY || null : null });
   if (url.pathname === "/api/events" && request.method === "POST") return ingestAnalytics(request, env);
   if (url.pathname === "/api/opportunities" && request.method === "GET") return proxyOpportunities(request, env);
@@ -501,6 +530,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) return handleApi(request, env);
+    if (url.pathname.startsWith("/_private/")) return new Response("Not found", { status: 404 });
     const response = await env.ASSETS.fetch(request);
     const secured = new Response(response.body, response);
     secured.headers.set("content-security-policy", "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
