@@ -19,3 +19,10 @@
 # page load of the site carries them. Triaged 2026-08-01.
 897dd80815bde7e9e92cb017e03a72037d277824:ida/Consultations _ Galway County Council Online Consultation Portal.htm:generic-api-key:50
 897dd80815bde7e9e92cb017e03a72037d277824:ida/2.12 Oranmore _ Galway County Council Online Consultation Portal.htm:generic-api-key:44
+# Rewritten equivalents after the 2026-08-06 private-product history purge.
+22b140ff160cabbd294b7a6341aa187bc570b6e6:ida/Consultations _ Galway County Council Online Consultation Portal.htm:generic-api-key:50
+22b140ff160cabbd294b7a6341aa187bc570b6e6:ida/2.12 Oranmore _ Galway County Council Online Consultation Portal.htm:generic-api-key:44
+b669c981d0906eb6aec105c433f3b77c384e238e:extractors/noac_scorecard_history_extract.py:generic-api-key:138
+b669c981d0906eb6aec105c433f3b77c384e238e:extractors/noac_scorecard_history_extract.py:generic-api-key:153
+2c030572297ea19f3a2dad251aff7e61c8e190cf:extractors/noac_scorecard_history_extract.py:generic-api-key:138
+2c030572297ea19f3a2dad251aff7e61c8e190cf:extractors/noac_scorecard_history_extract.py:generic-api-key:153

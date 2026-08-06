@@ -47,10 +47,6 @@ from dail_tracker_core.queries.procurement.awards import (  # noqa: F401
     supplier_year_trend,
     value_contrast,
 )
-from dail_tracker_core.queries.procurement.opportunities import (  # noqa: F401
-    opportunity_brief,
-    opportunity_feed,
-)
 from dail_tracker_core.queries.procurement.payments import (  # noqa: F401
     _tier,  # noqa: F401
     council_summary,

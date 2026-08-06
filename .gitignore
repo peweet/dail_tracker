@@ -705,10 +705,15 @@ data/_meta/siting_national_sweep_baseline.json
 # planning/civic/ is the deliberately-PUBLIC sibling — never add it here.
 /planning/product/
 
+# Commercial product applications and their private integration modules live in
+# the private overlay. Keep these complete boundaries out of the public repository.
+/apps/planspec-demo/
+/apps/public-signal/
+/test/apps/
+/dail_tracker_core/queries/procurement/opportunities.py
+/test/api/test_api_publicsignal_feed.py
+/test/dail_tracker_core/test_publicsignal_opportunities.py
+
 # Node dependencies — installed via npm, never tracked (added 2026-08-01 after
 # node_modules/axe-core was committed by accident in 39bda48 "planning features").
 node_modules/
-
-# PublicSignal is a deployable Worker app; its reproducible npm manifests are source files.
-!apps/public-signal/package.json
-!apps/public-signal/package-lock.json
