@@ -9,7 +9,7 @@ here. Live row counts are read from the registered views.
 from __future__ import annotations
 
 import duckdb
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 
 from api.contracts import ERROR_RESPONSES
 from api.deps import get_cursor
@@ -81,6 +81,20 @@ _RESOURCES = [
         "/v1/procurement/lobbying-overlap (co-occurrence only, never causation).",
         "filters": ["year", "order_by"],
         "count_view": "v_procurement_supplier_summary",
+    },
+    {
+        "resource": "procurement-pre-tender",
+        "list": "/v1/procurement/pre-tender",
+        "item": "/v1/procurement/pre-tender/{lead_id}",
+        "description": "Dated source observations of potential work before tendering, plus deterministic "
+        "work-package classifications (/v1/procurement/pre-tender/work-packages). These are not live "
+        "tenders, awards, payments or budget facts; source wording is never made sum-safe.",
+        "filters": ["area", "sector", "stage", "lead_id", "package_code", "package_group"],
+        "count_view": "v_procurement_pre_tender_leads",
+        "required_views": [
+            "v_procurement_pre_tender_leads",
+            "v_procurement_pre_tender_work_packages",
+        ],
     },
     {
         "resource": "committees",
@@ -232,7 +246,9 @@ _RESOURCES = [
 
 def required_catalog_views() -> frozenset[str]:
     """Views that back resources explicitly promised by the public catalogue."""
-    return frozenset(str(resource["count_view"]) for resource in _RESOURCES)
+    return frozenset(
+        str(view) for resource in _RESOURCES for view in resource.get("required_views", [resource["count_view"]])
+    )
 
 
 def _count(conn, view: str) -> int | None:
@@ -246,21 +262,16 @@ def _count(conn, view: str) -> int | None:
 
 
 @router.get("/catalog", response_model=CatalogResponse, summary="Manifest of published resources + live counts")
-def catalog(request: Request) -> dict:
-    conn = getattr(request.app.state, "conn", None)
-    # One request-scoped cursor for the ~24 counts — the shared base connection
-    # must never run .execute() concurrently across worker threads.
-    cur = conn.cursor() if conn is not None else None
-    try:
-        resources = []
-        for r in _RESOURCES:
-            resources.append(
-                {**{k: v for k, v in r.items() if k != "count_view"}, "count": _count(cur, r["count_view"])}
-            )
-    finally:
-        if cur is not None:
-            cur.close()
-
+def catalog(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dict:
+    """Return counts on the same exclusive request connection as all data routes."""
+    resources = []
+    for r in _RESOURCES:
+        resources.append(
+            {
+                **{k: v for k, v in r.items() if k not in {"count_view", "required_views"}},
+                "count": _count(cur, r["count_view"]),
+            }
+        )
     return {
         "licence": "CC-BY-4.0",
         "attribution": "Data via Dáil Tracker",

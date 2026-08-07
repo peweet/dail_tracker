@@ -694,3 +694,36 @@
 {"ts": "2026-08-07T12:55:50+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 5699, "total_mb": 16073, "load_pct": 64, "commit_free_mb": 7332, "commit_total_mb": 36269}
 {"ts": "2026-08-07T12:58:51+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 5233, "total_mb": 16073, "load_pct": 67, "commit_free_mb": 7128, "commit_total_mb": 36269}
 {"ts": "2026-08-07T19:45:33+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 2681, "total_mb": 16073, "load_pct": 83, "commit_free_mb": 7704, "commit_total_mb": 31243}
+{"ts": "2026-08-07T19:59:17+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 169, "total_mb": 16073, "load_pct": 98, "commit_free_mb": 389, "commit_total_mb": 32273}
+{"ts": "2026-08-07T20:00:05+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 4881, "total_mb": 16073, "load_pct": 69, "commit_free_mb": 6662, "commit_total_mb": 33208}
+{"ts": "2026-08-07T20:01:58+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 3802, "total_mb": 16073, "load_pct": 76, "commit_free_mb": 6084, "commit_total_mb": 31939}
+{"ts": "2026-08-07T20:02:05+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 3568, "total_mb": 16073, "load_pct": 77, "commit_free_mb": 5796, "commit_total_mb": 31939}
+{"ts": "2026-08-07T20:02:10+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 3694, "total_mb": 16073, "load_pct": 77, "commit_free_mb": 6018, "commit_total_mb": 31939}
+{"ts": "2026-08-07T20:16:49+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2710, "total_mb": 16073, "load_pct": 83, "commit_free_mb": 2091, "commit_total_mb": 38538}
+{"ts": "2026-08-07T20:48:22+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 4337, "total_mb": 16073, "load_pct": 73, "commit_free_mb": 5938, "commit_total_mb": 36489}
+{"ts": "2026-08-07T20:52:50+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 2179, "total_mb": 16073, "load_pct": 86, "commit_free_mb": 2229, "commit_total_mb": 36489}
+{"ts": "2026-08-07T20:53:09+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 3262, "total_mb": 16073, "load_pct": 79, "commit_free_mb": 4205, "commit_total_mb": 36489}
+{"ts": "2026-08-07T20:53:11+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 2852, "total_mb": 16073, "load_pct": 82, "commit_free_mb": 3748, "commit_total_mb": 36489}
+{"ts": "2026-08-07T20:53:22+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 3435, "total_mb": 16073, "load_pct": 78, "commit_free_mb": 4422, "commit_total_mb": 36489}
+{"ts": "2026-08-07T21:14:52+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2968, "total_mb": 16073, "load_pct": 81, "commit_free_mb": 8217, "commit_total_mb": 41541}
+{"ts": "2026-08-07T21:14:59+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 3234, "total_mb": 16073, "load_pct": 79, "commit_free_mb": 8128, "commit_total_mb": 41141}
+{"ts": "2026-08-07T21:16:57+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 2897, "total_mb": 16073, "load_pct": 81, "commit_free_mb": 7627, "commit_total_mb": 41141}
+{"ts": "2026-08-07T21:17:01+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 2948, "total_mb": 16073, "load_pct": 81, "commit_free_mb": 7718, "commit_total_mb": 41141}
+{"ts": "2026-08-07T21:20:24+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 1777, "total_mb": 16073, "load_pct": 88, "commit_free_mb": 4197, "commit_total_mb": 41141}
+{"ts": "2026-08-07T21:23:06+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 1392, "total_mb": 16073, "load_pct": 91, "commit_free_mb": 2005, "commit_total_mb": 41141}
+{"ts": "2026-08-07T21:27:40+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 156, "total_mb": 16073, "load_pct": 99, "commit_free_mb": 3193, "commit_total_mb": 42171}
+{"ts": "2026-08-07T21:29:50+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 2058, "total_mb": 16073, "load_pct": 87, "commit_free_mb": 3887, "commit_total_mb": 41439}
+{"ts": "2026-08-07T21:33:25+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 6, "total_mb": 16073, "load_pct": 99, "commit_free_mb": 1415, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:33:35+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 5279, "total_mb": 16073, "load_pct": 67, "commit_free_mb": 6660, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:33:53+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 3637, "total_mb": 16073, "load_pct": 77, "commit_free_mb": 4829, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:36:51+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 2270, "total_mb": 16073, "load_pct": 85, "commit_free_mb": 5944, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:36:52+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 2045, "total_mb": 16073, "load_pct": 87, "commit_free_mb": 5709, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:36:57+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 908, "total_mb": 16073, "load_pct": 94, "commit_free_mb": 4032, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:37:03+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 450, "total_mb": 16073, "load_pct": 97, "commit_free_mb": 3100, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:37:24+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 1493, "total_mb": 16073, "load_pct": 90, "commit_free_mb": 3144, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:37:46+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 1206, "total_mb": 16073, "load_pct": 92, "commit_free_mb": 2964, "commit_total_mb": 42470}
+{"ts": "2026-08-07T21:40:21+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 1950, "total_mb": 16073, "load_pct": 87, "commit_free_mb": 5013, "commit_total_mb": 40450}
+{"ts": "2026-08-07T21:41:29+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 4199, "total_mb": 16073, "load_pct": 73, "commit_free_mb": 6808, "commit_total_mb": 40450}
+{"ts": "2026-08-07T21:43:01+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 1283, "total_mb": 16073, "load_pct": 92, "commit_free_mb": 4681, "commit_total_mb": 40450}
+{"ts": "2026-08-07T21:43:37+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 722, "total_mb": 16073, "load_pct": 95, "commit_free_mb": 4332, "commit_total_mb": 40450}
+{"ts": "2026-08-07T21:43:42+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 575, "total_mb": 16073, "load_pct": 96, "commit_free_mb": 4033, "commit_total_mb": 40450}

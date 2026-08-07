@@ -4,7 +4,9 @@ import duckdb
 
 from dail_tracker_core.queries.procurement.pre_tender import (
     pre_tender_lead_by_id,
+    pre_tender_lead_count,
     pre_tender_leads,
+    pre_tender_work_package_count,
     pre_tender_work_packages,
 )
 
@@ -116,6 +118,7 @@ def test_pre_tender_query_filters_without_changing_grain():
         assert result.data["lead_id"].tolist() == ["lead-1"]
         assert result.data.iloc[0]["amount_is_not_aggregable"]
         assert not result.data.iloc[0]["current_status_verified"]
+        assert pre_tender_lead_count(conn, area="nav").data.iloc[0]["total"] == 1
     finally:
         conn.close()
 
@@ -145,5 +148,17 @@ def test_pre_tender_work_packages_query_preserves_package_grain():
         assert result.ok is True
         assert result.data["lead_id"].tolist() == ["lead-2"]
         assert result.data.iloc[0]["evidence_phrase"] == "electrical works"
+        assert pre_tender_work_package_count(conn, package_group="Building services").data.iloc[0]["total"] == 1
+    finally:
+        conn.close()
+
+
+def test_pre_tender_list_offset_uses_the_same_filtered_result_set():
+    conn = _connection()
+    try:
+        first_page = pre_tender_leads(conn, limit=1, offset=0)
+        second_page = pre_tender_leads(conn, limit=1, offset=1)
+        assert first_page.data["lead_id"].tolist() == ["lead-1"]
+        assert second_page.data["lead_id"].tolist() == ["lead-2"]
     finally:
         conn.close()

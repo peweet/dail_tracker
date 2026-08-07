@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.contracts import ERROR_RESPONSES
 from api.deps import Page, get_cursor, pagination
-from dail_tracker_core import dossiers, serialize
+from dail_tracker_core import caveats, dossiers, serialize
 from dail_tracker_core.models.envelope import ListEnvelope
 from dail_tracker_core.models.responses import (
     ProcurementCompetitionResponse,
@@ -164,6 +164,30 @@ def _tender_lookup(result) -> dict:
     return serialize.envelope(records, total=1)
 
 
+def _pre_tender_list(result, count, *, page: Page) -> dict:
+    if not result.ok or not count.ok:
+        raise HTTPException(status_code=503, detail="pre-tender source is unavailable")
+    records = serialize.to_records(result.data)
+    total = int(count.data.iloc[0]["total"])
+    return serialize.envelope(
+        records,
+        limit=page.limit,
+        offset=page.skip,
+        total=total,
+        truncated=page.skip + len(records) < total,
+        caveat=caveats.PRE_TENDER,
+    )
+
+
+def _pre_tender_detail(result) -> dict:
+    if not result.ok:
+        raise HTTPException(status_code=503, detail="pre-tender source is unavailable")
+    records = serialize.to_records(result.data)
+    if not records:
+        raise HTTPException(status_code=404, detail="pre-tender observation not found")
+    return serialize.envelope(records, total=1, caveat=caveats.PRE_TENDER)
+
+
 @router.get(
     "/procurement/open-tenders/national/{resource_id}",
     response_model=ListEnvelope,
@@ -188,6 +212,66 @@ def ted_tender(
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
     return _tender_lookup(_q.ted_tender_by_id(cur, publication_number))
+
+
+@router.get(
+    "/procurement/pre-tender",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Dated pre-notice procurement observations, not live tenders or money facts",
+)
+def pre_tender_leads(
+    area: str | None = Query(None, description="Case-insensitive reporting-area substring"),
+    sector: str | None = Query(None, description="Exact published sector"),
+    stage: str | None = Query(None, description="Exact normalised pre-tender stage"),
+    page: Page = Depends(pagination(default=200)),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    return _pre_tender_list(
+        _q.pre_tender_leads(cur, area=area, sector=sector, stage=stage, limit=page.limit, offset=page.skip),
+        _q.pre_tender_lead_count(cur, area=area, sector=sector, stage=stage),
+        page=page,
+    )
+
+
+@router.get(
+    "/procurement/pre-tender/work-packages",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="Deterministic work-package classifications for pre-tender observations",
+)
+def pre_tender_work_packages(
+    lead_id: str | None = Query(None, description="Stable pre-tender observation id"),
+    package_code: str | None = Query(None, description="Exact deterministic package code"),
+    package_group: str | None = Query(None, description="Exact package group"),
+    page: Page = Depends(pagination(default=200)),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    return _pre_tender_list(
+        _q.pre_tender_work_packages(
+            cur,
+            lead_id=lead_id,
+            package_code=package_code,
+            package_group=package_group,
+            limit=page.limit,
+            offset=page.skip,
+        ),
+        _q.pre_tender_work_package_count(cur, lead_id=lead_id, package_code=package_code, package_group=package_group),
+        page=page,
+    )
+
+
+@router.get(
+    "/procurement/pre-tender/{lead_id}",
+    response_model=ListEnvelope,
+    response_model_exclude_unset=True,
+    summary="One dated pre-tender observation by stable source identifier",
+)
+def pre_tender_lead(
+    lead_id: str,
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    return _pre_tender_detail(_q.pre_tender_lead_by_id(cur, lead_id))
 
 
 # ── EXPERIMENTAL real-terms (inflation-adjusted) endpoints (gated) ────────────────────────────

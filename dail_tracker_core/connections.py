@@ -186,7 +186,7 @@ def member_overview_conn() -> duckdb.DuckDBPyConnection:
     """A fresh in-memory DuckDB connection with the member-overview view set.
 
     The Streamlit layer wraps this in ``@st.cache_resource`` (one per session);
-    the API builds it once at startup and hands out ``conn.cursor()`` per request.
+    the API registers it once at startup and opens pooled named-memory request connections.
     """
     conn = duckdb.connect()
     register_member_views(conn)
@@ -381,10 +381,11 @@ def _api_domain_globs() -> list[str]:
     return globs
 
 
-def api_conn() -> duckdb.DuckDBPyConnection:
+def api_conn(database: str = ":memory:") -> duckdb.DuckDBPyConnection:
     """One read-only-BY-CONVENTION connection with EVERY view set the API exposes.
 
-    Built once at FastAPI startup; requests get a ``conn.cursor()``. Every view is
+    Built once at FastAPI startup; callers may use a named in-memory database to
+    open independent request connections sharing this registered catalogue. Every view is
     CREATE OR REPLACE (idempotent), so the member set (registered first, in its
     load-bearing order, with substitutions) and the per-domain globs coexist.
 
@@ -393,7 +394,7 @@ def api_conn() -> duckdb.DuckDBPyConnection:
     a handler issuing DDL/DML. Interfaces must simply never do so (the exports
     router, which legitimately writes files, opens its OWN connection).
     """
-    conn = duckdb.connect()
+    conn = duckdb.connect(database)
     register_member_views(conn)  # member/registry/external/vote views + substitutions, explicit order
 
     # Re-apply the same substitutions to the domain globs: their idempotent

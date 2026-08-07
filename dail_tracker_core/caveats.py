@@ -63,7 +63,16 @@ PROCUREMENT_AWARDS = (
     "the payments or T&A-allowance grains."
 )
 
-# ── Public-body payments (realised SPEND grain) ───────────────────────────────
+# Pre-tender observations are dated evidence, not a live procurement register.
+PRE_TENDER = (
+    "Pre-tender observations are a separate non-money grain: dated source observations, not "
+    "live tender, award, payment or budget facts. amount_text is source wording only and is "
+    "never parsed, normalised or made sum-safe; work-package classification does not verify a "
+    "live tender. Check source_url, source_review_required and current_status_verified before "
+    "treating an observation as current."
+)
+
+# Public-body payments (realised SPEND grain)
 PUBPAY = (
     "sum-safe spend only; never add to procurement AWARD values (different grain). "
     "VAT basis varies by publisher and is unconfirmed for most (only HSE/Tusla are "

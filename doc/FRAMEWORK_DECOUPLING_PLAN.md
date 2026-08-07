@@ -110,11 +110,11 @@ during a migration — that is a second change riding a big one.
 
 ### 2.3 Moderate — close the API parity gap
 
-`python tools/migration/check_api_parity.py` reports **161 of 381 core query functions (42.3%)
-reachable from the API or MCP**. The remaining 220 are Streamlit-only: retrievable from a
+`python tools/migration/check_api_parity.py` reports **181 of 403 core query functions (44.9%)
+reachable from the API or MCP**. The remaining 222 are Streamlit-only: retrievable from a
 page, invisible to any other client.
 
-Not all 220 need endpoints — many back filter dropdowns (`distinct_years`,
+Not all 222 need endpoints — many back filter dropdowns (`distinct_years`,
 `distinct_members`, `availability`). But the concentration is informative:
 
 | Module | Unexposed / total |
@@ -193,7 +193,7 @@ the existing `tools/check_conventions.py` baseline convention.
 | **Class contract** (new) | `python tools/migration/extract_class_contract.py --check` | Styling vocabulary drifting from the CSS |
 
 **Baseline rule, inherited from `check_conventions.py`: never add to a baseline. Only
-remove from it.** `tools/baselines/api_parity_baseline.txt` currently holds 220 entries —
+remove from it.** `tools/baselines/api_parity_baseline.txt` currently holds 222 entries —
 today's debt, frozen. A new core query function with no API consumer fails the check.
 
 **Wire all four into the fast test subset**, so drift costs a red build on the day it

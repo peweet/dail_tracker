@@ -70,7 +70,9 @@ from dail_tracker_core.queries.procurement.payments import (  # noqa: F401
 )
 from dail_tracker_core.queries.procurement.pre_tender import (  # noqa: F401
     pre_tender_lead_by_id,
+    pre_tender_lead_count,
     pre_tender_leads,
+    pre_tender_work_package_count,
     pre_tender_work_packages,
 )
 from dail_tracker_core.queries.procurement.signals import (  # noqa: F401

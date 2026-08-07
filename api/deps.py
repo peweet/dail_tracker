@@ -1,14 +1,4 @@
-"""Request-scoped DuckDB access.
-
-The app holds ONE read-only in-memory connection (views registered once at
-startup — see api/main.py lifespan). Each request gets an independent
-``conn.cursor()``: in DuckDB a cursor is a separate connection sharing the same
-database catalog, so it sees the registered views and gives concurrent reads
-isolation for fetching, without rebuilding the (expensive) view set per request.
-
-If a single connection ever bottlenecks under load, swap this provider for a
-small fixed pool — the route signatures (``cur = Depends(get_cursor)``) don't change.
-"""
+"""Request-scoped DuckDB access from the API bounded connection pool."""
 
 from __future__ import annotations
 
@@ -16,7 +6,9 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 import duckdb
-from fastapi import Query, Request
+from fastapi import HTTPException, Query, Request
+
+from api.duckdb_pool import DuckDBConnectionPool, PoolExhausted
 
 
 @dataclass(frozen=True)
@@ -51,8 +43,11 @@ def get_cursor(request: Request) -> Iterator[duckdb.DuckDBPyConnection]:
     DuckDB cursors share the database catalog (so they see all registered views)
     while isolating fetch state — safe for concurrent reads off one connection.
     """
-    cur = request.app.state.conn.cursor()
+    pool: DuckDBConnectionPool | None = getattr(request.app.state, "duckdb_pool", None)
+    if pool is None:
+        raise HTTPException(status_code=503, detail="connection pool not initialised")
     try:
-        yield cur
-    finally:
-        cur.close()
+        with pool.connection() as conn:
+            yield conn
+    except PoolExhausted as exc:
+        raise HTTPException(status_code=503, detail="database is busy; retry shortly") from exc

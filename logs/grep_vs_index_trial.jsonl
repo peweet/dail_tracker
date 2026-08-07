@@ -33,3 +33,6 @@
 {"ts": "2026-08-07T08:16:50.500319+00:00", "session": "34909926-eba", "category": "py_refs", "nudged": true, "pattern": "planning_alert_source_registry"}
 {"ts": "2026-08-07T08:19:13.080078+00:00", "session": "34909926-eba", "category": "py_refs", "nudged": false, "pattern": "planning_alert_source_registry"}
 {"ts": "2026-08-07T08:38:21.976549+00:00", "session": "31b35e26-97b", "category": "py_refs", "nudged": true, "pattern": "use_class"}
+{"ts": "2026-08-07T20:45:55.284668+00:00", "session": "c9d651c4-4c0", "category": "py_deps", "nudged": true, "pattern": "import osmium|osmium"}
+{"ts": "2026-08-07T21:15:31.318140+00:00", "session": "1864c2c9-480", "category": "py_refs", "nudged": true, "pattern": "osm_roads"}
+{"ts": "2026-08-07T21:28:01.587180+00:00", "session": "f42647ee-6c4", "category": "py_refs", "nudged": true, "pattern": "check_no_private_ip"}
