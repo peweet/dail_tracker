@@ -3,7 +3,7 @@
 **Date:** {{REPORT_DATE}}
 **Status:** TEMPLATE — bespoke, hand-built market map for a single CPV category. Fill every `{{PLACEHOLDER}}`. Sections tagged **[BUILT]** are wired to existing data-access functions; sections tagged **[PHASE-2-TODO]** are *not yet built* — do not fabricate their figures, leave the placeholder and the build note in place until the pipeline view lands.
 **Grain scope:** This report's **report grain is AWARD** (national eTenders/OGP awards). It carries three read-only enrichment lanes — **TED (EU) 2024+** (single-bid competition, counts only), **PLANNED** (open-tender counts, counts only), and **CRO** (supplier identity) — none of which is ever summed or unioned into the award market size. It carries **no payments, no budget, no TED totals**. Never sum across grains; never union TED with national. See rails below.
-**Related:** [BI_SPINOUT_ARCHITECTURE.md](../BI_SPINOUT_ARCHITECTURE.md) (§4 ethics firewall / §6 licensing / §10 no-list / §15 resolved decisions) · [PROCUREMENT_INTELLIGENCE_ROADMAP.md](../PROCUREMENT_INTELLIGENCE_ROADMAP.md) (Phase 2 market maps; Phase 0 primitives)
+**Related:** [BI_SPINOUT_ARCHITECTURE.md](../archive/BI_SPINOUT_ARCHITECTURE.md) (§4 ethics firewall / §6 licensing / §10 no-list / §15 resolved decisions) · [PROCUREMENT_INTELLIGENCE_ROADMAP.md](../archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md) (Phase 2 market maps; Phase 0 primitives)
 **Subject:** CPV `{{CPV_CODE}}` — `{{CPV_LABEL}}` (division `{{CPV_DIVISION}}`)
 **Analyst:** {{ANALYST_NAME}} · **Corpus refresh:** {{REFRESH_DATE}} · **Coverage window:** {{COVERAGE_WINDOW}}
 

@@ -1,7 +1,7 @@
 """Unit tests for the pure polars transforms in extractors/participation_extract.py.
 
 The attendance / participation feature has a documented HISTORY of denominator bugs
-(see doc/ATTENDANCE_PARTICIPATION_REDESIGN.md and the member-overview attendance
+(see doc/archive/ATTENDANCE_PARTICIPATION_REDESIGN.md and the member-overview attendance
 denominator regression notes). The honest "turnout" signal is only as trustworthy as
 its denominator, so these tests pin the arithmetic of:
 

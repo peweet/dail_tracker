@@ -4,12 +4,12 @@ status: SUPERSEDED
 domain: infra
 updated: 2026-07-17
 supersedes: []
-superseded_by: doc/HYBRID_REFRESH_PLAN.md
+superseded_by: doc/archive/HYBRID_REFRESH_PLAN.md
 read_when: historical only — the live refresh runbook is HYBRID_REFRESH_PLAN.md; the two-lane R2 design below is DEAD (see [[project_two_lane_reconciliation_flaw_2026_07_09]])
 key: PLAN|SUPERSEDED|infra
 ---
 
-> **⚠️ SUPERSEDED (2026-07-17).** The live refresh design is **`doc/HYBRID_REFRESH_PLAN.md`**.
+> **⚠️ SUPERSEDED (2026-07-17).** The live refresh design is **`doc/archive/HYBRID_REFRESH_PLAN.md`**.
 > The two-lane R2 reconciliation described below is **dead as designed**. Kept for history only.
 
 # Continuous, reliable, broad refresh — runbook

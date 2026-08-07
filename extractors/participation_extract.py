@@ -3,7 +3,7 @@ TAA "attendance count".
 
 The TAA sitting-day count censors at the 120-day allowance threshold and is
 reconcilable, so it cannot measure chamber participation (see
-doc/ATTENDANCE_PARTICIPATION_REDESIGN.md). This extractor derives, per
+doc/archive/ATTENDANCE_PARTICIPATION_REDESIGN.md). This extractor derives, per
 (member, house, year), four verifiable signals from data that already exists:
 
   1. division_participation — votes voted / missed / turnout% (unfakeable: a row
@@ -217,7 +217,7 @@ def build_absence_gaps(att_dates: pl.DataFrame, code_map: pl.DataFrame) -> pl.Da
     INTERIOR runs only (bracketed by two days the member WAS present) → always real, never
     the 120-day TAA trailing-censoring. This is what "absence" means: the old vote-gap
     conflated it with present-but-not-voting (pairing) — a member could be in the building
-    every day yet show a vote-gap. See doc/ATTENDANCE_PARTICIPATION_REDESIGN.md."""
+    every day yet show a vote-gap. See doc/archive/ATTENDANCE_PARTICIPATION_REDESIGN.md."""
     cal = (
         att_dates.filter(pl.col("is_plenary"))
         .select("house", "year", "present_date")

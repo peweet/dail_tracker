@@ -11,7 +11,7 @@ key: SPEC|LIVE|procurement
 # Buyer / Public-Body Procurement Dossier — Design
 
 **Status:** design-only (no code written). Companion to `doc/PROCUREMENT_MASTER.md`,
-`doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md`, `doc/PUBLIC_PAYMENTS_FACT_SCHEMA.md`.
+`doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md`, `doc/PUBLIC_PAYMENTS_FACT_SCHEMA.md`.
 **Audience for the artefact:** a contractor / supplier deciding whether to bid for a public
 buyer, who wants to understand the buyer *before* committing tender effort.
 **Date:** 2026-06-28.

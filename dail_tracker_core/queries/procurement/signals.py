@@ -108,7 +108,7 @@ def charity_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
-# ── Entity search + derived-signal views (doc/PROCUREMENT_NUGGETS.md, 2026-06-11) ────────
+# ── Entity search + derived-signal views (doc/archive/PROCUREMENT_NUGGETS.md, 2026-06-11) ────────
 # All factual structure signals — the consuming page must keep the no-inference posture
 # (every view header states its caveat family). Pre-aggregated in the views; retrieval only.
 def entity_search(conn: duckdb.DuckDBPyConnection) -> QueryResult:

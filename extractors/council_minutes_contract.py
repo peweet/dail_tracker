@@ -25,11 +25,8 @@ _COMMITTEE = re.compile(
     re.I,
 )
 _MUNICIPAL = re.compile(r"municipal district|(?:^|[_\W])md(?:[_\W]|$)", re.I)
-_REPORT = re.compile(
-    r"management report|chief executive.?s? (?:monthly )?report|annual report|"
-    r"financial statement|local economic",
-    re.I,
-)
+_CE_REPORT = re.compile(r"management report|chief executive.?s? (?:monthly )?report", re.I)
+_OTHER_REPORT = re.compile(r"annual report|financial statement|local economic", re.I)
 
 # These labels are deliberately conservative discovery aids for the separate
 # planning ``Public Signal`` lane.  They are extracted from a bounded passage,
@@ -102,8 +99,12 @@ def classify_document(*, meeting: str, source_url: str, text: str, upstream_doc_
     title_block = head[:500]
     if "agenda" in name and "minute" not in name:
         return "agenda"
-    # Report names are useful; report mentions inside genuine minutes are not.
-    if _REPORT.search(name):
+    # Report filenames/upstream labels are hard signals. Report phrases in body text are
+    # considered only after genuine minutes evidence, because real minutes routinely list
+    # the Chief Executive's management report as an agenda item.
+    if upstream_doc_type == "ce_report" or _CE_REPORT.search(name):
+        return "ce_report"
+    if _OTHER_REPORT.search(name):
         return "report_or_plan"
     is_minutes = (
         upstream_doc_type in {"plenary_minutes", "md_minutes"} or "minute" in name or bool(_MINUTES.search(head))
@@ -117,7 +118,13 @@ def classify_document(*, meeting: str, source_url: str, text: str, upstream_doc_
         return "committee_minutes"
     if _MUNICIPAL.search(f"{name}\n{title_block}"):
         return "md_minutes"
-    return "plenary_minutes"
+    if is_minutes:
+        return "plenary_minutes"
+    if _CE_REPORT.search(title_block):
+        return "ce_report"
+    if _OTHER_REPORT.search(title_block):
+        return "report_or_plan"
+    return "other"
 
 
 def meeting_scope(doc_type: str) -> str:

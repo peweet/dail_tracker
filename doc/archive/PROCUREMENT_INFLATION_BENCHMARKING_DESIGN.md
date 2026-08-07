@@ -103,7 +103,7 @@ recommended bid price*.
 
 Cross-refs: `services/deflator.py`, `dail_tracker_core/qs_valuation.py`,
 `sql_views/procurement/procurement_cpv_summary.sql`, `…/procurement_bid_signal.sql`,
-`doc/PROCUREMENT_MASTER.md`, `doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md`.
+`doc/PROCUREMENT_MASTER.md`, `doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md`.
 Memory: `project_cso_esri_deflator_scoping_2026_06_21`, `project_bid_signal_experimental_2026_06_21`,
 `project_procurement_phase_taxonomy`, `feedback_no_inference_in_app`.
 

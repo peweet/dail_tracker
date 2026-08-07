@@ -1,6 +1,6 @@
 name: Procurement IP/WAF probe (manual, read-only)
 
-# STEP-ZERO probe for the hybrid-refresh plan (doc/HYBRID_REFRESH_PLAN.md §9).
+# STEP-ZERO probe for the hybrid-refresh plan (doc/archive/HYBRID_REFRESH_PLAN.md §9).
 #
 # Question it answers: from a GitHub US-datacenter IP, can we fetch the OGP procurement
 # CSV, or does gov.ie's CDN 403 us? This decides whether the `procurement` chain can run

@@ -174,7 +174,7 @@ COMMERCIALISATION_PLAN.md:329].
 - **This doc (COMPETITOR_LANDSCAPE)** = *market rivals* — other products/companies (Tussell,
   mySociety, FiscalNote) that compete with our app. Read when scoping product strategy or
   answering "does this already exist?"
-- **[PROCUREMENT_COMPETITOR_ANALYSIS.md](PROCUREMENT_COMPETITOR_ANALYSIS.md)** = a *feature*
+- **[PROCUREMENT_COMPETITOR_ANALYSIS.md](archive/PROCUREMENT_COMPETITOR_ANALYSIS.md)** = a *feature*
   — "which firms compete with a given contractor," built from our own award/payment data
   (trade tagger, CRO anchor, co-occurrence). It is a RECORD doc cross-linked to seven
   sibling design docs; dissolving it would break that web. Left in place, pointer only.
@@ -185,9 +185,9 @@ layer):
 | Doc | Layer it owns |
 |---|---|
 | [COMMERCIALISATION_PLAN.md](COMMERCIALISATION_PLAN.md) | pricing tiers, licence/royalty model — the market-rival pricing above is pulled from here |
-| [BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md) | the commercial-lane entity + ethics firewall; bid-consultant ICP (€2,400–6,000/yr) |
-| [PROCUREMENT_INTELLIGENCE_ROADMAP.md](PROCUREMENT_INTELLIGENCE_ROADMAP.md) | the umbrella phasing the commercial features sit in |
-| [TENDER_ALERT_SYSTEM_DESIGN.md](TENDER_ALERT_SYSTEM_DESIGN.md) | the alerting SaaS shell (post willingness-to-pay gate) |
+| [BI_SPINOUT_ARCHITECTURE.md](archive/BI_SPINOUT_ARCHITECTURE.md) | the commercial-lane entity + ethics firewall; bid-consultant ICP (€2,400–6,000/yr) |
+| [PROCUREMENT_INTELLIGENCE_ROADMAP.md](archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md) | the umbrella phasing the commercial features sit in |
+| [TENDER_ALERT_SYSTEM_DESIGN.md](archive/TENDER_ALERT_SYSTEM_DESIGN.md) | the alerting SaaS shell (post willingness-to-pay gate) |
 
 **Consolidation verdict (2026-07-20):** market-rival knowledge now lives in one place — this
 doc. Competitor *pricing* was scattered across COMMERCIALISATION_PLAN and BI_SPINOUT; it is

@@ -4,7 +4,7 @@ Companion to cost_of_change_bench.py (which appends the rows; its --runs flag
 produces the repeats). Rows are comparable only within (candidate, prompt_sha256,
 model); arms are git_head values inside such a group (before vs after a refactor).
 
-Decision rule (doc/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md, E1/E7: arXiv
+Decision rule (doc/archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md, E1/E7: arXiv
 2605.28840 + 2506.09501): accept a metric delta only when the difference of arm
 medians exceeds BOTH arms' within-arm spread (max - min); otherwise it is NOISE —
 output length varies ~9k tokens run-to-run at fixed config, so n=1 deltas are

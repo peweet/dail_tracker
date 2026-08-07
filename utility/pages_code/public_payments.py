@@ -50,7 +50,7 @@ from data_access.public_payments_data import (
 )
 
 # Awards-register gate for /company links (Money nav declutter Phase 2,
-# doc/MONEY_NAV_DECLUTTER_PLAN.md §7): the company dossier resolves ONLY for
+# doc/archive/MONEY_NAV_DECLUTTER_PLAN.md §7): the company dossier resolves ONLY for
 # suppliers on the awards register, so this page membership-checks against the
 # same cached awards-side summary the dossier itself matches on — aliased to
 # avoid colliding with this page's payments-side fetch of the same name.
@@ -82,7 +82,7 @@ from ui.format import coalesce, esc, eur, to_int
 # self-contained and silently no-op when a council has no AFS rows.
 from pages_code.procurement import _render_council_accounts_context as render_council_accounts_context
 
-# Phase 3 (Money nav declutter, doc/MONEY_NAV_DECLUTTER_PLAN.md): the hub embeds its
+# Phase 3 (Money nav declutter, doc/archive/MONEY_NAV_DECLUTTER_PLAN.md): the hub embeds its
 # two satellites as in-page sections. The trail SEARCH and featured tiles come from
 # the Follow-the-Money page but every hit/tile links onto /follow-the-money itself —
 # the trail's routable home, so there is exactly ONE stateful trail surface (no
@@ -916,7 +916,7 @@ def public_payments_page() -> None:
     )
     _stats_strip(stats, cov)
     # Go-deeper entry cards (Money nav declutter Phase 1; upgraded in Phase 3 to
-    # in-page SECTION OPENERS, doc/MONEY_NAV_DECLUTTER_PLAN.md). Follow the Money and
+    # in-page SECTION OPENERS, doc/archive/MONEY_NAV_DECLUTTER_PLAN.md). Follow the Money and
     # Accommodation Spend were retired from the top nav (app.py: visibility="hidden")
     # and this hub is their front door, so these two cards are load-bearing navigation,
     # not decoration. Since Phase 3 they open the sections below via the consumable

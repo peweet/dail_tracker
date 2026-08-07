@@ -8,7 +8,7 @@ production file. Safe to delete; the app is unaffected.
 ## What it is
 
 The engineering proof of the MVP described in the bid-intelligence assessment and
-`doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md`:
+`doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md`:
 
 > When a relevant tender appears, assemble the historical market-research pack a bid
 > manager / QS would otherwise build by hand.

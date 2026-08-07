@@ -14,7 +14,7 @@ IPAS would publish new weekly statistics, and nothing would tell us.
 ⚠️ NOT CLOUD-SAFE. `assets.gov.ie` (gov.ie's CDN, which serves the IPAS weekly
 statistics, the Accommodation Strategy, the National Standards and the IGEES paper)
 403s any DATACENTER IP, and `hiqa.ie` is in the same family. These sources must be
-refreshed on the LOCAL/EDGE lane, never GitHub Actions (see doc/HYBRID_REFRESH_PLAN.md).
+refreshed on the LOCAL/EDGE lane, never GitHub Actions (see doc/archive/HYBRID_REFRESH_PLAN.md).
 A browser User-Agent + gov.ie Referer clears the 403 from a residential IP, but ~15
 rapid requests trigger a 405 — pace requests at >= 5s.
 

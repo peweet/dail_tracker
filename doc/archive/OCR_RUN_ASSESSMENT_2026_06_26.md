@@ -24,7 +24,7 @@ direction, ran **PaddleOCR on the local RTX 3060 (GPU)** for SIPO + diaries + co
 - ⇒ **GPU mode on the local box is validated safe.** CPU mode @300 DPI remains the crasher.
 
 ## 1. SIPO GE2024 election finance — DONE, committed to gold
-Ran the documented queue (`doc/SIPO_OCR_REMAINING_QUEUE.md`):
+Ran the documented queue (`doc/archive/SIPO_OCR_REMAINING_QUEUE.md`):
 - **JOB 1** — Part-4 itemised expenses for `fg, green, lab, pbp, socdem` (items watchdog).
 - **JOB 2a** — Part-3 candidate summaries for 5 minor parties `centre_party, i4c, irish_freedom, irish_people, right_to_change`.
 - **JOB 2b** — Part-4 items for those 5 (after adding them to `sipo_expense_items_paddle_etl.py` `PARTY_JOBS` — they were missing, so an unknown key silently fell back to all parties).

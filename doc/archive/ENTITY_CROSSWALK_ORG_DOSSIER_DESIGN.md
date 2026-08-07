@@ -17,7 +17,7 @@ key: SPEC|SUPERSEDED|procurement
 
 **Status:** design-only (no code written yet). Owner sign-off required before any pipeline change or gold promotion.
 **Date:** 2026-06-29.
-**Siblings:** `doc/BUYER_DOSSIER_DESIGN.md` (the *buyer*/public-body side — separate name-space, do not conflate), `doc/BI_SPINOUT_ARCHITECTURE.md`, `doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md`.
+**Siblings:** `doc/BUYER_DOSSIER_DESIGN.md` (the *buyer*/public-body side — separate name-space, do not conflate), `doc/archive/BI_SPINOUT_ARCHITECTURE.md`, `doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md`.
 
 ---
 

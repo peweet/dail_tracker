@@ -2,7 +2,7 @@
 and frozen real-world golden cases.
 
 These tests are the executable spec for the redesign (see
-doc/ATTENDANCE_PARTICIPATION_REDESIGN.md). They run against the registered
+doc/archive/ATTENDANCE_PARTICIPATION_REDESIGN.md). They run against the registered
 participation views over the real gold parquet — a regression in the pipeline,
 a name-format change that breaks a join, or an office-flag drift fails loudly.
 """

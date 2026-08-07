@@ -55,15 +55,24 @@ def first_heading(text: str) -> str:
 
 def collect() -> list[dict]:
     rows = []
-    for p in sorted(DOC_DIR.glob("*.md")):
-        if p.name == "INDEX.md":
-            continue
+    paths = [p for p in sorted(DOC_DIR.glob("*.md")) if p.name != INDEX.name]
+
+    # Archived documents are deliberately outside the active root, but a
+    # document explicitly marked stale/superseded remains discoverable here.
+    # Older, unclassified archive material stays out of the working index.
+    for p in sorted((DOC_DIR / "archive").glob("*.md")):
+        fm = parse_front_matter(read_text(p))
+        if fm.get("status", "").upper() in ("SUPERSEDED", "STALE"):
+            paths.append(p)
+
+    for p in paths:
         text = read_text(p)
         fm = parse_front_matter(text)
         nbytes = len(text.encode("utf-8"))
         rows.append(
             {
                 "name": p.name,
+                "path": p.relative_to(DOC_DIR).as_posix(),
                 "title": first_heading(text) or p.stem.replace("_", " ").title(),
                 "tier": fm.get("tier", ""),
                 "status": fm.get("status", ""),
@@ -116,15 +125,15 @@ def render(rows: list[dict]) -> str:
             rw = r["read_when"] or (f"→ {r['superseded_by']}" if r["superseded_by"] else "")
             rw = rw.replace("|", "\\|")
             out.append(
-                f"| [{r['name']}]({r['name']}) | {r['domain'] or '—'} | {r['tok']}k | {r['updated'] or '—'} | {rw} |"
+                f"| [{r['name']}]({r['path']}) | {r['domain'] or '—'} | {r['tok']}k | {r['updated'] or '—'} | {rw} |"
             )
         out.append("")
 
     table("LIVE", live)
     table(
-        "Superseded / stale",
+        "Archived superseded / stale",
         superseded,
-        "> Kept for history and inbound references. Do not rely on their bodies.",
+        "> Kept in [archive/](archive/) for history and inbound references. Do not rely on their bodies.",
     )
     table(
         "Unclassified (no front-matter yet)",

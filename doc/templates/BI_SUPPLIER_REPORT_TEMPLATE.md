@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-08
 **Status:** Template · Phase-0 (reports-first, hand-built for 3–5 paying design partners; no accounts/alerts/persistence)
-**Cross-links:** [doc/BI_SPINOUT_ARCHITECTURE.md](../BI_SPINOUT_ARCHITECTURE.md) · [doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md](../PROCUREMENT_INTELLIGENCE_ROADMAP.md)
+**Cross-links:** [doc/archive/BI_SPINOUT_ARCHITECTURE.md](../archive/BI_SPINOUT_ARCHITECTURE.md) · [doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md](../archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md)
 **Canonical caveat source (render, never re-word):** [dail_tracker_core/caveats.py](../../dail_tracker_core/caveats.py) · export strings [api/routers/exports.py](../../api/routers/exports.py) · attribution [NOTICE.md](../../NOTICE.md)
 
 This is a **fill-in-the-blanks analyst template**. Replace every `{{TOKEN}}` with the value returned by the named `data_access` call. Do not hand-compute aggregates in the report — the firewall requires every count/sum/join to come from a registered view via `utility/data_access/`. Any section marked **[requires Phase 2 view]** has no shipping function yet: leave it stubbed, do not invent a function or a number.
@@ -258,7 +258,7 @@ Plus: "Co-presence across registers is reported **without** asserting or implyin
 
 > **OPTIONAL — HIGHEST REPUTATIONAL-RISK FEATURE. Per-report, owner-gated only.** Include only with explicit owner sign-off on this specific report. Held to the same no-inference discipline as the free side. **Co-occurrence ONLY.** Raw counts as **separate labelled facts**; **never** a score, ranking, index, or "influence"/"access" number. The **company is the subject — never any politician**.
 >
-> **Scope reversal (2026-07-08):** **ministerial-diary access is OUT of the paid product entirely** (free civic only — see [architecture §4](../BI_SPINOUT_ARCHITECTURE.md) and [Fable §7](../BI_SPINOUT_FABLE_ASSESSMENT.md)). This panel is **lobbying-register co-occurrence only**. Do **not** add diary/minister-meeting data to a paid report; if a client asks, point them to the free Dáil Tracker civic pages.
+> **Scope reversal (2026-07-08):** **ministerial-diary access is OUT of the paid product entirely** (free civic only — see [architecture §4](../archive/BI_SPINOUT_ARCHITECTURE.md) and [Fable §7](../archive/BI_SPINOUT_FABLE_ASSESSMENT.md)). This panel is **lobbying-register co-occurrence only**. Do **not** add diary/minister-meeting data to a paid report; if a client asks, point them to the free Dáil Tracker civic pages.
 >
 > **Hard gates:** (a) **never** in bulk exports or the API — reports only; (b) the **award-€ figures must NOT sit in the same table/line as the lobbying count** — they already appear in Sections A1–A2; here, reference them, do not restate them beside the lobbying figure (co-locating composes the causation narrative the caveat denies).
 
@@ -296,7 +296,7 @@ Carry the matching row on every report that uses the source (licence · attribut
 | Charities Regulator *(if A7 charity row used)* | CC BY 4.0 | Contains Irish Public Sector Data licensed under a Creative Commons Attribution 4.0 International (CC BY 4.0) licence. |
 | lobbying.ie / SIPO *(optional panel — reports only, never exported)* | PSI re-use | Contains lobbying register data © Standards in Public Office Commission, reused under its PSI re-use policy. |
 | EPA register *(if A7 EPA row used)* | **[owner to confirm — not in NOTICE.md]** | **[owner to confirm attribution string]** |
-| ~~Ministerial diaries~~ | — | **Removed 2026-07-08 — diary access is free-civic-only, never in a paid report ([architecture §4](../BI_SPINOUT_ARCHITECTURE.md)).** |
+| ~~Ministerial diaries~~ | — | **Removed 2026-07-08 — diary access is free-civic-only, never in a paid report ([architecture §4](../archive/BI_SPINOUT_ARCHITECTURE.md)).** |
 
 ---
 

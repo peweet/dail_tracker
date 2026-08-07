@@ -18,7 +18,7 @@ interests, lobbying, accountability). Spin out a **separately-branded business-i
 product** that monetises public-procurement market intelligence (suppliers, buyers, CPV markets,
 tenders, awards, payments, competitor tracking, alerts, exports, API).
 
-> Reads alongside [`COMMERCIALISATION_PLAN.md`](COMMERCIALISATION_PLAN.md) (the AGPL/commercial
+> Reads alongside [`COMMERCIALISATION_PLAN.md`](../COMMERCIALISATION_PLAN.md) (the AGPL/commercial
 > dual-licensing scaffolding, already shipped) and
 > [`PROCUREMENT_INTELLIGENCE_ROADMAP.md`](PROCUREMENT_INTELLIGENCE_ROADMAP.md) (the feature
 > roadmap, Phases 0–5). This document is the *commercial/architecture* layer over both.
@@ -150,7 +150,7 @@ from market intelligence into **monetising political-access inference**:
 
 **Decision history.** My original recommendation was free-civic-only. The owner initially (2026-06-28)
 allowed both as paid, co-occurrence only. After the Fable second-model assessment (2026-07-08,
-[doc/BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) §7), the owner **reversed the
+[doc/archive/BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) §7), the owner **reversed the
 diary half**. The split now is:
 
 - **Ministerial-diary access (`diary_company_influence` / diary × contracts) — OUT of the paid product
@@ -214,7 +214,7 @@ identity* layer, not the data layer — one curation pipeline, two front doors.
 
 ### 6.2 The data is the real constraint — you sell software/service, never the data
 
-Per [`NOTICE.md`](../NOTICE.md), the datasets are third-party PSI under their own licences. You
+Per [`NOTICE.md`](../../NOTICE.md), the datasets are third-party PSI under their own licences. You
 **cannot** licence or resell the data; a customer must comply with each source licence independently.
 Practically, the BI product's data spine is **commercial-friendly**, with one clear exception:
 
@@ -404,7 +404,7 @@ it autonomously; it carries the PII/consent/scheduler decisions.
    re-identification of person rows, no resale of raw exports, source-licence compliance.
 4. **GDPR** for the alert/email feature: lawful basis, privacy notice, consent for marketing,
    retention, data-subject rights, DPA review.
-5. **Commercial licence agreement** ([`legal/COMMERCIAL_LICENCE_AGREEMENT_TEMPLATE.md`](../legal/COMMERCIAL_LICENCE_AGREEMENT_TEMPLATE.md)):
+5. **Commercial licence agreement** ([`legal/COMMERCIAL_LICENCE_AGREEMENT_TEMPLATE.md`](../../legal/COMMERCIAL_LICENCE_AGREEMENT_TEMPLATE.md)):
    confirm the data-exclusion clause covers the BI service, plus liability cap and Irish governing law.
 6. **Trademark** the BI product name (separate from "Dáil Tracker"); keep brands distinct.
 7. **CLA enforcement** live before any external contribution (protects your right to run the closed

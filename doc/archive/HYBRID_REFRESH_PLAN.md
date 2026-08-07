@@ -25,7 +25,7 @@ has been done**. The plan + probe are committed (`f0db97d`). Only drift: the cha
 (`live_tenders_refresh.yml`) — a consolidation question (§7), not a blocker.
 
 Related: `doc/archive/CONTINUOUS_REFRESH.md` (the existing lane), `doc/DATA_BACKUP.md` /
-`doc/DISASTER_RECOVERY.md` (R2), `doc/DATA_DISTRIBUTION_PLAN.md` (the git-as-CDN retirement).
+`doc/DISASTER_RECOVERY.md` (R2), `doc/archive/DATA_DISTRIBUTION_PLAN.md` (the git-as-CDN retirement).
 
 ---
 
@@ -126,7 +126,7 @@ the manifest + per-publisher reconcile."
 
 ### Phase 4 — retire git-as-CDN (parallel track, own project)
 - Daily multi-MB parquet commits grow history O(GB/yr) against GitHub's ~5GB soft cap. The repo already
-  half-built the fix (`tools/fetch_runtime_data.py`, `doc/DATA_DISTRIBUTION_PLAN.md`: app rehydrates
+  half-built the fix (`tools/fetch_runtime_data.py`, `doc/archive/DATA_DISTRIBUTION_PLAN.md`: app rehydrates
   runtime data from R2, git carries code). Don't let this plan deepen a mechanism the project is retiring.
 
 ## 6. Security stance

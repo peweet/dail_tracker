@@ -20,7 +20,7 @@ deep pass on that ground, recorded in the persistent memory cards
 `reference_token_optimization_literature_2026_07_31`, and
 `reference_agent_memory_staleness_literature_2026_07_31` (memory index:
 `~/.claude/projects/c--Users-pglyn-PycharmProjects-dail-extractor/memory/MEMORY.md`), plus
-[doc/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) for
+[doc/archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) for
 the full prior idea inventory. This scan looks for what's genuinely new beyond that.
 
 ---

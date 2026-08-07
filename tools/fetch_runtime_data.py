@@ -1,6 +1,6 @@
 """tools/fetch_runtime_data.py — rehydrate the runtime data working set from Cloudflare R2.
 
-The fetch side of doc/DATA_DISTRIBUTION_PLAN.md. Reads data/_meta/runtime_data_manifest.json and,
+The fetch side of doc/archive/DATA_DISTRIBUTION_PLAN.md. Reads data/_meta/runtime_data_manifest.json and,
 for every ``retention: runtime`` entry, pulls its ``r2_key`` from R2 to ``data/<relpath>`` *iff*
 the local file is missing or its sha256 doesn't match the manifest. Idempotent — a second run with
 everything present is a no-op.

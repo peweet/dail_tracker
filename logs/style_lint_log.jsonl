@@ -825,3 +825,5 @@
 {"ts": "2026-08-07T07:26:56", "session": "7a5b25b8-b68", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "jargon: \"surfaces\" (rule 3 -- use the plain word)"]}
 {"ts": "2026-08-07T07:27:52", "session": "3455e952-93e", "warns": ["46-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-07T07:28:00", "session": "9a2c6537-477", "warns": ["59-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-07T07:41:42", "session": "e64394eb-3eb", "warns": ["93-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-07T07:41:44", "session": "72b8d2f5-dc5", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}

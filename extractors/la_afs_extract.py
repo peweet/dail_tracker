@@ -5,7 +5,7 @@ The per-council counterpart to the national amalgamated layer
 (afs_amalgamated_extract.py → afs_amalgamated_divisions.parquet, all-31-summed). Per-LA is
 the per-constituency prize: the gov.ie/datacatalogue dataset is amalgamated-only
 (Open Data: No), so each council's own audited AFS PDF must be harvested off its own site.
-Feasibility census + plan: doc/PER_LA_AFS_BUILD_PLAN.md.
+Feasibility census + plan: doc/archive/PER_LA_AFS_BUILD_PLAN.md.
 
 PHASE 0 = the 9 councils whose I&E-by-division page the (strict) national finder already
 locates. Reuses afs_amalgamated_extract wholesale (to_num, DIVISIONS, parse_ie,

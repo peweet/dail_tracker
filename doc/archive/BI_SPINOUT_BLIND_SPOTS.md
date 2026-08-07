@@ -11,10 +11,10 @@ key: RECORD|SUPERSEDED|commercial
 
 # BI Spinout — Blind-Spot Analyses
 
-**Date:** 2026-07-09 · **Status:** fills the four blind spots flagged in [doc/BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) §6.
+**Date:** 2026-07-09 · **Status:** fills the four blind spots flagged in [doc/archive/BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) §6.
 **Method:** web + `dail-tracker` MCP researched, adversarially verified for sourcing/rigour. Every external fact carries a URL; every projection is labelled an ESTIMATE with assumptions.
 **Note:** the competitive-scan section is PENDING (research agent hit the session usage limit); re-run after reset. The other three sections completed and were finalized.
-**Cross-links:** [doc/BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md) · [doc/BI_SPINOUT_STAGE_AB_PLAN.md](BI_SPINOUT_STAGE_AB_PLAN.md)
+**Cross-links:** [doc/archive/BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md) · [doc/archive/BI_SPINOUT_STAGE_AB_PLAN.md](BI_SPINOUT_STAGE_AB_PLAN.md)
 
 ---
 

@@ -12,7 +12,7 @@ key: RECORD|LIVE|sources
 
 Status: **ASSESSMENT** (2026-06-22). Evaluates the two Codeberg repos as a partnership/integration
 target and identifies concrete FOI request candidates derived from *our* corpus. Companion to
-`doc/FOI_PARTNERSHIP_PUBLICINFORMATION.md` (this is the real, specific version of that generic plan — the
+`doc/archive/FOI_PARTNERSHIP_PUBLICINFORMATION.md` (this is the real, specific version of that generic plan — the
 partner is NOT running Alaveteli; they've built their own stack).
 
 Repos (cloned to `c:/tmp`, AGPL-3.0):

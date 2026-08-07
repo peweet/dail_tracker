@@ -121,7 +121,7 @@ def _render_payments() -> None:
 
 def _render_payments_bridge() -> None:
     """Compact lifecycle bridge for the "Who actually gets paid?" section (Money nav
-    declutter Phase 2.5, doc/MONEY_NAV_DECLUTTER_PLAN.md §15). The awards→paid pivot
+    declutter Phase 2.5, doc/archive/MONEY_NAV_DECLUTTER_PLAN.md §15). The awards→paid pivot
     stays on this page, but the FULL payments browse now lives in one place — the
     Public Payments hub — so this section renders the honest corpus framing, a
     top-few teaser, and the two doors onward instead of duplicating that browse.

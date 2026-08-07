@@ -10,7 +10,7 @@ key: RECORD|LIVE|sources
 
 # FOI case library — 20 worked leads across 4 categories
 
-**Companion to** `doc/JOURNALIST_FOI_FLOW_DESIGN.md`. This applies the 6-stage journalist→FOI flow to
+**Companion to** `doc/archive/JOURNALIST_FOI_FLOW_DESIGN.md`. This applies the 6-stage journalist→FOI flow to
 20 real cases mined live from the combined corpus (2026-06-22): **5 councils, 5 semi-state/state
 bodies, 5 unclear ministerial-diary meetings, 5 thin lobbying returns.** Every figure is from an
 actual query; the "already asked?" line is a real probe of publicinformation.ie's FOI log where run.

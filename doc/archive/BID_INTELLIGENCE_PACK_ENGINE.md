@@ -26,7 +26,7 @@ API/MCP exposure, real-terms wiring) is **owner-gated** per the sibling docs bel
 > - [`TENDER_ALERT_SYSTEM_DESIGN.md`](TENDER_ALERT_SYSTEM_DESIGN.md) — the alert/email delivery shell (Phase 5).
 > - [`BUYER_DOSSIER_DESIGN.md`](BUYER_DOSSIER_DESIGN.md) — buyer dossier + the buyer-identity crosswalk blocker.
 > - [`PROCUREMENT_INFLATION_BENCHMARKING_DESIGN.md`](PROCUREMENT_INFLATION_BENCHMARKING_DESIGN.md) — the real-terms deflator design.
-> - [`DATA_LIMITATIONS.md`](DATA_LIMITATIONS.md) §16–§17 + [`DATA_GRAINS.md`](DATA_GRAINS.md) — the never-sum money-grain rules this engine obeys.
+> - [`DATA_LIMITATIONS.md`](../DATA_LIMITATIONS.md) §16–§17 + [`DATA_GRAINS.md`](../DATA_GRAINS.md) — the never-sum money-grain rules this engine obeys.
 >
 > This doc is the **composition-engine + field-inventory + must-not-claim** layer. The alert system
 > calls this engine per matched tender; the BI-spinout doc decides whether/how to sell it.
@@ -123,7 +123,7 @@ it just wasn't *assembled on a trigger and delivered*.
 
 ## 5. The bid-pack engine (built — sandbox prototype)
 
-Location: [`pipeline_sandbox/bid_intelligence/`](../pipeline_sandbox/bid_intelligence/). Boundary-safe:
+Location: [`pipeline_sandbox/bid_intelligence/`](../../pipeline_sandbox/bid_intelligence). Boundary-safe:
 imports the existing production query functions **read-only and composes them** — writes nothing to
 gold/silver, registers no view, modifies no production file.
 

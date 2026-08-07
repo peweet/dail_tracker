@@ -2,7 +2,7 @@
 section.
 
 Rewritten 2026-06-22 for the participation & absence model (the censored TAA
-"sitting days" breakdown was scrapped — see doc/ATTENDANCE_PARTICIPATION_REDESIGN.md).
+"sitting days" breakdown was scrapped — see doc/archive/ATTENDANCE_PARTICIPATION_REDESIGN.md).
 Shows, per member, the same three honest signals as the standalone page:
 division turnout, the longest absence run (with a sourced explanation if any),
 and 120-day TAA compliance. Pure rendering + retrieval — no business logic.

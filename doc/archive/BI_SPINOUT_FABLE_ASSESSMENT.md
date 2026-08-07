@@ -12,7 +12,7 @@ key: RECORD|SUPERSEDED|commercial
 # BI Spinout — Independent Assessment (Fable model)
 
 **Date:** 2026-07-08 · **Assessor:** Fable 5 (5 independent skeptical lenses + synthesis), commissioned as a second-model review.
-**Assesses:** [doc/BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md), [doc/BI_SPINOUT_STAGE_AB_PLAN.md](BI_SPINOUT_STAGE_AB_PLAN.md), and the three report templates in [doc/templates/](templates/).
+**Assesses:** [doc/archive/BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md), [doc/archive/BI_SPINOUT_STAGE_AB_PLAN.md](BI_SPINOUT_STAGE_AB_PLAN.md), and the three report templates in [doc/templates/](../templates).
 **Nature:** independent critique — deliberately adversarial; praise is brief by design.
 
 ---

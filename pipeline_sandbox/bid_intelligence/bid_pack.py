@@ -4,7 +4,7 @@ Status: EXPERIMENT. Lives entirely under ``pipeline_sandbox/``; it imports the
 EXISTING production procurement query functions read-only and COMPOSES them — it
 writes nothing to gold/silver, registers no view, and modifies no production file.
 This is the engineering proof of the §5 MVP in
-``doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md`` (and the bid-intelligence assessment):
+``doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md`` (and the bid-intelligence assessment):
 *when a relevant tender appears, assemble the historical pack a bid manager / QS
 would otherwise build by hand.*
 

@@ -115,7 +115,7 @@ KNOWN_OPTIONAL: frozenset[str] = frozenset(
 CORE_RUNTIME_READS: dict[str, str] = {}
 
 # Hand-curated ETL-input files kept deliberately for reproducibility — never read at runtime.
-# Seeded from doc/DATA_DISTRIBUTION_PLAN.md §"Candidate non-runtime": the per-source silver
+# Seeded from doc/archive/DATA_DISTRIBUTION_PLAN.md §"Candidate non-runtime": the per-source silver
 # payment-facts folded into gold procurement_payments_fact by the consolidate chain, plus the gold
 # pre-union copies superseded by that consolidated fact. NOT a deletion list — these are the
 # provenance/reproducibility tail. (CSO series are deliberately omitted: which are surfaced changes

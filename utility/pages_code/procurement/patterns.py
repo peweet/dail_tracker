@@ -148,7 +148,7 @@ def _entity_search_hero() -> None:
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Tab: Patterns — factual structure signals from the derived views
-# (doc/PROCUREMENT_NUGGETS.md). Every card is an observable shape in the public
+# (doc/archive/PROCUREMENT_NUGGETS.md). Every card is an observable shape in the public
 # record with its caveat attached; prompts to look, never verdicts (no-inference).
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_single_bid_cpv(cpv_division: str) -> None:
@@ -397,7 +397,7 @@ def _render_patterns() -> None:
 
     st.html(
         '<div class="pr-foot"><strong>Method:</strong> every panel reads a registered, documented view '
-        "(doc/PROCUREMENT_NUGGETS.md) over the same published registers as the rest of this page — "
+        "(doc/archive/PROCUREMENT_NUGGETS.md) over the same published registers as the rest of this page — "
         "eTenders awards, EU Official Journal notices, and public bodies' own payment lists. Counts and "
         "shares only within one register and one grain; nothing here mixes award ceilings with payments.</div>"
     )

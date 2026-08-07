@@ -255,7 +255,7 @@ pg = st.navigation(
             # RETIRED FROM THE NAV but kept routable (visibility="hidden", the same pattern as
             # the hidden Your Area pages): now reached from the Public Payments hub's
             # "Trace a payment" entry card, so the route stays alive for existing deep links.
-            # Money nav declutter Phase 1 — doc/MONEY_NAV_DECLUTTER_PLAN.md.
+            # Money nav declutter Phase 1 — doc/archive/MONEY_NAV_DECLUTTER_PLAN.md.
             st.Page(
                 follow_the_money_page,
                 title="Follow the Money",

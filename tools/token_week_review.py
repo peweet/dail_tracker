@@ -17,7 +17,7 @@ project_token_spend_week_review_2026_07_31):
   - "MCP→READ ESCALATIONS": a nav tool answered but the same file was then Read WHOLE
     (no offset/limit — bounded span-Reads are the intended follow-up) within the next
     ~8 tool results. A recurring rate per tool says its return shape isn't sufficient
-    (Self-Route S5, doc/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md). Proximity
+    (Self-Route S5, doc/archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md). Proximity
     heuristic (last-2-path-segments substring match, one count per nav call), not
     causation.
 """

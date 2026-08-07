@@ -575,7 +575,7 @@ def fetch_charity_overlap_result() -> QueryResult:
     return _q.charity_overlap(get_procurement_conn())
 
 
-# ── Entity search + derived-signal panels (doc/PROCUREMENT_NUGGETS.md, 2026-06-11) ────
+# ── Entity search + derived-signal panels (doc/archive/PROCUREMENT_NUGGETS.md, 2026-06-11) ────
 # Factual structure signals; the page carries each one's no-inference caveat.
 @st.cache_data(ttl=600)
 def fetch_entity_search_result() -> QueryResult:

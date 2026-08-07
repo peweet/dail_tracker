@@ -297,7 +297,7 @@ figure. Notable boundaries (full detail in
 Data lands in the pipeline ahead of the UI, so several datasets exist in
 gold/silver before they get a dedicated page.
 
-- **Government-finance denominators** — the `cso` chain lands `v_gov_finance_annual`; a dedicated national government-finance page is still to come ([`doc/PER_LA_AFS_BUILD_PLAN.md`](doc/PER_LA_AFS_BUILD_PLAN.md)).
+- **Government-finance denominators** — the `cso` chain lands `v_gov_finance_annual`; a dedicated national government-finance page is still to come ([`doc/archive/PER_LA_AFS_BUILD_PLAN.md`](doc/archive/PER_LA_AFS_BUILD_PLAN.md)).
 - **GE2024 candidate expenses** — 473 of ~614 sourced candidates extracted; OCR of the remainder in progress, coverage shown in-app.
 - **Scheduled data refresh** — read-only canaries already run on GitHub Actions; a fully automated cloud refresh of the data itself is the remaining step.
 

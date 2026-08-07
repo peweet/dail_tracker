@@ -134,7 +134,7 @@ due-diligence teams · public-affairs firms.
 > product.
 
 (Detailed plan: [`COMMERCIALISATION_PLAN.md`](COMMERCIALISATION_PLAN.md);
-procurement product direction: [`PROCUREMENT_INTELLIGENCE_ROADMAP.md`](PROCUREMENT_INTELLIGENCE_ROADMAP.md).)
+procurement product direction: [`PROCUREMENT_INTELLIGENCE_ROADMAP.md`](archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md).)
 
 ---
 

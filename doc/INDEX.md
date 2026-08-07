@@ -3,7 +3,7 @@
 
 # doc/ index
 
-68 docs · ~342.0k tokens total · 27 LIVE · 26 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+71 docs · ~357.6k tokens total · 27 LIVE · 29 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -37,37 +37,40 @@
 | [SOURCES.md](SOURCES.md) | sources | 6.4k | 2026-07-17 | checking whether a data source is actually implemented/API-exposed before claiming it exists or is built |
 | [NAVIGATION_GRAPH.md](NAVIGATION_GRAPH.md) | ui | 2.9k | 2026-06-20 | before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel) |
 
-## Superseded / stale
-> Kept for history and inbound references. Do not rely on their bodies.
+## Archived superseded / stale
+> Kept in [archive/](archive/) for history and inbound references. Do not rely on their bodies.
 
 | doc | domain | ~tok | updated | read when |
 |---|---|---:|---|---|
-| [BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md) | commercial | 8.1k | 2026-06-28 | reviewing the superseded BI spinout architecture; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current commercial decisions |
-| [BI_SPINOUT_BLIND_SPOTS.md](BI_SPINOUT_BLIND_SPOTS.md) | commercial | 10.0k | 2026-07-09 | reviewing historical BI spinout market and unit-economics work; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current pricing tests |
-| [BI_SPINOUT_FABLE_ASSESSMENT.md](BI_SPINOUT_FABLE_ASSESSMENT.md) | commercial | 22.4k | 2026-07-08 | reviewing historical BI spinout risks; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for the current go or park decision |
-| [BI_SPINOUT_STAGE_AB_PLAN.md](BI_SPINOUT_STAGE_AB_PLAN.md) | commercial | 9.4k | 2026-07-08 | reviewing the superseded Stage A/B proposal; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current sequencing and pilot gates |
-| [SIPO_OCR_REMAINING_QUEUE.md](SIPO_OCR_REMAINING_QUEUE.md) | elections | 1.0k | 2026-06-26 | before running or resuming a SIPO OCR job (candidate expenses, party national-agent returns) |
-| [DATA_DISTRIBUTION_PLAN.md](DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
-| [DUCKDB_ENGINEERING_PLAN.md](DUCKDB_ENGINEERING_PLAN.md) | infra | 3.8k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |
-| [HYBRID_REFRESH_PLAN.md](HYBRID_REFRESH_PLAN.md) | infra | 3.4k | 2026-07-08 | designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture |
-| [TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) | infra | 6.0k | 2026-07-31 | needing the full per-paper backing detail behind the token-optimization memory summary — read reference_token_optimization_literature_2026_07_31 in memory first |
-| [COUNCIL_TARGETING_FABLE_ASSESSMENT.md](COUNCIL_TARGETING_FABLE_ASSESSMENT.md) | local-gov | 14.0k | 2026-07-09 | before scoping new county-council data work (AFS, minutes/agendas, named votes) or deciding what council data source to pursue next |
-| [ATTENDANCE_PARTICIPATION_REDESIGN.md](ATTENDANCE_PARTICIPATION_REDESIGN.md) | members | 4.2k | 2026-06-22 | when working on the attendance/participation feature, or needing to know what shipped in the 2026-06-22 TAA-to-participation redesign |
-| [MONEY_NAV_DECLUTTER_PLAN.md](MONEY_NAV_DECLUTTER_PLAN.md) | money | 10.3k | 2026-07-12 | before changing "The Money" section's page count, nav labels, or entity-link wiring (Payments, Procurement, Companies, Follow-the-Money, Accommodation) |
-| [PER_LA_AFS_BUILD_PLAN.md](PER_LA_AFS_BUILD_PLAN.md) | money | 2.3k | 2026-06-03 | before extending per-council AFS coverage (new councils/years) or checking which councils are digital, scanned, or undiscovered — note Phase 0 shipped but this remains an active build plan |
-| [BID_INTELLIGENCE_PACK_ENGINE.md](BID_INTELLIGENCE_PACK_ENGINE.md) | procurement | 3.8k | 2026-06-29 | building or evaluating the bid-intelligence pack engine (auto-assembled market-research pack for a matched tender) |
-| [PROCUREMENT_COMPETITOR_ANALYSIS.md](PROCUREMENT_COMPETITOR_ANALYSIS.md) | procurement | 8.6k | 2026-07-10 | assessing whether/how supplier-side competitor analysis (co-occurrence, trade tagger, CRO anchor) can be built or extended |
-| [PROCUREMENT_INFLATION_BENCHMARKING_DESIGN.md](PROCUREMENT_INFLATION_BENCHMARKING_DESIGN.md) | procurement | 9.0k | 2026-07-07 | touching inflation-adjusted procurement benchmarking (real-terms views, CPI/deflator index registry, gated UI/API) |
-| [PROCUREMENT_INTELLIGENCE_ROADMAP.md](PROCUREMENT_INTELLIGENCE_ROADMAP.md) | procurement | 7.3k | 2026-06-28 | prioritizing the next procurement-intelligence surfacing feature to build (Phase 0-5) |
-| [PROCUREMENT_NUGGETS.md](PROCUREMENT_NUGGETS.md) | procurement | 2.8k | 2026-06-11 | looking for validated derived-signal ideas for the procurement module, ranked by story value x coverage x cost |
-| [PROCUREMENT_VALUE_REGISTER.md](PROCUREMENT_VALUE_REGISTER.md) | procurement | 2.3k | 2026-07-08 | checking current verification status (CONFIRMED-LIVE/UNVERIFIED/STALE) before quoting a procurement/payments money figure |
-| [STANDARDS_PAGE_IDEA.md](STANDARDS_PAGE_IDEA.md) | procurement | 6.0k | 2026-06-14 | scoping the supplier-credentials/standards-register page idea before building the ETL for it |
-| [TENDER_ALERT_SYSTEM_DESIGN.md](TENDER_ALERT_SYSTEM_DESIGN.md) | procurement | 10.0k | 2026-06-28 | building the tender-alert email / bid-intelligence notification system (Phase 5, owner-gated) |
-| [FOI_CASE_LIBRARY.md](FOI_CASE_LIBRARY.md) | sources | 4.9k | 2026-06-22 | needing worked example FOI-request leads generated from the combined spend+FOI-log join, to demo or pitch the journalist flow |
-| [FOI_PARTNERSHIP_PUBLICINFORMATION.md](FOI_PARTNERSHIP_PUBLICINFORMATION.md) | sources | 3.8k | 2026-06-22 | needing the detailed technical audit of the publicinformation.ie FOI/CSO pipeline repos before integrating with them |
-| [JOURNALIST_FOI_FLOW_DESIGN.md](JOURNALIST_FOI_FLOW_DESIGN.md) | sources | 4.5k | 2026-06-22 | designing or explaining the journalist investigation-to-FOI-request flow that joins Dáil Tracker spend data with publicinformation.ie's FOI log |
-| [OCR_SCOPING_BACKLOG.md](OCR_SCOPING_BACKLOG.md) | sources | 1.2k | 2026-07-13 | before scoping a new OCR job, or deciding whether a scanned-only source is worth the OCR cost |
-| [PUBLICINFORMATION_PARTNERSHIP.md](PUBLICINFORMATION_PARTNERSHIP.md) | sources | 7.4k | 2026-06-22 | judging whether to pursue a data partnership with publicinformation.ie (gingertechie) — the single self-contained doc to share externally |
+| [BI_SPINOUT_ARCHITECTURE.md](archive/BI_SPINOUT_ARCHITECTURE.md) | commercial | 8.1k | 2026-06-28 | reviewing the superseded BI spinout architecture; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current commercial decisions |
+| [BI_SPINOUT_BLIND_SPOTS.md](archive/BI_SPINOUT_BLIND_SPOTS.md) | commercial | 10.0k | 2026-07-09 | reviewing historical BI spinout market and unit-economics work; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current pricing tests |
+| [BI_SPINOUT_FABLE_ASSESSMENT.md](archive/BI_SPINOUT_FABLE_ASSESSMENT.md) | commercial | 22.4k | 2026-07-08 | reviewing historical BI spinout risks; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for the current go or park decision |
+| [BI_SPINOUT_STAGE_AB_PLAN.md](archive/BI_SPINOUT_STAGE_AB_PLAN.md) | commercial | 9.5k | 2026-07-08 | reviewing the superseded Stage A/B proposal; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current sequencing and pilot gates |
+| [SIPO_OCR_REMAINING_QUEUE.md](archive/SIPO_OCR_REMAINING_QUEUE.md) | elections | 1.0k | 2026-06-26 | before running or resuming a SIPO OCR job (candidate expenses, party national-agent returns) |
+| [CONTINUOUS_REFRESH.md](archive/CONTINUOUS_REFRESH.md) | infra | 1.5k | 2026-07-17 | historical only — the live refresh runbook is HYBRID_REFRESH_PLAN.md; the two-lane R2 design below is DEAD (see [[project_two_lane_reconciliation_flaw_2026_07_09]]) |
+| [DATA_DISTRIBUTION_PLAN.md](archive/DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
+| [DUCKDB_ENGINEERING_PLAN.md](archive/DUCKDB_ENGINEERING_PLAN.md) | infra | 3.8k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |
+| [HYBRID_REFRESH_PLAN.md](archive/HYBRID_REFRESH_PLAN.md) | infra | 3.4k | 2026-07-08 | designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture |
+| [TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) | infra | 6.0k | 2026-07-31 | needing the full per-paper backing detail behind the token-optimization memory summary — read reference_token_optimization_literature_2026_07_31 in memory first |
+| [COUNCIL_TARGETING_FABLE_ASSESSMENT.md](archive/COUNCIL_TARGETING_FABLE_ASSESSMENT.md) | local-gov | 14.0k | 2026-07-09 | before scoping new county-council data work (AFS, minutes/agendas, named votes) or deciding what council data source to pursue next |
+| [ATTENDANCE_PARTICIPATION_REDESIGN.md](archive/ATTENDANCE_PARTICIPATION_REDESIGN.md) | members | 4.2k | 2026-06-22 | when working on the attendance/participation feature, or needing to know what shipped in the 2026-06-22 TAA-to-participation redesign |
+| [MONEY_NAV_DECLUTTER_PLAN.md](archive/MONEY_NAV_DECLUTTER_PLAN.md) | money | 10.3k | 2026-07-12 | before changing "The Money" section's page count, nav labels, or entity-link wiring (Payments, Procurement, Companies, Follow-the-Money, Accommodation) |
+| [PER_LA_AFS_BUILD_PLAN.md](archive/PER_LA_AFS_BUILD_PLAN.md) | money | 2.3k | 2026-06-03 | before extending per-council AFS coverage (new councils/years) or checking which councils are digital, scanned, or undiscovered — note Phase 0 shipped but this remains an active build plan |
+| [BID_INTELLIGENCE_PACK_ENGINE.md](archive/BID_INTELLIGENCE_PACK_ENGINE.md) | procurement | 3.8k | 2026-06-29 | building or evaluating the bid-intelligence pack engine (auto-assembled market-research pack for a matched tender) |
+| [DISCLOSED_PO_INTEGRATION_PLAN.md](archive/DISCLOSED_PO_INTEGRATION_PLAN.md) | procurement | 11.0k | 2026-07-17 | historical only — this design SHIPPED; the live ingest is extractors/disclosed_bq_po_extract.py + disclosed_bq_po_newbodies_extract.py |
+| [ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md](archive/ENTITY_CROSSWALK_ORG_DOSSIER_DESIGN.md) | procurement | 3.0k | 2026-07-17 | historical only — the "no code written yet" note is stale; entity_xref shipped (view + extractors/entity_xref_build.py + dail_tracker_core/dossiers.py) |
+| [PROCUREMENT_COMPETITOR_ANALYSIS.md](archive/PROCUREMENT_COMPETITOR_ANALYSIS.md) | procurement | 8.6k | 2026-07-10 | assessing whether/how supplier-side competitor analysis (co-occurrence, trade tagger, CRO anchor) can be built or extended |
+| [PROCUREMENT_INFLATION_BENCHMARKING_DESIGN.md](archive/PROCUREMENT_INFLATION_BENCHMARKING_DESIGN.md) | procurement | 9.0k | 2026-07-07 | touching inflation-adjusted procurement benchmarking (real-terms views, CPI/deflator index registry, gated UI/API) |
+| [PROCUREMENT_INTELLIGENCE_ROADMAP.md](archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md) | procurement | 7.3k | 2026-06-28 | prioritizing the next procurement-intelligence surfacing feature to build (Phase 0-5) |
+| [PROCUREMENT_NUGGETS.md](archive/PROCUREMENT_NUGGETS.md) | procurement | 2.8k | 2026-06-11 | looking for validated derived-signal ideas for the procurement module, ranked by story value x coverage x cost |
+| [PROCUREMENT_VALUE_REGISTER.md](archive/PROCUREMENT_VALUE_REGISTER.md) | procurement | 2.3k | 2026-07-08 | checking current verification status (CONFIRMED-LIVE/UNVERIFIED/STALE) before quoting a procurement/payments money figure |
+| [STANDARDS_PAGE_IDEA.md](archive/STANDARDS_PAGE_IDEA.md) | procurement | 6.0k | 2026-06-14 | scoping the supplier-credentials/standards-register page idea before building the ETL for it |
+| [TENDER_ALERT_SYSTEM_DESIGN.md](archive/TENDER_ALERT_SYSTEM_DESIGN.md) | procurement | 10.0k | 2026-06-28 | building the tender-alert email / bid-intelligence notification system (Phase 5, owner-gated) |
+| [FOI_CASE_LIBRARY.md](archive/FOI_CASE_LIBRARY.md) | sources | 4.9k | 2026-06-22 | needing worked example FOI-request leads generated from the combined spend+FOI-log join, to demo or pitch the journalist flow |
+| [FOI_PARTNERSHIP_PUBLICINFORMATION.md](archive/FOI_PARTNERSHIP_PUBLICINFORMATION.md) | sources | 3.8k | 2026-06-22 | needing the detailed technical audit of the publicinformation.ie FOI/CSO pipeline repos before integrating with them |
+| [JOURNALIST_FOI_FLOW_DESIGN.md](archive/JOURNALIST_FOI_FLOW_DESIGN.md) | sources | 4.5k | 2026-06-22 | designing or explaining the journalist investigation-to-FOI-request flow that joins Dáil Tracker spend data with publicinformation.ie's FOI log |
+| [OCR_SCOPING_BACKLOG.md](archive/OCR_SCOPING_BACKLOG.md) | sources | 1.2k | 2026-07-13 | before scoping a new OCR job, or deciding whether a scanned-only source is worth the OCR cost |
+| [PUBLICINFORMATION_PARTNERSHIP.md](archive/PUBLICINFORMATION_PARTNERSHIP.md) | sources | 7.4k | 2026-06-22 | judging whether to pursue a data partnership with publicinformation.ie (gingertechie) — the single self-contained doc to share externally |
 
 ## Unclassified (no front-matter yet)
 > Backlog: add the 7-line front-matter block (tier/status/domain/updated/supersedes/read_when/key) so these move into the tables above.
@@ -90,4 +93,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-08-06 -->
+<!-- generated 2026-08-07 -->

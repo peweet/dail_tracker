@@ -17,8 +17,8 @@ key: PLAN|SUPERSEDED|commercial
 | **Status** | RESOLVED (reports-first, 2026-06-28) → build-ready execution plan |
 | **Owner** | Away — three OPTION-gated decisions below are staged for owner sign-off, not pre-decided |
 | **Scope** | Stage A = build the Phase-0 trust-UI primitives; Stage B = reports-first operations for 3–5 paying design partners |
-| **Cross-links** | [doc/BI_SPINOUT_ARCHITECTURE.md](doc/BI_SPINOUT_ARCHITECTURE.md) (§4 ethics firewall, §6 licensing, §10 no-list, §15 resolved decisions), [doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md](doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md) (Phase 0, lines 71–89) |
-| **Report templates (companion deliverables)** | [doc/templates/BI_SUPPLIER_REPORT_TEMPLATE.md](doc/templates/BI_SUPPLIER_REPORT_TEMPLATE.md), [doc/templates/BI_BUYER_REPORT_TEMPLATE.md](doc/templates/BI_BUYER_REPORT_TEMPLATE.md), [doc/templates/BI_CATEGORY_MARKET_MAP_TEMPLATE.md](doc/templates/BI_CATEGORY_MARKET_MAP_TEMPLATE.md) |
+| **Cross-links** | [doc/archive/BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md) (§4 ethics firewall, §6 licensing, §10 no-list, §15 resolved decisions), [doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md](PROCUREMENT_INTELLIGENCE_ROADMAP.md) (Phase 0, lines 71–89) |
+| **Report templates (companion deliverables)** | [doc/templates/BI_SUPPLIER_REPORT_TEMPLATE.md](../templates/BI_SUPPLIER_REPORT_TEMPLATE.md), [doc/templates/BI_BUYER_REPORT_TEMPLATE.md](../templates/BI_BUYER_REPORT_TEMPLATE.md), [doc/templates/BI_CATEGORY_MARKET_MAP_TEMPLATE.md](../templates/BI_CATEGORY_MARKET_MAP_TEMPLATE.md) |
 | **Ground-truth basis** | Verified against `main` @ `4027d6e`. Roadmap line refs have drifted since 2026-06-28 — trust symbol names, re-locate by grep. Two stale roadmap claims corrected inline (`st.popover` now used; match-confidence is a two-view edit). |
 
 > **Note on file references below.** Line numbers are the verified positions at the time of ground-truthing. They drift. Every reference names the **symbol** as well — re-locate by symbol, not by line.
@@ -37,17 +37,17 @@ These five primitives are the trust UI the whole paid product leans on: they are
 
 | File | Symbol / location | Action |
 |---|---|---|
-| [utility/pages_code/procurement.py](utility/pages_code/procurement.py) | `_value_pill` (:392) — hardcodes `pr-pill-val` + `" awarded"` | route through `money_badge` |
+| [utility/pages_code/procurement.py](../../utility/pages_code/procurement.py) | `_value_pill` (:392) — hardcodes `pr-pill-val` + `" awarded"` | route through `money_badge` |
 | | `_paid_pill` (:767) + `_paid_verb` (:763) — currently emits `pr-pill-val` | repoint to existing `pr-pill-paid` / `pr-pill-ordered` |
 | | `_ted_value_pill` (:1945) — `pr-pill-val` + `" awarded (EU)"` | route through `money_badge` |
 | | inline `pr-pill-val` spans: 2107, 2684, 2770, 2948, 3026, 3384, 3414, 3492, 3617, 3674, 3698, 3726, 3751; council-card pattern to COPY at 1007–1009 (already uses paid/ordered) | reclassify |
 | | inline ceiling branch: 2339, 2589 (`parent_value_kind`), 2773, 3051, 3560 | centralise into `money_badge` |
-| [utility/shared_css.py](utility/shared_css.py) | `.pr-pill-val` (:5730); `.pr-pill-paid` (:5939), `.pr-pill-ordered` (:5941) already exist | **`.pr-pill-stat` does NOT exist — net-new CSS** |
+| [utility/shared_css.py](../../utility/shared_css.py) | `.pr-pill-val` (:5730); `.pr-pill-paid` (:5939), `.pr-pill-ordered` (:5941) already exist | **`.pr-pill-stat` does NOT exist — net-new CSS** |
 
 **Blast radius (rebuild in the same change or they visually drift):**
-- [utility/pages_code/company.py](utility/pages_code/company.py) — imports `_value_pill` (:54), uses at 249, 364.
-- [utility/pages_code/follow_the_money.py](utility/pages_code/follow_the_money.py) — imports `_paid_pill` (:49), uses at 285, 287, 343, 405.
-- **Undocumented 4th consumer** (roadmap names only the two above): [utility/pages_code/public_payments.py](utility/pages_code/public_payments.py) has its **own** local `_value_pill(val, sem)` (:184) + inline `pr-pill-val` spans (223, 286, 316, 677, 711). It shares the CSS class and will diverge if `.pr-pill-val` is restyled.
+- [utility/pages_code/company.py](../../utility/pages_code/company.py) — imports `_value_pill` (:54), uses at 249, 364.
+- [utility/pages_code/follow_the_money.py](../../utility/pages_code/follow_the_money.py) — imports `_paid_pill` (:49), uses at 285, 287, 343, 405.
+- **Undocumented 4th consumer** (roadmap names only the two above): [utility/pages_code/public_payments.py](../../utility/pages_code/public_payments.py) has its **own** local `_value_pill(val, sem)` (:184) + inline `pr-pill-val` spans (223, 286, 316, 677, 711). It shares the CSS class and will diverge if `.pr-pill-val` is restyled.
 
 **`value_kind` literal enum in gold** (`data/gold/parquet/procurement_awards.parquet`) — the badge branches on these, not on "AWARD"/"CEILING":
 
@@ -85,15 +85,15 @@ Owner signs the string table and the chip decision. Do not invent it.
 
 | File | Location | Action |
 |---|---|---|
-| [sql_views/procurement/procurement_supplier_summary.sql](sql_views/procurement/procurement_supplier_summary.sql) | LEFT-JOINs match parquet (:64–65), selects `c.match_method AS cro_match_method` (:53); does **not** select `match_confidence` / `n_cro` | one-line additive SELECT |
-| [sql_views/procurement/procurement_supplier_year_summary.sql](sql_views/procurement/procurement_supplier_year_summary.sql) | independently LEFT-JOINs same parquet (:57), selects `cro_match_method` (:51) | **same additive SELECT — required** |
-| [dail_tracker_core/queries/procurement.py](dail_tracker_core/queries/procurement.py) | `_SUPPLIER_COLS` (:48–53) — consumed against **both** views (v_..._summary at :73 **and** v_..._year_summary at :75) | add `match_confidence` (+ ideally `n_cro`) |
-| [utility/data_access/procurement_data.py](utility/data_access/procurement_data.py) | `fetch_supplier_summary_result` (:153–156) thin pass-through | **no change** |
+| [sql_views/procurement/procurement_supplier_summary.sql](../../sql_views/procurement/procurement_supplier_summary.sql) | LEFT-JOINs match parquet (:64–65), selects `c.match_method AS cro_match_method` (:53); does **not** select `match_confidence` / `n_cro` | one-line additive SELECT |
+| [sql_views/procurement/procurement_supplier_year_summary.sql](../../sql_views/procurement/procurement_supplier_year_summary.sql) | independently LEFT-JOINs same parquet (:57), selects `cro_match_method` (:51) | **same additive SELECT — required** |
+| [dail_tracker_core/queries/procurement.py](../../dail_tracker_core/queries/procurement.py) | `_SUPPLIER_COLS` (:48–53) — consumed against **both** views (v_..._summary at :73 **and** v_..._year_summary at :75) | add `match_confidence` (+ ideally `n_cro`) |
+| [utility/data_access/procurement_data.py](../../utility/data_access/procurement_data.py) | `fetch_supplier_summary_result` (:153–156) thin pass-through | **no change** |
 
 > **Load-bearing correction:** adding `match_confidence` to `_SUPPLIER_COLS` **breaks the year path** unless `procurement_supplier_year_summary.sql` also projects it — hence the two-file edit.
 
 **Pills to repoint:**
-- `_cro_pill(row)` (procurement.py:417) — binary; and the canonical dossier pill at [company.py](utility/pages_code/company.py):250 calls it (imported :41). *(Roadmap's "company.py:220-221" is now `_lobby_pill_for`; the real CRO pill is :250.)*
+- `_cro_pill(row)` (procurement.py:417) — binary; and the canonical dossier pill at [company.py](../../utility/pages_code/company.py):250 calls it (imported :41). *(Roadmap's "company.py:220-221" is now `_lobby_pill_for`; the real CRO pill is :250.)*
 - `_cro_pill_from(company_num, status)` (procurement.py:2221) — binary; used by follow_the_money.py:346 and procurement.py 914/1525/1609/2200/2423.
 
 **Confidence values in gold** (`procurement_supplier_cro_match.parquet`; cols: `supplier, supplier_norm, n_cro, company_num, company_status, match_method, match_confidence`):
@@ -106,7 +106,7 @@ Owner signs the string table and the chip decision. Do not invent it.
 
 `n_cro` is present in the parquet but, like `match_confidence`, is **not** in either view SELECT — surfacing the ambiguity signal needs the same additive edit.
 
-**Effort: M.** **Dependencies:** the two-view SELECT edit + `_SUPPLIER_COLS` + a fixture regeneration run ([test/fixtures/sql_views/_generate.py](test/fixtures/sql_views/_generate.py):1074 already stubs `match_confidence: [0.9,...]`). **Batching opportunity:** the roadmap (Phase 1, must-fix #3) says to batch this with the `in_payments` / `paid_safe_eur` column adds — same two view files + `_SUPPLIER_COLS`, one coordinated change, single fixture run.
+**Effort: M.** **Dependencies:** the two-view SELECT edit + `_SUPPLIER_COLS` + a fixture regeneration run ([test/fixtures/sql_views/_generate.py](../../test/fixtures/sql_views/_generate.py):1074 already stubs `match_confidence: [0.9,...]`). **Batching opportunity:** the roadmap (Phase 1, must-fix #3) says to batch this with the `in_payments` / `paid_safe_eur` column adds — same two view files + `_SUPPLIER_COLS`, one coordinated change, single fixture run.
 
 **OWNER-DECISION GATE — tier labels + ambiguity policy (present, do not decide):**
 
@@ -127,15 +127,15 @@ Owner signs the wording **and** the suppress-vs-caveat policy.
 
 **What it is.** A popover that, for a headline money figure, reports source view · live filters · sum-safety verdict · excluded-row count · caveat · source link. The popover **reports, never derives**.
 
-**Stale roadmap claim corrected:** the roadmap asserts `st.popover` is "unused anywhere." It is **now used once**, at [procurement.py](utility/pages_code/procurement.py):558 (`with st.popover("ⓘ How is this adjusted?")`), inside the experimental inflation note — gated local-only (line 568 renders "Experimental · local only — not shown in the published app"). So in the **published** app it is still effectively unused, and this now serves as a **working precedent** for the pattern (metadata dict → popover). No `explain_figure` helper and no `FigureProvenance` exist.
+**Stale roadmap claim corrected:** the roadmap asserts `st.popover` is "unused anywhere." It is **now used once**, at [procurement.py](../../utility/pages_code/procurement.py):558 (`with st.popover("ⓘ How is this adjusted?")`), inside the experimental inflation note — gated local-only (line 568 renders "Experimental · local only — not shown in the published app"). So in the **published** app it is still effectively unused, and this now serves as a **working precedent** for the pattern (metadata dict → popover). No `explain_figure` helper and no `FigureProvenance` exist.
 
 **Exact files + symbols to touch**
 
 | File | Symbol | Action |
 |---|---|---|
-| [dail_tracker_core/results.py](dail_tracker_core/results.py) | `QueryResult` frozen dataclass (:33–67) | add `FigureProvenance` beside it — same frozen / inert / cacheable pattern |
-| [dail_tracker_core/caveats.py](dail_tracker_core/caveats.py) | existing caveat constants | reuse for the caveat field — do not write new prose |
-| new UI module under [utility/ui/](utility/ui/) | `explain_figure(label, value, FigureProvenance)` | consumed by procurement.py and company.py |
+| [dail_tracker_core/results.py](../../dail_tracker_core/results.py) | `QueryResult` frozen dataclass (:33–67) | add `FigureProvenance` beside it — same frozen / inert / cacheable pattern |
+| [dail_tracker_core/caveats.py](../../dail_tracker_core/caveats.py) | existing caveat constants | reuse for the caveat field — do not write new prose |
+| new UI module under [utility/ui/](../../utility/ui) | `explain_figure(label, value, FigureProvenance)` | consumed by procurement.py and company.py |
 
 **Four highest-value target figures** (all in procurement.py): `_page_lede` sum-safe total; `_value_pill` supplier awarded pill; `_render_paid_supplier_panel` SPENT/COMMITTED panel; `_render_ted_supplier_panel` TED EU value (value at 2240–2246).
 
@@ -155,10 +155,10 @@ Owner signs the wording **and** the suppress-vs-caveat policy.
 
 | Component | Location | Signature / behaviour |
 |---|---|---|
-| `export_button` | [utility/ui/export_controls.py](utility/ui/export_controls.py):9 | `export_button(df, label, filename, key) -> None`; CSV deferred via zero-arg `lambda: df.to_csv(...)`; disabled when empty |
-| `api_json_link` | [utility/ui/entity_links.py](utility/ui/entity_links.py):404 | `api_json_link(path, label="View as JSON") -> str`; **env-gated** on `DAIL_API_BASE_URL` (:416) — returns `""` when unset, safe to splice unconditionally |
-| API route | [api/routers/procurement.py](api/routers/procurement.py):53–63 | per-supplier `/v1/procurement/suppliers/{supplier_norm}/dossier`; bulk `/v1/data` |
-| Caveat / attribution constants | [api/routers/exports.py](api/routers/exports.py) | `_ETENDERS_ATTRIBUTION` (:43), `_TED_ATTRIBUTION` (:44), `_NO_PERSONS_NOTE` (:45–48); `procurement_awards` caveat (:80–85), `procurement_payments_fact` caveat (:106–110), `procurement_lobbying_overlap` (:126–129) — the canonical strings to reuse in-app |
+| `export_button` | [utility/ui/export_controls.py](../../utility/ui/export_controls.py):9 | `export_button(df, label, filename, key) -> None`; CSV deferred via zero-arg `lambda: df.to_csv(...)`; disabled when empty |
+| `api_json_link` | [utility/ui/entity_links.py](../../utility/ui/entity_links.py):404 | `api_json_link(path, label="View as JSON") -> str`; **env-gated** on `DAIL_API_BASE_URL` (:416) — returns `""` when unset, safe to splice unconditionally |
+| API route | [api/routers/procurement.py](../../api/routers/procurement.py):53–63 | per-supplier `/v1/procurement/suppliers/{supplier_norm}/dossier`; bulk `/v1/data` |
+| Caveat / attribution constants | [api/routers/exports.py](../../api/routers/exports.py) | `_ETENDERS_ATTRIBUTION` (:43), `_TED_ATTRIBUTION` (:44), `_NO_PERSONS_NOTE` (:45–48); `procurement_awards` caveat (:80–85), `procurement_payments_fact` caveat (:106–110), `procurement_lobbying_overlap` (:126–129) — the canonical strings to reuse in-app |
 
 The `api_json_link` splice pattern is already established at votes.py:404, member_overview.py:2362, legislation.py:323 — **not yet** in procurement.py / company.py.
 
@@ -177,10 +177,10 @@ The `api_json_link` splice pattern is already established at votes.py:404, membe
 **What it is.** A single home for the **short** badge/pill vocabulary ("awarded" / "paid" / "ordered" / "committed" / "sum-safe" / short labels) plus a **FORBIDDEN-word** list — the copy that today is inlined across ~10 panels. **Confirmed does NOT exist** (glob clean; no `safe_vocab` symbol).
 
 **Where approved phrasing lives today (two homes):**
-1. **Long-form caveats — already centralised in core:** [dail_tracker_core/caveats.py](dail_tracker_core/caveats.py) holds `PROC_LOBBY`, `COMPETITION`, `PROCUREMENT_AWARDS`, `PUBPAY`, `MONEY_GRAINS`, `ENTITY_COOCCURRENCE`, `DIARY`, etc., moved **verbatim** from pages and imported by `dossiers.py` / `serialize.envelope`. Its docstring already states the "each interface RENDERS it but none OWNS it" philosophy. **But it does NOT hold the short badge vocab and has no FORBIDDEN list.**
+1. **Long-form caveats — already centralised in core:** [dail_tracker_core/caveats.py](../../dail_tracker_core/caveats.py) holds `PROC_LOBBY`, `COMPETITION`, `PROCUREMENT_AWARDS`, `PUBPAY`, `MONEY_GRAINS`, `ENTITY_COOCCURRENCE`, `DIARY`, etc., moved **verbatim** from pages and imported by `dossiers.py` / `serialize.envelope`. Its docstring already states the "each interface RENDERS it but none OWNS it" philosophy. **But it does NOT hold the short badge vocab and has no FORBIDDEN list.**
 2. **Short vocab — inline f-strings:** `_value_pill` "awarded" (procurement.py:393), `_paid_verb` "ordered"/"paid" (:764), `_ted_value_pill` "awarded (EU)" (:1950), `public_payments._semantics_label` / `_tier_label` (:184–316).
 
-**FORBIDDEN convention — prose only, no code.** The terms live in [doc/TENDER_ALERT_SYSTEM_DESIGN.md](doc/TENDER_ALERT_SYSTEM_DESIGN.md):333–336 ("rigged", "corrupt", "waste", "cronyism", "influence-peddling"; "win probability", "chance of winning", "recommended/target price"), echoed in [doc/BI_SPINOUT_ARCHITECTURE.md](doc/BI_SPINOUT_ARCHITECTURE.md):158 and [mcp_server/qs_valuation.py](mcp_server/qs_valuation.py):6. **There is no code-level FORBIDDEN list and no CI check over rendered copy.** *(The `_FORBIDDEN_CALLS` / `_FORBIDDEN_METHODS` in [tools/check_streamlit_logic_firewall.py](tools/check_streamlit_logic_firewall.py):56,69 are unrelated — they forbid `st.dataframe`/raw SQL in pages, not vocabulary.)*
+**FORBIDDEN convention — prose only, no code.** The terms live in [doc/archive/TENDER_ALERT_SYSTEM_DESIGN.md](TENDER_ALERT_SYSTEM_DESIGN.md):333–336 ("rigged", "corrupt", "waste", "cronyism", "influence-peddling"; "win probability", "chance of winning", "recommended/target price"), echoed in [doc/archive/BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md):158 and [mcp_server/qs_valuation.py](../../mcp_server/qs_valuation.py):6. **There is no code-level FORBIDDEN list and no CI check over rendered copy.** *(The `_FORBIDDEN_CALLS` / `_FORBIDDEN_METHODS` in [tools/check_streamlit_logic_firewall.py](../../tools/check_streamlit_logic_firewall.py):56,69 are unrelated — they forbid `st.dataframe`/raw SQL in pages, not vocabulary.)*
 
 **Effort: M** (copy refactor across ~10 panels; net-new module + optional CI hook).
 
@@ -233,9 +233,9 @@ Each report reuses **existing registered views/functions** (GT-2) + **analyst ti
 
 | Product | Subject | Template | Centrepiece (the paid hook) |
 |---|---|---|---|
-| **Supplier dossier** | one supplier org (CRO-anchored) | [doc/templates/BI_SUPPLIER_REPORT_TEMPLATE.md](doc/templates/BI_SUPPLIER_REPORT_TEMPLATE.md) | A4 awards-vs-payments reconciliation (two labelled ledgers) |
-| **Buyer dossier** | one contracting authority | [doc/templates/BI_BUYER_REPORT_TEMPLATE.md](doc/templates/BI_BUYER_REPORT_TEMPLATE.md) | B4 awards-vs-payments reconciliation |
-| **Category market map** | one CPV division/group | [doc/templates/BI_CATEGORY_MARKET_MAP_TEMPLATE.md](doc/templates/BI_CATEGORY_MARKET_MAP_TEMPLATE.md) | C5 awards-vs-payments in category |
+| **Supplier dossier** | one supplier org (CRO-anchored) | [doc/templates/BI_SUPPLIER_REPORT_TEMPLATE.md](../templates/BI_SUPPLIER_REPORT_TEMPLATE.md) | A4 awards-vs-payments reconciliation (two labelled ledgers) |
+| **Buyer dossier** | one contracting authority | [doc/templates/BI_BUYER_REPORT_TEMPLATE.md](../templates/BI_BUYER_REPORT_TEMPLATE.md) | B4 awards-vs-payments reconciliation |
+| **Category market map** | one CPV division/group | [doc/templates/BI_CATEGORY_MARKET_MAP_TEMPLATE.md](../templates/BI_CATEGORY_MARKET_MAP_TEMPLATE.md) | C5 awards-vs-payments in category |
 
 ### BUILT vs ANALYST-TIME (data sourcing per section)
 
@@ -261,7 +261,7 @@ Legend: **BUILT** = a verified `dail_tracker_core.queries` function exists (GT-2
 
 ## Pricing anchor
 
-Consistent with [doc/BI_SPINOUT_ARCHITECTURE.md](doc/BI_SPINOUT_ARCHITECTURE.md): **bespoke reports EUR 1.5k–10k**. Anchor within the band by depth/breadth:
+Consistent with [doc/archive/BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md): **bespoke reports EUR 1.5k–10k**. Anchor within the band by depth/breadth:
 
 | Tier | Scope | Indicative |
 |---|---|---|
@@ -279,7 +279,7 @@ A report is shippable only when **all five** hold:
 |---|---|
 | **Accuracy** | Every figure traces to a named registered view/function (GT-2). No page-side aggregation. Numbers reproduce from the query layer. `value_kind` and lifecycle tier carried on every money figure. |
 | **Caveats** | Each figure renders grain tag + coverage window + denominator as a subtitle (not a buried footnote). The relevant canned blocks — `[GRAIN]`, `[TED]`, `[PAYCOV]`, `[COUNTS]`, `[SINGLEBID]`, `[ENDDATE]`, `[REGISTER]`, `[ENTITY]` — are present. Any co-occurrence / competition / payments figure carries the **verbatim** `caveats.py` string (`PROC_LOBBY`, `COMPETITION`, `PUBPAY`, `MONEY_GRAINS`, `DPO`). |
-| **Attribution** | Per-source licence/attribution present **verbatim** from [api/routers/exports.py](api/routers/exports.py) / [NOTICE.md](NOTICE.md): eTenders/OGP CC-BY-4.0, CRO CC-BY-4.0, Charities CC-BY-4.0, TED — "Contains information from TED (© European Union), reused under Decision 2011/833/EU." (`_TED_ATTRIBUTION`, exports.py:44 — reproduce exactly; never abbreviate "European Union" to "EU"), lobbying.ie PSI, and — if Iris-distress facts appear — the Iris Oifigiúil acknowledgement + source URL. |
+| **Attribution** | Per-source licence/attribution present **verbatim** from [api/routers/exports.py](../../api/routers/exports.py) / [NOTICE.md](../../NOTICE.md): eTenders/OGP CC-BY-4.0, CRO CC-BY-4.0, Charities CC-BY-4.0, TED — "Contains information from TED (© European Union), reused under Decision 2011/833/EU." (`_TED_ATTRIBUTION`, exports.py:44 — reproduce exactly; never abbreviate "European Union" to "EU"), lobbying.ie PSI, and — if Iris-distress facts appear — the Iris Oifigiúil acknowledgement + source URL. |
 | **No cross-grain sum** | No figure sums or nets across AWARDED / PAID / COMMITTED / PLANNED / BUDGET. TED shown as counts/notices, never summed. Reconciliation = **two labelled ledgers, paired panels, hard divider — never a stacked bar**. |
 | **Company-class gate** | Every subject is an organisation (CRO number / normalised org name). Rows where `supplier_class = 'sole_trader_or_individual'` **or** `public_display = FALSE` **or** `privacy_status = 'review_personal_data'` are excluded. Zero named individuals / directors / beneficial-owner narrative. |
 
@@ -301,7 +301,7 @@ A report is shippable only when **all five** hold:
 
 # Never-break rails (binding on Stage A and Stage B)
 
-Distilled from GT-4 ([doc/BI_SPINOUT_ARCHITECTURE.md](doc/BI_SPINOUT_ARCHITECTURE.md) §4/§6/§10/§15, [tools/check_streamlit_logic_firewall.py](tools/check_streamlit_logic_firewall.py), the three-money-grain rule).
+Distilled from GT-4 ([doc/archive/BI_SPINOUT_ARCHITECTURE.md](BI_SPINOUT_ARCHITECTURE.md) §4/§6/§10/§15, [tools/check_streamlit_logic_firewall.py](../../tools/check_streamlit_logic_firewall.py), the three-money-grain rule).
 
 **(a) Never-sum the five value grains.** AWARDED · PAID · COMMITTED · PLANNED · BUDGET are distinct grains — never added, unioned, netted, or stacked into an implied total. Only sum **within** a grain and only where `value_safe_to_sum` permits. **Never union TED (EU) with national.** No stacked bars / single totals / running sums across grains — each grain is a separately labelled cell. The never-sum caveat travels in-surface, in exports and reports.
 

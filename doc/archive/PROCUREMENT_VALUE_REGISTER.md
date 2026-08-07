@@ -58,13 +58,13 @@ Every entry carries a verification tag: **CONFIRMED-LIVE** (checked against mani
 
 ### 4. Supplier↔CRO match confidence — `procurement_supplier_cro_match.parquet`
 - **Live coverage:** in manifest, but `match_confidence` ({0.0/0.5/0.9}; 6,047 exact / 400 ambiguous / 3,532 no-match) is **dropped by every procurement view** (only `match_method` selected at `sql_views/procurement/procurement_supplier_summary.sql:53`; `match_confidence` appears in zero procurement views).
-- **Value:** turns 400 silently-arbitrary company links into honest badges; prerequisite for trust-grade rails. Roadmap flagship (`doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md`).
+- **Value:** turns 400 silently-arbitrary company links into honest badges; prerequisite for trust-grade rails. Roadmap flagship (`doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md`).
 - **Tag / effort:** CONFIRMED-LIVE (gap still open) · exists-just-wire
 
 ### 5. eTenders live tenders — `silver/etenders_live_tenders.parquet`
 - **Grain:** live national tender
 - **Surfaced:** `procurement_live_tenders.sql` → `procurement.py`, but **NOT in `pipeline.py`** (grep = 0) — manual refresh, so currency is fragile.
-- **Value:** the "a tender appeared" trigger for the tender-alert email product (`doc/TENDER_ALERT_SYSTEM_DESIGN.md` — intelligence half reusable, delivery shell greenfield)
+- **Value:** the "a tender appeared" trigger for the tender-alert email product (`doc/archive/TENDER_ALERT_SYSTEM_DESIGN.md` — intelligence half reusable, delivery shell greenfield)
 - **Tag / effort:** CONFIRMED-LIVE (surface) / refresh-manual · moderate-build (automate + alert shell)
 
 ### 6. AFS (LA Annual Financial Statements) — `la_afs_divisions` + `la_afs_capital_divisions` + `afs_amalgamated_divisions` (silver, all runtime)
@@ -126,4 +126,4 @@ Every entry carries a verification tag: **CONFIRMED-LIVE** (checked against mani
 2. **Automate `etenders_live_tenders` into `pipeline.py`** — unblocks the tender-alert product's trigger for near-zero build.
 3. **Absorb remaining disclosed-BQ new-body history** into `procurement_payments_fact` — largest coverage jump on the crown-jewel spine.
 4. **Small AFS MCP tool + AFS-vs-PO lens promotion** — view already exists (`procurement_afs_vs_po_coverage.sql`); makes the only un-MCP'd money family queryable.
-5. **Tender-alert email MVP** per `doc/TENDER_ALERT_SYSTEM_DESIGN.md` — intelligence half is reuse; only the delivery shell is greenfield; first paid-product surface.
+5. **Tender-alert email MVP** per `doc/archive/TENDER_ALERT_SYSTEM_DESIGN.md` — intelligence half is reuse; only the delivery shell is greenfield; first paid-product surface.

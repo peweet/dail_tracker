@@ -6,9 +6,9 @@
 **Authority sector:** {{AUTHORITY_CLASS}} — *analyst-classified descriptive metadata (central gov / local authority / health / semi-state); NO data-access function returns an authority class, so this is a manual label, never a data figure.*
 **Prepared by:** {{ANALYST_NAME}}
 **Corpus refresh:** {{CORPUS_REFRESH_DATE}}
-**Cross-links:** [doc/BI_SPINOUT_ARCHITECTURE.md](../BI_SPINOUT_ARCHITECTURE.md) · [doc/PROCUREMENT_INTELLIGENCE_ROADMAP.md](../PROCUREMENT_INTELLIGENCE_ROADMAP.md)
+**Cross-links:** [doc/archive/BI_SPINOUT_ARCHITECTURE.md](../archive/BI_SPINOUT_ARCHITECTURE.md) · [doc/archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md](../archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md)
 
-> This is a fill-in-the-blanks template. Replace every `{{PLACEHOLDER}}` with a value read **only** through the data-access functions named in each section. Do not compute a figure the functions do not return. Sections marked **PHASE-2-TODO** have no wired data-access path today — leave them stubbed with the note shown, or wire the view first via the [pipeline-view](../PROCUREMENT_INTELLIGENCE_ROADMAP.md) skill. Every subject is an **organisation** (contracting authority / supplier org / CRO number); the generator must be structurally incapable of naming a natural person.
+> This is a fill-in-the-blanks template. Replace every `{{PLACEHOLDER}}` with a value read **only** through the data-access functions named in each section. Do not compute a figure the functions do not return. Sections marked **PHASE-2-TODO** have no wired data-access path today — leave them stubbed with the note shown, or wire the view first via the [pipeline-view](../archive/PROCUREMENT_INTELLIGENCE_ROADMAP.md) skill. Every subject is an **organisation** (contracting authority / supplier org / CRO number); the generator must be structurally incapable of naming a natural person.
 
 ---
 
@@ -260,7 +260,7 @@ Multi-supplier frameworks currently mapped to this buyer (TED expiring feed): **
 
 ## Never-break rails (binding on this report)
 
-Source-anchored to [doc/BI_SPINOUT_ARCHITECTURE.md](../BI_SPINOUT_ARCHITECTURE.md) §4/§6/§10/§15 and `tools/check_streamlit_logic_firewall.py`.
+Source-anchored to [doc/archive/BI_SPINOUT_ARCHITECTURE.md](../archive/BI_SPINOUT_ARCHITECTURE.md) §4/§6/§10/§15 and `tools/check_streamlit_logic_firewall.py`.
 
 **1. Never-sum the grains.** AWARDED / PAID / COMMITTED / PLANNED / BUDGET are separate ledgers. Each is a separately labelled cell or series. No stacked bars, single totals, running sums, or side-by-side arithmetic that implies one number across grains. **TED is never unioned with national awards.** Sum only *within* a grain and only where `value_kind` / `value_safe_to_sum` permits — carry the grain tag on every figure.
 

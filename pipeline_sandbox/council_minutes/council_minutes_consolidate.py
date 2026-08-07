@@ -24,6 +24,7 @@ import json
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 import requests
 from bs4 import BeautifulSoup
@@ -50,6 +51,8 @@ _MINMARK = re.compile(r"minutes of|confirmation of (?:the )?minutes|i l[áa]thai
                       r"in attendance|proposed by", re.I)
 _MOT_CTX = re.compile(r"(Resolution|Motion|Proposed by|That the|We the Members)[^\n]{0,200}", re.I)
 YEAR_RX = re.compile(r"20(1\d|2\d)")
+_CE_REPORT = re.compile(r"management report|chief executive.?s? (?:monthly )?report", re.I)
+_OTHER_REPORT = re.compile(r"annual report|financial statement|local economic", re.I)
 
 _OCR = None
 _OCR_TRIED = False
@@ -74,9 +77,9 @@ def slug(s: str) -> str:
 
 
 def doc_type(url: str, text: str) -> str:
-    u = url.lower()
+    name = unquote(urlsplit(str(url or "")).path.rsplit("/", 1)[-1]).lower()
     t = text[:3000].lower()
-    is_md = "municipal district" in t or re.search(r"\bmd\b|municipal", u)
+    is_md = "municipal district" in t or re.search(r"\bmd\b|municipal", name)
     # Real minutes routinely open with boilerplate like "conduct the business of the meeting
     # in line with Standing Orders" — that mention alone must NOT tip a genuine minutes doc
     # into standing_orders, or every born-digital/OCR'd minutes doc misclassifies (was
@@ -84,16 +87,21 @@ def doc_type(url: str, text: str) -> str:
     # entirely — 2026-07-31). A real standing-orders regulation doc doesn't also carry the
     # minutes-specific markers below, so only trust the text-body match when those are absent;
     # a URL that says so (standing-orders.pdf) is still a hard signal either way.
-    is_minutes = bool(_MINMARK.search(text)) or "minute" in u
-    if re.search(r"standing.?order", u) or (re.search(r"standing.?order", t) and not is_minutes):
+    is_minutes = bool(_MINMARK.search(text)) or "minute" in name
+    if re.search(r"standing.?order", name) or (re.search(r"standing.?order", t) and not is_minutes):
         return "standing_orders"
-    if re.search(r"agenda", u) and not re.search(r"minute", u) and "minutes of" not in t:
+    if "agenda" in name and "minute" not in name:
         return "agenda"
-    if re.search(r"management report|chief executive.?s? (monthly )?report|annual report|"
-                 r"financial statement|local economic", u + t[:1500]):
+    if _CE_REPORT.search(name):
+        return "ce_report"
+    if _OTHER_REPORT.search(name):
         return "report_or_plan"
     if is_minutes:
         return "md_minutes" if is_md else "plenary_minutes"
+    if _CE_REPORT.search(t[:1500]):
+        return "ce_report"
+    if _OTHER_REPORT.search(t[:1500]):
+        return "report_or_plan"
     return "other"
 
 
@@ -105,7 +113,7 @@ def classify(rec: dict, text: str, dtype: str) -> tuple[bool, str]:
         return False, "scanned_not_ocr"
     if len(text) < CLEAN_MIN_CHARS:
         return False, "low_text"
-    if dtype in ("agenda", "standing_orders", "report_or_plan"):
+    if dtype in ("agenda", "standing_orders", "ce_report", "report_or_plan"):
         return False, f"not_minutes_{dtype}"
     if dtype == "other":
         return False, "unrecognised_doctype"

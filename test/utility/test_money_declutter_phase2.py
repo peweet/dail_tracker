@@ -1,4 +1,4 @@
-"""Phase 2 / 2.5 of the Money-nav declutter (doc/MONEY_NAV_DECLUTTER_PLAN.md §7, §15):
+"""Phase 2 / 2.5 of the Money-nav declutter (doc/archive/MONEY_NAV_DECLUTTER_PLAN.md §7, §15):
 the awards-register gate on Public Payments' /company links, and the Procurement
 "Who actually gets paid?" bridge. Bare-mode with monkeypatched QueryResult fetchers
 (same harness as test_public_payments_page.py — the repo avoids AppTest).

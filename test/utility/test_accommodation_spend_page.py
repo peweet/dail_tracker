@@ -1,6 +1,6 @@
 """Smoke + pure-helper tests for pages_code/accommodation_spend.py.
 
-Added with the Money nav declutter Phase 1 (doc/MONEY_NAV_DECLUTTER_PLAN.md):
+Added with the Money nav declutter Phase 1 (doc/archive/MONEY_NAV_DECLUTTER_PLAN.md):
 the page was retired from the top nav (app.py: visibility="hidden") and is now
 reached from the Public Payments hub's "Accommodation spend" entry card, so a
 render regression would no longer be caught by eyeballing the menu. Same
