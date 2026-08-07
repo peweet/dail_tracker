@@ -38,6 +38,7 @@ import polars as pl
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import GOLD_PARQUET_DIR, PROJECT_ROOT  # noqa: E402
+from tools.check_output_regressions import tracked_names  # noqa: E402
 
 BASELINE_PATH = PROJECT_ROOT / "data" / "_meta" / "gold_quality_baseline.json"
 REPORT_PATH = PROJECT_ROOT / "data" / "_meta" / "gold_quality.json"
@@ -176,6 +177,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     baseline = (_load(BASELINE_PATH) or {}).get("metrics", {})
+    tracked = tracked_names()
+    if tracked is not None:
+        untracked = sorted(set(baseline) - tracked)
+        if untracked:
+            # Never silent: a dropped output is a real reduction in what the gate covers.
+            print(
+                f"gold quality guard: skipping {len(untracked)} baselined but untracked output(s): "
+                f"{', '.join(untracked)}"
+            )
+            baseline = {k: v for k, v in baseline.items() if k in tracked}
     summary = summarise(current)
     if not baseline:
         _write(REPORT_PATH, {"summary": summary})

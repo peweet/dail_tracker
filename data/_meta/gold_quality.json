@@ -1,45 +1,6 @@
 {
-  "n_baseline": 109,
-  "regressions": [
-    {
-      "output": "cro_xref_corporate_notices.parquet",
-      "kind": "DUP_INCREASE",
-      "baseline": 602,
-      "now": 820
-    },
-    {
-      "output": "judicial_legal_diary_cases.parquet",
-      "kind": "DUP_INCREASE",
-      "baseline": 1493,
-      "now": 3521
-    },
-    {
-      "output": "judicial_legal_diary_counts.parquet",
-      "kind": "DUP_INCREASE",
-      "baseline": 74,
-      "now": 179
-    },
-    {
-      "output": "si_current_state.parquet",
-      "kind": "SENTINEL_INCREASE",
-      "columns": {
-        "how_affected_raw": {
-          "baseline": 0,
-          "now": 2
-        }
-      }
-    },
-    {
-      "output": "sipo_expense_items.parquet",
-      "kind": "SENTINEL_INCREASE",
-      "columns": {
-        "item_description": {
-          "baseline": 0,
-          "now": 9
-        }
-      }
-    }
-  ],
+  "n_baseline": 154,
+  "regressions": [],
   "summary": {
     "tables_with_all_null_cols": {
       "ipas_la_profile.parquet": [
@@ -68,27 +29,27 @@
     "tables_with_dup_rows": {
       "cbi_xref_corporate_notices.parquet": {
         "dup_rows": 7,
-        "rows": 271
+        "rows": 272
       },
       "corporate_notices.parquet": {
-        "dup_rows": 1167,
-        "rows": 51243
+        "dup_rows": 1172,
+        "rows": 51396
       },
       "corporate_notices_enriched.parquet": {
-        "dup_rows": 1167,
-        "rows": 51217
+        "dup_rows": 1172,
+        "rows": 51396
       },
       "cro_xref_corporate_notices.parquet": {
-        "dup_rows": 820,
-        "rows": 28089
+        "dup_rows": 828,
+        "rows": 28191
       },
       "judicial_legal_diary_cases.parquet": {
-        "dup_rows": 3521,
-        "rows": 14551
+        "dup_rows": 3625,
+        "rows": 15194
       },
       "judicial_legal_diary_counts.parquet": {
-        "dup_rows": 179,
-        "rows": 1374
+        "dup_rows": 188,
+        "rows": 1469
       },
       "judicial_legal_diary_openview_cases.parquet": {
         "dup_rows": 226120,
@@ -100,14 +61,17 @@
       },
       "public_appointments.parquet": {
         "dup_rows": 4,
-        "rows": 1155
+        "rows": 1164
       },
       "stateboards_roster.parquet": {
         "dup_rows": 8,
-        "rows": 2046
+        "rows": 2050
       }
     },
     "tables_with_encoding_artifacts": {
+      "council_minutes_corpus.parquet": {
+        "body": 2
+      },
       "eu_tam_state_aid.parquet": {
         "beneficiary_name": 9
       }
