@@ -36,3 +36,7 @@
 {"ts": "2026-08-07T20:45:55.284668+00:00", "session": "c9d651c4-4c0", "category": "py_deps", "nudged": true, "pattern": "import osmium|osmium"}
 {"ts": "2026-08-07T21:15:31.318140+00:00", "session": "1864c2c9-480", "category": "py_refs", "nudged": true, "pattern": "osm_roads"}
 {"ts": "2026-08-07T21:28:01.587180+00:00", "session": "f42647ee-6c4", "category": "py_refs", "nudged": true, "pattern": "check_no_private_ip"}
+{"ts": "2026-08-07T22:12:24.861300+00:00", "session": "1231e737-ae6", "category": "py_refs", "nudged": true, "pattern": "public_signal_ce_leads"}
+{"ts": "2026-08-07T22:12:41.599286+00:00", "session": "1231e737-ae6", "category": "py_refs", "nudged": false, "pattern": "council_ce_report_leads"}
+{"ts": "2026-08-07T22:13:34.779864+00:00", "session": "1231e737-ae6", "category": "py_refs", "nudged": false, "pattern": "public_signal_ce_leads_contract"}
+{"ts": "2026-08-07T22:13:43.603259+00:00", "session": "1231e737-ae6", "category": "py_refs", "nudged": false, "pattern": "pre_tender_work_packages"}
