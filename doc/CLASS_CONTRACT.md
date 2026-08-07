@@ -10,9 +10,9 @@ Styling is preserved across a framework change if the new components emit these 
 
 | Measure | Count |
 |---|---:|
-| Class names emitted by the UI | 1,009 |
-| Class selectors defined in CSS | 1,324 |
-| **The contract** (emitted AND styled) | **993** |
+| Class names emitted by the UI | 1,011 |
+| Class selectors defined in CSS | 1,326 |
+| **The contract** (emitted AND styled) | **995** |
 | Dynamic stems (f-string built, e.g. `pill-{kind}`) | 2 |
 | Dead CSS (styled, never emitted) | 304 |
 | Unstyled (emitted, never styled) | 16 |
@@ -25,8 +25,8 @@ A React component reproducing one of these families must emit the same names.
 |---|---:|---:|
 | `dt-*` | 107 | 16 |
 | `corp-*` | 103 | 12 |
-| `jd-*` | 70 | 3 |
 | `pr-*` | 70 | 19 |
+| `jd-*` | 70 | 3 |
 | `mo-*` | 54 | 4 |
 | `si-*` | 48 | 9 |
 | `leg-*` | 45 | 8 |
@@ -38,39 +38,39 @@ A React component reproducing one of these families must emit the same names.
 | `jud-*` | 28 | 2 |
 | `cmt-*` | 28 | 5 |
 | `lp3-*` | 25 | 1 |
+| `sup-*` | 25 | 1 |
 | `mf-*` | 23 | 0 |
-| `sup-*` | 23 | 1 |
 | `sb-*` | 23 | 1 |
 | `vt-*` | 22 | 7 |
-| `pay-*` | 16 | 22 |
 | `lg-*` | 16 | 2 |
+| `pay-*` | 16 | 22 |
+| `part-*` | 12 | 7 |
 | `bs-*` | 12 | 5 |
 | `e24-*` | 12 | 1 |
-| `part-*` | 12 | 7 |
-| `esp-*` | 11 | 0 |
 | `don-*` | 11 | 1 |
+| `esp-*` | 11 | 0 |
 | `vote-*` | 11 | 0 |
 | `td-*` | 9 | 4 |
 | `att-*` | 7 | 34 |
 | `int-*` | 7 | 15 |
 | `site-*` | 5 | 0 |
-| `stat-*` | 4 | 0 |
-| `hou-*` | 4 | 0 |
 | `signal-*` | 4 | 1 |
+| `stat-*` | 4 | 0 |
 | `pp-*` | 4 | 0 |
+| `hou-*` | 4 | 0 |
 | `lob-*` | 3 | 47 |
 | `section-*` | 2 | 1 |
-| `is-*` | 1 | 9 |
-| `body-*` | 1 | 0 |
-| `sr-*` | 1 | 0 |
 | `sidebar-*` | 1 | 0 |
+| `is-*` | 1 | 9 |
+| `sr-*` | 1 | 0 |
+| `body-*` | 1 | 0 |
 
 ## Per-module vocabulary
 
 | Module | Classes emitted |
 |---|---:|
 | `utility/pages_code/member_overview.py` | 117 |
-| `utility/ui/components.py` | 114 |
+| `utility/ui/components.py` | 116 |
 | `utility/pages_code/corporate.py` | 106 |
 | `utility/pages_code/judiciary.py` | 106 |
 | `utility/pages_code/public_appointments.py` | 69 |
@@ -111,6 +111,7 @@ A React component reproducing one of these families must emit the same names.
 | `utility/pages_code/procurement/page.py` | 3 |
 | `utility/ui/entity_links.py` | 3 |
 | `utility/pages_code/your_councillors.py` | 2 |
+| `utility/ui/data_integrity_panel.py` | 1 |
 
 ## Migration rule
 

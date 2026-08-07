@@ -1,0 +1,20 @@
+{
+  "schema": "pre-tender-leads-coverage/1",
+  "grain": "one dated source observation about one named project or procurement package",
+  "input_directory": "C:\\tmp\\dail_semistate_minutes_full_20260806\\pre_tender_leads",
+  "source_rows": {
+    "semistate_pre_tender_signals.parquet": 28,
+    "pq_pre_tender_signals.parquet": 27,
+    "council_part8_pre_tender_signals.parquet": 7,
+    "school_sme_opportunities.parquet": 148
+  },
+  "silver_rows": 210,
+  "gold_rows": 210,
+  "area_specific_rows": 197,
+  "current_status_verified_rows": 0,
+  "school_rows": 148,
+  "school_recent_rows": 59,
+  "school_stale_rows": 55,
+  "money_contract": "amount_text is source wording and is never aggregable",
+  "classification_contract": "upstream classifications preserved; no reclassification in promotion"
+}

@@ -75,6 +75,7 @@ URL = "https://api.ted.europa.eu/v3/notices/search"
 H = {"User-Agent": "dail-tracker research probe", "Accept": "application/json"}
 FIELDS = [
     "publication-number",
+    "notice-title",
     "buyer-name",
     "classification-cpv",
     "procedure-type",
@@ -82,7 +83,30 @@ FIELDS = [
     "estimated-value-lot",
     "estimated-value-cur-lot",
     "dispatch-date",
+    "place-of-performance",
 ]
+
+# NUTS3 regions of Ireland (the grain TED actually states — county is not in the feed).
+NUTS3_REGION = {
+    "IE041": "Border",
+    "IE042": "West",
+    "IE051": "Mid-West",
+    "IE052": "South-East",
+    "IE053": "South-West",
+    "IE061": "Dublin",
+    "IE062": "Mid-East",
+    "IE063": "Midland",
+}
+
+
+def first_nuts3(value) -> str | None:
+    """First Irish NUTS3 code in place-of-performance (arrives mixed with country codes)."""
+    values = value if isinstance(value, list) else [value]
+    for item in values:
+        code = str(item or "").strip().upper()
+        if code in NUTS3_REGION:
+            return code
+    return None
 QUERY = "buyer-country=IRL AND notice-type=cn-standard AND publication-date>=20240101"
 PAGE_CAP = 120  # 250/page; ~28k cn-standard notices all-time, ~recent slice when date-floored
 
@@ -209,16 +233,24 @@ def build_rows(raw: list[dict]) -> list[dict]:
         est = to_eur(n.get("estimated-value-lot"))
         date = (n.get("dispatch-date") or "")[:10]
         pub = n.get("publication-number")
+        nuts3 = first_nuts3(n.get("place-of-performance"))
         rows.append(
             {
                 "publication_number": pub,
                 "notice_url": SOURCE["notice_url_template"].format(publication_number=pub) if pub else None,
+                # notice-title arrives language-keyed (eng preferred); None when the API omits it —
+                # downstream must fall back visibly, never invent a title.
+                "title": first_eng(n.get("notice-title")),
                 "buyer_name": first_eng(n.get("buyer-name")) or "?",
                 "cpv_code": cpv0 or None,
                 "cpv_division": CPV_DIV.get(cpv0[:2], "Other/Unknown"),
                 "procedure_type": proc,
                 "is_uncompetitive_procedure": (proc in UNCOMPETITIVE_PROCEDURES) if proc else None,
                 "submission_deadline": _min_date(n.get("deadline-receipt-tender-date-lot")),
+                # NUTS3 place-of-performance as stated; None when the notice states none or
+                # only a country code. Region is the NUTS3 label, never inferred from buyer.
+                "nuts3_code": nuts3,
+                "region": NUTS3_REGION.get(nuts3) if nuts3 else None,
                 "estimated_value_eur": est if est > 0 else None,
                 "currency": first_eng(n.get("estimated-value-cur-lot")) or "EUR",
                 # pre-award estimate — a BUYER ESTIMATE, never an award/payment; never summable.
@@ -258,6 +290,7 @@ def main() -> None:
         "rows_notices": df.height,
         "distinct_notices": int(df["publication_number"].n_unique()),
         "rows_with_estimated_value": int(df["estimated_value_eur"].is_not_null().sum()),
+        "rows_with_title": int(df["title"].is_not_null().sum()),
         "rows_with_deadline": int(df["submission_deadline"].is_not_null().sum()),
         "still_open_by_deadline": n_open,
         "uncompetitive_procedure_rows": int((df["is_uncompetitive_procedure"] == True).sum()),  # noqa: E712

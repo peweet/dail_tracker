@@ -1,7 +1,7 @@
-"""Attendance data access — thin Streamlit wrapper over dail_tracker_core.
+"""Attendance data access — thin framework-neutral cached wrapper over dail_tracker_core.
 
 Retrieval SQL + QueryResult state-handling live in
-``dail_tracker_core.queries.attendance``; this file owns only the Streamlit
+``dail_tracker_core.queries.attendance``; this file owns only framework-neutral
 caching and the small presentation-layer reshaping the page already expected
 (dict of option lists, a readiness bool, a {year: sitting_days} map).
 
@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import duckdb
 import pandas as pd
-import streamlit as st
+from data_access._cache import cache_data, cache_resource
 
 from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import attendance as _q
 
 
-@st.cache_resource
+@cache_resource
 def get_attendance_conn() -> duckdb.DuckDBPyConnection:
     # swallow_errors=True preserves the prior register_views(...) behaviour:
     # a missing optional attendance view degrades that section to its empty
@@ -34,13 +34,13 @@ def get_attendance_conn() -> duckdb.DuckDBPyConnection:
 # ── Retrieval wrappers (caching + presentation reshaping only) ────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def views_ready() -> bool:
     r = _q.summary_probe(get_attendance_conn())
     return r.ok and not r.is_empty
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     conn = get_attendance_conn()
     members = _q.distinct_members(conn, house)
@@ -51,13 +51,13 @@ def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     }
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_missing_members() -> pd.DataFrame:
     """Roster TDs with no row in the attendance parquet (see core docstring)."""
     return _q.missing_members(get_attendance_conn()).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_year_ranking(year: int, house: str = "Dáil") -> pd.DataFrame:
     """Top and bottom attenders for a given year (single-chamber)."""
     return _q.year_ranking(get_attendance_conn(), year, house).data
@@ -70,33 +70,33 @@ def _df(r) -> pd.DataFrame:
     return r.data if (r.ok and not r.is_empty) else pd.DataFrame()
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_participation_years(house: str = "Dáil") -> list[int]:
     r = _q.participation_years(get_attendance_conn(), house)
     return [int(y) for y in r.data["year"].tolist()] if (r.ok and not r.is_empty) else []
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_turnout(year: int, house: str = "Dáil") -> pd.DataFrame:
     return _df(_q.participation_turnout(get_attendance_conn(), year, house))
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_absences(year: int, house: str = "Dáil") -> pd.DataFrame:
     return _df(_q.participation_absences(get_attendance_conn(), year, house))
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_divergence(year: int, house: str = "Dáil") -> pd.DataFrame:
     return _df(_q.participation_divergence(get_attendance_conn(), year, house))
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_taa_compliance(year: int, house: str = "Dáil") -> pd.DataFrame:
     return _df(_q.taa_compliance(get_attendance_conn(), year, house))
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_taa_summary(year: int, house: str = "Dáil") -> dict[str, int]:
     r = _q.taa_compliance_summary(get_attendance_conn(), year, house)
     if not r.ok or r.is_empty:
@@ -105,22 +105,22 @@ def fetch_taa_summary(year: int, house: str = "Dáil") -> dict[str, int]:
     return {k: int(row[k] or 0) for k in ("n_total", "n_cleared", "n_below")}
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_member_participation(unique_member_code: str) -> pd.DataFrame:
     return _df(_q.member_participation(get_attendance_conn(), unique_member_code))
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_member_absences(unique_member_code: str) -> pd.DataFrame:
     return _df(_q.member_absences(get_attendance_conn(), unique_member_code))
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_member_taa(unique_member_code: str) -> pd.DataFrame:
     return _df(_q.member_taa(get_attendance_conn(), unique_member_code))
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_chamber_sitting_days(house: str) -> dict[int, int]:
     """{year: distinct chamber sitting days} — the Seanad attendance-bar denominator."""
     r = _q.chamber_sitting_days(get_attendance_conn(), house)

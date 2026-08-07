@@ -1,11 +1,11 @@
 """
 Member Overview data-access layer — unified DuckDB connection (CORE-BACKED).
 
-Thin Streamlit wrapper. The bespoke 4-phase view registration (ordered domain
+Thin framework-neutral cached wrapper. The bespoke 4-phase view registration (ordered domain
 glob + registry/external-links/vote phases with their parquet-path substitutions)
 now lives in the Streamlit-free ``dail_tracker_core.connections`` so the read-only
 API can build the IDENTICAL connection without importing Streamlit. This module
-just wraps it in ``@st.cache_resource`` (one connection per Streamlit session).
+just wraps it in ``@cache_resource`` (one connection per process/runtime cache).
 
 The four file lists are re-exported under their original ``_``-prefixed names
 because ``test_member_overview_connection_builds`` imports them by name.
@@ -26,7 +26,7 @@ if str(_UTIL) not in sys.path:
     sys.path.insert(0, str(_UTIL))
 
 import duckdb  # noqa: E402
-import streamlit as st  # noqa: E402
+from data_access._cache import cache_resource  # noqa: E402
 
 from dail_tracker_core.connections import (  # noqa: E402
     CONTACT_DETAILS_FILES,
@@ -45,6 +45,6 @@ _CONTACT_DETAILS_FILES = CONTACT_DETAILS_FILES
 _VOTE_FILES = VOTE_FILES
 
 
-@st.cache_resource
+@cache_resource
 def get_member_overview_conn() -> duckdb.DuckDBPyConnection:
     return member_overview_conn()

@@ -51,7 +51,7 @@ LOG_PATH = REPO / "logs" / "cost_of_change.jsonl"
 
 # Candidate -> (prompt file, primary file whose LoC is the leading metric)
 CANDIDATES = {
-    "C1": ("C1_shared_css.md", "utility/shared_css.py"),
+    "C1": ("C1_shared_css.md", "utility/static/dailtracker.css"),
     "C2": ("C2_procurement_page.md", "utility/pages_code/procurement.py"),
     "C3": ("C3_member_overview.md", "utility/pages_code/member_overview.py"),
     "C4": ("C4_ui_components.md", "utility/ui/components.py"),

@@ -26,3 +26,10 @@
 {"ts": "2026-08-06T18:37:44.533106+00:00", "session": "ae1bb65a-be1", "category": "sql_lineage", "nudged": false, "pattern": "awarded_value|n_awards|contracting_authority"}
 {"ts": "2026-08-06T21:41:19.541375+00:00", "session": "ae1bb65a-be1", "category": "sql_lineage", "nudged": false, "pattern": "v_procurement.*authority|v_.*council.*award"}
 {"ts": "2026-08-06T21:41:22.860923+00:00", "session": "ae1bb65a-be1", "category": "sql_lineage", "nudged": false, "pattern": "Dublin City|Cork City|Galway|local_authority.*publisher_type"}
+{"ts": "2026-08-07T07:44:03.886190+00:00", "session": "7bffecbc-d00", "category": "sql_lineage", "nudged": true, "pattern": "council_minutes|council_ce_reports|councillors_promote"}
+{"ts": "2026-08-07T07:44:28.653745+00:00", "session": "7bffecbc-d00", "category": "sql_lineage", "nudged": false, "pattern": "council_ce_reports|council_minutes"}
+{"ts": "2026-08-07T07:44:43.698714+00:00", "session": "7bffecbc-d00", "category": "sql_lineage", "nudged": false, "pattern": "derelict_sites_levy|noac_collection|housing_wide"}
+{"ts": "2026-08-07T08:03:34.846633+00:00", "session": "34909926-eba", "category": "sql_lineage", "nudged": true, "pattern": "v_la_plan_directions"}
+{"ts": "2026-08-07T08:16:50.500319+00:00", "session": "34909926-eba", "category": "py_refs", "nudged": true, "pattern": "planning_alert_source_registry"}
+{"ts": "2026-08-07T08:19:13.080078+00:00", "session": "34909926-eba", "category": "py_refs", "nudged": false, "pattern": "planning_alert_source_registry"}
+{"ts": "2026-08-07T08:38:21.976549+00:00", "session": "31b35e26-97b", "category": "py_refs", "nudged": true, "pattern": "use_class"}

@@ -41,13 +41,23 @@ BASELINE = PROJECT_ROOT / "tools" / "baselines" / "api_parity_baseline.txt"
 
 # Domains deliberately out of scope. Siting is a beta feature whose API shape
 # (a POST compute endpoint, not a GET read) is a separate design question.
-EXCLUDED_MODULES = {"siting"}
+EXCLUDED_MODULES = {
+    "siting",
+    # Private PublicSignal composition. These evidence bundles are intentionally
+    # not part of the open public API; exposing them would be a product-scope change.
+    "procurement/opportunities",
+}
 
 # Helpers that are plumbing, not retrieval.
 EXCLUDED_FUNCS = {"main", "register", "build", "connect"}
 
 QUERY_PACKAGE = "dail_tracker_core.queries"
 type Symbol = tuple[str, str]
+
+
+def module_is_excluded(module: str) -> bool:
+    """Match an exact private module or an explicitly excluded top-level domain."""
+    return module in EXCLUDED_MODULES or module.split("/", 1)[0] in EXCLUDED_MODULES
 
 
 class AnalysisError(RuntimeError):
@@ -236,7 +246,7 @@ def analyse() -> tuple[list[tuple[str, str, int]], set[Symbol], list[tuple[str, 
     defined: list[tuple[str, str, int]] = []
     for path in query_files:
         for module, name, lineno in public_functions(path):
-            if module.split("/")[0] not in EXCLUDED_MODULES:
+            if not module_is_excluded(module):
                 defined.append((module, name, lineno))
 
     exports = query_exports(query_files, modules)

@@ -47,6 +47,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 import ssl
@@ -185,6 +186,56 @@ SOURCES: list[dict] = [
 ]
 
 
+# ── CE report sources (monthly grain, generated) ────────────────────────────
+# Council Chief Executive monthly reports are the same orphan shape: harvested by a
+# bespoke sandbox script (ce_report_harvest.py), never in pipeline.py, so a new month
+# lands upstream and nothing notices. Entries are GENERATED, not hand-listed: the seed
+# registry names the confirmed landing pages and the harvest manifest says the newest
+# month we hold per council — so held_through tracks ingests with no manual bumping.
+CE_SEEDS = PROJECT_ROOT / "pipeline_sandbox" / "council_minutes" / "ce_report_seeds.csv"
+CE_MANIFEST = PROJECT_ROOT / "pipeline_sandbox" / "council_minutes" / "ce_reports_manifest.jsonl"
+_CE_MUST_MATCH = r"chief[\s_-]*executive|ce[\s_-]*(?:monthly[\s_-]*)?report|management[\s_-]*report"
+
+
+def _ce_report_sources() -> list[dict]:
+    """One monthly source per confirmed council; [] when the lane's files are absent."""
+    if not CE_SEEDS.exists():
+        return []
+    held: dict[str, tuple[int, int]] = {}
+    if CE_MANIFEST.exists():
+        for line in CE_MANIFEST.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            month = str(record.get("report_month") or "")
+            council = str(record.get("council") or "")
+            if council and re.fullmatch(r"20\d{2}-\d{2}", month):
+                year, mon = int(month[:4]), int(month[5:7])
+                held[council] = max(held.get(council, (0, 0)), (year, mon))
+    out: list[dict] = []
+    with CE_SEEDS.open(encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            if row.get("status") != "confirmed":
+                continue
+            council = row["local_authority"]
+            slug = re.sub(r"[^a-z0-9]+", "_", council.lower()).strip("_")
+            out.append(
+                {
+                    "id": f"ce_{slug}",
+                    "name": f"{council} CE reports",
+                    "grain": "monthly",
+                    "check": "auto",
+                    "listing_urls": [row["seed_url"]],
+                    "must_match": _CE_MUST_MATCH,
+                    # (0, 0) = we hold nothing for this council; any month found is FRESH.
+                    "held_through": list(held.get(council, (0, 0))),
+                    "coverage": "data/_meta/council_ce_reports_corpus_coverage.json",
+                    "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+                }
+            )
+    return out
+
+
 # ── fetch (browser UA + curl fallback, like the public-body crawler) ─────────
 def _fetch(url: str) -> tuple[str | None, str | None]:
     """Return (html, error). Tries urllib with a browser UA, then curl -k (which
@@ -218,6 +269,27 @@ _PAT_QY = re.compile(r"Q\s*([1-4])[\s_/.-]*((?:19|20)\d{2})", re.I)
 _PAT_YQ = re.compile(r"((?:19|20)\d{2})[\s_/.-]*Q\s*([1-4])", re.I)
 _PAT_QUARTER = re.compile(r"quarter[\s_/.-]*([1-4])[\s_/.-]*((?:19|20)\d{2})", re.I)
 _PAT_YEAR = re.compile(r"(20\d{2})")
+# Monthly periods (CE reports). Mirrors the filename conventions the harvester's
+# report_month() accepts (pipeline_sandbox/council_minutes/ce_report_harvest.py) —
+# "March-2026", "2026-03", and the Carlow-style "26-06" — but re-implemented here
+# because this tool is deliberately stdlib-only and the harvester imports bs4/fitz.
+# The harvester stays the authority at ingest time; this only detects "newer exists".
+_MONTH_NAMES = {
+    name: index
+    for index, name in enumerate(
+        ("january", "february", "march", "april", "may", "june", "july",
+         "august", "september", "october", "november", "december"),
+        start=1,
+    )
+}
+_PAT_MY = re.compile(
+    r"\b(" + "|".join(_MONTH_NAMES) + r")[a-z]*[\s_/.,-]{0,3}((?:20)\d{2})", re.I
+)
+_PAT_YM_NAME = re.compile(
+    r"((?:20)\d{2})[\s_/.,-]{0,3}\b(" + "|".join(_MONTH_NAMES) + r")", re.I
+)
+_PAT_YM_NUM = re.compile(r"(?<!\d)(20\d{2})[-_/.](0[1-9]|1[0-2])(?!\d)")
+_PAT_YM_NUM2 = re.compile(r"(?<!\d)(1[5-9]|2\d|3[0-5])[-_](0[1-9]|1[0-2])(?!\d)")
 
 
 def _pdf_links(html: str, must_match: str | None) -> list[tuple[str, str]]:
@@ -245,10 +317,31 @@ def _years(text: str) -> set[int]:
     return {int(y) for y in _PAT_YEAR.findall(text)}
 
 
-def _fmt_q(p) -> str:
+def _months(text: str) -> set[tuple[int, int]]:
+    """(year, month) pairs from one link's href+text blob.
+
+    Adjacency is required (name next to year), unlike the harvester's looser
+    whole-string search: a listing page blob is noisier than a single filename,
+    and a cross-product of stray years and month names would invent periods.
+    """
+    out: set[tuple[int, int]] = set()
+    out.update(
+        (int(m.group(2)), _MONTH_NAMES[m.group(1).lower()]) for m in _PAT_MY.finditer(text)
+    )
+    out.update(
+        (int(m.group(1)), _MONTH_NAMES[m.group(2).lower()]) for m in _PAT_YM_NAME.finditer(text)
+    )
+    out.update((int(m.group(1)), int(m.group(2))) for m in _PAT_YM_NUM.finditer(text))
+    out.update((2000 + int(m.group(1)), int(m.group(2))) for m in _PAT_YM_NUM2.finditer(text))
+    return out
+
+
+def _fmt_q(p, grain: str | None = None) -> str:
     if p is None:
         return "--"
     if isinstance(p, (list, tuple)) and len(p) == 2:
+        if grain == "monthly":
+            return f"{p[0]}-{p[1]:02d}"
         return f"{p[0]}-Q{p[1]}"
     if isinstance(p, (list, tuple)) and len(p) == 1:
         return f"{p[0]}"
@@ -317,6 +410,25 @@ def _evaluate_source(src: dict) -> dict:
         new = sorted(p for p in found if p > held)
         row["new_periods"] = [list(p) for p in new]
         row["status"] = "FRESH" if new else "CURRENT"
+    elif src["grain"] == "monthly":
+        found_m: set[tuple[int, int]] = set()
+        for href, text in links:
+            found_m |= _months(f"{href} {text}")
+        # A month later than the run date cannot be a published report — it is pattern
+        # noise (first live run: a Leitrim href yielded "2026-12" in 2026-08). Quarterly
+        # sources never needed this guard; month-shaped digit pairs are far commoner.
+        today = datetime.now(UTC)
+        found_m = {p for p in found_m if p <= (today.year, today.month)}
+        if not found_m:
+            row["status"] = "NO_PERIODS"
+            if errors:
+                row["error"] = "; ".join(errors)
+            return row
+        newest_m = max(found_m)
+        row["upstream_newest"] = list(newest_m)
+        new_m = sorted(p for p in found_m if p > held)
+        row["new_periods"] = [list(p) for p in new_m]
+        row["status"] = "FRESH" if new_m else "CURRENT"
     else:  # annual
         found_y: set[int] = set()
         for href, text in links:
@@ -343,7 +455,7 @@ _PROBLEM = {"FRESH", "UNREACHABLE", "NO_PERIODS"}
 
 
 def poll() -> dict:
-    rows = [_evaluate_source(s) for s in SOURCES]
+    rows = [_evaluate_source(s) for s in SOURCES + _ce_report_sources()]
     problems = [r["id"] for r in rows if r["status"] in _PROBLEM]
     fresh = [r["id"] for r in rows if r["status"] == "FRESH"]
     return {
@@ -358,11 +470,11 @@ def _print_table(rollup: dict) -> None:
     print(f"procurement source poll @ {rollup['generated_at']}")
     print(f"  {'source':<22} {'status':<11} {'held':<10} {'upstream':<10} new / note")
     for r in rollup["sources"]:
-        new = ", ".join(_fmt_q(p) for p in r["new_periods"])
+        new = ", ".join(_fmt_q(p, r.get("grain")) for p in r["new_periods"])
         tail = new or r.get("note") or r.get("error") or ""
         print(
-            f"  {r['id']:<22} {r['status']:<11} {_fmt_q(r['held_through']):<10} "
-            f"{_fmt_q(r['upstream_newest']):<10} {tail}"
+            f"  {r['id']:<22} {r['status']:<11} {_fmt_q(r['held_through'], r.get('grain')):<10} "
+            f"{_fmt_q(r['upstream_newest'], r.get('grain')):<10} {tail}"
         )
     fresh = rollup["fresh_sources"]
     if fresh:

@@ -1,7 +1,7 @@
-"""Committees data access — thin Streamlit wrapper over dail_tracker_core.
+"""Committees data access — thin framework-neutral cached wrapper over dail_tracker_core.
 
 Retrieval SQL + QueryResult state-handling live in
-``dail_tracker_core.queries.committees``; this file owns the Streamlit caching
+``dail_tracker_core.queries.committees``; this file owns framework-neutral caching
 and the one-shot party_seats JSON decode + DECIMAL->int casts on the small
 summary frame (a presentation decode, not a rollup — unchanged from before).
 
@@ -15,18 +15,18 @@ import json
 
 import duckdb
 import pandas as pd
-import streamlit as st
+from data_access._cache import cache_data, cache_resource
 
 from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import committees as _q
 
 
-@st.cache_resource
+@cache_resource
 def get_committees_conn() -> duckdb.DuckDBPyConnection:
     return domain_conn("committees")
 
 
-@st.cache_resource
+@cache_resource
 def get_committee_evidence_conn() -> duckdb.DuckDBPyConnection:
     """Separate connection for the meeting-history view (reads gold).
 
@@ -38,19 +38,19 @@ def get_committee_evidence_conn() -> duckdb.DuckDBPyConnection:
     return get_committees_conn()
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@cache_data(ttl=3600, show_spinner=False)
 def fetch_committee_assignments(chamber: str) -> pd.DataFrame:
     """One row per (member × committee) for the chamber."""
     return _q.assignments(get_committees_conn(), chamber).data
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@cache_data(ttl=3600, show_spinner=False)
 def fetch_office_holders(chamber: str) -> pd.DataFrame:
     """One row per (member × office)."""
     return _q.office_holders(get_committees_conn(), chamber).data
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@cache_data(ttl=3600, show_spinner=False)
 def fetch_committee_summary(chamber: str) -> pd.DataFrame:
     """Per-committee rollup; decodes party_seats_json into a list of (party, seats)
     tuples and casts the DECIMAL counts to int (one-shot shaping on a ≤100-row
@@ -68,13 +68,13 @@ def fetch_committee_summary(chamber: str) -> pd.DataFrame:
     return df.drop(columns=["party_seats_json"])
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@cache_data(ttl=3600, show_spinner=False)
 def fetch_party_seats(chamber: str, committee: str | None = None) -> pd.DataFrame:
     """Long-format party seats per committee; optionally filtered to one committee."""
     return _q.party_seats(get_committees_conn(), chamber, committee).data
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@cache_data(ttl=3600, show_spinner=False)
 def fetch_committee_meetings(committee: str, limit: int = 60) -> pd.DataFrame:
     """Reverse-chron meeting history for one committee (date · topics · witnesses ·
     transcript link). Empty frame when the committee has no extracted meetings yet

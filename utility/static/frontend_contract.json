@@ -1,0 +1,1839 @@
+{
+  "acceptance_rules": [
+    "preserve_existing_route_paths",
+    "preserve_existing_query_parameter_names",
+    "preserve_styled_class_names_or_change_markup_and_css_together",
+    "match_shared_stylesheet_sha256_for_byte_identical_reuse",
+    "account_for_every_page_local_stylesheet"
+  ],
+  "routing": {
+    "query_parameters": [
+      {
+        "emitters": [],
+        "name": "att_td",
+        "owners": [
+          "utility/pages_code/attendance.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/procurement/_shared.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "authority",
+        "owners": [
+          "utility/pages_code/procurement/page.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/ui/entity_links.py"
+        ],
+        "name": "bill",
+        "owners": [
+          "utility/pages_code/legislation.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/ui/entity_links.py"
+        ],
+        "name": "buyer",
+        "owners": [
+          "utility/pages_code/body.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/election_2024.py"
+        ],
+        "name": "cand",
+        "owners": [
+          "utility/pages_code/election_2024.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/public_payments.py"
+        ],
+        "name": "category",
+        "owners": [
+          "utility/pages_code/public_payments.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/corporate.py",
+          "utility/pages_code/public_appointments.py",
+          "utility/pages_code/statutory_instruments.py"
+        ],
+        "name": "clear",
+        "owners": [
+          "utility/pages_code/corporate.py",
+          "utility/pages_code/public_appointments.py",
+          "utility/pages_code/statutory_instruments.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/your_council.py"
+        ],
+        "name": "clr_county",
+        "owners": [
+          "utility/pages_code/your_councillors.py"
+        ]
+      },
+      {
+        "emitters": [],
+        "name": "clr_lea",
+        "owners": [
+          "utility/pages_code/your_councillors.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/your_council.py"
+        ],
+        "name": "clr_name",
+        "owners": [
+          "utility/pages_code/your_councillors.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/committees.py"
+        ],
+        "name": "committee",
+        "owners": [
+          "utility/pages_code/committees.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/constituency.py"
+        ],
+        "name": "constituency",
+        "owners": [
+          "utility/pages_code/constituency.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/constituency.py",
+          "utility/pages_code/your_council.py"
+        ],
+        "name": "council",
+        "owners": [
+          "utility/pages_code/constituency.py",
+          "utility/pages_code/your_council.py"
+        ]
+      },
+      {
+        "emitters": [],
+        "name": "county",
+        "owners": [
+          "utility/pages_code/housing.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/judiciary.py"
+        ],
+        "name": "court",
+        "owners": [
+          "utility/pages_code/judiciary.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/procurement/_shared.py"
+        ],
+        "name": "cpv",
+        "owners": [
+          "utility/pages_code/procurement/page.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/ministerial_diaries.py"
+        ],
+        "name": "dept",
+        "owners": [
+          "utility/pages_code/ministerial_diaries.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/election_2024.py"
+        ],
+        "name": "dparty",
+        "owners": [
+          "utility/pages_code/election_2024.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/election_2024.py"
+        ],
+        "name": "eparty",
+        "owners": [
+          "utility/pages_code/election_2024.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/corporate.py"
+        ],
+        "name": "firm",
+        "owners": [
+          "utility/pages_code/corporate.py"
+        ]
+      },
+      {
+        "emitters": [],
+        "name": "flow_group",
+        "owners": [
+          "utility/pages_code/follow_the_money.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/company.py"
+        ],
+        "name": "flow_supplier_lines",
+        "owners": [
+          "utility/pages_code/follow_the_money.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/ui/components.py"
+        ],
+        "name": "from",
+        "owners": [
+          "utility/pages_code/votes.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/corporate.py"
+        ],
+        "name": "fund",
+        "owners": [
+          "utility/pages_code/corporate.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/election_2024.py"
+        ],
+        "name": "gparty",
+        "owners": [
+          "utility/pages_code/election_2024.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/judiciary.py"
+        ],
+        "name": "judge",
+        "owners": [
+          "utility/pages_code/judiciary.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/local_government.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "la",
+        "owners": [
+          "utility/pages_code/local_government.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/lobbying_3.py"
+        ],
+        "name": "lp3_area",
+        "owners": [
+          "utility/pages_code/lobbying_3.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/lobbying_3.py"
+        ],
+        "name": "lp3_dpo",
+        "owners": [
+          "utility/pages_code/lobbying_3.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/lobbying_3.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "lp3_org",
+        "owners": [
+          "utility/pages_code/lobbying_3.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/lobbying_3.py"
+        ],
+        "name": "lp3_orgindex",
+        "owners": [
+          "utility/pages_code/lobbying_3.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/lobbying_3.py"
+        ],
+        "name": "lp3_pol",
+        "owners": [
+          "utility/pages_code/lobbying_3.py"
+        ]
+      },
+      {
+        "emitters": [],
+        "name": "lp3_rd",
+        "owners": [
+          "utility/pages_code/lobbying_3.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/lobbying_3.py"
+        ],
+        "name": "lp3_result_pol",
+        "owners": [
+          "utility/pages_code/lobbying_3.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/lobbying_3.py"
+        ],
+        "name": "lp3_topic",
+        "owners": [
+          "utility/pages_code/lobbying_3.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/member_overview.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "member",
+        "owners": [
+          "utility/pages_code/attendance.py",
+          "utility/pages_code/committees.py",
+          "utility/pages_code/member_overview.py",
+          "utility/pages_code/payments.py",
+          "utility/pages_code/votes.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/ministerial_diaries.py"
+        ],
+        "name": "minister",
+        "owners": [
+          "utility/pages_code/ministerial_diaries.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/member_overview.py"
+        ],
+        "name": "mo_q_topic",
+        "owners": [
+          "utility/pages_code/member_overview.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/ministerial_diaries.py"
+        ],
+        "name": "org",
+        "owners": [
+          "utility/pages_code/ministerial_diaries.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/procurement/_shared.py",
+          "utility/pages_code/procurement/payments.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "paid_publisher",
+        "owners": [
+          "utility/pages_code/council_spending.py",
+          "utility/pages_code/follow_the_money.py",
+          "utility/pages_code/procurement/page.py",
+          "utility/pages_code/your_council.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/procurement/_shared.py"
+        ],
+        "name": "paid_supplier",
+        "owners": [
+          "utility/pages_code/council_spending.py",
+          "utility/pages_code/follow_the_money.py",
+          "utility/pages_code/procurement/page.py",
+          "utility/pages_code/procurement/pay_profiles.py",
+          "utility/pages_code/your_council.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/company.py",
+          "utility/pages_code/procurement/_shared.py",
+          "utility/pages_code/procurement/payments.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "paid_tier",
+        "owners": [
+          "utility/pages_code/council_spending.py",
+          "utility/pages_code/follow_the_money.py",
+          "utility/pages_code/procurement/page.py",
+          "utility/pages_code/procurement/pay_profiles.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/ui/payments_panel.py"
+        ],
+        "name": "payyr",
+        "owners": [
+          "utility/ui/payments_panel.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/public_payments.py"
+        ],
+        "name": "pp",
+        "owners": [
+          "utility/pages_code/public_payments.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/public_payments.py"
+        ],
+        "name": "publisher",
+        "owners": [
+          "utility/pages_code/public_payments.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/corporate.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "q",
+        "owners": [
+          "utility/pages_code/corporate.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/corporate.py",
+          "utility/pages_code/public_appointments.py"
+        ],
+        "name": "ref",
+        "owners": [
+          "utility/pages_code/corporate.py",
+          "utility/pages_code/public_appointments.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/ui/entity_links.py"
+        ],
+        "name": "reg",
+        "owners": [
+          "utility/pages_code/procurement/_shared.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/member_overview.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "section",
+        "owners": [
+          "utility/pages_code/member_overview.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/statutory_instruments.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "si",
+        "owners": [
+          "utility/pages_code/statutory_instruments.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/procurement/_shared.py"
+        ],
+        "name": "single_bid_cpv",
+        "owners": [
+          "utility/pages_code/procurement/page.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/corporate.py",
+          "utility/pages_code/public_appointments.py"
+        ],
+        "name": "spark",
+        "owners": [
+          "utility/pages_code/corporate.py",
+          "utility/pages_code/public_appointments.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/company.py",
+          "utility/pages_code/public_payments.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "supplier",
+        "owners": [
+          "utility/pages_code/company.py",
+          "utility/pages_code/procurement/page.py",
+          "utility/pages_code/public_payments.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/housing.py",
+          "utility/ui/entity_links.py"
+        ],
+        "name": "tab",
+        "owners": [
+          "utility/pages_code/housing.py",
+          "utility/pages_code/procurement/_shared.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/ui/entity_links.py"
+        ],
+        "name": "ted_winner",
+        "owners": [
+          "utility/pages_code/procurement/page.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/election_2024.py"
+        ],
+        "name": "view",
+        "owners": [
+          "utility/pages_code/election_2024.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/ui/entity_links.py"
+        ],
+        "name": "vote",
+        "owners": [
+          "utility/pages_code/votes.py"
+        ]
+      },
+      {
+        "emitters": [
+          "utility/pages_code/your_council.py"
+        ],
+        "name": "yc",
+        "owners": [
+          "utility/pages_code/your_council.py"
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "module": "pages_code.accommodation_spend",
+        "path": "/accommodation-spend",
+        "title": "Accommodation Spend"
+      },
+      {
+        "module": "pages_code.body",
+        "path": "/body",
+        "title": "Public bodies"
+      },
+      {
+        "module": "pages_code.company",
+        "path": "/company",
+        "title": "Companies"
+      },
+      {
+        "module": "pages_code.constituency",
+        "path": "/constituencies",
+        "title": "Constituencies"
+      },
+      {
+        "module": "pages_code.follow_the_money",
+        "path": "/follow-the-money",
+        "title": "Follow the Money"
+      },
+      {
+        "module": "pages_code.glossary",
+        "path": "/glossary",
+        "title": "Glossary"
+      },
+      {
+        "module": "_home_page",
+        "path": "/home",
+        "title": "Home"
+      },
+      {
+        "module": "pages_code.housing",
+        "path": "/housing",
+        "title": "Housing"
+      },
+      {
+        "module": "pages_code.local_government",
+        "path": "/local-government",
+        "title": "Who Runs Your County"
+      },
+      {
+        "module": "pages_code.member_overview",
+        "path": "/member-overview",
+        "title": "Member Overview"
+      },
+      {
+        "module": "pages_code.public_appointments",
+        "path": "/rankings-appointments",
+        "title": "Appointments"
+      },
+      {
+        "module": "pages_code.attendance",
+        "path": "/rankings-attendance",
+        "title": "Attendance"
+      },
+      {
+        "module": "pages_code.committees",
+        "path": "/rankings-committees",
+        "title": "Committees"
+      },
+      {
+        "module": "pages_code.corporate",
+        "path": "/rankings-corporate",
+        "title": "Corporate Notices"
+      },
+      {
+        "module": "pages_code.council_spending",
+        "path": "/rankings-council-spending",
+        "title": "Council Spending"
+      },
+      {
+        "module": "pages_code.election_2024",
+        "path": "/rankings-election-spending",
+        "title": "Election Finance"
+      },
+      {
+        "module": "_interests_redirect_page",
+        "path": "/rankings-interests",
+        "title": "Interests"
+      },
+      {
+        "module": "pages_code.judiciary",
+        "path": "/rankings-judiciary",
+        "title": "Courts & Judiciary"
+      },
+      {
+        "module": "pages_code.legislation",
+        "path": "/rankings-legislation",
+        "title": "Legislation"
+      },
+      {
+        "module": "pages_code.lobbying_3",
+        "path": "/rankings-lobbying",
+        "title": "Lobbying"
+      },
+      {
+        "module": "pages_code.ministerial_diaries",
+        "path": "/rankings-ministerial-diaries",
+        "title": "Who Ministers Meet"
+      },
+      {
+        "module": "pages_code.payments",
+        "path": "/rankings-payments",
+        "title": "TD Payments"
+      },
+      {
+        "module": "pages_code.procurement",
+        "path": "/rankings-procurement",
+        "title": "Procurement"
+      },
+      {
+        "module": "pages_code.public_payments",
+        "path": "/rankings-public-payments",
+        "title": "Public Payments"
+      },
+      {
+        "module": "pages_code.statutory_instruments",
+        "path": "/rankings-statutory-instruments",
+        "title": "Statutory Instruments"
+      },
+      {
+        "module": "pages_code.votes",
+        "path": "/rankings-votes",
+        "title": "Votes"
+      },
+      {
+        "module": "pages_code.support",
+        "path": "/support",
+        "title": "Support"
+      },
+      {
+        "module": "pages_code.what_they_own",
+        "path": "/what-they-own",
+        "title": "What They Own"
+      },
+      {
+        "module": "pages_code.your_council",
+        "path": "/your-council",
+        "title": "Your Council"
+      },
+      {
+        "module": "pages_code.your_councillors",
+        "path": "/your-councillors",
+        "title": "Your Councillors"
+      }
+    ]
+  },
+  "schema_version": 1,
+  "sources": {
+    "class_report": "doc/CLASS_CONTRACT.md",
+    "routes": "utility/app.py",
+    "shared_stylesheet": "utility/static/dailtracker.css",
+    "url_report": "doc/URL_CONTRACT.md"
+  },
+  "styling": {
+    "dynamic_class_stems": [
+      "si-amends-eff--",
+      "si-legal--"
+    ],
+    "emitter_modules": [
+      "utility/pages_code/accommodation_spend.py",
+      "utility/pages_code/attendance.py",
+      "utility/pages_code/body.py",
+      "utility/pages_code/committees.py",
+      "utility/pages_code/company.py",
+      "utility/pages_code/constituency.py",
+      "utility/pages_code/corporate.py",
+      "utility/pages_code/election_2024.py",
+      "utility/pages_code/follow_the_money.py",
+      "utility/pages_code/glossary.py",
+      "utility/pages_code/housing.py",
+      "utility/pages_code/judiciary.py",
+      "utility/pages_code/legislation.py",
+      "utility/pages_code/lobbying_3.py",
+      "utility/pages_code/local_government.py",
+      "utility/pages_code/member_overview.py",
+      "utility/pages_code/ministerial_diaries.py",
+      "utility/pages_code/payments.py",
+      "utility/pages_code/procurement/_shared.py",
+      "utility/pages_code/procurement/browse.py",
+      "utility/pages_code/procurement/councils.py",
+      "utility/pages_code/procurement/national.py",
+      "utility/pages_code/procurement/page.py",
+      "utility/pages_code/procurement/patterns.py",
+      "utility/pages_code/procurement/pay_profiles.py",
+      "utility/pages_code/procurement/payments.py",
+      "utility/pages_code/procurement/profiles.py",
+      "utility/pages_code/procurement/ted.py",
+      "utility/pages_code/procurement/tenders.py",
+      "utility/pages_code/public_appointments.py",
+      "utility/pages_code/public_payments.py",
+      "utility/pages_code/statutory_instruments.py",
+      "utility/pages_code/votes.py",
+      "utility/pages_code/your_council.py",
+      "utility/pages_code/your_councillors.py",
+      "utility/shared_css.py",
+      "utility/ui/attendance_panel.py",
+      "utility/ui/components.py",
+      "utility/ui/data_integrity_panel.py",
+      "utility/ui/entity_links.py",
+      "utility/ui/interests_panel.py",
+      "utility/ui/payments_panel.py",
+      "utility/ui/vote_explorer.py"
+    ],
+    "page_local_stylesheets": [
+      {
+        "bytes": 31669,
+        "module": "utility/pages_code/corporate.py",
+        "sha256": "9aad4e4e56f4dcbf81aa814e953c5d58dff44f6fe71c918f61cb471029a921e5"
+      },
+      {
+        "bytes": 864,
+        "module": "utility/pages_code/election_2024.py",
+        "sha256": "0bfce673c15457381cd931c2bfb17a30a83e3cd307d80b67f064427868e1ec38"
+      },
+      {
+        "bytes": 15096,
+        "module": "utility/pages_code/judiciary.py",
+        "sha256": "54483867c1989eae96ca9d6c88507aaa761060f34a4da64d02196e5e54d01a1b"
+      },
+      {
+        "bytes": 1638,
+        "module": "utility/pages_code/procurement/patterns.py",
+        "sha256": "1ade82a316f8bdb5092399e61a341487b7c6c8ac3c35df0d28942d7eb4f261f4"
+      },
+      {
+        "bytes": 15724,
+        "module": "utility/pages_code/public_appointments.py",
+        "sha256": "55bdbd4c46b5d86cfac8e5cc7709752f09119ad50658c47dea831e2822231c95"
+      },
+      {
+        "bytes": 12780,
+        "module": "utility/pages_code/statutory_instruments.py",
+        "sha256": "94dd34407cdde5fdcff7108475daea43368636a8b6e6d8ca0d607deea871d095"
+      },
+      {
+        "bytes": 4514,
+        "module": "utility/pages_code/your_council.py",
+        "sha256": "b352f4e8aaaa5e00ba0431d01b5679dd40471e6292c9dc9892a86a851f05be92"
+      },
+      {
+        "bytes": 207,
+        "module": "utility/ui/components.py",
+        "sha256": "182ce804aed669a4351d2e61647b28146be9b8f3cbf6bcaf2d1270d00bc7faa9"
+      }
+    ],
+    "shared_stylesheet": {
+      "bytes": 249003,
+      "path": "utility/static/dailtracker.css",
+      "sha256": "abbd033236c64e2262ca8be28109bb234116b51db8e6d7c4c3abb92dd9e96cda"
+    },
+    "styled_classes": [
+      "amt",
+      "assign",
+      "att-year-bar-fill",
+      "att-year-bar-track",
+      "att-year-days",
+      "att-year-list",
+      "att-year-pct",
+      "att-year-row",
+      "att-year-yr",
+      "body",
+      "body-prefix",
+      "bs-band-cap",
+      "bs-band-cap2",
+      "bs-band-lab",
+      "bs-card",
+      "bs-code",
+      "bs-head",
+      "bs-name",
+      "bs-row",
+      "bs-rows",
+      "bs-tot",
+      "bs-track",
+      "bs-warn",
+      "cmt-identity",
+      "cmt-identity-head",
+      "cmt-identity-links",
+      "cmt-identity-meta",
+      "cmt-identity-name",
+      "cmt-legend",
+      "cmt-legend-dot",
+      "cmt-legend-item",
+      "cmt-meeting-card",
+      "cmt-meeting-date",
+      "cmt-meeting-head",
+      "cmt-meeting-list",
+      "cmt-meeting-transcript",
+      "cmt-meeting-witnesses",
+      "cmt-row",
+      "cmt-row-body",
+      "cmt-row-head",
+      "cmt-row-meta",
+      "cmt-row-name",
+      "cmt-row-rank",
+      "cmt-row-status",
+      "cmt-stripe",
+      "cmt-stripe-legend",
+      "cmt-stripe-legend-dot",
+      "cmt-stripe-seg",
+      "cmt-topic-list",
+      "cmt-w-label",
+      "cmt-w-none",
+      "con-card-grid",
+      "con-card-inner",
+      "con-card-meta",
+      "con-card-name",
+      "con-card-sub",
+      "con-choro",
+      "con-choro-end",
+      "con-choro-legend",
+      "con-choro-sw",
+      "con-choropleth",
+      "con-council-card",
+      "con-council-empty",
+      "con-council-grid",
+      "con-council-name",
+      "con-council-note",
+      "con-council-partial",
+      "con-div-bar",
+      "con-div-block",
+      "con-div-head",
+      "con-div-name",
+      "con-div-row",
+      "con-div-track",
+      "con-div-val",
+      "con-div-wrap",
+      "con-grain",
+      "con-grain-cap",
+      "con-grain-comp",
+      "con-grain-perf",
+      "con-grain-po",
+      "con-grain-price",
+      "con-grain-rev",
+      "con-grain-row",
+      "con-grain-ssha",
+      "con-grain-vac",
+      "con-grain-wait",
+      "con-hero",
+      "con-hero-map",
+      "con-hero-meta",
+      "con-hero-text",
+      "con-hero-title",
+      "con-locator",
+      "con-party-bar",
+      "con-section-note",
+      "corp-active-bar",
+      "corp-active-chip",
+      "corp-active-chip-all",
+      "corp-active-chip-x",
+      "corp-active-label",
+      "corp-card",
+      "corp-card-date",
+      "corp-card-link",
+      "corp-card-meta",
+      "corp-card-who",
+      "corp-cbi-count",
+      "corp-cbi-count-routine",
+      "corp-cbi-h",
+      "corp-cbi-kicker",
+      "corp-cbi-name",
+      "corp-cbi-panel",
+      "corp-cbi-refno",
+      "corp-cbi-reg",
+      "corp-cbi-row",
+      "corp-cbi-row-head",
+      "corp-cbi-sub",
+      "corp-cbi-tag",
+      "corp-detail",
+      "corp-detail-label",
+      "corp-detail-raw",
+      "corp-detail-raw-kicker",
+      "corp-detail-ref",
+      "corp-detail-row",
+      "corp-detail-title",
+      "corp-detail-val",
+      "corp-featured",
+      "corp-featured-h",
+      "corp-featured-kicker",
+      "corp-featured-sub",
+      "corp-firm-bar",
+      "corp-firm-caveat",
+      "corp-firm-count",
+      "corp-firm-grid",
+      "corp-firm-h",
+      "corp-firm-head",
+      "corp-firm-kicker",
+      "corp-firm-panel",
+      "corp-firm-panel-h",
+      "corp-firm-row",
+      "corp-firm-row-name",
+      "corp-firm-sub",
+      "corp-meth-brands",
+      "corp-meth-glossary-h",
+      "corp-meth-notes",
+      "corp-meth-parent",
+      "corp-methodology",
+      "corp-methodology-body",
+      "corp-methodology-glossary",
+      "corp-methodology-intro",
+      "corp-methodology-table",
+      "corp-month-h",
+      "corp-operator-chip",
+      "corp-operator-chip-n",
+      "corp-operator-strip",
+      "corp-operator-strip-chips",
+      "corp-operator-strip-context",
+      "corp-operator-strip-h",
+      "corp-operator-strip-tail",
+      "corp-pill",
+      "corp-pill-cbi",
+      "corp-pill-cbi-ref",
+      "corp-pill-fund",
+      "corp-privacy-line",
+      "corp-rank-bar",
+      "corp-rank-count",
+      "corp-rank-name",
+      "corp-rank-row",
+      "corp-rank-typechip",
+      "corp-rescue-grid",
+      "corp-rescue-h",
+      "corp-rescue-item",
+      "corp-rescue-item-date",
+      "corp-rescue-item-firm",
+      "corp-rescue-kicker",
+      "corp-rescue-list",
+      "corp-rescue-list-label",
+      "corp-rescue-panel",
+      "corp-rescue-sub",
+      "corp-rescue-typepill",
+      "corp-rescue-yearbar",
+      "corp-rescue-yearbars",
+      "corp-rescue-yearcount",
+      "corp-rescue-yearrow",
+      "corp-spark-label",
+      "corp-spark-note",
+      "corp-spark-row",
+      "corp-spark-wrap",
+      "corp-spark-years",
+      "corp-thisyear",
+      "corp-thisyear-delta",
+      "corp-thisyear-grid",
+      "corp-thisyear-h",
+      "corp-thisyear-lbl",
+      "corp-thisyear-num",
+      "corp-typebreakdown",
+      "corp-yearcount",
+      "corp-yearcount-h",
+      "corp-yearcount-row",
+      "da",
+      "dn",
+      "don-amount",
+      "don-card",
+      "don-cardfoot",
+      "don-dir",
+      "don-grid",
+      "don-ptitle",
+      "don-receipts",
+      "don-rrow",
+      "don-sub",
+      "don-swatch",
+      "don-vmark",
+      "dot",
+      "dt",
+      "dt-api-footer",
+      "dt-api-link",
+      "dt-badge",
+      "dt-badge-minister",
+      "dt-badge-revolving",
+      "dt-badge-td",
+      "dt-callout",
+      "dt-card-arrow",
+      "dt-card-link",
+      "dt-card-link-wrap",
+      "dt-card-sources",
+      "dt-crumb-current",
+      "dt-crumb-row-marker",
+      "dt-crumb-sep",
+      "dt-dek",
+      "dt-diary-back",
+      "dt-diary-badge",
+      "dt-diary-badges",
+      "dt-diary-card",
+      "dt-diary-eng",
+      "dt-diary-eng-main",
+      "dt-diary-eng-meta",
+      "dt-diary-eng-subj",
+      "dt-diary-hero",
+      "dt-diary-main",
+      "dt-diary-metric",
+      "dt-diary-metrics",
+      "dt-diary-most",
+      "dt-diary-prov",
+      "dt-diary-src",
+      "dt-diary-sub",
+      "dt-diary-title",
+      "dt-entity-cta",
+      "dt-explainer",
+      "dt-explainer-body",
+      "dt-explainer-title",
+      "dt-field-label",
+      "dt-filterbar-marker",
+      "dt-filterbar-rule",
+      "dt-finding-lede",
+      "dt-glossary-list",
+      "dt-glossary-row",
+      "dt-glossary-row-def",
+      "dt-glossary-row-term",
+      "dt-glossary-strip",
+      "dt-glossary-term",
+      "dt-hero",
+      "dt-hero-meta-row",
+      "dt-hero-sep",
+      "dt-icon-chip",
+      "dt-info-card",
+      "dt-kicker",
+      "dt-lede-source",
+      "dt-main-search-kicker",
+      "dt-member-link",
+      "dt-moved-body",
+      "dt-moved-callout",
+      "dt-moved-cta",
+      "dt-moved-fallback",
+      "dt-name-card",
+      "dt-name-card-avatar",
+      "dt-name-card-badge",
+      "dt-name-card-badge-lbl",
+      "dt-name-card-badge-num",
+      "dt-name-card-body",
+      "dt-name-card-initials",
+      "dt-name-card-left",
+      "dt-name-card-meta",
+      "dt-name-card-name",
+      "dt-name-card-pills",
+      "dt-natfin",
+      "dt-natfin-c",
+      "dt-natfin-k",
+      "dt-natfin-v",
+      "dt-nav-anchor",
+      "dt-nav-btn",
+      "dt-outcome-carried",
+      "dt-outcome-lost",
+      "dt-outcome-unknown",
+      "dt-pager",
+      "dt-pager-caption",
+      "dt-pager-current",
+      "dt-pager-ellipsis",
+      "dt-pager-size-label",
+      "dt-profile-avatar",
+      "dt-profile-avatar-col",
+      "dt-profile-avatar-credit",
+      "dt-profile-avatar-empty",
+      "dt-profile-header",
+      "dt-profile-initials",
+      "dt-profile-meta-col",
+      "dt-provenance-box",
+      "dt-source-link",
+      "dt-totals-divider",
+      "dt-totals-item",
+      "dt-totals-lbl",
+      "dt-totals-num",
+      "dt-totals-strip",
+      "dt-vt-abs",
+      "dt-vt-date",
+      "dt-vt-meta",
+      "dt-vt-no",
+      "dt-vt-outcome-carried",
+      "dt-vt-outcome-lost",
+      "dt-vt-outcome-other",
+      "dt-vt-table",
+      "dt-vt-yes",
+      "e24-arrow",
+      "e24-bar",
+      "e24-legend",
+      "e24-map",
+      "e24-nosum",
+      "e24-pcard",
+      "e24-stream",
+      "e24-stream-lbl",
+      "e24-streams",
+      "e24-tabs",
+      "e24-tier",
+      "e24-track",
+      "elev",
+      "esp-catbar",
+      "esp-catlabel",
+      "esp-catrow",
+      "esp-cats",
+      "esp-cattrack",
+      "esp-catval",
+      "esp-icat",
+      "esp-icost",
+      "esp-irow",
+      "esp-items",
+      "esp-ivendor",
+      "f",
+      "flat",
+      "gap",
+      "go",
+      "grain",
+      "hou-chart-label",
+      "hou-crumb",
+      "hou-dim-title",
+      "hou-lead",
+      "int-category-section",
+      "int-diff-badge-new",
+      "int-diff-badge-removed",
+      "int-embedded-badge-strip",
+      "int-empty-cats",
+      "int-highlight-quote",
+      "int-stat-pill-link",
+      "is-recurring",
+      "jd-bar-fill",
+      "jd-bar-track",
+      "jd-card",
+      "jd-case",
+      "jd-case-detail",
+      "jd-case-link",
+      "jd-cat-card",
+      "jd-cat-desc",
+      "jd-cat-label",
+      "jd-cat-n",
+      "jd-cat-tag",
+      "jd-catwrap",
+      "jd-ch",
+      "jd-ch-county",
+      "jd-ch-detail",
+      "jd-ch-grid",
+      "jd-context",
+      "jd-court-head",
+      "jd-court-link",
+      "jd-day-date",
+      "jd-day-head",
+      "jd-day-meta",
+      "jd-dcat",
+      "jd-delta",
+      "jd-digest",
+      "jd-digest-named",
+      "jd-digest-total",
+      "jd-expand-hint",
+      "jd-foot",
+      "jd-grid",
+      "jd-items",
+      "jd-judge",
+      "jd-list",
+      "jd-matter",
+      "jd-meta",
+      "jd-outlier",
+      "jd-party-d",
+      "jd-party-p",
+      "jd-pdot",
+      "jd-pstat",
+      "jd-pstrip",
+      "jd-rank",
+      "jd-rank-body",
+      "jd-rank-n",
+      "jd-rank-sub",
+      "jd-rank-title",
+      "jd-roll",
+      "jd-roll-body",
+      "jd-sched",
+      "jd-sched-court",
+      "jd-sched-head",
+      "jd-sched-item",
+      "jd-sched-list",
+      "jd-sched-meta",
+      "jd-sched-more",
+      "jd-sched-n",
+      "jd-sched-room",
+      "jd-sched-room-name",
+      "jd-section-head",
+      "jd-sit",
+      "jd-sit-matters",
+      "jd-status",
+      "jd-subhead",
+      "jd-timeline",
+      "jd-vs",
+      "jd-wait-court",
+      "jd-wait-ctx",
+      "jd-wait-n",
+      "jd-wait-unit",
+      "jd-wait-weeks",
+      "jud-appt",
+      "jud-arc",
+      "jud-auth",
+      "jud-card",
+      "jud-chip",
+      "jud-chiprow",
+      "jud-foot",
+      "jud-grid",
+      "jud-jn",
+      "jud-ladder",
+      "jud-node-auth",
+      "jud-node-court",
+      "jud-node-date",
+      "jud-node-dot",
+      "jud-node-link",
+      "jud-prof-head",
+      "jud-prof-name",
+      "jud-prof-sub",
+      "jud-rung",
+      "jud-rung-n",
+      "jud-rung-path",
+      "jud-stat",
+      "jud-stat-n",
+      "jud-statwrap",
+      "jud-vac",
+      "jud-vac-cause",
+      "jud-vac-nom",
+      "jud-vac-pred",
+      "lbl",
+      "leg-amend-badge",
+      "leg-amend-breakdown",
+      "leg-amend-count",
+      "leg-amend-label",
+      "leg-bill-badges",
+      "leg-bill-card",
+      "leg-bill-card-date",
+      "leg-bill-card-footer",
+      "leg-bill-card-header",
+      "leg-bill-card-meta",
+      "leg-bill-card-title",
+      "leg-bill-identity",
+      "leg-bill-ref",
+      "leg-bill-title",
+      "leg-debate-chamber",
+      "leg-debate-date",
+      "leg-debate-list",
+      "leg-debate-row",
+      "leg-debate-title",
+      "leg-debate-title-plain",
+      "leg-doc-group-count",
+      "leg-doc-group-label",
+      "leg-doc-section",
+      "leg-long-title",
+      "leg-long-title-tight",
+      "leg-pipeline-card",
+      "leg-pipeline-label",
+      "leg-pipeline-num",
+      "leg-pipeline-sep",
+      "leg-pipeline-strip",
+      "leg-pipeline-sub",
+      "leg-pre2014-long-title",
+      "leg-si-card",
+      "leg-si-meta",
+      "leg-source-card",
+      "leg-source-label",
+      "leg-source-meta",
+      "leg-stage-chamber",
+      "leg-stage-date",
+      "leg-stage-group",
+      "leg-stage-label",
+      "leg-stage-list",
+      "leg-stage-num",
+      "leg-stage-row",
+      "leg-status-active",
+      "lg-arrow-neutral",
+      "lg-audit-quote",
+      "lg-badge",
+      "lg-card",
+      "lg-card-cta",
+      "lg-card-src",
+      "lg-card-title",
+      "lg-metric",
+      "lg-metric-bench",
+      "lg-metric-doc",
+      "lg-metric-label",
+      "lg-metric-main",
+      "lg-metric-value",
+      "lg-na-note",
+      "lg-perf-grid",
+      "lg-spark",
+      "lk",
+      "lob-revolving-body",
+      "lob-revolving-callout",
+      "lob-revolving-heading",
+      "lp3-dek",
+      "lp3-h1",
+      "lp3-h2",
+      "lp3-hero",
+      "lp3-prose",
+      "lp3-recent-body",
+      "lp3-recent-item",
+      "lp3-recent-link",
+      "lp3-recent-list",
+      "lp3-recent-period",
+      "lp3-return-area",
+      "lp3-return-card",
+      "lp3-return-filed-by",
+      "lp3-return-head",
+      "lp3-return-id",
+      "lp3-return-org",
+      "lp3-return-period",
+      "lp3-return-snippet",
+      "lp3-return-sub",
+      "lp3-section-dek",
+      "lp3-section-head",
+      "lp3-tile",
+      "lp3-tile-body",
+      "lp3-tile-heading",
+      "lp3-topic-tile",
+      "m",
+      "meta",
+      "mf-featured",
+      "mf-featured-blurb",
+      "mf-featured-kick",
+      "mf-featured-name",
+      "mf-isif",
+      "mf-isif-amt",
+      "mf-isif-amt-none",
+      "mf-isif-desc",
+      "mf-isif-head",
+      "mf-isif-kick",
+      "mf-isif-name",
+      "mf-isif-row",
+      "mf-isif-sub",
+      "mf-isif-yr",
+      "mf-rail",
+      "mf-rail-gap",
+      "mf-rail-here",
+      "mf-rail-lede",
+      "mf-rail-path",
+      "mf-rail-reset",
+      "mf-rail-sep",
+      "mf-rail-step",
+      "mf-wall",
+      "missing",
+      "mo-bill-card",
+      "mo-bill-card-link-row",
+      "mo-browse-h1",
+      "mo-browse-pager-spacer",
+      "mo-cabinet-callout",
+      "mo-cabinet-callout-body",
+      "mo-cc-caveat",
+      "mo-cc-headline",
+      "mo-cc-headline-label",
+      "mo-cc-kicker",
+      "mo-cc-row",
+      "mo-cc-row-secondary",
+      "mo-cc-sep",
+      "mo-cc-source",
+      "mo-cc-source-body",
+      "mo-cc-source-label",
+      "mo-cc-source-link",
+      "mo-contact-card",
+      "mo-contact-empty",
+      "mo-contact-ico",
+      "mo-contact-link",
+      "mo-contact-row",
+      "mo-contact-source",
+      "mo-contact-title",
+      "mo-contact-val",
+      "mo-debate-card-meta",
+      "mo-grid",
+      "mo-not-found-body",
+      "mo-not-found-callout",
+      "mo-not-found-cta",
+      "mo-ov-cta",
+      "mo-ov-figure",
+      "mo-ov-label",
+      "mo-ov-signal",
+      "mo-overview-grid",
+      "mo-party-swatch",
+      "mo-pay-tile",
+      "mo-pay-tile-expenses",
+      "mo-pay-tile-eyebrow",
+      "mo-pay-tile-figure",
+      "mo-pay-tile-note",
+      "mo-pay-tile-per",
+      "mo-pay-tiles",
+      "mo-prof-nav-marker",
+      "mo-profile-h1",
+      "mo-profile-meta",
+      "mo-section-chip",
+      "mo-section-nav",
+      "mo-speech-badges",
+      "mo-speech-card",
+      "mo-speech-crumb",
+      "mo-speech-excerpt",
+      "mo-speech-read-more",
+      "mo-speech-truncated",
+      "mt",
+      "name",
+      "none",
+      "office",
+      "pa-active-bar",
+      "pa-active-chip",
+      "pa-active-chip-all",
+      "pa-active-chip-x",
+      "pa-active-label",
+      "pa-card",
+      "pa-card-date",
+      "pa-card-link",
+      "pa-card-meta",
+      "pa-card-who",
+      "pa-context",
+      "pa-detail",
+      "pa-detail-irish",
+      "pa-detail-irish-kicker",
+      "pa-detail-label",
+      "pa-detail-ref",
+      "pa-detail-row",
+      "pa-detail-title",
+      "pa-detail-val",
+      "pa-featured",
+      "pa-featured-h",
+      "pa-featured-kicker",
+      "pa-featured-sub",
+      "pa-missing",
+      "pa-month-h",
+      "pa-pill",
+      "pa-pill-auth",
+      "pa-pill-count",
+      "pa-pill-ga",
+      "pa-pill-type",
+      "pa-rank-bar",
+      "pa-rank-count",
+      "pa-rank-name",
+      "pa-rank-row",
+      "pa-spark-label",
+      "pa-spark-note",
+      "pa-spark-row",
+      "pa-spark-wrap",
+      "pa-spark-years",
+      "part-absence-figure",
+      "part-absence-row",
+      "part-absence-run",
+      "part-absence-span",
+      "part-meta",
+      "part-name",
+      "part-news-chip",
+      "part-noexpl",
+      "part-role-chip",
+      "part-taa-days",
+      "part-taa-ded",
+      "part-taa-row",
+      "pay-count-pill-accent",
+      "pay-record-card",
+      "pay-record-card-amount",
+      "pay-record-card-date",
+      "pay-record-card-desc",
+      "pay-record-card-header",
+      "pay-taa-caveat",
+      "pay-total-badge",
+      "pay-total-badge-lbl",
+      "pay-total-badge-num",
+      "pay-year-amount",
+      "pay-year-list",
+      "pay-year-payments",
+      "pay-year-rank",
+      "pay-year-rank-missing",
+      "pay-year-yr",
+      "phead",
+      "pp-cat-bars",
+      "pp-cat-chip",
+      "pp-cat-chips",
+      "pp-deeper",
+      "pr-afs-trace",
+      "pr-afs-trace-cap",
+      "pr-afs-trace-fig",
+      "pr-afsbar",
+      "pr-afsbar-fig",
+      "pr-afsbar-fill",
+      "pr-afsbar-label",
+      "pr-afsbar-note",
+      "pr-afsbar-top",
+      "pr-afsbar-track",
+      "pr-afsbar-zero",
+      "pr-afsbars",
+      "pr-award",
+      "pr-award-auth",
+      "pr-award-body",
+      "pr-award-meta",
+      "pr-award-title",
+      "pr-award-val",
+      "pr-cap",
+      "pr-cap-stale",
+      "pr-card",
+      "pr-card-head",
+      "pr-card-src",
+      "pr-caveat",
+      "pr-foot",
+      "pr-grid",
+      "pr-lane",
+      "pr-lane-dek",
+      "pr-lane-head",
+      "pr-lane-tag",
+      "pr-lc",
+      "pr-lc-arrow",
+      "pr-lc-head",
+      "pr-lc-note",
+      "pr-lc-q",
+      "pr-lc-sibling",
+      "pr-lc-stage",
+      "pr-lc-stage--static",
+      "pr-lc-tier",
+      "pr-lc-track",
+      "pr-meta",
+      "pr-name",
+      "pr-notice",
+      "pr-notice-list",
+      "pr-notice-tag",
+      "pr-paid-tag",
+      "pr-pill",
+      "pr-pill-cro",
+      "pr-pill-epa",
+      "pr-pill-lob",
+      "pr-pill-ordered",
+      "pr-pill-paid",
+      "pr-pill-val",
+      "pr-pills",
+      "pr-prof-head",
+      "pr-prof-kicker",
+      "pr-prof-name",
+      "pr-prof-sub",
+      "pr-rank",
+      "pr-region-count",
+      "pr-region-head",
+      "pr-region-name",
+      "pr-register-rule",
+      "pr-section-h",
+      "pr-sp-md",
+      "pr-sp-sm",
+      "pr-sub",
+      "pr-ted-xref",
+      "pr-ted-xref-b",
+      "pr-ted-xref-h",
+      "q-active-chip",
+      "q-active-chip-x",
+      "q-active-filter-bar",
+      "q-active-filter-label",
+      "q-card",
+      "q-card-body",
+      "q-card-date",
+      "q-card-foot",
+      "q-card-fulltext",
+      "q-card-head",
+      "q-card-kicker",
+      "q-card-ref",
+      "q-card-sep",
+      "q-card-truncated",
+      "q-card-type",
+      "q-conc-detail",
+      "q-conc-ministry",
+      "q-conc-pct",
+      "q-conc-sparse",
+      "q-header-strip",
+      "q-shift-subtitle",
+      "q-strip-cell-hint",
+      "q-strip-cell-label",
+      "q-topic-chip",
+      "q-topic-chip-action",
+      "q-topic-chip-count",
+      "q-topic-list",
+      "q-total-num",
+      "q-total-sub",
+      "review",
+      "role",
+      "sb-board",
+      "sb-board-basis",
+      "sb-board-dept",
+      "sb-board-head",
+      "sb-board-name",
+      "sb-board-seats",
+      "sb-board-stats",
+      "sb-count-line",
+      "sb-gbar",
+      "sb-gbar-f",
+      "sb-gbar-m",
+      "sb-glegend",
+      "sb-intro",
+      "sb-member",
+      "sb-member-meta",
+      "sb-member-name",
+      "sb-member-roles",
+      "sb-members",
+      "sb-roles-tag",
+      "sb-stat",
+      "sb-stat-l",
+      "sb-stat-n",
+      "sb-summary",
+      "section-heading",
+      "section-subheading",
+      "si-active-bar",
+      "si-active-chip",
+      "si-active-chip-all",
+      "si-active-chip-x",
+      "si-active-label",
+      "si-amends",
+      "si-amends-eff",
+      "si-amends-eff--amends",
+      "si-amends-item",
+      "si-amends-kicker",
+      "si-amends-list",
+      "si-amends-prov",
+      "si-amends-src",
+      "si-billlink",
+      "si-billlink-kicker",
+      "si-billlink-meta",
+      "si-billlink-title",
+      "si-card",
+      "si-card-date",
+      "si-card-foot",
+      "si-card-head",
+      "si-card-link",
+      "si-card-ref",
+      "si-card-title",
+      "si-detail",
+      "si-detail-label",
+      "si-detail-ref",
+      "si-detail-row",
+      "si-detail-title",
+      "si-detail-val",
+      "si-legal",
+      "si-legal--unknown",
+      "si-legal-body",
+      "si-legal-caveat",
+      "si-legal-chip",
+      "si-legal-src",
+      "si-lrc",
+      "si-lrc-body",
+      "si-lrc-chip",
+      "si-lrc-leaf",
+      "si-lrc-src",
+      "si-pill",
+      "si-pill-act",
+      "si-pill-dept",
+      "si-pill-domain",
+      "si-pill-eu",
+      "si-pill-op",
+      "si-section-h",
+      "sidebar-label",
+      "signal",
+      "signal-dark",
+      "signal-eu",
+      "signal-gaeilge",
+      "signal-neutral",
+      "site-banner",
+      "site-banner-inner",
+      "site-banner-sep",
+      "site-banner-sub",
+      "site-banner-title",
+      "sl",
+      "sr-only",
+      "stat-lbl",
+      "stat-num",
+      "stat-strip",
+      "stat-sub",
+      "sup-ask",
+      "sup-ask-action",
+      "sup-ask-copy",
+      "sup-btn",
+      "sup-btn-ghost",
+      "sup-btn-note",
+      "sup-cost",
+      "sup-cost-fig",
+      "sup-cost-lab",
+      "sup-cost-sub",
+      "sup-costs",
+      "sup-footer",
+      "sup-footer-coffee",
+      "sup-footer-name",
+      "sup-footer-spacer",
+      "sup-help",
+      "sup-help-intro",
+      "sup-hero",
+      "sup-honest",
+      "sup-icon",
+      "sup-kicker",
+      "sup-private",
+      "sup-route",
+      "sup-routes",
+      "sup-wrap",
+      "sv",
+      "sw",
+      "td-meta",
+      "td-name",
+      "td-pick-card",
+      "td-pick-dek",
+      "td-pick-foot",
+      "td-pick-meta",
+      "td-pick-name",
+      "td-pick-statement",
+      "td-pick-title",
+      "vote-year-counts",
+      "vote-year-key",
+      "vote-year-key-abst",
+      "vote-year-key-no",
+      "vote-year-key-yes",
+      "vote-year-legend",
+      "vote-year-seg",
+      "vote-year-seg-abst",
+      "vote-year-seg-no",
+      "vote-year-seg-yes",
+      "vote-year-track",
+      "vt-card",
+      "vt-card-date",
+      "vt-card-footer",
+      "vt-card-header",
+      "vt-card-private",
+      "vt-card-stage",
+      "vt-card-title",
+      "vt-count-abs",
+      "vt-count-no",
+      "vt-count-yes",
+      "vt-division-header",
+      "vt-division-title",
+      "vt-index-caption",
+      "vt-margin-pill",
+      "vt-outcome-carried",
+      "vt-outcome-lost",
+      "vt-rec-card",
+      "vt-rec-header",
+      "vt-rec-vote",
+      "vt-rec-vote-abs",
+      "vt-rec-vote-no",
+      "vt-rec-vote-yes",
+      "yc-clr-arrow",
+      "yc-clr-card",
+      "yc-clr-grid",
+      "yc-clr-name",
+      "yc-clr-party",
+      "yc-debt",
+      "yc-debt-bar",
+      "yc-debt-card",
+      "yc-debt-fig",
+      "yc-debt-kicker",
+      "yc-debt-sub",
+      "yc-debt-trend",
+      "yc-debt-trend-labels",
+      "yc-flow",
+      "yc-flow-arrow",
+      "yc-flow-fig",
+      "yc-flow-kicker",
+      "yc-flow-stage",
+      "yc-flow-sub",
+      "yc-glance-arrow",
+      "yc-glance-card",
+      "yc-glance-eyebrow",
+      "yc-glance-figure",
+      "yc-glance-grid",
+      "yc-glance-sub",
+      "yc-pwr-bar",
+      "yc-pwr-exe",
+      "yc-pwr-key",
+      "yc-pwr-res",
+      "zero"
+    ],
+    "unstyled_classes": [
+      "comm-chair-pill",
+      "comm-member-card",
+      "comm-member-card-dates",
+      "comm-member-card-header",
+      "comm-member-card-meta",
+      "comm-member-card-title",
+      "comm-member-list",
+      "comm-office-card",
+      "comm-office-card-dates",
+      "comm-office-card-title",
+      "comm-office-list",
+      "comm-status",
+      "jud-context",
+      "part-absence-id",
+      "sb-member-main",
+      "vote-year-row"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "pre-tender-work-packages-coverage/1",
+  "grain": "one deterministic lead by work-package classification",
+  "source_leads": 780,
+  "silver_rows": 435,
+  "gold_rows": 243,
+  "classified_source_leads": 345,
+  "unclassified_source_leads": 435,
+  "promoted_source_leads": 238,
+  "classified_promoted_leads": 175,
+  "unclassified_promoted_leads": 63,
+  "ce_candidate_rows": 207,
+  "ce_promoted_rows": 15,
+  "ce_candidate_leads": 184,
+  "ce_promoted_leads": 14,
+  "package_counts": {
+    "construction_building_works": 64,
+    "design_qs_engineering": 31,
+    "electrical_lighting_bems": 9,
+    "equipment_supply_install": 2,
+    "fire_safety": 2,
+    "it_digital_systems": 1,
+    "landscape_external_site": 8,
+    "mechanical_heating_hvac": 19,
+    "plumbing_sanitary": 8,
+    "refurbishment_fitout": 49,
+    "roads_public_realm": 12,
+    "roof_windows_doors": 21,
+    "water_wastewater_civil": 17
+  },
+  "classification_contract": "deterministic phrase rules; bare network is not an IT classification",
+  "promotion_contract": "CE rows enter gold only when their existing promotion_permitted gate is true"
+}

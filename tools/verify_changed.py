@@ -38,7 +38,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_ROOT = ROOT / ".cache" / "verify-changed"
-POLICY_VERSION = "2026-08-06.1"
+POLICY_VERSION = "2026-08-07.2"
 FAST_MARKERS = "not integration and not sql and not sources and not bronze and not layers"
 NON_SOURCE_PREFIXES = ("logs/", ".cache/verify-changed/")
 DETERMINISTIC_LOCAL = "deterministic local"
@@ -264,6 +264,25 @@ def _is_convention_related(path: str) -> bool:
     )
 
 
+def _is_ui_contract_related(path: str) -> bool:
+    return path in {
+        "utility/app.py",
+        "utility/shared_css.py",
+        "utility/static/dailtracker.css",
+        "utility/static/frontend_contract.json",
+        "doc/URL_CONTRACT.md",
+        "doc/CLASS_CONTRACT.md",
+    } or (path.endswith(".py") and path.startswith(("utility/pages_code/", "utility/ui/", "tools/migration/")))
+
+
+def _is_api_parity_related(path: str) -> bool:
+    return (
+        path == "tools/baselines/api_parity_baseline.txt"
+        or path == "tools/migration/check_api_parity.py"
+        or (path.endswith(".py") and path.startswith(("dail_tracker_core/queries/", "api/", "mcp_server/")))
+    )
+
+
 def _is_mcp_related(path: str) -> bool:
     return (
         path in MCP_CONFIG_FILES
@@ -348,6 +367,23 @@ def build_checks(
             CheckSpec("ruff-format", (py, "-m", "ruff", "format", "--check", "."), "full verification"),
             _python_check("firewall", py, "tools/check_streamlit_logic_firewall.py", "full verification"),
             _python_check("conventions", py, "tools/check_conventions.py", "full verification"),
+            _python_check(
+                "url-contract", py, "tools/migration/extract_url_contract.py", "full verification", "--check"
+            ),
+            _python_check(
+                "class-contract", py, "tools/migration/extract_class_contract.py", "full verification", "--check"
+            ),
+            _python_check(
+                "markup-contract",
+                py,
+                "tools/migration/scan_framework_coupling.py",
+                "full verification",
+                "--check-markup",
+            ),
+            _python_check(
+                "frontend-contract", py, "tools/migration/build_frontend_contract.py", "full verification", "--check"
+            ),
+            _python_check("api-parity", py, "tools/migration/check_api_parity.py", "full verification"),
             _python_check("dependency-declarations", py, "tools/check_dependency_declarations.py", "full verification"),
             _python_check("dependency-state", py, "tools/check_dependency_state.py", "full verification"),
             _python_check("doc-index", py, "tools/build_doc_index.py", "full verification", "--check"),
@@ -411,6 +447,45 @@ def build_checks(
 
     if any(_is_convention_related(path) for path in paths):
         checks.append(_python_check("conventions", py, "tools/check_conventions.py", "ratcheted area changed"))
+
+    if any(_is_ui_contract_related(path) for path in paths):
+        checks.extend(
+            (
+                _python_check(
+                    "url-contract",
+                    py,
+                    "tools/migration/extract_url_contract.py",
+                    "frontend contract input changed",
+                    "--check",
+                ),
+                _python_check(
+                    "class-contract",
+                    py,
+                    "tools/migration/extract_class_contract.py",
+                    "frontend contract input changed",
+                    "--check",
+                ),
+                _python_check(
+                    "markup-contract",
+                    py,
+                    "tools/migration/scan_framework_coupling.py",
+                    "frontend contract input changed",
+                    "--check-markup",
+                ),
+                _python_check(
+                    "frontend-contract",
+                    py,
+                    "tools/migration/build_frontend_contract.py",
+                    "frontend contract input changed",
+                    "--check",
+                ),
+            )
+        )
+
+    if any(_is_api_parity_related(path) for path in paths):
+        checks.append(
+            _python_check("api-parity", py, "tools/migration/check_api_parity.py", "core/API reachability changed")
+        )
 
     if python_paths or dependency_change:
         checks.append(
@@ -493,6 +568,8 @@ def build_checks(
         or _is_portable_context_path(path)
         or _is_doc_index_input(path)
         or _is_mcp_related(path)
+        or _is_ui_contract_related(path)
+        or _is_api_parity_related(path)
         or _is_sql_related(path)
         or path.startswith(NO_VERIFICATION_PREFIXES)
     }

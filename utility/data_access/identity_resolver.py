@@ -19,13 +19,13 @@ from their own queries and skip this resolver.
 
 from __future__ import annotations
 
-import streamlit as st
+from data_access._cache import cache_data
 from data_access.member_overview_data import get_member_overview_conn
 
 from dail_tracker_core.queries import member_overview as moq
 
 
-@st.cache_data(ttl=600, show_spinner=False)
+@cache_data(ttl=600, show_spinner=False)
 def resolve_member_code(name: str) -> str | None:
     """Look up the canonical ``unique_member_code`` for a TD name.
 

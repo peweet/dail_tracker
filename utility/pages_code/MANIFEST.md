@@ -25,7 +25,7 @@ A domain `X` has the *same file stem* in each layer, and you walk it **right-to-
 
 ```
 sql_views/<domain>/X_*.sql   →  dail_tracker_core/queries/X.py  →  utility/data_access/X_data.py  →  utility/pages_code/X.py
-   (SQL: all joins/aggregation)      (Streamlit-free retrieval)        (thin @st.cache_data wrapper)      (render ONLY)
+   (SQL: all joins/aggregation)      (Streamlit-free retrieval)        (thin cache adapter)      (render ONLY)
 ```
 
 **Pages contain NO business logic** — no `groupby`, no `merge`, no parquet reads, no metric maths.
@@ -68,16 +68,20 @@ view**, never here.
 
 ## ⚠️ CSS is split-brain — check both places
 
-Most pages use `utility/shared_css.py` (~72k tokens — has a SECTION MAP header; jump, don't read).
-But **five pages inject their own CSS**, so a rule may live in either:
+Most pages use `utility/static/dailtracker.css`; `utility/shared_css.py` is its small Streamlit loader.
+Eight page/component modules emit additional local CSS, so a rule may live in either place.
+The generated `utility/static/frontend_contract.json` inventories and hashes each emitter:
 
-| Page | Local CSS injector |
+| Module | Local CSS |
 |---|---|
-| `corporate.py` | `_inject_corp_css()` — **727 lines** (`.con-*` *also* exists in shared_css) |
+| `corporate.py` | `_inject_corp_css()` — **727 lines** (`.con-*` also exists in the shared asset) |
+| `election_2024.py` | page-local election presentation rules |
 | `judiciary.py` | `_inject_jd_css()` — 218 lines |
-| `statutory_instruments.py` | `_inject_si_css()` |
+| `procurement/patterns.py` | experimental/local procurement patterns |
 | `public_appointments.py` | `_inject_pa_css()` |
-| `siting_check.py` | `_css()` |
+| `statutory_instruments.py` | `_inject_si_css()` |
+| `your_council.py` | at-a-glance triptych rules |
+| `ui/components.py` | component-local shared rules |
 
 ## To do X, open Y
 
@@ -87,6 +91,6 @@ But **five pages inject their own CSS**, so a rule may live in either:
 | Find which page shows dataset D | `Grep "v_D"` in `utility/data_access/` — not here |
 | Know where a page gets its data | same stem: `pages_code/X.py` ← `data_access/X_data.py` |
 | Change a caveat / disclaimer | `dail_tracker_core/caveats.py` — the single source. Never inline it in a page. |
-| Style something | `utility/shared_css.py` (jump via its section map) — but check the 5 local injectors above |
+| Style something | `utility/static/dailtracker.css` (search by selector), then check the 8 local emitters above |
 | Reuse a card / component | `utility/ui/components.py` (~17k tok) — audit it **before** hand-rolling HTML |
 | Check I haven't broken the firewall | `python tools/check_streamlit_logic_firewall.py` |

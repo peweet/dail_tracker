@@ -1,11 +1,11 @@
 {
-  "generated_utc": "2026-08-07T05:53:10.598122+00:00",
+  "generated_utc": "2026-08-07T08:50:49.957451+00:00",
   "layer": "gold",
   "source_manifest": "pipeline_sandbox\\council_minutes\\meetings_clean.jsonl",
-  "input_records": 882,
-  "published_documents": 813,
-  "published_chunks": 18198,
-  "published_councils": 27,
+  "input_records": 899,
+  "published_documents": 828,
+  "published_chunks": 18481,
+  "published_councils": 26,
   "expected_statutory_councils": 31,
   "councils": [
     "Carlow",
@@ -22,7 +22,6 @@
     "Kildare",
     "Kilkenny",
     "Laois",
-    "Leitrim",
     "Limerick",
     "Longford",
     "Louth",
@@ -37,20 +36,21 @@
     "Wicklow"
   ],
   "documents_by_type": {
-    "committee_minutes": 148,
-    "md_minutes": 30,
-    "plenary_minutes": 635
+    "committee_minutes": 149,
+    "md_minutes": 31,
+    "plenary_minutes": 648
   },
   "documents_by_source_status": {
-    "html": 48,
-    "ocr_winocr": 185,
-    "text": 580
+    "html": 49,
+    "ocr_winocr": 194,
+    "text": 585
   },
   "documents_with_date": 415,
-  "documents_with_source_url": 701,
+  "documents_with_source_url": 716,
   "participation_signal_schema": "council-minutes-participation/2",
   "excluded_non_minutes": {
-    "agenda": 69
+    "agenda": 69,
+    "ce_report": 2
   },
   "missing_text_files": [],
   "exact_duplicate_documents": [],

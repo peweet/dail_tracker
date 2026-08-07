@@ -187,3 +187,100 @@ def test_live_registry_is_well_formed():
             assert src.get("must_match")
         else:
             assert src.get("manual_reason")
+
+
+# ── CE report sources (monthly grain) ────────────────────────────────────────
+def test_months_parses_harvester_filename_conventions():
+    assert (2026, 3) in poll._months("Chief-Executive-Monthly-Report-March-2026.pdf")
+    assert (2026, 6) in poll._months("26-06 Chief Executive Report.pdf")
+    assert (2025, 12) in poll._months("chief-executive-report-december-2025.pdf")
+    assert (2026, 3) in poll._months("/files/ce-report-2026-03.pdf")
+
+
+def test_months_requires_adjacency_no_cross_products():
+    # A year and a month name far apart must not combine into a period.
+    blob = "Annual budget 2024 was adopted. Separately the december markets ran."
+    assert poll._months(blob) == set()
+    # Bare numbers that aren't year-month pairs stay out.
+    assert poll._months("phone 087-11 ref 99-13") == set()
+
+
+def test_monthly_source_fresh_and_current(monkeypatch):
+    html = """
+    <a href="/f/Chief-Executive-Report-June-2026.pdf">CE Report June 2026</a>
+    <a href="/f/Chief-Executive-Report-May-2026.pdf">CE Report May 2026</a>
+    """
+    monkeypatch.setattr(poll, "_fetch", lambda url: (html, None))
+    src = {
+        "id": "ce_x",
+        "name": "X CE reports",
+        "grain": "monthly",
+        "check": "auto",
+        "listing_urls": ["https://example.test"],
+        "must_match": poll._CE_MUST_MATCH,
+        "held_through": [2026, 5],
+    }
+    row = poll._evaluate_source(src)
+    assert row["status"] == "FRESH"
+    assert row["new_periods"] == [[2026, 6]]
+    src["held_through"] = [2026, 6]
+    assert poll._evaluate_source(src)["status"] == "CURRENT"
+
+
+def test_monthly_future_months_are_noise(monkeypatch):
+    # A href carrying a beyond-today month must not create a FRESH signal
+    # (first live run: Leitrim yielded "2026-12" while the run date was 2026-08).
+    html = """
+    <a href="/f/Chief-Executive-Report-June-2026.pdf">CE Report June 2026</a>
+    <a href="/f/agenda-2099-12-chief-executive.pdf">CE agenda</a>
+    """
+    monkeypatch.setattr(poll, "_fetch", lambda url: (html, None))
+    src = {
+        "id": "ce_x",
+        "name": "X CE reports",
+        "grain": "monthly",
+        "check": "auto",
+        "listing_urls": ["https://example.test"],
+        "must_match": poll._CE_MUST_MATCH,
+        "held_through": [2026, 6],
+    }
+    row = poll._evaluate_source(src)
+    assert row["status"] == "CURRENT"
+    assert row["upstream_newest"] == [2026, 6]
+
+
+def test_ce_report_sources_derive_held_through(tmp_path, monkeypatch):
+    seeds = tmp_path / "seeds.csv"
+    seeds.write_text(
+        "local_authority,status,seed_url,portal,note\n"
+        "Testshire,confirmed,https://testshire.example/reports,html,\n"
+        "Absentia,absent,,none,\n"
+        "Newland,confirmed,https://newland.example/reports,html,\n",
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "manifest.jsonl"
+    manifest.write_text(
+        '{"council": "Testshire", "report_month": "2026-05"}\n'
+        '{"council": "Testshire", "report_month": "2026-06"}\n'
+        '{"council": "Testshire", "report_month": ""}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(poll, "CE_SEEDS", seeds)
+    monkeypatch.setattr(poll, "CE_MANIFEST", manifest)
+    sources = poll._ce_report_sources()
+    by_id = {s["id"]: s for s in sources}
+    assert set(by_id) == {"ce_testshire", "ce_newland"}  # absent council excluded
+    assert by_id["ce_testshire"]["held_through"] == [2026, 6]  # max month, blank ignored
+    assert by_id["ce_newland"]["held_through"] == [0, 0]  # never harvested -> all FRESH
+    assert all(s["grain"] == "monthly" for s in sources)
+
+
+def test_live_ce_registry_is_well_formed():
+    # Runs against the real seed registry; every generated source is evaluator-ready.
+    sources = poll._ce_report_sources()
+    assert len(sources) == 24  # confirmed councils in ce_report_seeds.csv
+    for src in sources:
+        assert src["grain"] == "monthly"
+        assert src["check"] == "auto"
+        assert src["listing_urls"][0].startswith("http")
+        assert isinstance(src["held_through"], list) and len(src["held_through"]) == 2

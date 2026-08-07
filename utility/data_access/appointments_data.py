@@ -1,7 +1,7 @@
-"""Public Appointments data access — thin Streamlit wrapper over dail_tracker_core.
+"""Public Appointments data access — thin framework-neutral cached wrapper over dail_tracker_core.
 
 Retrieval SQL lives in ``dail_tracker_core.queries.appointments``; this file owns
-only Streamlit caching and unwraps ``.data`` (empty on a source failure — same
+only framework-neutral caching and unwraps ``.data`` (empty on a source failure — same
 contract as the old ``_safe``).
 
 Forbidden here (unchanged): JOIN/multi-col GROUP BY/HAVING/WINDOW in SQL,

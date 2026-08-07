@@ -31,4 +31,23 @@ if command -v gitleaks >/dev/null 2>&1; then
     exit "$status"
   fi
 fi
+
+# PublicSignal CE-lead lane: these overlay-tracked product assets were briefly committed
+# to local public history (2026-08-07, since untracked). The tree check above cannot see
+# HISTORY, so block any push whose outgoing commits still carry them — the push stays
+# blocked until those commits are rewritten (git filter-branch --index-filter, local only).
+CE_PRIVATE_PATHS="data/gold/parquet/council_ce_report_leads.parquet pipeline_sandbox/council_minutes/ce_report_lead_reviews.csv pipeline_sandbox/council_minutes/ce_lead_recall_labels.json pipeline_sandbox/council_minutes/ce_lead_recall_gap.jsonl"
+ZERO=0000000000000000000000000000000000000000
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue  # branch deletion pushes nothing
+  if [ "$remote_sha" = "$ZERO" ]; then range="$local_sha"; else range="$remote_sha..$local_sha"; fi
+  # shellcheck disable=SC2086  # CE_PRIVATE_PATHS is a deliberate word-split list
+  hits=$(git log --name-only --format= "$range" -- $CE_PRIVATE_PATHS 2>/dev/null | sort -u)
+  if [ -n "$hits" ]; then
+    echo "pre-push: outgoing commits carry PRIVATE CE-lead lane files:" >&2
+    echo "$hits" | sed 's/^/  /' >&2
+    echo "pre-push: rewrite the unpushed range to drop them before pushing." >&2
+    exit 1
+  fi
+done
 exit 0

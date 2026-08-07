@@ -108,7 +108,7 @@ $pwSandbox = $pwLines[($pwLines | Select-String -Pattern '^restic_sandbox').Line
 #
 # What is subtracted from the sandbox job, and why each is safe to drop:
 #   data\bronze|silver|raw_bq  - already mirrored by backup_to_r2.ps1 (the rclone lane)
-#   planning, .git-siting      - go to the PRIVATE repo/bucket instead. Excluding them here
+#   planning, .git-siting, apps - go to the PRIVATE repo/bucket instead. Excluding them here
 #                                is what keeps the commercial IP out of the public-data
 #                                bucket; without these lines the isolation silently
 #                                collapses. `.git-siting` is the SEPARATE git dir for the
@@ -116,6 +116,10 @@ $pwSandbox = $pwLines[($pwLines | Select-String -Pattern '^restic_sandbox').Line
 #                                3.1 GB of private history that a whole-repo sweep picks up
 #                                silently if you don't name it. This was caught by a
 #                                -DryRun on 2026-08-02; it is exactly why you run one.
+#                                `apps` (PublicSignal + planspec-demo, overlay-tracked) was
+#                                added 2026-08-07: the overlay had grown beyond planning\
+#                                and the sandbox sweep was carrying the commercial app's
+#                                working files into the public-data bucket.
 #   .cache                     - 2.4 GB of regenerable FTS indexes (precedent_fts.duckdb,
 #                                project_fts.sqlite, text_fts.duckdb); rebuilt from data
 #   .venv                      - regenerable with `uv sync`, and huge
@@ -131,6 +135,8 @@ $excludeSandbox = @(
     '--exclude', "$root\data\raw_bq",
     '--exclude', "$root\planning",
     '--exclude', "$root\.git-siting",
+    '--exclude', "$root\.git-publicsignal",
+    '--exclude', "$root\apps",
     '--exclude', "$root\.cache",
     '--exclude', "$root\.venv",
     '--exclude', '**/node_modules/**',
@@ -140,7 +146,7 @@ $excludeSandbox = @(
 $jobs = @(
     @{ name='restic_private'; pw=$pwPrivate; remote=$remotePrivate; bucket=$bucketPrivate;
        tag='private-ip'; excl=@('--exclude','**/__pycache__/**');
-       paths=@("$root\planning", "$root\.git-siting") },
+       paths=@("$root\planning", "$root\.git-siting", "$root\.git-publicsignal", "$root\apps") },
     @{ name='restic_sandbox'; pw=$pwSandbox; remote=$remoteSandbox; bucket=$bucketSandbox;
        tag='whole-repo'; excl=$excludeSandbox; paths=@($root) }
 )

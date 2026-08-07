@@ -1,0 +1,11 @@
+# Graphify is a local, code-only developer-navigation tool in this repository.
+# Keep its corpus aligned with the MCP navigation boundary: no private product
+# overlay, agent configuration, MCP configuration, generated data, or artifacts.
+/planning/product/
+/.git-siting/
+/.agents/
+/.codex/
+/.mcp.json
+/data/
+/logs/
+/graphify-out/

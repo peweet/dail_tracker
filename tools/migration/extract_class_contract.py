@@ -35,7 +35,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PAGES_DIR = PROJECT_ROOT / "utility" / "pages_code"
 UI_DIR = PROJECT_ROOT / "utility" / "ui"
-CSS_FILE = PROJECT_ROOT / "utility" / "shared_css.py"
+CSS_FILE = PROJECT_ROOT / "utility" / "static" / "dailtracker.css"
 APP_FILE = PROJECT_ROOT / "utility" / "app.py"
 DEFAULT_OUT = PROJECT_ROOT / "doc" / "CLASS_CONTRACT.md"
 BASELINE = PROJECT_ROOT / "tools" / "baselines" / "unstyled_classes_baseline.txt"
@@ -132,24 +132,34 @@ def emitted_classes(path: Path) -> tuple[set[str], set[str]]:
     return static, dynamic
 
 
+def _style_blocks(path: Path) -> list[str]:
+    """Return CSS bodies from a raw asset or live Python style literals."""
+    if path.suffix == ".css":
+        try:
+            return [path.read_text(encoding="utf-8")]
+        except (OSError, UnicodeError) as exc:
+            raise AnalysisError(path, exc) from exc
+
+    tree = parse_module(path)
+    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+    literals: list[tuple[int, int, str]] = []
+    for node in _live_nodes(tree):
+        if isinstance(node, ast.Constant) and isinstance(parents.get(node), ast.JoinedStr):
+            continue
+        for text in _literal_parts(node):
+            literals.append((getattr(node, "lineno", 0), getattr(node, "col_offset", 0), text))
+    text = "\n".join(value for _, _, value in sorted(literals))
+    return re.findall(r"<style>(.*?)</style>", text, re.DOTALL)
+
+
 def defined_selectors() -> set[str]:
-    """Class selectors defined anywhere in the project's CSS."""
+    """Class selectors defined in the shared asset or page-local CSS."""
     found: set[str] = set()
     sources = [CSS_FILE, *PAGES_DIR.rglob("*.py"), *UI_DIR.rglob("*.py")]
     for path in sorted(set(sources)):
         if "__pycache__" in path.parts:
             continue
-        tree = parse_module(path)
-        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
-        literals: list[tuple[int, int, str]] = []
-        for node in _live_nodes(tree):
-            if isinstance(node, ast.Constant) and isinstance(parents.get(node), ast.JoinedStr):
-                continue
-            for text in _literal_parts(node):
-                literals.append((getattr(node, "lineno", 0), getattr(node, "col_offset", 0), text))
-        text = "\n".join(value for _, _, value in sorted(literals))
-        # Only look inside <style> blocks so ordinary code can't add false selectors.
-        for block in re.findall(r"<style>(.*?)</style>", text, re.DOTALL):
+        for block in _style_blocks(path):
             found.update(CSS_SELECTOR_RE.findall(block))
     return found
 
@@ -175,7 +185,8 @@ def collect() -> tuple[dict[str, set[str]], set[str], set[str], set[str]]:
 
     # app.py and shared_css.py emit markup too (nav chrome, site banner) — omitting
     # them would mis-report their classes as dead CSS.
-    emitters = [*PAGES_DIR.rglob("*.py"), *UI_DIR.rglob("*.py"), APP_FILE, CSS_FILE]
+    style_emitter = CSS_FILE if CSS_FILE.suffix == ".py" else CSS_FILE.parent.parent / "shared_css.py"
+    emitters = [*PAGES_DIR.rglob("*.py"), *UI_DIR.rglob("*.py"), APP_FILE, style_emitter]
     for path in sorted(set(emitters)):
         if "__pycache__" in path.parts:
             continue

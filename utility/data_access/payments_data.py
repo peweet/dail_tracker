@@ -1,8 +1,8 @@
-"""Payments data access — thin Streamlit wrapper over dail_tracker_core.
+"""Payments data access — thin framework-neutral cached wrapper over dail_tracker_core.
 
 Retrieval SQL (incl. the unique_member_code/member_name branch) and QueryResult
 state-handling live in ``dail_tracker_core.queries.payments``; this file owns the
-Streamlit caching and the small UI-shaping the page consumes:
+framework-neutral caching and the small UI-shaping the page consumes:
   - fetch_payments_summary  -> a single pd.Series (the one summary row)
   - fetch_filter_options    -> {"members": [...], "years": [...str...]}
   - fetch_since_2020_summary-> {"total": float, "members": int, "avg_per_td": float}
@@ -22,24 +22,24 @@ from __future__ import annotations
 
 import duckdb
 import pandas as pd
-import streamlit as st
+from data_access._cache import cache_data, cache_resource
 
 from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import payments as _q
 
 
-@st.cache_resource
+@cache_resource
 def get_payments_conn() -> duckdb.DuckDBPyConnection:
     return domain_conn("payments")
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_payments_summary() -> pd.Series:
     df = _q.summary(get_payments_conn()).data
     return df.iloc[0] if not df.empty else pd.Series()
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     conn = get_payments_conn()
     members_df = _q.member_options(conn, house).data
@@ -50,12 +50,12 @@ def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     }
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_year_ranking(year: int, house: str = "Dáil") -> pd.DataFrame:
     return _q.year_ranking(get_payments_conn(), year, house).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_member_all_years(member_name: str, unique_member_code: str | None = None) -> pd.DataFrame:
     """All years for a member — all-years summary table, chart, and all-time total.
 
@@ -64,25 +64,25 @@ def fetch_member_all_years(member_name: str, unique_member_code: str | None = No
     return _q.member_all_years(get_payments_conn(), member_name, unique_member_code).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_member_year_summary(member_name: str, year: int, unique_member_code: str | None = None) -> pd.DataFrame:
     """Single row for a member+year — summary metrics."""
     return _q.member_year_summary(get_payments_conn(), member_name, year, unique_member_code).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_member_payments(member_name: str, year: int, unique_member_code: str | None = None) -> pd.DataFrame:
     """Individual payment transactions for a member+year — the audit trail."""
     return _q.member_payments(get_payments_conn(), member_name, year, unique_member_code).data
 
 
-@st.cache_data(ttl=3600)
+@cache_data(ttl=3600)
 def fetch_alltime_ranking(house: str = "Dáil") -> pd.DataFrame:
     """All-time PSA ranking since 2020 from v_payments_alltime_ranking."""
     return _q.alltime_ranking(get_payments_conn(), house).data
 
 
-@st.cache_data(ttl=3600)
+@cache_data(ttl=3600)
 def fetch_since_2020_summary(house: str = "Dáil") -> dict[str, float | int]:
     """Summary stats (total / member-count / avg) from v_payments_alltime_summary."""
     df = _q.alltime_summary(get_payments_conn(), house).data

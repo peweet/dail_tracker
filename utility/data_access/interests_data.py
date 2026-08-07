@@ -1,7 +1,7 @@
-"""Interests data access — thin Streamlit wrapper over dail_tracker_core.
+"""Interests data access — thin framework-neutral cached wrapper over dail_tracker_core.
 
 Retrieval SQL + QueryResult state-handling live in
-``dail_tracker_core.queries.interests``; this file owns only the Streamlit
+``dail_tracker_core.queries.interests``; this file owns only framework-neutral
 caching and the small presentation reshaping the page expects (availability
 bool, the {"years", "members"} options dict, plain DataFrames).
 
@@ -19,13 +19,13 @@ from __future__ import annotations
 
 import duckdb
 import pandas as pd
-import streamlit as st
+from data_access._cache import cache_data, cache_resource
 
 from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import interests as _q
 
 
-@st.cache_resource
+@cache_resource
 def get_interests_conn() -> duckdb.DuckDBPyConnection:
     # Policy (loud detail/index phase, then the SOFT section-29 supplements
     # enrichment) lives in connections.DOMAIN_REGISTRATIONS["interests"] — incl.
@@ -37,7 +37,7 @@ def get_interests_conn() -> duckdb.DuckDBPyConnection:
 # ── Availability guard ────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_interests_availability(house: str) -> bool:
     """True iff v_member_interests_detail has any row for this house."""
     r = _q.availability(get_interests_conn(), house)
@@ -47,7 +47,7 @@ def fetch_interests_availability(house: str) -> bool:
 # ── Filter options ────────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_interests_filter_options(house: str) -> dict[str, list]:
     """{"years": [int], "members": [str]} for the sidebar / leaderboard filters."""
     conn = get_interests_conn()
@@ -61,7 +61,7 @@ def fetch_interests_filter_options(house: str) -> dict[str, list]:
 # ── Detail retrieval ──────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_interests(
     house: str,
     name_q: str = "",
@@ -72,25 +72,25 @@ def fetch_interests(
     return _q.detail(get_interests_conn(), house, name_q, years, landlord_only).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_td_interests(house: str, td_name: str) -> pd.DataFrame:
     """Every declaration for one TD across all years."""
     return _q.td_interests(get_interests_conn(), house, td_name).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_td_interest_declarations(house: str, td_name: str) -> pd.DataFrame:
     """Deduped, diff-tagged declarations for one TD (change_status per category)."""
     return _q.member_declarations(get_interests_conn(), house, td_name).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_td_interest_year_summary(house: str, td_name: str) -> pd.DataFrame:
     """Per-year editorial summary for one TD (counts, diff totals, badge inputs)."""
     return _q.member_year_summary(get_interests_conn(), house, td_name).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_td_supplements(house: str, td_name: str) -> pd.DataFrame:
     """Section 29 supplements (late filings / corrections) for one TD.
     Empty frame when the member has none OR when the supplements view is
@@ -102,13 +102,13 @@ def fetch_td_supplements(house: str, td_name: str) -> pd.DataFrame:
 # ── Member index (ranked leaderboard) ─────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_member_index(house: str, year: int) -> pd.DataFrame:
     """Ranked member index for a house × year (retrieval-only over the index view)."""
     return _q.member_index(get_interests_conn(), house, year).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_member_index_alltime(house: str) -> pd.DataFrame:
     """Latest-snapshot ranked member index for a house — each member shown at their
     most recent declaration year, NOT summed across years (retrieval-only over the

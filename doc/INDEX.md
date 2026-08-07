@@ -3,7 +3,7 @@
 
 # doc/ index
 
-71 docs · ~357.6k tokens total · 27 LIVE · 29 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+71 docs · ~357.8k tokens total · 27 LIVE · 29 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -82,7 +82,7 @@
 | [COMMUNICATION_STYLE.md](COMMUNICATION_STYLE.md) | — | 6.7k | — |  |
 | [COMPETITOR_LANDSCAPE.md](COMPETITOR_LANDSCAPE.md) | — | 3.6k | — |  |
 | [EXTRACTION_QUALITY_CHECKLIST.md](EXTRACTION_QUALITY_CHECKLIST.md) | — | 1.0k | — |  |
-| [FRAMEWORK_DECOUPLING_PLAN.md](FRAMEWORK_DECOUPLING_PLAN.md) | — | 6.9k | — |  |
+| [FRAMEWORK_DECOUPLING_PLAN.md](FRAMEWORK_DECOUPLING_PLAN.md) | — | 7.1k | — |  |
 | [JOURNALIST_MCP_PLAN.md](JOURNALIST_MCP_PLAN.md) | — | 5.1k | — |  |
 | [LLM_GEO_EU_RESEARCH_SCAN_2026_07_31.md](LLM_GEO_EU_RESEARCH_SCAN_2026_07_31.md) | — | 13.8k | — |  |
 | [OBSERVABILITY.md](OBSERVABILITY.md) | — | 1.7k | — |  |

@@ -25,7 +25,10 @@ _COMMITTEE = re.compile(
     re.I,
 )
 _MUNICIPAL = re.compile(r"municipal district|(?:^|[_\W])md(?:[_\W]|$)", re.I)
-_CE_REPORT = re.compile(r"management report|chief executive.?s? (?:monthly )?report", re.I)
+_CE_REPORT = re.compile(
+    r"management report|chief executive.?s? (?:monthly )?report|\bce (?:monthly )?report\b",
+    re.I,
+)
 _OTHER_REPORT = re.compile(r"annual report|financial statement|local economic", re.I)
 
 # These labels are deliberately conservative discovery aids for the separate
@@ -81,9 +84,9 @@ _COLLECTIVE_ORGANISATION = re.compile(
 
 
 def _basename(source_url: str, meeting: str) -> str:
-    """Return the decoded source filename without letting listing paths classify it."""
-    candidate = urlsplit(str(source_url or "")).path.rsplit("/", 1)[-1] or str(meeting or "")
-    return unquote(candidate).lower()
+    """Return decoded filename plus source label without letting listing paths classify it."""
+    filename = urlsplit(str(source_url or "")).path.rsplit("/", 1)[-1]
+    return unquote(f"{filename} {meeting or ''}").lower().strip()
 
 
 def classify_document(*, meeting: str, source_url: str, text: str, upstream_doc_type: str = "") -> str:
@@ -95,6 +98,7 @@ def classify_document(*, meeting: str, source_url: str, text: str, upstream_doc_
     Committee and municipal scope are retained rather than promoted to plenary.
     """
     name = _basename(source_url, meeting)
+    name_text = re.sub(r"[^a-z0-9]+", " ", name)
     head = str(text or "")[:4_000]
     title_block = head[:500]
     if "agenda" in name and "minute" not in name:
@@ -102,23 +106,21 @@ def classify_document(*, meeting: str, source_url: str, text: str, upstream_doc_
     # Report filenames/upstream labels are hard signals. Report phrases in body text are
     # considered only after genuine minutes evidence, because real minutes routinely list
     # the Chief Executive's management report as an agenda item.
-    if upstream_doc_type == "ce_report" or _CE_REPORT.search(name):
+    if upstream_doc_type == "ce_report" or _CE_REPORT.search(name_text):
         return "ce_report"
-    if _OTHER_REPORT.search(name):
+    if _OTHER_REPORT.search(name_text):
         return "report_or_plan"
     is_minutes = (
         upstream_doc_type in {"plenary_minutes", "md_minutes"} or "minute" in name or bool(_MINUTES.search(head))
     )
-    if not is_minutes:
-        return "other"
-    # Scope markers must occur in the filename/title block. Plenary minutes often
-    # discuss committees later on their first page; that does not make the meeting
-    # itself a committee meeting.
-    if _COMMITTEE.search(f"{name}\n{title_block}"):
-        return "committee_minutes"
-    if _MUNICIPAL.search(f"{name}\n{title_block}"):
-        return "md_minutes"
     if is_minutes:
+        # Scope markers must occur in the filename/title block. Plenary minutes often
+        # discuss committees later on their first page; that does not make the meeting
+        # itself a committee meeting.
+        if _COMMITTEE.search(f"{name}\n{title_block}"):
+            return "committee_minutes"
+        if _MUNICIPAL.search(f"{name}\n{title_block}"):
+            return "md_minutes"
         return "plenary_minutes"
     if _CE_REPORT.search(title_block):
         return "ce_report"

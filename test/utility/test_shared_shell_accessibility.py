@@ -57,3 +57,12 @@ def test_mobile_navigation_buttons_have_accessible_names() -> None:
 
     assert 'setAttribute("aria-label", "Open navigation menu")' in component
     assert 'setAttribute("aria-label", "Close navigation menu")' in component
+
+
+def test_shared_stylesheet_is_an_external_reusable_asset() -> None:
+    css = shared_css._load_css()
+
+    assert shared_css._CSS_PATH.name == "dailtracker.css"
+    assert ":root" in css
+    assert ".site-banner" in css
+    assert all(line.strip() not in {"<style>", "</style>"} for line in css.splitlines())

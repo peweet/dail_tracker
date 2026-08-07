@@ -19,6 +19,7 @@ fetches, and a global deadline via env NIGHT_DEADLINE_TS (unix ts; stop cleanly 
 
 Usage: python night_harvest.py [--council "Limerick"] [--max-per-council 30]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,11 +32,14 @@ import time
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
-import fitz
+import pymupdf as fitz
 import requests
 from bs4 import BeautifulSoup
 
-import council_minutes_consolidate as base
+try:
+    from . import council_minutes_consolidate as base
+except ImportError:  # Direct script execution from this directory.
+    import council_minutes_consolidate as base
 
 HERE = Path(__file__).resolve().parent
 SLEEP_S = 1.5
@@ -49,8 +53,8 @@ _SKIP_EXT = re.compile(r"\.(jpg|jpeg|png|gif|svg|css|js|ico|xml|zip|docx?|xlsx?)
 
 
 def _winocr_run():
-    from PIL import Image
     import winocr
+    from PIL import Image
 
     def run(png: bytes) -> list[str]:
         r = winocr.recognize_pil_sync(Image.open(io.BytesIO(png)))
@@ -112,8 +116,7 @@ def _links(page_url: str, html: str) -> list[tuple[str, str]]:
     return out
 
 
-def harvest_council(la: str, seed: str, portal: str, known: set[str], cap: int, log,
-                    deep: bool = False) -> list[str]:
+def harvest_council(la: str, seed: str, portal: str, known: set[str], cap: int, log, deep: bool = False) -> list[str]:
     """Return new candidate minutes-doc URLs for one council. deep = 2 hops, more
     subpages, and a relaxed hint (agenda/meeting PDFs too — classify() quarantines
     the non-minutes ones, so recall beats precision here)."""
@@ -163,10 +166,16 @@ def harvest_council(la: str, seed: str, portal: str, known: set[str], cap: int, 
             hinted = hint_rx.search(href) or hint_rx.search(txt)
             if is_pdf and hinted:
                 cands.append(href)
-            elif portal == "html" and hinted and urlparse(href).netloc == host and not is_pdf:
+            elif (
+                portal == "html"
+                and hinted
+                and urlparse(href).netloc == host
+                and not is_pdf
+                and re.search(r"20(1\d|2\d)", href + txt)
+                and _MINUTE_HINT.search(href + txt)
+            ):
                 # HTML-minutes councils (Clare/Wicklow/Sligo): meeting pages are html docs
-                if re.search(r"20(1\d|2\d)", href + txt) and _MINUTE_HINT.search(href + txt):
-                    cands.append(href)
+                cands.append(href)
             if len(cands) >= cap:
                 break
         if len(cands) >= cap:
@@ -194,9 +203,7 @@ def process_doc(url: str, la: str, ocr, log) -> tuple[dict, list[dict], str]:
                 dvotes = base.votes_pdf(doc, la, fname)
             else:
                 n = min(len(doc), MAX_OCR_PAGES_PER_DOC)
-                text = "\n".join(
-                    "\n".join(ocr(doc[i].get_pixmap(dpi=DPI).tobytes("png"))) for i in range(n)
-                )
+                text = "\n".join("\n".join(ocr(doc[i].get_pixmap(dpi=DPI).tobytes("png"))) for i in range(n))
                 rec["status"] = "ocr_winocr"
                 if n < len(doc):
                     rec["ocr_truncated_at"] = n
@@ -230,8 +237,7 @@ def main() -> int:
         print(msg, flush=True)
 
     known: set[str] = set()
-    for fn in ("meetings.jsonl", "meetings_v2.jsonl", "meetings_clean.jsonl",
-               "quarantine/quarantine.jsonl"):
+    for fn in ("meetings.jsonl", "meetings_v2.jsonl", "meetings_clean.jsonl", "quarantine/quarantine.jsonl"):
         p = HERE / fn
         if p.exists():
             for line in p.read_text(encoding="utf-8").splitlines():
@@ -241,15 +247,28 @@ def main() -> int:
                         known.add(u)
     log(f"known URLs: {len(known)}")
 
-    seeds = list(csv.DictReader(open(HERE / "council_seeds.csv", encoding="utf-8")))
+    with (HERE / "council_seeds.csv").open(encoding="utf-8") as seed_file:
+        seeds = list(csv.DictReader(seed_file))
     if args.council:
         want = {c.strip() for c in args.council.split(",")}
         seeds = [s for s in seeds if s["local_authority"] in want]
 
     ocr = _winocr_run()
-    clean = [json.loads(l) for l in (HERE / "meetings_clean.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
-    quar = [json.loads(l) for l in (HERE / "quarantine/quarantine.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
-    votes = [json.loads(l) for l in (HERE / "member_votes_all.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+    clean = [
+        json.loads(line)
+        for line in (HERE / "meetings_clean.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    quar = [
+        json.loads(line)
+        for line in (HERE / "quarantine/quarantine.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    votes = [
+        json.loads(line)
+        for line in (HERE / "member_votes_all.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
     n_new_clean = n_new_quar = 0
     stopped = False
@@ -259,8 +278,7 @@ def main() -> int:
             stopped = True
             break
         la = s["local_authority"]
-        cands = harvest_council(la, s["seed_url"], s["portal"], known, args.max_per_council, log,
-                                deep=args.deep)
+        cands = harvest_council(la, s["seed_url"], s["portal"], known, args.max_per_council, log, deep=args.deep)
         for u in cands:
             if deadline and time.time() > deadline:
                 stopped = True
@@ -280,21 +298,28 @@ def main() -> int:
             else:
                 quar.append(rec)
                 n_new_quar += 1
-            log(f"    [{la}] {rec['meeting'][:55]} ({rec['status']}) -> "
-                f"{'CLEAN' if rec['clean'] else rec['reason']} chars={rec['text_chars']}")
+            log(
+                f"    [{la}] {rec['meeting'][:55]} ({rec['status']}) -> "
+                f"{'CLEAN' if rec['clean'] else rec['reason']} chars={rec['text_chars']}"
+            )
         if stopped:
             break
 
     votes = base.norm_members(votes)
     (HERE / "meetings_clean.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in clean), encoding="utf-8")
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in clean), encoding="utf-8"
+    )
     (HERE / "quarantine/quarantine.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in quar), encoding="utf-8")
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in quar), encoding="utf-8"
+    )
     (HERE / "member_votes_all.jsonl").write_text(
-        "\n".join(json.dumps(v, ensure_ascii=False) for v in votes), encoding="utf-8")
+        "\n".join(json.dumps(v, ensure_ascii=False) for v in votes), encoding="utf-8"
+    )
     base.write_quality_report(clean, quar, votes)
-    log(f"\nHARVEST DONE new_clean={n_new_clean} new_quarantined={n_new_quar} "
-        f"total_clean={len(clean)} stopped_at_deadline={stopped}")
+    log(
+        f"\nHARVEST DONE new_clean={n_new_clean} new_quarantined={n_new_quar} "
+        f"total_clean={len(clean)} stopped_at_deadline={stopped}"
+    )
     return 0
 
 

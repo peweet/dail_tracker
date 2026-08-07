@@ -1,10 +1,10 @@
-"""Per-candidate SIPO election-EXPENSES data access — thin Streamlit wrapper.
+"""Per-candidate SIPO election-EXPENSES data access — thin framework-neutral cached wrapper.
 
 Companion to sipo_expenses_data.py (party-tier) and sipo_donations_data.py. This is
 the GRANULAR tier: each individual candidate's GE2024 Election Expenses Statement,
 down to the Part-5 line items (e.g. Noel Grealish -> "Galway Advertiser" €2,799.48).
 Retrieval SQL lives in ``dail_tracker_core.queries.sipo``; this file owns only the
-Streamlit caching + light dict shaping.
+framework-neutral caching + light dict shaping.
 
 Data caveats the page MUST surface (no-inference):
   * OCR-derived from the official scanned returns — rows carry a "verify vs SIPO PDF"
@@ -23,13 +23,13 @@ from __future__ import annotations
 
 import duckdb
 import pandas as pd
-import streamlit as st
+from data_access._cache import cache_data, cache_resource
 
 from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import sipo as _q
 
 
-@st.cache_resource
+@cache_resource
 def _conn() -> duckdb.DuckDBPyConnection:
     return domain_conn("sipo")
 
@@ -41,7 +41,7 @@ def _conn() -> duckdb.DuckDBPyConnection:
 get_sipo_conn = _conn
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_totals() -> dict[str, float | int]:
     """Headline totals across all candidates currently loaded."""
     r = _q.candidate_totals(_conn())
@@ -62,7 +62,7 @@ def fetch_totals() -> dict[str, float | int]:
     }
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_ranked(limit: int | None = None) -> pd.DataFrame:
     """Candidates ranked by total spend — the primary league table.
 
@@ -72,7 +72,7 @@ def fetch_ranked(limit: int | None = None) -> pd.DataFrame:
     return _q.candidate_ranked(_conn(), limit).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_filed_unquantified() -> pd.DataFrame:
     """Candidates who filed a statement with no trustworthy total — searchable, NO amount.
 
@@ -82,31 +82,31 @@ def fetch_filed_unquantified() -> pd.DataFrame:
     return _q.candidate_filed_unquantified(_conn()).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_by_party() -> pd.DataFrame:
     """One row per canonical party."""
     return _q.candidate_by_party(_conn()).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_by_category() -> pd.DataFrame:
     """The 8 statutory categories (5A–5H) with totals."""
     return _q.candidate_by_category(_conn()).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_top_details(limit: int = 25) -> pd.DataFrame:
     """Top spend-detail lines (suppliers + descriptions — not a vendor list)."""
     return _q.candidate_top_details(_conn(), limit).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_line_items(candidate_name: str) -> pd.DataFrame:
     """One candidate's Part-5 line items (the drill-down)."""
     return _q.candidate_line_items(_conn(), candidate_name).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_candidate(candidate_name: str) -> pd.Series | None:
     """One candidate's headline row, or None if absent."""
     r = _q.candidate_one(_conn(), candidate_name)
@@ -115,7 +115,7 @@ def fetch_candidate(candidate_name: str) -> pd.Series | None:
     return r.data.iloc[0]
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_party_finance() -> pd.DataFrame:
     """One row per party: donations in / national-agent spend / candidate spend.
 

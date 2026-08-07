@@ -53,6 +53,21 @@ CSS = "<style>.nested-rule { color: blue; }</style>"
     assert "docstring-fake" not in selectors
 
 
+def test_class_contract_reads_external_css_asset(tmp_path, monkeypatch):
+    pages = tmp_path / "utility" / "pages_code"
+    ui = tmp_path / "utility" / "ui"
+    css = tmp_path / "utility" / "static" / "dailtracker.css"
+    pages.mkdir(parents=True)
+    ui.mkdir(parents=True)
+    css.parent.mkdir(parents=True)
+    css.write_text(".external-rule { color: red; }\n", encoding="utf-8")
+    monkeypatch.setattr(extract_class_contract, "PAGES_DIR", pages)
+    monkeypatch.setattr(extract_class_contract, "UI_DIR", ui)
+    monkeypatch.setattr(extract_class_contract, "CSS_FILE", css)
+
+    assert "external-rule" in extract_class_contract.defined_selectors()
+
+
 def test_class_contract_main_reports_parse_errors(tmp_path, capsys, monkeypatch):
     pages = tmp_path / "utility" / "pages_code"
     ui = tmp_path / "utility" / "ui"

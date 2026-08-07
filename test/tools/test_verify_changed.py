@@ -95,6 +95,27 @@ def test_ui_change_selects_firewall_conventions_and_utility_tests() -> None:
     assert "test/utility" in checks[keys.index("pytest-focused")].argv
 
 
+def test_ui_contract_inputs_select_every_frontend_ratchet() -> None:
+    checks = vc.build_checks(
+        ["utility/static/dailtracker.css", "utility/pages_code/member.py"],
+        python_executable="python",
+    )
+    keys = _keys(checks)
+
+    assert {"url-contract", "class-contract", "markup-contract", "frontend-contract"} <= set(keys)
+
+
+def test_core_query_or_api_change_selects_api_parity() -> None:
+    query_checks = vc.build_checks(
+        ["dail_tracker_core/queries/members.py"],
+        python_executable="python",
+    )
+    api_checks = vc.build_checks(["api/routers/members.py"], python_executable="python")
+
+    assert "api-parity" in _keys(query_checks)
+    assert "api-parity" in _keys(api_checks)
+
+
 def test_sql_docs_and_mcp_each_select_their_special_gate() -> None:
     sql = vc.build_checks(["sql_views/member/member_votes.sql"], python_executable="python")
     assert _keys(sql) == ["pytest-sql"]
@@ -189,6 +210,11 @@ def test_full_selects_every_deterministic_lane() -> None:
         "ruff-format",
         "firewall",
         "conventions",
+        "url-contract",
+        "class-contract",
+        "markup-contract",
+        "frontend-contract",
+        "api-parity",
         "dependency-declarations",
         "dependency-state",
         "doc-index",

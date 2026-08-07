@@ -15,12 +15,12 @@ from __future__ import annotations
 import json
 from datetime import date, datetime
 
-import streamlit as st
+from data_access._cache import cache_data
 
 from config import FRESHNESS_JSON
 
 
-@st.cache_data(ttl=600)
+@cache_data(ttl=600)
 def _load_freshness() -> dict:
     """The parsed freshness.json payload, or {} when missing/unreadable."""
     try:

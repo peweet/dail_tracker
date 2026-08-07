@@ -1,7 +1,24 @@
 {
-  "generated_at": "2026-07-17T04:55:25Z",
-  "fresh_sources": [],
-  "problem_sources": [],
+  "generated_at": "2026-08-07T11:01:04Z",
+  "fresh_sources": [
+    "ce_cork_county",
+    "ce_meath"
+  ],
+  "problem_sources": [
+    "ce_carlow",
+    "ce_cork_city",
+    "ce_cork_county",
+    "ce_meath",
+    "ce_roscommon",
+    "ce_sligo",
+    "ce_kerry",
+    "ce_kilkenny",
+    "ce_limerick",
+    "ce_louth",
+    "ce_wexford",
+    "ce_waterford",
+    "ce_westmeath"
+  ],
   "sources": [
     {
       "id": "nphdb",
@@ -135,6 +152,755 @@
       "error": null,
       "status": "MANUAL",
       "note": "gov.ie collection links to landing pages, not direct PDFs \u2014 needs the public-body crawler."
+    },
+    {
+      "id": "ce_carlow",
+      "name": "Carlow CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        6
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_cork_city",
+      "name": "Cork City CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_cork_county",
+      "name": "Cork County CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2025,
+        11
+      ],
+      "new_periods": [
+        [
+          2022,
+          3
+        ],
+        [
+          2022,
+          12
+        ],
+        [
+          2023,
+          12
+        ],
+        [
+          2024,
+          12
+        ],
+        [
+          2025,
+          11
+        ]
+      ],
+      "error": null,
+      "status": "FRESH",
+      "pdf_links_seen": 19
+    },
+    {
+      "id": "ce_clare",
+      "name": "Clare CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        7
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        7
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 28
+    },
+    {
+      "id": "ce_fingal",
+      "name": "Fingal CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        7
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        7
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 91
+    },
+    {
+      "id": "ce_meath",
+      "name": "Meath CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        7
+      ],
+      "new_periods": [
+        [
+          2019,
+          3
+        ],
+        [
+          2019,
+          4
+        ],
+        [
+          2019,
+          5
+        ],
+        [
+          2019,
+          7
+        ],
+        [
+          2019,
+          9
+        ],
+        [
+          2019,
+          10
+        ],
+        [
+          2019,
+          11
+        ],
+        [
+          2019,
+          12
+        ],
+        [
+          2020,
+          2
+        ],
+        [
+          2020,
+          3
+        ],
+        [
+          2020,
+          4
+        ],
+        [
+          2020,
+          5
+        ],
+        [
+          2020,
+          6
+        ],
+        [
+          2020,
+          7
+        ],
+        [
+          2020,
+          9
+        ],
+        [
+          2020,
+          10
+        ],
+        [
+          2020,
+          11
+        ],
+        [
+          2020,
+          12
+        ],
+        [
+          2021,
+          2
+        ],
+        [
+          2021,
+          3
+        ],
+        [
+          2021,
+          4
+        ],
+        [
+          2021,
+          5
+        ],
+        [
+          2021,
+          6
+        ],
+        [
+          2021,
+          7
+        ],
+        [
+          2021,
+          9
+        ],
+        [
+          2021,
+          10
+        ],
+        [
+          2021,
+          11
+        ],
+        [
+          2021,
+          12
+        ],
+        [
+          2022,
+          2
+        ],
+        [
+          2022,
+          3
+        ],
+        [
+          2022,
+          4
+        ],
+        [
+          2022,
+          5
+        ],
+        [
+          2022,
+          6
+        ],
+        [
+          2022,
+          7
+        ],
+        [
+          2022,
+          9
+        ],
+        [
+          2022,
+          10
+        ],
+        [
+          2022,
+          11
+        ],
+        [
+          2022,
+          12
+        ],
+        [
+          2023,
+          1
+        ],
+        [
+          2023,
+          2
+        ],
+        [
+          2023,
+          3
+        ],
+        [
+          2023,
+          4
+        ],
+        [
+          2023,
+          5
+        ],
+        [
+          2023,
+          6
+        ],
+        [
+          2023,
+          7
+        ],
+        [
+          2023,
+          9
+        ],
+        [
+          2023,
+          10
+        ],
+        [
+          2023,
+          11
+        ],
+        [
+          2023,
+          12
+        ],
+        [
+          2024,
+          2
+        ],
+        [
+          2024,
+          3
+        ],
+        [
+          2024,
+          4
+        ],
+        [
+          2024,
+          5
+        ],
+        [
+          2024,
+          7
+        ],
+        [
+          2024,
+          9
+        ],
+        [
+          2024,
+          10
+        ],
+        [
+          2024,
+          11
+        ],
+        [
+          2024,
+          12
+        ],
+        [
+          2025,
+          1
+        ],
+        [
+          2025,
+          2
+        ],
+        [
+          2025,
+          3
+        ],
+        [
+          2025,
+          4
+        ],
+        [
+          2025,
+          5
+        ],
+        [
+          2025,
+          6
+        ],
+        [
+          2025,
+          7
+        ],
+        [
+          2025,
+          9
+        ],
+        [
+          2025,
+          10
+        ],
+        [
+          2025,
+          11
+        ],
+        [
+          2025,
+          12
+        ],
+        [
+          2026,
+          1
+        ],
+        [
+          2026,
+          2
+        ],
+        [
+          2026,
+          3
+        ],
+        [
+          2026,
+          4
+        ],
+        [
+          2026,
+          5
+        ],
+        [
+          2026,
+          6
+        ],
+        [
+          2026,
+          7
+        ]
+      ],
+      "error": null,
+      "status": "FRESH",
+      "pdf_links_seen": 73
+    },
+    {
+      "id": "ce_roscommon",
+      "name": "Roscommon CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_sligo",
+      "name": "Sligo CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_south_dublin",
+      "name": "South Dublin CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        7
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        7
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 36
+    },
+    {
+      "id": "ce_kerry",
+      "name": "Kerry CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_kilkenny",
+      "name": "Kilkenny CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2025,
+        2
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_laois",
+      "name": "Laois CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        7
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        7
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 56
+    },
+    {
+      "id": "ce_limerick",
+      "name": "Limerick CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_louth",
+      "name": "Louth CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        7
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_wexford",
+      "name": "Wexford CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_wicklow",
+      "name": "Wicklow CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        7
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        7
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 103
+    },
+    {
+      "id": "ce_d_n_laoghaire_rathdown",
+      "name": "D\u00fan Laoghaire-Rathdown CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2023,
+        4
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2023,
+        4
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 5
+    },
+    {
+      "id": "ce_waterford",
+      "name": "Waterford CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        0,
+        0
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_westmeath",
+      "name": "Westmeath CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        5
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "NO_PERIODS",
+      "pdf_links_seen": 0
+    },
+    {
+      "id": "ce_leitrim",
+      "name": "Leitrim CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        6
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        6
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 22
+    },
+    {
+      "id": "ce_kildare",
+      "name": "Kildare CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2025,
+        12
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2025,
+        12
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 16
+    },
+    {
+      "id": "ce_offaly",
+      "name": "Offaly CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        6
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        1
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 46
+    },
+    {
+      "id": "ce_tipperary",
+      "name": "Tipperary CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        7
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        7
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 63
+    },
+    {
+      "id": "ce_galway_county",
+      "name": "Galway County CE reports",
+      "grain": "monthly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        6
+      ],
+      "parser": "pipeline_sandbox/council_minutes/ce_report_harvest.py",
+      "upstream_newest": [
+        2026,
+        6
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 38
     }
   ]
 }

@@ -18,6 +18,7 @@ Outputs:
 
 Bounded for unattended run: MAX_DOCS, MAX_OCR_DOCS, MAX_OCR_PAGES.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,8 +31,11 @@ import requests
 from bs4 import BeautifulSoup
 
 HERE = Path(__file__).resolve().parent
-HDRS = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                       "(KHTML, like Gecko) Chrome/120 Safari/537.36")}
+HDRS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+    )
+}
 CORPUS = HERE / "corpus"
 QDIR = HERE / "quarantine"
 CLEAN_MIN_CHARS = 1200
@@ -47,11 +51,17 @@ _DEC = re.compile(r"\b(AGREED|N[O0]TED|CARRIED|LOST|ADOPTED|DEFERRED|APPROVED|RE
 _ITEM = re.compile(r"ITEM\s*N[O0]\.?\s*\d+", re.I)
 _ROLL = re.compile(r"roll[\s-]?call vote", re.I)
 _RESULT = re.compile(r"Result[:\s]+(\d+)\s*For[,\s]+(?:(\d+)\s*Against)?[,\s]*(?:(\d+)\s*Abstain)?", re.I)
-_MINMARK = re.compile(r"minutes of|confirmation of (?:the )?minutes|i l[áa]thair|members present|"
-                      r"in attendance|proposed by", re.I)
+_MINMARK = re.compile(
+    r"minutes of|confirmation of (?:the )?minutes|i l[áa]thair|members present|"
+    r"in attendance|proposed by",
+    re.I,
+)
 _MOT_CTX = re.compile(r"(Resolution|Motion|Proposed by|That the|We the Members)[^\n]{0,200}", re.I)
 YEAR_RX = re.compile(r"20(1\d|2\d)")
-_CE_REPORT = re.compile(r"management report|chief executive.?s? (?:monthly )?report", re.I)
+_CE_REPORT = re.compile(
+    r"management report|chief executive.?s? (?:monthly )?report|\bce (?:monthly )?report\b",
+    re.I,
+)
 _OTHER_REPORT = re.compile(r"annual report|financial statement|local economic", re.I)
 
 _OCR = None
@@ -65,6 +75,7 @@ def get_ocr():
     _OCR_TRIED = True
     try:
         from rapidocr_onnxruntime import RapidOCR
+
         r = RapidOCR()
         _OCR = lambda png: [t for _, t, _ in (r(png)[0] or [])]  # noqa: E731
     except Exception:  # noqa: BLE001
@@ -78,8 +89,9 @@ def slug(s: str) -> str:
 
 def doc_type(url: str, text: str) -> str:
     name = unquote(urlsplit(str(url or "")).path.rsplit("/", 1)[-1]).lower()
+    name_text = re.sub(r"[^a-z0-9]+", " ", name)
     t = text[:3000].lower()
-    is_md = "municipal district" in t or re.search(r"\bmd\b|municipal", name)
+    is_md = "municipal district" in t or re.search(r"\bmd\b|municipal", name_text)
     # Real minutes routinely open with boilerplate like "conduct the business of the meeting
     # in line with Standing Orders" — that mention alone must NOT tip a genuine minutes doc
     # into standing_orders, or every born-digital/OCR'd minutes doc misclassifies (was
@@ -87,14 +99,14 @@ def doc_type(url: str, text: str) -> str:
     # entirely — 2026-07-31). A real standing-orders regulation doc doesn't also carry the
     # minutes-specific markers below, so only trust the text-body match when those are absent;
     # a URL that says so (standing-orders.pdf) is still a hard signal either way.
-    is_minutes = bool(_MINMARK.search(text)) or "minute" in name
-    if re.search(r"standing.?order", name) or (re.search(r"standing.?order", t) and not is_minutes):
+    is_minutes = bool(_MINMARK.search(text)) or "minute" in name_text
+    if re.search(r"standing.?order", name_text) or (re.search(r"standing.?order", t) and not is_minutes):
         return "standing_orders"
     if "agenda" in name and "minute" not in name:
         return "agenda"
-    if _CE_REPORT.search(name):
+    if _CE_REPORT.search(name_text):
         return "ce_report"
-    if _OTHER_REPORT.search(name):
+    if _OTHER_REPORT.search(name_text):
         return "report_or_plan"
     if is_minutes:
         return "md_minutes" if is_md else "plenary_minutes"
@@ -121,11 +133,17 @@ def classify(rec: dict, text: str, dtype: str) -> tuple[bool, str]:
 
 
 def parse_struct(t: str) -> dict:
-    res = [{"for": int(m.group(1)), "against": int(m.group(2) or 0), "abstain": int(m.group(3) or 0)}
-           for m in _RESULT.finditer(t)]
-    return {"motions": len(_MOTION.findall(t)), "decisions": len(_DEC.findall(t)),
-            "agenda_items": len(_ITEM.findall(t)), "rollcall_votes": len(_ROLL.findall(t)),
-            "named_vote_results": res}
+    res = [
+        {"for": int(m.group(1)), "against": int(m.group(2) or 0), "abstain": int(m.group(3) or 0)}
+        for m in _RESULT.finditer(t)
+    ]
+    return {
+        "motions": len(_MOTION.findall(t)),
+        "decisions": len(_DEC.findall(t)),
+        "agenda_items": len(_ITEM.findall(t)),
+        "rollcall_votes": len(_ROLL.findall(t)),
+        "named_vote_results": res,
+    }
 
 
 def hdr_map(row):
@@ -153,27 +171,27 @@ def votes_pdf(doc, la, fname):
                 nm = (r[ncol] or "").replace("\n", " ").strip()
                 if not nm or nm.lower().startswith(("member", "total", "result")):
                     continue
-                v = next((hm[i] for i in hm if i < len(r) and
-                          ((r[i] or "").strip() in MARKS or "√" in (r[i] or ""))), None)
+                v = next(
+                    (hm[i] for i in hm if i < len(r) and ((r[i] or "").strip() in MARKS or "√" in (r[i] or ""))), None
+                )
                 if v:
-                    out.append({"local_authority": la, "meeting": fname, "motion": last,
-                                "member": nm, "vote": v})
+                    out.append({"local_authority": la, "meeting": fname, "motion": last, "member": nm, "vote": v})
     return out
 
 
 def norm_members(votes):
     import difflib
+
     by = defaultdict(Counter)
     for v in votes:
         by[v["local_authority"]][v["member"]] += 1
-    rosters = {la: [n for n, c in cnt.items() if c >= 3 and len(n) > 6 and " " in n]
-               for la, cnt in by.items()}
+    rosters = {la: [n for n, c in cnt.items() if c >= 3 and len(n) > 6 and " " in n] for la, cnt in by.items()}
     out = []
     for v in votes:
         roster = rosters.get(v["local_authority"], [])
         if v["member"] in roster:
             out.append(v)
-        elif (m := difflib.get_close_matches(v["member"], roster, n=1, cutoff=0.6)):
+        elif m := difflib.get_close_matches(v["member"], roster, n=1, cutoff=0.6):
             out.append({**v, "member": m[0]})
     return out
 
@@ -198,6 +216,7 @@ def main():
     print(f"unique docs to consolidate: {len(items)}")
 
     import fitz
+
     clean, quarantined, votes = [], [], []
     ocr_used = 0
     for i, (url, prev) in enumerate(items):
@@ -225,8 +244,11 @@ def main():
                     rec["status"] = "text"
                     dvotes = votes_pdf(doc, la, fname)
                 elif ocr_used < MAX_OCR_DOCS and (ocr := get_ocr()):
-                    text = "\n".join(l for p in list(doc)[:MAX_OCR_PAGES]
-                                     for l in ocr(p.get_pixmap(dpi=200).tobytes("png")))
+                    text = "\n".join(
+                        line
+                        for page in list(doc)[:MAX_OCR_PAGES]
+                        for line in ocr(page.get_pixmap(dpi=200).tobytes("png"))
+                    )
                     rec["status"] = "ocr"
                     ocr_used += 1
                 else:
@@ -251,15 +273,18 @@ def main():
         else:
             quarantined.append(rec)
         if (i + 1) % 20 == 0:
-            print(f"  {i+1}/{len(items)} clean={len(clean)} quar={len(quarantined)} ocr={ocr_used}")
+            print(f"  {i + 1}/{len(items)} clean={len(clean)} quar={len(quarantined)} ocr={ocr_used}")
 
     votes = norm_members(votes)
     (HERE / "meetings_clean.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in clean), encoding="utf-8")
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in clean), encoding="utf-8"
+    )
     (QDIR / "quarantine.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in quarantined), encoding="utf-8")
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in quarantined), encoding="utf-8"
+    )
     (HERE / "member_votes_all.jsonl").write_text(
-        "\n".join(json.dumps(v, ensure_ascii=False) for v in votes), encoding="utf-8")
+        "\n".join(json.dumps(v, ensure_ascii=False) for v in votes), encoding="utf-8"
+    )
     write_quality_report(clean, quarantined, votes)
     print(f"\nDONE clean={len(clean)} quarantined={len(quarantined)} votes={len(votes)} ocr_docs={ocr_used}")
 
@@ -282,9 +307,11 @@ def write_quality_report(clean, quar, votes):
 
     L = []
     L.append("# Council minutes — extraction quality assessment\n")
-    L.append(f"Auto-generated. Consolidated v1+v2. **{total} unique docs**, "
-             f"**{len(clean)} clean ({pct:.0f}%)**, **{len(quar)} quarantined**, "
-             f"**{len(votes)} attributed member-votes**.\n")
+    L.append(
+        f"Auto-generated. Consolidated v1+v2. **{total} unique docs**, "
+        f"**{len(clean)} clean ({pct:.0f}%)**, **{len(quar)} quarantined**, "
+        f"**{len(votes)} attributed member-votes**.\n"
+    )
     L.append("## By extraction status")
     L.append("| status | docs |\n|---|---|")
     for s, n in by_status.most_common():

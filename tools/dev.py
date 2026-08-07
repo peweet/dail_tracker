@@ -79,11 +79,13 @@ TASKS: dict[str, Task] = {
         ((PYTHON, "tools/check_agent_context.py"),),
     ),
     "ui-contracts": Task(
-        "Check live URL, CSS-class, and anonymous-markup contracts",
+        "Check live frontend URL, style, markup, API, and machine-readable contracts",
         (
             (PYTHON, "tools/migration/extract_url_contract.py", "--check"),
             (PYTHON, "tools/migration/extract_class_contract.py", "--check"),
             (PYTHON, "tools/migration/scan_framework_coupling.py", "--check-markup"),
+            (PYTHON, "tools/migration/build_frontend_contract.py", "--check"),
+            (PYTHON, "tools/migration/check_api_parity.py"),
         ),
     ),
     "doc-index": Task(

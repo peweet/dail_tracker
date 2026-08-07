@@ -1,7 +1,7 @@
-"""Public-finance data access — thin Streamlit wrapper over dail_tracker_core.
+"""Public-finance data access — thin framework-neutral cached wrapper over dail_tracker_core.
 
 The retrieval SQL + QueryResult handling live in
-``dail_tracker_core.queries.publicfinance``; this file owns only the Streamlit
+``dail_tracker_core.queries.publicfinance``; this file owns only framework-neutral
 caching and unwraps ``QueryResult`` for callers.
 
 Forbidden here (logic firewall — the checker scans this file): JOIN / GROUP BY /
@@ -12,19 +12,19 @@ business-metric definitions — all of which live in sql_views/ and dail_tracker
 from __future__ import annotations
 
 import duckdb
-import streamlit as st
+from data_access._cache import cache_data, cache_resource
 
 from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import publicfinance as _q
 from dail_tracker_core.results import QueryResult
 
 
-@st.cache_resource
+@cache_resource
 def get_publicfinance_conn() -> duckdb.DuckDBPyConnection:
     return domain_conn("publicfinance")
 
 
-@st.cache_data(ttl=600)
+@cache_data(ttl=600)
 def fetch_gov_finance_annual_result() -> QueryResult:
     """National revenue/expenditure/balance per year (the 'share of total spend' denominator)."""
     return _q.gov_finance_annual(get_publicfinance_conn())

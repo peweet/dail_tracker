@@ -1,7 +1,7 @@
-"""SIPO election-EXPENSES data access — thin Streamlit wrapper over dail_tracker_core.
+"""SIPO election-EXPENSES data access — thin framework-neutral cached wrapper over dail_tracker_core.
 
 Companion to sipo_donations_data.py. Retrieval SQL + QueryResult state-handling
-live in ``dail_tracker_core.queries.sipo``; this file owns only the Streamlit
+live in ``dail_tracker_core.queries.sipo``; this file owns only framework-neutral
 caching and the headline-totals dict shaping.
 
 What this is: the national-agent "expenditure on the candidate" column (Part 3)
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import duckdb
 import pandas as pd
-import streamlit as st
+from data_access._cache import cache_data
 from data_access.sipo_candidate_data import get_sipo_conn
 
 from dail_tracker_core.queries import sipo as _q
@@ -29,7 +29,7 @@ def get_expenses_conn() -> duckdb.DuckDBPyConnection:
     return get_sipo_conn()
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_expenses_totals() -> dict[str, float | int]:
     """Headline totals across all parties (aggregates the rollup view; no GROUP BY here)."""
     r = _q.expenses_totals(get_expenses_conn())
@@ -46,13 +46,13 @@ def fetch_expenses_totals() -> dict[str, float | int]:
     }
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_expenses_by_party() -> pd.DataFrame:
     """One row per party — drives the Election-Expenses cards."""
     return _q.expenses_by_party(get_expenses_conn()).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_party_candidates(party: str) -> pd.DataFrame:
     """Per-candidate Part-3 row for one party — spend, assigned budget, statutory cap."""
     return _q.party_candidates(get_expenses_conn(), party).data
@@ -62,13 +62,13 @@ def fetch_party_candidates(party: str) -> pd.DataFrame:
 # Incremental coverage (only OCR'd parties). NEVER sum with the Part-3 figures above.
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_party_national_categories(party: str) -> pd.DataFrame:
     """The 8 statutory headings (4A–4H) for one party — printed totals + reconcile flag."""
     return _q.party_national_categories(get_expenses_conn(), party).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_party_national_overall(party: str) -> float | None:
     """One party's Overall national-agent total, or None if no Part-4 data is loaded."""
     r = _q.party_national_overall(get_expenses_conn(), party)
@@ -78,7 +78,7 @@ def fetch_party_national_overall(party: str) -> float | None:
     return float(v) if pd.notna(v) else None
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_party_national_items(party: str) -> pd.DataFrame:
     """One party's Part-4 line items — section, ref, description, cost, verify flag."""
     return _q.party_national_items(get_expenses_conn(), party).data
@@ -90,7 +90,7 @@ def fetch_party_national_items(party: str) -> pd.DataFrame:
 # the GE2024 figures above or across elections.
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_ge2020_totals() -> dict[str, float | int]:
     """Headline across parties — count filed + summed printed overall (reconciling only)."""
     r = _q.ge2020_totals(get_expenses_conn())
@@ -104,19 +104,19 @@ def fetch_ge2020_totals() -> dict[str, float | int]:
     }
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_ge2020_by_party() -> pd.DataFrame:
     """One row per party — printed Overall total + reconcile flag (drives the GE2020 cards)."""
     return _q.ge2020_by_party(get_expenses_conn()).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_ge2020_party_categories(party: str) -> pd.DataFrame:
     """The 8 statutory headings for one party — printed totals + reconcile flag."""
     return _q.ge2020_party_categories(get_expenses_conn(), party).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_ge2020_party_overall(party: str) -> dict[str, float | int | bool | None] | None:
     """One party's printed Overall national-agent total (with reconcile flag + page), or None."""
     r = _q.ge2020_party_overall(get_expenses_conn(), party)
@@ -130,7 +130,7 @@ def fetch_ge2020_party_overall(party: str) -> dict[str, float | int | bool | Non
     }
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_ge2020_party_items(party: str) -> pd.DataFrame:
     """One party's national-agent line items — section, ref, description, cost, verify flag."""
     return _q.ge2020_party_items(get_expenses_conn(), party).data

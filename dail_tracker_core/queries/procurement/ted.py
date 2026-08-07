@@ -171,9 +171,9 @@ def ted_tenders(
     estimated_value_eur is a pre-award estimate shown for context — never summed with
     award/payment figures."""
     sql = (
-        "SELECT publication_number, notice_url, buyer_name, cpv_code, cpv_division, procedure_type,"
-        " is_uncompetitive_procedure, submission_deadline, is_still_open, estimated_value_eur, currency,"
-        " dispatch_date, year"
+        "SELECT publication_number, notice_url, title, buyer_name, cpv_code, cpv_division, procedure_type,"
+        " is_uncompetitive_procedure, submission_deadline, nuts3_code, region, is_still_open, estimated_value_eur, currency,"
+        " dispatch_date, year, retrieved_utc"
         " FROM v_procurement_ted_tenders"
     )
     where: list[str] = []
@@ -199,9 +199,9 @@ def ted_tender_by_id(conn: duckdb.DuckDBPyConnection, publication_number: str) -
     """One TED competition notice, selected by its stable publication number."""
     return _run(
         conn,
-        "SELECT publication_number, notice_url, buyer_name, cpv_code, cpv_division, procedure_type,"
-        " is_uncompetitive_procedure, submission_deadline, is_still_open, estimated_value_eur, currency,"
-        " value_kind, dispatch_date, year"
+        "SELECT publication_number, notice_url, title, buyer_name, cpv_code, cpv_division, procedure_type,"
+        " is_uncompetitive_procedure, submission_deadline, nuts3_code, region, is_still_open, estimated_value_eur, currency,"
+        " value_kind, dispatch_date, year, retrieved_utc"
         " FROM v_procurement_ted_tenders WHERE publication_number = ? LIMIT 1",
         [publication_number],
     )

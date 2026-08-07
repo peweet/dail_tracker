@@ -1,4 +1,4 @@
-You are working in the Dáil Tracker repo (Python + Streamlit). The app's shared stylesheet is injected once per run by `inject_css()` in `utility/shared_css.py`.
+You are working in the D?il Tracker repo (Python + Streamlit). The app's shared stylesheet lives in `utility/static/dailtracker.css` and is injected once per run by `inject_css()` in `utility/shared_css.py`.
 
 Add a CSS family for a planned "grants" page, using the selector prefix `.gr-`, following the existing per-page CSS family conventions exactly (naming, design-token usage, placement within the stylesheet):
 
@@ -13,7 +13,7 @@ At the very end of your response, output exactly this JSON block (fill in real v
 ```json
 {
   "files_read": [
-    {"path": "utility/shared_css.py", "chars": 123456}
+    {"path": "utility/static/dailtracker.css", "chars": 123456}
   ],
   "response_chars": 7890
 }

@@ -81,3 +81,8 @@ def test_parse_module_reports_decode_errors(tmp_path):
         assert exc.path == broken
     else:
         raise AssertionError("invalid source encoding was silently accepted")
+
+
+def test_private_publicsignal_composition_is_explicitly_out_of_scope():
+    assert check_api_parity.module_is_excluded("procurement/opportunities")
+    assert not check_api_parity.module_is_excluded("procurement/awards")

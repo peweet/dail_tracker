@@ -1,26 +1,27 @@
 {
-  "rows_notices": 13511,
-  "distinct_notices": 13511,
-  "rows_with_estimated_value": 11165,
-  "rows_with_deadline": 12577,
-  "still_open_by_deadline": 425,
+  "rows_notices": 13549,
+  "distinct_notices": 13549,
+  "rows_with_estimated_value": 11202,
+  "rows_with_title": 13549,
+  "rows_with_deadline": 12613,
+  "still_open_by_deadline": 435,
   "uncompetitive_procedure_rows": 2,
   "date_span": [
     "2023-12-29",
-    "2026-08-04"
+    "2026-08-06"
   ],
   "grain": "one row per cn-standard notice (lots aggregated: earliest deadline, summed estimate)",
   "layer": "silver",
   "source": {
-    "dataset": "TED \u2014 Tenders Electronic Daily (contract/competition notices, Ireland)",
+    "dataset": "TED — Tenders Electronic Daily (contract/competition notices, Ireland)",
     "publisher": "Publications Office of the European Union",
     "api": "https://api.ted.europa.eu/v3/notices/search",
     "query": "buyer-country=IRL AND notice-type=cn-standard AND publication-date>=20240101",
     "notice_url_template": "https://ted.europa.eu/en/notice/-/detail/{publication_number}",
-    "license": "EU open data \u2014 reuse authorised under Commission Decision 2011/833/EU",
-    "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
+    "license": "EU open data — reuse authorised under Commission Decision 2011/833/EU",
+    "attribution": "Contains information from TED (© European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 1,
-  "generated_at": "2026-08-05T20:47:00+00:00",
-  "caveat": "PRE-AWARD competition notices. estimated_value_eur is a BUYER ESTIMATE \u2014 never an award value and never a payment; value_safe_to_sum is always FALSE. NEVER sum with award or payment figures (three-grain firewall). A tender notice is a procurement opportunity, not a contract."
+  "generated_at": "2026-08-07T08:45:41+00:00",
+  "caveat": "PRE-AWARD competition notices. estimated_value_eur is a BUYER ESTIMATE — never an award value and never a payment; value_safe_to_sum is always FALSE. NEVER sum with award or payment figures (three-grain firewall). A tender notice is a procurement opportunity, not a contract."
 }

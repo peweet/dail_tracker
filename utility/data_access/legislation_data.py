@@ -1,7 +1,7 @@
-"""Legislation data access — thin Streamlit wrapper over dail_tracker_core.
+"""Legislation data access — thin framework-neutral cached wrapper over dail_tracker_core.
 
 Retrieval SQL + QueryResult state-handling live in
-``dail_tracker_core.queries.legislation``; this file owns only the Streamlit
+``dail_tracker_core.queries.legislation``; this file owns only framework-neutral
 caching and the small list/dict shaping + the two ``v_bill_amendment_intensity``
 column projections the page contract expects (the core fns return a richer
 superset shared with the orphan most-contested helpers).
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import duckdb
 import pandas as pd
-import streamlit as st
+from data_access._cache import cache_data, cache_resource
 
 from dail_tracker_core.connections import domain_conn
 from dail_tracker_core.queries import legislation as _q
@@ -39,7 +39,7 @@ _INTENSITY_COLS = [
 ]
 
 
-@st.cache_resource
+@cache_resource
 def get_legislation_conn() -> duckdb.DuckDBPyConnection:
     return domain_conn("legislation")
 
@@ -47,7 +47,7 @@ def get_legislation_conn() -> duckdb.DuckDBPyConnection:
 # ── Index ──────────────────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_legislation_index_filtered(
     start_date: str | None = None,
     end_date: str | None = None,
@@ -57,13 +57,13 @@ def fetch_legislation_index_filtered(
     return _q.index_filtered(get_legislation_conn(), start_date, end_date, status, title_search).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_all_statuses() -> list[str]:
     df = _q.distinct_statuses(get_legislation_conn()).data
     return df["bill_status"].tolist() if not df.empty else []
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_introduced_years() -> list[int]:
     """Distinct Bill-introduction years, newest first — options for the shared
     year_selector on the index page."""
@@ -71,7 +71,7 @@ def fetch_introduced_years() -> list[int]:
     return [int(y) for y in df["yr"].tolist()] if not df.empty else []
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_introduced_year_coverage(thin_below: int = 20) -> dict:
     """Coverage shape behind the year pills, ready for the page to render.
 
@@ -103,7 +103,7 @@ def fetch_introduced_year_coverage(thin_below: int = 20) -> dict:
 # ── Detail ─────────────────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_bill_detail(bill_id: str) -> pd.DataFrame:
     return _q.bill_detail(get_legislation_conn(), bill_id).data
 
@@ -111,13 +111,13 @@ def fetch_bill_detail(bill_id: str) -> pd.DataFrame:
 # ── Amendment intensity (contestation proxy) ────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_bill_amendment_intensity(bill_id: str) -> pd.DataFrame:
     df = _q.amendment_intensity_for_bill(get_legislation_conn(), bill_id).data
     return df[_INTENSITY_COLS] if not df.empty else df
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_most_contested_bills(limit: int = 15) -> pd.DataFrame:
     df = _q.most_contested_bills(get_legislation_conn(), limit).data
     return df[_MOST_CONTESTED_COLS] if not df.empty else df
@@ -126,7 +126,7 @@ def fetch_most_contested_bills(limit: int = 15) -> pd.DataFrame:
 # ── Timeline ───────────────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_bill_timeline(bill_id: str) -> pd.DataFrame:
     return _q.bill_timeline(get_legislation_conn(), bill_id).data
 
@@ -134,7 +134,7 @@ def fetch_bill_timeline(bill_id: str) -> pd.DataFrame:
 # ── Sources ────────────────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_bill_sources(bill_id: str) -> pd.DataFrame:
     return _q.bill_sources(get_legislation_conn(), bill_id).data
 
@@ -142,7 +142,7 @@ def fetch_bill_sources(bill_id: str) -> pd.DataFrame:
 # ── PDF documents ──────────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_bill_pdfs(bill_id: str) -> pd.DataFrame:
     """All Oireachtas-issued PDFs for a bill (versions → related → amendments)."""
     return _q.bill_pdfs(get_legislation_conn(), bill_id).data
@@ -151,7 +151,7 @@ def fetch_bill_pdfs(bill_id: str) -> pd.DataFrame:
 # ── Debates ────────────────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
     return _q.bill_debates(get_legislation_conn(), bill_id).data
 
@@ -159,7 +159,7 @@ def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
 # ── Pre-2014 primary Acts (curated table) ─────────────────────────────────────
 
 
-@st.cache_data(ttl=3600)
+@cache_data(ttl=3600)
 def fetch_pre2014_act_detail(bill_id: str) -> dict:
     """Hero info for a synthetic 'act_<year>_<slug>' bill_id. {} on miss/non-act."""
     if not (isinstance(bill_id, str) and bill_id.startswith("act_")):
@@ -178,13 +178,13 @@ def fetch_pre2014_act_detail(bill_id: str) -> dict:
 # ── Statutory Instruments under a bill ────────────────────────────────────────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_si_composition(bill_id: str) -> pd.DataFrame:
     """Operation-mix summary for the composition sentence (GROUP BY lives in view)."""
     return _q.si_composition(get_legislation_conn(), bill_id).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_si_freshness(bill_id: str) -> dict:
     """Total + first/last SI date + EU share for the freshness line."""
     df = _q.si_freshness(get_legislation_conn(), bill_id).data
@@ -199,13 +199,13 @@ def fetch_si_freshness(bill_id: str) -> dict:
     }
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_si_years_for_bill(bill_id: str) -> list[int]:
     df = _q.si_years_for_bill(get_legislation_conn(), bill_id).data
     return [int(y) for y in df["si_year"].dropna().tolist()] if not df.empty else []
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_si_by_bill(
     bill_id: str,
     year: int | None = None,
@@ -215,7 +215,7 @@ def fetch_si_by_bill(
     return _q.si_by_bill(get_legislation_conn(), bill_id, year, operation, eu_only).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_act_commencement(bill_id: str) -> pd.DataFrame:
     """Commencement-order timeline for an Act (empty when none / self-executing)."""
     return _q.act_commencement(get_legislation_conn(), bill_id).data
@@ -224,7 +224,7 @@ def fetch_act_commencement(bill_id: str) -> pd.DataFrame:
 # ── Statutory Instruments — first-class entity (v_statutory_instruments) ──────
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_si_entity_index() -> pd.DataFrame:
     """Every Statutory Instrument as a row — the page facets/filters in pandas."""
     return _q.si_entity_index(get_legislation_conn()).data
@@ -236,13 +236,13 @@ def fetch_si_entity_index_classified() -> pd.DataFrame:
     return _q.si_entity_index_classified(get_legislation_conn()).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_si_amendments_made(si_year: int, si_number: int) -> pd.DataFrame:
     """The instruments THIS SI amends/revokes (forward direction of the SI→SI graph)."""
     return _q.si_amendments_made(get_legislation_conn(), si_year, si_number).data
 
 
-@st.cache_data(ttl=300)
+@cache_data(ttl=300)
 def fetch_circulars_for_si(si_year: int, si_number: int) -> pd.DataFrame:
     """Government circular(s) that operationalise THIS SI — the instruction layer atop the
     law. Resolved rows only (the citing circular refers to this SI). Empty for most SIs:

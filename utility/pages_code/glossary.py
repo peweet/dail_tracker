@@ -289,7 +289,7 @@ def glossary_page() -> None:
         st.html(explainers_html)
 
         # Transparency: what the automated plausibility checks held back (usually nothing).
-        from data_access.quarantine_data import render_data_integrity_panel
+        from ui.data_integrity_panel import render_data_integrity_panel
 
         render_data_integrity_panel()
 

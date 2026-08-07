@@ -189,18 +189,15 @@ def _page_entry_missing_dt_page(source: str, path: Path) -> list[str]:
 # candidate plan) or, if the growth is deliberate, raise the cap in this table —
 # visibly, in a diff. When a candidate is refactored, ratchet its cap DOWN.
 LARGEST_FILE_CAPS = {
-    # Raised 6572→6656 2026-08-01: the 07-31/08-01 feature work landed at 6656, and
-    # the C1/C3/C4 splits were MEASURED as token-cost regressions and reverted
-    # (commit c42e78a) — so growth is absorbed by cap raises, not extraction, until
-    # a bench run says otherwise (doc/REFACTORING_CANDIDATES.md).
-    # Raised 6656→6659 2026-08-04 for the three-line semantic-component styling
-    # landed by the markup cleanup; no unrelated headroom is granted.
-    "utility/shared_css.py": 6659,
+    # The shared CSS was extracted unchanged on 2026-08-07. Keep the adapter small
+    # and ratchet the order-dependent asset independently.
+    "utility/shared_css.py": 48,
+    "utility/static/dailtracker.css": 6570,
     # procurement.py (4,665) split into pages_code/procurement/ 2026-07-31 (C2,
     # doc/REFACTORING_CANDIDATES.md) — cap its largest resulting module instead.
     "utility/pages_code/procurement/patterns.py": 737,
     "utility/pages_code/member_overview.py": 2498,
-    # Raised 2155→2191 2026-08-01, same reasoning as shared_css.py above.
+    # Raised 2155→2191 2026-08-01 after measured component growth.
     "utility/ui/components.py": 2191,
     # Raised 2923→3172 2026-08-04 after the privacy-safe code index, bounded JSON
     # reader, external-memory opt-in and nested-outline response caps landed.

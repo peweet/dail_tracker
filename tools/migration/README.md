@@ -16,6 +16,7 @@ Run everything from the repo root (the tools resolve paths relative to it):
 | `scan_framework_coupling.py` | gauge | How coupled is the code to Streamlit? (import graph + `st.*` surface) | stdout / `--json` |
 | `extract_url_contract.py` | gauge + `--check` ratchet | What are the deep-link routes + query params any React router must keep? | `doc/URL_CONTRACT.md` |
 | `extract_class_contract.py` | gauge + `--check` ratchet | What CSS class vocabulary must a new frontend emit to preserve the styling? | `doc/CLASS_CONTRACT.md` |
+| `build_frontend_contract.py` | generator + `--check` ratchet | What machine-readable route, parameter, class, and stylesheet contract must another frontend satisfy? | `utility/static/frontend_contract.json` |
 | `check_api_parity.py` | ratchet | Which core query functions are unreachable from the API (Streamlit-only)? | baseline below |
 | `scan_cloud_readiness.py` | gauge | How exposed are we to WAF blocks / local-path blockers before a cloud move? | `doc/CLOUD_READINESS.md` |
 | `build_source_cadence.py` | generator + `--check` ratchet | Seed/sync the unified source-cadence ledger from every registry | `data/_meta/source_cadence.csv` |
@@ -28,6 +29,9 @@ Run everything from the repo root (the tools resolve paths relative to it):
 - [URL_CONTRACT.md](../../doc/URL_CONTRACT.md) · [CLASS_CONTRACT.md](../../doc/CLASS_CONTRACT.md) — the two frozen contracts
 - [CLOUD_READINESS.md](../../doc/CLOUD_READINESS.md) — WAF exposure + runtime blockers
 - [SOURCE_CADENCE_PROCEDURE.md](../../doc/SOURCE_CADENCE_PROCEDURE.md) — the registry map + new-source procedure
+
+**Runtime contract** — shipped with the UI package for any frontend or installed-wheel smoke:
+- [frontend_contract.json](../../utility/static/frontend_contract.json) — deterministic routes, parameters, classes, and CSS hashes
 
 **Data** — in `data/_meta/` so the `.gitignore` negation keeps it tracked:
 - [source_cadence.csv](../../data/_meta/source_cadence.csv) — the public source-registry cadence ledger
@@ -50,7 +54,9 @@ though the files respect their homes.
 ## Related code (not a gauge, lives with its layer)
 
 - `utility/data_access/_cache.py` + `test/test_cache_shim.py` — the framework-neutral
-  caching shim (the §2.1 decoupling step); lives in the data-access layer it serves.
+  caching adapter now used across `utility/data_access/`.
+- `utility/static/dailtracker.css` + `utility/shared_css.py` — the reusable stylesheet
+  and its small Streamlit injection adapter.
 
 ## The recommended pre-migration sweep
 
@@ -59,5 +65,6 @@ though the files respect their homes.
     python tools/migration/check_source_cadence.py         # what's due to pull
     python tools/migration/extract_url_contract.py --check # deep-link contract intact
     python tools/migration/extract_class_contract.py --check
+    python tools/migration/build_frontend_contract.py --check
     python tools/migration/check_api_parity.py             # API parity intact
     python tools/migration/build_source_cadence.py --check # ledger covers all sources

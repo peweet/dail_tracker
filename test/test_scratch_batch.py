@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("fitz")
 
-import scratch_batch
+from pipeline_sandbox import scratch_batch
 
 
 @pytest.mark.parametrize(

@@ -27,6 +27,8 @@ def test_wheel_declares_runtime_packages_resources_and_chains() -> None:
         "services/schemas",
         "sql_views",
         "tools/build_delivery_smoke_fixture.py",
+        "utility/static/dailtracker.css",
+        "utility/static/frontend_contract.json",
     ]
     required.extend(script for _, script in CHAINS)
     missing = [path for path in required if not _wheel_includes(path, entries)]
@@ -60,6 +62,8 @@ def test_ci_installs_api_and_mcp_and_smokes_delivery() -> None:
     assert 'dail-pipeline" --list' in ci
     assert 'export DAIL_DATA_DIR="$RUNNER_TEMP/dail-data"' in ci
     assert "tools/build_delivery_smoke_fixture.py" in ci
+    assert "utility" in ci and "dailtracker.css" in ci
+    assert "frontend_contract.json" in ci
     assert 'uvicorn" api.main:app' in ci
     assert "127.0.0.1:8091/v1/health" in ci
     assert "127.0.0.1:8080/v1/readiness" in ci

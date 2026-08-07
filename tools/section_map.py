@@ -1,7 +1,7 @@
 """SECTION MAPS — keep big files navigable so agents never have to read them whole.
 
 THE PROBLEM. A handful of files are so large that opening one costs more than most tasks are
-worth: utility/shared_css.py ~72k tokens, utility/pages_code/procurement.py ~59k. An agent that
+worth: utility/pages_code/procurement.py ~59k tokens and other large Python modules. An agent that
 Reads one has spent a large slice of its context before doing any work.
 
 THE FIX. Every file over MIN_LINES carries a `# ── SECTION MAP ──` block in its first ~60 lines

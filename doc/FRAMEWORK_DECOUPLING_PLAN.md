@@ -1,9 +1,24 @@
 # Framework decoupling plan — safeguarding the app against any one framework
 
-**Status:** planning + measurement. Three tools shipped; no migration work started.
+**Status:** active decoupling. Migration is not planned; framework-neutral safeguards are being shipped incrementally.
 **Scope:** reduce dependency on Streamlit specifically, and on any single framework
 generally. Siting is **out of scope** here (beta; its API shape is a separate design
 question — a POST compute endpoint, not a GET read).
+
+## Current implementation status (2026-08-07)
+
+Shipped without changing the Streamlit product:
+
+- migration ratchets are wired into CI and the focused verification lane;
+- every retrieval module uses the framework-neutral cache adapter;
+- quarantine rendering is separated from quarantine-ledger access;
+- the order-dependent shared stylesheet is a reusable static CSS asset;
+- a machine-readable frontend acceptance contract freezes routes, parameters, classes, and CSS hashes;
+- cloud logging and request correlation are implemented.
+
+Open work remains page/domain shaped: frontend-ready API read models, pure URL-state
+normalisation for complex pages, and reconciliation of the legacy Streamlit-specific
+page-contract pack.
 
 The goal is not "move to React." The goal is that **no framework choice is load-bearing**,
 so the app survives Streamlit becoming a bad bet — whether that's a breaking release, a
@@ -11,10 +26,13 @@ licence change, a scaling wall, or a product decision.
 
 ---
 
-## 1. Measured state (not estimated)
+## 1. Baseline measured state (not estimated)
 
-All figures produced by `python tools/migration/scan_framework_coupling.py` over **1,031 Python
-modules**. Regenerate any time; the tool is a survey, not a ratchet.
+The figures below are the pre-decoupling baseline produced by
+`python tools/migration/scan_framework_coupling.py` over **1,031 Python modules**. Regenerate
+them when a fresh whole-tree survey is needed; the tool is a survey, not a ratchet. The
+current data-access boundary is enforced separately by
+`test/utility/test_data_access_framework_boundary.py`.
 
 ### 1.1 Streamlit reachability by layer
 
@@ -59,31 +77,30 @@ more than triple every widget combined: this is an HTML generator wearing a Stre
 
 ## 2. Decoupling opportunities, ranked by cost
 
-### 2.1 Free — the data-access layer is one decorator away from portable
+### 2.1 Implemented — isolate caching behind a framework-neutral adapter
 
-**27 of 28 `utility/data_access/` modules use Streamlit for caching and nothing else**
-(398 `@st.cache_data` / `@st.cache_resource` decorators, zero widgets, zero state). Verified
-by AST symbol classification, not by reading.
+**The baseline showed that 27 of 28 `utility/data_access/` modules used Streamlit only
+for caching** (398 `@st.cache_data` / `@st.cache_resource` decorators, zero widgets, zero
+state). That finding was verified by AST symbol classification, not by reading.
 
 Heaviest: `procurement_data.py` (80 decorators), `lobbying_data.py` (38), `legislation_data.py` (19),
 `judiciary_data.py` (17), `constituency_data.py` / `corporate_data.py` / `housing_data.py` /
 `local_government_data.py` (16 each).
 
-**Action:** introduce `utility/cache.py` exporting `cache_data` / `cache_resource` that
-delegate to Streamlit when a runtime is present and fall back to `functools.lru_cache`
-otherwise. Swap the decorator import in 27 files. Behaviour-preserving, mechanically
-verifiable, and it takes the entire 3,348-LOC data-access layer from Streamlit-coupled to
-framework-neutral. **This is the highest value-per-hour change available.**
+**Implemented:** `utility/data_access/_cache.py` exports `cache_data` / `cache_resource`,
+delegating to Streamlit when it is installed and falling back to `functools.lru_cache`
+otherwise. Retrieval modules import only that adapter; a regression test rejects direct
+Streamlit imports anywhere else in `utility/data_access/`.
 
-### 2.2 Cheap — extract the stylesheet
+### 2.2 Implemented — extract the stylesheet
 
-`utility/shared_css.py` is one function containing one static `<style>` string
-([shared_css.py:56](../utility/shared_css.py#L56)); AST shows no Python interpolation. The
-design system is plain CSS on the project's own class names.
+The design system is plain CSS using the project's own class names. It now lives in
+`utility/static/dailtracker.css`; `utility/shared_css.py` is a small Streamlit injection
+adapter.
 
-**Action:** move the `<style>` body to `utility/static/*.css` and have `inject_css()` read
-it. Zero visual change, testable in Streamlit today, and any future frontend imports the
-same files. Consolidate the four page-local CSS blocks first
+The extraction preserved rule order and is guarded by stylesheet-loading and class-contract
+tests. Eight additional page/component-local CSS emitters are inventoried and hashed in
+`utility/static/frontend_contract.json`; they remain candidates for later consolidation
 ([corporate.py:118](../utility/pages_code/corporate.py#L118) is 727 lines, plus
 `judiciary.py:176`, `statutory_instruments.py:66`, `public_appointments.py:72`).
 
@@ -467,19 +484,18 @@ and the request/run grouping so volume is navigable rather than flat. What is *n
 is sampling of high-frequency success lines — unnecessary at current traffic, worth revisiting
 if request volume makes the access log itself expensive.
 
-## 7. Suggested order
+## 7. Delivery order
 
-1. Wire the five ratchets into the fast test subset (§3) — costs nothing, stops the bleeding.
-2. `utility/cache.py` shim — 27 modules become framework-neutral (§2.1).
-3. Extract the stylesheet to `.css` files (§2.2).
-4. `services/logging_cloud.py` + request-ID middleware (§6.4) — the serving layer stops
-   being dark before it ever reaches a cloud box.
-5. Populate caveats through `serialize.envelope` (§5.3).
-6. CORS middleware (§5.1) — only when a second frontend is real.
-7. Close API parity where it is commercially load-bearing: `procurement/signals`,
+1. **Done:** wire the five ratchets into the focused verification lane (§3).
+2. **Done:** isolate data-access caching behind `utility/data_access/_cache.py` (§2.1).
+3. **Done:** extract the shared stylesheet without reordering it (§2.2).
+4. **Done:** add `services/logging_cloud.py` and request-ID middleware (§6.4).
+5. **Next:** populate caveats through `serialize.envelope` (§5.3).
+6. **Deferred:** add CORS middleware only when a second frontend is real (§5.1).
+7. **Next:** close API parity where it is product-relevant: `procurement/signals`,
    `procurement/payments` (§2.3).
 
-Steps 1–5 are worth doing **whether or not a migration ever happens**. They reduce
+The completed steps are worth having **whether or not a migration ever happens**. They reduce
 single-framework dependency, and every one of them makes the current Streamlit app more
 testable, more debuggable, or more portable — today. That is the test for whether decoupling
 work is honest: if it only pays off in a hypothetical future, it is speculative; if it pays

@@ -15,6 +15,7 @@
 # Static-analysis policy, not generated application data. CI must see the same
 # inline-markup debt limits and explicit file-lineage rules as local runs.
 !tools/baselines/markup_inline_baseline.json
+!utility/static/frontend_contract.json
 *.xlsx
 *.pdf
 # doc/source_pdfs — CACHED SOURCE DOCUMENTS that LIVE extractors read as their input
@@ -381,6 +382,11 @@ lobbyist/raw/
 !data/gold/parquet/*.parquet
 # EXCEPTION: the FULL debate-speeches fact (all years + full text, ~200MB) must NOT
 # be committed — it exceeds GitHub's 100MB limit. Only the committed lite slice
+# CE-report LEAD lane is a PublicSignal product asset (2026-08-07) — overlay-tracked
+# (git siting), kept out of the public repo like opportunities.py. The CORPUS parquet
+# and coverage JSON stay public: council-published civic text, no commercial edge.
+data/gold/parquet/council_ce_report_leads.parquet
+
 # `speeches_fact.parquet` (recent years + excerpt, ~25MB) ships to Cloud; the full
 # fact is rebuilt locally by debates/speeches_gold.py. See [[feedback_dual_config_files]].
 data/gold/parquet/speeches_fact_full.parquet
@@ -598,6 +604,15 @@ planning_rules/**/raw/
 # planning_rules corpus seed registry (curated tracking of datasets to ingest) — track it
 !planning_rules/_corpus_registry/*.csv
 
+# CE-report lane: reviewer decisions and recall evidence are LOAD-BEARING, not regenerable —
+# but they are PublicSignal product assets, so they live in the PRIVATE overlay (git siting),
+# not here (moved 2026-08-07, same session that briefly negated them into the public repo).
+# The blanket *.csv/*.json rules keep them out of this repo; the overlay tracks:
+#   ce_report_lead_reviews.csv   — drives promotion_permitted in the corpus build
+#   ce_lead_recall_labels.json   — the recall measurement (two independent labellers)
+#   ce_lead_recall_gap.jsonl     — the ranked labelling queue (explicit ignore below)
+pipeline_sandbox/council_minutes/ce_lead_recall_gap.jsonl
+
 # planning_rules application_files _text/ — OCR/extracted page-text dumps per application.
 # These are large regenerable extractions (one commit added 225 files / ~340k lines) and
 # don't belong in git — keep the parent application_files dir tracked, ignore the _text dumps.
@@ -642,6 +657,9 @@ _REMOTE_*
 
 # Second git-dir holding the private siting history (overlay repo on this worktree)
 .git-siting/
+
+# Third git-dir: PublicSignal's own private repo, split from .git-siting 2026-08-07
+.git-publicsignal/
 
 # === Siting/planning engine — kept out of the public repo (2026-07-24) ===
 # The siting constraint engine, county rulebook corpus, layer registry, assistant

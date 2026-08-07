@@ -58,6 +58,8 @@ jobs:
           uv run python tools/migration/extract_url_contract.py --check
           uv run python tools/migration/extract_class_contract.py --check
           uv run python tools/migration/scan_framework_coupling.py --check-markup
+          uv run python tools/migration/build_frontend_contract.py --check
+          uv run python tools/migration/check_api_parity.py
 
   # Dependency truth: pyproject.toml (human intent) → uv.lock (resolved env) →
   # requirements.txt (app-runtime export for Streamlit Cloud / pip fallback).
@@ -198,6 +200,7 @@ jobs:
           "$GITHUB_WORKSPACE/.venv/bin/python" "$GITHUB_WORKSPACE/tools/build_delivery_smoke_fixture.py" --data-dir "$DAIL_DATA_DIR"
           "$GITHUB_WORKSPACE/.venv/bin/dail-pipeline" --list
           "$GITHUB_WORKSPACE/.venv/bin/python" -c "import os; from pathlib import Path; from config import DATA_DIR; assert DATA_DIR == Path(os.environ['DAIL_DATA_DIR']).resolve(); import mcp_server.server"
+          "$GITHUB_WORKSPACE/.venv/bin/python" -c "import json; from importlib.resources import files; root=files('utility').joinpath('static'); assert root.joinpath('dailtracker.css').read_text(encoding='utf-8'); assert json.loads(root.joinpath('frontend_contract.json').read_text(encoding='utf-8'))['schema_version'] == 1"
           "$GITHUB_WORKSPACE/.venv/bin/uvicorn" api.main:app --host 127.0.0.1 --port 8091 >"$RUNNER_TEMP/wheel-api.log" 2>&1 &
           api_pid=$!
           trap 'kill "$api_pid" 2>/dev/null || true' EXIT

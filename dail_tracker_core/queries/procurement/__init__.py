@@ -68,6 +68,11 @@ from dail_tracker_core.queries.procurement.payments import (  # noqa: F401
     payments_supplier_summary,
     supplier_payments_by_year,
 )
+from dail_tracker_core.queries.procurement.pre_tender import (  # noqa: F401
+    pre_tender_lead_by_id,
+    pre_tender_leads,
+    pre_tender_work_packages,
+)
 from dail_tracker_core.queries.procurement.signals import (  # noqa: F401
     call_offs_for_supplier,
     charity_overlap,
