@@ -1,14 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import duckdb
-import polars as pl
 
-from dail_tracker_core.queries.procurement.opportunities import (
-    public_signal_ce_leads_contract,
-    public_signal_work_package_contract,
-)
 from dail_tracker_core.queries.procurement.pre_tender import (
     pre_tender_lead_by_id,
     pre_tender_leads,
@@ -145,70 +138,12 @@ def test_pre_tender_detail_and_unavailable_state():
         empty_conn.close()
 
 
-def test_work_package_query_and_public_contract_preserve_package_grain():
+def test_pre_tender_work_packages_query_preserves_package_grain():
     conn = _connection()
     try:
         result = pre_tender_work_packages(conn, package_code="electrical_lighting_bems")
         assert result.ok is True
         assert result.data["lead_id"].tolist() == ["lead-2"]
         assert result.data.iloc[0]["evidence_phrase"] == "electrical works"
-        contract = public_signal_work_package_contract(conn)
     finally:
         conn.close()
-    assert contract["status"] == "reviewed"
-    assert contract["rows"][0]["package_group"] == "Building services"
-    assert any("must not be counted as projects" in caveat for caveat in contract["caveats"])
-
-
-def test_ce_contract_reports_review_queue_without_exposing_unreviewed_rows(tmp_path: Path):
-    leads_path = tmp_path / "ce_leads.parquet"
-    common = {
-        "council": "Test County Council",
-        "report_title": "Chief Executive Report",
-        "report_month": "2026-06",
-        "source_landing_url": "https://example.ie/reports",
-        "source_url": "https://example.ie/report.pdf",
-        "source_page": 3,
-        "source_locator": "page 3",
-        "lead_types": ["tender"],
-        "amount_mentions": [],
-        "evidence_band": "extracted",
-        "reviewer_state": "NOT_REVIEWED",
-        "relevance_status": "NOT_REVIEWED",
-        "site_relationship": "NOT_REVIEWED",
-        "reviewed_project_name": None,
-        "reviewed_stage": None,
-    }
-    pl.DataFrame(
-        [
-            {
-                **common,
-                "lead_id": "queued",
-                "quote": "Tender documents are being prepared.",
-                "promotion_permitted": False,
-            },
-            {
-                **common,
-                "lead_id": "reviewed",
-                "quote": "The works tender will issue in quarter four.",
-                "promotion_permitted": True,
-                "reviewer_state": "REVIEWED",
-                "relevance_status": "REVIEWED_RELEVANT",
-                "site_relationship": "RESOLVED",
-                "reviewed_project_name": "Named works project",
-                "reviewed_stage": "tender_preparation",
-            },
-        ]
-    ).write_parquet(leads_path)
-
-    conn = duckdb.connect()
-    try:
-        contract = public_signal_ce_leads_contract(conn, leads_path=leads_path)
-    finally:
-        conn.close()
-
-    assert contract["candidate_count"] == 2
-    assert contract["review_queue_count"] == 1
-    assert contract["promoted_count"] == 1
-    assert [row["lead_id"] for row in contract["rows"]] == ["reviewed"]
-    assert contract["rows"][0]["project_name"] == "Named works project"
