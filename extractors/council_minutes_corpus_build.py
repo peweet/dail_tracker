@@ -24,6 +24,7 @@ from extractors.council_minutes_contract import (
     PUBLISHED_MINUTE_TYPES,
     chunk_text,
     classify_document,
+    extract_participation_signals,
     meeting_scope,
 )
 from services.coverage_io import save_coverage
@@ -112,12 +113,28 @@ def build_corpus(
             "source_url": source_url,
         }
         documents.append({**base, "text_chars": len(text), "chunks": len(chunks)})
-        rows.extend({**base, "chunk": index, "body": chunk} for index, chunk in enumerate(chunks))
+        rows.extend(
+            {
+                **base,
+                **extract_participation_signals(chunk),
+                "chunk": index,
+                "body": chunk,
+            }
+            for index, chunk in enumerate(chunks)
+        )
 
     if not rows:
         raise ValueError("council minutes build produced no publishable text")
 
-    frame = pl.DataFrame(rows)
+    frame = pl.DataFrame(rows).with_columns(
+        pl.col(
+            "participant_categories",
+            "issue_themes",
+            "planning_references",
+            "board_references",
+            "collective_organisation_names",
+        ).cast(pl.List(pl.String))
+    )
     councils = sorted({str(document["council"]) for document in documents})
     coverage = {
         "generated_utc": datetime.now(UTC).isoformat(),
@@ -133,6 +150,7 @@ def build_corpus(
         "documents_by_source_status": dict(sorted(Counter(d["source_status"] for d in documents).items())),
         "documents_with_date": sum(bool(d["meeting_date"]) for d in documents),
         "documents_with_source_url": sum(bool(d["source_url"]) for d in documents),
+        "participation_signal_schema": "council-minutes-participation/2",
         "excluded_non_minutes": dict(sorted(excluded.items())),
         "missing_text_files": missing,
         "exact_duplicate_documents": duplicate_content,

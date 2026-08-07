@@ -31,6 +31,57 @@ _REPORT = re.compile(
     re.I,
 )
 
+# These labels are deliberately conservative discovery aids for the separate
+# planning ``Public Signal`` lane.  They are extracted from a bounded passage,
+# retain the original minute as provenance, and never say that the passage is
+# about the assessment site.
+_ISSUE_THEMES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "planning_housing",
+        re.compile(
+            r"\b(?:planning|zoning|development plan|local area plan|material contravention|"
+            r"part\s*(?:8|viii)|housing|residential development)\b",
+            re.I,
+        ),
+    ),
+    (
+        "traffic_access",
+        re.compile(
+            r"\b(?:road|traffic|access|road safety|junction|parking|sightline|taking in charge)\b",
+            re.I,
+        ),
+    ),
+    (
+        "amenity",
+        re.compile(r"\b(?:amenity|open space|overlooking|overshadowing|public realm)\b", re.I),
+    ),
+    (
+        "environment_heritage",
+        re.compile(r"\b(?:biodiversity|heritage|protected structure|archaeolog|landscape)\b", re.I),
+    ),
+    (
+        "services_infrastructure",
+        re.compile(
+            r"\b(?:wastewater|sewerage|water supply|uisce|drainage|flood(?:ing)?|"
+            r"infrastructure capacity|substation|grid)\b",
+            re.I,
+        ),
+    ),
+)
+_PLANNING_REFERENCE = re.compile(
+    r"\b(?:planning\s+(?:ref(?:erence)?|application)|planning\s+application\s+no\.?|"
+    r"reg(?:ister)?\s*ref(?:erence)?)\s*[:#]?\s*([a-z]{0,5}\s*[-/]?\s*\d{5,9}(?:[-/]\d+)?)\b",
+    re.I,
+)
+_BOARD_REFERENCE = re.compile(r"\b((?:abp|acp)\s*-\s*\d{4,}(?:\s*-\s*\d+){0,2})\b", re.I)
+_COLLECTIVE_ORGANISATION = re.compile(
+    r"\b("
+    r"[A-Z][A-Za-z'\u2019&.-]*(?:\s+[A-Z][A-Za-z'\u2019&.-]*){0,6}\s+"
+    r"(?:Residents'?\s+Association|Residents'?\s+Group|Action\s+Group|"
+    r"Community\s+(?:Association|Group|Council|Alliance)|Tidy\s+Towns)"
+    r")\b"
+)
+
 
 def _basename(source_url: str, meeting: str) -> str:
     """Return the decoded source filename without letting listing paths classify it."""
@@ -76,6 +127,53 @@ def meeting_scope(doc_type: str) -> str:
         "md_minutes": "municipal_district",
         "committee_minutes": "committee",
     }.get(doc_type, "")
+
+
+def extract_participation_signals(text: str) -> dict[str, list[str]]:
+    """Return narrow, source-preserving public-signal labels for one passage.
+
+    The output is intentionally not a planning assessment.  In particular, a
+    road, zoning, disposal, or wastewater mention does not establish a site
+    relationship, a legal interest, a constraint, or an opportunity.  Callers
+    must retain the source URL/status and present these only as Extracted-band
+    leads for reviewer confirmation.
+    """
+    value = str(text or "")
+    names: list[str] = []
+    seen_names: set[str] = set()
+    for match in _COLLECTIVE_ORGANISATION.finditer(value):
+        name = re.sub(r"\s+", " ", match.group(1)).strip()
+        key = name.casefold()
+        if name and key not in seen_names:
+            names.append(name)
+            seen_names.add(key)
+
+    participant_categories: list[str] = []
+    if any(re.search(r"\bresidents?'?\s+(?:association|group)\b", name, re.I) for name in names):
+        participant_categories.append("residents_association")
+    if any(
+        re.search(r"\b(?:action\s+group|community\s+(?:association|group|council|alliance)|tidy\s+towns)\b", name, re.I)
+        for name in names
+    ):
+        participant_categories.append("community_organisation")
+
+    def unique_matches(pattern: re.Pattern[str]) -> list[str]:
+        found: list[str] = []
+        seen: set[str] = set()
+        for match in pattern.finditer(value):
+            item = re.sub(r"\s+", "", match.group(1)).upper()
+            if item not in seen:
+                found.append(item)
+                seen.add(item)
+        return found
+
+    return {
+        "participant_categories": participant_categories,
+        "issue_themes": [key for key, pattern in _ISSUE_THEMES if pattern.search(value)],
+        "planning_references": unique_matches(_PLANNING_REFERENCE),
+        "board_references": unique_matches(_BOARD_REFERENCE),
+        "collective_organisation_names": names,
+    }
 
 
 def chunk_text(text: str, max_chars: int = 2_000) -> list[str]:

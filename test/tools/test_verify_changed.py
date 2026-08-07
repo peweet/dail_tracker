@@ -99,6 +99,7 @@ def test_sql_docs_and_mcp_each_select_their_special_gate() -> None:
     sql = vc.build_checks(["sql_views/member/member_votes.sql"], python_executable="python")
     assert _keys(sql) == ["pytest-sql"]
     assert dict(sql[0].env)["DAIL_INTEGRATION_TESTS"] == "1"
+    assert sql[0].evidence_scope == vc.LOCAL_PIPELINE_OUTPUT
 
     docs = vc.build_checks(["doc/DATA_GRAINS.md"], python_executable="python")
     assert _keys(docs) == ["doc-index"]
@@ -198,6 +199,21 @@ def test_full_selects_every_deterministic_lane() -> None:
         "pytest-fast",
         "pytest-sql",
     ]
+    assert checks[-1].evidence_scope == vc.LOCAL_PIPELINE_OUTPUT
+    assert all(check.evidence_scope == vc.DETERMINISTIC_LOCAL for check in checks[:-1])
+
+
+def test_render_plan_marks_checks_that_require_local_pipeline_output() -> None:
+    plan = vc.VerificationPlan(
+        base=vc.BaseRef("origin/main", "base", "base"),
+        head="head",
+        changes=vc.ChangeSet(unstaged=("sql_views/member/member_votes.sql",)),
+        checks=vc.build_checks(["sql_views/member/member_votes.sql"], python_executable="python"),
+    )
+
+    rendered = vc.render_plan(plan, "fingerprint", cached=False)
+
+    assert "evidence: requires local pipeline output" in rendered
 
 
 def test_cli_parser_exposes_plan_base_cache_and_full_modes() -> None:

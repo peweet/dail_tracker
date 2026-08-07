@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from extractors.council_minutes_contract import chunk_text, classify_document
+import polars as pl
+
+from extractors.council_minutes_contract import (
+    chunk_text,
+    classify_document,
+    extract_participation_signals,
+)
 from extractors.council_minutes_corpus_build import build_corpus
 
 
@@ -42,6 +48,21 @@ def test_chunk_text_hard_bounds_unstructured_ocr() -> None:
     assert len(chunks) > 1
     assert all(0 < len(chunk) <= 500 for chunk in chunks)
     assert "".join(chunks).replace(" ", "") == ("word " * 2_000).replace(" ", "")
+
+
+def test_public_signal_labels_are_passage_scoped_and_conservative() -> None:
+    signals = extract_participation_signals(
+        "Ballyboggan Residents Association raised road access and wastewater capacity "
+        "issues for Planning Ref 2460125 and ABP-319198-24."
+    )
+
+    assert signals == {
+        "participant_categories": ["residents_association"],
+        "issue_themes": ["planning_housing", "traffic_access", "services_infrastructure"],
+        "planning_references": ["2460125"],
+        "board_references": ["ABP-319198-24"],
+        "collective_organisation_names": ["Ballyboggan Residents Association"],
+    }
 
 
 def test_build_corpus_reports_every_exclusion(tmp_path: Path) -> None:
@@ -86,6 +107,8 @@ def test_build_corpus_reports_every_exclusion(tmp_path: Path) -> None:
 
     assert frame["document_id"].n_unique() == 1
     assert frame["meeting_scope"].unique().to_list() == ["plenary"]
+    assert {"issue_themes", "planning_references", "board_references"} <= set(frame.columns)
+    assert frame.schema["planning_references"] == pl.List(pl.String)
     assert coverage["input_records"] == 3
     assert coverage["published_documents"] == 1
     assert coverage["excluded_non_minutes"] == {"agenda": 1}

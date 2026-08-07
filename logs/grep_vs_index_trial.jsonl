@@ -21,3 +21,8 @@
 {"ts": "2026-08-02T16:20:53.574419+00:00", "session": "7cf0c07a-862", "category": "search_project", "nudged": true, "pattern": "Cork County Development Plan 2022"}
 {"ts": "2026-08-02T16:21:28.080527+00:00", "session": "7cf0c07a-862", "category": "search_project", "nudged": false, "pattern": "Cork County Council"}
 {"ts": "2026-08-02T16:21:28.376496+00:00", "session": "7cf0c07a-862", "category": "search_project", "nudged": false, "pattern": "DM Standard"}
+{"ts": "2026-08-06T18:37:23.940711+00:00", "session": "ae1bb65a-be1", "category": "sql_lineage", "nudged": true, "pattern": "v_procurement.*council|v_.*council.*"}
+{"ts": "2026-08-06T18:37:37.738300+00:00", "session": "ae1bb65a-be1", "category": "sql_lineage", "nudged": false, "pattern": "local_authority|contracting_authority.*local"}
+{"ts": "2026-08-06T18:37:44.533106+00:00", "session": "ae1bb65a-be1", "category": "sql_lineage", "nudged": false, "pattern": "awarded_value|n_awards|contracting_authority"}
+{"ts": "2026-08-06T21:41:19.541375+00:00", "session": "ae1bb65a-be1", "category": "sql_lineage", "nudged": false, "pattern": "v_procurement.*authority|v_.*council.*award"}
+{"ts": "2026-08-06T21:41:22.860923+00:00", "session": "ae1bb65a-be1", "category": "sql_lineage", "nudged": false, "pattern": "Dublin City|Cork City|Galway|local_authority.*publisher_type"}

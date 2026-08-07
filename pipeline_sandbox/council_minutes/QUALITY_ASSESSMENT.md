@@ -1,33 +1,35 @@
 # Council minutes — extraction quality assessment
 
-Auto-generated. Consolidated v1+v2. **1065 unique docs**, **879 clean (83%)**, **186 quarantined**, **345 attributed member-votes**.
+Auto-generated. Consolidated v1+v2. **1075 unique docs**, **882 clean (82%)**, **193 quarantined**, **345 attributed member-votes**.
 
 ## By extraction status
 | status | docs |
 |---|---|
-| text | 766 |
+| text | 771 |
 | ocr_winocr | 243 |
 | html | 53 |
+| err_ModuleNotFoundError | 5 |
 | fetch_fail | 3 |
 
 ## By document type
 | doc_type | docs |
 |---|---|
-| plenary_minutes | 767 |
-| md_minutes | 128 |
+| plenary_minutes | 771 |
+| md_minutes | 129 |
 | report_or_plan | 84 |
 | other | 53 |
-| agenda | 23 |
-| standing_orders | 10 |
+| agenda | 27 |
+| standing_orders | 11 |
 
 ## Quarantine reasons (for later review)
 | reason | docs |
 |---|---|
 | not_minutes_report_or_plan | 84 |
-| low_text | 61 |
+| low_text | 63 |
 | unrecognised_doctype | 15 |
 | not_minutes_agenda | 14 |
 | not_minutes_standing_orders | 9 |
+| extract_err_ModuleNotFoundError | 5 |
 | extract_fetch_fail | 3 |
 
 ## Per-council coverage
@@ -56,7 +58,7 @@ Auto-generated. Consolidated v1+v2. **1065 unique docs**, **879 clean (83%)**, *
 | Offaly | 15 | 55 | 0 |
 | Roscommon | 0 | 1 | 0 |
 | South Dublin | 1 | 1 | 0 |
-| Tipperary | 3 | 0 | 0 |
+| Tipperary | 6 | 7 | 0 |
 | Waterford | 14 | 1 | 0 |
 | Westmeath | 56 | 1 | 0 |
 | Wexford | 98 | 11 | 0 |

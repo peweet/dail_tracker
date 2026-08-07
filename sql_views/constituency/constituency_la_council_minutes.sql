@@ -12,6 +12,11 @@ SELECT
     meeting_scope,
     source_status,
     source_url,
+    participant_categories,
+    issue_themes,
+    planning_references,
+    board_references,
+    collective_organisation_names,
     chunk,
     body
 FROM read_parquet('data/gold/parquet/council_minutes_corpus.parquet');

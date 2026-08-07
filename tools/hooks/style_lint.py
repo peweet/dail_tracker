@@ -63,7 +63,9 @@ FIGURE_RE = re.compile(
 # the corpus. Matched against the ~40 chars following the figure.
 NOT_A_DATA_CLAIM = re.compile(
     r"^\W{0,3}(?:tokens?|lines?|bytes?|chars?|characters?|words?|ms|px|rows? of code"
-    r"|files?|docs?|pages?|rules?|seconds?|kb|mb|gb)\b",
+    r"|files?|docs?|pages?|rules?|seconds?|kb|mb|gb"
+    r"|figures?)\b",  # 'the 78% figure' -- meta-talk about a number, not the number
+
     re.IGNORECASE,
 )
 

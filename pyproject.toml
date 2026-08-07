@@ -94,6 +94,7 @@ siting = [
     "python-docx>=1.1",  # .docx report export (dail_tracker_core/siting/report.py render_docx)
     "weasyprint>=66",    # paged-media PDF (dail_tracker_core/siting/pdf.py) — needs GTK3 native libs:
                          # Windows = winget install tschoonj.GTKForWindows; Linux = apt install libpango-1.0-0
+    "playwright>=1.40",  # public council document viewers (DCC/iDocs); browser binary provisioned separately
     "plutoprint>=0.21.0", # PILOT (2026-08-02): candidate paged-media engine to compare against WeasyPrint —
                          # ships prebuilt Windows wheels, might drop the GTK3 DLL shim above. Not wired into
                          # any runtime path yet; used only by the render-comparison pilot script.

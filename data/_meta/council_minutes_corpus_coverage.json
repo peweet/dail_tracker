@@ -1,10 +1,10 @@
 {
-  "generated_utc": "2026-08-05T20:09:26.587839+00:00",
+  "generated_utc": "2026-08-07T05:53:10.598122+00:00",
   "layer": "gold",
   "source_manifest": "pipeline_sandbox\\council_minutes\\meetings_clean.jsonl",
-  "input_records": 879,
-  "published_documents": 810,
-  "published_chunks": 18085,
+  "input_records": 882,
+  "published_documents": 813,
+  "published_chunks": 18198,
   "published_councils": 27,
   "expected_statutory_councils": 31,
   "councils": [
@@ -39,38 +39,20 @@
   "documents_by_type": {
     "committee_minutes": 148,
     "md_minutes": 30,
-    "plenary_minutes": 632
+    "plenary_minutes": 635
   },
   "documents_by_source_status": {
     "html": 48,
     "ocr_winocr": 185,
-    "text": 577
+    "text": 580
   },
-  "documents_with_date": 412,
-  "documents_with_source_url": 698,
+  "documents_with_date": 415,
+  "documents_with_source_url": 701,
+  "participation_signal_schema": "council-minutes-participation/2",
   "excluded_non_minutes": {
-    "agenda": 66
+    "agenda": 69
   },
-  "missing_text_files": [
-    {
-      "local_authority": "Monaghan",
-      "meeting": "Minutes-04-November-2024.pdf",
-      "text_path": "corpus/monaghan/minutes_04_november_2024_pdf.txt",
-      "source_url": "https://monaghan.ie/wp-content/uploads/2025/01/Minutes-04-November-2024.pdf"
-    },
-    {
-      "local_authority": "Kerry",
-      "meeting": "jan26.pdf",
-      "text_path": "corpus/kerry/jan26_pdf.txt",
-      "source_url": "http://docstore.kerrycoco.ie/KCCWebsite/meetings/agenda/jan26.pdf"
-    },
-    {
-      "local_authority": "Kerry",
-      "meeting": "nov25.pdf",
-      "text_path": "corpus/kerry/nov25_pdf.txt",
-      "source_url": "http://docstore.kerrycoco.ie/KCCWebsite/meetings/agenda/2025/nov25.pdf"
-    }
-  ],
+  "missing_text_files": [],
   "exact_duplicate_documents": [],
   "completeness": "Council coverage is measured against Ireland's 31 statutory local authorities. Document-level completeness still requires a verified meeting-calendar denominator per council.",
   "recall": "Document-type recall is unmeasured. Publication uses deterministic filename/header rules; agenda filenames are excluded even when their text quotes prior minutes.",

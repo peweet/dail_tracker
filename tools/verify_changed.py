@@ -38,9 +38,11 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_ROOT = ROOT / ".cache" / "verify-changed"
-POLICY_VERSION = "2026-08-04.1"
+POLICY_VERSION = "2026-08-06.1"
 FAST_MARKERS = "not integration and not sql and not sources and not bronze and not layers"
 NON_SOURCE_PREFIXES = ("logs/", ".cache/verify-changed/")
+DETERMINISTIC_LOCAL = "deterministic local"
+LOCAL_PIPELINE_OUTPUT = "requires local pipeline output"
 
 
 class GitError(RuntimeError):
@@ -81,6 +83,7 @@ class CheckSpec:
     argv: tuple[str, ...]
     reason: str
     env: tuple[tuple[str, str], ...] = ()
+    evidence_scope: str = DETERMINISTIC_LOCAL
 
     def cache_payload(self) -> dict[str, object]:
         return {
@@ -88,6 +91,7 @@ class CheckSpec:
             "argv": list(self.argv),
             "reason": self.reason,
             "env": list(self.env),
+            "evidence_scope": self.evidence_scope,
         }
 
 
@@ -357,6 +361,7 @@ def build_checks(
                 (py, "-m", "pytest", "-q", "-m", "sql"),
                 "full SQL contract lane",
                 (("DAIL_INTEGRATION_TESTS", "1"),),
+                LOCAL_PIPELINE_OUTPUT,
             ),
         )
 
@@ -465,6 +470,7 @@ def build_checks(
                 (py, "-m", "pytest", "-q", "-m", "sql"),
                 "SQL view, registry, contract test, or committed gold changed",
                 (("DAIL_INTEGRATION_TESTS", "1"),),
+                LOCAL_PIPELINE_OUTPUT,
             )
         )
 
@@ -840,6 +846,7 @@ def render_plan(plan: VerificationPlan, fingerprint: str, *, cached: bool) -> st
         for check in plan.checks:
             lines.append(f"  - {check.key}: {format_command(check.argv)}")
             lines.append(f"    why: {check.reason}")
+            lines.append(f"    evidence: {check.evidence_scope}")
     return "\n".join(lines)
 
 

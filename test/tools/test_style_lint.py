@@ -103,6 +103,17 @@ def test_self_referential_numbers_are_not_data_claims():
         assert r.returncode == 0, f"{unit} should not block"
 
 
+def test_meta_mention_of_a_figure_is_not_a_data_claim():
+    """Regression 2026-08-06: 'the lint correction on the 78% figure is done' blocked.
+
+    Naming a previously-discharged figure ('the 78% figure') is meta-talk about the
+    number, not a claim of it -- and the hook's own feedback loop generates exactly
+    this phrasing when a reply corrects an earlier lint block.
+    """
+    r = run(f"The lint correction on the 78% figure is done.{PAD}")
+    assert r.returncode == 0, f"meta-mention should not block: {r.stderr}"
+
+
 def test_years_never_match():
     assert run("The 2024 election followed the 2020 one." + PAD).returncode == 0
 
