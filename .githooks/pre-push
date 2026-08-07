@@ -20,6 +20,13 @@ if [ "$status" -ne 0 ]; then
   exit "$status"
 fi
 
+"$PY" tools/check_no_untracked_imports.py
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: tracked-import guard blocked the push (see above)." >&2
+  exit "$status"
+fi
+
 # Secret scan (gitleaks, installed 2026-08-01; config .gitleaks.toml, grandfathered
 # false positives in .gitleaksignore). Best-effort locally — a clone without
 # gitleaks still gets the CI job. --redact: never echo a matched secret.

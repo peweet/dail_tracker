@@ -102,6 +102,11 @@ jobs:
       # Leak guard: block private siting IP / secrets from the public repo. Same
       # script as the versioned .githooks/pre-push hook. See tools/check_no_private_ip.py.
       - run: uv run python tools/check_no_private_ip.py
+      # Tracked-import guard: block a tracked file from importing a module git doesn't
+      # track — the 2026-08-07 CI break (a public test importing a gitignored private
+      # module) was exactly this, undetected until collection died on a clean checkout.
+      # Same script as the versioned .githooks/pre-push hook. See tools/check_no_untracked_imports.py.
+      - run: uv run python tools/check_no_untracked_imports.py
 
   # Secret scan (gitleaks): full-history scan with the repo config
   # (.gitleaks.toml allowlists + .gitleaksignore grandfathered fingerprints —
