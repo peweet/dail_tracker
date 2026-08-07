@@ -140,13 +140,16 @@ def _contains_dynamic(haystack: str, needle: str, *, minimum_needle_length: int)
     )
 
 
+def _has_dynamic_token(tokens: str, needle: str, *, minimum_needle_length: int) -> pl.Expr:
+    """Require an exact alphanumeric token, avoiding tender-ID substring collisions."""
+    return pl.struct(tokens, needle).map_elements(
+        lambda row: bool(row[needle]) and len(row[needle]) >= minimum_needle_length and row[needle] in row[tokens],
+        return_dtype=pl.Boolean,
+    )
+
+
 def _exact_supplier_links(supplier_xref: pl.DataFrame) -> pl.DataFrame:
     """Return only supplier names that resolve to one high-confidence CRO company."""
-    _require_columns(
-        supplier_xref,
-        {"supplier_norm", "company_num", "n_cro", "match_method", "match_confidence"},
-        label="supplier xref",
-    )
     return (
         supplier_xref.filter(
             (pl.col("match_method") == "exact_unique")
@@ -186,12 +189,6 @@ def _prepare_award_relationships(
         {"etenders_name", "payments_publisher_name", "match_tier"},
         label="buyer xref",
     )
-    exact_suppliers = supplier_xref.filter(
-        (pl.col("match_method") == "exact_unique")
-        & (pl.col("n_cro") == 1)
-        & (pl.col("match_confidence") >= 0.9)
-        & pl.col("company_num").is_not_null()
-    ).select("supplier_norm", "company_num")
     exact_suppliers = _exact_supplier_links(supplier_xref)
     exact_buyers = buyer_xref.filter(
         (pl.col("match_tier") == "curated_exact")
@@ -209,7 +206,6 @@ def _prepare_award_relationships(
             how="inner",
             validate="m:1",
         )
-        .filter(pl.col("award_date").is_not_null())
         .with_columns(
             (pl.col("award_date").dt.year() * 4 + ((pl.col("award_date").dt.month() - 1) // 3 + 1)).alias(
                 "_award_quarter_index"
@@ -284,8 +280,8 @@ def build_shadow_candidates(
         (pl.col("year") * 4 + pl.col("quarter")).alias("_payment_quarter_index"),
         pl.concat_str(pl.col("po_number").fill_null(""), pl.col("description").fill_null(""), separator=" ")
         .str.to_lowercase()
-        .str.replace_all(r"[^a-z0-9]", "")
-        .alias("_payment_text"),
+        .str.extract_all(r"[a-z0-9]+")
+        .alias("_payment_tokens"),
         _normalised_text("description").alias("_description_key"),
     )
     pairs = payment_rows.join(
@@ -295,7 +291,7 @@ def build_shadow_candidates(
         how="inner",
         validate="m:m",
     ).with_columns(
-        _contains_dynamic("_payment_text", "_tender_key", minimum_needle_length=6).alias("_explicit_reference"),
+        _has_dynamic_token("_payment_tokens", "_tender_key", minimum_needle_length=6).alias("_explicit_reference"),
         (
             _contains_dynamic("_description_key", "_title_key", minimum_needle_length=12)
             | _contains_dynamic("_title_key", "_description_key", minimum_needle_length=12)

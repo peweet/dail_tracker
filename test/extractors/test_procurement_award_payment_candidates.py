@@ -78,7 +78,7 @@ def test_explicit_tender_id_wins_over_other_relationship_candidates() -> None:
             "tender_id": "123456",
             "contracting_authority": "Body Awards",
             "supplier_norm": "ACME",
-            "award_date": date(2024, 1, 10),
+            "award_date": None,
             "contract_duration_months": 36,
             "tender_title": "Specialist bridge inspection service",
         },
@@ -125,6 +125,26 @@ def test_unique_duration_and_literal_title_match_is_review_candidate() -> None:
     assert row["candidate_tender_id"] == "222222"
     assert row["review_status"] == "unreviewed"
     assert row["publication_status"] == "shadow_only"
+
+
+def test_tender_id_substring_is_not_an_explicit_reference() -> None:
+    rows = build_shadow_candidates(
+        _awards(
+            {
+                "tender_id": "123456",
+                "contracting_authority": "Body Awards",
+                "supplier_norm": "ACME",
+                "award_date": date(2024, 8, 1),
+                "contract_duration_months": 24,
+                "tender_title": "Unrelated service",
+            }
+        ),
+        _payments({"description": "Invoice batch 91234567"}),
+        _supplier_xref(),
+        _buyer_xref(),
+    )
+    assert rows["link_state"].item() == "relationship_only"
+    assert rows["explicit_reference_count"].item() == 0
 
 
 def test_multiple_title_candidates_fail_closed_to_relationship_only() -> None:
@@ -196,6 +216,26 @@ def test_ambiguous_supplier_and_unreviewed_buyer_are_suppressed() -> None:
         {"_fact_row_number": 1, "publisher_name": "Unreviewed Payments"},
     )
     rows = build_shadow_candidates(awards, payments, _supplier_xref(), _buyer_xref())
+    assert rows.is_empty()
+
+
+def test_payment_cro_must_match_the_exact_unique_supplier_link() -> None:
+    awards = _awards(
+        {
+            "tender_id": "777777",
+            "contracting_authority": "Body Awards",
+            "supplier_norm": "ACME",
+            "award_date": date(2024, 1, 1),
+            "contract_duration_months": 36,
+            "tender_title": "Specialist bridge inspection service",
+        }
+    )
+    rows = build_shadow_candidates(
+        awards,
+        _payments({"cro_company_num": 124}),
+        _supplier_xref(),
+        _buyer_xref(),
+    )
     assert rows.is_empty()
 
 
