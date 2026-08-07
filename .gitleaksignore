@@ -40,3 +40,11 @@ d2504fb9335fc7aef546499670477513cc0a9a1d:payments.py:generic-api-key:48
 e7c9bc7ab5535fecbeb55a38f63a3295404b8ab5:enrich.py:generic-api-key:164
 e7e8fd72bc624cad0274fc4aae67460db8027b02:extractors/noac_scorecard_history_extract.py:generic-api-key:138
 e7e8fd72bc624cad0274fc4aae67460db8027b02:extractors/noac_scorecard_history_extract.py:generic-api-key:153
+# Rewritten equivalents after the 2026-08-07 history rewrite (capital expenditure enrichment).
+# These remain the same classified historical false positives above.
+4fb6885db5760b6d919bbc49ad74d2476a218480:ida/2.12 Oranmore _ Galway County Council Online Consultation Portal.htm:generic-api-key:44
+4fb6885db5760b6d919bbc49ad74d2476a218480:ida/Consultations _ Galway County Council Online Consultation Portal.htm:generic-api-key:50
+71f4e47cfec6f1e53442238c01b733950b686e29:extractors/noac_scorecard_history_extract.py:generic-api-key:138
+71f4e47cfec6f1e53442238c01b733950b686e29:extractors/noac_scorecard_history_extract.py:generic-api-key:153
+b5f170446884eb689b27dba0cfe4ade4660426ab:extractors/noac_scorecard_history_extract.py:generic-api-key:138
+b5f170446884eb689b27dba0cfe4ade4660426ab:extractors/noac_scorecard_history_extract.py:generic-api-key:153
