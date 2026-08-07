@@ -184,6 +184,8 @@ def _bridge_ui_constants() -> None:
     import importlib.util as _ilu
 
     _ui_path = BASE_DIR / "utility" / "config.py"
+    if not _ui_path.exists():  # e.g. the API Docker image, which never ships utility/
+        return
     _spec = _ilu.spec_from_file_location("_dail_tracker_ui_config", _ui_path)
     if _spec is None or _spec.loader is None:  # pragma: no cover — repo layout broken
         return
