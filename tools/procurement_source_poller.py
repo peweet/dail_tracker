@@ -188,12 +188,12 @@ SOURCES: list[dict] = [
 
 # ── CE report sources (monthly grain, generated) ────────────────────────────
 # Council Chief Executive monthly reports are the same orphan shape: harvested by a
-# bespoke sandbox script (ce_report_harvest.py), never in pipeline.py, so a new month
+# bespoke lane script (ce_report_harvest.py), never in pipeline.py, so a new month
 # lands upstream and nothing notices. Entries are GENERATED, not hand-listed: the seed
 # registry names the confirmed landing pages and the harvest manifest says the newest
 # month we hold per council — so held_through tracks ingests with no manual bumping.
-CE_SEEDS = PROJECT_ROOT / "pipeline_sandbox" / "council_minutes" / "ce_report_seeds.csv"
-CE_MANIFEST = PROJECT_ROOT / "pipeline_sandbox" / "council_minutes" / "ce_reports_manifest.jsonl"
+CE_SEEDS = PROJECT_ROOT / "apps" / "public-signal" / "pipeline" / "data" / "ce_report_seeds.csv"
+CE_MANIFEST = PROJECT_ROOT / "apps" / "public-signal" / "pipeline" / "data" / "ce_reports_manifest.jsonl"
 _CE_MUST_MATCH = r"chief[\s_-]*executive|ce[\s_-]*(?:monthly[\s_-]*)?report|management[\s_-]*report"
 
 
@@ -230,7 +230,7 @@ def _ce_report_sources() -> list[dict]:
                     # (0, 0) = we hold nothing for this council; any month found is FRESH.
                     "held_through": list(held.get(council, (0, 0))),
                     "coverage": "data/_meta/council_ce_reports_corpus_coverage.json",
-                    "parser": "planning/product/sandbox/ce_report_harvest.py",
+                    "parser": "apps/public-signal/pipeline/ce_report_harvest.py",
                 }
             )
     return out
@@ -270,7 +270,7 @@ _PAT_YQ = re.compile(r"((?:19|20)\d{2})[\s_/.-]*Q\s*([1-4])", re.I)
 _PAT_QUARTER = re.compile(r"quarter[\s_/.-]*([1-4])[\s_/.-]*((?:19|20)\d{2})", re.I)
 _PAT_YEAR = re.compile(r"(20\d{2})")
 # Monthly periods (CE reports). Mirrors the filename conventions the harvester's
-# report_month() accepts (planning/product/sandbox/ce_report_harvest.py) —
+# report_month() accepts (apps/public-signal/pipeline/ce_report_harvest.py) —
 # "March-2026", "2026-03", and the Carlow-style "26-06" — but re-implemented here
 # because this tool is deliberately stdlib-only and the harvester imports bs4/fitz.
 # The harvester stays the authority at ingest time; this only detects "newer exists".
