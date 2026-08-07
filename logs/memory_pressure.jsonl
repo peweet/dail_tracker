@@ -749,3 +749,4 @@
 {"ts": "2026-08-07T22:24:17+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": true, "free_mb": 715, "total_mb": 16073, "load_pct": 95, "commit_free_mb": 741, "commit_total_mb": 31666}
 {"ts": "2026-08-07T22:24:19+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 6432, "total_mb": 16073, "load_pct": 59, "commit_free_mb": 6925, "commit_total_mb": 31666}
 {"ts": "2026-08-07T22:24:21+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 6306, "total_mb": 16073, "load_pct": 60, "commit_free_mb": 6893, "commit_total_mb": 31666}
+{"ts": "2026-08-07T22:57:47+00:00", "kind": "full ETL pipeline (spawns per-chain subprocesses)", "blocked": false, "free_mb": 2848, "total_mb": 16073, "load_pct": 82, "commit_free_mb": 5264, "commit_total_mb": 31666}

@@ -909,3 +909,7 @@
 {"ts": "2026-08-07T23:05:24", "session": "3bcfdddb-eb6", "warns": ["50-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-07T23:20:23", "session": "1864c2c9-480", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}
 {"ts": "2026-08-07T23:24:58", "session": "517ccb3b-327", "warns": ["jargon: \"simply\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-08-07T23:31:52", "session": "1864c2c9-480", "warns": ["47-word sentence (rule 4 -- one idea per sentence)", "46-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-07T23:59:25", "session": "1231e737-ae6", "warns": ["58-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-08T00:01:50", "session": "1231e737-ae6", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-08-08T00:08:44", "session": "1231e737-ae6", "warns": ["53-word sentence (rule 4 -- one idea per sentence)"]}
