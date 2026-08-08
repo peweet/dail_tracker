@@ -54,7 +54,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from services.data_contracts import TRUST_TIER_LABEL, TRUST_TIERS, collapse_tiers  # noqa: E402
 
 MEM = Path.home() / ".claude" / "projects" / "c--Users-pglyn-PycharmProjects-dail-extractor" / "memory"
+ARCHIVE = MEM / "archive"
 INDEXES = ("MEMORY.md", "MEMORY_COLD.md")
+LINK_PREFIXES = ("feedback_", "project_", "reference_")
 SAFETY_RE = re.compile(r"never[- ]sum|privacy|quarantine|SAFETY|never push|PII", re.I)
 CORRECTED_RE = re.compile(r"⚠?\s*CORRECTED|overturned|superseded|FALSE ALARM|invalid(?:ated)?\b", re.I)
 LINK_RE = re.compile(r"\[\[([\w-]+)\]\]")
@@ -130,6 +132,32 @@ def _recall_ages() -> dict[str, float]:
         return {}
 
 
+def resolve_link(target: str, names: set[str], archived: set[str]) -> tuple[str, str | None]:
+    """Classify one [[target]] as live / archived / alias / broken.
+
+    Archiving a card never deletes it (feedback_archive_dont_delete), so a link into
+    memory/archive/ still resolves — counting those as broken inflated the rot signal
+    with 76 of 94 false positives (measured 2026-08-08) and, via broken_link_ceiling,
+    dragged the currency band of every card that had ever linked to an archived note.
+
+    `alias` covers the kebab-case/prefix-less slugs that predate the naming convention
+    (``[[dual-config-files]]`` -> ``feedback_dual_config_files``): the card exists, the
+    reference just spells it the old way, so it is a rename to apply, not rot.
+    """
+    if target in names:
+        return ("live", target)
+    if target in archived:
+        return ("archived", target)
+    norm = target.replace("-", "_").lower()
+    by_norm = {n.replace("-", "_").lower(): n for n in names}
+    if norm in by_norm:
+        return ("alias", by_norm[norm])
+    for prefix in LINK_PREFIXES:
+        if prefix + norm in by_norm:
+            return ("alias", by_norm[prefix + norm])
+    return ("broken", None)
+
+
 def _headline(body: str) -> str:
     """Frontmatter + opening ~400 chars of the body — where a card states its OWN
     headline claim (e.g. ``⚠ CORRECTED 2026-07-25 — ...``). CORRECTED_RE is scanned
@@ -198,14 +226,23 @@ def scan(stale_days: int) -> dict:
         for n, c in cards.items()
         if c["age_d"] > stale_days and n not in hot_linked and not SAFETY_RE.search(c["body"])
     )
-    broken = sorted(
-        {
-            f"{n} -> [[{t}]]"
-            for n, c in cards.items()
-            for t in LINK_RE.findall(c["body"])
-            if t not in names and t not in {Path(ix).stem for ix in INDEXES}
-        }
-    )
+    index_stems = {Path(ix).stem for ix in INDEXES}
+    archived_stems = {f.stem for f in ARCHIVE.glob("*.md")} if ARCHIVE.exists() else set()
+    broken_set: set[str] = set()
+    archived_refs: set[str] = set()
+    alias_refs: set[str] = set()
+    for n, c in cards.items():
+        for t in LINK_RE.findall(c["body"]):
+            if t in index_stems:
+                continue
+            kind, resolved = resolve_link(t, names, archived_stems)
+            if kind == "broken":
+                broken_set.add(f"{n} -> [[{t}]]")
+            elif kind == "archived":
+                archived_refs.add(f"{n} -> [[{t}]]")
+            elif kind == "alias":
+                alias_refs.add(f"{n} -> [[{t}]] (rename to [[{resolved}]])")
+    broken = sorted(broken_set)
     corrected = sorted(n for n, c in cards.items() if CORRECTED_RE.search(c["body"]))
     # archive candidates: orphaned AND stale AND not safety/hot — the strictest cut
     candidates = sorted(set(orphans) & set(stale))
@@ -231,6 +268,8 @@ def scan(stale_days: int) -> dict:
         "orphans": orphans,
         "stale": stale,
         "broken_links": broken,
+        "archived_link_refs": sorted(archived_refs),
+        "alias_link_refs": sorted(alias_refs),
         "corrected": corrected,
         "archive_candidates": candidates,
         "currency": currency,
@@ -261,9 +300,13 @@ def main() -> None:
             print(f"  {n}")
         if len(vals) > 30:
             print(f"  ... and {len(vals) - 30} more")
-    print(f"\nbroken [[links]] ({len(r['broken_links'])}):")
+    print(f"\nbroken [[links]] ({len(r['broken_links'])}) — target does not exist anywhere:")
     for b in r["broken_links"][:20]:
         print(f"  {b}")
+    print(f"\nlinks into memory/archive/ ({len(r['archived_link_refs'])}) — resolve fine, not rot")
+    print(f"old-style slugs to rename ({len(r['alias_link_refs'])}):")
+    for a in r["alias_link_refs"][:20]:
+        print(f"  {a}")
 
     nrf = r["never_recalled_feedback"]
     print(
