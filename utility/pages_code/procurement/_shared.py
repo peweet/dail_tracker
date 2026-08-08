@@ -179,10 +179,17 @@ def _filter_awards_by_year(awards: pd.DataFrame, year: int | None) -> pd.DataFra
 # this surfaces FACTS for a bidder to reason from, never a price (no-inference rule).
 _EXPERIMENTAL = os.getenv("DAIL_EXPERIMENTAL") == "1"
 
+# Order is editorial weight, not lifecycle (award registers lead; "Open right now" already sits
+# after them despite being the earlier stage). "Before the tender" therefore sits BESIDE the other
+# forward-looking section rather than opening the page: it is the smallest and least-verified
+# register here, and leading with it would give 210 unverified observations top billing over the
+# award corpus. It is deliberately NOT a third lens INSIDE "Open right now" — those rows are open
+# now and these are not, so that section's title would be false for them.
 _SECTION_LABELS = {
     "Who wins contracts?": "wins",
     "Who actually gets paid?": "paid",
     "Open right now": "open",
+    "Before the tender": "pretender",
     "Patterns": "patterns",
 }
 if _EXPERIMENTAL:

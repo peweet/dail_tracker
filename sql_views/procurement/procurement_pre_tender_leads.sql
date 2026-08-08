@@ -26,5 +26,16 @@ SELECT
     report_as_of,
     classification_schema,
     school_roll_number,
-    snapshot_freshness
+    snapshot_freshness,
+    -- Approval-gate dates as published by the Department. A start_on_site_date in
+    -- the past means the main contract is let, so a consumer can tell a live
+    -- building site from a lead. Null on every corpus that publishes no dates.
+    stage_1_start_date,
+    stage_2a_start_date,
+    stage_2b_start_date,
+    stage_3_start_date,
+    stage_4_start_date,
+    start_on_site_date,
+    -- Published wording where the on-site cell held text rather than a date.
+    start_on_site_note
 FROM read_parquet('data/gold/parquet/pre_tender_leads.parquet');

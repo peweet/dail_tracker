@@ -52,6 +52,40 @@ def test_rows_are_live_not_the_stale_baseline(cards):
     assert cards[fact]["rows"] == live
 
 
+def test_cards_match_the_parquet_they_describe(cards):
+    """Every card's schema and size must match the file on disk.
+
+    `--check` only asks whether a card EXISTS, so a parquet rewritten with new columns kept its
+    old card and describe_dataset served a schema that had not been true for hours. That is how
+    pre_tender_leads shipped a card listing 24 columns for a 31-column file while its `rows` had
+    already been refreshed to 210 — half-regenerated metadata reads as current.
+
+    Reads the footer only (~30ms/file), never the row data.
+    """
+    stale: list[str] = []
+    for name, card in cards.items():
+        path = ROOT / card["file"]
+        if not path.exists() or card.get("columns") is None:
+            continue  # absence is test_every_parquet_has_a_card's job, not this one's
+        try:
+            rows, cols, _ = build_fact_cards._footer(path)
+        except Exception:  # unreadable footer is not this test's subject
+            continue
+        if list(cols) != list(card["columns"]):
+            missing = sorted(set(cols) - set(card["columns"]))
+            extra = sorted(set(card["columns"]) - set(cols))
+            stale.append(
+                f"{name}: columns differ (on disk not in card: {missing[:4]}; in card not on disk: {extra[:4]})"
+            )
+        elif card.get("rows") != rows:
+            stale.append(f"{name}: rows card={card.get('rows')} disk={rows}")
+        elif card.get("size_bytes") != path.stat().st_size:
+            stale.append(f"{name}: size_bytes card={card.get('size_bytes')} disk={path.stat().st_size}")
+    assert not stale, "fact cards out of sync with their parquet (run tools/build_fact_cards.py):\n  " + "\n  ".join(
+        stale[:10]
+    )
+
+
 def test_money_facts_carry_never_sum(cards):
     """The 3-money-grain rule, encoded as data. Every fact with a money_grain must name what it
     must never be summed with — this is what makes the rule machine-checkable, not just prose."""

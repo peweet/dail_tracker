@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-08-07T08:10:04+00:00",
+  "generated_utc": "2026-08-08T07:54:56+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
-  "count": 194,
+  "count": 195,
   "facts": {
     "afs_amalgamated_divisions": {
       "file": "data/silver/parquet/afs_amalgamated_divisions.parquet",
@@ -735,7 +735,7 @@
     "council_ce_reports_corpus": {
       "file": "data/gold/parquet/council_ce_reports_corpus.parquet",
       "layer": "gold",
-      "rows": 1594,
+      "rows": 15227,
       "columns": [
         "document_id",
         "doc_type",
@@ -774,12 +774,15 @@
         "procurement_sentences": "List(String)",
         "evidence_band": "String"
       },
-      "size_bytes": 710511
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
+      "size_bytes": 5487424
     },
     "council_minutes_corpus": {
       "file": "data/gold/parquet/council_minutes_corpus.parquet",
       "layer": "gold",
-      "rows": 18198,
+      "rows": 18481,
       "columns": [
         "document_id",
         "entity_type",
@@ -823,7 +826,7 @@
       "read_by": [
         "read by constituency/constituency_la_council_minutes.sql, council_minutes/council_minutes_docs.sql"
       ],
-      "size_bytes": 9183953
+      "size_bytes": 9314665
     },
     "cro_xref_corporate_notices": {
       "file": "data/gold/parquet/cro_xref_corporate_notices.parquet",
@@ -4078,7 +4081,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 8565
+      "size_bytes": 8570
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -4193,7 +4196,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 17765
+      "size_bytes": 17780
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -6023,7 +6026,7 @@
     "pre_tender_leads": {
       "file": "data/gold/parquet/pre_tender_leads.parquet",
       "layer": "gold",
-      "rows": 62,
+      "rows": 210,
       "columns": [
         "lead_id",
         "source_corpus",
@@ -6046,7 +6049,16 @@
         "current_status_verified",
         "tender_notice_status",
         "report_as_of",
-        "classification_schema"
+        "classification_schema",
+        "school_roll_number",
+        "snapshot_freshness",
+        "stage_1_start_date",
+        "stage_2a_start_date",
+        "stage_2b_start_date",
+        "stage_3_start_date",
+        "stage_4_start_date",
+        "start_on_site_date",
+        "start_on_site_note"
       ],
       "column_types": {
         "lead_id": "String",
@@ -6070,13 +6082,75 @@
         "current_status_verified": "Boolean",
         "tender_notice_status": "String",
         "report_as_of": "String",
+        "classification_schema": "String",
+        "school_roll_number": "String",
+        "snapshot_freshness": "String",
+        "stage_1_start_date": "String",
+        "stage_2a_start_date": "String",
+        "stage_2b_start_date": "String",
+        "stage_3_start_date": "String",
+        "stage_4_start_date": "String",
+        "start_on_site_date": "String",
+        "start_on_site_note": "String"
+      },
+      "year_span": [
+        2024,
+        2026
+      ],
+      "read_by": [
+        "read by procurement/procurement_pre_tender_leads.sql"
+      ],
+      "size_bytes": 30376
+    },
+    "pre_tender_work_packages": {
+      "file": "data/gold/parquet/pre_tender_work_packages.parquet",
+      "layer": "gold",
+      "rows": 228,
+      "columns": [
+        "package_row_id",
+        "lead_id",
+        "source_corpus",
+        "source_record_id",
+        "source_date",
+        "reporting_area",
+        "project_name",
+        "package_code",
+        "package_label",
+        "package_group",
+        "evidence_phrase",
+        "matched_field",
+        "classification_basis",
+        "source_url",
+        "source_review_required",
+        "current_status_verified",
+        "amount_is_not_aggregable",
+        "classification_schema"
+      ],
+      "column_types": {
+        "package_row_id": "String",
+        "lead_id": "String",
+        "source_corpus": "String",
+        "source_record_id": "String",
+        "source_date": "String",
+        "reporting_area": "String",
+        "project_name": "String",
+        "package_code": "String",
+        "package_label": "String",
+        "package_group": "String",
+        "evidence_phrase": "String",
+        "matched_field": "String",
+        "classification_basis": "String",
+        "source_url": "String",
+        "source_review_required": "Boolean",
+        "current_status_verified": "Boolean",
+        "amount_is_not_aggregable": "Boolean",
         "classification_schema": "String"
       },
       "year_span": [
-        2025,
+        2024,
         2026
       ],
-      "size_bytes": 17530
+      "size_bytes": 23900
     },
     "procurement_awards": {
       "file": "data/gold/parquet/procurement_awards.parquet",
@@ -8296,6 +8370,8 @@
         "procedure_type",
         "is_uncompetitive_procedure",
         "submission_deadline",
+        "nuts3_code",
+        "region",
         "estimated_value_eur",
         "currency",
         "value_kind",
@@ -8316,6 +8392,8 @@
         "procedure_type": "String",
         "is_uncompetitive_procedure": "Boolean",
         "submission_deadline": "String",
+        "nuts3_code": "String",
+        "region": "String",
         "estimated_value_eur": "Float64",
         "currency": "String",
         "value_kind": "String",
@@ -8329,7 +8407,7 @@
       "read_by": [
         "read by procurement/procurement_ted_tenders.sql, api export: ted_tenders"
       ],
-      "size_bytes": 718391
+      "size_bytes": 727751
     },
     "ted_ie_winner_history": {
       "file": "data/silver/parquet/ted_ie_winner_history.parquet",

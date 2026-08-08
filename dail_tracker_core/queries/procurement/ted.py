@@ -233,19 +233,33 @@ def expiring_contracts_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
         "  COUNT(*) FILTER (WHERE contract_end_date_est BETWEEN CURRENT_DATE"
         "    AND CURRENT_DATE + INTERVAL 12 MONTH) AS n_ending_12m,"
         "  COUNT(*) FILTER (WHERE contract_end_basis = 'explicit_end_date') AS n_explicit,"
+        # Multi-supplier frameworks are counted separately because they are a different KIND of
+        # opportunity: several suppliers are appointed to one agreement, so a firm that missed the
+        # original competition can bid at the next call rather than waiting for a single re-tender.
+        "  COUNT(*) FILTER (WHERE is_multi_supplier_framework) AS n_frameworks,"
         "  MIN(contract_end_date_est) AS earliest_end, MAX(contract_end_date_est) AS latest_end"
         " FROM v_procurement_expiring_contracts",
     )
 
 
 def expiring_contracts(
-    conn: duckdb.DuckDBPyConnection, *, months_ahead: int = 12, limit: int | None = 60
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    months_ahead: int = 12,
+    limit: int | None = 60,
+    frameworks_only: bool = False,
 ) -> QueryResult:
     """Contracts whose ADVERTISED term ends within the window (soonest first).
 
     The end date is the term advertised on the award notice (explicit end date, or
     start/conclusion date + duration) — an advertised term, never a verified end event;
-    renewals may extend it. award_value_eur is award/ceiling grade: display-only."""
+    renewals may extend it. award_value_eur is award/ceiling grade: display-only.
+
+    ``frameworks_only`` narrows to multi-supplier frameworks — agreements holding several
+    appointed suppliers, competed at each call-off rather than re-tendered whole. The flag is a
+    published notice field; it does NOT establish that any particular framework admits new
+    entrants, which only the buyer's own notice can say.
+    """
     sql = (
         "SELECT publication_number, notice_url, buyer_name, winners_display, n_winners,"
         " cpv_division, award_value_eur, value_kind, is_multi_supplier_framework,"
@@ -254,9 +268,11 @@ def expiring_contracts(
         " FROM v_procurement_expiring_contracts"
         " WHERE contract_end_date_est BETWEEN CURRENT_DATE"
         "   AND CURRENT_DATE + (? * INTERVAL 1 MONTH)"
-        " ORDER BY contract_end_date_est ASC"
     )
     params: list = [int(months_ahead)]
+    if frameworks_only:
+        sql += " AND is_multi_supplier_framework"
+    sql += " ORDER BY contract_end_date_est ASC"
     if limit is not None:
         sql += " LIMIT ?"
         params.append(int(limit))

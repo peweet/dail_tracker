@@ -513,9 +513,15 @@ def fetch_expiring_contracts_stats_result() -> QueryResult:
 
 
 @cache_data(ttl=300)
-def fetch_expiring_contracts_result(months_ahead: int = 12, limit: int | None = 60) -> QueryResult:
-    """Contracts whose advertised term ends within the window, soonest first."""
-    return _q.expiring_contracts(get_procurement_conn(), months_ahead=months_ahead, limit=limit)
+def fetch_expiring_contracts_result(
+    months_ahead: int = 12, limit: int | None = 60, frameworks_only: bool = False
+) -> QueryResult:
+    """Contracts whose advertised term ends within the window, soonest first. ``frameworks_only``
+    narrows to multi-supplier frameworks — several appointed suppliers competing at each call-off,
+    a different route in from a single-winner contract being re-tendered."""
+    return _q.expiring_contracts(
+        get_procurement_conn(), months_ahead=months_ahead, limit=limit, frameworks_only=frameworks_only
+    )
 
 
 @cache_data(ttl=300)
@@ -548,6 +554,53 @@ def fetch_expiring_etenders_result(months_ahead: int = 24, limit: int | None = 6
     """NATIONAL (eTenders) contracts whose advertised term ends within the window, soonest first.
     Advertised term, not a verified event; award_value_eur is display-only, never summed."""
     return _q.expiring_contracts_etenders(get_procurement_conn(), months_ahead=months_ahead, limit=limit)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Pre-tender observations — a SEPARATE, NON-MONEY grain, earlier than every lane
+# above. These are dated source observations (what a body told the Dáil on a day),
+# not live tenders, awards, payments or budgets: see caveats.PRE_TENDER. Nothing
+# here is status-verified against the live tender register, so the page renders
+# each row as "as reported on <date>" and never as a current opportunity.
+# ──────────────────────────────────────────────────────────────────────────────
+@cache_data(ttl=300)
+def fetch_pre_tender_leads_result(
+    area: str | None = None,
+    sector: str | None = None,
+    stage: str | None = None,
+    limit: int = 500,
+    offset: int = 0,
+) -> QueryResult:
+    """Dated, source-linked pre-tender observations, closest-to-tender first (the corpus's own
+    stage_display_order). amount_text is source wording and is never parsed or summed."""
+    return _q.pre_tender_leads(
+        get_procurement_conn(), area=area, sector=sector, stage=stage, limit=limit, offset=offset
+    )
+
+
+@cache_data(ttl=300)
+def fetch_pre_tender_summary_result() -> QueryResult:
+    """Corpus summary for the section headline: observation/area/source counts, the observation
+    date span, and the verified/stale counts the caveat is built from (rather than asserted)."""
+    return _q.pre_tender_summary(get_procurement_conn())
+
+
+@cache_data(ttl=300)
+def fetch_pre_tender_sectors_result(area: str | None = None, stage: str | None = None) -> QueryResult:
+    """Sector facet option list + counts, kept in step with the other active filters."""
+    return _q.pre_tender_sectors(get_procurement_conn(), area=area, stage=stage)
+
+
+@cache_data(ttl=300)
+def fetch_pre_tender_stages_result(area: str | None = None, sector: str | None = None) -> QueryResult:
+    """Stage facet option list + counts, ordered closest-to-tender first."""
+    return _q.pre_tender_stages(get_procurement_conn(), area=area, sector=sector)
+
+
+@cache_data(ttl=300)
+def fetch_pre_tender_areas_result(sector: str | None = None, stage: str | None = None) -> QueryResult:
+    """Reporting-area facet option list + counts. The area is the source's own wording."""
+    return _q.pre_tender_areas(get_procurement_conn(), sector=sector, stage=stage)
 
 
 @cache_data(ttl=300)

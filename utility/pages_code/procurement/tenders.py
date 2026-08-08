@@ -23,6 +23,7 @@ from ui.entity_links import source_link_html
 from ui.format import coalesce as _coalesce
 from ui.format import esc as _esc
 from ui.format import to_int as _n
+from ui.format import truthy as _truthy
 
 from ._shared import (
     _TOP,
@@ -42,6 +43,48 @@ _END_BASIS_LABEL = {
 }
 
 
+def _expiring_contracts_caveat(s) -> None:
+    """The section's headline, built from the corpus summary rather than asserted in prose.
+
+    The framework count belongs in the headline because it changes what the list MEANS for a
+    smaller firm: a single-winner contract ending is one competition on one date, whereas a
+    multi-supplier framework is competed at every call-off across its whole life. Conditional on
+    n_frameworks so the clause disappears rather than reading "0 of them" if the corpus ever has
+    none.
+    """
+    n_frameworks = _n(s.get("n_frameworks"))
+    fw_line = (
+        f" {n_frameworks:,} of them are multi-supplier frameworks — several appointed suppliers "
+        "competing at each call-off, rather than one winner holding the whole contract."
+        if n_frameworks
+        else ""
+    )
+    st.html(
+        '<div class="pr-caveat"><strong>Advertised contract terms — when current contracts are due to end.</strong> '
+        f"{_n(s.get('n_with_estimate')):,} TED award notices state a contract term (an explicit end date on "
+        f"{_n(s.get('n_explicit')):,} of them; otherwise the signed/start date plus the advertised duration). "
+        "These are the terms <em>as advertised on the award notice</em> — a contract can end early or run "
+        f"longer through renewal options, which are shown separately and never folded in.{fw_line}</div>"
+    )
+
+
+def _framework_pill(r) -> str | None:
+    """The multi-supplier-framework pill, or None for a single-winner contract.
+
+    The framework flag was selected by the query and reaching this frame all along, but was
+    never rendered — so the one field telling a smaller firm "several suppliers hold this, and
+    it is competed at each call-off" was invisible. n_winners qualifies it with the number
+    actually appointed on the notice.
+    """
+    if not _truthy(getattr(r, "is_multi_supplier_framework", None)):
+        return None
+    n_win = getattr(r, "n_winners", None)
+    appointed = ""
+    if n_win is not None and not pd.isna(n_win) and int(n_win) > 1:
+        appointed = f" ({int(n_win)} suppliers)"
+    return f'<span class="pr-pill pr-pill-cro">multi-supplier framework{appointed}</span>'
+
+
 def _render_expiring_contracts() -> None:
     stats_res = fetch_expiring_contracts_stats_result()
     if not stats_res.ok or stats_res.data.empty:
@@ -51,28 +94,44 @@ def _render_expiring_contracts() -> None:
         )
         return
     s = stats_res.data.iloc[0]
-    st.html(
-        '<div class="pr-caveat"><strong>Advertised contract terms — when current contracts are due to end.</strong> '
-        f"{_n(s.get('n_with_estimate')):,} TED award notices state a contract term (an explicit end date on "
-        f"{_n(s.get('n_explicit')):,} of them; otherwise the signed/start date plus the advertised duration). "
-        "These are the terms <em>as advertised on the award notice</em> — a contract can end early or run "
-        "longer through renewal options, which are shown separately and never folded in.</div>"
-    )
-    window = st.segmented_control(
-        "Ending within",
-        ["6 months", "12 months", "24 months"],
-        default="12 months",
-        key="pr_expiring_window",
-        label_visibility="collapsed",
-    )
+    _expiring_contracts_caveat(s)
+    win_col, kind_col = st.columns([1.4, 1], vertical_alignment="center")
+    with win_col:
+        window = st.segmented_control(
+            "Ending within",
+            ["6 months", "12 months", "24 months"],
+            default="12 months",
+            key="pr_expiring_window",
+            label_visibility="collapsed",
+        )
+    with kind_col:
+        # Filter, not a separate lens: the framework rows belong to this same advertised-term
+        # register and are ordered by the same end date, so splitting them out would duplicate
+        # the list rather than narrow it.
+        kind = st.segmented_control(
+            "Contract kind",
+            ["All contracts", "Frameworks only"],
+            default="All contracts",
+            key="pr_expiring_kind",
+            label_visibility="collapsed",
+        )
     months = int((window or "12 months").split()[0])
-    res = fetch_expiring_contracts_result(months_ahead=months, limit=_TOP)
+    frameworks_only = kind == "Frameworks only"
+    res = fetch_expiring_contracts_result(months_ahead=months, limit=_TOP, frameworks_only=frameworks_only)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
-        empty_state("No contracts in this window", "No advertised term ends in the selected period.")
+        if frameworks_only:
+            empty_state(
+                "No frameworks ending in this window",
+                f"No multi-supplier framework has an advertised term ending within {months} months. "
+                "Try a wider window, or switch back to all contracts.",
+            )
+        else:
+            empty_state("No contracts in this window", "No advertised term ends in the selected period.")
         return
+    kind_label = "multi-supplier frameworks" if frameworks_only else "contracts"
     st.caption(
-        f"{len(df):,} contracts whose advertised term ends within {months} months, soonest first. "
+        f"{len(df):,} {kind_label} whose advertised term ends within {months} months, soonest first. "
         "Values are award/ceiling figures shown for context — never totals. "
         "Use each Source notice link to open the authoritative TED record."
     )
@@ -93,8 +152,13 @@ def _render_expiring_contracts() -> None:
             pills.append(f'<span class="pr-pill pr-pill-val">ends {fmt_civic_date(end)}</span>')
         ev = _eur(getattr(r, "award_value_eur", None))
         if ev != "—":
-            kind = _coalesce(getattr(r, "value_kind", None))
-            pills.append(f'<span class="pr-pill">{ev}{" ceiling" if kind == "framework_or_dps_ceiling" else ""}</span>')
+            vkind = _coalesce(getattr(r, "value_kind", None))
+            pills.append(
+                f'<span class="pr-pill">{ev}{" ceiling" if vkind == "framework_or_dps_ceiling" else ""}</span>'
+            )
+        fw_pill = _framework_pill(r)
+        if fw_pill:
+            pills.append(fw_pill)
         renew = getattr(r, "renewal_max", None)
         if renew is not None and not pd.isna(renew) and int(renew) > 0:
             pills.append(f'<span class="pr-pill pr-pill-lob">up to {int(renew)} renewals</span>')

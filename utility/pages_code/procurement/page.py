@@ -51,6 +51,7 @@ from .browse import (
     _render_suppliers,
 )
 from .payments import _render_payments_bridge
+from .pre_tender import _render_pre_tender
 from .tenders import _render_national_expiring, _render_expiring_contracts, _render_national_open_tenders
 
 
@@ -260,6 +261,12 @@ def procurement_page() -> None:
             _render_national_open_tenders()
             st.html('<div class="pr-register-rule"><span>EU Official Journal (TED)</span></div>')
             _render_ted_tenders()
+
+    elif section == "pretender":
+        # The earliest lane on the page: projects a public body has DESCRIBED but not advertised.
+        # A separate non-money grain (caveats.PRE_TENDER) — never value-merged with the open-tender,
+        # award or payment registers above, and never presented as a current opportunity.
+        _render_pre_tender()
 
     elif section == "bidsignal":  # EXPERIMENTAL, local-only (DAIL_EXPERIMENTAL=1)
         _render_bid_signal()

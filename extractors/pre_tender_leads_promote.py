@@ -61,6 +61,43 @@ REQUIRED_COLUMNS = {
     "classification_schema",
 }
 
+# The Department publishes a stage-date column per approval gate. The opportunity
+# classifier drops them, so they are joined back from the snapshot table here. A
+# project with a past start-on-site date is already a building site, not a lead —
+# without these columns nothing downstream can tell the two apart.
+STAGE_DATE_COLUMNS = (
+    "stage_1_start_date",
+    "stage_2a_start_date",
+    "stage_2b_start_date",
+    "stage_3_start_date",
+    "stage_4_start_date",
+    "start_on_site_date",
+)
+
+# How old an observation is, banded. The school lane arrives already banded from its
+# snapshot table; every other corpus arrived with the column null, so ~30% of gold rows
+# carried no age signal at all and the page's staleness count under-reported the corpus
+# (55 banded stale against 84 rows genuinely over a year old). The bands below are the
+# SAME rule the school lane uses upstream — derived from source_date against report_as_of,
+# it reproduces all 148 upstream school bands exactly, which is why filling the gap here
+# is a completion of one vocabulary rather than the invention of a second one.
+FRESHNESS_RECENT = "recent_180_days"
+FRESHNESS_AGEING = "ageing_181_to_365_days"
+FRESHNESS_STALE = "stale_over_365_days"
+FRESHNESS_BANDS = (FRESHNESS_RECENT, FRESHNESS_AGEING, FRESHNESS_STALE)
+
+SCHOOL_SNAPSHOT_JOIN_KEYS = ("attachment_url", "sheet_or_table", "source_row_index")
+
+SCHOOL_SNAPSHOT_REQUIRED_COLUMNS = {*SCHOOL_SNAPSHOT_JOIN_KEYS, *STAGE_DATE_COLUMNS}
+
+# Columns the school lane contributes that the other corpora do not have.
+SCHOOL_EXTRA_COLUMNS = (
+    "school_roll_number",
+    "snapshot_freshness",
+    *STAGE_DATE_COLUMNS,
+    "start_on_site_note",
+)
+
 GOLD_COLUMNS = (
     "lead_id",
     "source_corpus",
@@ -86,6 +123,8 @@ GOLD_COLUMNS = (
     "classification_schema",
     "school_roll_number",
     "snapshot_freshness",
+    *STAGE_DATE_COLUMNS,
+    "start_on_site_note",
 )
 
 SCHOOL_REQUIRED_COLUMNS = {
@@ -157,11 +196,84 @@ def _clean_url() -> pl.Expr:
     )
 
 
+def _published_date_text(column: str) -> pl.Expr:
+    """The published stage date as text, before any date parsing."""
+    return pl.col(column).cast(pl.String, strict=False).str.strip_chars().replace("", None)
+
+
+def _iso_date(column: str) -> pl.Expr:
+    """An ISO date, or null when the cell holds something that is not one.
+
+    The Department writes a real date in most cells but plain wording ("TBC") in
+    others, so this never raises. Unparsed non-empty cells are counted in
+    coverage instead of being dropped silently — a new vintage's wording has to
+    show up somewhere.
+    """
+    return (
+        _published_date_text(column)
+        .str.slice(0, 10)
+        .str.strptime(pl.Date, "%Y-%m-%d", strict=False)
+        .dt.to_string("%Y-%m-%d")
+        .alias(column)
+    )
+
+
+def _derived_freshness() -> pl.Expr:
+    """The age band implied by source_date against report_as_of, or null when either is
+    unparseable. Used to FILL a null band, never to overwrite one a corpus supplied."""
+    observed = pl.col("source_date").cast(pl.String, strict=False).str.to_date("%Y-%m-%d", strict=False)
+    as_of = pl.col("report_as_of").cast(pl.String, strict=False).str.to_date("%Y-%m-%d", strict=False)
+    age_days = (as_of - observed).dt.total_days()
+    return (
+        pl.when(observed.is_null() | as_of.is_null())
+        .then(pl.lit(None, dtype=pl.String))
+        .when(age_days <= 180)
+        .then(pl.lit(FRESHNESS_RECENT))
+        .when(age_days <= 365)
+        .then(pl.lit(FRESHNESS_AGEING))
+        .otherwise(pl.lit(FRESHNESS_STALE))
+    )
+
+
+def _join_stage_dates(opportunities: pl.DataFrame, snapshots_path: Path) -> pl.DataFrame:
+    """Attach the per-gate stage dates the opportunity classifier drops."""
+    snapshots = pl.read_parquet(snapshots_path)
+    missing = SCHOOL_SNAPSHOT_REQUIRED_COLUMNS.difference(snapshots.columns)
+    if missing:
+        raise ValueError(f"{snapshots_path.name} is missing required columns: {sorted(missing)}")
+
+    keys = list(SCHOOL_SNAPSHOT_JOIN_KEYS)
+    snapshots = snapshots.select(*keys, *STAGE_DATE_COLUMNS)
+    # A duplicated key would fan the observation grain out and publish one
+    # school's dates against another's row, so it fails rather than joins.
+    if snapshots.select(pl.struct(keys).is_duplicated().any()).item():
+        raise ValueError(f"{snapshots_path.name} stage-date join key must be unique per snapshot row")
+
+    joined = opportunities.join(
+        snapshots.with_columns(
+            *[_iso_date(column) for column in STAGE_DATE_COLUMNS],
+            _published_date_text("start_on_site_date").alias("_on_site_published"),
+        ),
+        left_on=["source_attachment_url", "source_sheet_or_table", "source_row_index"],
+        right_on=keys,
+        how="left",
+    )
+    if joined.height != opportunities.height:
+        raise ValueError("stage-date join changed the school observation row count")
+    return joined.with_columns(
+        pl.when(pl.col("start_on_site_date").is_null() & pl.col("_on_site_published").is_not_null())
+        .then(pl.col("_on_site_published"))
+        .otherwise(None)
+        .alias("start_on_site_note")
+    ).drop("_on_site_published")
+
+
 def _school_pre_tender_rows(
     opportunities_path: Path,
     packages_path: Path,
     *,
     report_as_of: str,
+    snapshots_path: Path | None = None,
 ) -> pl.DataFrame:
     """Map classified school-project observations onto the shared lead grain."""
     try:
@@ -181,6 +293,19 @@ def _school_pre_tender_rows(
         raise ValueError("school opportunity_id must be unique at the observation grain")
     if opportunities.select(pl.col("school_name").is_null().any()).item():
         raise ValueError("school_name is required for every school observation")
+
+    if snapshots_path is not None:
+        absent_keys = {"source_sheet_or_table", "source_row_index"}.difference(opportunities.columns)
+        if absent_keys:
+            raise ValueError(
+                f"{opportunities_path.name} cannot be joined to stage dates without: {sorted(absent_keys)}"
+            )
+        opportunities = _join_stage_dates(opportunities, snapshots_path)
+    else:
+        opportunities = opportunities.with_columns(
+            *[pl.lit(None, dtype=pl.String).alias(column) for column in STAGE_DATE_COLUMNS],
+            pl.lit(None, dtype=pl.String).alias("start_on_site_note"),
+        )
 
     package_summary = (
         packages.select(
@@ -226,7 +351,7 @@ def _school_pre_tender_rows(
         pl.lit("school-pre-tender-lead/1").alias("classification_schema"),
         pl.col("roll_number").alias("school_roll_number"),
     )
-    return rows.select(sorted(REQUIRED_COLUMNS | {"school_roll_number", "snapshot_freshness"}))
+    return rows.select(sorted(REQUIRED_COLUMNS | set(SCHOOL_EXTRA_COLUMNS)))
 
 
 def promote(
@@ -234,6 +359,7 @@ def promote(
     *,
     school_opportunities_path: Path | None = None,
     school_packages_path: Path | None = None,
+    school_snapshots_path: Path | None = None,
     report_as_of: str | None = None,
 ) -> tuple[pl.DataFrame, pl.DataFrame, dict]:
     """Validate source-specific classified parquets and return silver, gold, coverage."""
@@ -265,12 +391,13 @@ def promote(
             school_opportunities_path,
             school_packages_path,
             report_as_of=report_as_of,
+            snapshots_path=school_snapshots_path,
         )
         frames.append(school_rows)
         source_rows[school_opportunities_path.name] = school_rows.height
 
     silver = pl.concat(frames, how="diagonal_relaxed")
-    for column in ("school_roll_number", "snapshot_freshness"):
+    for column in SCHOOL_EXTRA_COLUMNS:
         if column not in silver.columns:
             silver = silver.with_columns(pl.lit(None, dtype=pl.String).alias(column))
     text_columns = sorted(
@@ -285,7 +412,7 @@ def promote(
         )
     )
     silver = silver.with_columns(
-        *[_clean_text(column) for column in [*text_columns, "school_roll_number", "snapshot_freshness"]],
+        *[_clean_text(column) for column in [*text_columns, *SCHOOL_EXTRA_COLUMNS]],
         _clean_url(),
         pl.col("stage_display_order").cast(pl.Int64, strict=False),
         pl.col("amount_is_not_aggregable").cast(pl.Boolean, strict=False),
@@ -297,6 +424,20 @@ def promote(
         .replace("not assessed in this pre-tender layer", "not_checked_against_live_tenders")
         .alias("tender_notice_status")
     )
+    # Fill the age band wherever a corpus did not supply one. Coalesce, not overwrite:
+    # a corpus that bands its own rows upstream keeps its own provenance.
+    silver = silver.with_columns(
+        pl.coalesce(pl.col("snapshot_freshness"), _derived_freshness()).alias("snapshot_freshness")
+    )
+    unbanded_dated = silver.filter(pl.col("snapshot_freshness").is_null() & pl.col("source_date").is_not_null())
+    if unbanded_dated.height:
+        raise ValueError(
+            f"{unbanded_dated.height} dated observation(s) carry no snapshot_freshness band — "
+            "every dated row must carry an age signal or the page under-reports staleness"
+        )
+    bad_bands = set(silver["snapshot_freshness"].drop_nulls().unique()) - set(FRESHNESS_BANDS)
+    if bad_bands:
+        raise ValueError(f"unknown snapshot_freshness band(s): {sorted(bad_bands)}")
 
     if silver.select(pl.col("lead_id").is_null().any()).item():
         raise ValueError("lead_id is required for every pre-tender observation")
@@ -339,6 +480,17 @@ def promote(
             (pl.col("source_corpus") == "pq_school_project_table")
             & (pl.col("snapshot_freshness") == "stale_over_365_days")
         ).height,
+        # Corpus-wide age bands. The school_* counts above stay for continuity, but the
+        # page's staleness caveat must be built from THESE — banding only the school lane
+        # is what let 29 stale council rows go uncounted and unpilled.
+        "freshness_rows": {band: gold.filter(pl.col("snapshot_freshness") == band).height for band in FRESHNESS_BANDS},
+        "undated_rows": gold.filter(pl.col("source_date").is_null()).height,
+        "school_stage_date_rows": {
+            column: gold.filter(pl.col(column).is_not_null()).height for column in STAGE_DATE_COLUMNS
+        },
+        # Cells that held wording rather than a date ("TBC"). Counted so a new
+        # vintage's phrasing is visible instead of silently becoming a null.
+        "school_start_on_site_unparsed_rows": gold.filter(pl.col("start_on_site_note").is_not_null()).height,
         "money_contract": "amount_text is source wording and is never aggregable",
         "classification_contract": "upstream classifications preserved; no reclassification in promotion",
     }
@@ -350,6 +502,7 @@ def write_outputs(
     *,
     school_opportunities_path: Path | None = None,
     school_packages_path: Path | None = None,
+    school_snapshots_path: Path | None = None,
     report_as_of: str | None = None,
     silver_path: Path = SILVER_PATH,
     gold_path: Path = GOLD_PATH,
@@ -359,6 +512,7 @@ def write_outputs(
         input_dir,
         school_opportunities_path=school_opportunities_path,
         school_packages_path=school_packages_path,
+        school_snapshots_path=school_snapshots_path,
         report_as_of=report_as_of,
     )
     save_parquet(silver, silver_path, min_rows=1)
@@ -372,6 +526,11 @@ def main() -> None:
     parser.add_argument("--input-dir", type=Path, required=True, help="directory containing the classified parquets")
     parser.add_argument("--school-opportunities", type=Path)
     parser.add_argument("--school-packages", type=Path)
+    parser.add_argument(
+        "--school-snapshots",
+        type=Path,
+        help="school project snapshot parquet carrying the per-gate stage dates",
+    )
     parser.add_argument("--report-as-of", help="ISO date for the school-source status caveat")
     parser.add_argument("--silver", type=Path, default=SILVER_PATH)
     parser.add_argument("--gold", type=Path, default=GOLD_PATH)
@@ -381,6 +540,7 @@ def main() -> None:
         args.input_dir,
         school_opportunities_path=args.school_opportunities,
         school_packages_path=args.school_packages,
+        school_snapshots_path=args.school_snapshots,
         report_as_of=args.report_as_of,
         silver_path=args.silver,
         gold_path=args.gold,

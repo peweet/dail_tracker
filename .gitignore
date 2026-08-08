@@ -739,6 +739,12 @@ data/_meta/siting_national_sweep_baseline.json
 /apps/planspec-demo/
 /apps/public-signal/
 /test/apps/
+# A retired overlay is a whole git OBJECT DATABASE, so committing one embeds that repo's entire
+# history inside this PUBLIC one — bloat is the lesser problem. Added 2026-08-08 after a broad
+# `git add` swept 1,714 files / 98 MB of .git-publicsignal.RETIRED-2026-08-08 into a commit.
+# Caught before the push. The glob covers any future retirement, not just that one date.
+/.git-publicsignal.RETIRED-*/
+/.git-*.RETIRED-*/
 /dail_tracker_core/queries/procurement/opportunities.py
 /dail_tracker_core/queries/procurement/market_intel.py
 /test/api/test_api_publicsignal_feed.py

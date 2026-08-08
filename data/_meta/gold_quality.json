@@ -3,6 +3,13 @@
   "regressions": [],
   "summary": {
     "tables_with_all_null_cols": {
+      "council_ce_report_leads.parquet": [
+        "review_note",
+        "reviewed_by",
+        "reviewed_project_name",
+        "reviewed_stage",
+        "reviewed_utc"
+      ],
       "ipas_la_profile.parquet": [
         "population_unknown_reason",
         "unknown_reason"

@@ -15,6 +15,21 @@
   "school_rows": 148,
   "school_recent_rows": 59,
   "school_stale_rows": 55,
+  "freshness_rows": {
+    "recent_180_days": 65,
+    "ageing_181_to_365_days": 55,
+    "stale_over_365_days": 84
+  },
+  "undated_rows": 6,
+  "school_stage_date_rows": {
+    "stage_1_start_date": 21,
+    "stage_2a_start_date": 12,
+    "stage_2b_start_date": 13,
+    "stage_3_start_date": 6,
+    "stage_4_start_date": 5,
+    "start_on_site_date": 4
+  },
+  "school_start_on_site_unparsed_rows": 1,
   "money_contract": "amount_text is source wording and is never aggregable",
   "classification_contract": "upstream classifications preserved; no reclassification in promotion"
 }
