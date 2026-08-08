@@ -68,3 +68,6 @@
 {"ts": "2026-08-08T16:32:00.300722+00:00", "session": "b63a2ac6-312", "category": "py_deps", "nudged": true, "pattern": "import yaml|\\.yaml\"|\\.yml\""}
 {"ts": "2026-08-08T17:05:24.244627+00:00", "session": "65b83dba-bd4", "category": "py_deps", "nudged": false, "pattern": "from .run_stats import|from planning.product.core.run_stats import|run_stats\\.co"}
 {"ts": "2026-08-08T17:23:11.407435+00:00", "session": "963da754-416", "category": "py_refs", "nudged": true, "pattern": "test_dcc_schedule_name_never_clears_an_osm_private_tag"}
+{"ts": "2026-08-08T19:32:48.216525+00:00", "session": "f4a0ac09-5c6", "category": "py_refs", "nudged": true, "pattern": "planning_acp_cases"}
+{"ts": "2026-08-08T19:32:49.132209+00:00", "session": "f4a0ac09-5c6", "category": "py_refs", "nudged": false, "pattern": "siting_national_sweep_baseline"}
+{"ts": "2026-08-08T19:33:06.976374+00:00", "session": "f4a0ac09-5c6", "category": "py_refs", "nudged": false, "pattern": "siting_national_sweep"}

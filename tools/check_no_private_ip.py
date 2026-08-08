@@ -150,6 +150,7 @@ ALLOWLIST: frozenset[str] = frozenset(
         "data/_meta/planning_appeal_outcomes_coverage.json",
         "data/_meta/planning_decision_profiles_coverage.json",
         "data/silver/parquet/planning_appeal_outcomes.parquet",
+        "test/mcp_server/test_mcp_siting_vocabulary.py",
     }
 )
 
