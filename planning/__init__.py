@@ -8,5 +8,5 @@ Two subpackages, split by who may see them:
   and everything that serves them. Gitignored as the single prefix ``/planning/product/``.
 
 The split is the whole point of this package: the public/private boundary is one directory
-prefix rather than a list of globs. See doc/private/PLAN_PLANNING_CONSOLIDATION.md.
+prefix rather than a list of globs. See planning/product/doc/private/PLAN_PLANNING_CONSOLIDATION.md.
 """
