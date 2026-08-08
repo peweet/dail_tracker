@@ -2409,12 +2409,49 @@ def siting_check(
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
         return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
 
+    dt = (dev_type or "one_off_house").strip()
+    uc = (use_class or "").strip()
+    # Closed-vocabulary gate (2026-08-08). Both fields reached the node walk as free strings, and
+    # an unrecognised value does NOT raise — it silently satisfies only the nodes that apply to
+    # everything, then renders a complete, confident triage. Measured against the shipped
+    # catalogue: dev_type one_off_house 25 nodes / multi_unit 42 / commercial 37 / extension 17,
+    # but ANY other string 15. use_class is worse, because a mistype is indistinguishable from
+    # omission: commercial+pharma_chemical reaches 45 nodes, commercial+"Pharma_Chemical" reaches
+    # 37 — identical to passing no use class — and the eight that vanish are Seveso COMAH, the EPA
+    # IE licence and mandatory EIA screening. The docstring above already says "pass one of the
+    # canonical values exactly"; this makes that a contract rather than a hope. An empty use_class
+    # stays legal: unset genuinely means "do not gate on use", which is the safe default.
+    # Guarded because planning/product is the private overlay: a public clone has no engine, and
+    # an unguarded import here crashes the whole MCP server on a tool the checkout cannot run
+    # anyway. The try/except is also what tools/check_no_untracked_imports.py exempts, so this
+    # keeps the public tree pushable without moving the vocabulary gate.
+    try:
+        from planning.product.core.assistant import DEV_TYPES as _DEV_TYPES
+        from planning.product.core.engine import USE_CLASSES as _USE_CLASSES
+    except ImportError:
+        return {
+            "error": "the siting engine is not installed in this checkout — planning/product is "
+            "private and is not part of the public repository, so siting_check cannot run here"
+        }
+
+    if dt not in _DEV_TYPES:
+        return {
+            "error": f"unknown dev_type {dev_type!r} — it would silently evaluate only the "
+            f"development-type-agnostic checks and return a report that looks complete. "
+            f"Pass one of: {', '.join(_DEV_TYPES)}"
+        }
+    if uc and uc not in _USE_CLASSES:
+        return {
+            "error": f"unknown use_class {use_class!r} — it would gate nothing on the use axis, "
+            f"which is indistinguishable from omitting it entirely (the pharma/Seveso, EPA "
+            f"licence and mandatory-EIA nodes would stay silent). Pass one of: "
+            f"{', '.join(_USE_CLASSES)}, or leave it unset to skip use gating deliberately"
+        }
+
     store = make_store()
     available = sorted(store.available())
     if not available:
         return {"error": "no planning-designation layers are ingested — siting check cannot run here"}
-
-    dt = (dev_type or "one_off_house").strip()
     inventory = (
         [
             InventoryLine(
