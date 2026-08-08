@@ -177,6 +177,20 @@ def test_git_navigation_excludes_untracked_files_even_when_not_ignored(tmp_path)
     assert "not tracked" in code_index.outline(repo, "untracked.py")["error"]
 
 
+def test_untracked_private_product_path_names_the_server_that_can_answer(tmp_path):
+    repo = tmp_path / "repo"
+    product = repo / "planning" / "product" / "core"
+    product.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / ".gitignore").write_text("planning/product/\n", encoding="utf-8")
+    (product / "engine.py").write_text("VALUE = 'private'\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", ".gitignore"], check=True)
+
+    error = code_index.outline(repo, "planning/product/core/engine.py")["error"]
+    assert "not tracked" in error
+    assert "siting-private" in error
+
+
 def test_outline_enforces_scan_policy_for_explicit_files_and_subpackages(tmp_path):
     repo = tmp_path / "repo"
     public = repo / "public"

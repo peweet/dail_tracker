@@ -103,6 +103,10 @@ def _mcp_note() -> str:
             )
         cmd_path = args = None
         for spec in servers.values():
+            # http/sse servers connect by URL and carry no command — a path check on
+            # them reports the whole MCP layer dead over a server that never had one.
+            if spec.get("type") in ("http", "sse") or not spec.get("command"):
+                continue
             cmd = str(spec.get("command", ""))
             args = [str(a) for a in spec.get("args", [])]
             command = Path(cmd)
@@ -134,7 +138,7 @@ def _mcp_note() -> str:
 
 def _mcp_connect_probe(cmd_path: Path, args: list[str]) -> str:
     """Spawn the configured server and exchange an MCP initialize (newline-delimited
-    JSON-RPC over stdio). ~0.5-2 s; 6 s hard timeout; fails open to a WARN note, never
+    JSON-RPC over stdio). ~5 s cold; 20 s hard timeout; fails open to a WARN note, never
     an exception — a status line must not break a session."""
     try:
         init = (
@@ -162,7 +166,8 @@ def _mcp_connect_probe(cmd_path: Path, args: list[str]) -> str:
             encoding="utf-8",
         )
         try:
-            out, _ = proc.communicate(input=init, timeout=6)
+            # measured 5.2s cold on this box — 6s flapped and reported a false hang
+            out, _ = proc.communicate(input=init, timeout=20)
         finally:
             if proc.poll() is None:
                 proc.kill()

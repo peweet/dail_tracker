@@ -185,6 +185,20 @@ def is_tracked_file(repo: Path, path: Path) -> bool:
     return PurePosixPath(relative.as_posix()) in set(visible)
 
 
+# Gitignored product trees are structurally invisible to this public index, so a caller
+# landing on one has picked the wrong server rather than the wrong path. Name the tool
+# that can answer instead of returning a dead end they can only retry.
+_PRIVATE_TREE_HINTS = (("planning/product/", "siting-private"),)
+
+
+def _private_tree_hint(relative: PurePosixPath | Path) -> str:
+    raw = str(relative).replace("\\", "/")
+    for prefix, server in _PRIVATE_TREE_HINTS:
+        if raw.startswith(prefix):
+            return f" — it lives in the private {prefix} tree; use the {server} MCP server's tools instead"
+    return ""
+
+
 def is_navigable_file(repo: Path, path: Path, policy: ScanPolicy = DEFAULT_SCAN_POLICY) -> bool:
     """Whether a file is contained, policy-allowed, and eligible for public navigation."""
     root = repo.resolve()
@@ -462,7 +476,10 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
         return {"error": f"no such path: {path}"}
 
     if target.is_file() and not is_tracked_file(root, target):
-        return {"error": f"path is not tracked by Git and cannot be navigated: {path}"}
+        return {
+            "error": f"path is not tracked by Git and cannot be navigated: {path}"
+            + _private_tree_hint(relative)
+        }
 
     if target.is_dir():
         files: list[Path] = []

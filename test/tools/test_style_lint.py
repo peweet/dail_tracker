@@ -118,6 +118,85 @@ def test_years_never_match():
     assert run("The 2024 election followed the 2020 one." + PAD).returncode == 0
 
 
+# --- bare count claims: added 2026-08-08 ----------------------------------
+# FIGURE_RE only saw money/percent/comma-grouped integers, so every figure in an engine
+# audit ("67 nodes") passed a live checker. Measured 7.0% hit rate over 574 real replies.
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "The catalogue holds 67 nodes in total.",
+        "That covers 116 layers across the tree.",
+        "Ingest is missing for 7 councils.",
+        "The casebook carries 49 cases.",
+        "Only 2 datasets remain unwired.",
+    ],
+)
+def test_blocks_bare_count_claim(claim):
+    r = run(claim + PAD)
+    assert r.returncode == 2, f"should block: {claim}"
+    assert "Rule 2" in r.stderr
+
+
+def test_count_claim_discharged_by_citation():
+    r = run("The catalogue holds 67 nodes (rules/issue_catalogue.yaml:1)." + PAD)
+    assert r.returncode == 0, r.stderr
+
+
+def test_count_of_conversation_things_is_not_a_data_claim():
+    """'3 files', '5 hooks' are about the code or the turn -- the noun list excludes them."""
+    for claim in ("I changed 3 files today.", "There are 5 hooks wired in settings."):
+        assert run(claim + PAD).returncode == 0, claim
+
+
+def test_date_fragment_is_not_a_count():
+    r = run("The 2026-08-02 cases were reconciled against the board record." + PAD)
+    assert r.returncode == 0, r.stderr
+
+
+# --- real-world assertions: added 2026-08-08 ------------------------------
+
+
+def test_blocks_legal_claim_with_no_web_source():
+    r = run("Copyright is automatic under the Copyright and Related Rights Act 2000 and it covers the templates." + PAD)
+    assert r.returncode == 2, r.stderr
+    assert "real-world assertion" in r.stderr
+
+
+def test_repo_citation_does_not_discharge_a_legal_claim():
+    """The point of the class: a memory card is not the source of law."""
+    msg = "Memory notes s.247(3) bars evaluative output (memory/project_siting_preplanning.md:12)." + PAD
+    r = run(msg)
+    assert r.returncode == 2, "a repo file must not discharge a statutory claim"
+    assert "real-world assertion" in r.stderr
+
+
+def test_web_source_discharges_a_legal_claim():
+    r = run("Their terms quote s.247(3), which bars evaluative output — galway.preplanning.ie/en/terms." + PAD)
+    assert r.returncode == 0, r.stderr
+
+
+def test_admitting_it_needs_checking_discharges():
+    r = run("Memory says s.247(3) bars evaluative output, but that needs checking with a solicitor." + PAD)
+    assert r.returncode == 0, r.stderr
+
+
+def test_bare_legal_mention_without_an_effect_claim_passes():
+    """'the s.247 card' is meta-talk, not an assertion about what the law does."""
+    r = run("I filed the s.247 note under the preplanning card for later reference." + PAD)
+    assert r.returncode == 0, r.stderr
+
+
+def test_long_reply_logs_but_never_blocks():
+    sid = "longreply" + uuid.uuid4().hex
+    msg = " ".join(["word"] * 420) + "."
+    r = run(msg, session_id=sid)
+    assert r.returncode == 0
+    rows = _my_log_rows(sid)
+    assert rows and any("reply" in w for w in rows[-1]["warns"])
+
+
 def test_provenance_is_paragraph_scoped():
     """A citation in one paragraph must NOT discharge a bare figure in another."""
     msg = "First the check (votes.py:112).\n\nSeparately, spending hit €1.08bn." + PAD

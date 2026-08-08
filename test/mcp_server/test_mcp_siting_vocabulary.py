@@ -73,9 +73,17 @@ def test_empty_use_class_stays_legal():
 
 
 def test_valid_vocabulary_is_not_refused_by_the_guard():
-    """Every canonical value must pass the gate; a guard that rejects a real class is worse than none."""
-    from planning.product.core.assistant import DEV_TYPES
-    from planning.product.core.engine import USE_CLASSES
+    """Every canonical value must pass the gate; a guard that rejects a real class is worse than none.
+
+    planning/product is the private overlay (not in the public repo), so this import is guarded the
+    same way mcp_server/server.py guards its own — tools/check_no_untracked_imports.py exempts a
+    try/except ImportError, which keeps the public tree pushable without moving the test.
+    """
+    try:
+        from planning.product.core.assistant import DEV_TYPES
+        from planning.product.core.engine import USE_CLASSES
+    except ImportError:
+        pytest.skip("planning/product is private and not installed in this checkout")
 
     for dev_type in DEV_TYPES:
         out = _call(dev_type=dev_type)

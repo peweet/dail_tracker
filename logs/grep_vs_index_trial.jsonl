@@ -71,3 +71,4 @@
 {"ts": "2026-08-08T19:32:48.216525+00:00", "session": "f4a0ac09-5c6", "category": "py_refs", "nudged": true, "pattern": "planning_acp_cases"}
 {"ts": "2026-08-08T19:32:49.132209+00:00", "session": "f4a0ac09-5c6", "category": "py_refs", "nudged": false, "pattern": "siting_national_sweep_baseline"}
 {"ts": "2026-08-08T19:33:06.976374+00:00", "session": "f4a0ac09-5c6", "category": "py_refs", "nudged": false, "pattern": "siting_national_sweep"}
+{"ts": "2026-08-08T22:08:15.520035+00:00", "session": "5bf1ecbe-d10", "category": "search_project", "nudged": true, "pattern": "No layer of this kind is held"}
