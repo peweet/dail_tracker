@@ -1070,3 +1070,6 @@
 {"ts": "2026-08-08T23:34:50", "session": "jarg8fc42c01", "warns": ["jargon: \"surfaces\" (rule 3 -- use the plain word)", "jargon: \"the tension here is\" (rule 3 -- use the plain word)", "jargon: \"utilize\" (rule 3 -- use the plain word)"]}
 {"ts": "2026-08-08T23:34:50", "session": "longd7ac0d3c", "warns": ["60-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-08T23:34:50", "session": "capde4a29490", "warns": ["jargon: \"utilize\" (rule 3 -- use the plain word)", "jargon: \"leverage\" (rule 3 -- use the plain word)", "jargon: \"simply\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-08-08T23:39:41", "session": "ae9d64b0-364", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "49-word sentence (rule 4 -- one idea per sentence)", "46-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-08T23:46:42", "session": "d7802f6c-f4d", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}
+{"ts": "2026-08-08T23:49:31", "session": "ae9d64b0-364", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "46-word sentence (rule 4 -- one idea per sentence)", "50-word sentence (rule 4 -- one idea per sentence)"]}
