@@ -721,8 +721,21 @@ data/_meta/siting_national_sweep_baseline.json
 # planning/civic/ is the deliberately-PUBLIC sibling — never add it here.
 /planning/product/
 
-# Commercial product applications and their private integration modules live in
-# the private overlay. Keep these complete boundaries out of the public repository.
+# Commercial product applications and their private integration modules are kept out of this
+# PUBLIC repository. `/apps/public-signal/` is the whole boundary: it is a directory prefix, so a
+# new private file is covered by default rather than by someone remembering to list it.
+#
+# CONSOLIDATED 2026-08-08. PublicSignal's composition modules used to live at
+# dail_tracker_core/queries/procurement/{opportunities,market_intel}.py with their tests under
+# test/, versioned by a separate .git-publicsignal overlay because git cannot track files above a
+# repo's root. They now live at apps/public-signal/private-api/psintel/ and .../tests/, and the
+# overlay is retired. That list-of-files approach had already failed once: market_intel.py was
+# added to this file but NOT to tools/check_no_private_ip.py's DENY_EXACT, so one of the two
+# guards did not know it was private.
+#
+# The individual entries below are now dead paths - nothing exists there. They are KEPT
+# deliberately: they cost nothing, and if a file is ever recreated at one of those paths it stays
+# private instead of silently becoming public. Do not "tidy" them away.
 /apps/planspec-demo/
 /apps/public-signal/
 /test/apps/

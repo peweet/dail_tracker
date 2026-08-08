@@ -97,9 +97,20 @@ DENY_EXACT: frozenset[str] = frozenset(
         "planning/product/ingest/planning_layers_ingest.py",
         "planning/product/ingest/planning_layers_freshness.py",
         "planning/product/ingest/planning_acp_precedents.py",
+        # PublicSignal's composition modules moved under apps/public-signal/ on 2026-08-08 (a
+        # deny-directory above), so these three paths are now empty. They are kept so a file
+        # recreated at one of them is still caught. The lesson that motivated the move: this list
+        # and .gitignore had to be updated in lockstep, and market_intel.py was added to one and
+        # not the other, leaving it guarded by a single layer.
         "dail_tracker_core/queries/procurement/opportunities.py",
+        "dail_tracker_core/queries/procurement/market_intel.py",
         "test/api/test_api_publicsignal_feed.py",
         "test/dail_tracker_core/test_publicsignal_opportunities.py",
+        "test/dail_tracker_core/test_publicsignal_market_intel.py",
+        # The CE-leads parquet deliberately stays at data/gold/parquet/: a PUBLIC extractor
+        # (extractors/pre_tender_work_packages.py) reads it, so it is a shared path rather than
+        # product-private code. It is gitignored, and naming it here gives it a second guard.
+        "data/gold/parquet/council_ce_report_leads.parquet",
         "pipeline_sandbox/planning_layers_wfs.py",
         "pipeline_sandbox/planning_scale_gated_triggers.py",
         "pipeline_sandbox/planning_areaofsite_normalise.py",
