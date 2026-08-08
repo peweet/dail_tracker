@@ -86,15 +86,42 @@ def test_poll_archives_new_sitting_and_updates_manifest(tmp_path, monkeypatch):
 
 @responses.activate
 def test_poll_incremental_skips_unchanged_sitting(tmp_path, monkeypatch):
-    monkeypatch.setattr(ov, "ARCHIVE_DIR", tmp_path / "arch")
+    arch = tmp_path / "arch"
+    monkeypatch.setattr(ov, "ARCHIVE_DIR", arch)
     mpath = tmp_path / "manifest.json"
     monkeypatch.setattr(ov, "MANIFEST_PATH", mpath)
     slug = "circuit-court"
-    # manifest already holds this UNID at the same 'updated' stamp → must NOT re-fetch.
+    # manifest already holds this UNID at the same 'updated' stamp AND the archived file is
+    # actually present on disk → must NOT re-fetch.
     mpath.write_text(json.dumps({slug: {"ABCDEF0123456789": "20260604"}}), encoding="utf-8")
+    out_dir = arch / slug
+    out_dir.mkdir(parents=True)
+    (out_dir / "ABCDEF0123456789.html").write_bytes(b"<html>" + b"x" * 50 + b"</html>")
     responses.add(responses.GET, ov._index_url(slug), body=SAMPLE_INDEX, status=200)
     # NB: no detail response registered — a fetch would raise, proving the skip.
 
     rc = ov.poll(_args(jurisdictions=slug))
 
     assert rc == 0  # nothing new, nothing failed
+
+
+@responses.activate
+def test_poll_refetches_when_manifest_entry_has_no_archived_file(tmp_path, monkeypatch):
+    """Cloud-runner regression: a committed manifest entry with no matching file on disk
+    (e.g. bronze cache miss on a fresh checkout) must be treated as stale, not skipped —
+    otherwise bronze ends up thinned to just the handful of genuinely new/changed sittings."""
+    monkeypatch.setattr(ov, "ARCHIVE_DIR", tmp_path / "arch")
+    monkeypatch.setattr(ov, "MIN_BYTES", 5)
+    mpath = tmp_path / "manifest.json"
+    monkeypatch.setattr(ov, "MANIFEST_PATH", mpath)
+    slug = "circuit-court"
+    # manifest says this UNID is current, but no file exists under ARCHIVE_DIR for it.
+    mpath.write_text(json.dumps({slug: {"ABCDEF0123456789": "20260604"}}), encoding="utf-8")
+    responses.add(responses.GET, ov._index_url(slug), body=SAMPLE_INDEX, status=200)
+    detail = ov.BASE + "/legaldiary.nsf/slug/ABCDEF0123456789?OpenDocument"
+    responses.add(responses.GET, detail, body=b"<html>" + b"x" * 50 + b"</html>", status=200)
+
+    rc = ov.poll(_args(jurisdictions=slug))
+
+    assert rc == 0
+    assert (tmp_path / "arch" / slug / "ABCDEF0123456789.html").exists()

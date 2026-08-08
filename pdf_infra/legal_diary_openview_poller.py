@@ -163,7 +163,18 @@ def poll(args) -> int:
         out_dir = ARCHIVE_DIR / slug
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        stale = [r for r in rows if args.full or held.get(r["unid"]) != r["updated"]]
+        # The manifest is committed to git but the archive under it is not (see .gitignore),
+        # so a fresh checkout / cold cache can have manifest entries with no matching file on
+        # disk. Trusting the stamp alone then skips almost everything, leaving bronze — and the
+        # gold rebuilt from it — thinned by ~97% (silently caught downstream by the publish
+        # regression gate). Re-fetch whenever the file is actually missing, not just stamp-stale.
+        stale = [
+            r
+            for r in rows
+            if args.full
+            or held.get(r["unid"]) != r["updated"]
+            or not (out_dir / f"{r['unid']}.html").exists()
+        ]
         capped = stale[: args.limit] if args.limit else stale
         logger.info(
             "%s: %d sittings, %d new/changed%s.",
