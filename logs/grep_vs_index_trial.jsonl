@@ -66,3 +66,5 @@
 {"ts": "2026-08-08T15:43:21.454021+00:00", "session": "bc41f890-180", "category": "search_project", "nudged": false, "pattern": "issue date is not recorded here"}
 {"ts": "2026-08-08T16:25:29.197083+00:00", "session": "65b83dba-bd4", "category": "py_deps", "nudged": true, "pattern": "import ast|ast\\.parse|ast\\.walk"}
 {"ts": "2026-08-08T16:32:00.300722+00:00", "session": "b63a2ac6-312", "category": "py_deps", "nudged": true, "pattern": "import yaml|\\.yaml\"|\\.yml\""}
+{"ts": "2026-08-08T17:05:24.244627+00:00", "session": "65b83dba-bd4", "category": "py_deps", "nudged": false, "pattern": "from .run_stats import|from planning.product.core.run_stats import|run_stats\\.co"}
+{"ts": "2026-08-08T17:23:11.407435+00:00", "session": "963da754-416", "category": "py_refs", "nudged": true, "pattern": "test_dcc_schedule_name_never_clears_an_osm_private_tag"}

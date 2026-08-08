@@ -35,6 +35,7 @@ from services.data_contracts import (  # noqa: E402  (single source of truth)
     AWARD_VALUE_KIND,
     SUPPLIER_CLASS,
     ContractViolation,
+    award_fact_invariant_violations,
     guard_award_fact,
 )
 
@@ -116,6 +117,44 @@ def test_awards_schema_rejects_unknown_value_kind():
 def test_awards_schema_rejects_unknown_supplier_class():
     with pytest.raises(pa.errors.SchemaError):
         ProcurementAwardsSchema.validate(_bad(supplier_class="alien"))
+
+
+@pytest.mark.parametrize("value_eur", [0.0, -1.0, None])
+def test_award_invariant_catches_every_non_positive_summable_value(value_eur):
+    """Zero, negative and null must all trip the summable-award invariant.
+
+    Closes 4 surviving mutants on ``value_eur <= 0`` at services/data_contracts.py:512 — the
+    ``<=``→``<`` and ``<=``→``==`` comparison swaps and two NumberReplacers on the literal. No
+    single value separates them: zero kills ``<``, a negative kills ``==``, null kills the
+    is_null branch, and only running all three pins the rule.
+
+    This calls ``award_fact_invariant_violations`` directly rather than the Pandera schema. The
+    schema re-declares the same expression at line 78 of this file, so a schema test cannot
+    detect a change in the invariant it is supposed to mirror.
+    """
+    bad = pl.DataFrame(
+        {
+            "value_eur": pl.Series([value_eur], dtype=pl.Float64),
+            "value_safe_to_sum": [True],
+            "value_kind": ["contract_award_value"],
+            "supplier_class": ["company"],
+        }
+    )
+    violations = award_fact_invariant_violations(bad)
+    assert any("without a positive value_eur" in v for v in violations), violations
+
+
+def test_award_invariant_leaves_a_positive_summable_award_alone():
+    """The mirror of the above — the rule must not fire on the legitimate case."""
+    good = pl.DataFrame(
+        {
+            "value_eur": pl.Series([1.0], dtype=pl.Float64),
+            "value_safe_to_sum": [True],
+            "value_kind": ["contract_award_value"],
+            "supplier_class": ["company"],
+        }
+    )
+    assert award_fact_invariant_violations(good) == []
 
 
 def test_awards_schema_rejects_summable_row_without_positive_value():

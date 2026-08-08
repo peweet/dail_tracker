@@ -14,6 +14,28 @@ test-command = "__PYTHON__ -m pytest -q --hypothesis-profile=mutation -m \"not i
 [cosmic-ray.distributor]
 name = "local"
 
+# KNOWN EQUIVALENT MUTANTS — triaged 2026-08-08 against the 2026-08-05 session (94 survivors).
+# These cannot be killed by any test, so do not re-open them as coverage gaps. The operator
+# filter below cannot express them: they are specific SITES, not operator classes.
+#
+#   * ReplaceBinaryOperator_Mul_Div on the bare `*` keyword-only marker in a signature
+#     (lines 289, 310, 450, 481, 537, 690, 715, 781 — 8 mutants). `def f(a, /, b)` is valid
+#     Python and behaves identically for every caller in this repo.
+#   * collapse_tiers lines 685-686 (2 mutants). `worst` is a min(), so `rank <= worst` is
+#     `rank == worst` by construction; and TRUST_TIERS is ordered strongest-first with
+#     descending _TRUST_RANK, so the first tier satisfying `<=` is the one equal to it.
+#   * Conditions guarding only a logger call (lines 386, 491, 559 — 9 mutants). They change
+#     whether a diagnostic line is emitted, not any return value or raise.
+#
+# Roughly 20 more are cosmetic rather than equivalent: sample counts in diagnostics
+# (lines 254, 340, 820) and rounding precision in report dicts (345, 381, 826). Killing those
+# means pinning diagnostic formatting, which is a judgement call, not an obvious gap.
+#
+# CLOSED since that session: the 9 money-drift survivors at lines 475-476, covered by
+# test_reconciliation_treats_an_absent_money_total_as_zero and
+# test_reconciliation_reports_the_arithmetic_difference_not_a_ratio; and 2 invariant boundary
+# survivors at lines 408 and 420. Re-run to confirm rather than trusting this note.
+
 # Cosmic Ray otherwise expands every arithmetic operator into every other
 # arithmetic/bitwise operator. Keep plausible arithmetic-direction mistakes,
 # but filter bitwise/shift/power variants and identity comparisons that add

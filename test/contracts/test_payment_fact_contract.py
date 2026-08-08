@@ -32,11 +32,13 @@ from services.data_contracts import (  # noqa: E402
     AMOUNT_SEMANTICS,
     EXTRACTION_CONFIDENCE,
     EXTRACTION_STATUS,
+    PAID_FLAG_CLEAN,
     PRIVACY_STATUS,
     REALISATION_TIER,
     SUPPLIER_CLASS,
     VALUE_KIND,
     VAT_STATUS,
+    ColumnRule,
     ContractViolation,
     check_structure,
     enforce_contract,
@@ -245,6 +247,113 @@ def test_remaining_payment_invariant_branches_fire(mutation, expect_fragment):
     assert any(expect_fragment in violation for violation in violations), violations
 
 
+def test_a_zero_payment_is_non_positive_not_merely_a_negative_one():
+    """Exactly zero must trip the non-positive invariant.
+
+    Closes surviving NumberReplacer/comparison mutants on
+    ``pl.col("amount_eur") <= 0`` at services/data_contracts.py:420. The existing corruption test
+    uses -5.0, which fires under both ``<= 0`` and ``< 0``, so it cannot tell the boundary
+    operators apart. Zero is the only value that does — and a zero-euro row in a summable payment
+    fact is a parse failure, which is precisely why the rule reads ``<=``.
+    """
+    zeroed = _bad(amount_eur=0.0)
+    violations = payment_fact_invariant_violations(zeroed)
+    assert any("non-positive" in v for v in violations), violations
+
+
+def test_a_cro_number_on_any_non_company_class_fires_not_just_later_sorting_ones():
+    """The CRO invariant keys on inequality, not on string ordering.
+
+    Closes surviving NotEq_Gt / NotEq_GtE mutants at services/data_contracts.py:408. The existing
+    CRO test uses "sole_trader", which sorts AFTER "company", so ``!= "company"`` and
+    ``> "company"`` both fire on it. A class sorting BEFORE "company" separates them: it must
+    still be caught, because what makes the row wrong is that it is not a company, not where its
+    name falls in the alphabet.
+    """
+    bad = _GOOD.with_columns(
+        pl.lit(123456).cast(pl.Int64).alias("cro_company_num"),
+        pl.lit("charity").alias("supplier_class"),  # sorts before "company"
+    )
+    assert any("CRO" in v for v in payment_fact_invariant_violations(bad))
+
+
+def test_public_display_on_a_class_after_sole_trader_is_not_a_person_row():
+    """The likely-person rule keys on class identity, not alphabetical position.
+
+    Closes an Eq_GtE mutant at services/data_contracts.py:414. "unknown" sorts after
+    "sole_trader_or_individual", so under ``>=`` a publicly displayable unknown-class row would be
+    branded a person — a false privacy violation on a legitimate row.
+    """
+    ordinary = _GOOD.with_columns(
+        pl.lit("unknown").alias("supplier_class"),
+        pl.lit(True).alias("public_display"),
+        pl.lit("ok").alias("privacy_status"),
+    )
+    assert not any("likely-person" in v for v in payment_fact_invariant_violations(ordinary))
+
+
+def test_a_sub_threshold_quarantine_breach_reports_but_does_not_halt(tmp_path):
+    """A quarantine-severity breach below its escalation threshold must not raise.
+
+    Closes an Eq_GtE mutant at services/data_contracts.py:250. Severity is only
+    "hard" | "quarantine", and "quarantine" >= "hard", so under ``>=`` every quarantine breach
+    would halt the pipeline — turning a tolerated, quarantined subset into a hard stop.
+    """
+    # The shipped paid_flag rule escalates past 12%, and one bad row in a two-row frame is 50%,
+    # so state the tolerance explicitly rather than fighting the fixture size.
+    tolerant = ColumnRule("paid_flag", PAID_FLAG_CLEAN, "quarantine", case_insensitive=True, max_offending_frac=1.0)
+    frame = _GOOD.with_columns(pl.Series("paid_flag", ["y", "12/03/2024"]))
+    rep = enforce_contract(frame, name="t_soft", rules=[tolerant], quarantine_dir=tmp_path)
+    assert rep.vocab_breaches, "expected the quarantine rule to record a breach"
+    assert rep.vocab_breaches["paid_flag"]["escalated"] is False
+    assert rep.ok, f"a sub-threshold quarantine breach must leave the report ok: {rep.vocab_breaches}"
+    rep.raise_if_failed()  # must not raise
+
+
+def test_a_halt_message_names_only_the_breaches_that_caused_it():
+    """A tolerated quarantine breach must not be listed in the halt message.
+
+    Closes an Eq_GtE mutant at services/data_contracts.py:250. That line filters which breaches
+    ``raise_if_failed`` prints, and severity is only "hard" | "quarantine" with
+    "quarantine" >= "hard" — so under ``>=`` a tolerated breach is reported as HARD alongside the
+    real cause, pointing whoever debugs the halt at the wrong column.
+    """
+    rules = [
+        ColumnRule("supplier_class", SUPPLIER_CLASS, "hard"),
+        ColumnRule("paid_flag", PAID_FLAG_CLEAN, "quarantine", case_insensitive=True, max_offending_frac=1.0),
+    ]
+    frame = _GOOD.with_columns(
+        pl.Series("supplier_class", ["alien", "company"]),  # hard breach -> this is the halt
+        pl.Series("paid_flag", ["y", "12/03/2024"]),  # tolerated quarantine breach
+    )
+    report = enforce_contract(frame, name="t_msg", rules=rules, write_quarantine=False)
+    assert report.vocab_breaches["paid_flag"]["escalated"] is False
+    with pytest.raises(ContractViolation) as excinfo:
+        report.raise_if_failed()
+    message = str(excinfo.value)
+    assert "supplier_class" in message
+    assert "paid_flag" not in message, f"a tolerated breach must not be blamed for the halt:\n{message}"
+
+
+def test_escalation_needs_a_quarantine_rule_and_a_fraction_strictly_over_the_bound():
+    """Escalation is quarantine-only and strictly above the bound.
+
+    Closes two mutants at services/data_contracts.py:341. ``severity == "quarantine"`` → ``<=``
+    would mark a hard breach escalated ("hard" <= "quarantine"), and ``frac >`` → ``>=`` would
+    escalate a fraction sitting exactly on its documented tolerance.
+    """
+    rule = ColumnRule(column="paid_flag", allowed=PAID_FLAG_CLEAN, severity="quarantine", max_offending_frac=0.5)
+    # Exactly half the rows offend, and the bound is 0.5 — on the line is not over it.
+    on_the_line = _GOOD.with_columns(pl.Series("paid_flag", ["y", "12/03/2024"]))
+    report = enforce_contract(on_the_line, name="t_edge", rules=[rule], write_quarantine=False)
+    assert report.vocab_breaches["paid_flag"]["frac"] == 0.5
+    assert report.vocab_breaches["paid_flag"]["escalated"] is False
+
+    hard_rule = ColumnRule(column="paid_flag", allowed=PAID_FLAG_CLEAN, severity="hard", max_offending_frac=0.0)
+    hard = enforce_contract(on_the_line, name="t_hard", rules=[hard_rule], write_quarantine=False)
+    assert hard.vocab_breaches["paid_flag"]["escalated"] is False, "escalation is a quarantine concept"
+
+
 def test_guard_halts_on_invariant_violation(tmp_path):
     bad = _GOOD.with_columns(supplier_class=pl.lit("public_body"))  # summable public-body transfer
     with pytest.raises(ContractViolation):
@@ -290,6 +399,39 @@ def test_reconciliation_honours_the_exact_money_tolerance_boundary():
     assert out[0].startswith("src:")
     assert "+1.01" in out[0]
     assert out[0].endswith("money not preserved")
+
+
+def test_reconciliation_treats_an_absent_money_total_as_zero():
+    """A source whose € total is None must reconcile as zero, not crash or silently pass.
+
+    Closes 8 surviving mutants from the Cosmic Ray data-contracts session, all NumberReplacer on
+    the four ``or 0`` fallbacks at services/data_contracts.py:475-476. Nothing in the suite passed
+    None for either side, so that branch never executed and any replacement value survived.
+    None is reachable in practice: a per-source € sum over an all-null amount column returns None.
+    """
+    # Expected money, none delivered — the whole total went missing.
+    out = reconciliation_violations({"src": (10, 5000.0)}, {"src": (10, None)})
+    assert len(out) == 1
+    assert out[0] == "src: € total drift -5,000.00 — money not preserved"
+
+    # Nothing expected, money appeared — the mirror case.
+    out = reconciliation_violations({"src": (10, None)}, {"src": (10, 250.0)})
+    assert out == ["src: € total drift +250.00 — money not preserved"]
+
+    # None on both sides is zero drift, not a violation.
+    assert reconciliation_violations({"src": (10, None)}, {"src": (10, None)}) == []
+
+
+def test_reconciliation_reports_the_arithmetic_difference_not_a_ratio():
+    """The reported drift must be actual minus expected.
+
+    Closes a surviving Sub_Div mutant at services/data_contracts.py:476. The existing boundary
+    test cannot catch it: with 100.0 and 101.01, subtraction gives 1.01 and division gives 1.0101,
+    and both render as "+1.01" under the message's ``.2f``, so a substring assertion passes either
+    way. These values separate them — 500.00 against 1.50 — and the assertion is exact.
+    """
+    out = reconciliation_violations({"src": (1, 1000.0)}, {"src": (1, 1500.0)})
+    assert out == ["src: € total drift +500.00 — money not preserved"]
 
 
 def test_reconciliation_allows_documented_carry_forward():
