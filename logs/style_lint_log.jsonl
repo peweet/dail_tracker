@@ -916,3 +916,5 @@
 {"ts": "2026-08-08T00:19:09", "session": "2776bc5e-002", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "46-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-08T00:24:07", "session": "1864c2c9-480", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}
 {"ts": "2026-08-08T00:44:59", "session": "1231e737-ae6", "warns": ["74-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-08T00:56:58", "session": "866cd488-f94", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)", "jargon: \"surfaces\" (rule 3 -- use the plain word)", "70-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-08T01:16:34", "session": "b705c8ed-675", "warns": ["jargon: \"actually\" (rule 3 -- use the plain word)"]}

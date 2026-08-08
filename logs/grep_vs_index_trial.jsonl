@@ -42,3 +42,4 @@
 {"ts": "2026-08-07T22:13:43.603259+00:00", "session": "1231e737-ae6", "category": "py_refs", "nudged": false, "pattern": "pre_tender_work_packages"}
 {"ts": "2026-08-07T23:30:24.649650+00:00", "session": "b705c8ed-675", "category": "py_refs", "nudged": true, "pattern": "sample_source_url"}
 {"ts": "2026-08-07T23:35:33.106425+00:00", "session": "866cd488-f94", "category": "search_project", "nudged": true, "pattern": "def procurement_leads"}
+{"ts": "2026-08-08T00:40:33.482874+00:00", "session": "329eb2bb-c1b", "category": "sql_lineage", "nudged": true, "pattern": "v_procurement_awards_real\\b"}
