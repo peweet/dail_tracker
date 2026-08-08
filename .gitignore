@@ -727,8 +727,10 @@ data/_meta/siting_national_sweep_baseline.json
 /apps/public-signal/
 /test/apps/
 /dail_tracker_core/queries/procurement/opportunities.py
+/dail_tracker_core/queries/procurement/market_intel.py
 /test/api/test_api_publicsignal_feed.py
 /test/dail_tracker_core/test_publicsignal_opportunities.py
+/test/dail_tracker_core/test_publicsignal_market_intel.py
 
 # Node dependencies — installed via npm, never tracked (added 2026-08-01 after
 # node_modules/axe-core was committed by accident in 39bda48 "planning features").
