@@ -39,12 +39,12 @@ def live_tenders(
 
     ``within_days`` narrows to opportunities closing within that many days (a forward date facet over
     the view's pre-computed days_to_deadline); None keeps the full open set. ``sector`` narrows to one
-    CPV division — available only once the snapshot has been enriched with a CPV from the detail page
-    (cpv_division is referenced ONLY when a sector is passed, so an un-enriched snapshot is unaffected)."""
+    CPV division. The CPV comes from the extractor's optional detail-page pass, so it is NULL on any
+    notice that pass skipped or never reached — those rows can never match a sector, only the fallback."""
     sql = (
         "SELECT title, buyer, published_date, submission_deadline, days_to_deadline,"
         " procedure, status, estimated_value_eur, realisation_tier, value_kind,"
-        " resource_id, detail_url, retrieved_utc"
+        " resource_id, detail_url, cpv_code, cpv_division, retrieved_utc"
         " FROM v_procurement_live_tenders"
     )
     where: list[str] = []

@@ -30,6 +30,8 @@ SELECT
     value_kind,                           -- 'estimate_advertised'
     resource_id,
     detail_url,
+    cpv_code,                             -- 8-digit CPV from the detail-page pass; NULL when that pass was skipped/capped
+    cpv_division,                         -- 2-digit CPV division label, the sector facet key
     retrieved_utc
 FROM read_parquet('data/silver/parquet/etenders_live_tenders.parquet')
 WHERE feed = 'cft'

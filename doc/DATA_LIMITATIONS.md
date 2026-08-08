@@ -639,7 +639,7 @@ Two award registers sit side by side and **must never be unioned or summed** —
 - Still a **silver** layer, regenerable, not gold. The Search-API lane covers **2024 onward only** — pre-2024 winner names are genuinely null in that API, so the date floor is a source limit, not a choice. A separate per-notice XML lane recovers 2016–2023 winners (~50% CRO-matched).
 - TED notice values are retained only as individual-notice context. Framework ceilings can repeat across winners and pan-EU notices can cover many countries, so `value_safe_to_sum` is always false; trust **count and median**, never a total.
 
-Live / open tenders are a forward-looking planned-value *estimate* (`value_kind=estimate_advertised`, never sum-safe), include already-closed and DPS records back to 2023, and carry no CPV category.
+Live / open tenders are a forward-looking planned-value *estimate* (`value_kind=estimate_advertised`, never sum-safe) and include already-closed and DPS records back to 2023. Their CPV comes from a per-notice detail-page pass that the extractor can skip or cap (`--no-cpv-details`, `--cpv-limit`), so the category is present on most but not all notices — a notice with a null CPV is absent from every sector view rather than assigned a guessed one.
 
 ---
 
