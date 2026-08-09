@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-08-08T07:54:56+00:00",
+  "generated_utc": "2026-08-09T15:01:25+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 195,
   "facts": {
@@ -9,6 +9,7 @@
       "rows": 72,
       "columns": [
         "year",
+        "source_url",
         "division",
         "gross_expenditure",
         "income",
@@ -21,6 +22,7 @@
       ],
       "column_types": {
         "year": "Int64",
+        "source_url": "String",
         "division": "String",
         "gross_expenditure": "Float64",
         "income": "Float64",
@@ -34,7 +36,7 @@
       "read_by": [
         "read by procurement/procurement_afs_national.sql"
       ],
-      "size_bytes": 6097,
+      "size_bytes": 7156,
       "grain": "one row per (year,division) national",
       "money_grain": "accounts",
       "never_sum_with": "awarded|payments|budget",
@@ -76,7 +78,7 @@
     "bilateral_relationships": {
       "file": "data/gold/parquet/bilateral_relationships.parquet",
       "layer": "gold",
-      "rows": 68137,
+      "rows": 68159,
       "columns": [
         "lobbyist_name",
         "full_name",
@@ -100,7 +102,7 @@
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_org_intensity.sql, lobbying/lobbying_summary.sql"
       ],
-      "size_bytes": 389636
+      "size_bytes": 389896
     },
     "bill_amendments": {
       "file": "data/silver/parquet/bill_amendments.parquet",
@@ -240,7 +242,7 @@
     "cbi_xref_corporate_notices": {
       "file": "data/gold/parquet/cbi_xref_corporate_notices.parquet",
       "layer": "gold",
-      "rows": 272,
+      "rows": 273,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -288,7 +290,7 @@
       "read_by": [
         "read by corporate/corporate_cbi_distress.sql"
       ],
-      "size_bytes": 81334
+      "size_bytes": 81572
     },
     "charities_enriched": {
       "file": "data/gold/parquet/charities_enriched.parquet",
@@ -449,7 +451,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 1571419
+      "size_bytes": 1571000
     },
     "committee_activity_summary": {
       "file": "data/gold/parquet/committee_activity_summary.parquet",
@@ -472,7 +474,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 4542
+      "size_bytes": 4588
     },
     "committee_meetings": {
       "file": "data/gold/parquet/committee_meetings.parquet",
@@ -507,7 +509,7 @@
       "read_by": [
         "read by committee_evidence/committee_evidence_meetings.sql"
       ],
-      "size_bytes": 37535
+      "size_bytes": 37494
     },
     "committee_party_breakdown": {
       "file": "data/gold/parquet/committee_party_breakdown.parquet",
@@ -533,7 +535,7 @@
     "committee_witness_persons": {
       "file": "data/gold/parquet/committee_witness_persons.parquet",
       "layer": "gold",
-      "rows": 4633,
+      "rows": 4635,
       "columns": [
         "committee_code",
         "committee_name",
@@ -557,12 +559,12 @@
       "read_by": [
         "read by committee_evidence/committee_evidence_meetings.sql"
       ],
-      "size_bytes": 47971
+      "size_bytes": 47942
     },
     "committee_witnesses": {
       "file": "data/gold/parquet/committee_witnesses.parquet",
       "layer": "gold",
-      "rows": 1784,
+      "rows": 1776,
       "columns": [
         "committee_code",
         "committee_name",
@@ -588,12 +590,12 @@
       "read_by": [
         "read by committee_evidence/committee_evidence_meetings.sql"
       ],
-      "size_bytes": 36544
+      "size_bytes": 36520
     },
     "corporate_notices": {
       "file": "data/gold/parquet/corporate_notices.parquet",
       "layer": "gold",
-      "rows": 51396,
+      "rows": 51429,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -633,12 +635,12 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 8177104
+      "size_bytes": 8183302
     },
     "corporate_notices_enriched": {
       "file": "data/gold/parquet/corporate_notices_enriched.parquet",
       "layer": "gold",
-      "rows": 51396,
+      "rows": 51429,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -690,7 +692,7 @@
       "read_by": [
         "read by corporate/corporate_corporate_notices.sql, corporate/corporate_receiver.sql"
       ],
-      "size_bytes": 8221290
+      "size_bytes": 8227583
     },
     "corporate_receiver_appointers": {
       "file": "data/gold/parquet/corporate_receiver_appointers.parquet",
@@ -831,7 +833,7 @@
     "cro_xref_corporate_notices": {
       "file": "data/gold/parquet/cro_xref_corporate_notices.parquet",
       "layer": "gold",
-      "rows": 28191,
+      "rows": 28206,
       "columns": [
         "notice_ref",
         "entity_name",
@@ -865,7 +867,7 @@
       "read_by": [
         "read by corporate/corporate_cro_match.sql"
       ],
-      "size_bytes": 705902
+      "size_bytes": 710025
     },
     "cso_ara02": {
       "file": "data/gold/parquet/cso_ara02.parquet",
@@ -1878,7 +1880,7 @@
       "read_by": [
         "read by attendance/attendance_participation_turnout.sql, votes/vote_base.sql {PARQUET_PATH}"
       ],
-      "size_bytes": 2734578
+      "size_bytes": 2743467
     },
     "current_seanad_vote_history": {
       "file": "data/gold/parquet/current_seanad_vote_history.parquet",
@@ -1929,7 +1931,7 @@
       "read_by": [
         "read by attendance/attendance_participation_turnout.sql, votes/vote_base.sql {SEANAD_VOTE_PARQUET_PATH}"
       ],
-      "size_bytes": 439952
+      "size_bytes": 441431
     },
     "current_senator_payment_rankings": {
       "file": "data/gold/parquet/current_senator_payment_rankings.parquet",
@@ -1979,7 +1981,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 7996
+      "size_bytes": 7995
     },
     "dail_member_interests_combined": {
       "file": "data/silver/parquet/dail_member_interests_combined.parquet",
@@ -2030,7 +2032,7 @@
       "read_by": [
         "read by member/member_interests_detail.sql"
       ],
-      "size_bytes": 408349
+      "size_bytes": 408246
     },
     "dceidy_ipas_legacy_spend": {
       "file": "data/gold/parquet/dceidy_ipas_legacy_spend.parquet",
@@ -2100,7 +2102,7 @@
       "read_by": [
         "read by debates/v_debate_listings.sql"
       ],
-      "size_bytes": 476445
+      "size_bytes": 476218
     },
     "debate_summary": {
       "file": "data/gold/parquet/debate_summary.parquet",
@@ -2133,12 +2135,12 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 27943
+      "size_bytes": 27889
     },
     "debates": {
       "file": "data/silver/parquet/debates.parquet",
       "layer": "silver",
-      "rows": 7162,
+      "rows": 7163,
       "columns": [
         "date",
         "debateSectionId",
@@ -2190,7 +2192,7 @@
       "read_by": [
         "read by legislation/legislation_debates.sql"
       ],
-      "size_bytes": 396680
+      "size_bytes": 396762
     },
     "delivery_method_mix": {
       "file": "data/gold/parquet/delivery_method_mix.parquet",
@@ -2209,7 +2211,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 58298
+      "size_bytes": 58279
     },
     "dept_readingorder_payments_fact": {
       "file": "data/silver/parquet/dept_readingorder_payments_fact.parquet",
@@ -2362,7 +2364,7 @@
       "read_by": [
         "read by diary/ministerial_diary_company_influence.sql"
       ],
-      "size_bytes": 31058
+      "size_bytes": 30947
     },
     "disclosed_bq_po_newbodies_fact": {
       "file": "data/silver/parquet/disclosed_bq_po_newbodies_fact.parquet",
@@ -2458,7 +2460,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 64915
+      "size_bytes": 65059
     },
     "ec_constituency_pop_2022": {
       "file": "data/gold/parquet/ec_constituency_pop_2022.parquet",
@@ -2663,73 +2665,73 @@
       "layer": "silver",
       "rows": 176,
       "columns": [
-        "party",
-        "party_code",
-        "party_start_date",
-        "party_end_date",
-        "committee_1_name_en",
-        "committee_1_name_start_date",
-        "committee_1_name_end_date",
         "committee_1_type",
         "committee_1_main_status",
         "committee_1_member_start_date",
         "committee_1_member_end_date",
-        "committee_1_expiry_type",
-        "committee_1_status",
         "committee_1_start_date",
         "committee_1_end_date",
-        "committee_2_name_en",
-        "committee_2_name_start_date",
-        "committee_2_name_end_date",
+        "committee_1_status",
+        "committee_1_name_en",
+        "committee_1_name_start_date",
+        "committee_1_name_end_date",
+        "committee_1_expiry_type",
         "committee_2_type",
         "committee_2_main_status",
         "committee_2_member_start_date",
         "committee_2_member_end_date",
-        "committee_2_expiry_type",
-        "committee_2_status",
         "committee_2_start_date",
         "committee_2_end_date",
-        "committee_3_name_en",
-        "committee_3_name_start_date",
-        "committee_3_name_end_date",
+        "committee_2_status",
+        "committee_2_name_en",
+        "committee_2_name_start_date",
+        "committee_2_name_end_date",
+        "committee_2_expiry_type",
         "committee_3_type",
         "committee_3_main_status",
         "committee_3_member_start_date",
         "committee_3_member_end_date",
-        "committee_3_expiry_type",
-        "committee_3_status",
         "committee_3_start_date",
         "committee_3_end_date",
-        "dail_chamber_type",
+        "committee_3_status",
+        "committee_3_name_en",
+        "committee_3_name_start_date",
+        "committee_3_name_end_date",
+        "committee_3_expiry_type",
         "dail_term",
-        "dail_number",
+        "dail_chamber_type",
         "dail_code",
+        "dail_number",
         "constituency_code",
         "constituency_name",
         "membership_start_date",
         "membership_end_date",
+        "party",
+        "party_start_date",
+        "party_end_date",
+        "party_code",
+        "full_name",
+        "date_of_death",
+        "unique_member_code",
         "last_name",
         "first_name",
-        "full_name",
-        "unique_member_code",
-        "date_of_death",
         "committee_1_role_title",
         "committee_1_role_start_date",
         "committee_1_role_end_date",
         "committee_3_role_title",
         "committee_3_role_start_date",
         "committee_3_role_end_date",
-        "committee_4_name_en",
-        "committee_4_name_start_date",
-        "committee_4_name_end_date",
         "committee_4_type",
         "committee_4_main_status",
         "committee_4_member_start_date",
         "committee_4_member_end_date",
-        "committee_4_expiry_type",
-        "committee_4_status",
         "committee_4_start_date",
         "committee_4_end_date",
+        "committee_4_status",
+        "committee_4_name_en",
+        "committee_4_name_start_date",
+        "committee_4_name_end_date",
+        "committee_4_expiry_type",
         "office_1_name",
         "office_1_start_date",
         "office_1_end_date",
@@ -2739,50 +2741,50 @@
         "committee_4_alt_name_en",
         "committee_4_alt_name_start_date",
         "committee_4_alt_name_end_date",
-        "committee_5_name_en",
-        "committee_5_name_start_date",
-        "committee_5_name_end_date",
         "committee_5_type",
         "committee_5_main_status",
         "committee_5_member_start_date",
         "committee_5_member_end_date",
-        "committee_5_expiry_type",
-        "committee_5_status",
         "committee_5_start_date",
         "committee_5_end_date",
-        "committee_6_name_en",
-        "committee_6_name_start_date",
-        "committee_6_name_end_date",
+        "committee_5_status",
+        "committee_5_name_en",
+        "committee_5_name_start_date",
+        "committee_5_name_end_date",
+        "committee_5_expiry_type",
         "committee_6_type",
         "committee_6_main_status",
         "committee_6_member_start_date",
         "committee_6_member_end_date",
-        "committee_6_expiry_type",
-        "committee_6_status",
         "committee_6_start_date",
         "committee_6_end_date",
-        "committee_7_name_en",
-        "committee_7_name_start_date",
-        "committee_7_name_end_date",
+        "committee_6_status",
+        "committee_6_name_en",
+        "committee_6_name_start_date",
+        "committee_6_name_end_date",
+        "committee_6_expiry_type",
         "committee_7_type",
         "committee_7_main_status",
         "committee_7_member_start_date",
         "committee_7_member_end_date",
-        "committee_7_expiry_type",
-        "committee_7_status",
         "committee_7_start_date",
         "committee_7_end_date",
-        "committee_8_name_en",
-        "committee_8_name_start_date",
-        "committee_8_name_end_date",
+        "committee_7_status",
+        "committee_7_name_en",
+        "committee_7_name_start_date",
+        "committee_7_name_end_date",
+        "committee_7_expiry_type",
         "committee_8_type",
         "committee_8_main_status",
         "committee_8_member_start_date",
         "committee_8_member_end_date",
-        "committee_8_expiry_type",
-        "committee_8_status",
         "committee_8_start_date",
         "committee_8_end_date",
+        "committee_8_status",
+        "committee_8_name_en",
+        "committee_8_name_start_date",
+        "committee_8_name_end_date",
+        "committee_8_expiry_type",
         "committee_2_role_title",
         "committee_2_role_start_date",
         "committee_2_role_end_date",
@@ -2792,29 +2794,29 @@
         "committee_7_role_title",
         "committee_7_role_start_date",
         "committee_7_role_end_date",
-        "committee_9_name_en",
-        "committee_9_name_start_date",
-        "committee_9_name_end_date",
         "committee_9_type",
         "committee_9_main_status",
         "committee_9_member_start_date",
         "committee_9_member_end_date",
-        "committee_9_expiry_type",
-        "committee_9_status",
         "committee_9_start_date",
         "committee_9_end_date",
+        "committee_9_status",
+        "committee_9_name_en",
+        "committee_9_name_start_date",
+        "committee_9_name_end_date",
+        "committee_9_expiry_type",
+        "committee_10_type",
+        "committee_10_main_status",
+        "committee_10_member_start_date",
+        "committee_10_member_end_date",
+        "committee_10_start_date",
+        "committee_10_end_date",
+        "committee_10_role_title",
+        "committee_10_status",
         "committee_10_name_en",
         "committee_10_name_start_date",
         "committee_10_name_end_date",
-        "committee_10_type",
-        "committee_10_main_status",
-        "committee_10_role_title",
-        "committee_10_member_start_date",
-        "committee_10_member_end_date",
         "committee_10_expiry_type",
-        "committee_10_status",
-        "committee_10_start_date",
-        "committee_10_end_date",
         "office_2_name",
         "office_2_start_date",
         "office_2_end_date",
@@ -2836,31 +2838,31 @@
         "committee_8_alt_name_en",
         "committee_8_alt_name_start_date",
         "committee_8_alt_name_end_date",
+        "committee_11_type",
+        "committee_11_main_status",
+        "committee_11_member_start_date",
+        "committee_11_member_end_date",
+        "committee_11_start_date",
+        "committee_11_end_date",
+        "committee_11_role",
+        "committee_11_status",
         "committee_11_name_en",
         "committee_11_name_start_date",
         "committee_11_name_end_date",
-        "committee_11_type",
-        "committee_11_main_status",
-        "committee_11_role",
-        "committee_11_member_start_date",
-        "committee_11_member_end_date",
         "committee_11_expiry_type",
-        "committee_11_status",
-        "committee_11_start_date",
-        "committee_11_end_date",
+        "committee_12_type",
+        "committee_12_main_status",
+        "committee_12_member_start_date",
+        "committee_12_member_end_date",
+        "committee_12_start_date",
+        "committee_12_end_date",
+        "committee_12_service_unit",
+        "committee_12_role",
+        "committee_12_status",
         "committee_12_name_en",
         "committee_12_name_start_date",
         "committee_12_name_end_date",
-        "committee_12_type",
-        "committee_12_service_unit",
-        "committee_12_main_status",
-        "committee_12_role",
-        "committee_12_member_start_date",
-        "committee_12_member_end_date",
         "committee_12_expiry_type",
-        "committee_12_status",
-        "committee_12_start_date",
-        "committee_12_end_date",
         "committee_6_alt_name_en",
         "committee_6_alt_name_start_date",
         "committee_6_alt_name_end_date",
@@ -2874,13 +2876,13 @@
         "office_6_end_date",
         "office_6_name",
         "party_1_name",
-        "party_1_code",
         "party_1_start_date",
         "party_1_end_date",
+        "party_1_code",
         "party_2_name",
-        "party_2_code",
         "party_2_start_date",
         "party_2_end_date",
+        "party_2_code",
         "committee_8_role_title",
         "committee_8_role_start_date",
         "committee_8_role_end_date",
@@ -2891,73 +2893,73 @@
         "year_elected"
       ],
       "column_types": {
-        "party": "String",
-        "party_code": "String",
-        "party_start_date": "String",
-        "party_end_date": "String",
-        "committee_1_name_en": "String",
-        "committee_1_name_start_date": "String",
-        "committee_1_name_end_date": "Float64",
         "committee_1_type": "String",
         "committee_1_main_status": "String",
         "committee_1_member_start_date": "String",
         "committee_1_member_end_date": "String",
-        "committee_1_expiry_type": "String",
-        "committee_1_status": "String",
         "committee_1_start_date": "String",
         "committee_1_end_date": "String",
-        "committee_2_name_en": "String",
-        "committee_2_name_start_date": "String",
-        "committee_2_name_end_date": "Float64",
+        "committee_1_status": "String",
+        "committee_1_name_en": "String",
+        "committee_1_name_start_date": "String",
+        "committee_1_name_end_date": "Float64",
+        "committee_1_expiry_type": "String",
         "committee_2_type": "String",
         "committee_2_main_status": "String",
         "committee_2_member_start_date": "String",
         "committee_2_member_end_date": "String",
-        "committee_2_expiry_type": "String",
-        "committee_2_status": "String",
         "committee_2_start_date": "String",
         "committee_2_end_date": "String",
-        "committee_3_name_en": "String",
-        "committee_3_name_start_date": "String",
-        "committee_3_name_end_date": "Float64",
+        "committee_2_status": "String",
+        "committee_2_name_en": "String",
+        "committee_2_name_start_date": "String",
+        "committee_2_name_end_date": "Float64",
+        "committee_2_expiry_type": "String",
         "committee_3_type": "String",
         "committee_3_main_status": "String",
         "committee_3_member_start_date": "String",
         "committee_3_member_end_date": "String",
-        "committee_3_expiry_type": "String",
-        "committee_3_status": "String",
         "committee_3_start_date": "String",
         "committee_3_end_date": "String",
-        "dail_chamber_type": "String",
+        "committee_3_status": "String",
+        "committee_3_name_en": "String",
+        "committee_3_name_start_date": "String",
+        "committee_3_name_end_date": "Float64",
+        "committee_3_expiry_type": "String",
         "dail_term": "String",
-        "dail_number": "String",
+        "dail_chamber_type": "String",
         "dail_code": "String",
+        "dail_number": "String",
         "constituency_code": "String",
         "constituency_name": "String",
         "membership_start_date": "String",
         "membership_end_date": "String",
+        "party": "String",
+        "party_start_date": "String",
+        "party_end_date": "String",
+        "party_code": "String",
+        "full_name": "String",
+        "date_of_death": "Null",
+        "unique_member_code": "String",
         "last_name": "String",
         "first_name": "String",
-        "full_name": "String",
-        "unique_member_code": "String",
-        "date_of_death": "Null",
         "committee_1_role_title": "String",
         "committee_1_role_start_date": "String",
         "committee_1_role_end_date": "String",
         "committee_3_role_title": "String",
         "committee_3_role_start_date": "String",
         "committee_3_role_end_date": "String",
-        "committee_4_name_en": "String",
-        "committee_4_name_start_date": "String",
-        "committee_4_name_end_date": "Float64",
         "committee_4_type": "String",
         "committee_4_main_status": "String",
         "committee_4_member_start_date": "String",
         "committee_4_member_end_date": "String",
-        "committee_4_expiry_type": "String",
-        "committee_4_status": "String",
         "committee_4_start_date": "String",
         "committee_4_end_date": "String",
+        "committee_4_status": "String",
+        "committee_4_name_en": "String",
+        "committee_4_name_start_date": "String",
+        "committee_4_name_end_date": "Float64",
+        "committee_4_expiry_type": "String",
         "office_1_name": "String",
         "office_1_start_date": "String",
         "office_1_end_date": "String",
@@ -2967,50 +2969,50 @@
         "committee_4_alt_name_en": "String",
         "committee_4_alt_name_start_date": "String",
         "committee_4_alt_name_end_date": "Float64",
-        "committee_5_name_en": "String",
-        "committee_5_name_start_date": "String",
-        "committee_5_name_end_date": "Float64",
         "committee_5_type": "String",
         "committee_5_main_status": "String",
         "committee_5_member_start_date": "String",
         "committee_5_member_end_date": "String",
-        "committee_5_expiry_type": "String",
-        "committee_5_status": "String",
         "committee_5_start_date": "String",
         "committee_5_end_date": "String",
-        "committee_6_name_en": "String",
-        "committee_6_name_start_date": "String",
-        "committee_6_name_end_date": "Float64",
+        "committee_5_status": "String",
+        "committee_5_name_en": "String",
+        "committee_5_name_start_date": "String",
+        "committee_5_name_end_date": "Float64",
+        "committee_5_expiry_type": "String",
         "committee_6_type": "String",
         "committee_6_main_status": "String",
         "committee_6_member_start_date": "String",
         "committee_6_member_end_date": "String",
-        "committee_6_expiry_type": "String",
-        "committee_6_status": "String",
         "committee_6_start_date": "String",
         "committee_6_end_date": "String",
-        "committee_7_name_en": "String",
-        "committee_7_name_start_date": "String",
-        "committee_7_name_end_date": "Float64",
+        "committee_6_status": "String",
+        "committee_6_name_en": "String",
+        "committee_6_name_start_date": "String",
+        "committee_6_name_end_date": "Float64",
+        "committee_6_expiry_type": "String",
         "committee_7_type": "String",
         "committee_7_main_status": "String",
         "committee_7_member_start_date": "String",
         "committee_7_member_end_date": "String",
-        "committee_7_expiry_type": "String",
-        "committee_7_status": "String",
         "committee_7_start_date": "String",
         "committee_7_end_date": "String",
-        "committee_8_name_en": "String",
-        "committee_8_name_start_date": "String",
-        "committee_8_name_end_date": "Float64",
+        "committee_7_status": "String",
+        "committee_7_name_en": "String",
+        "committee_7_name_start_date": "String",
+        "committee_7_name_end_date": "Float64",
+        "committee_7_expiry_type": "String",
         "committee_8_type": "String",
         "committee_8_main_status": "String",
         "committee_8_member_start_date": "String",
         "committee_8_member_end_date": "String",
-        "committee_8_expiry_type": "String",
-        "committee_8_status": "String",
         "committee_8_start_date": "String",
         "committee_8_end_date": "String",
+        "committee_8_status": "String",
+        "committee_8_name_en": "String",
+        "committee_8_name_start_date": "String",
+        "committee_8_name_end_date": "Float64",
+        "committee_8_expiry_type": "String",
         "committee_2_role_title": "String",
         "committee_2_role_start_date": "String",
         "committee_2_role_end_date": "String",
@@ -3020,29 +3022,29 @@
         "committee_7_role_title": "String",
         "committee_7_role_start_date": "String",
         "committee_7_role_end_date": "Float64",
-        "committee_9_name_en": "String",
-        "committee_9_name_start_date": "String",
-        "committee_9_name_end_date": "Float64",
         "committee_9_type": "String",
         "committee_9_main_status": "String",
         "committee_9_member_start_date": "String",
         "committee_9_member_end_date": "String",
-        "committee_9_expiry_type": "String",
-        "committee_9_status": "String",
         "committee_9_start_date": "String",
         "committee_9_end_date": "Float64",
+        "committee_9_status": "String",
+        "committee_9_name_en": "String",
+        "committee_9_name_start_date": "String",
+        "committee_9_name_end_date": "Float64",
+        "committee_9_expiry_type": "String",
+        "committee_10_type": "String",
+        "committee_10_main_status": "String",
+        "committee_10_member_start_date": "String",
+        "committee_10_member_end_date": "String",
+        "committee_10_start_date": "String",
+        "committee_10_end_date": "Float64",
+        "committee_10_role_title": "List(Null)",
+        "committee_10_status": "String",
         "committee_10_name_en": "String",
         "committee_10_name_start_date": "String",
         "committee_10_name_end_date": "Float64",
-        "committee_10_type": "String",
-        "committee_10_main_status": "String",
-        "committee_10_role_title": "List(Null)",
-        "committee_10_member_start_date": "String",
-        "committee_10_member_end_date": "String",
         "committee_10_expiry_type": "String",
-        "committee_10_status": "String",
-        "committee_10_start_date": "String",
-        "committee_10_end_date": "Float64",
         "office_2_name": "String",
         "office_2_start_date": "String",
         "office_2_end_date": "String",
@@ -3064,31 +3066,31 @@
         "committee_8_alt_name_en": "String",
         "committee_8_alt_name_start_date": "String",
         "committee_8_alt_name_end_date": "Float64",
+        "committee_11_type": "String",
+        "committee_11_main_status": "String",
+        "committee_11_member_start_date": "String",
+        "committee_11_member_end_date": "String",
+        "committee_11_start_date": "String",
+        "committee_11_end_date": "Float64",
+        "committee_11_role": "List(Null)",
+        "committee_11_status": "String",
         "committee_11_name_en": "String",
         "committee_11_name_start_date": "String",
         "committee_11_name_end_date": "Float64",
-        "committee_11_type": "String",
-        "committee_11_main_status": "String",
-        "committee_11_role": "List(Null)",
-        "committee_11_member_start_date": "String",
-        "committee_11_member_end_date": "String",
         "committee_11_expiry_type": "String",
-        "committee_11_status": "String",
-        "committee_11_start_date": "String",
-        "committee_11_end_date": "Float64",
+        "committee_12_type": "String",
+        "committee_12_main_status": "String",
+        "committee_12_member_start_date": "String",
+        "committee_12_member_end_date": "Float64",
+        "committee_12_start_date": "String",
+        "committee_12_end_date": "Float64",
+        "committee_12_service_unit": "String",
+        "committee_12_role": "List(Null)",
+        "committee_12_status": "String",
         "committee_12_name_en": "String",
         "committee_12_name_start_date": "String",
         "committee_12_name_end_date": "Float64",
-        "committee_12_type": "String",
-        "committee_12_service_unit": "String",
-        "committee_12_main_status": "String",
-        "committee_12_role": "List(Null)",
-        "committee_12_member_start_date": "String",
-        "committee_12_member_end_date": "Float64",
         "committee_12_expiry_type": "String",
-        "committee_12_status": "String",
-        "committee_12_start_date": "String",
-        "committee_12_end_date": "Float64",
         "committee_6_alt_name_en": "String",
         "committee_6_alt_name_start_date": "String",
         "committee_6_alt_name_end_date": "Float64",
@@ -3102,13 +3104,13 @@
         "office_6_end_date": "Float64",
         "office_6_name": "String",
         "party_1_name": "String",
-        "party_1_code": "String",
         "party_1_start_date": "String",
         "party_1_end_date": "String",
+        "party_1_code": "String",
         "party_2_name": "String",
-        "party_2_code": "String",
         "party_2_start_date": "String",
         "party_2_end_date": "Float64",
+        "party_2_code": "String",
         "committee_8_role_title": "String",
         "committee_8_role_start_date": "String",
         "committee_8_role_end_date": "Float64",
@@ -3125,101 +3127,101 @@
       "read_by": [
         "read by attendance/attendance_member_year_summary.sql, attendance/attendance_participation_turnout.sql, lobbying/lobbying_base_member_codes.sql\u2026"
       ],
-      "size_bytes": 184317
+      "size_bytes": 184378
     },
     "flattened_seanad_members": {
       "file": "data/silver/parquet/flattened_seanad_members.parquet",
       "layer": "silver",
       "rows": 60,
       "columns": [
-        "party",
-        "party_code",
-        "party_start_date",
-        "party_end_date",
-        "committee_1_name_en",
-        "committee_1_name_start_date",
-        "committee_1_name_end_date",
         "committee_1_type",
         "committee_1_main_status",
         "committee_1_member_start_date",
         "committee_1_member_end_date",
-        "committee_1_expiry_type",
-        "committee_1_status",
         "committee_1_start_date",
         "committee_1_end_date",
-        "committee_2_name_en",
-        "committee_2_name_start_date",
-        "committee_2_name_end_date",
+        "committee_1_status",
+        "committee_1_name_en",
+        "committee_1_name_start_date",
+        "committee_1_name_end_date",
+        "committee_1_expiry_type",
         "committee_2_type",
         "committee_2_main_status",
         "committee_2_member_start_date",
         "committee_2_member_end_date",
-        "committee_2_expiry_type",
-        "committee_2_status",
         "committee_2_start_date",
         "committee_2_end_date",
-        "committee_3_name_en",
-        "committee_3_name_start_date",
-        "committee_3_name_end_date",
+        "committee_2_status",
+        "committee_2_name_en",
+        "committee_2_name_start_date",
+        "committee_2_name_end_date",
+        "committee_2_expiry_type",
         "committee_3_type",
         "committee_3_main_status",
         "committee_3_member_start_date",
         "committee_3_member_end_date",
-        "committee_3_expiry_type",
-        "committee_3_status",
         "committee_3_start_date",
         "committee_3_end_date",
-        "committee_4_name_en",
-        "committee_4_name_start_date",
-        "committee_4_name_end_date",
+        "committee_3_status",
+        "committee_3_name_en",
+        "committee_3_name_start_date",
+        "committee_3_name_end_date",
+        "committee_3_expiry_type",
         "committee_4_type",
         "committee_4_main_status",
         "committee_4_member_start_date",
         "committee_4_member_end_date",
-        "committee_4_expiry_type",
-        "committee_4_status",
         "committee_4_start_date",
         "committee_4_end_date",
-        "committee_5_name_en",
-        "committee_5_name_start_date",
-        "committee_5_name_end_date",
+        "committee_4_status",
+        "committee_4_name_en",
+        "committee_4_name_start_date",
+        "committee_4_name_end_date",
+        "committee_4_expiry_type",
         "committee_5_type",
         "committee_5_main_status",
         "committee_5_member_start_date",
         "committee_5_member_end_date",
-        "committee_5_expiry_type",
-        "committee_5_status",
         "committee_5_start_date",
         "committee_5_end_date",
-        "committee_6_name_en",
-        "committee_6_name_start_date",
-        "committee_6_name_end_date",
+        "committee_5_status",
+        "committee_5_name_en",
+        "committee_5_name_start_date",
+        "committee_5_name_end_date",
+        "committee_5_expiry_type",
         "committee_6_type",
+        "member_memberships_0_membership_committees_5_houseCode",
         "committee_6_main_status",
+        "committee_6_member_start_date",
+        "committee_6_member_end_date",
+        "committee_6_start_date",
+        "committee_6_end_date",
         "committee_6_role_title",
         "committee_6_role_start_date",
         "committee_6_role_end_date",
-        "committee_6_member_start_date",
-        "committee_6_member_end_date",
-        "committee_6_expiry_type",
         "committee_6_status",
-        "committee_6_start_date",
-        "committee_6_end_date",
+        "committee_6_name_en",
+        "committee_6_name_start_date",
+        "committee_6_name_end_date",
+        "committee_6_expiry_type",
         "member_memberships_0_membership_committees_5_houseNo",
-        "member_memberships_0_membership_committees_5_houseCode",
-        "dail_chamber_type",
         "dail_term",
-        "dail_number",
+        "dail_chamber_type",
         "dail_code",
+        "dail_number",
         "constituency_code",
         "constituency_name",
         "membership_start_date",
         "membership_end_date",
+        "party",
+        "party_start_date",
+        "party_end_date",
+        "party_code",
+        "full_name",
+        "date_of_death",
+        "unique_member_code",
         "last_name",
         "first_name",
-        "full_name",
-        "unique_member_code",
-        "date_of_death",
         "committee_1_alt_name_en",
         "committee_1_alt_name_start_date",
         "committee_1_alt_name_end_date",
@@ -3232,39 +3234,39 @@
         "committee_3_role_title",
         "committee_3_role_start_date",
         "committee_3_role_end_date",
-        "committee_7_name_en",
-        "committee_7_name_start_date",
-        "committee_7_name_end_date",
         "committee_7_type",
+        "member_memberships_0_membership_committees_6_houseCode",
         "committee_7_main_status",
         "committee_7_member_start_date",
         "committee_7_member_end_date",
-        "committee_7_expiry_type",
-        "committee_7_status",
         "committee_7_start_date",
         "committee_7_end_date",
+        "committee_7_status",
+        "committee_7_name_en",
+        "committee_7_name_start_date",
+        "committee_7_name_end_date",
+        "committee_7_expiry_type",
         "member_memberships_0_membership_committees_6_houseNo",
-        "member_memberships_0_membership_committees_6_houseCode",
-        "committee_8_name_en",
-        "committee_8_name_start_date",
-        "committee_8_name_end_date",
         "committee_8_type",
+        "member_memberships_0_membership_committees_7_houseCode",
         "committee_8_main_status",
         "committee_8_member_start_date",
         "committee_8_member_end_date",
-        "committee_8_expiry_type",
-        "committee_8_status",
         "committee_8_start_date",
         "committee_8_end_date",
+        "committee_8_status",
+        "committee_8_name_en",
+        "committee_8_name_start_date",
+        "committee_8_name_end_date",
+        "committee_8_expiry_type",
         "member_memberships_0_membership_committees_7_houseNo",
-        "member_memberships_0_membership_committees_7_houseCode",
         "committee_4_role_title",
         "committee_4_role_start_date",
         "committee_4_role_end_date",
         "party_1_name",
-        "party_1_code",
         "party_1_start_date",
         "party_1_end_date",
+        "party_1_code",
         "office_1_name",
         "office_1_start_date",
         "office_1_end_date",
@@ -3275,94 +3277,94 @@
         "year_elected"
       ],
       "column_types": {
-        "party": "String",
-        "party_code": "String",
-        "party_start_date": "String",
-        "party_end_date": "String",
-        "committee_1_name_en": "String",
-        "committee_1_name_start_date": "String",
-        "committee_1_name_end_date": "Float64",
         "committee_1_type": "String",
         "committee_1_main_status": "String",
         "committee_1_member_start_date": "String",
         "committee_1_member_end_date": "String",
-        "committee_1_expiry_type": "String",
-        "committee_1_status": "String",
         "committee_1_start_date": "String",
         "committee_1_end_date": "String",
-        "committee_2_name_en": "String",
-        "committee_2_name_start_date": "String",
-        "committee_2_name_end_date": "Float64",
+        "committee_1_status": "String",
+        "committee_1_name_en": "String",
+        "committee_1_name_start_date": "String",
+        "committee_1_name_end_date": "Float64",
+        "committee_1_expiry_type": "String",
         "committee_2_type": "String",
         "committee_2_main_status": "String",
         "committee_2_member_start_date": "String",
         "committee_2_member_end_date": "String",
-        "committee_2_expiry_type": "String",
-        "committee_2_status": "String",
         "committee_2_start_date": "String",
         "committee_2_end_date": "String",
-        "committee_3_name_en": "String",
-        "committee_3_name_start_date": "String",
-        "committee_3_name_end_date": "Float64",
+        "committee_2_status": "String",
+        "committee_2_name_en": "String",
+        "committee_2_name_start_date": "String",
+        "committee_2_name_end_date": "Float64",
+        "committee_2_expiry_type": "String",
         "committee_3_type": "String",
         "committee_3_main_status": "String",
         "committee_3_member_start_date": "String",
         "committee_3_member_end_date": "String",
-        "committee_3_expiry_type": "String",
-        "committee_3_status": "String",
         "committee_3_start_date": "String",
         "committee_3_end_date": "String",
-        "committee_4_name_en": "String",
-        "committee_4_name_start_date": "String",
-        "committee_4_name_end_date": "Float64",
+        "committee_3_status": "String",
+        "committee_3_name_en": "String",
+        "committee_3_name_start_date": "String",
+        "committee_3_name_end_date": "Float64",
+        "committee_3_expiry_type": "String",
         "committee_4_type": "String",
         "committee_4_main_status": "String",
         "committee_4_member_start_date": "String",
         "committee_4_member_end_date": "String",
-        "committee_4_expiry_type": "String",
-        "committee_4_status": "String",
         "committee_4_start_date": "String",
         "committee_4_end_date": "String",
-        "committee_5_name_en": "String",
-        "committee_5_name_start_date": "String",
-        "committee_5_name_end_date": "Float64",
+        "committee_4_status": "String",
+        "committee_4_name_en": "String",
+        "committee_4_name_start_date": "String",
+        "committee_4_name_end_date": "Float64",
+        "committee_4_expiry_type": "String",
         "committee_5_type": "String",
         "committee_5_main_status": "String",
         "committee_5_member_start_date": "String",
         "committee_5_member_end_date": "String",
-        "committee_5_expiry_type": "String",
-        "committee_5_status": "String",
         "committee_5_start_date": "String",
         "committee_5_end_date": "Float64",
-        "committee_6_name_en": "String",
-        "committee_6_name_start_date": "String",
-        "committee_6_name_end_date": "Float64",
+        "committee_5_status": "String",
+        "committee_5_name_en": "String",
+        "committee_5_name_start_date": "String",
+        "committee_5_name_end_date": "Float64",
+        "committee_5_expiry_type": "String",
         "committee_6_type": "String",
+        "member_memberships_0_membership_committees_5_houseCode": "String",
         "committee_6_main_status": "String",
+        "committee_6_member_start_date": "String",
+        "committee_6_member_end_date": "String",
+        "committee_6_start_date": "String",
+        "committee_6_end_date": "Float64",
         "committee_6_role_title": "String",
         "committee_6_role_start_date": "String",
         "committee_6_role_end_date": "Float64",
-        "committee_6_member_start_date": "String",
-        "committee_6_member_end_date": "String",
-        "committee_6_expiry_type": "String",
         "committee_6_status": "String",
-        "committee_6_start_date": "String",
-        "committee_6_end_date": "Float64",
+        "committee_6_name_en": "String",
+        "committee_6_name_start_date": "String",
+        "committee_6_name_end_date": "Float64",
+        "committee_6_expiry_type": "String",
         "member_memberships_0_membership_committees_5_houseNo": "Float64",
-        "member_memberships_0_membership_committees_5_houseCode": "String",
-        "dail_chamber_type": "String",
         "dail_term": "String",
-        "dail_number": "String",
+        "dail_chamber_type": "String",
         "dail_code": "String",
+        "dail_number": "String",
         "constituency_code": "String",
         "constituency_name": "String",
         "membership_start_date": "String",
         "membership_end_date": "String",
+        "party": "String",
+        "party_start_date": "String",
+        "party_end_date": "String",
+        "party_code": "String",
+        "full_name": "String",
+        "date_of_death": "Null",
+        "unique_member_code": "String",
         "last_name": "String",
         "first_name": "String",
-        "full_name": "String",
-        "unique_member_code": "String",
-        "date_of_death": "Null",
         "committee_1_alt_name_en": "String",
         "committee_1_alt_name_start_date": "String",
         "committee_1_alt_name_end_date": "Float64",
@@ -3375,39 +3377,39 @@
         "committee_3_role_title": "String",
         "committee_3_role_start_date": "String",
         "committee_3_role_end_date": "Float64",
-        "committee_7_name_en": "String",
-        "committee_7_name_start_date": "String",
-        "committee_7_name_end_date": "Float64",
         "committee_7_type": "String",
+        "member_memberships_0_membership_committees_6_houseCode": "String",
         "committee_7_main_status": "String",
         "committee_7_member_start_date": "String",
         "committee_7_member_end_date": "Float64",
-        "committee_7_expiry_type": "String",
-        "committee_7_status": "String",
         "committee_7_start_date": "String",
         "committee_7_end_date": "Float64",
+        "committee_7_status": "String",
+        "committee_7_name_en": "String",
+        "committee_7_name_start_date": "String",
+        "committee_7_name_end_date": "Float64",
+        "committee_7_expiry_type": "String",
         "member_memberships_0_membership_committees_6_houseNo": "Float64",
-        "member_memberships_0_membership_committees_6_houseCode": "String",
-        "committee_8_name_en": "String",
-        "committee_8_name_start_date": "String",
-        "committee_8_name_end_date": "Float64",
         "committee_8_type": "String",
+        "member_memberships_0_membership_committees_7_houseCode": "String",
         "committee_8_main_status": "String",
         "committee_8_member_start_date": "String",
         "committee_8_member_end_date": "Float64",
-        "committee_8_expiry_type": "String",
-        "committee_8_status": "String",
         "committee_8_start_date": "String",
         "committee_8_end_date": "Float64",
+        "committee_8_status": "String",
+        "committee_8_name_en": "String",
+        "committee_8_name_start_date": "String",
+        "committee_8_name_end_date": "Float64",
+        "committee_8_expiry_type": "String",
         "member_memberships_0_membership_committees_7_houseNo": "Float64",
-        "member_memberships_0_membership_committees_7_houseCode": "String",
         "committee_4_role_title": "String",
         "committee_4_role_start_date": "String",
         "committee_4_role_end_date": "Float64",
         "party_1_name": "String",
-        "party_1_code": "String",
         "party_1_start_date": "String",
         "party_1_end_date": "Float64",
+        "party_1_code": "String",
         "office_1_name": "String",
         "office_1_start_date": "String",
         "office_1_end_date": "Float64",
@@ -3419,7 +3421,7 @@
       },
       "year_span": [
         2025,
-        2025
+        2026
       ],
       "read_by": [
         "read by attendance/attendance_member_year_summary.sql, attendance/attendance_participation_turnout.sql, member/member_registry.sql {SEANAD_MEMBER_PARQUET_PATH}"
@@ -3441,7 +3443,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 8258
+      "size_bytes": 8294
     },
     "historic_members_dail": {
       "file": "data/silver/parquet/historic_members_dail.parquet",
@@ -4081,7 +4083,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 8570
+      "size_bytes": 8571
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -4196,7 +4198,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 17780
+      "size_bytes": 17744
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -4876,7 +4878,7 @@
       "read_by": [
         "read by lobbying/lobbying_experimental_org_index_enriched.sql, lobbying/lobbying_org_index.sql, lobbying/lobbying_persistence.sql"
       ],
-      "size_bytes": 43338
+      "size_bytes": 43223
     },
     "member_contact_details": {
       "file": "data/silver/parquet/member_contact_details.parquet",
@@ -4948,7 +4950,7 @@
       "read_by": [
         "read by member/member_external_links.sql {EXTERNAL_LINKS_PARQUET_PATH}"
       ],
-      "size_bytes": 18062
+      "size_bytes": 18058
     },
     "member_interest_leaderboard": {
       "file": "data/gold/parquet/member_interest_leaderboard.parquet",
@@ -5178,7 +5180,7 @@
       "read_by": [
         "read by diary/ministerial_diary_engagements.sql"
       ],
-      "size_bytes": 347036
+      "size_bytes": 347017
     },
     "ministerial_diary_org_overlap": {
       "file": "data/gold/parquet/ministerial_diary_org_overlap.parquet",
@@ -5211,7 +5213,7 @@
       "read_by": [
         "read by diary/ministerial_diary_org_overlap.sql"
       ],
-      "size_bytes": 20356
+      "size_bytes": 20326
     },
     "most_lobbied_politicians": {
       "file": "data/gold/parquet/most_lobbied_politicians.parquet",
@@ -5236,7 +5238,7 @@
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_summary.sql"
       ],
-      "size_bytes": 59811
+      "size_bytes": 59959
     },
     "noac_h1_stock_wide": {
       "file": "data/gold/parquet/noac_h1_stock_wide.parquet",
@@ -5704,7 +5706,7 @@
       "read_by": [
         "read by attendance/attendance_participation_absences.sql"
       ],
-      "size_bytes": 10203
+      "size_bytes": 10191
     },
     "participation_absence_news": {
       "file": "data/gold/parquet/participation_absence_news.parquet",
@@ -5782,7 +5784,7 @@
       "read_by": [
         "read by attendance/attendance_participation_absences.sql, attendance/attendance_participation_turnout.sql"
       ],
-      "size_bytes": 18607
+      "size_bytes": 18582
     },
     "participation_presence_year": {
       "file": "data/gold/parquet/participation_presence_year.parquet",
@@ -5897,7 +5899,7 @@
       "read_by": [
         "read by payments/payments_base.sql"
       ],
-      "size_bytes": 121204,
+      "size_bytes": 121061,
       "grain": "one row per PSA payment line",
       "money_grain": "payments",
       "never_sum_with": "awarded|budget|ted",
@@ -5938,7 +5940,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 4889
+      "size_bytes": 4881
     },
     "planning_appeal_outcomes": {
       "file": "data/silver/parquet/planning_appeal_outcomes.parquet",
@@ -5998,12 +6000,12 @@
       "read_by": [
         "read by lobbying/lobbying_policy_area_summary.sql, lobbying/lobbying_summary.sql"
       ],
-      "size_bytes": 2021
+      "size_bytes": 2020
     },
     "politician_policy_exposure": {
       "file": "data/gold/parquet/politician_policy_exposure.parquet",
       "layer": "gold",
-      "rows": 51712,
+      "rows": 51723,
       "columns": [
         "full_name",
         "chamber",
@@ -6021,7 +6023,7 @@
       "read_by": [
         "read by lobbying/lobbying_index.sql, lobbying/lobbying_policy_area_summary.sql, lobbying/lobbying_policy_exposure.sql"
       ],
-      "size_bytes": 153632
+      "size_bytes": 153742
     },
     "pre_tender_leads": {
       "file": "data/gold/parquet/pre_tender_leads.parquet",
@@ -6278,12 +6280,12 @@
       "read_by": [
         "read by lobbying/lobbying_org_procurement.sql, procurement/procurement_lobbying_overlap.sql, procurement/procurement_supplier_summary.sql\u2026"
       ],
-      "size_bytes": 14549
+      "size_bytes": 14523
     },
     "procurement_payments_fact": {
       "file": "data/gold/parquet/procurement_payments_fact.parquet",
       "layer": "gold",
-      "rows": 429538,
+      "rows": 434692,
       "columns": [
         "publisher_id",
         "publisher_name",
@@ -6373,7 +6375,7 @@
       "read_by": [
         "read by housing/housing_accommodation_spend_by_year.sql, housing/housing_accommodation_spend_providers.sql, procurement/procurement_afs_vs_po_coverage.sql\u2026"
       ],
-      "size_bytes": 7817787,
+      "size_bytes": 8014411,
       "grain": "one row per disclosed payment/PO line",
       "money_grain": "payments",
       "never_sum_with": "awarded|budget|ted",
@@ -6404,12 +6406,12 @@
       "read_by": [
         "read by procurement/procurement_charity_overlap.sql, procurement/procurement_entity_chain.sql, procurement/procurement_supplier_summary.sql\u2026"
       ],
-      "size_bytes": 255190
+      "size_bytes": 254904
     },
     "public_appointments": {
       "file": "data/gold/parquet/public_appointments.parquet",
       "layer": "gold",
-      "rows": 1164,
+      "rows": 1165,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -6447,12 +6449,12 @@
       "read_by": [
         "read by appointments/appointments_public_appointments.sql"
       ],
-      "size_bytes": 91554
+      "size_bytes": 91619
     },
     "public_payments_fact": {
       "file": "data/silver/parquet/public_payments_fact.parquet",
       "layer": "silver",
-      "rows": 116373,
+      "rows": 121528,
       "columns": [
         "publisher_id",
         "publisher_name",
@@ -6518,7 +6520,7 @@
       "read_by": [
         "ETL input folded into gold procurement_payments_fact (consolidate chain)"
       ],
-      "size_bytes": 1840509,
+      "size_bytes": 1999960,
       "grain": "one row per public-body payment line",
       "money_grain": "payments",
       "never_sum_with": "awarded|budget|ted",
@@ -6569,7 +6571,7 @@
       "read_by": [
         "read by member/member_debate_sections.sql, member/member_question_focus_shift.sql, member/member_question_profile.sql\u2026"
       ],
-      "size_bytes": 20563333
+      "size_bytes": 20562937
     },
     "related_docs": {
       "file": "data/silver/parquet/related_docs.parquet",
@@ -6661,7 +6663,7 @@
       "read_by": [
         "read by lobbying/lobbying_revolving_door.sql"
       ],
-      "size_bytes": 17953
+      "size_bytes": 17904
     },
     "scsi_tpi_deflator": {
       "file": "data/gold/parquet/scsi_tpi_deflator.parquet",
@@ -6837,7 +6839,7 @@
       "read_by": [
         "read by member/member_interests_detail.sql"
       ],
-      "size_bytes": 206670
+      "size_bytes": 206665
     },
     "seanad_payments_full_psa": {
       "file": "data/gold/parquet/seanad_payments_full_psa.parquet",
@@ -6882,7 +6884,7 @@
       "read_by": [
         "read by payments/payments_base.sql"
       ],
-      "size_bytes": 15292
+      "size_bytes": 15304
     },
     "seanad_payments_full_psa_quarantine": {
       "file": "data/gold/parquet/seanad_payments_full_psa_quarantine.parquet",
@@ -6922,7 +6924,7 @@
     "si_current_state": {
       "file": "data/gold/parquet/si_current_state.parquet",
       "layer": "gold",
-      "rows": 9930,
+      "rows": 9946,
       "columns": [
         "si_id",
         "si_year",
@@ -6956,12 +6958,12 @@
       "read_by": [
         "read by legislation/legislation_si_amendments.sql, legislation/legislation_si_current_state.sql"
       ],
-      "size_bytes": 234740
+      "size_bytes": 235209
     },
     "si_lrc_enrichment_summary": {
       "file": "data/gold/parquet/si_lrc_enrichment_summary.parquet",
       "layer": "gold",
-      "rows": 7764,
+      "rows": 7777,
       "columns": [
         "si_year",
         "si_number",
@@ -7009,7 +7011,7 @@
       "read_by": [
         "read by legislation/legislation_si_lrc_enrichment.sql"
       ],
-      "size_bytes": 257073
+      "size_bytes": 257235
     },
     "sipo_campaign_spend_by_category": {
       "file": "data/gold/parquet/sipo_campaign_spend_by_category.parquet",
@@ -7581,7 +7583,7 @@
       "read_by": [
         "read by legislation/legislation_detail.sql, legislation/legislation_index.sql, legislation/legislation_sources.sql"
       ],
-      "size_bytes": 250348
+      "size_bytes": 250347
     },
     "ssha_a1_1_age_wide": {
       "file": "data/gold/parquet/ssha_a1_1_age_wide.parquet",
@@ -8059,12 +8061,12 @@
       "read_by": [
         "read by appointments/appointments_stateboards_roster.sql"
       ],
-      "size_bytes": 65942
+      "size_bytes": 65941
     },
     "statutory_instruments": {
       "file": "data/gold/parquet/statutory_instruments.parquet",
       "layer": "gold",
-      "rows": 7764,
+      "rows": 7777,
       "columns": [
         "si_id",
         "si_year",
@@ -8120,12 +8122,12 @@
       "read_by": [
         "read by legislation/legislation_si_amendments.sql, legislation/legislation_si_index.sql"
       ],
-      "size_bytes": 322611
+      "size_bytes": 323164
     },
     "supplier_entity_xref": {
       "file": "data/gold/parquet/supplier_entity_xref.parquet",
       "layer": "gold",
-      "rows": 27889,
+      "rows": 29069,
       "columns": [
         "supplier_norm",
         "display_name",
@@ -8167,7 +8169,7 @@
       "read_by": [
         "read by procurement/procurement_supplier_entity_xref.sql"
       ],
-      "size_bytes": 754499
+      "size_bytes": 783472
     },
     "td_vote_summary": {
       "file": "data/gold/parquet/td_vote_summary.parquet",
@@ -8196,12 +8198,12 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 7542
+      "size_bytes": 7541
     },
     "ted_ie_awards": {
       "file": "data/silver/parquet/ted_ie_awards.parquet",
       "layer": "silver",
-      "rows": 14576,
+      "rows": 14638,
       "columns": [
         "procedure_type",
         "is_uncompetitive_procedure",
@@ -8295,7 +8297,7 @@
       "read_by": [
         "read by procurement/procurement_competition.sql, procurement/procurement_competition_by_cpv.sql, procurement/procurement_entity_chain.sql\u2026"
       ],
-      "size_bytes": 876750,
+      "size_bytes": 881053,
       "grain": "one row per (TED award notice, winner)",
       "money_grain": "ted",
       "never_sum_with": "awarded|payments|budget",
@@ -8501,7 +8503,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 29242
+      "size_bytes": 29257
     },
     "top_lobbyist_organisations": {
       "file": "data/gold/parquet/top_lobbyist_organisations.parquet",
@@ -8532,7 +8534,7 @@
       "read_by": [
         "read by lobbying/lobbying_experimental_org_index_enriched.sql, lobbying/lobbying_org_index.sql, lobbying/lobbying_summary.sql"
       ],
-      "size_bytes": 130843
+      "size_bytes": 130807
     },
     "versions": {
       "file": "data/silver/parquet/versions.parquet",

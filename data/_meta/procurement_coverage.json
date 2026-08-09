@@ -3,10 +3,10 @@
   "award_notices": 43255,
   "award_supplier_rows": 62763,
   "supplier_class_counts": {
-    "foreign_company": 911,
-    "public_body": 289,
     "company": 44904,
-    "sole_trader_or_individual": 16659
+    "sole_trader_or_individual": 16659,
+    "foreign_company": 911,
+    "public_body": 289
   },
   "distinct_suppliers": 15805,
   "company_class_suppliers": 9992,
@@ -20,7 +20,7 @@
   "value_shared_across_suppliers_rows": 23018,
   "large_award_review_rows_ge_50m": 2452,
   "value_safe_to_sum_rows": 16404,
-  "value_safe_to_sum_total_eur": 15637076173.911098,
+  "value_safe_to_sum_total_eur": 15637076173.9111,
   "value_naive_sum_eur_DO_NOT_USE": 649727728023.4104,
   "source": {
     "dataset": "Contract Notices Published on eTenders",

@@ -1,1 +1,4 @@
 {"ts": "2026-08-08T22:49:06.835224+00:00", "session": "ae9d64b0-364", "category": "procurement", "nudged": true, "command": "cd \"c:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && python -c \"import json; js"}
+{"ts": "2026-08-09T15:56:47.127119+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": true, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
+{"ts": "2026-08-09T15:56:56.871755+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
+{"ts": "2026-08-09T16:00:15.205247+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}

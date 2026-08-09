@@ -1,61 +1,61 @@
 {
-  "rows_notice_x_winner": 14576,
-  "distinct_notices": 9534,
-  "rows_with_value": 6183,
-  "multi_supplier_framework_rows": 6152,
+  "rows_notice_x_winner": 14638,
+  "distinct_notices": 9590,
+  "rows_with_value": 6228,
+  "multi_supplier_framework_rows": 6161,
   "pan_eu_outlier_rows": 375,
   "value_safe_to_sum_rows": 0,
   "large_award_review_rows_ge_50m": 347,
-  "median_award_eur": 319348.0,
+  "median_award_eur": 318706.0,
   "trustworthy_metrics": "COUNT of awards + MEDIAN award value; never the naive sum (ceiling/award-grade values, tail-dominated)",
   "supplier_class_counts": {
-    "sole_trader_or_individual": 1850,
-    "unknown": 1010,
-    "company": 11135,
-    "foreign_company": 581
+    "sole_trader_or_individual": 1856,
+    "unknown": 1015,
+    "company": 11185,
+    "foreign_company": 582
   },
   "cro_match_counts": {
-    "none": 4997,
-    "name": 1949,
-    "identifier": 7630
+    "none": 5011,
+    "name": 1952,
+    "identifier": 7675
   },
-  "cro_match_rate": 0.657,
-  "rows_review_personal_data": 1850,
+  "cro_match_rate": 0.658,
+  "rows_review_personal_data": 1856,
   "competition_signal": {
-    "rows_with_procedure_type": 14474,
-    "rows_with_tenders_received": 9947,
-    "single_bid_rows": 2112,
+    "rows_with_procedure_type": 14535,
+    "rows_with_tenders_received": 10005,
+    "single_bid_rows": 2122,
     "uncompetitive_procedure_rows": 550,
-    "price_only_rows": 1199,
+    "price_only_rows": 1206,
     "note": "n_tenders_received = MIN tenders across the notice's lots (least-competitive lot); is_single_bid = that min is 1. Derived from tender-count submission codes only ('part-req' excluded). A factual competition signal, never a verdict."
   },
   "contract_term_signal": {
-    "rows_with_duration": 5522,
-    "rows_with_end_estimate": 5584,
+    "rows_with_duration": 5569,
+    "rows_with_end_estimate": 5626,
     "end_basis_counts": {
-      "explicit_end_date": 423,
+      "explicit_end_date": 424,
       "start_plus_duration": 234,
-      "conclusion_plus_duration": 4927
+      "conclusion_plus_duration": 4968
     },
     "note": "contract_end_date_est = advertised term projected from the notice (explicit end > start+duration > conclusion+duration). An advertised term, never a verified end date; renewal options are NOT folded in."
   },
   "date_span": [
     "2023-12-29",
-    "2026-07-30"
+    "2026-08-06"
   ],
   "layer": "silver",
   "next_step": "build sql_views/ted_*.sql (reconcile frameworks + CRO) before any gold/UI",
   "source": {
-    "dataset": "TED \u2014 Tenders Electronic Daily (contract award notices, Ireland)",
+    "dataset": "TED — Tenders Electronic Daily (contract award notices, Ireland)",
     "publisher": "Publications Office of the European Union",
     "api": "https://api.ted.europa.eu/v3/notices/search",
     "query": "buyer-country=IRL AND notice-type=can-standard AND publication-date>=20240101",
     "landing_page": "https://ted.europa.eu/",
     "notice_url_template": "https://ted.europa.eu/en/notice/-/detail/{publication_number}",
-    "license": "EU open data \u2014 reuse authorised under Commission Decision 2011/833/EU",
-    "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
+    "license": "EU open data — reuse authorised under Commission Decision 2011/833/EU",
+    "attribution": "Contains information from TED (© European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 2,
-  "generated_at": "2026-08-05T20:46:55+00:00",
+  "generated_at": "2026-08-09T14:28:02+00:00",
   "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the framework CEILING, never per-winner. It is retained for individual-notice display and distribution diagnostics only; value_safe_to_sum is always false. winner-identifier matched to CRO company_num after digit-strip; bare personal-name winners flagged review_personal_data (quarantine deferred). A contract award is a fact, not evidence of influence."
 }

@@ -1,74 +1,73 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-05T20:38:20Z",
+  "generated_at_utc": "2026-08-09T14:23:33.144015+00:00",
   "source": "Dept Housing amalgamated Local Authority Annual Financial Statements",
   "rows": 72,
   "years_configured": 9,
   "years_extracted": 9,
-  "note": "Backfilled from the current silver snapshot. The next afs pipeline run will replace this with reconciliation details from the live extraction.",
   "per_year": {
     "2016": {
       "source_url": "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2016-4f047a6a-642a-4ad6-88b4-b8ec07f7128f.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 4009479633.0,
+      "reconciliation": "EXACT"
     },
     "2017": {
       "source_url": "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2017-6d7db48d-0e59-4b40-8ce5-d528e0daa390.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 4223501705.0,
+      "reconciliation": "EXACT"
     },
     "2018": {
       "source_url": "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2018-7864f1e9-b6a6-4bb9-93ca-4cb151c86a50.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 4635726320.0,
+      "reconciliation": "EXACT"
     },
     "2019": {
       "source_url": "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2019.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 5021530000.0,
+      "reconciliation": "EXACT"
     },
     "2020": {
       "source_url": "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2020.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 6750822111.0,
+      "reconciliation": "EXACT"
     },
     "2021": {
       "source_url": "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2021.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 6216191888.0,
+      "reconciliation": "EXACT"
     },
     "2022": {
       "source_url": "https://assets.gov.ie/static/documents/local-authority-annual-financial-statement-2022-45632ad8-16cd-47ae-95de-942e4e8d5265.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 6178431749.0,
+      "reconciliation": "EXACT"
     },
     "2023": {
       "source_url": "https://assets.gov.ie/static/documents/AFS_2023.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 6676304521.0,
+      "reconciliation": "EXACT"
     },
     "2024": {
       "source_url": "https://assets.gov.ie/static/documents/ed003ab1/FINAL_Amalgamated_AFS_2024_web.pdf",
-      "status": "snapshot_present",
+      "status": "OK",
       "divisions": 8,
-      "gross_expenditure_eur": null,
-      "reconciliation": null
+      "gross_expenditure_eur": 7646687215.0,
+      "reconciliation": "EXACT"
     }
   }
 }
