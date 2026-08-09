@@ -101,6 +101,26 @@ def test_signature_marker_kills_are_counted_unearned_and_leave_the_kill_rate(tmp
     assert outcome.kill_rate == pytest.approx(50.0)
 
 
+def test_a_marker_sharing_its_line_with_parameters_still_counts_unearned(tmp_path):
+    """`*, a: int` is the common real shape -- anchoring the match to end-of-line missed it."""
+
+    target = tmp_path / "x_target.py"
+    target.write_text("def f(\n    *, state: str, threshold: int = 3,\n): return state\n", encoding="utf-8")
+    db = tmp_path / "session.sqlite"
+    _write_session_db(db, [(2, "KILLED")])
+
+    assert session.read_outcome(db, target).unearned == 1
+
+
+def test_multiplication_in_ordinary_code_is_not_mistaken_for_a_marker(tmp_path):
+    target = tmp_path / "x_target.py"
+    target.write_text("def f(r):\n    return r[0] * r[1] - r[1] * r[0], 0\n", encoding="utf-8")
+    db = tmp_path / "session.sqlite"
+    _write_session_db(db, [(2, "KILLED")])
+
+    assert session.read_outcome(db, target).unearned == 0
+
+
 def test_the_name_guard_also_kills_without_earning_it(tmp_path):
     target = tmp_path / "x_target.py"
     target.write_text("a = 1\nif __name__ == '__main__':\n    pass\n", encoding="utf-8")
