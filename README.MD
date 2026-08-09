@@ -40,7 +40,7 @@ Inspired by [TheyWorkForYou](https://github.com/mysociety/theyworkforyou),
 |---|---|
 | **Citizen accountability** | Look up a TD/Senator and see votes, questions, speeches, attendance, payments, declared interests, committees, legislation, ministerial history, and related context in one dossier. |
 | **Journalism & investigation** | Find leads across lobbying, procurement, public payments, company notices, charities, ministerial diaries, political finance, public appointments, and corporate distress. |
-| **Procurement intelligence** | Explore which suppliers win awards, which bodies buy from whom, CPV/category market maps, supplier payment histories, award-vs-payment differences, TED/eTenders visibility, single-bid/competition signals, supplier↔lobbying overlap, and CRO company-status enrichment. |
+| **Procurement intelligence** | Explore which suppliers win awards, which bodies buy from whom, CPV/category market maps, supplier payment histories, award-vs-payment differences, TED/eTenders visibility, single-bid/competition signals, supplier↔lobbying overlap, CRO company-status enrichment, and the notice-to-award reporting gap (how many published notices never surface a value, by year and threshold band). |
 | **Political finance** | Inspect SIPO party donations, GE2024 candidate expenses, party/national-agent spend, and GE2020 party spend — kept as **separate money grains** that must not be summed. |
 | **Local-government accountability** | LA Annual Financial Statements, NOAC indicators and scorecards, derelict-sites levy, planning-appeal outcomes, and local-authority payment disclosures. |
 | **Legal / regulatory / policy context** | Statutory instruments, bills, judicial appointments, corporate notices, Legal Diary / courts data, public appointments, and source-linked public records. |
@@ -48,9 +48,10 @@ Inspired by [TheyWorkForYou](https://github.com/mysociety/theyworkforyou),
 
 Scale (gold-layer row counts, from
 [`output_baseline.json`](data/_meta/output_baseline.json)): ~424k consolidated
-public-payment rows, ~63k procurement-award rows, ~51k corporate notices, ~321k
-parliamentary speeches, ~230k Dáil division records, ~43k ministerial-diary
-engagements, ~14k enriched charities, ~6k statutory instruments.
+public-payment rows, ~84k eTenders notices (~63k with a recorded award), ~51k
+corporate notices, ~321k parliamentary speeches, ~230k Dáil division records,
+~43k ministerial-diary engagements, ~14k enriched charities, ~6k statutory
+instruments.
 
 ---
 
@@ -64,7 +65,7 @@ and — where reviewed — an API resource:
 - **Companies & charities** — CRO company register and Charities Regulator finance, used to resolve and cross-reference entities.
 - **Legislation & statutory instruments** — bills, amendments, SIs (2016+), and the Act→SI chain.
 - **Iris Oifigiúil & corporate notices** — receiverships, wind-ups, examinerships, SCARP, public appointments, state boards.
-- **Procurement** — eTenders/OGP awards, TED award + tender notices, supplier↔CRO matching, competition/single-bid signals.
+- **Procurement** — eTenders/OGP awards, the full notice-to-outcome funnel (every published notice, awarded or not), TED award + tender notices, supplier↔CRO matching, competition/single-bid signals.
 - **Public payments** — consolidated >€20k PO/payment disclosures across departments, agencies, HSE/Tusla, and local authorities.
 - **Political finance** — SIPO donations, GE2024 candidate + party spend, GE2020 party spend (distinct grains — and *not* election results).
 - **Judiciary & courts** — bench roster, appointments/elevations, courts-health throughput, the daily Legal Diary.
@@ -155,10 +156,12 @@ expenses, donations, and parliamentary allowances are different *grains*. Sum
 values **only** where a view explicitly marks them safe (`value_safe_to_sum`).
 
 - Award value ≠ money paid; framework ceiling ≠ drawdown; "ordered" ≠ "paid".
+- A notice's `estimated_value_eur` is a **pre-award estimate**, a grain of its own — never summed with awards, payments, budget, or TED.
 - Do **not** union or sum eTenders and TED (siblings, ~66% overlap by name).
 - Do **not** add public-body payments to procurement awards.
 - Do **not** add SIPO donations to election expenses, or sum GE2020 with GE2024.
 - Naive eTenders sums are wildly wrong (~€649bn naive vs ~€15.6bn sum-safe). TED notice values are never totaled; trust count, median, and individual-notice context.
+- Award totals are a **floor, not the universe**: of ~84k published eTenders notices, only ~63k ever get an award recorded, and below-EU ("National" threshold) awards carry a value on only 26.2% of rows vs 88.4% for OJEU-threshold awards — a reporting gap, not a spend gap ([`award_value_coverage_by_threshold`, `data/_meta/procurement_coverage.json`](data/_meta/procurement_coverage.json)).
 
 Full definitions, magnitudes, and the disclosure-regime table are in
 [`doc/DATA_GRAINS.md`](doc/DATA_GRAINS.md).

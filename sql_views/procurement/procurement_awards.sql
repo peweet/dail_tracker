@@ -61,5 +61,25 @@ SELECT
     -- (its parent agreement). Carried so award histories can label call-off rows; the
     -- parent-resolution join lives in v_procurement_call_off_links.
     is_call_off,
-    "Parent Agreement ID"                        AS parent_agreement_id
+    "Parent Agreement ID"                        AS parent_agreement_id,
+    -- Below-threshold promotion (2026-08-09): the previously-dropped source columns.
+    -- threshold_level is the honest value-coverage caveat — on the 2026-08 export the
+    -- National (below-EU) band carries a value on ~27% of award rows vs ~89% for OJEU —
+    -- so any value rollup shown without a threshold split understates the below-EU lane.
+    "Threshold Level"                            AS threshold_level,
+    "Directive"                                  AS directive,
+    "Evaluation Type"                            AS evaluation_type,
+    -- Central purchasing, attributed: where a central body (OGP/LGOPC/schools bodies/...)
+    -- ran the competition on behalf of a client, the client is the body actually buying.
+    -- buyer_authority is the display/rollup identity: client where known, else the
+    -- contracting authority. Both raw columns stay visible for provenance.
+    "Name of Client Contracting Authority"       AS client_authority,
+    COALESCE("Name of Client Contracting Authority", "Contracting Authority") AS buyer_authority,
+    "Agreement Owner"                            AS agreement_owner,
+    "Platform"                                   AS platform,
+    TRY_STRPTIME("Tender Submission Deadline", '%d/%m/%Y')::DATE AS submission_deadline,
+    -- An awarded row can still carry a Cancelled Date (awarded then cancelled) — kept as
+    -- a fact, never used to drop the row.
+    TRY_STRPTIME("Cancelled Date", '%d/%m/%Y')::DATE             AS cancelled_date,
+    TRY_STRPTIME("Award Published", '%d/%m/%Y')::DATE            AS award_published_date
 FROM read_parquet('data/gold/parquet/procurement_awards.parquet');

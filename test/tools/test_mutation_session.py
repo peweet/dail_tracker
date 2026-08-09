@@ -61,9 +61,7 @@ def test_passing_unmutated_harness_is_accepted(tmp_path):
 
 
 def test_zero_survivors_across_many_mutants_is_reported_as_suspect():
-    outcome = session.Outcome(
-        killed=200, survived=0, filtered=0, incompetent=0, pending=0, unearned=0
-    )
+    outcome = session.Outcome(killed=200, survived=0, filtered=0, incompetent=0, pending=0, unearned=0)
 
     assert any("zero survivors" in problem for problem in session.validate(outcome))
 
@@ -75,9 +73,7 @@ def test_zero_survivors_on_a_tiny_session_is_not_flagged():
 
 
 def test_incompetent_and_pending_mutants_both_invalidate_a_session():
-    outcome = session.Outcome(
-        killed=10, survived=5, filtered=0, incompetent=7, pending=2, unearned=0
-    )
+    outcome = session.Outcome(killed=10, survived=5, filtered=0, incompetent=7, pending=2, unearned=0)
     problems = " ".join(session.validate(outcome))
 
     assert "INCOMPETENT" in problems

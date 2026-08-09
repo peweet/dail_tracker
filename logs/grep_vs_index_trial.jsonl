@@ -72,3 +72,9 @@
 {"ts": "2026-08-08T19:32:49.132209+00:00", "session": "f4a0ac09-5c6", "category": "py_refs", "nudged": false, "pattern": "siting_national_sweep_baseline"}
 {"ts": "2026-08-08T19:33:06.976374+00:00", "session": "f4a0ac09-5c6", "category": "py_refs", "nudged": false, "pattern": "siting_national_sweep"}
 {"ts": "2026-08-08T22:08:15.520035+00:00", "session": "5bf1ecbe-d10", "category": "search_project", "nudged": true, "pattern": "No layer of this kind is held"}
+{"ts": "2026-08-09T20:33:35.922607+00:00", "session": "633bfebc-c55", "category": "py_refs", "nudged": true, "pattern": "procurement_awards"}
+{"ts": "2026-08-09T20:34:20.371855+00:00", "session": "633bfebc-c55", "category": "sql_lineage", "nudged": true, "pattern": "(?i)sme.*(?:bid|award|win)"}
+{"ts": "2026-08-09T20:34:26.416347+00:00", "session": "633bfebc-c55", "category": "py_refs", "nudged": false, "pattern": "call_off_link"}
+{"ts": "2026-08-09T20:34:30.286111+00:00", "session": "633bfebc-c55", "category": "py_refs", "nudged": false, "pattern": "expiring_contract"}
+{"ts": "2026-08-09T20:35:05.896763+00:00", "session": "633bfebc-c55", "category": "sql_lineage", "nudged": false, "pattern": "ted.*join|ted_notice_link|ted_can_link"}
+{"ts": "2026-08-09T20:35:06.305366+00:00", "session": "633bfebc-c55", "category": "sql_lineage", "nudged": false, "pattern": "ted_notice_link|ted_can_link"}

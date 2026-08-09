@@ -171,9 +171,7 @@ def poll(args) -> int:
         stale = [
             r
             for r in rows
-            if args.full
-            or held.get(r["unid"]) != r["updated"]
-            or not (out_dir / f"{r['unid']}.html").exists()
+            if args.full or held.get(r["unid"]) != r["updated"] or not (out_dir / f"{r['unid']}.html").exists()
         ]
         capped = stale[: args.limit] if args.limit else stale
         logger.info(

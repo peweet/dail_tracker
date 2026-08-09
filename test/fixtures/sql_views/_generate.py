@@ -766,6 +766,17 @@ _AWARDS_COLS = [
     "TED Notice Link",
     "TED CAN Link",
     "estimated_value_eur",
+    # Below-threshold promotion (2026-08-09): the last 9 source columns. Dates stay
+    # STRINGS (DD/MM/YYYY) — the view's TRY_STRPTIMEs are part of the contract under test.
+    "Threshold Level",
+    "Directive",
+    "Evaluation Type",
+    "Name of Client Contracting Authority",
+    "Agreement Owner",
+    "Tender Submission Deadline",
+    "Cancelled Date",
+    "Award Published",
+    "Platform",
 ]
 
 
@@ -800,6 +811,15 @@ def _award(
     ted_notice=None,
     ted_can=None,
     est_value=None,
+    threshold=None,
+    directive=None,
+    evaluation=None,
+    client_auth=None,
+    agreement_owner=None,
+    deadline=None,
+    cancelled=None,
+    award_pub=None,
+    platform=None,
 ):
     return dict(
         zip(
@@ -834,6 +854,15 @@ def _award(
                 ted_notice,
                 ted_can,
                 est_value,
+                threshold,
+                directive,
+                evaluation,
+                client_auth,
+                agreement_owner,
+                deadline,
+                cancelled,
+                award_pub,
+                platform,
             ],
             strict=True,
         )
@@ -872,7 +901,18 @@ PROCUREMENT_AWARDS = pl.DataFrame(
             ted_notice="https://ted.europa.eu/en/notice/-/detail/100001-2023",
             ted_can="https://ted.europa.eu/en/notice/-/detail/200001-2023",
             est_value=120000.0,
+            # 2026-08-09 promotion: full new-column set so the view's renames/parses
+            # are asserted exactly (no client → buyer falls back to the contracting body).
+            threshold="OJEU",
+            directive="Classic",
+            evaluation="MEAT",
+            deadline="01/02/2023",
+            award_pub="05/03/2023",
+            platform="eTenders",
         ),
+        # T002 exercises BUYER ATTRIBUTION: the competition was run by Cork County
+        # Council but the source names a CLIENT — the summaries must attribute the
+        # award to the client (Mallow General Hospital), not the body that ran it.
         _award(
             "T002",
             "Acme Construction Ltd",
@@ -891,6 +931,8 @@ PROCUREMENT_AWARDS = pl.DataFrame(
             True,
             title="Public Realm Enhancement Works",
             procedure="Open Procedure",
+            threshold="National",
+            client_auth="Mallow General Hospital",
         ),
         _award(
             "T003",
@@ -1055,6 +1097,17 @@ PROCUREMENT_AWARDS = pl.DataFrame(
         "Main Cpv Code": pl.String,
         "Main Cpv Code Description": pl.String,
         "estimated_value_eur": pl.Float64,
+        # 2026-08-09 columns: pin String so an all-None column (Agreement Owner,
+        # Cancelled Date) can't infer as Null-typed and break the view's TRY_STRPTIME.
+        "Threshold Level": pl.String,
+        "Directive": pl.String,
+        "Evaluation Type": pl.String,
+        "Name of Client Contracting Authority": pl.String,
+        "Agreement Owner": pl.String,
+        "Tender Submission Deadline": pl.String,
+        "Cancelled Date": pl.String,
+        "Award Published": pl.String,
+        "Platform": pl.String,
     },
 ).select(_AWARDS_COLS)
 

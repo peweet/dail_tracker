@@ -277,17 +277,25 @@ _PAT_YEAR = re.compile(r"(20\d{2})")
 _MONTH_NAMES = {
     name: index
     for index, name in enumerate(
-        ("january", "february", "march", "april", "may", "june", "july",
-         "august", "september", "october", "november", "december"),
+        (
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ),
         start=1,
     )
 }
-_PAT_MY = re.compile(
-    r"\b(" + "|".join(_MONTH_NAMES) + r")[a-z]*[\s_/.,-]{0,3}((?:20)\d{2})", re.I
-)
-_PAT_YM_NAME = re.compile(
-    r"((?:20)\d{2})[\s_/.,-]{0,3}\b(" + "|".join(_MONTH_NAMES) + r")", re.I
-)
+_PAT_MY = re.compile(r"\b(" + "|".join(_MONTH_NAMES) + r")[a-z]*[\s_/.,-]{0,3}((?:20)\d{2})", re.I)
+_PAT_YM_NAME = re.compile(r"((?:20)\d{2})[\s_/.,-]{0,3}\b(" + "|".join(_MONTH_NAMES) + r")", re.I)
 _PAT_YM_NUM = re.compile(r"(?<!\d)(20\d{2})[-_/.](0[1-9]|1[0-2])(?!\d)")
 _PAT_YM_NUM2 = re.compile(r"(?<!\d)(1[5-9]|2\d|3[0-5])[-_](0[1-9]|1[0-2])(?!\d)")
 
@@ -325,12 +333,8 @@ def _months(text: str) -> set[tuple[int, int]]:
     and a cross-product of stray years and month names would invent periods.
     """
     out: set[tuple[int, int]] = set()
-    out.update(
-        (int(m.group(2)), _MONTH_NAMES[m.group(1).lower()]) for m in _PAT_MY.finditer(text)
-    )
-    out.update(
-        (int(m.group(1)), _MONTH_NAMES[m.group(2).lower()]) for m in _PAT_YM_NAME.finditer(text)
-    )
+    out.update((int(m.group(2)), _MONTH_NAMES[m.group(1).lower()]) for m in _PAT_MY.finditer(text))
+    out.update((int(m.group(1)), _MONTH_NAMES[m.group(2).lower()]) for m in _PAT_YM_NAME.finditer(text))
     out.update((int(m.group(1)), int(m.group(2))) for m in _PAT_YM_NUM.finditer(text))
     out.update((2000 + int(m.group(1)), int(m.group(2))) for m in _PAT_YM_NUM2.finditer(text))
     return out

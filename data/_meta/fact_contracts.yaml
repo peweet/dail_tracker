@@ -19,7 +19,7 @@
 # Fields:
 #   grain          one row per WHAT — the unit of a row
 #   money_grain    the money class: awarded | payments | budget | accounts |
-#                  allowance | political_finance  (never sum across classes)
+#                  allowance | political_finance | estimate  (never sum across classes)
 #   never_sum_with pipe-joined list of money_grains this must NOT be summed/unioned with
 #   purpose        one line an agent can quote back
 
@@ -34,6 +34,12 @@ procurement_payments_fact:
   money_grain: payments
   never_sum_with: awarded|budget|ted
   purpose: "Actual purchase-order/payment lines >€20k from public bodies + councils"
+
+procurement_notices:
+  grain: "one row per eTenders notice (awarded or not)"
+  money_grain: estimate
+  never_sum_with: awarded|payments|budget|ted|accounts
+  purpose: "EVERY eTenders notice with its outcome (awarded/cancelled/unreported) — the honest denominator for award coverage; only euro column is the pre-award estimate"
 
 ted_ie_awards:
   grain: "one row per (TED award notice, winner)"

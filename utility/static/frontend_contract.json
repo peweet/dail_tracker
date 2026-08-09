@@ -755,6 +755,7 @@
       "utility/pages_code/procurement/patterns.py",
       "utility/pages_code/procurement/pay_profiles.py",
       "utility/pages_code/procurement/payments.py",
+      "utility/pages_code/procurement/pre_tender.py",
       "utility/pages_code/procurement/profiles.py",
       "utility/pages_code/procurement/ted.py",
       "utility/pages_code/procurement/tenders.py",

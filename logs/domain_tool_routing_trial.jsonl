@@ -7,3 +7,15 @@
 {"ts": "2026-08-09T16:05:42.217177+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
 {"ts": "2026-08-09T16:05:54.495078+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
 {"ts": "2026-08-09T16:06:04.400976+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
+{"ts": "2026-08-09T20:04:28.981983+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
+{"ts": "2026-08-09T20:04:42.280387+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
+{"ts": "2026-08-09T20:05:05.338963+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
+{"ts": "2026-08-09T20:05:45.429005+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
+{"ts": "2026-08-09T20:06:03.781197+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group de"}
+{"ts": "2026-08-09T20:06:35.476063+00:00", "session": "c5d612a3-8c1", "category": "planning", "nudged": false, "command": "cd \"C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\" && uv run --locked --group da"}
+{"ts": "2026-08-09T20:10:03.436489+00:00", "session": "a2b5f3fd-cfc", "category": "planning", "nudged": true, "command": "python -c \"\nfrom pathlib import Path\nimport os\nroots=[Path('data/planning_layers"}
+{"ts": "2026-08-09T20:31:10.877397+00:00", "session": "633bfebc-c55", "category": "procurement", "nudged": true, "command": "cat > \"$TMPDIR/q1.py\" <<'EOF'\nimport duckdb\np = \"data/gold/parquet/procurement_a"}
+{"ts": "2026-08-09T21:16:51.039262+00:00", "session": "633bfebc-c55", "category": "procurement", "nudged": false, "command": "git add data/gold/parquet/procurement_notices.parquet && .venv/Scripts/python.ex"}
+{"ts": "2026-08-09T21:28:54.706002+00:00", "session": "c954b853-85c", "category": "planning", "nudged": true, "command": "cd /c/Users/pglyn/PycharmProjects/dail_extractor && uv run --extra siting --extr"}
+{"ts": "2026-08-09T21:38:08.653092+00:00", "session": "65b83dba-bd4", "category": "lobbying", "nudged": true, "command": "M=\"C:/Users/pglyn/.claude/projects/c--Users-pglyn-PycharmProjects-dail-extractor"}
+{"ts": "2026-08-09T21:41:44.815337+00:00", "session": "c954b853-85c", "category": "planning", "nudged": false, "command": "cd /c/Users/pglyn/PycharmProjects/dail_extractor && uv run --extra siting --extr"}

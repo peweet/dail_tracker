@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-08-09T15:01:25+00:00",
+  "generated_utc": "2026-08-09T21:18:07+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
-  "count": 195,
+  "count": 196,
   "facts": {
     "afs_amalgamated_divisions": {
       "file": "data/silver/parquet/afs_amalgamated_divisions.parquet",
@@ -6152,6 +6152,9 @@
         2024,
         2026
       ],
+      "read_by": [
+        "read by procurement/procurement_pre_tender_work_packages.sql"
+      ],
       "size_bytes": 23900
     },
     "procurement_awards": {
@@ -6179,6 +6182,15 @@
         "Additional CPV Codes on CFT",
         "TED Notice Link",
         "TED CAN Link",
+        "Threshold Level",
+        "Directive",
+        "Evaluation Type",
+        "Name of Client Contracting Authority",
+        "Agreement Owner",
+        "Tender Submission Deadline",
+        "Cancelled Date",
+        "Award Published",
+        "Platform",
         "sl",
         "supplier_raw",
         "supplier",
@@ -6220,6 +6232,15 @@
         "Additional CPV Codes on CFT": "String",
         "TED Notice Link": "String",
         "TED CAN Link": "String",
+        "Threshold Level": "String",
+        "Directive": "String",
+        "Evaluation Type": "String",
+        "Name of Client Contracting Authority": "String",
+        "Agreement Owner": "String",
+        "Tender Submission Deadline": "String",
+        "Cancelled Date": "String",
+        "Award Published": "String",
+        "Platform": "String",
         "sl": "String",
         "supplier_raw": "String",
         "supplier": "String",
@@ -6247,7 +6268,7 @@
       "read_by": [
         "read by procurement/procurement_authority_summary.sql, procurement/procurement_authority_year_summary.sql, procurement/procurement_awards.sql\u2026"
       ],
-      "size_bytes": 4179896,
+      "size_bytes": 4373582,
       "grain": "one row per awarded contract/lot",
       "money_grain": "awarded",
       "never_sum_with": "payments|budget|ted",
@@ -6281,6 +6302,77 @@
         "read by lobbying/lobbying_org_procurement.sql, procurement/procurement_lobbying_overlap.sql, procurement/procurement_supplier_summary.sql\u2026"
       ],
       "size_bytes": 14523
+    },
+    "procurement_notices": {
+      "file": "data/gold/parquet/procurement_notices.parquet",
+      "layer": "gold",
+      "rows": 84480,
+      "columns": [
+        "tender_id",
+        "contracting_authority",
+        "client_authority",
+        "agreement_owner",
+        "tender_title",
+        "competition_type",
+        "procedure_type",
+        "contract_type",
+        "spend_category",
+        "cpv_code",
+        "cpv_description",
+        "threshold_level",
+        "directive",
+        "evaluation_type",
+        "platform",
+        "parent_agreement_id",
+        "published_date",
+        "submission_deadline",
+        "cancelled_date",
+        "award_published_date",
+        "has_awarded_supplier",
+        "awarded_value_present",
+        "estimated_value_eur",
+        "n_bids_received",
+        "award_status"
+      ],
+      "column_types": {
+        "tender_id": "String",
+        "contracting_authority": "String",
+        "client_authority": "String",
+        "agreement_owner": "String",
+        "tender_title": "String",
+        "competition_type": "String",
+        "procedure_type": "String",
+        "contract_type": "String",
+        "spend_category": "String",
+        "cpv_code": "String",
+        "cpv_description": "String",
+        "threshold_level": "String",
+        "directive": "String",
+        "evaluation_type": "String",
+        "platform": "String",
+        "parent_agreement_id": "String",
+        "published_date": "Date",
+        "submission_deadline": "Date",
+        "cancelled_date": "Date",
+        "award_published_date": "Date",
+        "has_awarded_supplier": "Boolean",
+        "awarded_value_present": "Boolean",
+        "estimated_value_eur": "Float64",
+        "n_bids_received": "Int64",
+        "award_status": "String"
+      },
+      "year_span": [
+        2013,
+        2026
+      ],
+      "read_by": [
+        "read by procurement/procurement_notice_outcomes.sql, procurement/procurement_notices.sql"
+      ],
+      "size_bytes": 3273774,
+      "grain": "one row per eTenders notice (awarded or not)",
+      "money_grain": "estimate",
+      "never_sum_with": "awarded|payments|budget|ted|accounts",
+      "purpose": "EVERY eTenders notice with its outcome (awarded/cancelled/unreported) \u2014 the honest denominator for award coverage; only euro column is the pre-award estimate"
     },
     "procurement_payments_fact": {
       "file": "data/gold/parquet/procurement_payments_fact.parquet",
@@ -6406,7 +6498,7 @@
       "read_by": [
         "read by procurement/procurement_charity_overlap.sql, procurement/procurement_entity_chain.sql, procurement/procurement_supplier_summary.sql\u2026"
       ],
-      "size_bytes": 254904
+      "size_bytes": 254935
     },
     "public_appointments": {
       "file": "data/gold/parquet/public_appointments.parquet",

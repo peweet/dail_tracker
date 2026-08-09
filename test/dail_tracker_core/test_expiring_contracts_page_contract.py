@@ -53,7 +53,9 @@ def test_the_query_still_supplies_every_field_the_page_reads():
     stats_source = inspect.getsource(_q.expiring_contracts_stats)
     for field in ("is_multi_supplier_framework", "n_winners"):
         assert field in list_source, f"the page reads {field} but expiring_contracts no longer selects it"
-    assert "n_frameworks" in stats_source, "the page reads n_frameworks but expiring_contracts_stats no longer supplies it"
+    assert "n_frameworks" in stats_source, (
+        "the page reads n_frameworks but expiring_contracts_stats no longer supplies it"
+    )
 
 
 # ── the pill must be right, and only appear when the flag is true ────────────────────────────
@@ -82,9 +84,7 @@ def test_the_headline_states_the_framework_count_when_present():
     original = page.st.html
     page.st.html = captured.append
     try:
-        page._expiring_contracts_caveat(
-            pd.Series({"n_with_estimate": 40, "n_explicit": 10, "n_frameworks": 6})
-        )
+        page._expiring_contracts_caveat(pd.Series({"n_with_estimate": 40, "n_explicit": 10, "n_frameworks": 6}))
     finally:
         page.st.html = original
     assert "6 of them are multi-supplier frameworks" in captured[0]
@@ -95,9 +95,7 @@ def test_the_headline_omits_the_framework_clause_when_there_are_none():
     original = page.st.html
     page.st.html = captured.append
     try:
-        page._expiring_contracts_caveat(
-            pd.Series({"n_with_estimate": 40, "n_explicit": 10, "n_frameworks": 0})
-        )
+        page._expiring_contracts_caveat(pd.Series({"n_with_estimate": 40, "n_explicit": 10, "n_frameworks": 0}))
     finally:
         page.st.html = original
     assert "multi-supplier framework" not in captured[0]

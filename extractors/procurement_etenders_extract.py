@@ -11,6 +11,7 @@ Cleaning vs the probe:
 Outputs:
   data/gold/parquet/procurement_awards.parquet            (one row per award-supplier)
   data/gold/parquet/procurement_supplier_cro_match.parquet (distinct supplier -> CRO)
+  data/gold/parquet/procurement_notices.parquet           (one row per notice, awarded or not)
   data/_meta/procurement_coverage.json
 
 Run:  ./.venv/Scripts/python.exe extractors/procurement_etenders_extract.py
@@ -79,6 +80,9 @@ CRO = ROOT / "data/silver/cro/companies.parquet"
 # Promoted to committed gold (cbi/cro pattern): read by sql_views/procurement_*.sql.
 OUT_AWARDS = ROOT / "data/gold/parquet/procurement_awards.parquet"
 OUT_MATCH = ROOT / "data/gold/parquet/procurement_supplier_cro_match.parquet"
+# Notice-grain outcome fact (2026-08-09): EVERY notice, awarded or not — the award filter
+# below hides that ~half of all notices never get an award recorded. No supplier names.
+OUT_NOTICES = ROOT / "data/gold/parquet/procurement_notices.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_coverage.json"
 
 COMPANY_SUFFIX = re.compile(r"\b(limited|ltd|dac|plc|clg|uc|llp|teoranta|teo|unlimited company|t/a)\b", re.I)
@@ -287,6 +291,21 @@ def main() -> None:
         "Additional CPV Codes on CFT",
         "TED Notice Link",
         "TED CAN Link",
+        # Below-threshold promotion (2026-08-09): the last 9 source columns, previously
+        # dropped. "Threshold Level" is the honest value-coverage caveat — measured on the
+        # 2026-08 export, National (below-EU) award rows carry a value on 27.3% vs 88.9%
+        # for OJEU — and "Name of Client Contracting Authority" re-attributes centrally-run
+        # competitions (OGP/LGOPC/...) to the body actually buying (present on ~6.6k award
+        # rows, differs from Contracting Authority on ~5.2k).
+        "Threshold Level",
+        "Directive",
+        "Evaluation Type",
+        "Name of Client Contracting Authority",
+        "Agreement Owner",
+        "Tender Submission Deadline",
+        "Cancelled Date",
+        "Award Published",
+        "Platform",
     ]
     detail_cols = [c for c in DETAIL_COLS if c in df.columns]
     # The estimated-value header embeds a '€' — find it by substring (same defence as the
@@ -347,6 +366,18 @@ def main() -> None:
             .str.strip_chars()
             .alias(title_col)
         )
+    # Client-authority / agreement-owner cells carry the same source defects as the
+    # Contracting Authority column (HTML entities + padded whitespace). Clean identically,
+    # or the buyer-attribution COALESCE downstream splits one body into two spellings.
+    for _org_col in ("Name of Client Contracting Authority", "Agreement Owner"):
+        if _org_col in detail_cols:
+            aw = aw.with_columns(
+                pl.col(_org_col)
+                .map_elements(lambda s: html.unescape(s) if s else s, return_dtype=pl.Utf8)
+                .str.replace_all(r"\s+", " ")
+                .str.strip_chars()
+                .alias(_org_col)
+            )
     # deterministic first-char-truncation repair -> supplier (canonical)
     cmap = build_canonical_map(aw.select("supplier_raw").unique().to_series().to_list())
     aw = aw.with_columns(
@@ -537,6 +568,115 @@ def main() -> None:
     print(f"rows: {aw.height:,}  ->  {OUT_AWARDS}")
     print(aw.group_by("supplier_class").len().sort("len", descending=True))
 
+    # ---- NOTICE-OUTCOME FACT (below-threshold promotion, 2026-08-09) ----
+    # The supplier filter above keeps only awarded rows, which silently hides that ~half of
+    # all notices never get an award recorded (2026-08 export: 84,480 rows, 43,255 with a
+    # supplier; only 4 tender IDs appear both with and without one, so supplier-less rows
+    # are genuinely unawarded notices, not notice-stage duplicates of later award rows).
+    # One row per SOURCE row, every notice, with a factual outcome:
+    #   awarded                     supplier(s) present
+    #   cancelled                   no supplier, Cancelled Date present
+    #   award_published_no_supplier no supplier, but an Award Published date exists
+    #   no_award_published          none of the above — the award-reporting gap
+    # NO supplier names are carried (privacy stays in the award fact). The only euro column
+    # is estimated_value_eur — a PRE-AWARD ESTIMATE, its own money class, never summed with
+    # awards/payments/budget/TED. The awarded amount itself stays exclusively in the award
+    # fact where its safety flags live; here only awarded_value_present (bool) is kept so
+    # coverage can be measured without duplicating money across grains.
+    _NOTICE_COLS = {
+        "Tender ID": "tender_id",
+        auth_col: "contracting_authority",
+        "Name of Client Contracting Authority": "client_authority",
+        "Agreement Owner": "agreement_owner",
+        title_col: "tender_title",
+        comp_col: "competition_type",
+        "Procedure": "procedure_type",
+        "Contract Type": "contract_type",
+        "Spend Category": "spend_category",
+        "Main Cpv Code": "cpv_code",
+        "Main Cpv Code Description": "cpv_description",
+        "Threshold Level": "threshold_level",
+        "Directive": "directive",
+        "Evaluation Type": "evaluation_type",
+        "Platform": "platform",
+        parent_col: "parent_agreement_id",
+    }
+    no = df.select(
+        [pl.col(s).alias(t) for s, t in _NOTICE_COLS.items() if s in df.columns]
+        + [pl.col(date_col).alias("_pub"), pl.col(sup_col).alias("_sup"), pl.col(val_col).alias("_val")]
+        + (
+            [pl.col("Tender Submission Deadline").alias("_deadline")]
+            if "Tender Submission Deadline" in df.columns
+            else []
+        )
+        + ([pl.col("Cancelled Date").alias("_cancelled")] if "Cancelled Date" in df.columns else [])
+        + ([pl.col("Award Published").alias("_awardpub")] if "Award Published" in df.columns else [])
+        + ([pl.col(est_col).alias("_est")] if est_col else [])
+        + ([pl.col("No of Bids Received").alias("_bids")] if "No of Bids Received" in df.columns else [])
+    )
+    no = coerce_null_sentinels(no)
+    for _c in ("contracting_authority", "client_authority", "agreement_owner", "tender_title"):
+        if _c in no.columns:
+            no = no.with_columns(
+                pl.col(_c)
+                .map_elements(lambda s: html.unescape(s) if s else s, return_dtype=pl.Utf8)
+                .str.replace_all(r"\s+", " ")
+                .str.strip_chars()
+                .alias(_c)
+            )
+
+    def _d(c: str) -> pl.Expr:
+        """Parse a DD/MM/YYYY source date column (all three notice dates share the format)."""
+        return pl.col(c).str.strip_chars().str.strptime(pl.Date, "%d/%m/%Y", strict=False)
+
+    no = no.with_columns(
+        _d("_pub").alias("published_date"),
+        (_d("_deadline") if "_deadline" in no.columns else pl.lit(None, dtype=pl.Date)).alias("submission_deadline"),
+        (_d("_cancelled") if "_cancelled" in no.columns else pl.lit(None, dtype=pl.Date)).alias("cancelled_date"),
+        (_d("_awardpub") if "_awardpub" in no.columns else pl.lit(None, dtype=pl.Date)).alias("award_published_date"),
+        (pl.col("_sup").is_not_null() & (pl.col("_sup").str.strip_chars() != "")).alias("_has_sup"),
+        (pl.col("_val").is_not_null() & (pl.col("_val").str.strip_chars() != "")).alias("awarded_value_present"),
+        (
+            pl.col("_est").str.replace_all(r"[^0-9.]", "").cast(pl.Float64, strict=False)
+            if "_est" in no.columns
+            else pl.lit(None, dtype=pl.Float64)
+        ).alias("estimated_value_eur"),
+        (pl.col("_bids").cast(pl.Int64, strict=False) if "_bids" in no.columns else pl.lit(None, dtype=pl.Int64)).alias(
+            "n_bids_received"
+        ),
+    )
+
+    # Status keys off the RAW string presence (post-sentinel-coercion), not the parsed date —
+    # an unparseable-but-present Cancelled Date is still a cancellation.
+    def _has(c: str) -> pl.Expr:
+        return (pl.col(c).is_not_null() & (pl.col(c).str.strip_chars() != "")) if c in no.columns else pl.lit(False)
+
+    no = (
+        no.with_columns(
+            pl.when(pl.col("_has_sup"))
+            .then(pl.lit("awarded"))
+            .when(_has("_cancelled"))
+            .then(pl.lit("cancelled"))
+            .when(_has("_awardpub"))
+            .then(pl.lit("award_published_no_supplier"))
+            .otherwise(pl.lit("no_award_published"))
+            .alias("award_status")
+        )
+        .drop(
+            [
+                c
+                for c in ("_pub", "_sup", "_val", "_deadline", "_cancelled", "_awardpub", "_est", "_bids")
+                if c in no.columns
+            ]
+        )
+        .rename({"_has_sup": "has_awarded_supplier"})
+    )
+    save_parquet(no, OUT_NOTICES, min_rows=50_000)
+    hr("NOTICE OUTCOMES (every notice, awarded or not)")
+    print(f"rows: {no.height:,}  ->  {OUT_NOTICES}")
+    _status_counts = {r["award_status"]: r["len"] for r in no.group_by("award_status").len().iter_rows(named=True)}
+    print(f"  outcomes: {_status_counts}")
+
     # distinct suppliers; match only 'company' class to CRO (privacy: quarantine individuals)
     distinct = (
         aw.select(["supplier", "supplier_norm", "supplier_class", "name_truncated"])
@@ -621,6 +761,25 @@ def main() -> None:
         "value_safe_to_sum_rows": int(aw["value_safe_to_sum"].sum()),
         "value_safe_to_sum_total_eur": float(aw.filter(pl.col("value_safe_to_sum"))["value_eur"].sum() or 0),
         "value_naive_sum_eur_DO_NOT_USE": float(aw["value_eur"].sum() or 0),
+        # Below-threshold promotion (2026-08-09): the two coverage facts the old feed hid.
+        # (1) award VALUE coverage is threshold-dependent — the National (below-EU) band
+        # publishes a value on ~27% of award rows vs ~89% for OJEU; (2) ~half of notices
+        # never get an award recorded at all (see procurement_notices.parquet).
+        "award_value_coverage_by_threshold": (
+            {
+                (r["Threshold Level"] or "Unknown"): {
+                    "award_rows": r["award_rows"],
+                    "pct_with_value": round(100.0 * r["valued_rows"] / r["award_rows"], 1) if r["award_rows"] else 0.0,
+                }
+                for r in aw.group_by("Threshold Level")
+                .agg(pl.len().alias("award_rows"), pl.col("value_eur").is_not_null().sum().alias("valued_rows"))
+                .iter_rows(named=True)
+            }
+            if "Threshold Level" in aw.columns
+            else {}
+        ),
+        "notice_rows_total": no.height,
+        "notice_outcome_counts": _status_counts,
         "source": SOURCE,
         "retrieved_utc": datetime.fromtimestamp(CACHE.stat().st_mtime, tz=UTC).strftime("%Y-%m-%d"),
         "caveat": "A contract award is a fact, not evidence of influence or wrongdoing. "
@@ -630,7 +789,12 @@ def main() -> None:
         "VALUE IS NOT SPEND: 'Awarded Value' is the estimated/awarded contract value; "
         "framework & DPS notices carry notional multi-year CEILINGS and multi-supplier "
         "frameworks repeat one ceiling across every supplier row. Only sum value_safe_to_sum, "
-        "and even then label it 'awarded value, not actual expenditure'.",
+        "and even then label it 'awarded value, not actual expenditure'. "
+        "COVERAGE IS THRESHOLD-DEPENDENT: below-EU (National) award rows publish a value far "
+        "less often than OJEU rows (pre-2023 the National band is almost value-dark; Circular "
+        "05/2023 fixed this going forward), and roughly half of all notices never get an award "
+        "recorded — award totals are a floor, not the universe (see notice_outcome_counts). "
+        "Recent-year unreported counts include competitions still in train, not only gaps.",
     }
     save_coverage(cov, OUT_COV)
     print(f"\nwrote {OUT_MATCH}\nwrote coverage {OUT_COV}")

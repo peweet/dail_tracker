@@ -107,6 +107,8 @@ def first_nuts3(value) -> str | None:
         if code in NUTS3_REGION:
             return code
     return None
+
+
 QUERY = "buyer-country=IRL AND notice-type=cn-standard AND publication-date>=20240101"
 PAGE_CAP = 120  # 250/page; ~28k cn-standard notices all-time, ~recent slice when date-floored
 

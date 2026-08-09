@@ -3,9 +3,13 @@
 -- Same universe as the all-time view (all award classes — these are public bodies,
 -- not private suppliers, so no class gate) and same value-safety; adds a `year`
 -- dimension. Undated rows are dropped so a year filter is exact.
+-- Buyer attribution (2026-08-09): client authority where named, mirroring the
+-- all-time view — the two MUST agree or the year pill contradicts the ranking.
 CREATE OR REPLACE VIEW v_procurement_authority_year_summary AS
 SELECT
-    "Contracting Authority"                                      AS contracting_authority,
+    -- Same dirty-value guard on the client side as the all-time view (the two MUST agree).
+    COALESCE(NULLIF(NULLIF(TRIM("Name of Client Contracting Authority"), ''), 'NULL'), "Contracting Authority")
+                                                                 AS contracting_authority,
     EXTRACT(year FROM TRY_STRPTIME("Notice Published Date/Contract Created Date", '%d/%m/%Y'))::INT AS year,
     COUNT(*)                                                     AS n_awards,
     COUNT(DISTINCT supplier_norm)                               AS n_suppliers,

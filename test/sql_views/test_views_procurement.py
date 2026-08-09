@@ -78,6 +78,17 @@ def test_v_procurement_awards_executes():
         "additional_cpv_codes",
         "ted_notice_link",
         "ted_can_link",
+        # 2026-08-09 below-threshold promotion: the last 9 source columns + attribution.
+        "threshold_level",
+        "directive",
+        "evaluation_type",
+        "client_authority",
+        "buyer_authority",
+        "agreement_owner",
+        "platform",
+        "submission_deadline",
+        "cancelled_date",
+        "award_published_date",
     )
     assert len(df) == 10  # raw passthrough — every award×supplier row, nothing filtered
 
@@ -98,6 +109,20 @@ def test_v_procurement_awards_executes():
     assert t001["n_awarded_smes"] == 1
     assert t001["estimated_value_eur"] == 120000.0
     assert t001["ted_can_link"].startswith("https://ted.europa.eu/")
+    # 2026-08-09 columns: threshold band + DD/MM/YYYY dates parsed; buyer falls back to
+    # the contracting body when the source names no client...
+    assert t001["threshold_level"] == "OJEU"
+    assert t001["directive"] == "Classic"
+    assert t001["evaluation_type"] == "MEAT"
+    assert t001["submission_deadline"] == _date(2023, 2, 1)
+    assert t001["award_published_date"] == _date(2023, 3, 5)
+    assert t001["client_authority"] is None
+    assert t001["buyer_authority"] == "Dublin City Council"
+    # ...and IS the client when one is named (T002: run by Cork CoCo for Mallow General).
+    t002 = next(r for r in df.to_dicts() if r["tender_id"] == "T002")
+    assert t002["contracting_authority"] == "Cork County Council"
+    assert t002["client_authority"] == "Mallow General Hospital"
+    assert t002["buyer_authority"] == "Mallow General Hospital"
     # category_label: CPV description wins when present…
     assert t001["category_label"] == "Construction work"
     # …and falls back to the OGP Spend Category when the row has no CPV (~70% of corpus).
@@ -202,6 +227,14 @@ def test_v_procurement_authority_summary_value_semantics():
     assert dcc["n_awards"] == 2
     assert dcc["n_suppliers"] == 2
     assert dcc["awarded_value_safe_eur"] == 500000.0
+
+    # Buyer attribution (2026-08-09): T002 was RUN by Cork County Council for a named
+    # client — the award belongs to the client, and Cork (who bought nothing else)
+    # disappears from the ranking entirely.
+    assert "Cork County Council" not in by
+    mallow = by["Mallow General Hospital"]
+    assert mallow["n_awards"] == 1
+    assert mallow["awarded_value_safe_eur"] == 200000.0
 
     # Framework-only and shared-value-only authorities sum to ZERO.
     assert by["Health Service Executive"]["awarded_value_safe_eur"] == 0.0
@@ -708,6 +741,9 @@ def _write_dirty_awards_fixture(tmp_path):
             "supplier_norm": ["acme", "beta", "ghost", "ghost2", "ghost3", "gamma"],
             "value_eur": [100000.0, 50000.0, 1.0, 1.0, 1.0, 75000.0],
             "value_safe_to_sum": [True, True, True, True, True, True],
+            # 2026-08-09 buyer attribution: a DIRTY client value ('NULL'/'') must fall
+            # back to the contracting authority — never surface as an authority name.
+            "Name of Client Contracting Authority": ["NULL", None, None, None, None, ""],
         }
     )
     df.write_parquet(pdir / "procurement_awards.parquet")

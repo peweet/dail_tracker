@@ -39,10 +39,7 @@ def test_does_not_flag_when_resolved_module_is_tracked() -> None:
 def test_try_except_guarded_import_is_not_flagged(tmp_path: Path) -> None:
     src = tmp_path / "guarded.py"
     src.write_text(
-        "try:\n"
-        "    from planning.product.core import engine as _engine\n"
-        "except Exception:\n"
-        "    _engine = None\n",
+        "try:\n    from planning.product.core import engine as _engine\nexcept Exception:\n    _engine = None\n",
         encoding="utf-8",
     )
     imports = guard._imports_in(src)

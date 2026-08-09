@@ -476,10 +476,7 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
         return {"error": f"no such path: {path}"}
 
     if target.is_file() and not is_tracked_file(root, target):
-        return {
-            "error": f"path is not tracked by Git and cannot be navigated: {path}"
-            + _private_tree_hint(relative)
-        }
+        return {"error": f"path is not tracked by Git and cannot be navigated: {path}" + _private_tree_hint(relative)}
 
     if target.is_dir():
         files: list[Path] = []

@@ -109,9 +109,7 @@ def assert_baseline(harness: Path) -> None:
     its target fails here instead of reporting every mutant as killed.
     """
 
-    completed = subprocess.run(
-        [sys.executable, str(harness)], cwd=ROOT, capture_output=True, text=True, timeout=600
-    )
+    completed = subprocess.run([sys.executable, str(harness)], cwd=ROOT, capture_output=True, text=True, timeout=600)
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout).strip().splitlines()
         raise SessionError(
@@ -138,13 +136,10 @@ def read_outcome(db: Path, target: Path) -> Outcome:
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
         tally = dict(
-            con.execute(
-                "select coalesce(test_outcome,'FILTERED'), count(*) from work_results group by 1"
-            ).fetchall()
+            con.execute("select coalesce(test_outcome,'FILTERED'), count(*) from work_results group by 1").fetchall()
         )
         pending = con.execute(
-            "select count(*) from work_items i left join work_results r on r.job_id = i.job_id"
-            " where r.job_id is null"
+            "select count(*) from work_items i left join work_results r on r.job_id = i.job_id where r.job_id is null"
         ).fetchone()[0]
     finally:
         con.close()
