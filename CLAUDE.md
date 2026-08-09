@@ -79,7 +79,7 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
   the BLAS thread count and must stay the **first** import in every entry point — uncapped,
   `import pandas` reserves ~650 MB of commit per process on this 20-core box. Each open Claude
   session also holds ~1.2 GB (client + its own MCP server), so close surplus windows before a
-  siting run (`pytest test/siting` commits 5.4 GB). `tools/hooks/guard_memory.py` blocks heavy
+  siting run (`pytest planning/product/test` — moved from `test/siting` 2026-07-31 — commits 5.4 GB). `tools/hooks/guard_memory.py` blocks heavy
   commands below 1.5 GB free. Measure **private bytes**, never working set — Windows trims the
   latter, which reads ~30 MB while the process commits 714 MB.
 - Canonical tasks: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py list`; focused verification: the same command with `verify`; deterministic local gates: the same command with `check`. `pytest --testmon` remains opt-in because its database invalidates on wide refactors.
