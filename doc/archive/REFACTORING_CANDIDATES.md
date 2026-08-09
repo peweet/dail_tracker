@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: STALE
+domain: engineering
+updated: 2026-07-30
+supersedes: []
+read_when: historical only — candidate list companion to REFACTORING_TOKEN_ECONOMICS.md, drafted 2026-07-30; no candidate had been implemented as of 2026-08-09. Re-scan the repo before reviving any item.
+key: PLAN|STALE|engineering
+---
+
 # Refactoring Candidates — Token-Economics Pass
 
 Status: **PLAN — nothing here is implemented.** Companion to

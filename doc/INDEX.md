@@ -3,7 +3,7 @@
 
 # doc/ index
 
-71 docs · ~357.8k tokens total · 27 LIVE · 29 superseded/stale · 15 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+70 docs · ~353.0k tokens total · 27 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -12,7 +12,7 @@
 | [COMMERCIALISATION_PLAN.md](COMMERCIALISATION_PLAN.md) | commercial | 3.0k | 2026-06-28 | setting up, reviewing, or invoking the AGPL/commercial dual-licensing scaffolding (CLA, COMMERCIAL-LICENSE.md) before a first commercial sale |
 | [PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md](PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md) | commercial | 4.4k | 2026-08-05 | deciding whether or how to commercialise Dail Tracker procurement data, recruiting pilot customers, pricing an evidence pack, or considering procurement alerts, API access, or SaaS |
 | [DATA_GRAINS.md](DATA_GRAINS.md) | data | 2.5k | 2026-07-17 | before summing or comparing any money figure across procurement, payments, budgets, donations, or allowances |
-| [DATA_LIMITATIONS.md](DATA_LIMITATIONS.md) | data | 12.1k | 2026-07-17 | before citing any dataset's completeness, scope, or coverage of a person/topic — check known caveats and silent-failure risks first |
+| [DATA_LIMITATIONS.md](DATA_LIMITATIONS.md) | data | 12.2k | 2026-07-17 | before citing any dataset's completeness, scope, or coverage of a person/topic — check known caveats and silent-failure risks first |
 | [JOIN_MAP.md](JOIN_MAP.md) | data | 1.7k | 2026-07-14 | before attempting any cross-register association/join between datasets (ORG name-norm or PERSON anagram key) |
 | [AST_SCANNER_FAILURE_MODES.md](AST_SCANNER_FAILURE_MODES.md) | engineering | 7.3k | 2026-08-04 | auditing an AST-based code scanner, contract extractor, repository indexer, or migration ratchet for false positives and false negatives |
 | [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 2.2k | 2026-08-05 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
@@ -47,12 +47,14 @@
 | [BI_SPINOUT_FABLE_ASSESSMENT.md](archive/BI_SPINOUT_FABLE_ASSESSMENT.md) | commercial | 22.4k | 2026-07-08 | reviewing historical BI spinout risks; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for the current go or park decision |
 | [BI_SPINOUT_STAGE_AB_PLAN.md](archive/BI_SPINOUT_STAGE_AB_PLAN.md) | commercial | 9.5k | 2026-07-08 | reviewing the superseded Stage A/B proposal; use PROCUREMENT_COMMERCIAL_VALIDATION_PLAN.md for current sequencing and pilot gates |
 | [SIPO_OCR_REMAINING_QUEUE.md](archive/SIPO_OCR_REMAINING_QUEUE.md) | elections | 1.0k | 2026-06-26 | before running or resuming a SIPO OCR job (candidate expenses, party national-agent returns) |
+| [REFACTORING_CANDIDATES.md](archive/REFACTORING_CANDIDATES.md) | engineering | 5.0k | 2026-07-30 | historical only — candidate list companion to REFACTORING_TOKEN_ECONOMICS.md, drafted 2026-07-30; no candidate had been implemented as of 2026-08-09. Re-scan the repo before reviving any item. |
 | [CONTINUOUS_REFRESH.md](archive/CONTINUOUS_REFRESH.md) | infra | 1.5k | 2026-07-17 | historical only — the live refresh runbook is HYBRID_REFRESH_PLAN.md; the two-lane R2 design below is DEAD (see [[project_two_lane_reconciliation_flaw_2026_07_09]]) |
 | [DATA_DISTRIBUTION_PLAN.md](archive/DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
 | [DUCKDB_ENGINEERING_PLAN.md](archive/DUCKDB_ENGINEERING_PLAN.md) | infra | 3.8k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |
 | [HYBRID_REFRESH_PLAN.md](archive/HYBRID_REFRESH_PLAN.md) | infra | 3.4k | 2026-07-08 | designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture |
 | [TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) | infra | 6.0k | 2026-07-31 | needing the full per-paper backing detail behind the token-optimization memory summary — read reference_token_optimization_literature_2026_07_31 in memory first |
 | [COUNCIL_TARGETING_FABLE_ASSESSMENT.md](archive/COUNCIL_TARGETING_FABLE_ASSESSMENT.md) | local-gov | 14.0k | 2026-07-09 | before scoping new county-council data work (AFS, minutes/agendas, named votes) or deciding what council data source to pursue next |
+| [JOURNALIST_MCP_PLAN.md](archive/JOURNALIST_MCP_PLAN.md) | mcp | 5.1k | 2026-07-20 | historical only — proposed 2026-07-20 for two named users (a local paper, a national data desk); no code was ever written. Re-scope before reviving. |
 | [ATTENDANCE_PARTICIPATION_REDESIGN.md](archive/ATTENDANCE_PARTICIPATION_REDESIGN.md) | members | 4.2k | 2026-06-22 | when working on the attendance/participation feature, or needing to know what shipped in the 2026-06-22 TAA-to-participation redesign |
 | [MONEY_NAV_DECLUTTER_PLAN.md](archive/MONEY_NAV_DECLUTTER_PLAN.md) | money | 10.3k | 2026-07-12 | before changing "The Money" section's page count, nav labels, or entity-link wiring (Payments, Procurement, Companies, Follow-the-Money, Accommodation) |
 | [PER_LA_AFS_BUILD_PLAN.md](archive/PER_LA_AFS_BUILD_PLAN.md) | money | 2.3k | 2026-06-03 | before extending per-council AFS coverage (new councils/years) or checking which councils are digital, scanned, or undiscovered — note Phase 0 shipped but this remains an active build plan |
@@ -83,14 +85,11 @@
 | [COMPETITOR_LANDSCAPE.md](COMPETITOR_LANDSCAPE.md) | — | 3.6k | — |  |
 | [EXTRACTION_QUALITY_CHECKLIST.md](EXTRACTION_QUALITY_CHECKLIST.md) | — | 1.0k | — |  |
 | [FRAMEWORK_DECOUPLING_PLAN.md](FRAMEWORK_DECOUPLING_PLAN.md) | — | 7.1k | — |  |
-| [JOURNALIST_MCP_PLAN.md](JOURNALIST_MCP_PLAN.md) | — | 5.1k | — |  |
 | [LLM_GEO_EU_RESEARCH_SCAN_2026_07_31.md](LLM_GEO_EU_RESEARCH_SCAN_2026_07_31.md) | — | 13.8k | — |  |
 | [OBSERVABILITY.md](OBSERVABILITY.md) | — | 1.7k | — |  |
-| [PLAN_ACP_GEOMETRY_AND_PRECEDENT.md](PLAN_ACP_GEOMETRY_AND_PRECEDENT.md) | — | 5.0k | — |  |
 | [PUBLISHED_MINUTES_AND_CAPITAL_PIPELINE_REGISTER.md](PUBLISHED_MINUTES_AND_CAPITAL_PIPELINE_REGISTER.md) | — | 3.6k | — |  |
-| [REFACTORING_CANDIDATES.md](REFACTORING_CANDIDATES.md) | — | 4.9k | — |  |
 | [REFACTORING_TOKEN_ECONOMICS.md](REFACTORING_TOKEN_ECONOMICS.md) | — | 2.1k | — |  |
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-08-07 -->
+<!-- generated 2026-08-09 -->

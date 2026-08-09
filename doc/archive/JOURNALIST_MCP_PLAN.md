@@ -1,3 +1,13 @@
+---
+tier: PLAN
+status: STALE
+domain: mcp
+updated: 2026-07-20
+supersedes: []
+read_when: historical only — proposed 2026-07-20 for two named users (a local paper, a national data desk); no code was ever written. Re-scope before reviving.
+key: PLAN|STALE|mcp
+---
+
 # Journalist MCP — design plan
 
 **Status:** PROPOSED (no code) · **Domain:** mcp / product · **Date:** 2026-07-20 ·
