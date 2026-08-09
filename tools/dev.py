@@ -112,6 +112,15 @@ TASKS: dict[str, Task] = {
         "Run the opt-in Cosmic Ray audit for data-contract business rules",
         ((PYTHON, "tools/run_mutation_pilot.py"),),
     ),
+    "mutation-sessions": Task(
+        "Run the copy-based Cosmic Ray sessions under baseline and false-100% gates",
+        ((PYTHON, "tools/mutation_session.py"),),
+    ),
+    "roots": Task(
+        "Check working-tree/push status across the three git roots (dail_tracker, "
+        "planning/product, apps/public-signal)",
+        ((PYTHON, "tools/roots_status.py"),),
+    ),
 }
 
 CHECK_TASKS = (

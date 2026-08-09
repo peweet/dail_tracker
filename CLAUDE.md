@@ -13,6 +13,31 @@ Front-load conventions so sessions don't re-discover them by exploring (the bigg
 - Parquet writes are **atomic, zstd + statistics**, with a **row-floor guard** — use the `save_parquet` helper, don't bypass it.
 - Join key for members is the **normalised TD name** (NFKD accent-fold). Reuse the existing normaliser; don't invent matching.
 
+## Multi-root git layout — commercially sensitive code stays out of the public repo
+
+This checkout is **three independent git repos**, deliberately, so the public civic data
+(useful for enriching the commercial products) and the MCP tooling stay under one root while
+the commercial IP stays out of the public remote:
+
+| Root | Remote | Visibility |
+|---|---|---|
+| repo root (`dail_tracker`) | `github.com/peweet/dail_tracker` | **public** — civic lane only |
+| `planning/product/` (siting engine) | `github.com/peweet/dail-siting-private` | private |
+| `apps/public-signal/` | `github.com/peweet/public-signal` | private |
+
+`planning/product/` and `apps/public-signal/` are gitignored in the root repo (`.gitignore`),
+so **root `git status`/`git add`/`git commit` is blind to both** — that's the point, not a bug.
+Work inside them with a normal `cd planning/product && git ...`, or the repointed global
+aliases `git siting <cmd>` / `git publicsignal <cmd>` (delegate via `git -C`, work from any
+directory). Before ending a session, run `python tools/dev.py roots` (or
+`python tools/roots_status.py`) — it reports uncommitted/unpushed state across all three roots
+in one shot, so private-repo work doesn't silently pile up uncommitted.
+
+The public remote is guarded independently: `.githooks/pre-push` runs
+`tools/check_no_private_ip.py` (same check in CI) to block engine/product files from ever
+reaching `dail_tracker`, even via `git add -f`. Don't broaden its allowlist to cover a new
+private path without checking `DENY_DIR_PREFIXES` in that script first.
+
 ## First move — route the question (reflex, not a mandate)
 
 Reach for the cheap path **first**; escalate to reading files only when it genuinely can't answer.
