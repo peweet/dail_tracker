@@ -110,6 +110,78 @@ def council_money(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
     return _run(conn, "SELECT * FROM v_procurement_council_summary WHERE council = ?", [la])
 
 
+def capital_history(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Audited capital-account investment by year for one local authority.
+
+    This is the build/acquire account, not revenue expenditure, purchase orders,
+    payments, budgets or tender values. The registered view has already summed
+    the service divisions and reconciled each year to the printed AFS total.
+    """
+    return _run(
+        conn,
+        "SELECT year, capital_expenditure_eur, capital_income_eur, n_divisions, "
+        "reconciled, parser, source_url, source_page_number "
+        "FROM v_procurement_afs_capital_by_year WHERE council = ? ORDER BY year DESC",
+        [la],
+    )
+
+
+def capital_divisions(conn: duckdb.DuckDBPyConnection, la: str, year: int) -> QueryResult:
+    """One audited council-year capital account, broken down by service division."""
+    return _run(
+        conn,
+        "SELECT division, capital_expenditure_eur, capital_income_eur, reconciled, "
+        "source_file_url AS source_url, source_page_number "
+        "FROM v_procurement_afs_capital_by_division WHERE council = ? AND year = ? "
+        "ORDER BY capital_expenditure_eur DESC",
+        [la, int(year)],
+    )
+
+
+def minutes_coverage(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Document-grain coverage facts for the vetted council-minutes corpus."""
+    return _run(conn, "SELECT * FROM v_la_council_minutes_coverage WHERE local_authority = ?", [la])
+
+
+def minutes_documents(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Recent vetted minute documents, never passage/chunk counts."""
+    return _run(
+        conn,
+        "SELECT document_id, meeting, meeting_date, meeting_date_parsed, meeting_scope, "
+        "source_status, source_url FROM v_la_council_minutes_documents "
+        "WHERE local_authority = ? ORDER BY meeting_date_parsed DESC NULLS LAST, meeting DESC LIMIT 12",
+        [la],
+    )
+
+
+def ce_report_coverage(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Published CE-report coverage and review-queue counts for one council."""
+    return _run(conn, "SELECT * FROM v_la_ce_report_coverage WHERE local_authority = ?", [la])
+
+
+def ce_report_documents(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Recent published Chief Executive reports with authoritative source links."""
+    return _run(
+        conn,
+        "SELECT document_id, report_title, report_month, date_parse_status, source_status, "
+        "source_url, source_pages FROM v_la_ce_report_documents WHERE local_authority = ? "
+        "ORDER BY report_month DESC NULLS LAST, report_title DESC LIMIT 12",
+        [la],
+    )
+
+
+def ce_report_signals(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Only source-reviewed forward-work observations permitted for publication."""
+    return _run(
+        conn,
+        "SELECT lead_id, report_title, report_month, quote, lead_types, amount_mentions, "
+        "reviewed_project_name, reviewed_stage, evidence_band, source_url, source_page "
+        "FROM v_la_ce_report_signals WHERE local_authority = ? "
+        "ORDER BY report_month DESC NULLS LAST, reviewed_project_name",
+        [la],
+    )
+
+
 def national_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """One-row national headline for the landing page."""
     return _run(conn, "SELECT * FROM v_la_accountability_summary")

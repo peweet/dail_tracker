@@ -1,8 +1,8 @@
 {
-  "councils_attempted": 33,
-  "councils_with_rows": 27,
-  "councils_reconciled": 27,
-  "rows": 947,
+  "councils_attempted": 31,
+  "councils_with_rows": 30,
+  "councils_reconciled": 30,
+  "rows": 1164,
   "by_council": [
     {
       "council": "South Dublin",
@@ -207,9 +207,14 @@
       "status": "ok",
       "year": 2025,
       "years": [
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
         2025
       ],
-      "n_years": 1,
+      "n_years": 6,
       "method": "geom",
       "page": 6,
       "divisions": 8,
@@ -221,27 +226,41 @@
       "council": "Monaghan",
       "slug": "monaghan",
       "status": "ok",
-      "year": 2022,
+      "year": 2024,
       "years": [
         2016,
         2018,
         2019,
         2020,
         2021,
-        2022
+        2022,
+        2023,
+        2024
       ],
-      "n_years": 6,
-      "method": "line",
+      "n_years": 8,
+      "method": "geom",
       "page": 39,
-      "divisions": 7,
-      "capital_expenditure_total": 53739278.0,
-      "printed_total": 53739278.0,
+      "divisions": 8,
+      "capital_expenditure_total": -5915015.0,
+      "printed_total": -5915014.0,
       "reconciled": true
     },
     {
       "council": "Kildare",
       "slug": "kildare",
-      "status": "no-capital-page"
+      "status": "ok",
+      "year": 2025,
+      "years": [
+        2024,
+        2025
+      ],
+      "n_years": 2,
+      "method": "geom",
+      "page": 39,
+      "divisions": 8,
+      "capital_expenditure_total": 277417058.0,
+      "printed_total": 277417057.0,
+      "reconciled": true
     },
     {
       "council": "Sligo",
@@ -266,17 +285,62 @@
     {
       "council": "Clare",
       "slug": "clare",
-      "status": "no-capital-page"
+      "status": "ok",
+      "year": 2024,
+      "years": [
+        2017,
+        2018,
+        2024
+      ],
+      "n_years": 3,
+      "method": "geom",
+      "page": 58,
+      "divisions": 8,
+      "capital_expenditure_total": 45170582.0,
+      "printed_total": 45170582.0,
+      "reconciled": true
     },
     {
       "council": "Fingal",
       "slug": "fingal",
-      "status": "no-capital-page"
+      "status": "ok",
+      "year": 2024,
+      "years": [
+        2016,
+        2017,
+        2019,
+        2020,
+        2021,
+        2023,
+        2024
+      ],
+      "n_years": 7,
+      "method": "geom",
+      "page": 43,
+      "divisions": 8,
+      "capital_expenditure_total": 250314744.0,
+      "printed_total": 250314745.0,
+      "reconciled": true
     },
     {
       "council": "Dun Laoghaire-Rathdown",
       "slug": "dlr",
-      "status": "no-capital-page"
+      "status": "ok",
+      "year": 2024,
+      "years": [
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_years": 5,
+      "method": "geom",
+      "page": 38,
+      "divisions": 8,
+      "capital_expenditure_total": 264327274.0,
+      "printed_total": 264327274.0,
+      "reconciled": true
     },
     {
       "council": "Kilkenny",
@@ -396,7 +460,22 @@
     {
       "council": "Kerry",
       "slug": "kerry",
-      "status": "no-capital-page"
+      "status": "ok",
+      "year": 2024,
+      "years": [
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "n_years": 5,
+      "method": "geom",
+      "page": 48,
+      "divisions": 8,
+      "capital_expenditure_total": 95596279.0,
+      "printed_total": 95596279.0,
+      "reconciled": true
     },
     {
       "council": "Leitrim",
@@ -530,33 +609,11 @@
       "capital_expenditure_total": 162443743.0,
       "printed_total": 162443743.0,
       "reconciled": true
-    },
-    {
-      "council": "Fingal",
-      "slug": "fingal",
-      "status": "ok",
-      "year": 2024,
-      "method": "camelot",
-      "divisions": 7,
-      "capital_expenditure_total": 104790803.0,
-      "printed_total": 104790802.0,
-      "reconciled": true
-    },
-    {
-      "council": "Dun Laoghaire-Rathdown",
-      "slug": "dlr",
-      "status": "ok",
-      "year": 2024,
-      "method": "camelot",
-      "divisions": 8,
-      "capital_expenditure_total": 71812297.0,
-      "printed_total": 71812298.0,
-      "reconciled": true
     }
   ],
   "realisation_tier": "SPENT",
   "value_kind": "capital_expenditure_actual",
   "scope": "per-LA audited AFS Capital Account, expenditure by service division",
-  "generated_at": "2026-07-20T17:40:38.181644+00:00",
+  "generated_at": "2026-08-10T18:07:41.624840+00:00",
   "caveat": "Capital (build/acquire) expenditure by division \u2014 a DISTINCT grain from the revenue I&E net-expenditure fact (la_afs_divisions). NEVER union or reconcile the two. Capital income is overwhelmingly DHLGH/central grants. Sum only within a (council, year)."
 }

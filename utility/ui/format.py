@@ -165,6 +165,32 @@ def fmt_month(val) -> str:
         return str(val)
 
 
+def fmt_civic_date_long(val) -> str:
+    """Long civic date: ``7 July 2024`` with no leading zero.
+
+    Use for public-facing prose and compact evidence registers where the full
+    month name improves scanability. Machine-facing data should retain ISO dates.
+    """
+    if _na(val) or val == "":
+        return "—"
+    try:
+        ts = pd.Timestamp(val)
+        return f"{ts.day} {ts.month_name()} {ts.year}"
+    except Exception:
+        return str(val)
+
+
+def fmt_month_long(val) -> str:
+    """Long month-year label: ``September 2025`` from an ISO date/period."""
+    if _na(val) or val == "" or val == "None":
+        return "—"
+    try:
+        ts = pd.Timestamp(val)
+        return f"{ts.month_name()} {ts.year}"
+    except Exception:
+        return str(val)
+
+
 def distinguish_truncations(texts: list[str], limit: int = 170, tail: int = 70) -> list[str]:
     """Truncate for display WITHOUT making different items look identical.
 

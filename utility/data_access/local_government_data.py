@@ -111,3 +111,38 @@ def fetch_housing_performance_result(la: str) -> QueryResult:
 @cache_data(ttl=300)
 def fetch_council_money_result(la: str) -> QueryResult:
     return _q.council_money(get_constituency_conn(), la)
+
+
+@cache_data(ttl=300)
+def fetch_capital_history_result(la: str) -> QueryResult:
+    return _q.capital_history(get_constituency_conn(), la)
+
+
+@cache_data(ttl=300)
+def fetch_capital_divisions_result(la: str, year: int) -> QueryResult:
+    return _q.capital_divisions(get_constituency_conn(), la, year)
+
+
+@cache_data(ttl=300)
+def fetch_minutes_coverage_result(la: str) -> QueryResult:
+    return _q.minutes_coverage(get_constituency_conn(), la)
+
+
+@cache_data(ttl=300)
+def fetch_minutes_documents_result(la: str) -> QueryResult:
+    return _q.minutes_documents(get_constituency_conn(), la)
+
+
+@cache_data(ttl=300)
+def fetch_ce_report_coverage_result(la: str) -> QueryResult:
+    return _q.ce_report_coverage(get_constituency_conn(), la)
+
+
+@cache_data(ttl=300)
+def fetch_ce_report_documents_result(la: str) -> QueryResult:
+    return _q.ce_report_documents(get_constituency_conn(), la)
+
+
+@cache_data(ttl=300)
+def fetch_ce_report_signals_result(la: str) -> QueryResult:
+    return _q.ce_report_signals(get_constituency_conn(), la)

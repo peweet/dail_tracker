@@ -1,11 +1,11 @@
 {
   "schema": "council-ce-reports-corpus/1",
-  "generated_utc": "2026-08-08T06:31:42.268426+00:00",
+  "generated_utc": "2026-08-10T18:24:04.310882+00:00",
   "source_manifest": "apps\\public-signal\\pipeline\\data\\ce_reports_manifest.jsonl",
-  "input_records": 186,
-  "published_documents": 171,
-  "published_chunks": 15227,
-  "review_queue_leads": 4475,
+  "input_records": 267,
+  "published_documents": 232,
+  "published_chunks": 21321,
+  "review_queue_leads": 6737,
   "published_councils": 16,
   "published_council_names": [
     "Carlow",
@@ -73,11 +73,11 @@
   ],
   "source_census": {
     "schema": "council-ce-report-source-census/1",
-    "generated_utc": "2026-08-07T22:22:54.728745+00:00",
+    "generated_utc": "2026-08-10T18:23:23.457073+00:00",
     "run_state": "complete",
     "selection": {
       "kind": "latest_discoverable_reports_per_confirmed_council",
-      "latest_per_council": 12
+      "latest_per_council": 18
     },
     "complete_council_accounting": true,
     "outcome_counts": {
@@ -91,32 +91,33 @@
   },
   "documents_by_council": {
     "Carlow": 2,
-    "Clare": 12,
+    "Clare": 18,
     "Dún Laoghaire-Rathdown": 4,
-    "Fingal": 12,
-    "Galway County": 12,
-    "Kildare": 12,
-    "Kilkenny": 12,
-    "Laois": 12,
-    "Leitrim": 9,
-    "Louth": 12,
+    "Fingal": 18,
+    "Galway County": 18,
+    "Kildare": 15,
+    "Kilkenny": 18,
+    "Laois": 14,
+    "Leitrim": 11,
+    "Louth": 19,
     "Offaly": 12,
-    "South Dublin": 12,
-    "Tipperary": 12,
-    "Waterford": 12,
-    "Westmeath": 12,
-    "Wicklow": 12
+    "South Dublin": 17,
+    "Tipperary": 18,
+    "Waterford": 17,
+    "Westmeath": 13,
+    "Wicklow": 18
   },
   "documents_by_source_status": {
-    "text": 171
+    "text": 232
   },
-  "documents_with_parsed_month": 171,
-  "documents_with_amount_mentions": 164,
-  "documents_with_procurement_leads": 163,
+  "documents_with_parsed_month": 232,
+  "documents_with_amount_mentions": 224,
+  "documents_with_procurement_leads": 223,
   "excluded_records": {
-    "needs_ocr": 6,
+    "needs_ocr": 15,
     "not_ce_report_agenda": 1,
-    "unresolved_report_month": 8
+    "not_ce_report_other": 1,
+    "unresolved_report_month": 18
   },
   "excluded_records_by_council": {
     "Cork County": {
@@ -126,11 +127,27 @@
     "Dún Laoghaire-Rathdown": {
       "unresolved_report_month": 1
     },
+    "Kildare": {
+      "needs_ocr": 1
+    },
+    "Laois": {
+      "needs_ocr": 4
+    },
     "Leitrim": {
-      "needs_ocr": 3
+      "needs_ocr": 7
+    },
+    "Offaly": {
+      "unresolved_report_month": 5
+    },
+    "South Dublin": {
+      "not_ce_report_other": 1
     },
     "Waterford": {
-      "not_ce_report_agenda": 1
+      "not_ce_report_agenda": 1,
+      "unresolved_report_month": 1
+    },
+    "Westmeath": {
+      "unresolved_report_month": 4
     }
   },
   "harvested_councils_without_published_documents": [
@@ -138,9 +155,9 @@
   ],
   "review_ledger_decisions": 0,
   "leads_promotable": 0,
-  "leads_in_review_queue": 4475,
-  "leads_auto_publishable": 4141,
-  "leads_below_publication_floor": 334,
+  "leads_in_review_queue": 6737,
+  "leads_auto_publishable": 6050,
+  "leads_below_publication_floor": 687,
   "exact_duplicate_documents": [],
   "publication_boundary": "CE reports are officer reports, not council minutes. Lead sentences are Extracted-band. Two independent publication routes exist. promotion_permitted is review-led: true only where a reviewer set relevance_status=REVIEWED_RELEVANT, resolved site_relationship, and supplied a source-verified project name and allowed procurement stage. auto_publishable is classifier-led: a deterministic floor (a lead-type match and a quote of at least 40 characters) over the strict net, whose precision is measured at 0.900 (Wilson 95% CI 0.799-0.953, n=60 seeded random sample, single non-blind labeller) in apps/public-signal/pipeline/data/ce_lead_precision_labels.json. Classifier-led rows carry no reviewed project name or stage and must never be described as reviewed.",
   "precision": "0.900 point, Wilson 95% CI 0.799-0.953, n=60 seeded random sample of the strict net. Single labeller, not blind to the extractor - weaker than the two-labeller blind recall probe and should be re-labelled independently.",
