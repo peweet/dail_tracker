@@ -106,6 +106,7 @@ siting = [
     "esridump>=1.13",    # ArcGIS layer scrape (extractors/planning_layers_ingest.py) — was undeclared; uv sync pruned it 2026-07-25
     "pyproj>=3.6",       # CRS repair at INGEST only (dublin_city_rps: published GeoJSON is Irish Grid
                          # mis-projected as ITM, 2026-07-30) — the runtime layer store stays shapely-only
+    "pyshp>=2.3,<4",     # ZIP-only council Shapefiles at INGEST only (for example Dublin City Z15)
 ]
 
 # Optional language tier for Siting's free-text intake and grounded appraisal.

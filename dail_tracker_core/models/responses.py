@@ -302,6 +302,13 @@ class CouncilDossierResponse(OpenResponse):
     derelict_sites_levy: JsonObject | None
     housing_performance: JsonObject | None
     council_money: JsonObject | None
+    capital_history: JsonRows
+    capital_divisions: JsonRows
+    minutes_coverage: JsonObject | None
+    minutes_documents: JsonRows
+    ce_report_coverage: JsonObject | None
+    ce_report_documents: JsonRows
+    ce_report_signals: JsonRows
     caveat: str
 
 

@@ -155,11 +155,7 @@ def _parse_geom(page) -> tuple[dict, list, dict] | None:
             if len(nums) <= 1 and index + 1 < len(rows):
                 following = rows[index + 1]
                 following_lab = _row_label([w[4] for w in following["w"]])
-                following_nums = [
-                    ((w[0] + w[2]) / 2, tonum(w[4]))
-                    for w in following["w"]
-                    if NUMRE.match(w[4])
-                ]
+                following_nums = [((w[0] + w[2]) / 2, tonum(w[4])) for w in following["w"] if NUMRE.match(w[4])]
                 if following_lab is None and following["y"] - r["y"] <= 8 and len(following_nums) >= 6:
                     nums.extend(following_nums)
             drows[lab] = nums
