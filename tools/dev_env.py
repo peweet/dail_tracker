@@ -34,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENV_ROOT = ROOT / ".uv-envs"
 ENV_ROOT_VAR = "DAIL_ENV_ROOT"
 PROFILE_VAR = "DAIL_ENV_PROFILE"
+UV_EXECUTABLE_VAR = "UV_EXECUTABLE"
 
 
 @dataclass(frozen=True)
@@ -109,6 +110,12 @@ def profile_environment(profile: str, override: str | Path | None = None) -> dic
 
 def classify_uv_failure(output: str) -> UvFailure:
     lowered = output.lower()
+    if "uv executable was not found" in lowered or "uv is not on path" in lowered:
+        return UvFailure(
+            "uv_unavailable",
+            "uv was not found on PATH, via UV_EXECUTABLE, or in the per-user .local/bin location; "
+            "dependency state was not evaluated",
+        )
     if "failed to initialize cache" in lowered or "failed to open file" in lowered and "cache" in lowered:
         return UvFailure("cache_unavailable", "uv cache is inaccessible; dependency state was not evaluated")
     if "access is denied" in lowered or "permission denied" in lowered:
@@ -120,6 +127,31 @@ def classify_uv_failure(output: str) -> UvFailure:
     return UvFailure("uv_failed", "uv failed; dependency state was not established")
 
 
+
+def uv_executable() -> str | None:
+    """Resolve uv without requiring a user-local installation to be on PATH."""
+
+    configured = os.environ.get(UV_EXECUTABLE_VAR, "").strip()
+    if configured:
+        configured_path = Path(configured).expanduser()
+        if configured_path.is_file():
+            return str(configured_path.resolve())
+        discovered = shutil.which(configured)
+        if discovered:
+            return str(Path(discovered).resolve())
+
+    discovered = shutil.which("uv")
+    if discovered:
+        return str(Path(discovered).resolve())
+
+    executable = "uv.exe" if os.name == "nt" else "uv"
+    homes = [os.environ.get("USERPROFILE"), str(Path.home())]
+    for home in dict.fromkeys(value for value in homes if value):
+        candidate = Path(home) / ".local" / "bin" / executable
+        if candidate.is_file():
+            return str(candidate.resolve())
+    return None
+
 def _run_uv(
     action: str,
     profile: str,
@@ -128,9 +160,14 @@ def _run_uv(
     no_cache: bool = False,
     capture: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    uv = shutil.which("uv")
+    uv = uv_executable()
     if not uv:
-        return subprocess.CompletedProcess(("uv",), 127, "", "uv is not on PATH")
+        return subprocess.CompletedProcess(
+            ("uv",),
+            127,
+            "",
+            "uv executable was not found on PATH, via UV_EXECUTABLE, or in the per-user .local/bin location",
+        )
     command = [uv, "sync", *uv_profile_args(profile)]
     if action == "check":
         command.append("--check")
