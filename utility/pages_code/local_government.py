@@ -69,7 +69,7 @@ from ui.components import (
 )
 from ui.export_controls import export_button
 from ui.entity_links import council_spending_url
-from ui.format import eur, eur_full, fmt_int, pct
+from ui.format import eur, eur_full, fmt_civic_date_long, fmt_int, fmt_month_long, pct
 
 _SALARY_BAND = "€132,511–€189,301"  # national CE pay scale (not published per-council)
 _LGA_URL = "https://www.irishstatutebook.ie/eli/2001/act/37/enacted/en/html"
@@ -802,7 +802,7 @@ def _render_ce_report_record(name: str) -> None:
     documents = documents_result.data.copy()
     coverage = coverage_result.data.iloc[0] if coverage_result.ok and not coverage_result.data.empty else None
     if coverage is not None:
-        latest = str(coverage.get("latest_report_month") or "date unresolved")
+        latest = fmt_month_long(coverage.get("latest_report_month") or "date unresolved")
         st.markdown(f"**{int(coverage['documents'])} published reports loaded. Latest dated report: {latest}.**")
     st.caption(
         "These are officer reports, not council minutes. Report links are public evidence. "
@@ -818,8 +818,10 @@ def _render_ce_report_record(name: str) -> None:
             "source_url": "Source",
         }
     )
+    report_table = report_display.copy()
+    report_table["Month"] = report_table["Month"].apply(fmt_month_long)  # logic_firewall: display_only
     st.dataframe(
-        report_display[["Month", "Report", "Pages", "Extraction", "Source"]],
+        report_table[["Month", "Report", "Pages", "Extraction", "Source"]],
         hide_index=True,
         width="stretch",
         column_config={
@@ -834,10 +836,9 @@ def _render_ce_report_record(name: str) -> None:
 
     signals_result = fetch_ce_report_signals_result(name)
     if not signals_result.ok or signals_result.data.empty:
-        queued = int(coverage.get("review_queue_leads") or 0) if coverage is not None else 0
         st.info(
-            f"No source-reviewed project signals are published for this council yet. "
-            f"{queued:,} extracted candidate passages remain in the private review queue."
+            "No source-reviewed project signals are published for this council yet. "
+            "Unreviewed extracted candidates remain outside the public app in a private review queue."
         )
         return
 
@@ -857,9 +858,11 @@ def _render_ce_report_record(name: str) -> None:
             "source_url": "Source",
         }
     )
+    signal_table = signal_display.copy()
+    signal_table["Month"] = signal_table["Month"].apply(fmt_month_long)  # logic_firewall: display_only
     st.markdown("**Source-reviewed forward-work observations**")
     st.dataframe(
-        signal_display[
+        signal_table[
             ["Month", "Reviewed project", "Reviewed stage", "Source passage", "Amounts mentioned", "Evidence", "Source"]
         ],
         hide_index=True,
@@ -906,8 +909,12 @@ def _render_minutes_record(name: str) -> None:
             "source_url": "Source",
         }
     )
+    minute_table = minute_display.copy()
+    minute_table["Published date"] = minute_table["Published date"].apply(  # logic_firewall: display_only
+        fmt_civic_date_long
+    )
     st.dataframe(
-        minute_display[["Published date", "Meeting", "Scope", "Extraction", "Source"]],
+        minute_table[["Published date", "Meeting", "Scope", "Extraction", "Source"]],
         hide_index=True,
         width="stretch",
         column_config={

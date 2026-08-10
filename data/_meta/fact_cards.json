@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-08-09T21:18:07+00:00",
+  "generated_utc": "2026-08-10T19:56:22+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 196,
   "facts": {
@@ -737,7 +737,7 @@
     "council_ce_reports_corpus": {
       "file": "data/gold/parquet/council_ce_reports_corpus.parquet",
       "layer": "gold",
-      "rows": 15227,
+      "rows": 21321,
       "columns": [
         "document_id",
         "doc_type",
@@ -777,9 +777,9 @@
         "evidence_band": "String"
       },
       "read_by": [
-        "no runtime reader found \u2014 untrack candidate (review before removing)"
+        "read by constituency/constituency_la_ce_reports.sql"
       ],
-      "size_bytes": 5487424
+      "size_bytes": 7647533
     },
     "council_minutes_corpus": {
       "file": "data/gold/parquet/council_minutes_corpus.parquet",
@@ -4511,7 +4511,7 @@
     "la_afs_capital_divisions": {
       "file": "data/silver/parquet/la_afs_capital_divisions.parquet",
       "layer": "silver",
-      "rows": 947,
+      "rows": 1164,
       "columns": [
         "council",
         "slug",
@@ -4567,7 +4567,7 @@
       "read_by": [
         "read by procurement/procurement_afs_capital_by_division.sql, procurement/procurement_afs_capital_by_year.sql, procurement/procurement_council_summary.sql"
       ],
-      "size_bytes": 32005,
+      "size_bytes": 34960,
       "grain": "one row per (council,year,division)",
       "money_grain": "accounts",
       "never_sum_with": "awarded|payments|budget",

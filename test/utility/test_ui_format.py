@@ -35,8 +35,10 @@ from ui.format import (  # noqa: E402
     eur,
     eur_full,
     fmt_civic_date,
+    fmt_civic_date_long,
     fmt_int,
     fmt_month,
+    fmt_month_long,
     pct,
     to_int,
     truthy,
@@ -233,3 +235,12 @@ def test_fmt_month():
     assert fmt_month(None) == "—"
     assert fmt_month("None") == "—"
     assert fmt_month("") == "—"
+
+
+def test_long_civic_date_formats_keep_iso_values_out_of_public_copy():
+    assert fmt_civic_date_long("2026-06-29") == "29 June 2026"
+    assert fmt_civic_date_long(None) == "—"
+    assert fmt_civic_date_long("date unresolved") == "date unresolved"
+    assert fmt_month_long("2026-08") == "August 2026"
+    assert fmt_month_long(None) == "—"
+    assert fmt_month_long("date unresolved") == "date unresolved"
