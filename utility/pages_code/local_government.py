@@ -836,10 +836,9 @@ def _render_ce_report_record(name: str) -> None:
 
     signals_result = fetch_ce_report_signals_result(name)
     if not signals_result.ok or signals_result.data.empty:
-        queued = int(coverage.get("review_queue_leads") or 0) if coverage is not None else 0
         st.info(
-            f"No source-reviewed project signals are published for this council yet. "
-            f"{queued:,} extracted candidate passages remain in the private review queue."
+            "No source-reviewed project signals are published for this council yet. "
+            "Unreviewed extracted candidates remain outside the public app in a private review queue."
         )
         return
 
