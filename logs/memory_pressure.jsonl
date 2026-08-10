@@ -1049,3 +1049,4 @@
 {"ts": "2026-08-09T21:42:00+00:00", "kind": "siting report harness (loads the layer store)", "blocked": false, "free_mb": 3629, "total_mb": 16073, "load_pct": 77, "commit_free_mb": 34575, "commit_total_mb": 59081}
 {"ts": "2026-08-09T21:43:55+00:00", "kind": "siting test suite (~5.4 GB measured 2026-07-26)", "blocked": false, "free_mb": 3878, "total_mb": 16073, "load_pct": 75, "commit_free_mb": 34606, "commit_total_mb": 59081}
 {"ts": "2026-08-09T21:50:48+00:00", "kind": "siting engine harness (~0.5-1 GB)", "blocked": false, "free_mb": 4273, "total_mb": 16073, "load_pct": 73, "commit_free_mb": 32817, "commit_total_mb": 59081}
+{"kind": "mcp tool call (mcp__dail-tracker__search_project)", "blocked": true, "free_mb": 426, "total_mb": 16073, "load_pct": 97, "commit_free_mb": 30466, "commit_total_mb": 59081, "ts": "2026-08-10T17:24:23+00:00"}

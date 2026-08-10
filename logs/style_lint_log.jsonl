@@ -1154,3 +1154,6 @@
 {"ts": "2026-08-09T22:41:55", "session": "6caa8a1b-3ec", "warns": ["75-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-09T22:57:34", "session": "96690685-e97", "warns": ["56-word sentence (rule 4 -- one idea per sentence)", "54-word sentence (rule 4 -- one idea per sentence)"]}
 {"ts": "2026-08-09T23:01:15", "session": "c954b853-85c", "warns": ["54-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-10T07:51:26", "session": "e3577521-600", "warns": ["jargon: \"Actually\" (rule 3 -- use the plain word)", "48-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-10T08:03:29", "session": "cf26d105-342", "warns": ["69-word sentence (rule 4 -- one idea per sentence)"]}
+{"ts": "2026-08-10T18:48:27", "session": "7d13f39a-5a0", "warns": ["56-word sentence (rule 4 -- one idea per sentence)"]}

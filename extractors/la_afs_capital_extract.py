@@ -138,8 +138,10 @@ def _parse_geom(page) -> tuple[dict, list, dict] | None:
     words = [(w[0], w[1], w[2], w[3], w[4]) for w in page.get_text("words")]
     rows = _cluster_rows(words)
     drows: dict[str, list] = {}
+    drow_y: dict[str, float] = {}
+    numeric_only_rows: list[tuple[float, list]] = []
     total: list | None = None
-    for r in rows:
+    for index, r in enumerate(rows):
         lab = _row_label([w[4] for w in r["w"]])
         nums = [((w[0] + w[2]) / 2, tonum(w[4])) for w in r["w"] if NUMRE.match(w[4])]
         if not nums:
@@ -147,9 +149,33 @@ def _parse_geom(page) -> tuple[dict, list, dict] | None:
         if lab == "TOTAL" and total is None:
             total = nums
         elif lab in DIV_KEYS.values() and lab not in drows:
+            # Kerry splits one service label across lines, with the figures on the
+            # immediately following baseline. Attach that nearby numeric continuation
+            # only when the label row has no figures beyond its service code.
+            if len(nums) <= 1 and index + 1 < len(rows):
+                following = rows[index + 1]
+                following_lab = _row_label([w[4] for w in following["w"]])
+                following_nums = [
+                    ((w[0] + w[2]) / 2, tonum(w[4]))
+                    for w in following["w"]
+                    if NUMRE.match(w[4])
+                ]
+                if following_lab is None and following["y"] - r["y"] <= 8 and len(following_nums) >= 6:
+                    nums.extend(following_nums)
             drows[lab] = nums
+            drow_y[lab] = r["y"]
+        elif lab is None and len(nums) >= 6:
+            numeric_only_rows.append((r["y"], nums))
     if len(drows) < 6:
         return None
+
+    # Kildare, Clare and Kerry render the printed Appendix 6 total as a
+    # numeric-only row below the divisions. Recover only the first wide row
+    # after the final division. _find_capital still requires exact reconciliation.
+    if total is None and drow_y:
+        after_divisions = [item for item in numeric_only_rows if item[0] > max(drow_y.values())]
+        if after_divisions:
+            total = min(after_divisions, key=lambda item: item[0])[1]
     allx = sorted(x for src in [*drows.values(), total or []] for (x, _) in src)
     colx: list[float] = []
     cluster: list[float] = []

@@ -78,3 +78,4 @@
 {"ts": "2026-08-09T20:34:30.286111+00:00", "session": "633bfebc-c55", "category": "py_refs", "nudged": false, "pattern": "expiring_contract"}
 {"ts": "2026-08-09T20:35:05.896763+00:00", "session": "633bfebc-c55", "category": "sql_lineage", "nudged": false, "pattern": "ted.*join|ted_notice_link|ted_can_link"}
 {"ts": "2026-08-09T20:35:06.305366+00:00", "session": "633bfebc-c55", "category": "sql_lineage", "nudged": false, "pattern": "ted_notice_link|ted_can_link"}
+{"ts": "2026-08-10T06:50:58.856630+00:00", "session": "e3577521-600", "category": "py_refs", "nudged": true, "pattern": "TODO_PIPELINE_VIEW_REQUIRED"}
