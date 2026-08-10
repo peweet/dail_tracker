@@ -22,6 +22,8 @@ SELECT
     SUM(capital_income)        AS capital_income_eur,        -- Σ grants/loans/levies financing it
     COUNT(*)                   AS n_divisions,
     bool_and(reconciled)       AS reconciled,
-    MAX(parse_method)          AS parser
+    MAX(parse_method)          AS parser,
+    MAX(source_file_url)       AS source_url,
+    MAX(source_page_number)    AS source_page_number
 FROM read_parquet('data/silver/parquet/la_afs_capital_divisions.parquet')
 GROUP BY council, slug, region, year;

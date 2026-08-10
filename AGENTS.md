@@ -5,6 +5,9 @@ This file is the portable, tool-neutral entry point for work in this repository.
 ## Start here
 
 1. Run `git status --short` and preserve unrelated changes.
+   For private Siting work, `planning/product/` is an authoritative nested Git repository: also
+   run `git -C planning/product status --short`. The retired `.git-siting` overlay is historical
+   and must not be used to decide whether the private product is clean.
 2. Route the task with the table below; read only the files needed for that area.
 3. Use `rg --files` and scoped `rg -n` searches. The tracked `.rgignore` hides bulky generated data and artifacts from default searches.
 4. Use `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify` for focused, changed-file-aware verification. Use the same command with `check` before a broad handoff. The runner repairs a bare invocation once, but specifying the profile avoids a bootstrap re-exec.
@@ -38,7 +41,7 @@ is unavailable or not applicable.
 - Scouts and reviewers stay read-only, return concise evidence with file references, and never post externally or make product, legal, or commercial decisions.
 - A worker owns only the files named in its brief, preserves concurrent edits, and returns changed files plus verification evidence to the captain; it never commits, pushes, or posts externally.
 - Wait for every requested result, adjudicate disagreements against repository evidence, and report unresolved uncertainty explicitly.
-- Permit at most one write-capable agent in a checkout. Parallel implementation requires separate Git worktrees and explicit integration ownership; do not improvise worktrees for `planning/product`, which uses the separate `.git-siting` worktree.
+- Permit at most one write-capable agent in a checkout. Parallel implementation requires separate Git worktrees and explicit integration ownership; do not improvise worktrees for the nested `planning/product` repository.
 
 ## Routing
 

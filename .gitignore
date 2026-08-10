@@ -1,5 +1,9 @@
 # Ignore all parquet files
 *.parquet
+*.parquet.part
+
+# Local auxiliary Git worktrees never belong in repository history.
+.worktrees/
 # Default ignored files
 /shelf/
 /workspace.xml

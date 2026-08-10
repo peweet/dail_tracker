@@ -107,8 +107,29 @@ def profile_environment(profile: str, override: str | Path | None = None) -> dic
     return env
 
 
+def uv_executable() -> str | None:
+    """Resolve uv from PATH, an override, or its standard per-user install."""
+
+    discovered = shutil.which("uv")
+    if discovered:
+        return discovered
+    configured = str(os.environ.get("UV_EXECUTABLE") or "").strip()
+    if configured:
+        candidate = Path(configured).expanduser()
+        return str(candidate.resolve()) if candidate.is_file() else None
+    executable = "uv.exe" if os.name == "nt" else "uv"
+    candidate = Path.home() / ".local" / "bin" / executable
+    return str(candidate.resolve()) if candidate.is_file() else None
+
+
 def classify_uv_failure(output: str) -> UvFailure:
     lowered = output.lower()
+    if "uv executable was not found" in lowered or "uv is not on path" in lowered:
+        return UvFailure(
+            "uv_unavailable",
+            "uv was not found on PATH, via UV_EXECUTABLE, or in the per-user .local/bin location; "
+            "dependency state was not evaluated",
+        )
     if "failed to initialize cache" in lowered or "failed to open file" in lowered and "cache" in lowered:
         return UvFailure("cache_unavailable", "uv cache is inaccessible; dependency state was not evaluated")
     if "access is denied" in lowered or "permission denied" in lowered:
@@ -128,9 +149,14 @@ def _run_uv(
     no_cache: bool = False,
     capture: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    uv = shutil.which("uv")
+    uv = uv_executable()
     if not uv:
-        return subprocess.CompletedProcess(("uv",), 127, "", "uv is not on PATH")
+        return subprocess.CompletedProcess(
+            ("uv",),
+            127,
+            "",
+            "uv executable was not found on PATH, via UV_EXECUTABLE, or in the per-user .local/bin location",
+        )
     command = [uv, "sync", *uv_profile_args(profile)]
     if action == "check":
         command.append("--check")

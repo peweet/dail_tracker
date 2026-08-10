@@ -45,6 +45,25 @@ def test_uv_failure_classifies_environment_drift() -> None:
     assert failure.kind == "environment_outdated"
 
 
+def test_uv_failure_classifies_missing_executable_as_setup_failure() -> None:
+    failure = dev_env.classify_uv_failure("uv executable was not found on PATH")
+    assert failure.kind == "uv_unavailable"
+    assert "not evaluated" in failure.summary
+
+
+def test_uv_discovery_uses_the_standard_per_user_install_when_path_is_stale(
+    monkeypatch, tmp_path: Path
+) -> None:
+    executable = tmp_path / ".local" / "bin" / ("uv.exe" if os.name == "nt" else "uv")
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"")
+    monkeypatch.setattr(dev_env.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(dev_env.Path, "home", classmethod(lambda _cls: tmp_path))
+    monkeypatch.delenv("UV_EXECUTABLE", raising=False)
+
+    assert dev_env.uv_executable() == str(executable.resolve())
+
+
 def test_run_rewrites_python_to_the_profile_interpreter(monkeypatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -84,9 +103,8 @@ def test_run_refuses_to_mutate_or_execute_a_stale_profile(monkeypatch, capsys) -
 
 def test_canonical_guidance_separates_persistent_and_isolated_environments() -> None:
     agents = (dev_env.ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    readme = (dev_env.ROOT / "README.MD").read_text(encoding="utf-8")
     private_agents = (dev_env.ROOT / "planning" / "product" / "AGENTS.md").read_text(encoding="utf-8")
 
-    assert "uv run --isolated --locked" in agents
-    assert "tools/dev_env.py sync public" in readme
+    assert "uv run --isolated --locked" in private_agents
+    assert "uv run --locked --group dev --extra pipeline --extra api --extra mcp" in agents
     assert "tools/dev_env.py sync siting" in private_agents

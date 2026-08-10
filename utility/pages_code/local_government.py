@@ -32,6 +32,11 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.local_government_data import (
+    fetch_capital_divisions_result,
+    fetch_capital_history_result,
+    fetch_ce_report_coverage_result,
+    fetch_ce_report_documents_result,
+    fetch_ce_report_signals_result,
     fetch_chief_executive_result,
     fetch_chief_executives_result,
     fetch_collection_rates_result,
@@ -42,6 +47,8 @@ from data_access.local_government_data import (
     fetch_la_map_layers_result,
     fetch_lgas_audit_result,
     fetch_la_outlines,
+    fetch_minutes_coverage_result,
+    fetch_minutes_documents_result,
     fetch_national_summary_result,
     fetch_noac_indicators_result,
     fetch_noac_scorecard_history_result,
@@ -60,6 +67,7 @@ from ui.components import (
     subsection_heading,
     totals_strip,
 )
+from ui.export_controls import export_button
 from ui.entity_links import council_spending_url
 from ui.format import eur, eur_full, fmt_int, pct
 
@@ -709,6 +717,235 @@ def _card_council_money(name: str) -> str:
     )
 
 
+def _render_capital_record(name: str) -> None:
+    history_result = fetch_capital_history_result(name)
+    if not history_result.ok or history_result.data.empty:
+        empty_state(
+            "No machine-readable capital account",
+            "The audited capital appendix is not yet available for this council.",
+        )
+        return
+
+    history = history_result.data.copy()
+    latest_year = int(history.iloc[0]["year"])
+    latest_total = history.iloc[0]["capital_expenditure_eur"]
+    st.markdown(
+        f"**Latest reconciled account: {latest_year}, {_eur(latest_total)} invested in capital works and assets.**"
+    )
+    st.caption(
+        "Audited outturn from the council's Annual Financial Statement. This is retrospective "
+        "capital investment, not an adopted budget, tender value, purchase order or operating spend."
+    )
+
+    display_history = history.rename(
+        columns={
+            "year": "Year",
+            "capital_expenditure_eur": "Capital investment",
+            "capital_income_eur": "Capital income",
+            "reconciled": "Reconciled",
+            "source_url": "Source",
+        }
+    )
+    st.dataframe(
+        display_history[["Year", "Capital investment", "Capital income", "Reconciled", "Source"]],
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Year": st.column_config.NumberColumn("Year", format="%d", width="small"),
+            "Capital investment": st.column_config.NumberColumn("Capital investment", format="€ %,.0f"),
+            "Capital income": st.column_config.NumberColumn("Capital income", format="€ %,.0f"),
+            "Reconciled": st.column_config.CheckboxColumn("Ties to AFS total", width="small"),
+            "Source": st.column_config.LinkColumn("Source", display_text="Council AFS ↗", width="small"),
+        },
+    )
+    export_button(display_history, "Download capital history CSV", "council-capital-history.csv", "lg_capital_history")
+
+    division_result = fetch_capital_divisions_result(name, latest_year)
+    if not division_result.ok or division_result.data.empty:
+        return
+    divisions = division_result.data.rename(
+        columns={
+            "division": "Service division",
+            "capital_expenditure_eur": "Capital investment",
+            "capital_income_eur": "Capital income",
+            "source_url": "Source",
+        }
+    )
+    st.markdown(f"**Where the {latest_year} capital account was invested**")
+    st.dataframe(
+        divisions[["Service division", "Capital investment", "Capital income", "Source"]],
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Service division": st.column_config.TextColumn("Service division", width="large"),
+            "Capital investment": st.column_config.NumberColumn("Capital investment", format="€ %,.0f"),
+            "Capital income": st.column_config.NumberColumn("Capital income", format="€ %,.0f"),
+            "Source": st.column_config.LinkColumn("Source", display_text="Council AFS ↗", width="small"),
+        },
+    )
+    export_button(divisions, "Download division detail CSV", "council-capital-divisions.csv", "lg_capital_divisions")
+    st.caption(
+        "Capital income finances the programme. It is not added to capital investment or to any other spending grain."
+    )
+
+
+def _render_ce_report_record(name: str) -> None:
+    coverage_result = fetch_ce_report_coverage_result(name)
+    documents_result = fetch_ce_report_documents_result(name)
+    if not documents_result.ok or documents_result.data.empty:
+        empty_state(
+            "No Chief Executive reports mapped",
+            "No published monthly Chief Executive report has been loaded for this council yet.",
+        )
+        return
+
+    documents = documents_result.data.copy()
+    coverage = coverage_result.data.iloc[0] if coverage_result.ok and not coverage_result.data.empty else None
+    if coverage is not None:
+        latest = str(coverage.get("latest_report_month") or "date unresolved")
+        st.markdown(f"**{int(coverage['documents'])} published reports loaded. Latest dated report: {latest}.**")
+    st.caption(
+        "These are officer reports, not council minutes. Report links are public evidence. "
+        "Project passages appear as signals only after a reviewer checks the source page, project name and stage."
+    )
+
+    report_display = documents.rename(
+        columns={
+            "report_title": "Report",
+            "report_month": "Month",
+            "source_status": "Extraction",
+            "source_pages": "Pages",
+            "source_url": "Source",
+        }
+    )
+    st.dataframe(
+        report_display[["Month", "Report", "Pages", "Extraction", "Source"]],
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Month": st.column_config.TextColumn("Month", width="small"),
+            "Report": st.column_config.TextColumn("Report", width="large"),
+            "Pages": st.column_config.NumberColumn("Pages", format="%d", width="small"),
+            "Extraction": st.column_config.TextColumn("Extraction", width="small"),
+            "Source": st.column_config.LinkColumn("Source", display_text="Report ↗", width="small"),
+        },
+    )
+    export_button(report_display, "Download report register CSV", "council-ce-reports.csv", "lg_ce_reports")
+
+    signals_result = fetch_ce_report_signals_result(name)
+    if not signals_result.ok or signals_result.data.empty:
+        queued = int(coverage.get("review_queue_leads") or 0) if coverage is not None else 0
+        st.info(
+            f"No source-reviewed project signals are published for this council yet. "
+            f"{queued:,} extracted candidate passages remain in the private review queue."
+        )
+        return
+
+    signals = signals_result.data.copy()
+    for column in ("lead_types", "amount_mentions"):
+        signals[column] = signals[column].apply(  # logic_firewall: display_only
+            lambda value: ", ".join(value) if isinstance(value, (list, tuple)) else value
+        )
+    signal_display = signals.rename(
+        columns={
+            "report_month": "Month",
+            "reviewed_project_name": "Reviewed project",
+            "reviewed_stage": "Reviewed stage",
+            "quote": "Source passage",
+            "amount_mentions": "Amounts mentioned",
+            "evidence_band": "Evidence",
+            "source_url": "Source",
+        }
+    )
+    st.markdown("**Source-reviewed forward-work observations**")
+    st.dataframe(
+        signal_display[
+            ["Month", "Reviewed project", "Reviewed stage", "Source passage", "Amounts mentioned", "Evidence", "Source"]
+        ],
+        hide_index=True,
+        width="stretch",
+        column_config={"Source": st.column_config.LinkColumn("Source", display_text="Evidence ↗", width="small")},
+    )
+    export_button(signal_display, "Download reviewed signals CSV", "council-ce-signals.csv", "lg_ce_signals")
+
+
+def _render_minutes_record(name: str) -> None:
+    coverage_result = fetch_minutes_coverage_result(name)
+    documents_result = fetch_minutes_documents_result(name)
+    if not documents_result.ok or documents_result.data.empty:
+        empty_state(
+            "No vetted minutes loaded",
+            "This council's minutes portal has not yet produced a publishable document for the corpus.",
+        )
+        return
+
+    documents = documents_result.data.copy()
+    coverage = coverage_result.data.iloc[0] if coverage_result.ok and not coverage_result.data.empty else None
+    if coverage is not None:
+        st.markdown(
+            f"**{int(coverage['documents'])} minutes documents loaded: "
+            f"{int(coverage['plenary_documents'])} plenary, "
+            f"{int(coverage['municipal_documents'])} municipal-district and "
+            f"{int(coverage['committee_documents'])} committee.**"
+        )
+        st.caption(
+            f"{int(coverage['dated_documents'])} documents have a parsed date and "
+            f"{int(coverage['ocr_documents'])} were recovered with OCR. Corpus coverage is not a claim "
+            "that every meeting held by the council is present."
+        )
+
+    documents["source_status"] = documents["source_status"].replace(
+        {"ocr_winocr": "OCR, verify against source", "text": "Text layer", "html": "HTML"}
+    )
+    minute_display = documents.rename(
+        columns={
+            "meeting": "Meeting",
+            "meeting_date": "Published date",
+            "meeting_scope": "Scope",
+            "source_status": "Extraction",
+            "source_url": "Source",
+        }
+    )
+    st.dataframe(
+        minute_display[["Published date", "Meeting", "Scope", "Extraction", "Source"]],
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Published date": st.column_config.TextColumn("Published date", width="small"),
+            "Meeting": st.column_config.TextColumn("Meeting", width="large"),
+            "Scope": st.column_config.TextColumn("Scope", width="small"),
+            "Extraction": st.column_config.TextColumn("Extraction", width="medium"),
+            "Source": st.column_config.LinkColumn("Source", display_text="Minutes ↗", width="small"),
+        },
+    )
+    export_button(minute_display, "Download minutes register CSV", "council-minutes.csv", "lg_minutes")
+    st.caption(
+        "Minutes can support source-linked context about decisions, motions and issues discussed. "
+        "A mention alone does not establish a project stage, legal relationship or current procurement opportunity."
+    )
+
+
+def _council_evidence_note_html() -> str:
+    return (
+        '<p class="con-section-note">Three separate public records, shown together for context. '
+        "Audited capital accounts record realised investment. Chief Executive reports can contain "
+        "forward-work observations. Minutes record what was discussed or decided. They are never "
+        "added together or collapsed into a council score.</p>"
+    )
+
+
+def _render_council_evidence_record(name: str) -> None:
+    evidence_heading("Capital, executive reports and meeting record")
+    st.html(_council_evidence_note_html())
+    capital_tab, reports_tab, minutes_tab = st.tabs(["Capital account", "Chief Executive reports", "Meeting minutes"])
+    with capital_tab:
+        _render_capital_record(name)
+    with reports_tab:
+        _render_ce_report_record(name)
+    with minutes_tab:
+        _render_minutes_record(name)
+
+
 # ── NOAC scorecard cards (v_la_noac_scorecard) ───────────────────────────────
 # Seven 2024 indicators grouped into two single-theme cards. Per-metric source deep-link
 # goes to the exact NOAC report page (#page=); card source links the report landing page.
@@ -891,6 +1128,7 @@ def _render_dossier(name: str) -> None:
     row = res.data.iloc[0]
     _render_ce_hero(name, row)
     _render_power_explainer(name)
+    _render_council_evidence_record(name)
     _render_performance(name)
 
     st.caption(

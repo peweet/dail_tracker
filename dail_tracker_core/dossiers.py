@@ -1575,6 +1575,8 @@ def build_council_dossier(conn: duckdb.DuckDBPyConnection, la: str) -> dict[str,
     ce = lg.chief_executive(conn, la).data
     if ce.empty:
         return None
+    capital_history = lg.capital_history(conn, la).data
+    latest_capital_year = int(capital_history.iloc[0]["year"]) if not capital_history.empty else None
     return {
         "local_authority": la,
         "chief_executive": serialize.first_record(ce),
@@ -1586,6 +1588,17 @@ def build_council_dossier(conn: duckdb.DuckDBPyConnection, la: str) -> dict[str,
         "derelict_sites_levy": serialize.first_record(lg.derelict_sites_levy(conn, la).data),
         "housing_performance": serialize.first_record(lg.housing_performance(conn, la).data),
         "council_money": serialize.first_record(lg.council_money(conn, la).data),
+        "capital_history": serialize.to_records(capital_history),
+        "capital_divisions": (
+            serialize.to_records(lg.capital_divisions(conn, la, latest_capital_year).data)
+            if latest_capital_year is not None
+            else []
+        ),
+        "minutes_coverage": serialize.first_record(lg.minutes_coverage(conn, la).data),
+        "minutes_documents": serialize.to_records(lg.minutes_documents(conn, la).data),
+        "ce_report_coverage": serialize.first_record(lg.ce_report_coverage(conn, la).data),
+        "ce_report_documents": serialize.to_records(lg.ce_report_documents(conn, la).data),
+        "ce_report_signals": serialize.to_records(lg.ce_report_signals(conn, la).data),
         "caveat": caveats.COUNCIL_MONEY,
     }
 
