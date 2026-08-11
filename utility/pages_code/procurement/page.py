@@ -24,6 +24,7 @@ from ._shared import (
     _year_pills,
     _register_picker,
     _section_picker,
+    render_procurement_sources_and_licences,
 )
 
 from .profiles import _render_supplier_profile, _render_authority_profile, _render_cpv_profile
@@ -62,12 +63,15 @@ def procurement_page() -> None:
     params = st.query_params
     if params.get("supplier"):
         _render_supplier_profile(params.get("supplier"))
+        render_procurement_sources_and_licences()
         return
     if params.get("authority"):
         _render_authority_profile(params.get("authority"))
+        render_procurement_sources_and_licences()
         return
     if params.get("cpv"):
         _render_cpv_profile(params.get("cpv"))
+        render_procurement_sources_and_licences()
         return
     if params.get("paid_supplier") and params.get("paid_publisher"):
         # LEAF: both keys present → the published line items for that supplier × body pair (the
@@ -78,24 +82,29 @@ def procurement_page() -> None:
             params.get("paid_publisher"),
             req_tier if req_tier in ("SPENT", "COMMITTED") else "SPENT",
         )
+        render_procurement_sources_and_licences()
         return
     if params.get("paid_publisher"):
         req_tier = (params.get("paid_tier") or "SPENT").upper()
         _render_payments_publisher_profile(
             params.get("paid_publisher"), req_tier if req_tier in ("SPENT", "COMMITTED") else "SPENT"
         )
+        render_procurement_sources_and_licences()
         return
     if params.get("paid_supplier"):
         req_tier = (params.get("paid_tier") or "SPENT").upper()
         _render_payments_supplier_profile(
             params.get("paid_supplier"), req_tier if req_tier in ("SPENT", "COMMITTED") else "SPENT"
         )
+        render_procurement_sources_and_licences()
         return
     if params.get("ted_winner"):
         _render_ted_winner_profile(params.get("ted_winner"))
+        render_procurement_sources_and_licences()
         return
     if params.get("single_bid_cpv"):
         _render_single_bid_cpv(params.get("single_bid_cpv"))
+        render_procurement_sources_and_licences()
         return
 
     # coverage_stats is the source-state gate AND the scale anchor: a missing view /
@@ -156,6 +165,7 @@ def procurement_page() -> None:
 
     if _n(stats.get("n_suppliers")) == 0:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
+        render_procurement_sources_and_licences()
         return
 
     # Four top-level sections, phrased as the questions a reader actually brings
@@ -282,6 +292,7 @@ def procurement_page() -> None:
         "actual payments; only sum-safe award values are shown. Suppliers shown are company-class "
         "registrations — sole traders and individuals are excluded.</div>"
     )
+    render_procurement_sources_and_licences()
     _fresh = freshness_line("procurement")
     if _fresh:
         # The OGP open-data export itself publishes with a lag of several months,

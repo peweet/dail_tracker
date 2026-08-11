@@ -27,6 +27,7 @@ sys.path.insert(0, str(_ROOT / "utility"))
 sys.path.insert(0, str(_ROOT / "utility" / "pages_code"))
 
 import procurement  # noqa: E402
+from procurement import _shared  # noqa: E402
 
 from dail_tracker_core.results import QueryResult  # noqa: E402
 
@@ -88,6 +89,28 @@ def test_n_formatter_is_safe():
 
 def test_page_is_callable():
     assert callable(procurement.procurement_page)
+
+
+def test_sources_and_reuse_terms_state_cc_by_attribution(monkeypatch):
+    rendered: list[str] = []
+
+    class _Expander:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(_shared.st, "expander", lambda *_args, **_kwargs: _Expander())
+    monkeypatch.setattr(_shared.st, "markdown", lambda text, **_kwargs: rendered.append(text))
+    monkeypatch.setattr(_shared.st, "caption", lambda text, **_kwargs: rendered.append(text))
+
+    _shared.render_procurement_sources_and_licences()
+
+    content = "\n".join(rendered)
+    assert "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC BY 4.0." in content
+    assert "https://creativecommons.org/licenses/by/4.0/" in content
+    assert "not to Dail Tracker's software" in content
 
 
 # ── source-state rendering (bare mode; monkeypatched results, no real data) ───

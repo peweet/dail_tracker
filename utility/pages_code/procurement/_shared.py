@@ -29,6 +29,27 @@ _SUP_PAGE = 24  # supplier cards per page (multiple of 3 for the grid)
 _AWARD_PAGE = 25  # award rows per page on a supplier profile
 _LIVE_PAGE = 24  # open-tender cards per page (multiple of 3 for the grid)
 
+
+def render_procurement_sources_and_licences() -> None:
+    """Render the procurement page's reusable source and reuse-terms disclosure."""
+    with st.expander("Sources and licences", expanded=False):
+        st.markdown(
+            "**eTenders / Office of Government Procurement:** "
+            "[source data](https://data.gov.ie/dataset/contract-notices-published-on-etenders) "
+            "is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).  "
+            "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC BY 4.0."
+        )
+        st.markdown(
+            "**Other registers:** TED, public-body payment lists, CRO, the Charities Regulator, "
+            "and lobbying.ie retain their own reuse terms. Read the source note beside each view "
+            "before reusing its records."
+        )
+        st.caption(
+            "This licence applies to eligible source data, not to Dail Tracker's software. "
+            "Source licences do not remove data-protection or privacy obligations."
+        )
+
+
 # Canonical formatters (ui.format, 2026-07 consolidation). Award amounts dash
 # non-positive values: €0 in this register means "not disclosed", not zero.
 _eur = partial(eur, dash_nonpositive=True)
