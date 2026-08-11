@@ -59,6 +59,7 @@ def test_uv_discovery_uses_the_standard_per_user_install_when_path_is_stale(
     executable.write_bytes(b"")
     monkeypatch.setattr(dev_env.shutil, "which", lambda _name: None)
     monkeypatch.setattr(dev_env.Path, "home", classmethod(lambda _cls: tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.delenv("UV_EXECUTABLE", raising=False)
 
     assert dev_env.uv_executable() == str(executable.resolve())
