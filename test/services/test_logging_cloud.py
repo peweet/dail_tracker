@@ -44,6 +44,8 @@ def test_json_format_emits_one_object_per_line():
     log, buf = _capture()
     log.info("hello")
     payload = json.loads(buf.getvalue().strip())
+    assert payload["schema"] == "dail-siting-observability/1"
+    assert len(payload["event_id"]) == 32
     assert payload["message"] == "hello"
     assert payload["level"] == "INFO"
     assert payload["logger"] == "test.logger"
@@ -60,11 +62,20 @@ def test_extra_fields_become_top_level_json_keys():
     assert payload["duration_ms"] == 12.5
 
 
-def test_unserialisable_extra_falls_back_to_repr():
+def test_extra_fields_cannot_override_canonical_envelope():
+    log, buf = _capture()
+    log.info("hello", extra={"schema": "attacker", "level": "FAKE", "logger": "fake"})
+    payload = json.loads(buf.getvalue().strip())
+    assert payload["schema"] == "dail-siting-observability/1"
+    assert payload["level"] == "INFO"
+    assert payload["logger"] == "test.logger"
+
+
+def test_unserialisable_extra_falls_back_to_type_marker():
     log, buf = _capture()
     log.info("odd", extra={"thing": object()})
     payload = json.loads(buf.getvalue().strip())
-    assert payload["thing"].startswith("<object object")
+    assert payload["thing"] == "<object>"
 
 
 def test_exception_is_captured_as_a_field():
@@ -82,6 +93,18 @@ def test_text_format_includes_request_id_slot():
     log.info("plain")
     assert "[-]" in buf.getvalue()
     assert "plain" in buf.getvalue()
+
+
+def test_text_format_redacts_exception_details():
+    log, buf = _capture(fmt="text")
+    try:
+        raise ValueError("email=person@example.ie api_key=leaked-secret")
+    except ValueError:
+        log.exception("failed")
+    output = buf.getvalue()
+    assert "person@example.ie" not in output
+    assert "leaked-secret" not in output
+    assert "REDACTED" in output
 
 
 # ---------------------------------------------------------------------------
@@ -115,10 +138,37 @@ def test_request_id_resets_after_token_reset():
     assert json.loads(buf.getvalue().strip())["request_id"] == "-"
 
 
+def test_set_request_id_normalizes_unsafe_direct_callers():
+    log, buf = _capture()
+    token = lc.set_request_id("unsafe id\nvalue")
+    try:
+        log.info("safe")
+    finally:
+        lc.reset_request_id(token)
+    request_id = json.loads(buf.getvalue().strip())["request_id"]
+    assert len(request_id) == 12
+    assert "unsafe" not in request_id
+
+
 def test_new_request_id_is_short_and_unique():
     a, b = lc.new_request_id(), lc.new_request_id()
     assert a != b
     assert len(a) == 12
+
+
+@pytest.mark.parametrize("value", ["abc", "edge-42", "req_7.3:retry"])
+def test_normalize_request_id_preserves_safe_values(value: str):
+    assert lc.normalize_request_id(value) == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, "", "has space", "line\nbreak", "/" * 65, "-starts-with-symbol"],
+)
+def test_normalize_request_id_replaces_unsafe_values(value: str | None):
+    normalised = lc.normalize_request_id(value)
+    assert len(normalised) == 12
+    assert normalised != value
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +186,7 @@ def test_new_request_id_is_short_and_unique():
         ('token: "tok_live_9988776655"', "tok_live_9988776655"),
         ("password=hunter2xx", "hunter2xx"),
         ("https://user:p4ssw0rd@example.com/x", "p4ssw0rd"),
+        ("contact person@example.ie", "person@example.ie"),
     ],
 )
 def test_secrets_are_redacted(raw: str, must_not_contain: str):
@@ -156,6 +207,69 @@ def test_redaction_applies_to_args_not_just_message():
     log.info("auth header was %s", "Bearer zzzzzzzzzzzz")
     out = buf.getvalue()
     assert "zzzzzzzzzzzz" not in out
+
+
+def test_structured_sensitive_fields_are_recursively_redacted():
+    log, buf = _capture()
+    log.info(
+        "safe event",
+        extra={
+            "event": "request.completed",
+            "details": {
+                "email": "person@example.test",
+                "actor_email": "actor@example.test",
+                "job_id": "site-derived-stable-id",
+                "nested": [{"authorization": "Bearer secret-value-123"}],
+            },
+        },
+    )
+    payload = json.loads(buf.getvalue().strip())
+    assert payload["details"]["email"] == "[REDACTED_FIELD]"
+    assert payload["details"]["actor_email"] == "[REDACTED_FIELD]"
+    assert payload["details"]["job_id"] == "[REDACTED_FIELD]"
+    assert payload["details"]["nested"][0]["authorization"] == "[REDACTED_FIELD]"
+    assert "person@example.test" not in buf.getvalue()
+
+
+def test_log_event_rejects_unbounded_event_names():
+    with pytest.raises(ValueError, match="invalid observability event name"):
+        lc.log_event("Request failed with details")
+
+
+def test_log_event_rejects_reserved_fields_and_long_names():
+    with pytest.raises(ValueError, match="reserved observability fields"):
+        lc.log_event("request.completed", schema="attacker")
+    with pytest.raises(ValueError, match="invalid observability event name"):
+        lc.log_event("a" * 97)
+
+
+def test_structured_values_and_messages_are_bounded():
+    log, buf = _capture()
+    log.info("x" * 10_000, extra={"items": list(range(100)), "detail": "y" * 10_000})
+    payload = json.loads(buf.getvalue().strip())
+    assert len(payload["message"]) == 4096
+    assert len(payload["items"]) == 40
+    assert len(payload["detail"]) == 2048
+
+
+def test_nested_values_keys_and_cycles_are_bounded():
+    log, buf = _capture()
+    cyclic: dict[str, object] = {}
+    cyclic["self"] = cyclic
+    long_key = "k" * 200 + "\n"
+    nested = {"one": {"two": {"three": {"four": {"five": "hidden"}}}}}
+    log.info("bounded", extra={"cycle": cyclic, "keys": {long_key: "ok"}, "nested": nested})
+
+    payload = json.loads(buf.getvalue().strip())
+    assert payload["cycle"]["self"] == "[CYCLE]"
+    assert list(payload["keys"]) == ["k" * 80]
+    assert payload["nested"]["one"]["two"]["three"]["four"] == "[TRUNCATED]"
+
+
+@pytest.mark.parametrize("field", ["event_id", "request_id", "schema", "service"])
+def test_static_context_rejects_canonical_envelope_fields(field: str):
+    with pytest.raises(ValueError, match="reserved context fields"):
+        lc.bind_context(**{field: "attacker"})
 
 
 def test_sha256_digests_are_NOT_redacted():

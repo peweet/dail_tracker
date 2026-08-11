@@ -37,7 +37,9 @@ import os
 import re
 import sys
 import uuid
+from collections.abc import Mapping
 from contextvars import ContextVar
+from itertools import islice
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -47,6 +49,30 @@ from typing import Any
 # it through every function. A log line with no request context gets "-".
 
 _request_id: ContextVar[str] = ContextVar("request_id", default="-")
+_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
+_EVENT_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*$")
+OBSERVABILITY_SCHEMA = "dail-siting-observability/1"
+_MAX_EVENT_NAME_CHARS = 96
+_MAX_FIELD_CHARS = 2048
+_MAX_MESSAGE_CHARS = 4096
+_MAX_EXCEPTION_CHARS = 16384
+_MAX_TEXT_RECORD_CHARS = _MAX_MESSAGE_CHARS + _MAX_EXCEPTION_CHARS
+_MAX_COLLECTION_ITEMS = 40
+_MAX_NESTING_DEPTH = 4
+_CONTEXT_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
+_EVENT_RESERVED_FIELDS = {
+    "event",
+    "event_id",
+    "exception",
+    "level",
+    "logger",
+    "message",
+    "request_id",
+    "schema",
+    "service",
+    "stack",
+    "ts",
+}
 
 
 def new_request_id() -> str:
@@ -54,9 +80,20 @@ def new_request_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
+def normalize_request_id(value: str | None) -> str:
+    """Return a safe bounded support reference, replacing invalid input.
+
+    Request ids may cross an external proxy boundary. Keeping the accepted
+    alphabet and length deliberately small prevents control-character log
+    injection and unbounded client-supplied log lines.
+    """
+    candidate = (value or "").strip()
+    return candidate if _REQUEST_ID_RE.fullmatch(candidate) else new_request_id()
+
+
 def set_request_id(value: str) -> object:
     """Bind an id for the current context. Returns the token for reset()."""
-    return _request_id.set(value)
+    return _request_id.set(normalize_request_id(value))
 
 
 def reset_request_id(token: object) -> None:
@@ -94,6 +131,12 @@ def bind_context(**fields: Any) -> None:
     Idempotent and additive. Pass run_id/step/sha once at startup; None values
     are ignored so callers can pass optionals without guarding.
     """
+    conflicts = sorted(_EVENT_RESERVED_FIELDS.intersection(fields))
+    if conflicts:
+        raise ValueError(f"reserved context fields: {', '.join(conflicts)}")
+    invalid = sorted(key for key in fields if not _CONTEXT_KEY_RE.fullmatch(key))
+    if invalid:
+        raise ValueError(f"invalid context fields: {', '.join(invalid)}")
     for key, value in fields.items():
         if value is not None:
             _static_context[key] = value
@@ -139,6 +182,11 @@ def log_event(
     local text mode it renders as a readable line — same call, no branching at
     the call site. None-valued fields are dropped so optionals need no guard.
     """
+    if len(event) > _MAX_EVENT_NAME_CHARS or not _EVENT_NAME_RE.fullmatch(event):
+        raise ValueError(f"invalid observability event name: {event!r}")
+    conflicts = sorted(_EVENT_RESERVED_FIELDS.intersection(fields))
+    if conflicts:
+        raise ValueError(f"reserved observability fields: {', '.join(conflicts)}")
     clean = {k: v for k, v in fields.items() if v is not None}
     logging.getLogger(logger).log(level, event, extra={"event": event, **clean})
 
@@ -172,13 +220,107 @@ _REDACTIONS: list[tuple[re.Pattern[str], str]] = [
     ),
     # url credentials:  https://user:pass@host
     (re.compile(r"://([^:/\s]+):([^@/\s]+)@"), r"://\1:[REDACTED]@"),
+    # Email addresses are identities and never belong in operational logs.
+    (
+        re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"),
+        "[REDACTED_EMAIL]",
+    ),
 ]
+
+# Structured fields are an allowlisted operational surface, not a second path
+# around message redaction. These names are always suppressed even if a future
+# caller accidentally attaches them through extra fields or log_event.
+_SENSITIVE_FIELD_NAMES = {
+    "actor_id",
+    "api_key",
+    "apikey",
+    "authorization",
+    "body",
+    "boundary",
+    "boundary_fingerprint_sha256",
+    "case_id",
+    "cookie",
+    "coordinates",
+    "email",
+    "evidence_manifest_id",
+    "html",
+    "job_id",
+    "latitude",
+    "longitude",
+    "markdown",
+    "password",
+    "payload",
+    "pdf_base64",
+    "project_description",
+    "prompt",
+    "request_body",
+    "request_sha256",
+    "report_id",
+    "response",
+    "response_body",
+    "secret",
+    "session_token",
+    "token",
+}
+_SENSITIVE_FIELD_RE = re.compile(
+    r"(^|_)(actor_id|api_key|authorization|body|boundary|boundary_fingerprint_sha256|"
+    r"case_id|cookie|coordinates?|email|evidence_manifest_id|html|idempotency_key|job_id|"
+    r"latitude|longitude|markdown|password|payload|pdf_base64|prompt|recipient|report_id|"
+    r"request_sha256|response|secret|session_token|token)(_|$)"
+)
 
 
 def redact(text: str) -> str:
     for pattern, replacement in _REDACTIONS:
         text = pattern.sub(replacement, text)
     return text
+
+
+def _safe_key(value: Any) -> str:
+    return re.sub(r"[\x00-\x1f\x7f]", " ", redact(str(value)))[:80]
+
+
+def _safe_field(
+    key: str,
+    value: Any,
+    *,
+    depth: int = 0,
+    seen: frozenset[int] = frozenset(),
+) -> Any:
+    normalised = key.lower().replace("-", "_")
+    if normalised in _SENSITIVE_FIELD_NAMES or _SENSITIVE_FIELD_RE.search(normalised):
+        return "[REDACTED_FIELD]"
+    return _safe_value(value, depth=depth, seen=seen)
+
+
+def _safe_value(
+    value: Any,
+    *,
+    depth: int = 0,
+    seen: frozenset[int] = frozenset(),
+) -> Any:
+    if isinstance(value, str):
+        return redact(value)[:_MAX_FIELD_CHARS]
+    if isinstance(value, Mapping):
+        if depth >= _MAX_NESTING_DEPTH:
+            return "[TRUNCATED]"
+        identity = id(value)
+        if identity in seen:
+            return "[CYCLE]"
+        nested_seen = seen | {identity}
+        return {
+            _safe_key(key): _safe_field(str(key), item, depth=depth + 1, seen=nested_seen)
+            for key, item in islice(value.items(), _MAX_COLLECTION_ITEMS)
+        }
+    if isinstance(value, (list, tuple, set, frozenset)):
+        if depth >= _MAX_NESTING_DEPTH:
+            return "[TRUNCATED]"
+        identity = id(value)
+        if identity in seen:
+            return "[CYCLE]"
+        nested_seen = seen | {identity}
+        return [_safe_value(item, depth=depth + 1, seen=nested_seen) for item in islice(value, _MAX_COLLECTION_ITEMS)]
+    return value
 
 
 class RedactionFilter(logging.Filter):
@@ -189,9 +331,9 @@ class RedactionFilter(logging.Filter):
             record.msg = redact(record.msg)
         if record.args:
             if isinstance(record.args, dict):
-                record.args = {k: redact(v) if isinstance(v, str) else v for k, v in record.args.items()}
+                record.args = _safe_value(record.args)
             elif isinstance(record.args, tuple):
-                record.args = tuple(redact(a) if isinstance(a, str) else a for a in record.args)
+                record.args = tuple(_safe_value(a) for a in record.args)
         return True
 
 
@@ -227,6 +369,13 @@ _RESERVED = {
     "taskName",
     "request_id",
     "service",
+    "event_id",
+    "exception",
+    "level",
+    "logger",
+    "schema",
+    "stack",
+    "ts",
 }
 
 
@@ -239,28 +388,44 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
+            "schema": OBSERVABILITY_SCHEMA,
+            "event_id": getattr(record, "event_id", uuid.uuid4().hex),
             "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
             "level": record.levelname,
             "logger": record.name,
             "service": getattr(record, "service", self.service),
             "request_id": getattr(record, "request_id", "-"),
-            "message": redact(record.getMessage()),
+            "message": redact(record.getMessage())[:_MAX_MESSAGE_CHARS],
         }
         if record.exc_info:
-            payload["exception"] = redact(self.formatException(record.exc_info))
+            payload["exception"] = redact(self.formatException(record.exc_info))[:_MAX_EXCEPTION_CHARS]
         if record.stack_info:
-            payload["stack"] = self.formatStack(record.stack_info)
+            payload["stack"] = self.formatStack(record.stack_info)[:_MAX_EXCEPTION_CHARS]
 
         for key, value in record.__dict__.items():
             if key in _RESERVED or key.startswith("_"):
                 continue
+            value = _safe_field(key, value)
             try:
                 json.dumps(value)
                 payload[key] = value
             except (TypeError, ValueError):
-                payload[key] = repr(value)
+                payload[key] = f"<{type(value).__name__}>"
 
         return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+class SafeTextFormatter(logging.Formatter):
+    """Apply the same redaction and bounds when local text mode renders tracebacks."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return redact(super().format(record))[:_MAX_TEXT_RECORD_CHARS]
+
+    def formatException(self, exc_info) -> str:  # noqa: N802 - logging API
+        return redact(super().formatException(exc_info))[:_MAX_EXCEPTION_CHARS]
+
+    def formatStack(self, stack_info: str) -> str:  # noqa: N802 - logging API
+        return redact(super().formatStack(stack_info))[:_MAX_EXCEPTION_CHARS]
 
 
 _TEXT_FORMAT = "%(asctime)s %(levelname)-7s [%(request_id)s] %(name)s: %(message)s"
@@ -331,7 +496,7 @@ def configure_logging(
     formatter: dict[str, Any] = (
         {"()": JsonFormatter, "service": service_s}
         if fmt_s == "json"
-        else {"format": _TEXT_FORMAT, "datefmt": "%Y-%m-%d %H:%M:%S"}
+        else {"()": SafeTextFormatter, "fmt": _TEXT_FORMAT, "datefmt": "%Y-%m-%d %H:%M:%S"}
     )
 
     logging.config.dictConfig(
