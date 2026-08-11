@@ -2,6 +2,10 @@
 *.parquet
 *.parquet.part
 
+# Temporary private-pilot bundle locks can embed a complete Git object database.
+# They are local hand-off artifacts, never public repository content.
+/.tmp/*.bundle.lock
+
 # Local auxiliary Git worktrees never belong in repository history.
 .worktrees/
 # Default ignored files
