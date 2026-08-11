@@ -8,7 +8,9 @@ pi_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 windows_home="${FM_WINDOWS_HOME:-/mnt/c/Users/$USER}"
 settings="$pi_dir/settings.json"
 dispatch="$fm_root/config/crew-dispatch.json"
-codex_link="$HOME/.local/bin/codex"
+local_bin="$HOME/.local/bin"
+codex_link="$local_bin/codex"
+claude_link="$local_bin/claude"
 
 for required in "$fm_root" "$pi_dir" "$settings"; do
   [[ -e "$required" ]] || { printf 'missing required path: %s\n' "$required" >&2; exit 1; }
@@ -23,6 +25,14 @@ codex_candidates=("$windows_home"/.vscode/extensions/openai.chatgpt-*-win32-x64/
 }
 codex_exe="${codex_candidates[${#codex_candidates[@]} - 1]}"
 [[ -x "$codex_exe" ]] || { printf 'Codex is not executable: %s\n' "$codex_exe" >&2; exit 1; }
+claude_candidates=("$windows_home"/.vscode/extensions/anthropic.claude-code-*-win32-x64/resources/native-binary/claude.exe)
+(( ${#claude_candidates[@]} > 0 )) || {
+  printf 'no Windows Claude executable found under %s/.vscode/extensions\n' "$windows_home" >&2
+  exit 1
+}
+claude_exe="${claude_candidates[${#claude_candidates[@]} - 1]}"
+[[ -x "$claude_exe" ]] || { printf 'Claude is not executable: %s\n' "$claude_exe" >&2; exit 1; }
+
 
 settings_tmp="$(mktemp "$pi_dir/settings.json.firstmate.XXXXXX")"
 jq '
@@ -36,8 +46,9 @@ jq '
 chmod 600 "$settings_tmp"
 mv -f "$settings_tmp" "$settings"
 
-mkdir -p "$HOME/.local/bin"
+mkdir -p "$local_bin"
 ln -sfn "$codex_exe" "$codex_link"
+ln -sfn "$claude_exe" "$claude_link"
 
 dispatch_tmp="$(mktemp "$fm_root/config/crew-dispatch.json.firstmate.XXXXXX")"
 jq -n '
@@ -69,4 +80,5 @@ jq -e '.defaultProvider == "openai-codex" and .defaultModel == "gpt-5.5" and (.e
 jq -e '.rules | length == 3' "$dispatch" >/dev/null
 jq -e '.default.harness == "codex"' "$dispatch" >/dev/null
 "$codex_link" --version
+"$claude_link" --version
 printf 'Configured Pi defaults and Firstmate Codex/Claude dispatch.\n'

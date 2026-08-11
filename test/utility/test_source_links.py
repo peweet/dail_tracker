@@ -11,6 +11,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "utility"))
 
 from ui import source_links  # noqa: E402
+from ui import source_pdfs  # noqa: E402
 
 
 def test_source_links_escape_data_and_reject_non_http_urls(monkeypatch) -> None:
@@ -45,3 +46,8 @@ def test_source_links_escape_data_and_reject_non_http_urls(monkeypatch) -> None:
     assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;" in html
     assert "javascript:" not in html
     assert "<img" not in html
+
+
+def test_interests_pdf_url_accepts_public_chamber_name() -> None:
+    """The Dáil display label must resolve against unaccented source keys."""
+    assert source_pdfs.interests_pdf_url("Dáil", 2025) == source_pdfs.INTERESTS[("dail", 2025)]

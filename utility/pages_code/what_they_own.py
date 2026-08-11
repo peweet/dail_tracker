@@ -51,7 +51,7 @@ from ui.components import (
 )
 from ui.entity_links import member_profile_url
 from ui.export_controls import export_button
-from ui.source_pdfs import interests_pdf_links, provenance_expander
+from ui.source_pdfs import interests_pdf_url, provenance_expander
 
 # ── Ownership category filters ─────────────────────────────────────────────────
 # Each entry is a display-only predicate over columns that the all-time index
@@ -159,7 +159,32 @@ def _redirect_to_profile(name: str) -> None:
         st.stop()
 
 
-def _render_provenance(house: str) -> None:
+def _render_provenance(house: str, *, years: list[int], selected_year: int | None) -> None:
+    """Show only source PDFs that actually cover the reader's selected scope."""
+    scoped_years = [selected_year] if selected_year is not None else sorted(set(years))
+    source_links: list[tuple[str, str]] = []
+    linked_years: list[int] = []
+    for year in sorted(scoped_years, reverse=True):
+        url = interests_pdf_url(house, year)
+        if url:
+            source_links.append((f"{house} Register {year} source PDF", url))
+            linked_years.append(year)
+
+    unlinked_years = sorted(set(scoped_years) - set(linked_years))
+    if selected_year is not None and not source_links:
+        link_note = (
+            f"No direct Oireachtas PDF link for the {selected_year} register is currently "
+            "indexed on this page. That is a source-link gap, not evidence that no declaration exists."
+        )
+    elif unlinked_years:
+        link_note = (
+            "Direct Oireachtas PDF links below cover only the listed years. Earlier years "
+            "in this view are included from the historic register data, but their direct PDF "
+            "links are not yet indexed here."
+        )
+    else:
+        link_note = "The direct Oireachtas PDF link below matches the selected declaration scope."
+
     provenance_expander(
         sections=[
             "This page draws on every published year of the Register of Members' Interests "
@@ -170,12 +195,12 @@ def _render_provenance(house: str) -> None:
             "Flags (landlord, property owner, shareholder) are pipeline navigation aids, "
             "not legal conclusions. Office holders (Ministers, Ceann Comhairle) may be "
             "exempt from filing, so records can be incomplete. A high count reflects "
-            "transparency, not wrongdoing."
+            "transparency, not wrongdoing.",
+            link_note,
         ],
         source_caption="Data: Oireachtas Register of Members' Interests (data.oireachtas.ie)",
-        pdf_links=interests_pdf_links(house),
+        pdf_links=source_links,
     )
-
 
 @dt_page
 def what_they_own_page() -> None:
@@ -297,7 +322,7 @@ def what_they_own_page() -> None:
             "No declarations on record",
             "No interest declarations on record for this chamber.",
         )
-        _render_provenance(house)
+        _render_provenance(house, years=years, selected_year=selected_year)
         return
 
     predicate = _CATEGORIES[category]
@@ -342,7 +367,7 @@ def what_they_own_page() -> None:
             f"No {category.lower()} on record",
             "No members match this category for the selected chamber.",
         )
-        _render_provenance(house)
+        _render_provenance(house, years=years, selected_year=selected_year)
         return
 
     export_button(
@@ -357,4 +382,4 @@ def what_they_own_page() -> None:
     # ranks (1, 4, 9…), which looks like missing data rather than a filter.
     _render_leaderboard(members_df, show_rank=(category == "Everyone"))
 
-    _render_provenance(house)
+    _render_provenance(house, years=years, selected_year=selected_year)

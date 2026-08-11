@@ -359,8 +359,14 @@ def provenance_expander(
 
 
 def interests_pdf_url(house: str, year: int) -> str | None:
-    """Return the canonical PDF URL for a given house + declaration year, or None."""
-    return INTERESTS.get((house.lower(), year))
+    """Return the canonical PDF URL for a given house + declaration year, or None.
+
+    The public UI passes display names such as ``Dáil`` while the source registry
+    uses unaccented keys. Keep that normalisation at this shared lookup seam so
+    a visible chamber choice cannot silently suppress an available source link.
+    """
+    house_key = house.strip().lower().replace("á", "a")
+    return INTERESTS.get((house_key, year))
 
 
 def iris_archive_url(issue_date) -> str:
