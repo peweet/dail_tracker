@@ -314,6 +314,10 @@ data/gold/
 # Generated logs
 pipeline.log
 *.log
+# Machine-local hook and evaluation telemetry. Keep only the directory marker so
+# fresh clones can create their own append-only records.
+/logs/*
+!/logs/.gitkeep
 # Cookieless page-view counter — runtime, ephemeral, grows per page load.
 logs/page_views.jsonl
 # Per-session token/turn telemetry from the SessionEnd hook — per-machine, append-only.
