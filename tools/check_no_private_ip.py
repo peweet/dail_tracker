@@ -57,6 +57,10 @@ DENY_DIR_PREFIXES: tuple[str, ...] = (
     "doc/private/",
     "siting_reports/",
     "data/silver/parquet/planning_layers/",
+    # Raw scrape cache AND the operator's own tender-response working files — nine .docx
+    # tender documents were nearly pushed inside commit 7259967a (2026-08-13). Nothing
+    # under ida/ has ever been git-tracked; the subtree is regenerable or commercial.
+    "ida/",
 )
 
 # ── Any path containing this substring (case-insensitive) is private IP.
