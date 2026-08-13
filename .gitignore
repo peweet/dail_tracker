@@ -651,11 +651,9 @@ pipeline_sandbox/council_minutes/*.out
 data/_sandbox/
 
 # ida/ — raw scrape cache backing the IDA sites register extraction
-# (pipeline_sandbox/pq_disclosures/pq_ida_sites_register.py). PDFs already caught by the
-# blanket *.pdf rule above; the .htm captures and their .stripped.txt derivatives are the
-# same "regenerable, not source" case as the council_minutes corpus above.
-ida/*.htm
-ida/*.stripped.txt
+# (pipeline_sandbox/pq_disclosures/pq_ida_sites_register.py). All contents are
+# regenerable local source material, including PDFs and derived HTML/text.
+/ida/
 
 # === editor swap + mergetool scratch files (never commit) ===
 # vim/IDE swap files and 3-way merge leftovers (vimdiff/mergetool writes

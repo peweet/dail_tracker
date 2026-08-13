@@ -1,18 +1,18 @@
 {
   "link_version": "1.2.0",
-  "generated_at": "2026-08-12T19:57:50.808734+00:00",
+  "generated_at": "2026-08-13T21:33:06.575375+00:00",
   "judge_court_pairs": 8903,
   "matched_pairs": 5996,
   "match_methods": {
-    "ambiguous": 399,
+    "no-candidate": 1623,
+    "honorific-conflict": 142,
+    "honorific-other-person": 90,
     "exact": 159,
     "surname-court": 4673,
     "surname-bench-wide": 1164,
-    "no-candidate": 1623,
-    "office-title": 649,
+    "ambiguous": 399,
     "roster-notice": 4,
-    "honorific-other-person": 90,
-    "honorific-conflict": 142
+    "office-title": 649
   },
   "unmatched": [
     {
