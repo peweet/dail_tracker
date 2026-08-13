@@ -84,3 +84,116 @@ def test_still_matches_within_the_tight_radius_when_recent():
     out = _spatial_temporal_matches(residual, apps)
     assert out.height == 1
     assert out["ApplicationNumber"][0] == "2460270"
+
+
+def test_tight_candidate_wins_before_a_newer_wide_candidate():
+    residual = _residual(abp_case="400001", lon=-8.0, lat=53.0, lodged_date=dt.date(2025, 6, 1))
+    apps = _apps(
+        [
+            ["TIGHT", "Cork County Council", "Refused", dt.date(2025, 4, 1), -8.0003, 53.0003],
+            ["WIDE", "Cork County Council", "Granted", dt.date(2025, 5, 20), -8.0010, 53.0010],
+        ]
+    )
+    assert _spatial_temporal_matches(residual, apps)["ApplicationNumber"].item() == "TIGHT"
+
+
+def test_same_date_tie_keeps_legacy_neighbour_then_source_order():
+    residual = _residual(abp_case="400002", lon=-8.0008, lat=53.0008, lodged_date=dt.date(2025, 6, 1))
+    apps = _apps(
+        [
+            # Source order alone would prefer CENTER, but the legacy grid traversal sees the
+            # south-west neighbour first and therefore selects NEIGHBOUR.
+            ["CENTER", "Cork County Council", "Granted", dt.date(2025, 5, 1), -8.0007, 53.0007],
+            ["NEIGHBOUR", "Cork County Council", "Refused", dt.date(2025, 5, 1), -8.0013, 53.0003],
+        ]
+    )
+    assert _spatial_temporal_matches(residual, apps)["ApplicationNumber"].item() == "NEIGHBOUR"
+
+
+def test_different_authority_and_post_lodgement_rows_are_excluded():
+    residual = _residual(abp_case="400003", lon=-8.0, lat=53.0, lodged_date=dt.date(2025, 6, 1))
+    apps = _apps(
+        [
+            ["WRONG-AUTH", "Galway City Council", "Granted", dt.date(2025, 5, 1), -8.0, 53.0],
+            ["TOO-LATE", "Cork County Council", "Granted", dt.date(2025, 6, 2), -8.0, 53.0],
+        ]
+    )
+    assert _spatial_temporal_matches(residual, apps).is_empty()
+
+
+def test_undated_appeal_selects_geometrically_nearest_tight_candidate():
+    residual = _residual(abp_case="400004", lon=-8.0, lat=53.0, lodged_date=None)
+    apps = _apps(
+        [
+            ["FARTHER", "Cork County Council", "Granted", dt.date(2025, 5, 1), -8.0004, 53.0004],
+            ["NEAREST", "Cork County Council", "Refused", dt.date(1990, 1, 1), -8.0001, 53.0001],
+        ]
+    )
+    assert _spatial_temporal_matches(residual, apps)["ApplicationNumber"].item() == "NEAREST"
+
+
+def test_exact_date_and_radius_boundaries_are_inclusive():
+    lodged = dt.date(2025, 6, 1)
+    cutoff = lodged - dt.timedelta(days=365 * 5)
+    residual = _residual(abp_case="400005", lon=0.0, lat=0.0, lodged_date=lodged)
+    apps_at_cutoff = _apps(
+        [["AT-LIMITS", "Cork County Council", "Granted", cutoff, 0.0015, 0.0015]]
+    )
+    assert _spatial_temporal_matches(residual, apps_at_cutoff)["ApplicationNumber"].item() == "AT-LIMITS"
+
+    apps_on_lodgement = _apps(
+        [["ON-LODGEMENT", "Cork County Council", "Refused", lodged, 0.0006, 0.0006]]
+    )
+    assert _spatial_temporal_matches(residual, apps_on_lodgement)["ApplicationNumber"].item() == "ON-LODGEMENT"
+
+
+def test_one_step_outside_date_or_wide_radius_is_excluded():
+    lodged = dt.date(2025, 6, 1)
+    residual = _residual(abp_case="400006", lon=0.0, lat=0.0, lodged_date=lodged)
+    rows = _apps(
+        [
+            ["TOO-OLD", "Cork County Council", "Granted", lodged - dt.timedelta(days=365 * 5 + 1), 0.0, 0.0],
+            ["TOO-WIDE", "Cork County Council", "Granted", lodged, 0.001501, 0.0],
+        ]
+    )
+    assert _spatial_temporal_matches(residual, rows).is_empty()
+
+
+def test_undated_nearest_uses_both_coordinate_deltas():
+    residual = _residual(abp_case="400007", lon=-8.0, lat=53.0, lodged_date=None)
+    rows = _apps(
+        [
+            ["LON-HEAVY", "Cork County Council", "Granted", dt.date(2025, 1, 1), -8.0005, 53.0001],
+            ["BALANCED", "Cork County Council", "Granted", dt.date(2025, 1, 1), -8.0003, 53.0003],
+        ]
+    )
+    assert _spatial_temporal_matches(residual, rows)["ApplicationNumber"].item() == "BALANCED"
+
+
+def test_exact_tight_boundary_stays_in_tight_band_and_is_included_when_undated():
+    lodged = dt.date(2025, 6, 1)
+    dated = _spatial_temporal_matches(
+        _residual(abp_case="400008", lon=0.0, lat=0.0, lodged_date=lodged),
+        _apps(
+            [
+                ["TIGHT-EXACT", "Cork County Council", "Refused", dt.date(2025, 4, 1), 0.0006, 0.0006],
+                ["WIDE-NEWER", "Cork County Council", "Granted", dt.date(2025, 5, 20), 0.0010, 0.0010],
+            ]
+        ),
+    )
+    assert dated["ApplicationNumber"].item() == "TIGHT-EXACT"
+
+    undated = _spatial_temporal_matches(
+        _residual(abp_case="400009", lon=0.0, lat=0.0, lodged_date=None),
+        _apps([["UNDATED-EXACT", "Cork County Council", "Refused", None, 0.0006, 0.0006]]),
+    )
+    assert undated["ApplicationNumber"].item() == "UNDATED-EXACT"
+
+
+def test_either_empty_input_returns_typed_empty_output():
+    residual = _residual(abp_case="400010", lon=0.0, lat=0.0, lodged_date=dt.date(2025, 6, 1))
+    application = _apps([["A", "Cork County Council", "Granted", dt.date(2025, 5, 1), 0.0, 0.0]])
+    empty_residual = residual.head(0)
+    empty_apps = application.head(0)
+    assert _spatial_temporal_matches(empty_residual, application).is_empty()
+    assert _spatial_temporal_matches(residual, empty_apps).is_empty()

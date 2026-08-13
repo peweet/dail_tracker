@@ -50,6 +50,17 @@ from pathlib import Path
 
 import polars as pl
 
+from planning.civic.extractors.planning_appeal_vector import (
+    OUT_COLS as _OUT_COLS,
+)
+from planning.civic.extractors.planning_appeal_vector import (
+    appeal_case_expr,
+    authority_key_expr,
+    case_status_expr,
+    council_decision_expr,
+    epoch_ms_date_expr,
+    spatial_temporal_matches,
+)
 from services.coverage_io import save_coverage
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
@@ -62,23 +73,28 @@ OUT = ROOT / "data/silver/parquet/planning_appeal_outcomes.parquet"
 OUT_SPINE = ROOT / "data/silver/parquet/planning_acp_cases.parquet"
 OUT_COV = ROOT / "data/_meta/planning_appeal_outcomes_coverage.json"
 ACP = "https://services-eu1.arcgis.com/o56BSnENmD5mYs3j/arcgis/rest/services/Cases_2016_Onwards/FeatureServer/3/query"
+_APPLICATION_COLUMNS = (
+    "ApplicationNumber",
+    "PlanningAuthority",
+    "decision_normalised",
+    "AppealRefNumber",
+    "DecisionDate",
+    "lon",
+    "lat",
+)
 
-_SIX = re.compile(r"\d{6}")
 # Cases still before the Board carry a DECISION of "Case is due to be decided by <date>" — 1,383 of
 # the register's 1,580 distinct DECISION strings on 2026-07-20. They are NOT outcomes; _norm_abp maps
 # them to OTHER, which would pool them with withdrawn/invalid. The spine marks them `live` instead.
 _LIVE = re.compile(r"^\s*case is due to be decided", re.I)
 # metres per degree at ~53°N — a spread/size measure only (never a distance the user is shown).
 _M_PER_DEG_LAT, _M_PER_DEG_LON = 111_320.0, 67_000.0
-_SPATIAL_DEG = 0.0006  # ~55 m at 53°N — primary radius (validated 98.4% vs Kerry ground truth)
-_SPATIAL_DEG_WIDE = 0.0015  # ~150 m — tried only if the primary radius finds no plausibly-dated
+# Matching constants are imported from the mutation-testable vector seam.
 # candidate. A large-scale scheme's ACP case-polygon centroid can sit further from the matching
 # application's own point coordinate than a one-off house's: ABP-322540 (Castlepark, Mallow, a
 # 469-unit LRD) was missed at the tight radius because its true application, 24/6036, sits ~89 m
 # from the ACP centroid — found 2026-08 when the fallback instead matched an unrelated 2007
 # permission on the same site (see _MAX_LOOKBACK_YEARS below).
-_GRID = 0.002  # grid-cell size for the spatial index (must be >= _SPATIAL_DEG_WIDE)
-_MAX_LOOKBACK_YEARS = 5  # a decision this much older than the appeal lodgement cannot plausibly be
 # the application under appeal — PDA 2000's default permission lifespan is 5 years. Without this
 # bound the fallback confidently matched ABP-322540 (lodged 2025) to a 2007 permission on the same
 # site 18 years earlier, because it was the only pre-dated candidate within the search radius —
@@ -201,9 +217,14 @@ def _fetch_acp() -> pl.DataFrame:
         # (DV0005, QD0005, VV0005 and ZE0005 all become "0005"). Verified 2026-07-20.
         pl.col("ABPCASEID").cast(pl.Utf8).str.strip_chars().alias("abp_case"),
         pl.col("DECISION").map_elements(_norm_abp, return_dtype=pl.Utf8).alias("abp_decision"),
-        pl.col("LODGEDON").map_elements(_ms_to_date, return_dtype=pl.Date).alias("lodged_date"),
-        pl.col("PLANINGATY").map_elements(_auth_key, return_dtype=pl.Utf8).alias("auth_key"),
+        epoch_ms_date_expr("LODGEDON").alias("lodged_date"),
+        authority_key_expr("PLANINGATY").alias("auth_key"),
     )
+
+
+def _load_applications(path: Path = SILVER) -> pl.DataFrame:
+    """Read only the seven application columns used by both match paths."""
+    return pl.read_parquet(path, columns=list(_APPLICATION_COLUMNS))
 
 
 def _build_spine(acp: pl.DataFrame) -> pl.DataFrame:
@@ -240,12 +261,10 @@ def _build_spine(acp: pl.DataFrame) -> pl.DataFrame:
     return (
         spine.with_columns(
             ((pl.col("_dx") ** 2 + pl.col("_dy") ** 2).sqrt()).round(0).alias("site_spread_m"),
-            pl.struct("decision_raw", "DECIDED_ON")
-            .map_elements(lambda s: _case_status(s["decision_raw"], s["DECIDED_ON"]), return_dtype=pl.Utf8)
-            .alias("status"),
-            pl.col("DECIDED_ON").map_elements(_ms_to_date, return_dtype=pl.Date).alias("decided_date"),
-            pl.col("DECIDED_ON").map_elements(_ms_to_date, return_dtype=pl.Date).alias("target_date"),
-            pl.col("UPDATED_ON").map_elements(_ms_to_date, return_dtype=pl.Date).alias("updated_date"),
+            case_status_expr("decision_raw", "DECIDED_ON").alias("status"),
+            epoch_ms_date_expr("DECIDED_ON").alias("decided_date"),
+            epoch_ms_date_expr("DECIDED_ON").alias("target_date"),
+            epoch_ms_date_expr("UPDATED_ON").alias("updated_date"),
         )
         .with_columns(
             # decided_date must mean ONE thing: the date the Board concluded the case. For a `live`
@@ -277,114 +296,9 @@ def _build_spine(acp: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-# Columns every outcome row carries, in order — shared by the appeal_ref and spatial_temporal sets.
-_OUT_COLS = [
-    "ApplicationNumber",
-    "PlanningAuthority",
-    "decision_normalised",
-    "AppealRefNumber",
-    "abp_case",
-    "council_decision",
-    "abp_decision",
-    "PLANINGATY",
-    "CATEGORY",
-    "DECIDED_ON",
-    "match_method",
-]
-
-
 def _spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.DataFrame:
-    """For ACP cases the ref join missed, match each to the nearest application of the SAME
-    authority whose decision pre-dates the appeal lodgement (most recent such). Returns rows
-    in the _OUT_COLS schema, tagged match_method='spatial_temporal'."""
-    cand = apps.filter(pl.col("lon").is_not_null() & pl.col("lat").is_not_null()).with_columns(
-        pl.col("PlanningAuthority").map_elements(_auth_key, return_dtype=pl.Utf8).alias("auth_key")
-    )
-    # spatial index: (auth_key, rounded lat, rounded lon) → list of candidate application rows
-    grid: dict[tuple, list[dict]] = {}
-    cols = {
-        c: cand[c].to_list()
-        for c in (
-            "auth_key",
-            "lat",
-            "lon",
-            "ApplicationNumber",
-            "PlanningAuthority",
-            "decision_normalised",
-            "DecisionDate",
-        )
-    }
-    for i in range(cand.height):
-        key = (cols["auth_key"][i], round(cols["lat"][i] / _GRID), round(cols["lon"][i] / _GRID))
-        grid.setdefault(key, []).append({c: cols[c][i] for c in cols})
-
-    def _best_within(cell_pool: list[dict], lat: float, lon: float, lodged: dt.date, radius: float) -> dict | None:
-        trimmed = [a for a in cell_pool if abs(a["lat"] - lat) <= radius and abs(a["lon"] - lon) <= radius]
-        cutoff = lodged - dt.timedelta(days=365 * _MAX_LOOKBACK_YEARS)
-        before = [a for a in trimmed if a["DecisionDate"] is not None and cutoff <= a["DecisionDate"] <= lodged]
-        return max(before, key=lambda a: a["DecisionDate"]) if before else None
-
-    def nearest(ak: str, lat: float, lon: float, lodged: dt.date | None) -> dict | None:
-        gl, go = round(lat / _GRID), round(lon / _GRID)
-        cell_pool = [a for dl in (-1, 0, 1) for dd in (-1, 0, 1) for a in grid.get((ak, gl + dl, go + dd), [])]
-        if not cell_pool:
-            return None
-        if lodged is not None:
-            # tight radius first (the validated rule) — only widen if it finds no plausible candidate.
-            return _best_within(cell_pool, lat, lon, lodged, _SPATIAL_DEG) or _best_within(
-                cell_pool, lat, lon, lodged, _SPATIAL_DEG_WIDE
-            )
-        pool = [a for a in cell_pool if abs(a["lat"] - lat) <= _SPATIAL_DEG and abs(a["lon"] - lon) <= _SPATIAL_DEG]
-        return min(pool, key=lambda a: (a["lat"] - lat) ** 2 + (a["lon"] - lon) ** 2) if pool else None
-
-    out = []
-    rc = {
-        c: residual[c].to_list()
-        for c in (
-            "auth_key",
-            "lat",
-            "lon",
-            "lodged_date",
-            "abp_case",
-            "abp_decision",
-            "PLANINGATY",
-            "CATEGORY",
-            "DECIDED_ON",
-        )
-    }
-    for i in range(residual.height):
-        m = nearest(rc["auth_key"][i], rc["lat"][i], rc["lon"][i], rc["lodged_date"][i])
-        if not m:
-            continue
-        out.append(
-            {
-                "ApplicationNumber": m["ApplicationNumber"],
-                "PlanningAuthority": m["PlanningAuthority"],
-                "decision_normalised": m["decision_normalised"],
-                "AppealRefNumber": None,
-                "abp_case": rc["abp_case"][i],
-                "council_decision": _council_decision(m["decision_normalised"]),
-                "abp_decision": rc["abp_decision"][i],
-                "PLANINGATY": rc["PLANINGATY"][i],
-                "CATEGORY": rc["CATEGORY"][i],
-                "DECIDED_ON": rc["DECIDED_ON"][i],
-                "match_method": "spatial_temporal",
-            }
-        )
-    schema = {
-        "ApplicationNumber": pl.Utf8,
-        "PlanningAuthority": pl.Utf8,
-        "decision_normalised": pl.Utf8,
-        "AppealRefNumber": pl.Utf8,
-        "abp_case": pl.Utf8,
-        "council_decision": pl.Utf8,
-        "abp_decision": pl.Utf8,
-        "PLANINGATY": pl.Utf8,
-        "CATEGORY": pl.Utf8,
-        "DECIDED_ON": pl.Int64,
-        "match_method": pl.Utf8,
-    }
-    return pl.DataFrame(out, schema=schema) if out else pl.DataFrame(schema=schema)
+    """Compatibility entry point for the native, order-preserving matcher."""
+    return spatial_temporal_matches(residual, apps)
 
 
 def main() -> None:
@@ -415,21 +329,13 @@ def main() -> None:
         OUT_SPINE,
     )
 
-    apps_all = pl.read_parquet(SILVER).select(
-        "ApplicationNumber", "PlanningAuthority", "decision_normalised", "AppealRefNumber", "DecisionDate", "lon", "lat"
-    )
+    apps_all = _load_applications()
     # PRIMARY — exact appeal_ref → ABPCASEID link (authoritative wherever the council fills it).
     apps_ref = (
         apps_all.filter(pl.col("AppealRefNumber").is_not_null() & (pl.col("AppealRefNumber").str.strip_chars() != ""))
         .with_columns(
-            pl.col("AppealRefNumber")
-            .map_elements(
-                lambda s: (_SIX.search(s or "") or [None])[0] if _SIX.search(s or "") else None, return_dtype=pl.Utf8
-            )
-            .alias("abp_case"),
-            pl.col("decision_normalised")
-            .map_elements(_council_decision, return_dtype=pl.Utf8)
-            .alias("council_decision"),
+            appeal_case_expr("AppealRefNumber").alias("abp_case"),
+            council_decision_expr("decision_normalised").alias("council_decision"),
         )
         .filter(pl.col("abp_case").is_not_null())
     )
