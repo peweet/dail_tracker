@@ -1,6 +1,10 @@
 # Disclosed national PO/payments dataset — deliverables index
 
-Read in this order. All work is read-only/sandbox; nothing promoted to gold/silver; no git run.
+Read in this order. This corpus's Phase 1 **was promoted 2026-07-17**:
+`extractors/disclosed_bq_po_extract.py` (HSE history) + `disclosed_bq_po_newbodies_extract.py`
+(Tranche-1 new bodies), tested by `test/extractors/test_disclosed_bq_po.py` (2026-08-14).
+This dir remains the evidence base the live extractors cite, and the seed data for Phases 2/3
+(remaining new bodies + renames).
 
 Source: `data/raw_bq/bq-results-20260619-122315-1781871808837.csv` (582,119 rows · 216 bodies · 2011-q1→2026-q1).
 

@@ -42,7 +42,7 @@ imported by a test:
 | `housing/` (`noac_housing_wide…`, `ssha_appendix_wide…`) | `derelict_sites_levy_extract.py`, `noac_collection_rates_extract.py`, constituency SQL views | ✅ `test_derelict_sites_levy`, `test_noac_collection_rates` |
 | `council_minutes/` | `extractors/councillors_promote_to_gold.py` | ⚠️ via `test_la_councillors` (active WIP) |
 | `committee_evidence/` | `extractors/committee_witnesses_extract.py` (→ silver) | ⚠️ view-registration only |
-| `disclosed_po_spend/` | `extractors/disclosed_bq_po_extract.py` + `DISCLOSED_PO_INTEGRATION_PLAN.md` | — (TIER1-B, not promoted yet) |
+| `disclosed_po_spend/` | **PROMOTED 2026-07-17**: `extractors/disclosed_bq_po_extract.py` (HSE history) + `disclosed_bq_po_newbodies_extract.py` (Tranche-1 new bodies), both in `pipeline.py` CHAINS + the consolidate fold. Dir stays: `DATA_QUALITY_BQ.md`/`body_regime*.csv`/`candidate_new.csv` are cited by the live extractors and seed Phases 2/3 | ✅ `test_disclosed_bq_po` (added 2026-08-14) |
 | `courts_reader/` | validated in `procurement_public_body_extract.py` | (covered by public-body tests) |
 | `planning/civic/extractors/` | live civic planning extractors writing `data/silver/parquet/` | ✅ `test/planning/` |
 | `procurement_payee_cro_anchor_probe.py` | cited as provenance for the promoted CRO override map | — |
@@ -76,8 +76,9 @@ with `git checkout 936650a -- <path>` (untracked prototype parquets/csvs were no
 | `member_contact/` | `extractors/member_contact_extract.py` (gold + member-overview) |
 | `dept_children_payments/` | `extractors/procurement_dept_readingorder_parser.py` (gold + accommodation-spend page) |
 
-Still-WIP prototypes (NOT promoted, kept): `disclosed_po_spend/` (TIER1-B genuine gap, verified
-2026-06-27), `spend_service_bridge/`, `pq_disclosures/`, `historic_members/`.
+Still-WIP prototypes (NOT promoted, kept): `spend_service_bridge/`, `pq_disclosures/`,
+`historic_members/`. (`disclosed_po_spend/` graduated from this list — promoted 2026-07-17,
+see the LIVE table above; Phases 2/3 of its plan remain open.)
 
 ## Dead probes — ARCHIVED to `pipeline_sandbox/_archive/` (2026-07-16, from HEAD `18dd551`)
 
