@@ -1,0 +1,501 @@
+{
+  "head": {
+    "counts": {
+      "resultCount": 26
+    }
+  },
+  "results": [
+    {
+      "bill": {
+        "act": null,
+        "amendmentLists": [],
+        "billNo": "50",
+        "billType": "Public",
+        "billTypeURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-type/public",
+        "billYear": "2026",
+        "debates": [
+          {
+            "chamber": {
+              "showAs": "Dáil Éireann",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+            },
+            "date": "2026-05-12",
+            "debateSectionId": "dbsect_10",
+            "showAs": "Comptroller and Auditor General (Due Diligence Complicity Audit) (Amendment) Bill 2026: First Stage",
+            "uri": "https://data.oireachtas.ie/akn/ie/debateRecord/dail/2026-05-12/debate/main"
+          }
+        ],
+        "events": [
+          {
+            "event": {
+              "chamber": {
+                "chamberCode": "dail",
+                "showAs": "Dáil Éireann",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+              },
+              "dates": [
+                {
+                  "date": "2026-01-19"
+                },
+                {
+                  "date": "2026-01-19"
+                },
+                {
+                  "date": "2026-05-12"
+                }
+              ],
+              "eventURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-event/admissibility-for-introduction",
+              "showAs": "Admissibility for Introduction",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50/admissibility-for-introduction"
+            }
+          }
+        ],
+        "lastUpdated": "2026-05-13T09:22:23.120000+00:00",
+        "longTitleEn": "<p>Bill entitled an Act to amend the Comptroller and Au<span style=\"color:hsl(0,0%,0%);\">ditor General (Amendment) Act </span>1993 to require the Comptroller and Auditor General to conduct a due diligence review of the State’s relations with Israel in line with the legal analysis and recommendations of the United Nations Independent International Commission of Inquiry on the Occupied Palestinian Territory, including East Jerusalem, and Israel on implementation of the Advisory Opinion of the International Court of Justice on the Legal Consequences arising from the Policies and Practices of Israel in the Occupied Palestinian Territory, including East Jerusalem.</p>",
+        "longTitleGa": "<p>Bille dá ngairtear Acht do leasú Acht an Ard-Reachtaire Cuntas agus Ciste (Leasú), 1993 chun a cheangal ar an Ard-Reachtaire Cuntas agus Ciste athbhreithniú díchill cuí a dhéanamh ar chaidreamh an Stáit le hIosrael de réir anailís dhlíthiúil agus mholtaí Choimisiún Fiosrúcháin Idirnáisiúnta Neamhspleách na Náisiún Aontaithe maidir leis an gCríoch Phalaistíneach faoi Fhorghabháil, lena n-áirítear Iarúsailéim Thoir, agus Iosrael maidir le cur i ngníomh Thuairim Chomhairleach na Cúirte Breithiúnais Idirnáisiúnta maidir leis na hIarmhairtí Dlí a d’eascair as Beartais agus Cleachtais Iosrael sa Chríoch Phalaistíneach faoi Fhorghabháil, lena n-áirítear Iarúsailéim Thoir.</p>",
+        "method": "Introduced",
+        "methodURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-method/introduced",
+        "mostRecentStage": {
+          "event": {
+            "chamber": {
+              "chamberCode": "dail",
+              "showAs": "Dáil Éireann",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+            },
+            "dates": [
+              {
+                "date": "2026-05-12"
+              }
+            ],
+            "house": {
+              "chamberCode": "dail",
+              "chamberType": "house",
+              "houseCode": "dail",
+              "houseNo": "34",
+              "showAs": "34th Dáil",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34"
+            },
+            "progressStage": 2,
+            "showAs": "Second Stage",
+            "stageCompleted": false,
+            "stageOutcome": "Current",
+            "stageURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-stage/2",
+            "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50/stage/dail/2"
+          }
+        },
+        "originHouse": {
+          "showAs": "Dáil Éireann",
+          "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+        },
+        "originHouseURI": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail",
+        "relatedDocs": [
+          {
+            "relatedDoc": {
+              "date": "2026-05-12",
+              "docType": "memo",
+              "formats": {
+                "pdf": {
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50/eng/memo/b5026d-memo.pdf"
+                },
+                "xml": null
+              },
+              "lang": "eng",
+              "showAs": "Explanatory Memorandum",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50/eng/memo"
+            }
+          }
+        ],
+        "shortTitleEn": "Comptroller and Auditor General (Due Diligence Complicity Audit) (Amendment) Bill 2026",
+        "shortTitleGa": "Bille an Ard-Reachtaire Cuntas agus Ciste (Iniúchadh Comhpháirteachais Díchill Chuí) (Leasú), 2026",
+        "source": "Private Member",
+        "sourceURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-source/private-member",
+        "sponsors": [
+          {
+            "sponsor": {
+              "as": {
+                "showAs": null,
+                "uri": null
+              },
+              "by": {
+                "showAs": "Aengus Ó Snodaigh",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Aengus-Ó-Snodaigh.D.2002-06-06"
+              },
+              "isPrimary": true
+            }
+          },
+          {
+            "sponsor": {
+              "as": {
+                "showAs": null,
+                "uri": null
+              },
+              "by": {
+                "showAs": "Donnchadh Ó Laoghaire",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Donnchadh-Ó-Laoghaire.D.2016-10-03"
+              },
+              "isPrimary": false
+            }
+          },
+          {
+            "sponsor": {
+              "as": {
+                "showAs": null,
+                "uri": null
+              },
+              "by": {
+                "showAs": "John Brady",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/John-Brady.D.2016-10-03"
+              },
+              "isPrimary": false
+            }
+          },
+          {
+            "sponsor": {
+              "as": {
+                "showAs": null,
+                "uri": null
+              },
+              "by": {
+                "showAs": "Shónagh Ní Raghallaigh",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Shónagh-Ní-Raghallaigh.D.2024-11-29"
+              },
+              "isPrimary": false
+            }
+          }
+        ],
+        "stages": [
+          {
+            "event": {
+              "chamber": {
+                "chamberCode": "dail",
+                "showAs": "Dáil Éireann",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+              },
+              "dates": [
+                {
+                  "date": "2026-01-19"
+                },
+                {
+                  "date": "2026-01-19"
+                },
+                {
+                  "date": "2026-05-12"
+                },
+                {
+                  "date": "2026-05-12"
+                }
+              ],
+              "house": {
+                "chamberCode": "dail",
+                "chamberType": "house",
+                "houseCode": "dail",
+                "houseNo": "34",
+                "showAs": "34th Dáil",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34"
+              },
+              "progressStage": 1,
+              "showAs": "First Stage",
+              "stageCompleted": true,
+              "stageOutcome": null,
+              "stageURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-stage/1",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50/stage/dail/1"
+            }
+          },
+          {
+            "event": {
+              "chamber": {
+                "chamberCode": "dail",
+                "showAs": "Dáil Éireann",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+              },
+              "dates": [
+                {
+                  "date": "2026-05-12"
+                }
+              ],
+              "house": {
+                "chamberCode": "dail",
+                "chamberType": "house",
+                "houseCode": "dail",
+                "houseNo": "34",
+                "showAs": "34th Dáil",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34"
+              },
+              "progressStage": 2,
+              "showAs": "Second Stage",
+              "stageCompleted": false,
+              "stageOutcome": "Current",
+              "stageURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-stage/2",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50/stage/dail/2"
+            }
+          }
+        ],
+        "status": "Current",
+        "statusURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-status/published",
+        "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50",
+        "versions": [
+          {
+            "version": {
+              "date": "2026-05-12",
+              "docType": "bill",
+              "formats": {
+                "pdf": {
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50/eng/initiated/b5026d.pdf"
+                },
+                "xml": null
+              },
+              "lang": "eng",
+              "showAs": "As Initiated",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/50/eng/initiated"
+            }
+          }
+        ]
+      },
+      "billSort": {
+        "actNoSort": null,
+        "actShortTitleEnSort": null,
+        "actShortTitleGaSort": null,
+        "actYearSort": null,
+        "billNoSort": 50,
+        "billShortTitleEnSort": "comptroller-and-auditor-general-due-diligence-complicity-audit-amendment-bill-2026",
+        "billShortTitleGaSort": "bille-an-ard-reachtaire-cuntas-agus-ciste-iniuchadh-comhphairteachais-dichill-chui-leasu-2026",
+        "billYearSort": 2026
+      },
+      "contextDate": "2026-05-12"
+    },
+    {
+      "bill": {
+        "act": null,
+        "amendmentLists": [],
+        "billNo": "25",
+        "billType": "Public",
+        "billTypeURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-type/public",
+        "billYear": "2026",
+        "debates": [],
+        "events": [
+          {
+            "event": {
+              "chamber": {
+                "chamberCode": "dail",
+                "showAs": "Dáil Éireann",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+              },
+              "dates": [
+                {
+                  "date": "2026-02-26"
+                },
+                {
+                  "date": "2026-02-26"
+                },
+                {
+                  "date": "2026-03-06"
+                }
+              ],
+              "eventURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-event/admissibility-for-introduction",
+              "showAs": "Admissibility for Introduction",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25/admissibility-for-introduction"
+            }
+          }
+        ],
+        "lastUpdated": "2026-03-06T12:01:06.930000+00:00",
+        "longTitleEn": "<p>Bill entitled an Act to protect accuracy in the use of Irish language names and addresses, including the length accenting of vowels, by facilitating the correction of records in accordance with the Data Protection Act 2018, by placing a duty on regulators to ensure that the names and addresses of customers and service users are respected by January 1 2030, and by amending the legislation under which future contracts in respect of the national postcode system are regulated; and to provide for related matters.</p>",
+        "longTitleGa": "<p>Bille dá ngairtear Acht chun cruinneas in úsáid ainmneacha agus seoltaí i nGaeilge, lena n-áirítear síneadh fada ar ghutaí, a chosaint, trí cheartúcháin a éascú ar thaifid de réir an Achta um Chosaint Sonraí, 2018, trí dhualgas a chur ar rialálaithe a chinntiú go léirítear meas ar ainmneacha agus seoltaí custaiméirí agus úsáideoirí seirbhíse faoin 1 Eanáir 2030, agus tríd an reachtaíocht a leasú faoina ndéanfar rialáil ar chonarthaí amach anseo do chóras na bpostchód náisiúnta; agus do dhéanamh socrú i dtaobh nithe gaolmhara.</p>",
+        "method": "Introduced",
+        "methodURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-method/introduced",
+        "mostRecentStage": {
+          "event": {
+            "chamber": {
+              "chamberCode": "dail",
+              "showAs": "Dáil Éireann",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+            },
+            "dates": [
+              {
+                "date": "2026-03-05"
+              }
+            ],
+            "house": {
+              "chamberCode": "dail",
+              "chamberType": "house",
+              "houseCode": "dail",
+              "houseNo": "34",
+              "showAs": "34th Dáil",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34"
+            },
+            "progressStage": 2,
+            "showAs": "Second Stage",
+            "stageCompleted": false,
+            "stageOutcome": "Current",
+            "stageURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-stage/2",
+            "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25/stage/dail/2"
+          }
+        },
+        "originHouse": {
+          "showAs": "Dáil Éireann",
+          "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+        },
+        "originHouseURI": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail",
+        "relatedDocs": [
+          {
+            "relatedDoc": {
+              "date": "2026-03-06",
+              "docType": "memo",
+              "formats": {
+                "pdf": {
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25/gle/memo/b2526d-memo.pdf"
+                },
+                "xml": null
+              },
+              "lang": "gle",
+              "showAs": "Explanatory Memorandum",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25/gle/memo"
+            }
+          }
+        ],
+        "shortTitleEn": "Irish Language Name and Address of the Person (Length Accent) Bill 2026",
+        "shortTitleGa": "An Bille um Ainm agus Seoladh Gaeilge an Duine (Síneadh Fada), 2026",
+        "source": "Private Member",
+        "sourceURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-source/private-member",
+        "sponsors": [
+          {
+            "sponsor": {
+              "as": {
+                "showAs": null,
+                "uri": null
+              },
+              "by": {
+                "showAs": "Aengus Ó Snodaigh",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Aengus-Ó-Snodaigh.D.2002-06-06"
+              },
+              "isPrimary": true
+            }
+          },
+          {
+            "sponsor": {
+              "as": {
+                "showAs": null,
+                "uri": null
+              },
+              "by": {
+                "showAs": "Réada Cronin",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Réada-Cronin.D.2020-02-08"
+              },
+              "isPrimary": false
+            }
+          },
+          {
+            "sponsor": {
+              "as": {
+                "showAs": null,
+                "uri": null
+              },
+              "by": {
+                "showAs": "Conor D McGuinness",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Conor-D-McGuinness.D.2024-11-29"
+              },
+              "isPrimary": false
+            }
+          }
+        ],
+        "stages": [
+          {
+            "event": {
+              "chamber": {
+                "chamberCode": "dail",
+                "showAs": "Dáil Éireann",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+              },
+              "dates": [
+                {
+                  "date": "2026-02-26"
+                },
+                {
+                  "date": "2026-02-26"
+                },
+                {
+                  "date": "2026-03-05"
+                },
+                {
+                  "date": "2026-03-06"
+                }
+              ],
+              "house": {
+                "chamberCode": "dail",
+                "chamberType": "house",
+                "houseCode": "dail",
+                "houseNo": "34",
+                "showAs": "34th Dáil",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34"
+              },
+              "progressStage": 1,
+              "showAs": "First Stage",
+              "stageCompleted": true,
+              "stageOutcome": null,
+              "stageURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-stage/1",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25/stage/dail/1"
+            }
+          },
+          {
+            "event": {
+              "chamber": {
+                "chamberCode": "dail",
+                "showAs": "Dáil Éireann",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/def/house/dail"
+              },
+              "dates": [
+                {
+                  "date": "2026-03-05"
+                }
+              ],
+              "house": {
+                "chamberCode": "dail",
+                "chamberType": "house",
+                "houseCode": "dail",
+                "houseNo": "34",
+                "showAs": "34th Dáil",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34"
+              },
+              "progressStage": 2,
+              "showAs": "Second Stage",
+              "stageCompleted": false,
+              "stageOutcome": "Current",
+              "stageURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-stage/2",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25/stage/dail/2"
+            }
+          }
+        ],
+        "status": "Current",
+        "statusURI": "https://data.oireachtas.ie/ie/oireachtas/def/bill-status/published",
+        "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25",
+        "versions": [
+          {
+            "version": {
+              "date": "2026-03-06",
+              "docType": "bill",
+              "formats": {
+                "pdf": {
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25/gle/initiated/b2526d.pdf"
+                },
+                "xml": null
+              },
+              "lang": "gle",
+              "showAs": "As Initiated",
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/bill/2026/25/gle/initiated"
+            }
+          }
+        ]
+      },
+      "billSort": {
+        "actNoSort": null,
+        "actShortTitleEnSort": null,
+        "actShortTitleGaSort": null,
+        "actYearSort": null,
+        "billNoSort": 25,
+        "billShortTitleEnSort": "irish-language-name-and-address-of-the-person-length-accent-bill-2026",
+        "billShortTitleGaSort": "an-bille-um-ainm-agus-seoladh-gaeilge-an-duine-sineadh-fada-2026",
+        "billYearSort": 2026
+      },
+      "contextDate": "2026-03-05"
+    }
+  ]
+}

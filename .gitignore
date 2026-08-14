@@ -600,6 +600,10 @@ data/bronze/**
 !test/fixtures/la_payments/*.parquet
 # per-LA AFS golden fact (test/fixtures/la_afs/_generate.py) for test/test_la_afs.py invariants
 !test/fixtures/la_afs/*.parquet
+# Oireachtas API response samples — test/services/test_api_schemas.py opens them directly
+# with no skip guard, so a fresh clone/CI hard-fails FileNotFoundError without them.
+# The blanket *.json rule above swallows them (last match wins). ~460 KiB total.
+!test/fixtures/api/*.json
 
 # generated bulk-export snapshots (privacy-filtered copies cut by api/routers/exports.py)
 data/_export_cache/

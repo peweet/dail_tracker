@@ -1,0 +1,89 @@
+{
+  "head": {
+    "counts": {
+      "resultCount": 3041
+    }
+  },
+  "results": [
+    {
+      "question": {
+        "by": {
+          "showAs": "Aengus Ó Snodaigh",
+          "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Aengus-Ó-Snodaigh.D.2002-06-06",
+          "memberCode": "Aengus-Ó-Snodaigh.D.2002-06-06"
+        },
+        "uri": "https://data.oireachtas.ie/ie/oireachtas/question/2026-05-21/pq_87",
+        "date": "2026-05-21",
+        "questionNumber": 87,
+        "house": {
+          "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34",
+          "houseNo": "34",
+          "chamberType": "house",
+          "houseCode": "dail",
+          "committeeCode": "",
+          "showAs": "34th Dáil"
+        },
+        "questionType": "oral",
+        "debateSection": {
+          "debateSectionId": "dbsect_16",
+          "uri": "https://data.oireachtas.ie/akn/ie/debateRecord/dail/2026-05-21/debate/dbsect_16",
+          "formats": {
+            "pdf": null,
+            "xml": {
+              "uri": "https://data.oireachtas.ie/akn/ie/debateRecord/dail/2026-05-21/debate/mul@/dbsect_16.xml"
+            }
+          },
+          "showAs": "Seirbhísí trí Ghaeilge"
+        },
+        "to": {
+          "roleCode": null,
+          "uri": null,
+          "showAs": "Rural",
+          "roleType": null
+        },
+        "showAs": " 87. D'fhiafraigh Deputy Aengus Ó Snodaigh den Minister for Rural and Community Development and the Gaeltacht cad é an dáta faoina ndéanfar na seirbhísí go léir a sholáthraíonn comhlachtaí poiblí sa Ghaeltacht a sholáthar trí mheán na Gaeilge. [38272/26] "
+      },
+      "contextDate": "2026-05-21"
+    },
+    {
+      "question": {
+        "by": {
+          "showAs": "Aengus Ó Snodaigh",
+          "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Aengus-Ó-Snodaigh.D.2002-06-06",
+          "memberCode": "Aengus-Ó-Snodaigh.D.2002-06-06"
+        },
+        "uri": "https://data.oireachtas.ie/ie/oireachtas/question/2026-05-21/pq_151",
+        "date": "2026-05-21",
+        "questionNumber": 151,
+        "house": {
+          "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34",
+          "houseNo": "34",
+          "chamberType": "house",
+          "houseCode": "dail",
+          "committeeCode": "",
+          "showAs": "34th Dáil"
+        },
+        "questionType": "written",
+        "debateSection": {
+          "debateSectionId": "dbsect_151",
+          "uri": "https://data.oireachtas.ie/akn/ie/debateRecord/dail/2026-05-21/writtens/dbsect_151",
+          "formats": {
+            "pdf": null,
+            "xml": {
+              "uri": "https://data.oireachtas.ie/akn/ie/debateRecord/dail/2026-05-21/writtens/mul@/dbsect_151.xml"
+            }
+          },
+          "showAs": "Gaeltacht Policy"
+        },
+        "to": {
+          "roleCode": null,
+          "uri": null,
+          "showAs": "Rural",
+          "roleType": null
+        },
+        "showAs": " 151. D'fhiafraigh Deputy Aengus Ó Snodaigh den Minister for Rural and Community Development and the Gaeltacht an bhfuil sé ar an eolas faoin bhfeachtas chun an tseanscoil ar an Trá Bháin i gCeantar na nOileán a choimeád mar áis don phobal, an bhfuil a Roinn tar éis dul i mbun teagmhála leis an bhfeachtas sin, agus an bhfuil aon phlean ag a Roinn chun a chinntiú go gcoimeádfar an spás ríthábhachtach sin don phobal Gaeltachta, agus ráiteas a thabhairt ina leith sin. [38273/26] "
+      },
+      "contextDate": "2026-05-21"
+    }
+  ]
+}

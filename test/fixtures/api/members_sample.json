@@ -1,0 +1,363 @@
+{
+  "head": {
+    "counts": {
+      "memberCount": 174,
+      "resultCount": 174
+    }
+  },
+  "results": [
+    {
+      "member": {
+        "lastName": "Ahern",
+        "firstName": "Ciarán",
+        "gender": "",
+        "fullName": "Ciarán Ahern",
+        "memberships": [
+          {
+            "membership": {
+              "dateRange": {
+                "end": null,
+                "start": "2024-11-29"
+              },
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Ciarán-Ahern.D.2024-11-29/house/dail/34",
+              "represents": [
+                {
+                  "represent": {
+                    "representCode": "Dublin-South-West",
+                    "representType": "constituency",
+                    "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34/constituency/Dublin-South-West",
+                    "showAs": "Dublin South-West"
+                  }
+                }
+              ],
+              "parties": [
+                {
+                  "party": {
+                    "dateRange": {
+                      "end": null,
+                      "start": "2024-11-29"
+                    },
+                    "uri": "https://data.oireachtas.ie/ie/oireachtas/party/dail/34/Labour_Party",
+                    "partyCode": "Labour_Party",
+                    "showAs": "Labour Party"
+                  }
+                }
+              ],
+              "offices": [],
+              "house": {
+                "houseNo": "34",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34",
+                "houseCode": "dail",
+                "chamberType": "house",
+                "showAs": "34th Dáil"
+              },
+              "committees": [
+                {
+                  "committeeType": [
+                    "Shadow Department"
+                  ],
+                  "houseNo": 34,
+                  "role": [],
+                  "serviceUnit": "Committees' Secretariat",
+                  "committeeName": [
+                    {
+                      "dateRange": {
+                        "end": null,
+                        "start": "2025-05-01 00:00:00+00:00"
+                      },
+                      "nameGa": "An Comhchoiste um Aeráid, Comhshaol agus Fuinneamh ",
+                      "nameEn": "Joint Committee on Climate, Environment and Energy"
+                    }
+                  ],
+                  "houseCode": "dail",
+                  "committeeDateRange": {
+                    "end": null,
+                    "start": "2025-05-13 00:00:00+00:00"
+                  },
+                  "mainStatus": "Live",
+                  "expiryType": "Sessional",
+                  "committeeID": 283,
+                  "status": "Live - Primary",
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/joint_committee_on_climate_environment_and_energy",
+                  "memberDateRange": {
+                    "end": null,
+                    "start": "2025-05-07 00:00:00+00:00"
+                  },
+                  "committeeCode": "283"
+                },
+                {
+                  "committeeType": [
+                    "Statutory"
+                  ],
+                  "role": [],
+                  "serviceUnit": "Committees' Secretariat",
+                  "committeeName": [
+                    {
+                      "dateRange": {
+                        "end": null,
+                        "start": "2024-11-29 00:00:00+00:00"
+                      },
+                      "nameGa": "An Coiste um Leasanna Chomhaltaí Dháil Éireann",
+                      "nameEn": "Committee on Members' Interests of Dáil Éireann"
+                    }
+                  ],
+                  "committeeDateRange": {
+                    "end": null,
+                    "start": "2024-12-18 00:00:00+00:00"
+                  },
+                  "mainStatus": "Live",
+                  "expiryType": "Standing",
+                  "committeeID": 237,
+                  "status": "Live - Primary",
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/committee_on_members_interests_of_dail_eireann",
+                  "memberDateRange": {
+                    "end": null,
+                    "start": "2025-05-07 00:00:00+00:00"
+                  },
+                  "committeeCode": "237"
+                },
+                {
+                  "committeeType": [
+                    "Shadow Department"
+                  ],
+                  "role": [],
+                  "serviceUnit": "Committees' Secretariat",
+                  "committeeName": [
+                    {
+                      "dateRange": {
+                        "end": null,
+                        "start": "2025-05-01 00:00:00+00:00"
+                      },
+                      "nameGa": "An Roghchoiste um Aeráid, Comhshaol agus Fuinneamh ",
+                      "nameEn": "Select Committee on Climate, Environment and Energy"
+                    }
+                  ],
+                  "committeeDateRange": {
+                    "end": null,
+                    "start": "2025-04-30 00:00:00+00:00"
+                  },
+                  "mainStatus": "Live",
+                  "expiryType": "Sessional",
+                  "committeeID": 281,
+                  "status": "Live - Primary",
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/select_committee_on_climate_environment_and_energy",
+                  "memberDateRange": {
+                    "end": null,
+                    "start": "2025-05-07 00:00:00+00:00"
+                  },
+                  "committeeCode": "281"
+                }
+              ]
+            }
+          }
+        ],
+        "image": false,
+        "dateOfDeath": null,
+        "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/Ciarán-Ahern.D.2024-11-29",
+        "pId": "CiaranAhern",
+        "memberCode": "Ciarán-Ahern.D.2024-11-29",
+        "wikiTitle": null,
+        "showAs": "Ciarán Ahern"
+      }
+    },
+    {
+      "member": {
+        "lastName": "Aird",
+        "firstName": "William",
+        "gender": "",
+        "fullName": "William Aird",
+        "memberships": [
+          {
+            "membership": {
+              "dateRange": {
+                "end": null,
+                "start": "2024-11-29"
+              },
+              "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/William-Aird.D.2024-11-29/house/dail/34",
+              "represents": [
+                {
+                  "represent": {
+                    "representCode": "Laois",
+                    "representType": "constituency",
+                    "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34/constituency/Laois",
+                    "showAs": "Laois"
+                  }
+                }
+              ],
+              "parties": [
+                {
+                  "party": {
+                    "dateRange": {
+                      "end": null,
+                      "start": "2024-11-29"
+                    },
+                    "uri": "https://data.oireachtas.ie/ie/oireachtas/party/dail/34/Fine_Gael",
+                    "partyCode": "Fine_Gael",
+                    "showAs": "Fine Gael"
+                  }
+                }
+              ],
+              "offices": [],
+              "house": {
+                "houseNo": "34",
+                "uri": "https://data.oireachtas.ie/ie/oireachtas/house/dail/34",
+                "houseCode": "dail",
+                "chamberType": "house",
+                "showAs": "34th Dáil"
+              },
+              "committees": [
+                {
+                  "committeeType": [
+                    "Shadow Department"
+                  ],
+                  "houseNo": 34,
+                  "role": {
+                    "dateRange": {
+                      "end": null,
+                      "start": "2025-05-21 00:00:00+00:00"
+                    },
+                    "title": "Leas-Chathaoirleach"
+                  },
+                  "serviceUnit": "Committees' Secretariat",
+                  "committeeName": [
+                    {
+                      "dateRange": {
+                        "end": null,
+                        "start": "2025-05-01 00:00:00+00:00"
+                      },
+                      "nameGa": "An Comhchoiste um Thalmhaíocht agus Bia ",
+                      "nameEn": "Joint Committee on Agriculture and Food"
+                    }
+                  ],
+                  "houseCode": "dail",
+                  "committeeDateRange": {
+                    "end": null,
+                    "start": "2025-05-07 00:00:00+00:00"
+                  },
+                  "mainStatus": "Live",
+                  "expiryType": "Sessional",
+                  "committeeID": 262,
+                  "status": "Live - Primary",
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/joint_committee_on_agriculture_and_food",
+                  "memberDateRange": {
+                    "end": null,
+                    "start": "2025-05-07 00:00:00+00:00"
+                  },
+                  "committeeCode": "262"
+                },
+                {
+                  "committeeType": [
+                    "Shadow Department"
+                  ],
+                  "houseNo": 34,
+                  "role": [],
+                  "serviceUnit": "Committees' Secretariat",
+                  "committeeName": [
+                    {
+                      "dateRange": {
+                        "end": null,
+                        "start": "2025-05-01 00:00:00+00:00"
+                      },
+                      "nameGa": "An Comhchoiste um Choimirce Shóisialach, Forbairt Tuaithe agus Pobail",
+                      "nameEn": "Joint Committee on Social Protection, Rural and Community Development"
+                    }
+                  ],
+                  "houseCode": "dail",
+                  "committeeDateRange": {
+                    "end": null,
+                    "start": "2025-05-13 00:00:00+00:00"
+                  },
+                  "mainStatus": "Live",
+                  "expiryType": "Sessional",
+                  "committeeID": 307,
+                  "status": "Live - Primary",
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/joint_committee_on_social_protection_rural_and_community_development",
+                  "memberDateRange": {
+                    "end": null,
+                    "start": "2025-05-07 00:00:00+00:00"
+                  },
+                  "committeeCode": "307"
+                },
+                {
+                  "committeeType": [
+                    "Shadow Department"
+                  ],
+                  "role": {
+                    "dateRange": {
+                      "end": null,
+                      "start": "2025-05-21 00:00:00+00:00"
+                    },
+                    "title": "Leas-Chathaoirleach"
+                  },
+                  "serviceUnit": "Committees' Secretariat",
+                  "committeeName": [
+                    {
+                      "dateRange": {
+                        "end": null,
+                        "start": "2025-05-01 00:00:00+00:00"
+                      },
+                      "nameGa": "An Roghchoiste um Thalmhaíocht agus Bia ",
+                      "nameEn": "Select Committee on Agriculture and Food"
+                    }
+                  ],
+                  "committeeDateRange": {
+                    "end": null,
+                    "start": "2025-04-30 00:00:00+00:00"
+                  },
+                  "mainStatus": "Live",
+                  "expiryType": "Sessional",
+                  "committeeID": 260,
+                  "status": "Live - Primary",
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/select_committee_on_agriculture_and_food",
+                  "memberDateRange": {
+                    "end": null,
+                    "start": "2025-05-07 00:00:00+00:00"
+                  },
+                  "committeeCode": "260"
+                },
+                {
+                  "committeeType": [
+                    "Shadow Department"
+                  ],
+                  "role": [],
+                  "serviceUnit": "Committees' Secretariat",
+                  "committeeName": [
+                    {
+                      "dateRange": {
+                        "end": null,
+                        "start": "2025-05-01 00:00:00+00:00"
+                      },
+                      "nameGa": "An Roghchoiste um Choimirce Shóisialach, Forbairt Tuaithe agus Pobail",
+                      "nameEn": "Select Committee on Social Protection, Rural and Community Development"
+                    }
+                  ],
+                  "committeeDateRange": {
+                    "end": null,
+                    "start": "2025-04-30 00:00:00+00:00"
+                  },
+                  "mainStatus": "Live",
+                  "expiryType": "Sessional",
+                  "committeeID": 305,
+                  "status": "Live - Primary",
+                  "uri": "https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/select_committee_on_social_protection_rural_and_community_development",
+                  "memberDateRange": {
+                    "end": null,
+                    "start": "2025-05-07 00:00:00+00:00"
+                  },
+                  "committeeCode": "305"
+                }
+              ]
+            }
+          }
+        ],
+        "image": false,
+        "dateOfDeath": null,
+        "uri": "https://data.oireachtas.ie/ie/oireachtas/member/id/William-Aird.D.2024-11-29",
+        "pId": "WilliamAird",
+        "memberCode": "William-Aird.D.2024-11-29",
+        "wikiTitle": null,
+        "showAs": "William Aird"
+      }
+    }
+  ]
+}
