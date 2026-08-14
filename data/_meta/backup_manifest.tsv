@@ -1,5 +1,5 @@
 # data backup manifest — sha256<TAB>size<TAB>relpath (relative to data/)
-# generated 2026-08-13T22:40:01+00:00 | 40594 files | 21.07 GB
+# generated 2026-08-14T05:51:25+00:00 | 40594 files | 21.07 GB
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	0	bronze/.gitkeep
 6191ee9bc5a5b9d38413d06b4aa0dc8b23033e821d26be3991e613705ff2d996	37865889	bronze/charities/public_register_20260426.xlsx
 21d6e835442bd940167108337023d81c079ba9da89e9c63bf0e706888ea2d5cb	192409128	bronze/cro/companies_20260504.csv
@@ -30505,7 +30505,7 @@ d3fc7a4d742b754e508aca497b3cf1b66091cac02789ba1e521a857b3ad40f4e	1006	silver/par
 90c282567df95cd1a4ee76b1aebd05f866c0bb66af32e9ec5710149d6fead915	34108	silver/parquet/planning_layers/curated_landmarks_resolve_cache.jsonl
 7bd0e462b18a28b595581ca4f4833887a02791ab942bc907a98da2127ea44669	879904	silver/parquet/planning_layers/dcc_local_roads.parquet
 5684f9e8450bcf931d5c24ebd3ab155e60e980d6f89c6f6dcc76a5661a65f10c	969	silver/parquet/planning_layers/dcc_local_roads_coverage.json
-5bccc4355df17748092dfc98ccfb83c8a19262e010923dfa6b8eb11c3c56a60d	84836	silver/parquet/planning_layers/dem_cache.parquet
+747270822330cae287bcf2eb18de7b79f3c83b3c791aa922a7abe89299896f0f	84934	silver/parquet/planning_layers/dem_cache.parquet
 0609ee5d3828974feb354ff4020b370472457acee85349e0a74dee52db160a0e	855147	silver/parquet/planning_layers/donegal_flood_a.parquet
 4937f64d1b868a86d819bc198033f4d6c2900677dac44a3c1f326b5850f8f233	1255	silver/parquet/planning_layers/donegal_flood_a_coverage.json
 ee26d7f07fcef963b047a4e79a9dbbba2da2ced65ce35d54c61e4d27d99efd4d	894657	silver/parquet/planning_layers/donegal_flood_b.parquet
