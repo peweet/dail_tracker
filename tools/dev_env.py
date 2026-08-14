@@ -127,7 +127,6 @@ def classify_uv_failure(output: str) -> UvFailure:
     return UvFailure("uv_failed", "uv failed; dependency state was not established")
 
 
-
 def uv_executable() -> str | None:
     """Resolve uv without requiring a user-local installation to be on PATH."""
 
@@ -151,6 +150,7 @@ def uv_executable() -> str | None:
         if candidate.is_file():
             return str(candidate.resolve())
     return None
+
 
 def _run_uv(
     action: str,

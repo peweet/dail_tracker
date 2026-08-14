@@ -421,8 +421,8 @@ class SafeTextFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         return redact(super().format(record))[:_MAX_TEXT_RECORD_CHARS]
 
-    def formatException(self, exc_info) -> str:  # noqa: N802 - logging API
-        return redact(super().formatException(exc_info))[:_MAX_EXCEPTION_CHARS]
+    def formatException(self, ei) -> str:  # noqa: N802 - logging API (base names the param "ei")
+        return redact(super().formatException(ei))[:_MAX_EXCEPTION_CHARS]
 
     def formatStack(self, stack_info: str) -> str:  # noqa: N802 - logging API
         return redact(super().formatStack(stack_info))[:_MAX_EXCEPTION_CHARS]
