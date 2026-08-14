@@ -136,14 +136,10 @@ def test_exact_date_and_radius_boundaries_are_inclusive():
     lodged = dt.date(2025, 6, 1)
     cutoff = lodged - dt.timedelta(days=365 * 5)
     residual = _residual(abp_case="400005", lon=0.0, lat=0.0, lodged_date=lodged)
-    apps_at_cutoff = _apps(
-        [["AT-LIMITS", "Cork County Council", "Granted", cutoff, 0.0015, 0.0015]]
-    )
+    apps_at_cutoff = _apps([["AT-LIMITS", "Cork County Council", "Granted", cutoff, 0.0015, 0.0015]])
     assert _spatial_temporal_matches(residual, apps_at_cutoff)["ApplicationNumber"].item() == "AT-LIMITS"
 
-    apps_on_lodgement = _apps(
-        [["ON-LODGEMENT", "Cork County Council", "Refused", lodged, 0.0006, 0.0006]]
-    )
+    apps_on_lodgement = _apps([["ON-LODGEMENT", "Cork County Council", "Refused", lodged, 0.0006, 0.0006]])
     assert _spatial_temporal_matches(residual, apps_on_lodgement)["ApplicationNumber"].item() == "ON-LODGEMENT"
 
 

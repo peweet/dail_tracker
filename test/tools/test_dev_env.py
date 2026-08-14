@@ -51,9 +51,7 @@ def test_uv_failure_classifies_missing_executable_as_setup_failure() -> None:
     assert "not evaluated" in failure.summary
 
 
-def test_uv_discovery_uses_the_standard_per_user_install_when_path_is_stale(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_uv_discovery_uses_the_standard_per_user_install_when_path_is_stale(monkeypatch, tmp_path: Path) -> None:
     executable = tmp_path / ".local" / "bin" / ("uv.exe" if os.name == "nt" else "uv")
     executable.parent.mkdir(parents=True)
     executable.write_bytes(b"")
@@ -120,12 +118,8 @@ def test_uv_executable_accepts_an_explicit_install(monkeypatch, tmp_path: Path) 
     assert dev_env.uv_executable() == str(executable.resolve())
 
 
-def test_uv_executable_finds_the_standard_user_local_install(
-    monkeypatch, tmp_path: Path
-) -> None:
-    executable = tmp_path / ".local" / "bin" / (
-        "uv.exe" if dev_env.os.name == "nt" else "uv"
-    )
+def test_uv_executable_finds_the_standard_user_local_install(monkeypatch, tmp_path: Path) -> None:
+    executable = tmp_path / ".local" / "bin" / ("uv.exe" if dev_env.os.name == "nt" else "uv")
     executable.parent.mkdir(parents=True)
     executable.write_bytes(b"uv")
     monkeypatch.delenv(dev_env.UV_EXECUTABLE_VAR, raising=False)

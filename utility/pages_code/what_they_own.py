@@ -202,6 +202,7 @@ def _render_provenance(house: str, *, years: list[int], selected_year: int | Non
         pdf_links=source_links,
     )
 
+
 @dt_page
 def what_they_own_page() -> None:
     hero_banner(

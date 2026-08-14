@@ -66,10 +66,7 @@ def case_status_expr(decision_column: str, decided_column: str) -> pl.Expr:
     """Classify a case as live using the extractor's existing two-part rule."""
     decision = pl.col(decision_column).fill_null("")
     return (
-        pl.when(
-            pl.col(decided_column).is_null()
-            | decision.str.contains(r"(?i)^\s*case is due to be decided")
-        )
+        pl.when(pl.col(decided_column).is_null() | decision.str.contains(r"(?i)^\s*case is due to be decided"))
         .then(pl.lit("live"))
         .otherwise(pl.lit("decided"))
     )
@@ -137,8 +134,7 @@ def spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.D
             (pl.col("_application_lat") - pl.col("lat")).abs().alias("_lat_delta"),
             (pl.col("_application_lon") - pl.col("lon")).abs().alias("_lon_delta"),
             (
-                (pl.col("_application_lat") - pl.col("lat")) ** 2
-                + (pl.col("_application_lon") - pl.col("lon")) ** 2
+                (pl.col("_application_lat") - pl.col("lat")) ** 2 + (pl.col("_application_lon") - pl.col("lon")) ** 2
             ).alias("_distance_sq"),
             (pl.col("lodged_date") - pl.duration(days=365 * MAX_LOOKBACK_YEARS)).alias("_cutoff"),
         )
@@ -154,10 +150,7 @@ def spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.D
             & (pl.col("_lon_delta") <= SPATIAL_DEG_WIDE)
         )
         .with_columns(
-            pl.when(
-                (pl.col("_lat_delta") <= SPATIAL_DEG)
-                & (pl.col("_lon_delta") <= SPATIAL_DEG)
-            )
+            pl.when((pl.col("_lat_delta") <= SPATIAL_DEG) & (pl.col("_lon_delta") <= SPATIAL_DEG))
             .then(0)
             .otherwise(1)
             .alias("_radius_band")
