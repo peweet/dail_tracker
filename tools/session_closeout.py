@@ -40,7 +40,13 @@ REPO = Path(__file__).resolve().parents[1]
 LEDGER = REPO / "logs" / "session_token_ledger.jsonl"
 REVIEWS = REPO / "logs" / "closeout_reviews.jsonl"
 
-TURNS_MIN = 20  # "substantive", kept in sync with session_context._adoption_tripwire
+# "substantive", kept in sync with tools/hooks/closeout_gate.py.
+# Raised 20 -> 500 on 2026-08-14: at 20 the bar caught 253 of 281 sessions since SINCE,
+# against a median session length of 161 turns — so "substantive" selected essentially
+# every session and the backlog was unreviewable by construction (29 ever recorded, ~10%
+# compliance). 500 is ~3x the median; it selects 16 of the same 281. No history is
+# discarded — sub-500 ledger rows simply stop counting as debt.
+TURNS_MIN = 500
 OUTCOMES = ("promoted", "already-captured", "no-durable-delta")
 NOTE_MIN_CHARS = 20  # forces a real one-line assessment, not a bare dismissal
 # Sessions that ended before the gate shipped predate the practice — don't

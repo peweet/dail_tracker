@@ -46,7 +46,7 @@ import re
 import sys
 import tempfile
 
-TURNS_MIN = 20  # kept in sync with tools/session_closeout.py TURNS_MIN
+TURNS_MIN = 500  # kept in sync with tools/session_closeout.py TURNS_MIN (raised from 20, 2026-08-14)
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REVIEWS = os.path.join(REPO, "logs", "closeout_reviews.jsonl")

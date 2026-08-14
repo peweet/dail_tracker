@@ -386,6 +386,12 @@ def _memory_currency_note() -> str:
     — pull, not push: a low band means re-verify before citing that card as fact
     (reference_agent_memory_staleness_literature_2026_07_31, oq:manual0006).
 
+    Counts the --actionable subset only (2026-08-14): a card pinned low by
+    correction_ceiling is band D permanently by design, so including those made this
+    a number that could never reach zero — measured 16 reported vs 2 actually
+    clearable, i.e. 14/16 of the nag was unfixable by construction. A nag nobody can
+    discharge trains the reader to skip the whole SessionStart block.
+
     Unlike every other note in this file, memory_gc.py imports polars (via
     services/data_contracts) — a real cost this hook otherwise avoids entirely.
     Measured: ~0.85 s warm, up to ~5 s on a cold first touch. Throttled to once per
@@ -397,7 +403,7 @@ def _memory_currency_note() -> str:
             n = json.loads(cache_path.read_text(encoding="utf-8")).get("count", 0)
         else:
             out = subprocess.run(
-                [sys.executable, str(REPO / "tools" / "memory_gc.py"), "--min-band", "Extracted"],
+                [sys.executable, str(REPO / "tools" / "memory_gc.py"), "--min-band", "Extracted", "--actionable"],
                 capture_output=True,
                 text=True,
                 timeout=8,
@@ -409,7 +415,10 @@ def _memory_currency_note() -> str:
             cache_path.write_text(json.dumps({"count": n}), encoding="utf-8")
         if not n:
             return ""
-        return f"{n} memory card(s) below Extracted band — `python tools/memory_gc.py --min-band Extracted`"
+        return (
+            f"{n} memory card(s) below Extracted band and clearable — "
+            "`python tools/memory_gc.py --min-band Extracted --actionable`"
+        )
     except Exception:
         return ""
 

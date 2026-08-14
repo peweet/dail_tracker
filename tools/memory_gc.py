@@ -33,6 +33,9 @@ Components (each a ceiling; worst wins):
   broken_link_ceiling — this card's own [[links]] point at a missing file -> C
 
 Use --min-band to surface only cards at or below a band before citing one as fact.
+Add --actionable to drop cards pinned low by correction_ceiling: a card that records
+a correction is band D permanently and by design, so counting it as a backlog to clear
+produces a number that can never reach zero.
 
 Usage:
   python tools/memory_gc.py                        # report only
@@ -289,6 +292,11 @@ def main() -> None:
         default=None,
         help="only list currency entries AT OR BELOW this band (e.g. Extracted surfaces Extracted+Indicative)",
     )
+    ap.add_argument(
+        "--actionable",
+        action="store_true",
+        help="with --min-band: drop correction-pinned cards (permanently D by design, not clearable debt)",
+    )
     args = ap.parse_args()
 
     r = scan(args.stale_days)
@@ -319,6 +327,8 @@ def main() -> None:
     currency_items = sorted(r["currency"].items(), key=lambda kv: _TIER_RANK[kv[1]["tier"]])
     if threshold_rank is not None:
         currency_items = [(n, c) for n, c in currency_items if _TIER_RANK[c["tier"]] <= threshold_rank]
+        if args.actionable:
+            currency_items = [(n, c) for n, c in currency_items if "correction_ceiling" not in c["binding"]]
     print(f"\ncurrency band ({len(currency_items)}{' filtered' if threshold_rank is not None else ''}):")
     for n, c in currency_items[:60]:
         suffix = f" -> superseded_by: {c['superseded_by']}" if c["superseded_by"] else ""
