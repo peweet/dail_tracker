@@ -32,6 +32,7 @@ the pinned path below is absolute.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import shutil
 import sqlite3
@@ -47,6 +48,10 @@ SESSION_ROOT = ROOT / ".cosmic-ray"
 # a keyword-only (`*,`) or positional-only (`/,`) signature marker -- which may carry parameters on
 # the same line, so it cannot be anchored to end-of-line -- and the second is the __name__ guard.
 _UNEARNED_LINE = re.compile(r"(?:^|[(,])\s*[*/]\s*,|^\s*if\s+__name__\s*==")
+
+# Opt-in provenance header a *_target.py may carry: "# COPIED-FROM: <repo-relative path> @
+# sha256:<hex>". Absent means unchecked, not exempt -- see assert_fresh().
+_COPIED_FROM = re.compile(r"^#\s*COPIED-FROM:\s*(?P<path>\S+)\s*@\s*sha256:(?P<hash>[0-9a-f]{64})\s*$", re.MULTILINE)
 
 # Below this many active mutants, a zero-survivor result is plausible rather than suspicious.
 _SUSPICION_FLOOR = 20
@@ -119,6 +124,40 @@ def assert_baseline(harness: Path) -> None:
         )
 
 
+def assert_fresh(target: Path) -> None:
+    """Refuse a session whose copy has drifted from the real module it was made from.
+
+    Every hand-written ``*_target.py`` docstring in this repo already carries a prose warning --
+    "refresh this copy from the real module before any re-run" -- that nobody could act on
+    automatically. Two sessions (``planning-appeal-outcomes-full`` and
+    ``-matcher``) drifted silently after the real module's matching logic was extracted to
+    ``planning_appeal_vector.py``, and kept reporting kill rates for code that no longer exists.
+    This makes the same claim machine-checked instead of trusting the comment gets read.
+
+    Opt-in: a target with no ``COPIED-FROM`` header is not checked -- not every session is a
+    copy of exactly one other file (some, like ``siting-geometry``, may not map 1:1 at all).
+    """
+
+    text = target.read_text(encoding="utf-8")
+    stale: list[str] = []
+    for match in _COPIED_FROM.finditer(text):
+        source = ROOT / match["path"]
+        if not source.is_file():
+            stale.append(f"{match['path']} no longer exists")
+            continue
+        current = hashlib.sha256(source.read_bytes()).hexdigest()
+        if current != match["hash"]:
+            stale.append(f"{match['path']} has changed since this copy was made")
+    if stale:
+        raise SessionError(
+            f"{target.name}: stale copy -- "
+            + "; ".join(stale)
+            + ". Refresh the *_target.py from the real module, then re-run "
+            "`python tools/mutation_session.py --rehash` to update its COPIED-FROM header "
+            "before trusting this session's numbers."
+        )
+
+
 def _unearned_kills(db: Path, target: Path) -> int:
     source = target.read_text(encoding="utf-8").splitlines()
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
@@ -180,6 +219,9 @@ def run_session(name: str, *, keep_evidence: bool = True) -> Outcome:
     if not config.is_file() or not harness.is_file() or not targets:
         raise SessionError(f"{name}: expected cosmic.toml, harness.py and a *_target.py in {directory}")
 
+    for target in targets:
+        assert_fresh(target)
+
     print(f"  interpreter pinned : {pin_interpreter(config)}")
     assert_baseline(harness)
     print("  baseline           : PASS (unmutated harness exits 0)")
@@ -208,10 +250,41 @@ def run_session(name: str, *, keep_evidence: bool = True) -> Outcome:
     return outcome
 
 
+def rehash(name: str) -> list[str]:
+    """Recompute each target's COPIED-FROM hash(es) against the CURRENT real source.
+
+    Run this only after actually refreshing the ``*_target.py`` content by hand -- it records
+    that the copy now matches the source, it does not perform the copy. Returns the paths it
+    updated so the caller can report what changed (empty if the target has no COPIED-FROM header
+    to update).
+    """
+
+    directory = SESSION_ROOT / name
+    updated: list[str] = []
+    for target in sorted(directory.glob("*_target.py")):
+        text = target.read_text(encoding="utf-8")
+
+        def _refresh(match: re.Match[str]) -> str:
+            source = ROOT / match["path"]
+            current = hashlib.sha256(source.read_bytes()).hexdigest()
+            updated.append(f"{target.relative_to(ROOT).as_posix()}: {match['path']} @ sha256:{current}")
+            return f"# COPIED-FROM: {match['path']} @ sha256:{current}"
+
+        rewritten = _COPIED_FROM.sub(_refresh, text)
+        if rewritten != text:
+            target.write_text(rewritten, encoding="utf-8")
+    return updated
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("session", nargs="*", help="session name(s) under .cosmic-ray/; default all")
     parser.add_argument("--list", action="store_true", help="list available sessions and exit")
+    parser.add_argument(
+        "--rehash",
+        action="store_true",
+        help="after manually refreshing a *_target.py, recompute its COPIED-FROM hash(es) instead of running",
+    )
     args = parser.parse_args(argv)
 
     if args.list:
@@ -220,6 +293,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     names = args.session or available()
+
+    if args.rehash:
+        if not names:
+            print("mutation session: no sessions found under .cosmic-ray/", file=sys.stderr)
+            return 1
+        for name in names:
+            for line in rehash(name):
+                print(line)
+        return 0
     if not names:
         print("mutation session: no sessions found under .cosmic-ray/", file=sys.stderr)
         return 1

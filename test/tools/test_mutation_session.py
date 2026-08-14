@@ -124,3 +124,66 @@ def test_the_name_guard_also_kills_without_earning_it(tmp_path):
     _write_session_db(db, [(2, "KILLED")])
 
     assert session.read_outcome(db, target).unearned == 1
+
+
+def test_a_target_with_no_copied_from_header_is_not_checked(tmp_path):
+    target = tmp_path / "x_target.py"
+    target.write_text('"""No provenance header at all."""\na = 1\n', encoding="utf-8")
+
+    session.assert_fresh(target)  # must not raise
+
+
+def test_a_copy_matching_its_declared_source_hash_passes(tmp_path, monkeypatch):
+    monkeypatch.setattr(session, "ROOT", tmp_path)
+    source = tmp_path / "real_module.py"
+    source.write_text("def f():\n    return 1\n", encoding="utf-8")
+    import hashlib
+
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    target = tmp_path / "x_target.py"
+    target.write_text(f'# COPIED-FROM: real_module.py @ sha256:{digest}\n"""copy"""\n', encoding="utf-8")
+
+    session.assert_fresh(target)  # must not raise
+
+
+def test_a_copy_whose_source_has_changed_since_raises(tmp_path, monkeypatch):
+    """The gate that would have caught planning-appeal-outcomes-full/-matcher drifting silently."""
+
+    monkeypatch.setattr(session, "ROOT", tmp_path)
+    source = tmp_path / "real_module.py"
+    source.write_text("def f():\n    return 1\n", encoding="utf-8")
+    target = tmp_path / "x_target.py"
+    target.write_text(
+        "# COPIED-FROM: real_module.py @ sha256:" + "0" * 64 + '\n"""copy"""\n', encoding="utf-8"
+    )
+
+    with pytest.raises(session.SessionError, match="stale copy"):
+        session.assert_fresh(target)
+
+
+def test_a_declared_source_that_no_longer_exists_raises(tmp_path, monkeypatch):
+    monkeypatch.setattr(session, "ROOT", tmp_path)
+    target = tmp_path / "x_target.py"
+    target.write_text(
+        "# COPIED-FROM: gone.py @ sha256:" + "a" * 64 + '\n"""copy"""\n', encoding="utf-8"
+    )
+
+    with pytest.raises(session.SessionError, match="no longer exists"):
+        session.assert_fresh(target)
+
+
+def test_rehash_updates_the_header_to_the_current_source_hash(tmp_path, monkeypatch):
+    monkeypatch.setattr(session, "ROOT", tmp_path)
+    monkeypatch.setattr(session, "SESSION_ROOT", tmp_path)
+    source = tmp_path / "real_module.py"
+    source.write_text("def f():\n    return 1\n", encoding="utf-8")
+    directory = tmp_path / "some-session"
+    directory.mkdir()
+    target = directory / "x_target.py"
+    target.write_text(
+        "# COPIED-FROM: real_module.py @ sha256:" + "0" * 64 + '\n"""copy"""\n', encoding="utf-8"
+    )
+
+    session.rehash("some-session")
+
+    session.assert_fresh(target)  # no longer raises once rehashed to the current source

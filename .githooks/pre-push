@@ -45,6 +45,7 @@ fi
 # blocked until those commits are rewritten (git filter-branch --index-filter, local only).
 CE_PRIVATE_PATHS="data/gold/parquet/council_ce_report_leads.parquet pipeline_sandbox/council_minutes/ce_report_lead_reviews.csv pipeline_sandbox/council_minutes/ce_lead_recall_labels.json pipeline_sandbox/council_minutes/ce_lead_recall_gap.jsonl"
 ZERO=0000000000000000000000000000000000000000
+GATE_SHA=
 while read -r _local_ref local_sha _remote_ref remote_sha; do
   [ "$local_sha" = "$ZERO" ] && continue  # branch deletion pushes nothing
   if [ "$remote_sha" = "$ZERO" ]; then range="$local_sha"; else range="$remote_sha..$local_sha"; fi
@@ -56,21 +57,34 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
     echo "pre-push: rewrite the unpushed range to drop them before pushing." >&2
     exit 1
   fi
+  GATE_SHA="$local_sha"
 done
 
 # Fast correctness gate (2026-08-14) -- public CI had been red for 10+ consecutive runs
 # because nothing checked correctness before a push; lint + format + typecheck catch the
 # recurrent classes in about a minute. Tests stay in CI (too slow for a push gate).
-# Skip once with DAIL_SKIP_PUSH_GATE=1 (CI still enforces all three independently).
+#
+# The gate runs against a `git archive` extraction of the COMMIT BEING PUSHED, never the
+# working tree: several agent sessions share this tree, so working-tree state routinely
+# contains another session's in-flight WIP that is not in the push (first live run of the
+# tree-based version blocked on exactly that). The archive is byte-for-byte what CI checks
+# out. Skip once with DAIL_SKIP_PUSH_GATE=1 (CI still enforces all three independently).
 if [ "${DAIL_SKIP_PUSH_GATE:-0}" != "1" ]; then
+  [ -z "$GATE_SHA" ] && GATE_SHA=$(git rev-parse HEAD)  # manual hook invocation
+  GATE_DIR=$(mktemp -d) || { echo "pre-push: mktemp failed; gate skipped (CI enforces)." >&2; exit 0; }
+  trap 'rm -rf "$GATE_DIR"' EXIT
+  if ! git archive "$GATE_SHA" | (cd "$GATE_DIR" && tar -xf -); then
+    echo "pre-push: could not extract $GATE_SHA; gate skipped (CI enforces)." >&2
+    exit 0
+  fi
   if "$PY" -m ruff --version >/dev/null 2>&1; then
-    "$PY" -m ruff check . || { echo "pre-push: ruff check failed -- fix or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
-    "$PY" -m ruff format --check . || { echo "pre-push: format drift -- run ruff format on the listed files." >&2; exit 1; }
+    "$PY" -m ruff check "$GATE_DIR" || { echo "pre-push: ruff check failed on the pushed commit -- fix, recommit, or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
+    "$PY" -m ruff format --check "$GATE_DIR" || { echo "pre-push: format drift in the pushed commit -- run ruff format on the listed files and recommit." >&2; exit 1; }
   else
     echo "pre-push: ruff not in this environment; lint gate skipped (CI enforces)." >&2
   fi
   if "$PY" -m basedpyright --version >/dev/null 2>&1; then
-    "$PY" -m basedpyright || { echo "pre-push: basedpyright failed -- fix or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
+    (cd "$GATE_DIR" && "$PY" -m basedpyright) || { echo "pre-push: basedpyright failed on the pushed commit -- fix, recommit, or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
   else
     echo "pre-push: basedpyright not in this environment; type gate skipped (CI enforces)." >&2
   fi
