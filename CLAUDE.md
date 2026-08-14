@@ -31,7 +31,10 @@ Work inside them with a normal `cd planning/product && git ...`, or the repointe
 aliases `git siting <cmd>` / `git publicsignal <cmd>` (delegate via `git -C`, work from any
 directory). Before ending a session, run `python tools/dev.py roots` (or
 `python tools/roots_status.py`) — it reports uncommitted/unpushed state across all three roots
-in one shot, so private-repo work doesn't silently pile up uncommitted.
+in one shot, so private-repo work doesn't silently pile up uncommitted. It walks every
+`git worktree` of each root, not just the primary checkout, and flags commits reachable from
+**no remote** rather than commits ahead of an upstream — a branch pushed with `push HEAD:main`
+leaves its own tracking ref behind and is not unpushed work.
 
 The public remote is guarded independently: `.githooks/pre-push` runs
 `tools/check_no_private_ip.py` (same check in CI) to block engine/product files from ever
