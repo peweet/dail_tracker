@@ -82,6 +82,7 @@ class ScrapeResult:
     terminal_reached: bool
     termination_reason: str
 
+
 SOURCE = {
     "dataset": "eTenders current opportunities (Calls for Tender + Notices)",
     "publisher": "Office of Government Procurement (OGP)",
@@ -439,22 +440,18 @@ def _append_history(new_rows: pl.DataFrame, path: Path, id_column: str) -> None:
     if new_rows.is_empty():
         return
     previous = pl.read_parquet(path) if path.exists() else None
-    combined = (
-        pl.concat([previous, new_rows], how="diagonal_relaxed") if previous is not None else new_rows
-    ).unique(subset=[id_column], keep="last", maintain_order=True)
+    combined = (pl.concat([previous, new_rows], how="diagonal_relaxed") if previous is not None else new_rows).unique(
+        subset=[id_column], keep="last", maintain_order=True
+    )
     save_parquet(combined, path, min_rows=previous.height if previous is not None else None)
 
 
 def _enrich_cpv_rows(pw, df: pl.DataFrame, max_details: int, delay_ms: int) -> tuple[pl.DataFrame, int, int]:
     """Enrich only missing CFT CPVs in an existing snapshot, in a separate browser lifetime."""
     rows = df.to_dicts()
-    todo = [
-        row
-        for row in rows
-        if row.get("feed") == "cft"
-        and not row.get("cpv_code")
-        and row.get("detail_url")
-    ][:max_details]
+    todo = [row for row in rows if row.get("feed") == "cft" and not row.get("cpv_code") and row.get("detail_url")][
+        :max_details
+    ]
     if not todo:
         return df, 0, 0
     browser, page = _launch(pw)
@@ -598,7 +595,8 @@ def main() -> None:
     incomplete = {feed: result for feed, result in receipts.items() if not result.terminal_reached}
     if incomplete and not args.dry_run:
         summary = ", ".join(
-            f"{feed}: {result.termination_reason} after {result.pages_visited} pages" for feed, result in incomplete.items()
+            f"{feed}: {result.termination_reason} after {result.pages_visited} pages"
+            for feed, result in incomplete.items()
         )
         raise RuntimeError(f"Incomplete eTenders pagination ({summary}); previous silver snapshot left untouched")
     if not rows:
