@@ -9,7 +9,8 @@
 # This only ever BLOCKS a push; it never modifies files. CI enforces the same
 # check independently, so a clone that skips the config is still covered there.
 
-for PY in .venv/Scripts/python.exe .venv/Scripts/python .venv/bin/python python3 python; do
+REPO_ROOT=$(git rev-parse --show-toplevel)
+for PY in "$REPO_ROOT/.venv/Scripts/python.exe" "$REPO_ROOT/.venv/Scripts/python" "$REPO_ROOT/.venv/bin/python" python3 python; do
   command -v "$PY" >/dev/null 2>&1 && break
 done
 
@@ -77,6 +78,10 @@ if [ "${DAIL_SKIP_PUSH_GATE:-0}" != "1" ]; then
     echo "pre-push: could not extract $GATE_SHA; gate skipped (CI enforces)." >&2
     exit 0
   fi
+  # Mark the extraction as a repo root: ruff anchors its walk (and gitignore handling)
+  # at a .git boundary, so without this the discovery semantics differ from a real
+  # checkout and the gate can flag files CI's own `ruff check .` never visits.
+  git -C "$GATE_DIR" init -q 2>/dev/null || true
   if "$PY" -m ruff --version >/dev/null 2>&1; then
     "$PY" -m ruff check "$GATE_DIR" || { echo "pre-push: ruff check failed on the pushed commit -- fix, recommit, or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
     "$PY" -m ruff format --check "$GATE_DIR" || { echo "pre-push: format drift in the pushed commit -- run ruff format on the listed files and recommit." >&2; exit 1; }
@@ -84,7 +89,7 @@ if [ "${DAIL_SKIP_PUSH_GATE:-0}" != "1" ]; then
     echo "pre-push: ruff not in this environment; lint gate skipped (CI enforces)." >&2
   fi
   if "$PY" -m basedpyright --version >/dev/null 2>&1; then
-    (cd "$GATE_DIR" && "$PY" -m basedpyright) || { echo "pre-push: basedpyright failed on the pushed commit -- fix, recommit, or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
+    (cd "$GATE_DIR" && "$PY" -m basedpyright --venvpath "$REPO_ROOT") || { echo "pre-push: basedpyright failed on the pushed commit -- fix, recommit, or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
   else
     echo "pre-push: basedpyright not in this environment; type gate skipped (CI enforces)." >&2
   fi
