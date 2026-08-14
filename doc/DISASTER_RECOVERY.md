@@ -2,9 +2,9 @@
 tier: PLAN
 status: LIVE
 domain: infra
-updated: 2026-06-13
+updated: 2026-08-14
 supersedes: []
-read_when: the dev laptop is lost or destroyed and you need to restore a working machine from GitHub + R2
+read_when: the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub + R2
 key: PLAN|LIVE|infra
 ---
 
@@ -57,6 +57,97 @@ S3 endpoint: `https://dda75db5c9db02954a7b45e69052c742.r2.cloudflarestorage.com`
   **{ } API → Manage API tokens → Create API token** (Account token, *Object Read &
   Write*, scoped to `dail-tracker-backup`) to mint fresh ones. The bucket and its
   contents are untouched by the laptop loss.
+
+## Restore Hetzner SSH administration
+
+Hetzner administration has three independent recovery controls:
+
+- a passphrase-protected break-glass SSH private key stored in encrypted
+  off-laptop storage;
+- that key's public half in the live server's `deploy` account; and
+- a recoverable Hetzner account with 2FA and its recovery key stored offline.
+
+The copy of an SSH key or `hcloud` token on the laptop is convenient, but it is
+not a backup because it is lost with the laptop. Do not keep a long-lived
+read-write Hetzner API token merely as a disaster-recovery mechanism.
+
+The normal administrative account is `deploy`; direct SSH as `root` is disabled.
+On 2026-08-14, a live drill proved that the break-glass key could authenticate as
+`deploy` and that `sudo -n` succeeded. Keep this least-privilege route: do not make
+direct root SSH the recovery mechanism.
+
+The expected recovery-key fingerprint from that drill is:
+
+```text
+SHA256:sqhruQ5/xEXDRgPjSSksSQPD+E98lpoZ8Y9M/ZoiN1M
+```
+
+### If the off-laptop recovery key is available
+
+1. Restore the encrypted private key to the new machine's `.ssh` directory and
+   restrict it to the current Windows user.
+2. Discover the current server address from Hetzner Console. Create a new
+   least-privilege `hcloud` context from the recovered Hetzner account if CLI
+   access is useful.
+3. Verify the recovered public key before connecting:
+
+   ```powershell
+   ssh-keygen -lf "$env:USERPROFILE\.ssh\id_ed25519_hetzner_recovery_20260814.pub"
+   ```
+
+4. Connect and prove both the account and elevation path:
+
+   ```powershell
+   ssh -o IdentitiesOnly=yes `
+     -i "$env:USERPROFILE\.ssh\id_ed25519_hetzner_recovery_20260814" `
+     deploy@<server-ip> "id -un; hostname; sudo -n true && echo SUDO_OK"
+   ```
+
+Do not call the recovery complete unless the result names `deploy`, identifies the
+expected host, and prints `SUDO_OK`.
+
+### If every usable client private key is lost
+
+Adding an SSH public key in Hetzner Console does not inject it into an existing
+server. Use the server's Hetzner Console instead:
+
+1. Generate a new passphrase-protected Ed25519 key on the replacement machine and
+   put its private key in encrypted off-laptop storage before installing it.
+2. In Hetzner Console, reset the root password and open the VNC console. Keep the
+   generated password private. If the running system cannot be reached this way,
+   use Hetzner Rescue; Rescue requires a power cycle and therefore causes downtime.
+3. Become root in the console and append only the new public key to
+   `/home/deploy/.ssh/authorized_keys`. Preserve every existing line and set:
+
+   ```bash
+   install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+   chown deploy:deploy /home/deploy/.ssh/authorized_keys
+   chmod 600 /home/deploy/.ssh/authorized_keys
+   ssh-keygen -lf /home/deploy/.ssh/authorized_keys
+   ```
+
+4. Run the independent `deploy`/hostname/`SUDO_OK` test above from the replacement
+   machine.
+5. After that test succeeds, lock the temporary root password. Hetzner Console can
+   reset it again during a future emergency:
+
+   ```bash
+   sudo passwd -l root
+   sudo passwd -S root
+   ```
+
+6. Treat a lost laptop as potentially compromised: remove its old public key from
+   `deploy`'s `authorized_keys`, and rotate any other credentials that were present
+   on it.
+
+Register the recovery **public** key in Hetzner Console as well so it can be selected
+for a future Rescue environment or new server. That registry entry supplements the
+live server's `authorized_keys`; it does not replace it. Never paste a private key or
+passphrase into chat, a shell command argument, Git, or Hetzner's public-key registry.
+
+Drill this route at least every six months from a second machine. A fingerprint in a
+file or a successful Hetzner login is not sufficient evidence; the drill must prove
+SSH authentication and the `sudo` path without changing production state.
 
 ## Scenario A — total loss, fresh machine
 
