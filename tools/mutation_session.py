@@ -263,11 +263,12 @@ def rehash(name: str) -> list[str]:
     updated: list[str] = []
     for target in sorted(directory.glob("*_target.py")):
         text = target.read_text(encoding="utf-8")
+        target_path = target.relative_to(ROOT).as_posix()
 
-        def _refresh(match: re.Match[str]) -> str:
+        def _refresh(match: re.Match[str], *, _target_path: str = target_path) -> str:
             source = ROOT / match["path"]
             current = hashlib.sha256(source.read_bytes()).hexdigest()
-            updated.append(f"{target.relative_to(ROOT).as_posix()}: {match['path']} @ sha256:{current}")
+            updated.append(f"{_target_path}: {match['path']} @ sha256:{current}")
             return f"# COPIED-FROM: {match['path']} @ sha256:{current}"
 
         rewritten = _COPIED_FROM.sub(_refresh, text)

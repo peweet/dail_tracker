@@ -41,6 +41,7 @@ import polars as pl
 
 from config import SILVER_DIR
 from members.member_interests import (
+    _MASTER_SELECT,
     HISTORIC_SEANAD_PATH,
     HISTORIC_TD_PATH,
     INTEREST_CODE_MAP,
@@ -48,7 +49,6 @@ from members.member_interests import (
     MASTER_SEANAD_PATH,
     MASTER_TD_PATH,
     PDF_PATHS,
-    _MASTER_SELECT,
 )
 from services.parquet_io import save_parquet
 from shared import normalise_join_key
