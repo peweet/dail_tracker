@@ -10,8 +10,10 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "utility"))
 
-from ui import source_links  # noqa: E402
-from ui import source_pdfs  # noqa: E402
+from ui import (
+    source_links,  # noqa: E402
+    source_pdfs,  # noqa: E402
+)
 
 
 def test_source_links_escape_data_and_reject_non_http_urls(monkeypatch) -> None:
