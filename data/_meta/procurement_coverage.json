@@ -1,51 +1,51 @@
 {
-  "all_notices": 84480,
-  "award_notices": 43255,
-  "award_supplier_rows": 62763,
+  "all_notices": 87427,
+  "award_notices": 44851,
+  "award_supplier_rows": 64940,
   "supplier_class_counts": {
-    "sole_trader_or_individual": 16659,
-    "foreign_company": 911,
-    "company": 44904,
-    "public_body": 289
+    "sole_trader_or_individual": 17154,
+    "company": 46537,
+    "foreign_company": 950,
+    "public_body": 299
   },
-  "distinct_suppliers": 15805,
-  "company_class_suppliers": 9992,
-  "cro_exact_unique": 6067,
-  "cro_exact_unique_pct_of_company": 60.7,
-  "sole_trader_quarantined": 5110,
-  "name_truncated_rows": 651,
-  "name_truncated_distinct": 125,
-  "value_rows": 36760,
-  "framework_or_dps_ceiling_rows": 17964,
-  "value_shared_across_suppliers_rows": 23018,
-  "large_award_review_rows_ge_50m": 2452,
-  "value_safe_to_sum_rows": 16404,
-  "value_safe_to_sum_total_eur": 15637076173.911098,
-  "value_naive_sum_eur_DO_NOT_USE": 649727728023.4104,
+  "distinct_suppliers": 16105,
+  "company_class_suppliers": 10169,
+  "cro_exact_unique": 6184,
+  "cro_exact_unique_pct_of_company": 60.8,
+  "sole_trader_quarantined": 5212,
+  "name_truncated_rows": 663,
+  "name_truncated_distinct": 129,
+  "value_rows": 38957,
+  "framework_or_dps_ceiling_rows": 19010,
+  "value_shared_across_suppliers_rows": 23703,
+  "large_award_review_rows_ge_50m": 2628,
+  "value_safe_to_sum_rows": 17435,
+  "value_safe_to_sum_total_eur": 16251826659.8011,
+  "value_naive_sum_eur_DO_NOT_USE": 721883594929.7505,
   "award_value_coverage_by_threshold": {
-    "Unknown": {
-      "award_rows": 1108,
-      "pct_with_value": 43.9
+    "Direct Invite": {
+      "award_rows": 12798,
+      "pct_with_value": 71.8
     },
     "National": {
-      "award_rows": 25834,
-      "pct_with_value": 26.2
+      "award_rows": 26651,
+      "pct_with_value": 28.5
     },
     "OJEU": {
-      "award_rows": 23391,
-      "pct_with_value": 88.4
+      "award_rows": 24238,
+      "pct_with_value": 88.8
     },
-    "Direct Invite": {
-      "award_rows": 12430,
-      "pct_with_value": 71.0
+    "Unknown": {
+      "award_rows": 1253,
+      "pct_with_value": 52.0
     }
   },
-  "notice_rows_total": 84480,
+  "notice_rows_total": 87427,
   "notice_outcome_counts": {
-    "no_award_published": 29680,
-    "cancelled": 4244,
-    "award_published_no_supplier": 7301,
-    "awarded": 43255
+    "awarded": 44851,
+    "no_award_published": 30764,
+    "cancelled": 4450,
+    "award_published_no_supplier": 7362
   },
   "source": {
     "dataset": "Contract Notices Published on eTenders",
@@ -57,6 +57,6 @@
     "license_url": "https://creativecommons.org/licenses/by/4.0/",
     "attribution": "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0."
   },
-  "retrieved_utc": "2026-08-05",
+  "retrieved_utc": "2026-08-14",
   "caveat": "A contract award is a fact, not evidence of influence or wrongdoing. Sole-trader/individual supplier names are quarantined (personal data). name_truncated rows have a leading capital dropped in the OGP source and cannot be reconstructed safely; they are flagged and excluded from CRO matching. VALUE IS NOT SPEND: 'Awarded Value' is the estimated/awarded contract value; framework & DPS notices carry notional multi-year CEILINGS and multi-supplier frameworks repeat one ceiling across every supplier row. Only sum value_safe_to_sum, and even then label it 'awarded value, not actual expenditure'. COVERAGE IS THRESHOLD-DEPENDENT: below-EU (National) award rows publish a value far less often than OJEU rows (pre-2023 the National band is almost value-dark; Circular 05/2023 fixed this going forward), and roughly half of all notices never get an award recorded — award totals are a floor, not the universe (see notice_outcome_counts). Recent-year unreported counts include competitions still in train, not only gaps."
 }

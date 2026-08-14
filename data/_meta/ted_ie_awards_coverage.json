@@ -56,6 +56,6 @@
     "attribution": "Contains information from TED (© European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 2,
-  "generated_at": "2026-08-09T14:28:02+00:00",
+  "generated_at": "2026-08-14T06:54:48+00:00",
   "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the framework CEILING, never per-winner. It is retained for individual-notice display and distribution diagnostics only; value_safe_to_sum is always false. winner-identifier matched to CRO company_num after digit-strip; bare personal-name winners flagged review_personal_data (quarantine deferred). A contract award is a fact, not evidence of influence."
 }

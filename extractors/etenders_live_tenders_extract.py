@@ -546,13 +546,17 @@ def main() -> None:
             return
         if attempted:
             save_parquet(enriched, OUT_SILVER, min_rows=existing.height)
+        remaining = enriched.filter(
+            (pl.col("feed") == "cft") & pl.col("cpv_code").is_null() & pl.col("detail_url").is_not_null()
+        ).height
         cov = json.loads(OUT_COV.read_text(encoding="utf-8")) if OUT_COV.exists() else {}
         cov["detail_enrichment"] = {
             "generated_utc": datetime.now(UTC).isoformat(),
             "attempted": attempted,
             "found": found,
+            "remaining": remaining,
             "max_details": args.max_details,
-            "complete": attempted < args.max_details,
+            "complete": remaining == 0,
         }
         cov["rows_with_cpv"] = (
             int(enriched["cpv_division"].is_not_null().sum()) if "cpv_division" in enriched.columns else 0

@@ -238,6 +238,47 @@ def test_fresh_grid_snapshot_retains_prior_cpv_by_portal_id():
     assert merged["cpv_division"].to_list() == ["Construction", None]
 
 
+def test_detail_enrichment_preserves_the_complete_grid(monkeypatch):
+    import extractors.etenders_live_tenders_extract as extractor
+
+    class Browser:
+        @staticmethod
+        def is_connected():
+            return True
+
+        @staticmethod
+        def close():
+            return None
+
+    class Page:
+        @staticmethod
+        def is_closed():
+            return False
+
+        @staticmethod
+        def wait_for_timeout(_delay):
+            return None
+
+    frame = pl.DataFrame(
+        {
+            "feed": ["cft", "notice"],
+            "resource_id": ["1", "2"],
+            "detail_url": ["https://example.test/1", "https://example.test/2"],
+            "cpv_code": [None, None],
+            "cpv_division": [None, None],
+        },
+        schema_overrides={"cpv_code": pl.String, "cpv_division": pl.String},
+    )
+    monkeypatch.setattr(extractor, "_launch", lambda _pw: (Browser(), Page()))
+    monkeypatch.setattr(extractor, "_detail_cpv", lambda _page, _url, _delay: ("45000000", "Construction"))
+
+    enriched, attempted, found = extractor._enrich_cpv_rows(object(), frame, max_details=10, delay_ms=0)
+
+    assert enriched.height == frame.height
+    assert attempted == found == 1
+    assert enriched.sort("resource_id")["cpv_code"].to_list() == ["45000000", None]
+
+
 def test_change_events_do_not_infer_withdrawal_from_absence():
     from extractors.etenders_live_tenders_extract import _detect_events
 
