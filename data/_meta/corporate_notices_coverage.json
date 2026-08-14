@@ -1,31 +1,31 @@
 {
-  "as_of": "2026-08-09T15:16:30",
+  "as_of": "2026-08-14T07:40:17",
   "source": "data\\silver\\iris_oifigiuil\\iris_notice_events_clean.csv",
-  "rows_in_scope_before_exclusion": 51840,
+  "rows_in_scope_before_exclusion": 51876,
   "rows_excluded_personal_insolvency": 353,
   "rows_excluded_limited_partnership": 58,
-  "rows_in_final_parquet": 51429,
+  "rows_in_final_parquet": 51465,
   "category_counts": {
-    "corporate_insolvency": 44780,
-    "corporate_notice": 5629,
-    "investment_vehicle_register_notice": 661,
+    "corporate_insolvency": 44808,
+    "corporate_notice": 5630,
+    "investment_vehicle_register_notice": 668,
     "corporate_rescue": 359
   },
   "subtype_counts": {
-    "members_voluntary_liquidation": 17642,
-    "voluntary_liquidation_unspecified": 10178,
+    "members_voluntary_liquidation": 17655,
+    "voluntary_liquidation_unspecified": 10190,
     "creditors_voluntary_liquidation": 6304,
     "receivership": 6058,
-    "companies_act_notice": 5629,
-    "liquidation_unspecified": 3898,
+    "companies_act_notice": 5630,
+    "liquidation_unspecified": 3901,
     "court_winding_up": 700,
-    "icav_voluntary_strike_off": 661,
+    "icav_voluntary_strike_off": 668,
     "examinership": 226,
     "scarp_process_adviser": 133
   },
   "solvency_signal_counts": {
-    "unknown": 20725,
-    "solvent": 17642,
+    "unknown": 20748,
+    "solvent": 17655,
     "insolvent": 13062
   },
   "receivership_brand_tagging": {
@@ -35,7 +35,7 @@
     "honest_note": "Of receivership notices, only a minority name a known major loan-book buyer or Irish bank. The rest are appointed by smaller institutions or under private debentures where no major fund is named, OR by brands not yet in data/_meta/loan_book_fund_aliases.csv."
   },
   "entity_name_quality": {
-    "null_or_empty": 13113,
+    "null_or_empty": 13129,
     "junk_pattern_count": 61
   },
   "personal_insolvency_exclusion_rule": "notice_category == 'bankruptcy' (excluded upstream) PLUS personal-bankruptcy text patterns: A BANKRUPT, ADJUDICATED BANKRUPT, BANKRUPT IN MAIN PROCEEDINGS, PERSONAL INSOLVENCY, DEBT SETTLEMENT ARRANGEMENT, DEBT RELIEF NOTICE, PROTECTIVE CERTIFICATE."

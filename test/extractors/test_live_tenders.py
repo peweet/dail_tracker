@@ -8,6 +8,7 @@ NEVER summed with awards or payments — and only genuinely-open opportunities a
 from __future__ import annotations
 
 import duckdb
+import polars as pl
 import pytest
 
 from dail_tracker_core.db import connect_with_views
@@ -47,6 +48,32 @@ def test_only_open_opportunities(con):
         "WHERE submission_deadline < CURRENT_DATE OR submission_deadline >= CURRENT_DATE + INTERVAL 3 YEAR",
     )
     assert bad == 0
+
+
+def test_exact_deadline_preserves_source_clock_and_timezone(con):
+    columns = {row[0]: row[1] for row in con.execute("DESCRIBE v_procurement_live_tenders").fetchall()}
+    assert columns["submission_deadline_at"] == "TIMESTAMP WITH TIME ZONE"
+    assert {"deadline_raw", "deadline_timezone", "deadline_timezone_abbreviation"} <= set(columns)
+
+    # Every portal deadline carrying its explicit Irish GMT/IST marker must parse to an instant.
+    bad = _q(
+        con,
+        "SELECT COUNT(*) FROM v_procurement_live_tenders "
+        "WHERE regexp_matches(deadline_raw, ' (IST|GMT) [0-9]{4}$') "
+        "AND submission_deadline_at IS NULL",
+    )
+    assert bad == 0
+
+    # The local clock printed by the source must survive a UTC round trip. This guards against
+    # treating an IST noon deadline as noon UTC (one hour late).
+    bad_clock = _q(
+        con,
+        "SELECT COUNT(*) FROM v_procurement_live_tenders "
+        "WHERE submission_deadline_at IS NOT NULL AND "
+        "strftime(timezone('Europe/Dublin', submission_deadline_at), '%H:%M:%S') "
+        "<> regexp_extract(deadline_raw, ' ([0-9]{2}:[0-9]{2}:[0-9]{2}) ', 1)",
+    )
+    assert bad_clock == 0
 
 
 def test_has_detail_link(con):
@@ -111,6 +138,143 @@ def test_cpv_parser(text, code, division):
     from extractors.etenders_live_tenders_extract import _cpv_from_text
 
     assert _cpv_from_text(text) == (code, division)
+
+
+class _FakeNext:
+    def __init__(self, page_number):
+        self.page_number = page_number
+
+    def get_attribute(self, _name):
+        return f"/grid?-p={self.page_number}&size=25"
+
+
+class _FakeGridPage:
+    def __init__(self, terminal_page):
+        self.current_page = 1
+        self.terminal_page = terminal_page
+        self.url = "https://www.etenders.gov.ie/grid"
+
+    def query_selector(self, _selector):
+        if self.current_page < self.terminal_page:
+            return _FakeNext(self.current_page + 1)
+        return None
+
+
+def test_scrape_feed_marks_page_cap_as_incomplete(monkeypatch):
+    import extractors.etenders_live_tenders_extract as extractor
+
+    page = _FakeGridPage(terminal_page=3)
+
+    def goto(fake_page, url, _settle_ms):
+        match = extractor.re.search(r"-p=(\d+)&", url)
+        fake_page.current_page = int(match.group(1)) if match else 1
+        fake_page.url = url
+
+    monkeypatch.setattr(extractor, "_grid_goto", goto)
+    monkeypatch.setattr(extractor, "_header_index", lambda _page: {"title": 0, "resource_id": 1})
+    monkeypatch.setattr(
+        extractor,
+        "_rows",
+        lambda fake_page: [{"cells": [f"Tender {fake_page.current_page}", str(fake_page.current_page)], "href": "/x"}],
+    )
+
+    result = extractor._scrape_feed(page, "cft", max_pages=2, delay_ms=0)
+
+    assert result.pages_visited == 2
+    assert result.terminal_reached is False
+    assert result.termination_reason == "page_cap_reached"
+    assert len(result.rows) == 2
+
+
+def test_scrape_feed_records_natural_terminal(monkeypatch):
+    import extractors.etenders_live_tenders_extract as extractor
+
+    page = _FakeGridPage(terminal_page=2)
+
+    def goto(fake_page, url, _settle_ms):
+        match = extractor.re.search(r"-p=(\d+)&", url)
+        fake_page.current_page = int(match.group(1)) if match else 1
+        fake_page.url = url
+
+    monkeypatch.setattr(extractor, "_grid_goto", goto)
+    monkeypatch.setattr(extractor, "_header_index", lambda _page: {"title": 0, "resource_id": 1})
+    monkeypatch.setattr(
+        extractor,
+        "_rows",
+        lambda fake_page: [{"cells": [f"Tender {fake_page.current_page}", str(fake_page.current_page)], "href": "/x"}],
+    )
+
+    result = extractor._scrape_feed(page, "notice", max_pages=5, delay_ms=0)
+
+    assert result.pages_visited == 2
+    assert result.terminal_reached is True
+    assert result.termination_reason == "no_next_page"
+
+
+def test_fresh_grid_snapshot_retains_prior_cpv_by_portal_id():
+    from extractors.etenders_live_tenders_extract import _merge_prior_cpv
+
+    current = pl.DataFrame(
+        {
+            "feed": ["cft", "cft"],
+            "resource_id": ["1", "2"],
+            "cpv_code": [None, None],
+            "cpv_division": [None, None],
+        },
+        schema_overrides={"cpv_code": pl.String, "cpv_division": pl.String},
+    )
+    previous = pl.DataFrame(
+        {
+            "feed": ["cft"],
+            "resource_id": ["1"],
+            "cpv_code": ["45000000"],
+            "cpv_division": ["Construction"],
+        }
+    )
+
+    merged = _merge_prior_cpv(current, previous).sort("resource_id")
+
+    assert merged["cpv_code"].to_list() == ["45000000", None]
+    assert merged["cpv_division"].to_list() == ["Construction", None]
+
+
+def test_change_events_do_not_infer_withdrawal_from_absence():
+    from extractors.etenders_live_tenders_extract import _detect_events
+
+    previous = pl.DataFrame(
+        [
+            {"feed": "cft", "resource_id": "1", "title": "Road", "deadline_raw": "old", "detail_url": "/1"},
+            {"feed": "cft", "resource_id": "2", "title": "Bridge", "deadline_raw": "same", "detail_url": "/2"},
+        ]
+    )
+    current = pl.DataFrame(
+        [
+            {"feed": "cft", "resource_id": "1", "title": "Road", "deadline_raw": "new", "detail_url": "/1"},
+            {"feed": "cft", "resource_id": "3", "title": "School", "deadline_raw": "date", "detail_url": "/3"},
+        ]
+    )
+
+    events = _detect_events(previous, current, "2026-08-14T12:00:00+00:00")
+
+    assert set(events["event_type"]) == {"deadline_raw_changed", "new_opportunity"}
+    assert set(events["resource_id"]) == {"1", "3"}
+    assert "2" not in events["resource_id"].to_list()
+
+
+def test_observation_ids_bind_time_and_source_content():
+    from extractors.etenders_live_tenders_extract import _build_observations
+
+    frame = pl.DataFrame([{"feed": "cft", "resource_id": "1", "title": "Road", "deadline_raw": "old"}])
+    first = _build_observations(frame, "2026-08-14T12:00:00+00:00")
+    repeat = _build_observations(frame, "2026-08-14T12:00:00+00:00")
+    changed = _build_observations(
+        frame.with_columns(pl.lit("new").alias("deadline_raw")),
+        "2026-08-14T12:00:00+00:00",
+    )
+
+    assert first["observation_id"][0] == repeat["observation_id"][0]
+    assert first["content_hash"][0] != changed["content_hash"][0]
+    assert first["observation_id"][0] != changed["observation_id"][0]
 
 
 def test_live_tenders_cpv_division_valid_when_present(con):

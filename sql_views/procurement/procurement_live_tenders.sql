@@ -16,12 +16,37 @@
 -- already-closed and DPS/Qualification-System records. This view keeps only the GENUINELY OPEN set
 -- (a parseable deadline in the future) and excludes the 'notice' feed (award/contract notices, no deadline).
 CREATE OR REPLACE VIEW v_procurement_live_tenders AS
+WITH parsed AS (
+    SELECT
+        *,
+        CASE
+            -- The Irish portal renders an explicit GMT/IST abbreviation. Replace it with the
+            -- corresponding numeric offset before parsing so DuckDB returns an honest instant
+            -- instead of silently treating the source's local clock as UTC. The original source
+            -- string remains available as deadline_raw.
+            WHEN contains(deadline_raw, ' IST ') THEN TRY_STRPTIME(
+                replace(deadline_raw, ' IST ', ' +0100 '),
+                '%a %b %d %H:%M:%S %z %Y'
+            )
+            WHEN contains(deadline_raw, ' GMT ') THEN TRY_STRPTIME(
+                replace(deadline_raw, ' GMT ', ' +0000 '),
+                '%a %b %d %H:%M:%S %z %Y'
+            )
+            ELSE NULL
+        END AS deadline_at_parsed
+    FROM read_parquet('data/silver/parquet/etenders_live_tenders.parquet')
+    WHERE feed = 'cft'
+)
 SELECT
     title,
     buyer,                                -- display name, cleaned in the extractor (org id / roll number stripped)
     buyer_org_id,                         -- eTenders internal org id, lifted off the name: a stable per-buyer join key
     TRY_CAST(published_date AS DATE)                          AS published_date,
     TRY_CAST(deadline_date AS DATE)                           AS submission_deadline,
+    deadline_at_parsed                                       AS submission_deadline_at,
+    deadline_raw,
+    CASE WHEN deadline_at_parsed IS NOT NULL THEN 'Europe/Dublin' END AS deadline_timezone,
+    regexp_extract(deadline_raw, ' (IST|GMT) ', 1)           AS deadline_timezone_abbreviation,
     DATE_DIFF('day', CURRENT_DATE, TRY_CAST(deadline_date AS DATE)) AS days_to_deadline,
     procedure,
     status,
@@ -33,9 +58,8 @@ SELECT
     cpv_code,                             -- 8-digit CPV from the detail-page pass; NULL when that pass was skipped/capped
     cpv_division,                         -- 2-digit CPV division label, the sector facet key
     retrieved_utc
-FROM read_parquet('data/silver/parquet/etenders_live_tenders.parquet')
-WHERE feed = 'cft'
-  AND TRY_CAST(deadline_date AS DATE) >= CURRENT_DATE      -- open now (closing in the future)
+FROM parsed
+WHERE TRY_CAST(deadline_date AS DATE) >= CURRENT_DATE      -- open now (closing in the future)
   AND TRY_CAST(deadline_date AS DATE) < CURRENT_DATE + INTERVAL 3 YEAR  -- exclude far-future DPS application windows
 ORDER BY submission_deadline ASC;                         -- soonest-closing first
 
@@ -46,6 +70,7 @@ SELECT
     buyer,
     COUNT(*)                                                 AS n_open_tenders,
     MIN(submission_deadline)                                 AS next_closing,
+    MIN(submission_deadline_at)                              AS next_closing_at,
     COUNT(*) FILTER (WHERE days_to_deadline <= 14)           AS closing_within_14d,
     COUNT(*) FILTER (WHERE estimated_value_eur IS NOT NULL)  AS n_with_estimate
 FROM v_procurement_live_tenders
