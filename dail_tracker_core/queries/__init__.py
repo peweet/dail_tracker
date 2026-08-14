@@ -56,9 +56,12 @@ def run_query(
     except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
         # WARNING, not exception(): a missing optional view is a handled "source
         # unavailable" state, not a crash — a full traceback per failure would be
-        # noise. The exception text is kept inline for the server-side trail.
+        # noise. The exception text lives ONLY in this log line: the caller-visible
+        # reason is redacted because MCP/API surfaces pass it through verbatim, and
+        # raw DuckDB errors leak table names and SQL fragments
+        # (test_core_query_error_redaction pins this).
         lg.warning("%s query failed: %s", label, exc)
-        return QueryResult.unavailable(f"{label} query failed: {exc}")
+        return QueryResult.unavailable(f"{label} data source is temporarily unavailable")
 
 
 def make_runner(label: str, log: logging.Logger):
