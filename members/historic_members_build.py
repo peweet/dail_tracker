@@ -165,9 +165,7 @@ def build() -> dict:
     for house in ("dail", "seanad"):
         sub = long[long["house_tag"] == house]
         # one row per member, kept at most-recent term so the row is the freshest
-        wide = sub.sort_values("membership_start_date").drop_duplicates(
-            subset=["unique_member_code"], keep="last"
-        )
+        wide = sub.sort_values("membership_start_date").drop_duplicates(subset=["unique_member_code"], keep="last")
         current = _current_codes(house)
         historic = wide[~wide["unique_member_code"].isin(current)].copy()
         historic["is_current"] = False

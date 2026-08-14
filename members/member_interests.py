@@ -156,6 +156,7 @@ def passes_quality_gate(n_registered: int, n_parsed: int) -> bool:
     names and collapse the match rate toward 0 — they fail and are skipped."""
     return quality_match_rate(n_registered, n_parsed) >= QUALITY_MATCH_THRESHOLD
 
+
 MASTER_TD_PATH = SILVER_DIR / "flattened_members.csv"
 MASTER_SEANAD_PATH = SILVER_DIR / "flattened_seanad_members.csv"
 MINISTER_PATH = GOLD_DIR / "enriched_td_attendance.csv"

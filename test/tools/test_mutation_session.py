@@ -153,9 +153,7 @@ def test_a_copy_whose_source_has_changed_since_raises(tmp_path, monkeypatch):
     source = tmp_path / "real_module.py"
     source.write_text("def f():\n    return 1\n", encoding="utf-8")
     target = tmp_path / "x_target.py"
-    target.write_text(
-        "# COPIED-FROM: real_module.py @ sha256:" + "0" * 64 + '\n"""copy"""\n', encoding="utf-8"
-    )
+    target.write_text("# COPIED-FROM: real_module.py @ sha256:" + "0" * 64 + '\n"""copy"""\n', encoding="utf-8")
 
     with pytest.raises(session.SessionError, match="stale copy"):
         session.assert_fresh(target)
@@ -164,9 +162,7 @@ def test_a_copy_whose_source_has_changed_since_raises(tmp_path, monkeypatch):
 def test_a_declared_source_that_no_longer_exists_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(session, "ROOT", tmp_path)
     target = tmp_path / "x_target.py"
-    target.write_text(
-        "# COPIED-FROM: gone.py @ sha256:" + "a" * 64 + '\n"""copy"""\n', encoding="utf-8"
-    )
+    target.write_text("# COPIED-FROM: gone.py @ sha256:" + "a" * 64 + '\n"""copy"""\n', encoding="utf-8")
 
     with pytest.raises(session.SessionError, match="no longer exists"):
         session.assert_fresh(target)
@@ -180,9 +176,7 @@ def test_rehash_updates_the_header_to_the_current_source_hash(tmp_path, monkeypa
     directory = tmp_path / "some-session"
     directory.mkdir()
     target = directory / "x_target.py"
-    target.write_text(
-        "# COPIED-FROM: real_module.py @ sha256:" + "0" * 64 + '\n"""copy"""\n', encoding="utf-8"
-    )
+    target.write_text("# COPIED-FROM: real_module.py @ sha256:" + "0" * 64 + '\n"""copy"""\n', encoding="utf-8")
 
     session.rehash("some-session")
 
