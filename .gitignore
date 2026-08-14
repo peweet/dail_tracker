@@ -777,3 +777,11 @@ node_modules/
 
 # Rebuildable sandbox aggregation cache; retain its generator and reviewed findings.
 /pipeline_sandbox/disclosed_po_spend/agg.pkl
+
+# Planetiler basemap build inputs, downloaded on demand and rebuildable (added
+# 2026-08-14): 1.4 GB of upstream zips (water-polygons-split-3857,
+# natural_earth_vector.sqlite, lake_centerline.shp) plus the tile-weight table.
+# No repo code reads them — they feed the private pmtiles/basemap lane, and a
+# binary this size is effectively permanent once pushed to the public remote.
+/data/sources/
+/data/tile_weights.tsv.gz
