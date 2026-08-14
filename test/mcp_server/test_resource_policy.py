@@ -193,6 +193,9 @@ def test_agent_session_count_off_windows_returns_none(monkeypatch):
 
 
 def test_agent_session_count_uses_its_cache(monkeypatch):
+    # The win32 gate sits BEFORE the cache lookup, so without this patch the test
+    # only ever passed on Windows dev boxes and was red on Linux CI from birth.
+    monkeypatch.setattr(resource_policy.sys, "platform", "win32")
     monkeypatch.setattr(resource_policy, "_session_count_cache", (resource_policy.time.monotonic(), 7))
     assert resource_policy.agent_session_count() == 7  # no tasklist spawn within the TTL
 
