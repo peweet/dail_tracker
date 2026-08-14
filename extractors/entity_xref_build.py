@@ -38,6 +38,8 @@ excluded upstream (supplier_class filter).
 
 Inputs (all committed gold, read-only):
   data/gold/parquet/procurement_awards.parquet
+  data/gold/parquet/procurement_payments_fact.parquet (also supplies its own cro_company_num —
+    see the CRO note on _payment_suppliers())
   data/gold/parquet/procurement_supplier_cro_match.parquet
   data/gold/parquet/procurement_lobbying_overlap.parquet
   data/gold/parquet/corporate_notices.parquet
@@ -121,11 +123,29 @@ def _payment_suppliers() -> pl.DataFrame:
     NOTE the asymmetry with the award side: the payments fact has NO ``name_truncated`` flag,
     so truncated payment names cannot be excluded the way award names are. The MIN_LEN floor
     is the only guard here; treat payment-only display names as less clean.
+
+    CRO: the payments fact already carries its own ``cro_company_num`` — an exact
+    normalised-name join against the CRO register done in
+    extractors/procurement_payments_consolidate.py's ``_attach_cro()``, independent of the
+    award-side match in procurement_supplier_cro_match.parquet. Until 2026-08-14 this column
+    was read from PAYMENTS but silently dropped here, so every payment-only supplier (no
+    award row) showed ``has_cro=False`` even when this exact match existed — the anchor union
+    landed 2026-07-18 but never picked it up. Carried through as ``cro_company_num_from_payments``
+    and coalesced onto the award-side match in ``main()`` (award-side wins when both exist,
+    since procurement_supplier_cro_match.parquet explicitly resolves exact/ambiguous; this
+    column does not).
     """
     return (
         pl.read_parquet(
             PAYMENTS,
-            columns=["supplier_normalised", "supplier_raw", "supplier_class", "amount_eur", "value_safe_to_sum"],
+            columns=[
+                "supplier_normalised",
+                "supplier_raw",
+                "supplier_class",
+                "amount_eur",
+                "value_safe_to_sum",
+                "cro_company_num",
+            ],
         )
         .filter(pl.col("supplier_class") == "company")
         .filter(pl.col("supplier_normalised").is_not_null())
@@ -135,6 +155,7 @@ def _payment_suppliers() -> pl.DataFrame:
             pl.col("supplier_raw").mode().first().alias("display_name_payment"),
             pl.len().alias("payment_rows"),
             pl.col("amount_eur").filter(pl.col("value_safe_to_sum")).sum().alias("paid_value_safe_eur"),
+            pl.col("cro_company_num").drop_nulls().first().alias("cro_company_num_from_payments"),
         )
         .rename({"supplier_normalised": "supplier_norm"})
     )
@@ -224,6 +245,11 @@ def main() -> None:
 
     xref = (
         sup.join(_cro(), on="supplier_norm", how="left")
+        # Award-side match (procurement_supplier_cro_match.parquet) wins when both exist — it
+        # explicitly resolves exact/ambiguous; the payments fact's own match does not. Fills the
+        # gap for payment-only suppliers, who have no row in the award-side table at all.
+        .with_columns(pl.coalesce("company_num", "cro_company_num_from_payments").alias("company_num"))
+        .drop("cro_company_num_from_payments")
         .join(_lobbying(), on="supplier_norm", how="left")
         .join(_corporate(), on="supplier_norm", how="left")
         .join(_charities(), on="supplier_norm", how="left")
@@ -297,7 +323,11 @@ def main() -> None:
                 "on_2plus_extra_registers": n_multi,
                 "anchor": "procurement supplier universe (supplier_norm), company-class: AWARD suppliers "
                 "(non-truncated) UNION PAYMENT suppliers. Extended from award-only 2026-07-18.",
-                "match_method": "exact CANONICAL normalised-name (shared/name_norm.name_norm_expr) + CRO company_num",
+                "match_method": "exact CANONICAL normalised-name (shared/name_norm.name_norm_expr) + CRO "
+                "company_num. Award-side suppliers match via procurement_supplier_cro_match.parquet "
+                "(exact_unique/ambiguous resolved); payment-only suppliers match via the exact "
+                "name_norm join already attached to procurement_payments_fact.parquet by "
+                "procurement_payments_consolidate.py (no ambiguity resolution) — added 2026-08-14.",
                 "never_sum": "awarded_value_safe_eur and paid_value_safe_eur are DIFFERENT MONEY GRAINS "
                 "(contracted vs disbursed) — show side by side, NEVER add together.",
                 "caveat": "Co-occurrence by ENTITY only — the SAME organisation appears on several public "

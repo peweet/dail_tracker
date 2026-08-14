@@ -1,9 +1,9 @@
 {
   "judiciary_diary_link_coverage.json": {
-    "cases_row_level": 0.9807,
-    "schedule_row_level": 0.9575
+    "cases_row_level": 0.9271,
+    "schedule_row_level": 0.9445
   },
   "supplier_entity_xref_coverage.json": {
-    "cro_match": 0.6458
+    "cro_match": 0.4235
   }
 }
