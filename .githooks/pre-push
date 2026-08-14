@@ -57,4 +57,22 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
     exit 1
   fi
 done
+
+# Fast correctness gate (2026-08-14) -- public CI had been red for 10+ consecutive runs
+# because nothing checked correctness before a push; lint + format + typecheck catch the
+# recurrent classes in about a minute. Tests stay in CI (too slow for a push gate).
+# Skip once with DAIL_SKIP_PUSH_GATE=1 (CI still enforces all three independently).
+if [ "${DAIL_SKIP_PUSH_GATE:-0}" != "1" ]; then
+  if "$PY" -m ruff --version >/dev/null 2>&1; then
+    "$PY" -m ruff check . || { echo "pre-push: ruff check failed -- fix or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
+    "$PY" -m ruff format --check . || { echo "pre-push: format drift -- run ruff format on the listed files." >&2; exit 1; }
+  else
+    echo "pre-push: ruff not in this environment; lint gate skipped (CI enforces)." >&2
+  fi
+  if "$PY" -m basedpyright --version >/dev/null 2>&1; then
+    "$PY" -m basedpyright || { echo "pre-push: basedpyright failed -- fix or DAIL_SKIP_PUSH_GATE=1 (CI will fail regardless)." >&2; exit 1; }
+  else
+    echo "pre-push: basedpyright not in this environment; type gate skipped (CI enforces)." >&2
+  fi
+fi
 exit 0

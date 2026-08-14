@@ -92,6 +92,10 @@ TASKS: dict[str, Task] = {
         "Check that doc/INDEX.md matches the documentation tree",
         ((PYTHON, "tools/build_doc_index.py", "--check"),),
     ),
+    "fixture-divergence": Task(
+        "Fail when ignored-but-present files sit under test/ (pass-locally-fail-in-CI trap)",
+        ((PYTHON, "tools/check_test_fixture_divergence.py"),),
+    ),
     "deps": Task(
         "Check lock/export parity and the undeclared-import contract",
         (
@@ -134,6 +138,7 @@ CHECK_TASKS = (
     "agent-context",
     "ui-contracts",
     "doc-index",
+    "fixture-divergence",
     "test-fast",
 )
 

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Shared-index sweep guard -- blocks a presumptive parallel-session sweep commit
+# (wide staged set while 2+ agent sessions share this working tree). Rules, tuned
+# thresholds and the DAIL_ALLOW_SWEEP=1 override live in tools/check_commit_hygiene.py.
+# Enable on a fresh clone (one-time): git config core.hooksPath .githooks
+
+for PY in .venv/Scripts/python.exe .venv/Scripts/python .venv/bin/python python3 python; do
+  command -v "$PY" >/dev/null 2>&1 && break
+done
+
+"$PY" tools/check_commit_hygiene.py --pre-commit
