@@ -18,7 +18,7 @@ off-box copy. Code, the curated data/_meta files, and the runtime gold slice are
 already backed up by `git push`.
 
 Prereqs (one-time): install rclone and create an `r2` remote - see doc/DATA_BACKUP.md.
-Register as a weekly scheduled task with:  tools/register_backup_task.ps1
+Register as a daily scheduled task with:  tools/register_backup_task.ps1
 RESTORE after a laptop loss: see doc/DISASTER_RECOVERY.md
 
 Usage:

@@ -25,7 +25,7 @@ if ([string]::IsNullOrWhiteSpace($ApiToken)) {
 }
 
 $seconds = $RetentionDays * 24 * 60 * 60
-$managedIds = @('dail-backup-versions-45d', 'dail-backup-manifests-45d')
+$managedIds = @('dail-backup-versions', 'dail-backup-manifests')
 $managedRules = @(
     [ordered]@{
         id = $managedIds[0]
@@ -51,10 +51,12 @@ $existing = @($current.result.rules)
 $unmanaged = @($existing | Where-Object { $_.id -notin $managedIds })
 $body = @{ rules = @($unmanaged + $managedRules) } | ConvertTo-Json -Depth 8
 
-if ($PSCmdlet.ShouldProcess("R2 bucket $Bucket", "apply $RetentionDays-day lock rules to versions/ and manifests/archive/")) {
-    $updated = Invoke-RestMethod -Method Put -Uri $endpoint -Headers $headers -ContentType 'application/json' -Body $body
-    if (-not $updated.success) { throw "Cloudflare rejected the update of bucket lock rules for $Bucket." }
+if (-not $PSCmdlet.ShouldProcess("R2 bucket $Bucket", "apply $RetentionDays-day lock rules to versions/ and manifests/archive/")) {
+    Write-Host "No change made. Would apply $RetentionDays-day retention to versions/ and manifests/archive/."
+    exit 0
 }
+$updated = Invoke-RestMethod -Method Put -Uri $endpoint -Headers $headers -ContentType 'application/json' -Body $body
+if (-not $updated.success) { throw "Cloudflare rejected the update of bucket lock rules for $Bucket." }
 
 $verified = Invoke-RestMethod -Method Get -Uri $endpoint -Headers $headers
 if (-not $verified.success) { throw "Cloudflare rejected the post-update read of bucket lock rules for $Bucket." }

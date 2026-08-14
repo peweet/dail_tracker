@@ -32,6 +32,7 @@ working machine. The backup side (what runs, how it's configured) is in
 | `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
 | `planning/` (including the authoritative nested `planning/product/.git` private history) | restic repo `restic_private` → R2 bucket **`dail-siting`** | `restic restore` (below) |
 | **The whole repo otherwise** (~3.8 GB: `.git`, the non-mirrored parts of `data/`, `pipeline_sandbox`, `doc`, `ida`, `out`, `logs`, `audit_screenshots`, `.claude`, tests, tools) | restic repo `restic_sandbox` → R2 bucket `dail-tracker-backup` | `restic restore` (below) |
+| Production authentication, waitlist and deployment configuration | verified local state stage, then dedicated encrypted Restic repository in `dail-siting` **after off-site setup is green** | rebuild the Hetzner VM, restore the latest encrypted state snapshot, then complete an isolated sign-in/case-reopen rehearsal |
 
 The sandbox job is defined as **the repo minus a denylist**, not as a list of directories —
 so a new top-level directory is protected the day it appears. That is deliberate: the
@@ -39,12 +40,12 @@ so a new top-level directory is protected the day it appears. That is deliberate
 allowlist that reality had moved past. The denylist and the reason for each entry are in
 [tools/backup_restic_to_r2.ps1](../tools/backup_restic_to_r2.ps1).
 
-⚠ **`.git` is backed up, `.git-siting` is backed up to the *other* bucket.** Both carry
-commits that may not be pushed (2 unpushed in `.git-siting` as of 2026-08-02), so they are
-the only copy of that work. Routing `.git-siting` to the private bucket is what stops a
-whole-repo sweep from copying 3.1 GB of private siting history into the public-data bucket
-— a leak a `-DryRun` caught on 2026-08-02 and the reason to always run one after editing
-the excludes.
+⚠ **Private history is backed up only in the private lane.** The authoritative private
+repository is `planning/product/.git`, which travels with `planning/` to `dail-siting`.
+The retired `.git-siting` overlay remains excluded from the public lane and may be captured
+incidentally by the private lane, but it is not a source of truth. This routing prevents
+commercial siting work from reaching the public-data bucket; always run a dry run after
+changing backup exclusions.
 
 R2 account ID: `dda75db5c9db02954a7b45e69052c742`
 S3 endpoint: `https://dda75db5c9db02954a7b45e69052c742.r2.cloudflarestorage.com`
@@ -225,8 +226,9 @@ Restore a single file instead of everything with
    directory not empty*. Fix:
    `takeown /F <dir> /R /D O; icacls <dir> /grant "$env:USERNAME:(OI)(CI)F" /T /Q`, then delete.
 3. **RESTORE GIT REPOS TO A SHORT PATH.** `--target` recreates the *full absolute source
-   path* underneath it, so a nested target produces very deep paths. Restoring `.git-siting`
-   to a scratch dir gave a 201-character git-dir; git then appends `objects/xx/<40 hex>` and
+   path* underneath it, so a nested target produces very deep paths. Restoring the nested
+   `planning/product/.git` repository to a scratch dir can give a 201-character git-dir;
+   git then appends `objects/xx/<40 hex>` and
    breaches Windows' 260-char MAX_PATH. The symptom is alarming and looks exactly like data
    loss — `fatal: cannot read commit object`, `fsck: invalid sha1 pointer` — while the packs
    are provably byte-identical to the source. Two fixes, either works:
@@ -296,11 +298,11 @@ Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` aft
   than trusting rclone's transfer report. After the scope expansion to the whole repo:
   `dail-siting/restic_private` **248/248 packs, 6 snapshots**;
   `dail-tracker-backup/restic_sandbox` **204/204 packs, 7 snapshots**; no errors, both exit 0.
-  (c) **`.git-siting` functional restore** — 3.003 GiB pulled from R2 and proved to be a
-  *working* git repository, not merely matching bytes: `git log` returns the same three
-  commits as live, `fsck --connectivity-only` is clean, and **both unpushed commits survived**
-  (`f1c2cc5`, `1e4c1e0`). This needed `core.longpaths=true` — see quirk 3 below, and read it
-  before concluding anything is corrupt.
+  (c) **Private-history functional restore** — the formerly separate overlay restored as a
+  *working* Git repository, not merely matching bytes. Repeat that proof against the current
+  authoritative nested `planning/product/.git`: `git log` must show the expected history and
+  `git fsck --connectivity-only` must be clean. This may need `core.longpaths=true` — see
+  quirk 3 above, and read it before concluding anything is corrupt.
   (b) **Full restore drill** — `restic restore latest` pulled `planning/` straight out of
   R2 into a scratch dir and every restored file was SHA-256 compared against the live tree:
   **1,052 identical, 0 corrupt**. The only divergences were 23 modified + 23 new files
