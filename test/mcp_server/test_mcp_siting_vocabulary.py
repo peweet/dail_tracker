@@ -85,6 +85,13 @@ def test_valid_vocabulary_is_not_refused_by_the_guard():
     except ImportError:
         pytest.skip("planning/product is private and not installed in this checkout")
 
+    # The gate now checks public mirrors so it can run in a public checkout; pin them equal
+    # to the private tuples in BOTH directions, so a stale extra value fails too.
+    from mcp_server import server
+
+    assert tuple(DEV_TYPES) == server.SITING_DEV_TYPES
+    assert tuple(USE_CLASSES) == server.SITING_USE_CLASSES
+
     for dev_type in DEV_TYPES:
         out = _call(dev_type=dev_type)
         assert "unknown dev_type" not in out.get("error", ""), f"{dev_type} wrongly refused"

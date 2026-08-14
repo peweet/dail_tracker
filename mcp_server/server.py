@@ -2325,6 +2325,26 @@ _SITING_DESCRIPTION = (
 )
 
 
+# Public mirrors of the private engine's closed vocabularies. The tool docstring already
+# publishes both lists verbatim, so these constants disclose nothing new — they exist so the
+# vocabulary gate below can run in a public checkout, where planning/product does not exist.
+# Pinned equal to planning/product/core/assistant.DEV_TYPES and .../core/engine.USE_CLASSES
+# by test_valid_vocabulary_is_not_refused_by_the_guard whenever the engine is present (the
+# same local-copy-plus-pinning-test pattern the private assistant module itself uses).
+SITING_DEV_TYPES = ("one_off_house", "extension", "multi_unit", "commercial")
+SITING_USE_CLASSES = (
+    "solar_farm",
+    "wind_farm",
+    "intensive_agri",
+    "quarry_extractive",
+    "warehouse_logistics",
+    "pharma_chemical",
+    "ad_biogas_waste",
+    "general_manufacturing",
+    "data_centre",
+)
+
+
 @mcp.tool(annotations=_RO, description=_SITING_DESCRIPTION)
 def siting_check(
     lat: float,
@@ -2344,7 +2364,7 @@ def siting_check(
     """Planning-constraint TRIAGE for a single point in Ireland: which planning ISSUES a proposed
     development triggers at (lat, lon), each with the governing rule quoted verbatim from the
     per-council rulebook and the likely required reports. `dev_type` is 'one_off_house' (default),
-    'multi_unit', or 'commercial'; `num_units` / `floor_area_m2` drive the scale-gated requirements
+    'extension', 'multi_unit', or 'commercial'; `num_units` / `floor_area_m2` drive the scale-gated requirements
     (climate statement, EIA, etc.). `site_area_ha`, when known, additionally drives the Schedule 5
     Part 2 area-based EIA screening (>2 ha/>20 ha limbs) and a units-per-ha density fact — leave it
     0 to skip both (silent, not 'clear'). `use_class` gates the use-specific nodes (wind turbines,
@@ -2400,15 +2420,6 @@ def siting_check(
     data there — never read that as 'no issue'. Layer coverage is currently strongest in
     Galway/Cork/Dublin; elsewhere expect `not_assessed` entries. Risk language is 'likely', never
     'will'. Surface the `disclaimer`."""
-    try:
-        from planning.product.core import brief as _brief
-        from planning.product.core import engine as _engine
-        from planning.product.core.layers import make_store
-        from planning.product.core.process_capacity import ProcessCapacity
-        from planning.product.core.seveso_inventory import InventoryLine
-    except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
-        return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
-
     dt = (dev_type or "one_off_house").strip()
     uc = (use_class or "").strip()
     # Closed-vocabulary gate (2026-08-08). Both fields reached the node walk as free strings, and
@@ -2421,32 +2432,34 @@ def siting_check(
     # IE licence and mandatory EIA screening. The docstring above already says "pass one of the
     # canonical values exactly"; this makes that a contract rather than a hope. An empty use_class
     # stays legal: unset genuinely means "do not gate on use", which is the safe default.
-    # Guarded because planning/product is the private overlay: a public clone has no engine, and
-    # an unguarded import here crashes the whole MCP server on a tool the checkout cannot run
-    # anyway. The try/except is also what tools/check_no_untracked_imports.py exempts, so this
-    # keeps the public tree pushable without moving the vocabulary gate.
-    try:
-        from planning.product.core.assistant import DEV_TYPES as _DEV_TYPES
-        from planning.product.core.engine import USE_CLASSES as _USE_CLASSES
-    except ImportError:
-        return {
-            "error": "the siting engine is not installed in this checkout — planning/product is "
-            "private and is not part of the public repository, so siting_check cannot run here"
-        }
-
-    if dt not in _DEV_TYPES:
+    # The gate checks the public SITING_DEV_TYPES/SITING_USE_CLASSES mirrors and runs BEFORE
+    # the private-engine import, so it also runs in a public checkout where planning/product
+    # does not exist — the environment public CI actually tests.
+    if dt not in SITING_DEV_TYPES:
         return {
             "error": f"unknown dev_type {dev_type!r} — it would silently evaluate only the "
             f"development-type-agnostic checks and return a report that looks complete. "
-            f"Pass one of: {', '.join(_DEV_TYPES)}"
+            f"Pass one of: {', '.join(SITING_DEV_TYPES)}"
         }
-    if uc and uc not in _USE_CLASSES:
+    if uc and uc not in SITING_USE_CLASSES:
         return {
             "error": f"unknown use_class {use_class!r} — it would gate nothing on the use axis, "
             f"which is indistinguishable from omitting it entirely (the pharma/Seveso, EPA "
             f"licence and mandatory-EIA nodes would stay silent). Pass one of: "
-            f"{', '.join(_USE_CLASSES)}, or leave it unset to skip use gating deliberately"
+            f"{', '.join(SITING_USE_CLASSES)}, or leave it unset to skip use gating deliberately"
         }
+
+    # Guarded because planning/product is the private overlay: a public clone has no engine, and
+    # an unguarded import here crashes the whole MCP server on a tool the checkout cannot run
+    # anyway. The try/except is also what tools/check_no_untracked_imports.py exempts.
+    try:
+        from planning.product.core import brief as _brief
+        from planning.product.core import engine as _engine
+        from planning.product.core.layers import make_store
+        from planning.product.core.process_capacity import ProcessCapacity
+        from planning.product.core.seveso_inventory import InventoryLine
+    except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
+        return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
 
     store = make_store()
     available = sorted(store.available())
