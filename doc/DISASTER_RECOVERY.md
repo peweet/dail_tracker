@@ -14,10 +14,10 @@ Read this first. It tells you where everything lives and how to get back to a
 working machine. The backup side (what runs, how it's configured) is in
 [DATA_BACKUP.md](DATA_BACKUP.md) — this doc is the **restore** side.
 
-> **Reassurance:** nothing on the laptop is a single point of failure. Code is on
-> GitHub, data is in Cloudflare R2 (not your disk), and the R2 access keys can be
-> re-minted from the Cloudflare dashboard anytime. A destroyed laptop loses nothing
-> permanently.
+> **Recovery boundary:** committed code is on GitHub and data is in Cloudflare R2,
+> but an unpushed change, a Restic password held only on the laptop, or an account
+> without recoverable 2FA is still a single point of failure. A destroyed laptop is
+> recoverable only when the off-laptop credentials listed below are available.
 
 ## Where everything is
 
@@ -30,7 +30,7 @@ working machine. The backup side (what runs, how it's configured) is in
 | `data/raw_bq/` (raw bulk-query captures) | R2 bucket `dail-tracker-backup/raw_bq/` | `rclone copy` (below) |
 | `data/gold/` (beyond the git slice), rest of `data/silver` | **not backed up** — regenerable | rebuild via the pipeline from bronze |
 | `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
-| `planning/` **+ `.git-siting/`** (~4.1 GB private IP: the working tree *and* the separate git history for `peweet/pre-siting-private`) | restic repo `restic_private` → R2 bucket **`dail-siting`** | `restic restore` (below) |
+| `planning/` (including the authoritative nested `planning/product/.git` private history) | restic repo `restic_private` → R2 bucket **`dail-siting`** | `restic restore` (below) |
 | **The whole repo otherwise** (~3.8 GB: `.git`, the non-mirrored parts of `data/`, `pipeline_sandbox`, `doc`, `ida`, `out`, `logs`, `audit_screenshots`, `.claude`, tests, tools) | restic repo `restic_sandbox` → R2 bucket `dail-tracker-backup` | `restic restore` (below) |
 
 The sandbox job is defined as **the repo minus a denylist**, not as a list of directories —
@@ -256,8 +256,8 @@ Once restored and verified, all scheduled tasks this project depends on need
 re-registering — not just the backup one:
 
 ```powershell
-tools\register_backup_task.ps1                # DailTracker-BackupR2, weekly Sun 02:00
-tools\register_restic_task.ps1                # DailTracker-BackupRestic, weekly Sun 03:00
+tools\register_backup_task.ps1                # DailTracker-BackupR2, daily 02:00
+tools\register_restic_task.ps1                # DailTracker-BackupRestic, daily 03:00
 tools\register_legal_diary_task.ps1            # DailTracker-LegalDiary
 ```
 
@@ -308,10 +308,9 @@ Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` aft
   the backup excludes on purpose. This is the restic-lane equivalent of the 2026-06-13
   rclone-lane drill.
 - **Freshness is the real limit, not integrity.** That drill quantified it: an actively-
-  developed tree drifted by ~46 files in two hours. `DailTracker-BackupRestic` runs weekly
-  (Sun 03:00), so worst-case loss on `planning/` is a week of work, not a week of data
-  corruption. Run `tools/backup_restic_to_r2.ps1` by hand after any significant session if
-  that is too coarse.
+  developed tree drifted by ~46 files in two hours. `DailTracker-BackupRestic` runs daily
+  at 03:00, so the ordinary recovery-point objective for `planning/` is one day. Run
+  `tools/backup_restic_to_r2.ps1` by hand after a significant session if that is too coarse.
 - **The repository passwords are now a single point of failure.** Unlike the plain
   rclone mirror (where a lost credential just means minting a new R2 token), losing a
   restic password makes that repository permanently unreadable — the data is encrypted

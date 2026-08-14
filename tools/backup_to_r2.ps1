@@ -116,7 +116,9 @@ if (-not $DryRun) {
 # not depend on an uncommitted local manifest having been pushed to GitHub.
 if (-not $DryRun -and -not $SkipManifest -and -not $failed) {
     $manifest = Join-Path $root 'data\_meta\backup_manifest.tsv'
-    & $rclone copyto $manifest "${remote}:${bucket}/manifests/$runId.tsv" @common
+    # The archive prefix is immutable by retention policy. `latest.tsv` stays mutable
+    # for the fast recovery path, while each dated copy is protected by R2 Bucket Lock.
+    & $rclone copyto $manifest "${remote}:${bucket}/manifests/archive/$runId.tsv" @common
     if ($LASTEXITCODE -ne 0) { $failed = 1 }
     if (-not $failed) {
         & $rclone copyto $manifest "${remote}:${bucket}/manifests/latest.tsv" @common

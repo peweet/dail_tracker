@@ -1,10 +1,10 @@
 <#
-register_restic_task.ps1 - register (or refresh) the weekly restic backup of the trees
+register_restic_task.ps1 - register (or refresh) the daily restic backup of the trees
 that backup_to_r2.ps1 does NOT cover, as a per-user Windows Scheduled Task. No admin
 rights needed: it runs under the current user when logged on.
 
 Task name : DailTracker-BackupRestic
-Schedule  : every Sunday at 03:00 local - one hour AFTER DailTracker-BackupR2 so the two
+Schedule  : every day at 03:00 local - one hour AFTER DailTracker-BackupR2 so the two
             lanes never compete for bandwidth or for the rclone binary.
 Action    : powershell -File tools/backup_restic_to_r2.ps1
 
@@ -13,8 +13,8 @@ lane that fixed it was hand-run. A hand-run backup decays the moment you stop th
 about it - and planning/ is the most actively-changing tree it covers. Scheduling it
 removes the human from the freshness loop, which is the whole point.
 
-Weekly matches the rclone lane's cadence. restic is incremental and deduplicating, so a
-missed week costs only the delta; -StartWhenAvailable catches up after a sleeping laptop.
+Daily matches the rclone lane's recovery-point objective. Restic is incremental and
+deduplicating, and -StartWhenAvailable catches up after a sleeping laptop.
 
 PREREQ: C:\Users\pglyn\dail_tracker_backup\restic_passwords.txt must exist (the script
 exits 3 without it). Unattended runs cannot prompt for a password.
@@ -38,7 +38,7 @@ if (-not (Test-Path $pwFile)) {
 $action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$wrapper`"" `
     -WorkingDirectory $root
-$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 3:00am
+$trigger = New-ScheduledTaskTrigger -Daily -At 3:00am
 # Same settings rationale as register_backup_task.ps1; 2h ceiling covers a full re-upload.
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
@@ -47,7 +47,7 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
     -Settings $settings `
-    -Description 'Weekly restic snapshot + R2 upload of planning/ and the sandbox/doc/ida/out trees.' | Out-Null
+    -Description 'Daily restic snapshot + R2 upload of planning/ and the sandbox/doc/ida/out trees.' | Out-Null
 
-Write-Host "Registered scheduled task '$taskName' (weekly Sun 03:00)."
+Write-Host "Registered scheduled task '$taskName' (daily 03:00)."
 Get-ScheduledTask -TaskName $taskName | Select-Object TaskName, State | Format-Table -AutoSize

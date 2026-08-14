@@ -2,7 +2,7 @@
 tier: PLAN
 status: LIVE
 domain: infra
-updated: 2026-07-17
+updated: 2026-08-14
 supersedes: []
 read_when: setting up or verifying the R2 backup of data/bronze and data/silver before it's lost
 key: PLAN|LIVE|infra
@@ -57,8 +57,12 @@ rclone version   # confirm it's on PATH
 
 1. Cloudflare dashboard → **R2** → *Create bucket* → name it **`dail-tracker-backup`**
    (must match `$bucket` in [tools/backup_to_r2.ps1](../tools/backup_to_r2.ps1)).
-2. That's it — no toggles to set. Leave **Object versioning** (R2 has none) and
-   **Bucket Lock Rules** alone; the append-only `copy` model needs neither.
+2. R2 does not provide ordinary object versioning. After the first backup, add a
+   Bucket Lock rule for `versions/` and another for `manifests/archive/` objects, with
+   a retention at least as long as the recovery window. Do **not** lock the mutable
+   current data paths or `manifests/latest.tsv`: `rclone sync` must overwrite them.
+   Do not lock active Restic repository prefixes either, because Restic pruning
+   legitimately deletes old packs.
 
 ### 3. Create an S3 API token
 
@@ -88,10 +92,10 @@ Verify: `rclone lsd r2:dail-tracker-backup` should return cleanly (empty is fine
 ```powershell
 tools\backup_to_r2.ps1 -DryRun     # see what would upload, no transfer
 tools\backup_to_r2.ps1             # the real first copy (~9 GB, one-off)
-tools\register_backup_task.ps1     # weekly Sun 02:00 thereafter
+tools\register_backup_task.ps1     # daily 02:00 thereafter
 ```
 
-## What runs each week
+## What runs each day
 
 [tools/backup_to_r2.ps1](../tools/backup_to_r2.ps1) does two things:
 
