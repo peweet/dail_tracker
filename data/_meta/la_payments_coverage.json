@@ -1,22 +1,22 @@
 {
   "councils_attempted": 24,
   "councils_with_rows": 23,
-  "rows_extracted": 100237,
-  "rows_public_display": 80412,
-  "rows_quarantined": 19825,
+  "rows_extracted": 100548,
+  "rows_public_display": 80676,
+  "rows_quarantined": 19872,
   "supplier_class_counts": {
-    "company": 78423,
-    "sole_trader_or_individual": 19313,
-    "public_body": 1960,
+    "company": 78677,
+    "sole_trader_or_individual": 19350,
+    "public_body": 1970,
     "foreign_company": 29,
-    "id_code": 512
+    "id_code": 522
   },
   "value_kind_counts": {
-    "po_committed": 92385,
-    "payment_actual": 7852
+    "po_committed": 92533,
+    "payment_actual": 8015
   },
-  "public_safe_to_sum_rows": 80412,
-  "public_safe_to_sum_total_eur": 9326016917.87,
+  "public_safe_to_sum_rows": 80676,
+  "public_safe_to_sum_total_eur": 9380717101.89,
   "by_council": [
     {
       "slug": "south_dublin",
@@ -664,10 +664,10 @@
       "council": "Meath",
       "region": "Leinster",
       "value_kind": "payment_actual",
-      "files_parsed": 42,
-      "rows": 5969,
-      "total_eur": 888395358.75,
-      "cro_rate": 0.311,
+      "files_parsed": 43,
+      "rows": 6135,
+      "total_eur": 921343835.37,
+      "cro_rate": 0.308,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -696,7 +696,8 @@
         "2025-Q1",
         "2025-Q2",
         "2025-Q3",
-        "2025-Q4"
+        "2025-Q4",
+        "2026-Q1"
       ]
     },
     {
@@ -811,10 +812,10 @@
       "council": "Mayo",
       "region": "Connacht",
       "value_kind": "po_committed",
-      "files_parsed": 40,
-      "rows": 7849,
-      "total_eur": 918435874.38,
-      "cro_rate": 0.316,
+      "files_parsed": 41,
+      "rows": 8004,
+      "total_eur": 943855724.68,
+      "cro_rate": 0.315,
       "periods": [
         "2016-Q1",
         "2016-Q2",
@@ -855,7 +856,8 @@
         "2025-Q1",
         "2025-Q2",
         "2025-Q3",
-        "2025-Q4"
+        "2025-Q4",
+        "2026-Q1"
       ]
     },
     {
@@ -884,6 +886,6 @@
   "parser_version": "0.1.0",
   "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
   "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
-  "generated_at": "2026-08-09T14:54:47+00:00",
+  "generated_at": "2026-08-14T07:19:40+00:00",
   "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
 }
