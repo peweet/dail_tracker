@@ -19,8 +19,9 @@ realisation_tier='PLANNED', value_kind='estimate_advertised', value_safe_to_sum=
 than AWARDED — NEVER summed with eTenders/TED awards or with payments.
 
 Feeds (tagged in column `feed`): cft = Latest CfTs (open opportunities) · notice = Latest Notices.
-POLITENESS / ToU: public procurement record (aggregators like Stotles/OpenOpps scrape the same); ToU
-unconfirmed — research use, low rate (delay per page), bounded pages.
+SOURCE AUTHORITY: the live portal's terms restrict automated retrieval and onward publication. Network
+access fails closed unless written permission is represented by the two ETENDERS_RETRIEVAL_AUTHORITY
+environment variables described by ``_retrieval_authority_receipt``.
 
 Run:
     ./.venv/Scripts/python.exe extractors/etenders_live_tenders_extract.py  # complete grid snapshot
@@ -40,6 +41,7 @@ import contextlib
 import hashlib
 import json
 import logging
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -52,7 +54,9 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
-    sys.stdout.reconfigure(encoding="utf-8")
+    reconfigure_stdout = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure_stdout):
+        reconfigure_stdout(encoding="utf-8")
 from services.coverage_io import save_coverage  # noqa: E402
 from services.extract_runner import run_extractor  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
@@ -89,8 +93,22 @@ SOURCE = {
     "platform": "etenders.gov.ie (European Dynamics EPPS)",
     "landing_page": "https://www.etenders.gov.ie/epps/prepareCurrentOpportunities.do?currentType=cft",
     "access": "Playwright (public tender list is JS-rendered)",
-    "license": "Public procurement record; OGP open data is CC-BY 4.0. Live-portal ToU unconfirmed — research use.",
+    "license": "No general live-portal reuse licence established; automated retrieval requires documented authority.",
 }
+
+
+def _retrieval_authority_receipt() -> dict[str, str]:
+    """Return a non-secret receipt summary or fail closed before any live portal request."""
+    basis = os.environ.get("ETENDERS_RETRIEVAL_AUTHORITY", "").strip().lower()
+    receipt = os.environ.get("ETENDERS_RETRIEVAL_AUTHORITY_RECEIPT", "").strip()
+    if basis != "written_permission" or len(receipt) < 8:
+        raise RuntimeError(
+            "Live eTenders retrieval is blocked pending written source authority. Set "
+            "ETENDERS_RETRIEVAL_AUTHORITY=written_permission and a non-public "
+            "ETENDERS_RETRIEVAL_AUTHORITY_RECEIPT only after permission is recorded."
+        )
+    return {"basis": basis, "receipt_sha256": hashlib.sha256(receipt.encode("utf-8")).hexdigest()}
+
 
 COLMAP = [
     ("title", re.compile(r"title|tender name|name", re.I)),
@@ -489,11 +507,6 @@ def _snapshot_age_hours() -> float | None:
 
 
 def main() -> None:
-    # Keep the browser dependency lazy so parser/unit-test imports work in the
-    # base pipeline environment. The live extractor still fails clearly at run
-    # time when the optional scrape extra is not installed.
-    from playwright.sync_api import sync_playwright
-
     # logging + UTF-8 + exit-code handling live in run_extractor (__main__ below)
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-pages", type=int, default=400, help="safety cap per feed; publication fails if reached")
@@ -533,6 +546,11 @@ def main() -> None:
         ap.error("--max-pages and --max-details must be positive; --delay-ms must be non-negative")
     if args.only and not args.dry_run:
         ap.error("--only is limited to --dry-run so a partial feed cannot replace the complete snapshot")
+    retrieval_authority = _retrieval_authority_receipt()
+    # Keep the browser dependency lazy so parser/unit-test imports work in the base pipeline
+    # environment, and check authority before importing or starting browser machinery.
+    from playwright.sync_api import sync_playwright
+
     feeds = [args.only] if args.only in FEEDS else list(FEEDS)
 
     if args.details_only:
@@ -640,6 +658,7 @@ def main() -> None:
         "generated_utc": observed_at,
         "layer": "silver",
         "source": SOURCE,
+        "retrieval_authority": retrieval_authority,
         "n_rows": df.height,
         "by_feed": {r["feed"]: r["len"] for r in df.group_by("feed").len().iter_rows(named=True)},
         "rows_with_estimated_value": int(df["estimated_value_eur"].is_not_null().sum()),
@@ -664,7 +683,7 @@ def main() -> None:
         "caveat": "Live national pipeline (incl. sub-EU-threshold). Grid pagination completed before publication. "
         "CPV detail enrichment is a separate bounded job and may be incomplete. The cft feed also lists already-closed + "
         "DPS/Qualification-System records back to 2023; the consuming view filters to genuinely-open. Snapshot at "
-        "retrieved_utc — refresh via tools/poll_live_tenders.ps1. ToU unconfirmed — research use.",
+        "retrieved_utc — refresh via tools/poll_live_tenders.ps1 only while documented source authority remains valid.",
         "parser_version": PARSER_VERSION,
     }
     save_coverage(cov, OUT_COV)

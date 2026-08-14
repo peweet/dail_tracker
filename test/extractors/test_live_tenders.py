@@ -53,7 +53,7 @@ def test_only_open_opportunities(con):
 def test_exact_deadline_preserves_source_clock_and_timezone(con):
     columns = {row[0]: row[1] for row in con.execute("DESCRIBE v_procurement_live_tenders").fetchall()}
     assert columns["submission_deadline_at"] == "TIMESTAMP WITH TIME ZONE"
-    assert {"deadline_raw", "deadline_timezone", "deadline_timezone_abbreviation"} <= set(columns)
+    assert {"deadline_raw", "deadline_timezone", "deadline_timezone_abbreviation", "deadline_precision"} <= set(columns)
 
     # Every portal deadline carrying its explicit Irish GMT/IST marker must parse to an instant.
     bad = _q(
@@ -74,6 +74,22 @@ def test_exact_deadline_preserves_source_clock_and_timezone(con):
         "<> regexp_extract(deadline_raw, ' ([0-9]{2}:[0-9]{2}:[0-9]{2}) ', 1)",
     )
     assert bad_clock == 0
+    assert _q(con, "SELECT COUNT(*) FROM v_procurement_live_tenders WHERE deadline_precision <> 'SOURCE_INSTANT'") == 0
+
+
+def test_live_retrieval_authority_fails_closed_and_emits_only_a_hash(monkeypatch):
+    import extractors.etenders_live_tenders_extract as extractor
+
+    monkeypatch.delenv("ETENDERS_RETRIEVAL_AUTHORITY", raising=False)
+    monkeypatch.delenv("ETENDERS_RETRIEVAL_AUTHORITY_RECEIPT", raising=False)
+    with pytest.raises(RuntimeError, match="blocked pending written source authority"):
+        extractor._retrieval_authority_receipt()
+
+    monkeypatch.setenv("ETENDERS_RETRIEVAL_AUTHORITY", "written_permission")
+    monkeypatch.setenv("ETENDERS_RETRIEVAL_AUTHORITY_RECEIPT", "receipt-123")
+    receipt = extractor._retrieval_authority_receipt()
+    assert receipt["basis"] == "written_permission"
+    assert receipt["receipt_sha256"] != "receipt-123"
 
 
 def test_has_detail_link(con):

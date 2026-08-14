@@ -43,7 +43,7 @@ def live_tenders(
     notice that pass skipped or never reached — those rows can never match a sector, only the fallback."""
     sql = (
         "SELECT title, buyer, published_date, submission_deadline, submission_deadline_at,"
-        " deadline_raw, deadline_timezone, deadline_timezone_abbreviation, days_to_deadline,"
+        " deadline_raw, deadline_timezone, deadline_timezone_abbreviation, deadline_precision, days_to_deadline,"
         " procedure, status, estimated_value_eur, realisation_tier, value_kind,"
         " resource_id, detail_url, cpv_code, cpv_division, retrieved_utc"
         " FROM v_procurement_live_tenders"
@@ -69,7 +69,7 @@ def live_tender_by_id(conn: duckdb.DuckDBPyConnection, resource_id: str) -> Quer
     return _run(
         conn,
         "SELECT title, buyer, published_date, submission_deadline, submission_deadline_at,"
-        " deadline_raw, deadline_timezone, deadline_timezone_abbreviation, days_to_deadline,"
+        " deadline_raw, deadline_timezone, deadline_timezone_abbreviation, deadline_precision, days_to_deadline,"
         " procedure, status, estimated_value_eur, realisation_tier, value_kind,"
         " resource_id, detail_url, cpv_code, cpv_division, retrieved_utc"
         " FROM v_procurement_live_tenders WHERE resource_id = ? LIMIT 1",

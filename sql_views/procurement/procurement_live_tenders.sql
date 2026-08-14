@@ -47,6 +47,12 @@ SELECT
     deadline_raw,
     CASE WHEN deadline_at_parsed IS NOT NULL THEN 'Europe/Dublin' END AS deadline_timezone,
     regexp_extract(deadline_raw, ' (IST|GMT) ', 1)           AS deadline_timezone_abbreviation,
+    CASE
+        WHEN deadline_at_parsed IS NOT NULL THEN 'SOURCE_INSTANT'
+        WHEN regexp_matches(COALESCE(deadline_raw, ''), '(^|[ T])[0-9]{1,2}:[0-9]{2}') THEN 'PARSE_FAILED'
+        WHEN TRY_CAST(deadline_date AS DATE) IS NOT NULL THEN 'SOURCE_DATE_ONLY'
+        ELSE 'NOT_STATED'
+    END                                                       AS deadline_precision,
     DATE_DIFF('day', CURRENT_DATE, TRY_CAST(deadline_date AS DATE)) AS days_to_deadline,
     procedure,
     status,
@@ -59,9 +65,16 @@ SELECT
     cpv_division,                         -- 2-digit CPV division label, the sector facet key
     retrieved_utc
 FROM parsed
-WHERE TRY_CAST(deadline_date AS DATE) >= CURRENT_DATE      -- open now (closing in the future)
+WHERE (
+        deadline_at_parsed > CURRENT_TIMESTAMP
+        OR (
+            deadline_at_parsed IS NULL
+            AND NOT regexp_matches(COALESCE(deadline_raw, ''), '(^|[ T])[0-9]{1,2}:[0-9]{2}')
+            AND TRY_CAST(deadline_date AS DATE) >= CURRENT_DATE
+        )
+    )                                                        -- exact instants close at the source-stated time
   AND TRY_CAST(deadline_date AS DATE) < CURRENT_DATE + INTERVAL 3 YEAR  -- exclude far-future DPS application windows
-ORDER BY submission_deadline ASC;                         -- soonest-closing first
+ORDER BY submission_deadline ASC, submission_deadline_at ASC; -- soonest-closing first
 
 -- "Who is buying right now" — open opportunities by contracting authority. Planned estimates
 -- remain on individual notices and are never aggregated.
