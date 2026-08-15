@@ -4,8 +4,9 @@ that backup_to_r2.ps1 does NOT cover, as a per-user Windows Scheduled Task. No a
 rights needed: it runs under the current user when logged on.
 
 Task name : DailTracker-BackupRestic
-Schedule  : every day at 03:00 local - one hour AFTER DailTracker-BackupR2 so the two
-            lanes never compete for bandwidth or for the rclone binary.
+Schedule  : every day at 03:00 local - normally one hour AFTER DailTracker-BackupR2.
+            If a sleeping laptop catches both up together, the restic script waits
+            for the data lane before it snapshots or uploads.
 Action    : powershell -File tools/backup_restic_to_r2.ps1
 
 WHY THIS EXISTS: the 2026-08-01 audit found 2.58 GB on exactly one disk, and the restic

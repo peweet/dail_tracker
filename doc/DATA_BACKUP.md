@@ -113,6 +113,11 @@ tools\register_backup_task.ps1     # daily 02:00 thereafter
 Logs: a one-line run summary at `logs/standalone/backup_to_r2.log`; full rclone
 transfer detail at `logs/standalone/backup_to_r2.rclone.log`.
 
+`DailTracker-BackupRestic` runs at 03:00. If a sleeping laptop makes Task Scheduler
+catch up both jobs together, its script waits for `DailTracker-BackupR2` to finish
+before it starts the encrypted snapshot, preventing the two lanes from competing for
+disk and R2 bandwidth.
+
 ## Restoring after a laptop loss
 
 > Full standalone runbook: **[DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)**. Quick version:

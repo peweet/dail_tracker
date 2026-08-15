@@ -63,6 +63,32 @@ New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
 $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 Set-Location $root
 
+# A sleeping laptop can make Task Scheduler catch both daily jobs up at once,
+# even though their normal triggers are an hour apart.  The data lane is smaller
+# and is the priority recovery point, so let it finish before the heavier restic
+# snapshot starts.  This also avoids two backup clients competing for local I/O
+# and the R2 connection immediately after wake-up.
+function Wait-ForDataBackupIfRunning {
+    $taskName = 'DailTracker-BackupR2'
+    $deadline = (Get-Date).AddHours(2)
+    $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    if (-not $task -or $task.State -ne 'Running') { return }
+
+    Write-Host "$taskName is running; waiting before restic starts."
+    while ($task.State -eq 'Running' -and (Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds 30
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if (-not $task) { return }
+    }
+
+    if ($task -and $task.State -eq 'Running') {
+        Add-Content $log "$stamp  ERROR data backup remained running for 2 hours; restic not started"
+        throw "$taskName did not finish within the coordination window."
+    }
+}
+
+Wait-ForDataBackupIfRunning
+
 # --- resolve restic (PATH first, then the winget install location) ---
 $restic = (Get-Command restic -ErrorAction SilentlyContinue).Source
 if (-not $restic) {
