@@ -2,7 +2,7 @@
 tier: PLAN
 status: LIVE
 domain: infra
-updated: 2026-08-14
+updated: 2026-08-15
 supersedes: []
 read_when: the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub + R2
 key: PLAN|LIVE|infra
@@ -32,7 +32,7 @@ working machine. The backup side (what runs, how it's configured) is in
 | `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
 | `planning/` (including the authoritative nested `planning/product/.git` private history) | restic repo `restic_private` → R2 bucket **`dail-siting`** | `restic restore` (below) |
 | **The whole repo otherwise** (~3.8 GB: `.git`, the non-mirrored parts of `data/`, `pipeline_sandbox`, `doc`, `ida`, `out`, `logs`, `audit_screenshots`, `.claude`, tests, tools) | restic repo `restic_sandbox` → R2 bucket `dail-tracker-backup` | `restic restore` (below) |
-| Production authentication, waitlist and deployment configuration | verified local state stage, then dedicated encrypted Restic repository in `dail-siting` **after off-site setup is green** | rebuild the Hetzner VM, restore the latest encrypted state snapshot, then complete an isolated sign-in/case-reopen rehearsal |
+| Production authentication, waitlist and deployment configuration | verified local state stage and encrypted Restic repository `dail-siting/redline-production-state` | rebuild the Hetzner VM, restore the latest encrypted state snapshot, then complete an isolated sign-in/case-reopen rehearsal |
 
 The sandbox job is defined as **the repo minus a denylist**, not as a list of directories —
 so a new top-level directory is protected the day it appears. That is deliberate: the
@@ -49,6 +49,11 @@ changing backup exclusions.
 
 R2 account ID: `dda75db5c9db02954a7b45e69052c742`
 S3 endpoint: `https://dda75db5c9db02954a7b45e69052c742.r2.cloudflarestorage.com`
+
+As of 2026-08-15, R2 Bucket Lock retains objects under `dail-tracker-backup/versions/`
+and `dail-tracker-backup/manifests/archive/` for 45 days. Mutable current-data paths and
+active Restic repositories are deliberately not locked because their maintenance jobs must
+replace and prune objects.
 
 ## What you need before starting
 
