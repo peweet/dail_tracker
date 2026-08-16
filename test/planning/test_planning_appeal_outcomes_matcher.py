@@ -193,3 +193,54 @@ def test_either_empty_input_returns_typed_empty_output():
     empty_apps = application.head(0)
     assert _spatial_temporal_matches(empty_residual, application).is_empty()
     assert _spatial_temporal_matches(residual, empty_apps).is_empty()
+
+
+@pytest.mark.parametrize(
+    ("direction", "dlat", "dlon"),
+    [
+        ("N", 0.0012, 0.0),
+        ("S", -0.0012, 0.0),
+        ("E", 0.0, 0.0012),
+        ("W", 0.0, -0.0012),
+        ("NE", 0.00105, 0.00105),
+        ("NW", 0.00105, -0.00105),
+        ("SE", -0.00105, 0.00105),
+        ("SW", -0.00105, -0.00105),
+    ],
+)
+def test_candidate_in_each_of_the_eight_neighbouring_grid_cells_is_still_found(direction, dlat, dlon):
+    # The grid-cell join only reaches a candidate if the 3x3 neighbour-offset table is intact --
+    # a mutated offset silently drops one direction instead of raising, so a match this project
+    # relies on (a candidate application one grid cell away from its appeal) would vanish with no
+    # error. GRID=0.002 puts the cell boundary at 0.001; each offset here crosses it while staying
+    # inside SPATIAL_DEG_WIDE (0.0015) so the match should still succeed.
+    residual = _residual(abp_case=f"grid-{direction}", lon=0.0, lat=0.0, lodged_date=dt.date(2025, 6, 1))
+    apps = _apps([[f"APP-{direction}", "Cork County Council", "Granted", dt.date(2025, 5, 1), dlon, dlat]])
+    out = _spatial_temporal_matches(residual, apps)
+    assert out["ApplicationNumber"].to_list() == [f"APP-{direction}"]
+
+
+def test_most_recent_predating_decision_wins_within_the_same_radius_band():
+    # Both candidates sit in the tight band (same radius_band), so the DecisionDate sort is what
+    # decides -- this is the "(most recent such)" rule the module's docstring documents.
+    residual = _residual(abp_case="date-recency", lon=-8.0, lat=53.0, lodged_date=dt.date(2025, 6, 1))
+    apps = _apps(
+        [
+            ["OLDER", "Cork County Council", "Granted", dt.date(2024, 1, 1), -8.0001, 53.0001],
+            ["NEWER", "Cork County Council", "Granted", dt.date(2025, 1, 1), -8.0002, 53.0002],
+        ]
+    )
+    assert _spatial_temporal_matches(residual, apps)["ApplicationNumber"].item() == "NEWER"
+
+
+def test_full_tie_falls_back_to_source_application_order():
+    # Same date, same radius band, same neighbour cell -- the only remaining tiebreaker is
+    # _application_order, i.e. the row's position in the source applications table.
+    residual = _residual(abp_case="app-order", lon=-8.0, lat=53.0, lodged_date=dt.date(2025, 6, 1))
+    apps = _apps(
+        [
+            ["FIRST", "Cork County Council", "Granted", dt.date(2025, 5, 1), -8.0001, 53.0001],
+            ["SECOND", "Cork County Council", "Granted", dt.date(2025, 5, 1), -8.0001, 53.0001],
+        ]
+    )
+    assert _spatial_temporal_matches(residual, apps)["ApplicationNumber"].item() == "FIRST"

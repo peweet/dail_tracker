@@ -1,0 +1,29 @@
+# Cosmic Ray session for the WHOLE planning/civic/extractors/planning_appeal_outcomes.py module —
+# widened from .cosmic-ray/planning-appeal-outcomes-matcher/ (matcher functions only) per user request
+# to cover "entire arcgis". This session's survivors are expected and real: _fetch_acp (live ArcGIS
+# HTTP), _build_spine, _ms_to_date, _centroid, _ring_area, _case_status, _norm_abp and main have no
+# unit test — mutants inside them will survive, which is the measured size of the gap, not a defect.
+#
+# Runs against a COPY, outcomes_full_target.py, so an interrupted session can never leave the real
+# module mutated. Same arrangement as .cosmic-ray/siting-geometry/.
+#
+#   uv run --frozen --group dev cosmic-ray init .cosmic-ray/planning-appeal-outcomes-full/cosmic.toml .cosmic-ray/planning-appeal-outcomes-full/session.sqlite
+#   uv run --frozen --group dev cosmic-ray exec .cosmic-ray/planning-appeal-outcomes-full/cosmic.toml .cosmic-ray/planning-appeal-outcomes-full/session.sqlite
+#   uv run --frozen --group dev cr-report .cosmic-ray/planning-appeal-outcomes-full/session.sqlite
+
+[cosmic-ray]
+module-path = ".cosmic-ray/planning-appeal-outcomes-full/outcomes_full_target.py"
+timeout = 20.0
+excluded-modules = []
+test-command = "c:/Users/pglyn/PycharmProjects/dail_extractor/.venv/Scripts/python.exe .cosmic-ray/planning-appeal-outcomes-full/harness.py"
+
+[cosmic-ray.distributor]
+name = "local"
+
+[cosmic-ray.filters.operators-filter]
+exclude-operators = [
+    "^core/ReplaceBinaryOperator_(BitAnd|BitOr|BitXor|LShift|RShift|Pow|Mod|FloorDiv)_",
+    "^core/ReplaceBinaryOperator_.*_(BitAnd|BitOr|BitXor|LShift|RShift|Pow|Mod|FloorDiv)$",
+    "^core/ReplaceComparisonOperator_(Is|IsNot)_",
+    "^core/ReplaceComparisonOperator_.*_(Is|IsNot)$",
+]

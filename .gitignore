@@ -124,8 +124,22 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# Cosmic Ray mutation sessions are resumable local SQLite state, not source.
+# Cosmic Ray mutation sessions: the *.sqlite state and *.log output are resumable/regeneratable,
+# but cosmic.toml/harness.py/*_target.py are hand-authored source (the harness assertions and the
+# COPIED-FROM provenance hash) with no other copy -- track those. See
+# feedback_blanket_gitignore_swallows_load_bearing_files in project memory.
 .cosmic-ray/
+!.cosmic-ray/
+!.cosmic-ray/*/
+!.cosmic-ray/*/cosmic.toml
+!.cosmic-ray/*/harness.py
+!.cosmic-ray/*/*_target.py
+.cosmic-ray/*.sqlite
+.cosmic-ray/*.git-head
+.cosmic-ray/*.toml
+.cosmic-ray/*.log
+.cosmic-ray/*/*.sqlite
+.cosmic-ray/*/*.log
 
 # Translations
 *.mo

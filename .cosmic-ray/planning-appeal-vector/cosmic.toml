@@ -1,0 +1,37 @@
+# Cosmic Ray session for planning/civic/extractors/planning_appeal_vector.py — the appeal-outcomes
+# matching seam (authority/date/decision normalisation + the spatial-temporal fallback join).
+#
+# Runs against vector_target.py, a COPY, so an interrupted session can never leave the real module
+# mutated. Same arrangement as .cosmic-ray/siting-geometry/.
+#
+# Supersedes planning-appeal-outcomes-full and planning-appeal-outcomes-matcher: their *_target.py
+# copies predate the 2026-08-14 extraction of this matching logic out of planning_appeal_outcomes.py
+# into this module, so they now audit code that no longer exists there. This session targets where
+# the logic actually lives.
+#
+#   uv run --frozen --group dev cosmic-ray init .cosmic-ray/planning-appeal-vector/cosmic.toml .cosmic-ray/planning-appeal-vector/session.sqlite
+#   uv run --frozen --group dev cosmic-ray exec .cosmic-ray/planning-appeal-vector/cosmic.toml .cosmic-ray/planning-appeal-vector/session.sqlite
+#   uv run --frozen --group dev cr-report .cosmic-ray/planning-appeal-vector/session.sqlite
+#
+# A surviving mutant is a behaviour change no assertion in harness.py noticed — a missing test.
+# Refresh vector_target.py from the real module before any re-run, or the session audits a stale
+# copy (tools/mutation_session.py's assert_fresh() refuses to run it silently stale).
+
+[cosmic-ray]
+module-path = ".cosmic-ray/planning-appeal-vector/vector_target.py"
+timeout = 60.0
+excluded-modules = []
+test-command = "C:/Users/pglyn/PycharmProjects/dail_extractor/.venv/Scripts/python.exe .cosmic-ray/planning-appeal-vector/harness.py"
+
+[cosmic-ray.distributor]
+name = "local"
+
+[cosmic-ray.filters.operators-filter]
+# Same exclusions as the geometry/registry sessions — bitwise and identity-comparison mutants this
+# module does not use meaningfully, so they'd generate noise rather than missing-test signal.
+exclude-operators = [
+    "^core/ReplaceBinaryOperator_(BitAnd|BitOr|BitXor|LShift|RShift|Pow|Mod|FloorDiv)_",
+    "^core/ReplaceBinaryOperator_.*_(BitAnd|BitOr|BitXor|LShift|RShift|Pow|Mod|FloorDiv)$",
+    "^core/ReplaceComparisonOperator_(Is|IsNot)_",
+    "^core/ReplaceComparisonOperator_.*_(Is|IsNot)$",
+]

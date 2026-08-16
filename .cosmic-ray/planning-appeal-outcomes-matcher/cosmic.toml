@@ -1,0 +1,36 @@
+# Cosmic Ray session for _auth_key / _council_decision / _spatial_temporal_matches in
+# planning/civic/extractors/planning_appeal_outcomes.py — the spatial+temporal fallback that
+# recovers ACP appeal matches the exact appeal_ref join misses (all of Cork County, among others).
+#
+# Runs against a COPY, matcher_target.py, so an interrupted session can never leave the real module
+# mutated. Same arrangement as .cosmic-ray/siting-geometry/ and .cosmic-ray/siting-registry-georeference/.
+#
+#   uv run --frozen --group dev cosmic-ray init .cosmic-ray/planning-appeal-outcomes-matcher/cosmic.toml .cosmic-ray/planning-appeal-outcomes-matcher/session.sqlite
+#   uv run --frozen --group dev cosmic-ray exec .cosmic-ray/planning-appeal-outcomes-matcher/cosmic.toml .cosmic-ray/planning-appeal-outcomes-matcher/session.sqlite
+#   uv run --frozen --group dev cr-report .cosmic-ray/planning-appeal-outcomes-matcher/session.sqlite
+#
+# A surviving mutant is a behaviour change no assertion in harness.py noticed — a missing test.
+# Refresh matcher_target.py from the real module before any re-run, or the session audits a stale
+# copy. Scoped to these three functions only: _fetch_acp/_build_spine/main do real ArcGIS/filesystem
+# I/O and have no unit test, so mutating them would just report every mutant as a trivial survivor.
+# test/planning/test_planning_appeal_outcomes.py (the other test file for this module) is a
+# data-quality contract on the OUTPUT PARQUET, skipped when that file is absent, and never calls
+# into this module's code — it does not extend the tested surface beyond the matcher tests.
+
+[cosmic-ray]
+module-path = ".cosmic-ray/planning-appeal-outcomes-matcher/matcher_target.py"
+timeout = 20.0
+excluded-modules = []
+test-command = "c:/Users/pglyn/PycharmProjects/dail_extractor/.venv/Scripts/python.exe .cosmic-ray/planning-appeal-outcomes-matcher/harness.py"
+
+[cosmic-ray.distributor]
+name = "local"
+
+[cosmic-ray.filters.operators-filter]
+# Same exclusions as the geometry/registry-georeference/arcgis-freshness-monitor sessions.
+exclude-operators = [
+    "^core/ReplaceBinaryOperator_(BitAnd|BitOr|BitXor|LShift|RShift|Pow|Mod|FloorDiv)_",
+    "^core/ReplaceBinaryOperator_.*_(BitAnd|BitOr|BitXor|LShift|RShift|Pow|Mod|FloorDiv)$",
+    "^core/ReplaceComparisonOperator_(Is|IsNot)_",
+    "^core/ReplaceComparisonOperator_.*_(Is|IsNot)$",
+]
