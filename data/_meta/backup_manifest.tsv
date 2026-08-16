@@ -1,5 +1,5 @@
 # data backup manifest — sha256<TAB>size<TAB>relpath (relative to data/)
-# generated 2026-08-15T06:54:39+00:00 | 40649 files | 21.37 GB
+# generated 2026-08-16T13:57:57+00:00 | 40649 files | 21.37 GB
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	0	bronze/.gitkeep
 6191ee9bc5a5b9d38413d06b4aa0dc8b23033e821d26be3991e613705ff2d996	37865889	bronze/charities/public_register_20260426.xlsx
 21d6e835442bd940167108337023d81c079ba9da89e9c63bf0e706888ea2d5cb	192409128	bronze/cro/companies_20260504.csv
