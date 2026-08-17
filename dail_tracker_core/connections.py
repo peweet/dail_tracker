@@ -238,6 +238,10 @@ CONSTITUENCY_FILES = [
     "constituency_la_housing_performance.sql",  # council-grain DISTINCT of the above (for the LG page)
     "constituency_la_map_layers.sql",  # LG choropleth layers; JOINs the four v_la_* views above
     "constituency_council_context.sql",
+    # JOINs housing_context + ssha_waiting_list (both above) — MUST stay last;
+    # the zz_ filename keeps sorted-glob consumers order-safe too. Was in NO
+    # list until 2026-08-17 — the registration-graph test caught the orphan.
+    "constituency_zz_housing_context_with_ssha.sql",
 ]
 
 
