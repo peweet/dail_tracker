@@ -14,6 +14,10 @@ The flat import surface is preserved: every function is re-exported here, so
 
 from __future__ import annotations
 
+# The award-band publishability floor is part of the flat surface, not just an internal
+# constant: the API router sets its own lower bound from it so no caller can request a
+# median over a handful of awards. One definition, read by every layer.
+from dail_tracker_core.queries.procurement._shared import MIN_AWARDS_FOR_BAND  # noqa: F401
 from dail_tracker_core.queries.procurement.afs import (  # noqa: F401
     afs_by_division,
     afs_capital_by_division,

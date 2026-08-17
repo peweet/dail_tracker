@@ -105,11 +105,17 @@ def fetch_value_contrast_result() -> QueryResult:
 #    deflation + index choice live in the views and services/deflator.py. A page must gate
 #    these behind DAIL_EXPERIMENTAL (like the bid-signal section). ───────────────────────────
 @cache_data(ttl=600)
-def fetch_cpv_summary_real_result(min_valued: int = 1, limit: int | None = None) -> QueryResult:
+def fetch_cpv_summary_real_result(min_valued: int | None = None, limit: int | None = None) -> QueryResult:
     """Per-CPV award benchmark, nominal band beside the inflation-adjusted (CPI) band
     (v_procurement_cpv_summary_real). Carries n_real_excluded + the index/base so the page can
-    show "in 2025 prices" honestly. Cached pass-through — no computation here."""
-    return _q.cpv_summary_real(get_procurement_conn(), min_valued=min_valued, limit=limit)
+    show "in 2025 prices" honestly. Cached pass-through — no computation here.
+
+    ``min_valued=None`` defers to the core publishability floor rather than restating it, so the
+    threshold has one definition (``_shared.MIN_AWARDS_FOR_BAND``)."""
+    conn = get_procurement_conn()
+    if min_valued is None:
+        return _q.cpv_summary_real(conn, limit=limit)
+    return _q.cpv_summary_real(conn, min_valued=min_valued, limit=limit)
 
 
 @cache_data(ttl=600)

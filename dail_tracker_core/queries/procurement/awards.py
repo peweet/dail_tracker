@@ -18,6 +18,7 @@ from dail_tracker_core.queries.procurement._shared import (
     _RANK_ORDER,
     _SUPPLIER_COLS,
     _SUPPLIER_ORDER,
+    MIN_AWARDS_FOR_BAND,
 )
 from dail_tracker_core.results import QueryResult
 
@@ -221,19 +222,27 @@ def value_contrast(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
-def cpv_summary_real(conn: duckdb.DuckDBPyConnection, *, min_valued: int = 1, limit: int | None = None) -> QueryResult:
+def cpv_summary_real(
+    conn: duckdb.DuckDBPyConnection, *, min_valued: int = MIN_AWARDS_FOR_BAND, limit: int | None = None
+) -> QueryResult:
     """Per-CPV award benchmark carrying BOTH the nominal band and the inflation-adjusted (CPI,
     today's-prices) band, from ``v_procurement_cpv_summary_real``. ``n_real_excluded`` is the
     honest count of sum-safe awards that could not be adjusted (year outside the index), so the
     two bands are over slightly different samples — the page shows that, never hides it. All
-    aggregation + deflation is in the view; this only filters/orders/limits."""
+    aggregation + deflation is in the view; this only filters/orders/limits.
+
+    ``min_valued`` defaults to the publishability floor (``_shared.MIN_AWARDS_FOR_BAND``), NOT to
+    1 — a caller that does not state a floor must not receive a median computed over one award."""
     sql = (
         "SELECT cpv_code, cpv_description, n_awards_valued, median_award_eur, p25_award_eur, p75_award_eur,"
         " n_awards_valued_real, median_award_real_eur, p25_award_real_eur, p75_award_real_eur,"
         " min_award_real_eur, max_award_real_eur, n_real_excluded, real_base_year, deflator_index,"
         # sector-aware band: construction CPVs use the SCSI tender-price index, others CPI
         " n_awards_valued_real_sector, median_award_real_sector_eur, p25_award_real_sector_eur,"
-        " p75_award_real_sector_eur, deflator_index_sector"
+        " p75_award_real_sector_eur, deflator_index_sector,"
+        # The sector band carries its OWN sample, so it gets its own publishability flag —
+        # a category can clear the floor nominally and miss it once deflation drops rows.
+        f" (n_awards_valued_real_sector >= {int(MIN_AWARDS_FOR_BAND)}) AS has_reliable_real_band"
         " FROM v_procurement_cpv_summary_real WHERE n_awards_valued >= ?"
         " ORDER BY n_awards_valued DESC"
     )
@@ -311,9 +320,13 @@ def cpv_summary(
     """CPV categories ranked by number of awards (or sum-safe value).
     ``year`` scopes to one calendar year via the per-year view; ``None`` is all-time."""
     order = _RANK_ORDER.get(order_by, _RANK_ORDER["awards"])
+    # has_reliable_award_band carries the publishability floor (_shared.MIN_AWARDS_FOR_BAND)
+    # so the page renders a decision instead of re-deriving the threshold. Both the all-time
+    # and per-year views expose n_awards_valued, so one expression serves both.
     cols = (
         "cpv_code, cpv_description, n_awards, n_suppliers, awarded_value_safe_eur, "
-        "n_awards_valued, median_award_eur, p25_award_eur, p75_award_eur"
+        "n_awards_valued, median_award_eur, p25_award_eur, p75_award_eur, "
+        f"(n_awards_valued >= {int(MIN_AWARDS_FOR_BAND)}) AS has_reliable_award_band"
     )
     params: list = []
     if year is None:

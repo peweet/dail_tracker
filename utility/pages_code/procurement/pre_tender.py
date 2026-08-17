@@ -148,6 +148,35 @@ def _facet(res, value_col: str, label: str, key: str, all_label: str) -> str | N
     return None if choice == all_label else choice
 
 
+def _caveat_html(headline, n_leads, n_areas, n_sources, span, verification, stale_note) -> str:
+    return (
+        f'<div class="pr-caveat">{headline} '
+        f"{n_leads:,} dated observations across {n_areas:,} areas, taken from {n_sources:,} published "
+        f"sources — most of them answers given to the Dáil.{span} "
+        f"{verification} — this is a record of what was said on a date, not a live opportunity list."
+        f"{stale_note} Any amount shown is the source's own wording and is never parsed or added up.</div>"
+    )
+
+
+def _grid_html(cards) -> str:
+    return f'<div class="pr-grid">{"".join(cards)}</div>'
+
+
+def _spacer_md_html() -> str:
+    return '<div class="pr-sp-md"></div>'
+
+
+def _foot_html() -> str:
+    return (
+        '<div class="pr-foot"><strong>Source:</strong> published answers to Dáil questions, council '
+        "and semi-state reports, gathered as dated observations "
+        '(<a href="https://data.oireachtas.ie" target="_blank" rel="noopener">data.oireachtas.ie ↗</a>). '
+        "A pre-tender observation is not a tender, an award, a payment or a budget, and is never added "
+        "to any of them. Stages are the source's own; nothing here has been confirmed against the live "
+        "tender register, so check the source before acting on any row.</div>"
+    )
+
+
 def _pre_tender_caveat(s) -> None:
     """The section's headline, built from the corpus summary rather than asserted in prose.
 
@@ -200,13 +229,7 @@ def _pre_tender_caveat(s) -> None:
             "<strong>Before the tender — public projects a body has described, "
             "but which have not been advertised.</strong>"
         )
-    st.html(
-        f'<div class="pr-caveat">{headline} '
-        f"{n_leads:,} dated observations across {n_areas:,} areas, taken from {n_sources:,} published "
-        f"sources — most of them answers given to the Dáil.{span} "
-        f"{verification} — this is a record of what was said on a date, not a live opportunity list."
-        f"{stale_note} Any amount shown is the source's own wording and is never parsed or added up.</div>"
-    )
+    st.html(_caveat_html(headline, n_leads, n_areas, n_sources, span, verification, stale_note))
 
 
 def _render_pre_tender() -> None:
@@ -313,8 +336,8 @@ def _render_pre_tender() -> None:
         if source:
             name_html += f'<span class="pr-sub">{source}</span>'
         cards.append(_card(name_html, meta, pills))
-    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
-    st.html('<div class="pr-sp-md"></div>')
+    st.html(_grid_html(cards))
+    st.html(_spacer_md_html())
     pagination_controls(
         total,
         key_prefix=pg_key,
@@ -322,11 +345,4 @@ def _render_pre_tender() -> None:
         default_page_size=_PRE_TENDER_PAGE,
         label="observations",
     )
-    st.html(
-        '<div class="pr-foot"><strong>Source:</strong> published answers to Dáil questions, council '
-        "and semi-state reports, gathered as dated observations "
-        '(<a href="https://data.oireachtas.ie" target="_blank" rel="noopener">data.oireachtas.ie ↗</a>). '
-        "A pre-tender observation is not a tender, an award, a payment or a budget, and is never added "
-        "to any of them. Stages are the source's own; nothing here has been confirmed against the live "
-        "tender register, so check the source before acting on any row.</div>"
-    )
+    st.html(_foot_html())

@@ -19,6 +19,21 @@ _RANK_ORDER = {  # authority + cpv summaries share the same column shape
     "value": "awarded_value_safe_eur DESC, n_awards DESC",
 }
 
+# Publishability floor for a per-CPV "typical award" band (median + p25–p75).
+# A median over 2–3 awards reads as a benchmark but is noise, so the band is only
+# a fact worth stating once the category carries this many sum-safe valued awards.
+#
+# THE ONE DEFINITION. It used to be written four times with two different values —
+# `>= 8` twice in the page, `min_valued=1` as the core/data-access default, and
+# `ge=1` on the API — so an API caller could request a published median computed
+# over a single award. Queries derive `has_reliable_award_band` from this constant
+# and consumers render that boolean; nobody re-states the number.
+#
+# Kept here rather than in the views because three views compute a band
+# (v_procurement_cpv_summary, _cpv_year_summary, _cpv_summary_real) and a SQL
+# literal in each is the duplication this replaces.
+MIN_AWARDS_FOR_BAND = 8
+
 _COMPETITION_ORDER = {  # buyer competition ranking
     "single_bid": "single_bid_lot_pct DESC NULLS LAST, n_lots_with_bidcount DESC",
     "lots": "n_lots_with_bidcount DESC",

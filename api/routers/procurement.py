@@ -298,7 +298,12 @@ def inflation_indices() -> dict:
     include_in_schema=_EXPERIMENTAL,
 )
 def inflation_cpv(
-    min_valued: int = Query(8, ge=1, description="Drop categories with fewer sum-safe valued awards"),
+    min_valued: int = Query(
+        _q.MIN_AWARDS_FOR_BAND,
+        ge=_q.MIN_AWARDS_FOR_BAND,
+        description="Drop categories with fewer sum-safe valued awards. The lower bound is the "
+        "publishability floor — a median over a handful of awards is noise, not a benchmark.",
+    ),
     limit: int = Query(100, ge=1, le=1000),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:

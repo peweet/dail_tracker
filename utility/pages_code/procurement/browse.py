@@ -236,10 +236,11 @@ def _render_cpv(year: int | None) -> None:
             f"CPV {_esc(r.cpv_code)} · {_awards_word(_n(r.n_awards))} · "
             f"{_n(r.n_suppliers):,} supplier{'s' if _n(r.n_suppliers) != 1 else ''}"
         )
-        # Factual award-value benchmark — only when enough awards carry a sum-safe value
-        # that a "typical" range is meaningful (a median over 2–3 awards would mislead).
+        # Factual award-value benchmark — shown only when the query layer says the sample
+        # is deep enough to publish (has_reliable_award_band carries the one floor,
+        # _shared.MIN_AWARDS_FOR_BAND). The threshold is not restated here.
         valued = _n(getattr(r, "n_awards_valued", 0))
-        if valued >= 8 and getattr(r, "median_award_eur", None):
+        if getattr(r, "has_reliable_award_band", False) and getattr(r, "median_award_eur", None):
             meta += (
                 f" · typical award {_eur_scale(r.p25_award_eur)}–{_eur_scale(r.p75_award_eur)} "
                 f"(median {_eur_scale(r.median_award_eur)}, {valued} valued)"
@@ -251,8 +252,13 @@ def _render_cpv(year: int | None) -> None:
                 # Sector-aware band: construction CPVs (45*/71*) use the SCSI tender-price index
                 # (the right "cost to procure" lens — construction rose far faster than CPI),
                 # every other category uses CPI. deflator_index_sector names the index used.
-                rn = _n(getattr(rr, "n_awards_valued_real_sector", 0)) if rr is not None else 0
-                if rr is not None and rn >= 8 and getattr(rr, "median_award_real_sector_eur", None):
+                # The sector band has its own sample and its own flag — deflation can drop a
+                # category below the floor that cleared it nominally.
+                if (
+                    rr is not None
+                    and getattr(rr, "has_reliable_real_band", False)
+                    and getattr(rr, "median_award_real_sector_eur", None)
+                ):
                     idx = getattr(rr, "deflator_index_sector", "") or ""
                     lens = "2025 tender prices" if idx == "SCSI_TPI_CONSTRUCTION" else "2025 prices"
                     meta += (
