@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-08-14T07:24:40+00:00",
+  "generated_utc": "2026-08-17T06:05:11+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 196,
   "facts": {
@@ -4083,7 +4083,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 8610
+      "size_bytes": 8595
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -4198,7 +4198,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 17819
+      "size_bytes": 17848
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -8219,7 +8219,7 @@
     "supplier_entity_xref": {
       "file": "data/gold/parquet/supplier_entity_xref.parquet",
       "layer": "gold",
-      "rows": 29945,
+      "rows": 28565,
       "columns": [
         "supplier_norm",
         "display_name",
@@ -8261,7 +8261,7 @@
       "read_by": [
         "read by procurement/procurement_supplier_entity_xref.sql"
       ],
-      "size_bytes": 810210
+      "size_bytes": 804880
     },
     "td_vote_summary": {
       "file": "data/gold/parquet/td_vote_summary.parquet",
