@@ -1,525 +1,584 @@
-"""ACP (An Coimisiún Pleanála) CASE-PAGE DOCUMENT MANIFEST — coverage probe.
+"""ACP (An Coimisiún Pleanála) CASE-DOCUMENT COVERAGE PROBE — sandbox measurement, not an ingest.
 
-THE QUESTION THIS ANSWERS: which ACP cases actually carry a
-``publicaccess/EIAR-NIS/...`` document tree — the applicant's full EIA document
-set (EIAR chapters + appendices, NIS, photomontages, planning pack)? One case
-having it proves nothing. This probe measures the BASE RATE across a stratified
-sample, broken down by case category and year, so "would this help?" can be
-answered with a number instead of an anecdote.
+THE QUESTION: pleanala.ie serves the APPLICANT'S full EIA document set at
+    https://www.pleanala.ie/publicaccess/EIAR-NIS/<caseid>/<Category>/<Subcategory>/<name>.pdf
+and the whole manifest is server-rendered into the case page at
+    https://www.pleanala.ie/en-ie/case/<caseid>
+so ONE GET enumerates every document. Verified on case 315933 (Sheskin South wind farm).
 
-WHY IT IS CHEAP: the entire manifest is server-rendered into the case page HTML
-at https://www.pleanala.ie/en-ie/case/<caseid> (~30-45 KB). One GET enumerates
-every document path. No JS, no API. The case page ALSO carries:
-  - the decision-doc links already known to be deterministic
-    (cases/reports/<grp>/r<cid>.pdf, orders/d<cid>.pdf, directions/s<cid>.pdf,
-    bmr/b<cid>.pdf),
-  - explicit ``EIAR`` / ``NIS`` Yes/No fields,
-  - the sentence "The application is subject to an EIA procedure.",
-  - case type and development description.
+One case having a tree proves nothing. This probe measures the BASE RATE: what fraction of ACP
+cases actually carry an EIAR-NIS tree, broken down by category and year, so the applicability
+question ("is this concentrated in SID/direct energy applications rather than ordinary appeals?")
+is answered with a number instead of an anecdote.
 
-RELATION TO WHAT EXISTS: ``abp_inspector_reports.py`` already ingests the
-INSPECTOR's report (a different path, ``cases/reports/``) and its ``has_eia``
-column is only a keyword regex over the inspector's own prose — NOT the case's
-real EIA-procedure status. This probe reads the status the register itself
-states, and enumerates the applicant-side documents that the inspector report
-does not contain.
+FRAME: the existing sandbox parquet ``silver/abp_inspector_reports.parquet`` (13,720 cases,
+2020-2026, cases whose inspector-report PDF was successfully fetched). NO ArcGIS re-query.
+Stratified by (category, case_year) with a FIXED seed; small strata taken whole. Each sampled
+case carries its Horvitz-Thompson weight (frame stratum size / sampled stratum size) so a
+frame-level base rate can be estimated from a deliberately category-balanced sample.
 
-SAMPLING: drawn from the EXISTING silver
-``c:/tmp/dail_new_sources/silver/abp_inspector_reports.parquet`` (13,720 cases)
-— no ArcGIS re-query. Stratified by (category, case_year) with a FIXED seed.
-Rare categories are deliberately OVER-sampled (floor per category), so the raw
-sample fraction is NOT the population base rate: the run prints BOTH the raw
-sample rate and the stratum-weighted population estimate. Read the weighted one.
+WHAT IS RECORDED: a row for EVERY sampled case — including the zeros. A 404 (case page gone)
+is recorded distinctly from a 200-with-no-tree; the negative IS the measurement. Also captured:
+the decision-doc links present on the page (reports / orders / directions / bmr), the page's own
+EIAR and NIS flags, case type, decision, date signed and development description.
 
-ISOLATION: sandbox only. Reads one existing silver parquet, writes only under
-c:/tmp/dail_new_sources/. Nothing touches data/gold or pipeline.py. Polars only.
+ISOLATION: sandbox only. Reads one sandbox parquet, writes only under c:/tmp/dail_new_sources/.
+Nothing touches data/gold, pipeline.py, or any promotion path. Polars only.
 
-Licence: ACP case register is CC-BY (same chain as the promoted outcomes
-extractor). The linked documents are the applicant's public EIA submission,
-published by ACP for public inspection. Confirm re-use terms in
-doc/source_licensing.md before any promotion.
+Licence: ACP case register is CC-BY (as used by the already-promoted outcomes chain). The
+applicant document set is published by ACP under the EIA public-participation regime; confirm
+re-use terms in doc/source_licensing.md before ANY promotion.
 """
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import random
 import re
-from pathlib import Path
-from urllib.parse import quote, unquote
+from collections import Counter
+from urllib.parse import quote
 
 import polars as pl
 import requests
 
 from pipeline_sandbox.new_sources import _common
-from pipeline_sandbox.new_sources._common import BRONZE, SILVER, cache_raw, fetch, sha256_bytes, write_silver
+from pipeline_sandbox.new_sources._common import BRONZE, SILVER, cache_raw, fetch, now_iso, sha256_bytes
 
-# The task brief specifies 0.5s. _common.fetch reads this global at call time.
+# The probe is a measurement pass over a live public site — be slower than the house default.
 _common.POLITE_DELAY_S = 0.5
 
 SOURCE = "abp_case_documents"
-COVERAGE_SOURCE = "abp_case_document_coverage"
-FRAME_PARQUET = Path("c:/tmp/dail_new_sources/silver/abp_inspector_reports.parquet")
+COVERAGE_SOURCE = "abp_case_documents_coverage"
+FRAME_PARQUET = SILVER / "abp_inspector_reports.parquet"
 CASE_URL = "https://www.pleanala.ie/en-ie/case/{cid}"
 HOST = "https://www.pleanala.ie"
-BRONZE_DIR = BRONZE / SOURCE
-MISSES = SILVER / f"{SOURCE}_misses.tsv"
-SEED = 20260817  # fixed: the sample must be reproducible
+MISSES = SILVER / "abp_case_documents_misses.txt"  # case ids whose case page 404s
 
-# --- parsers -----------------------------------------------------------------
-# hrefs are raw (un-encoded) paths with literal spaces. TWO shapes exist, and only
-# the first is the structured tree the probe is measuring:
-#   1. /publicaccess/EIAR-NIS/315933/Environmental/EIAR Appendices/Appendix 10-1 - Carbon Loss Calculation.pdf
-#      -> tree='EIAR-NIS', deterministic <case>/<category>/<subcategory?>/<file>
-#   2. /publicaccess/302885 - Inspector's Report/Appendix 4 ECIA.pdf
-#      -> tree='other', a FREE-TEXT folder name with no taxonomy at all
-# Matching only shape 1 would have silently reported shape-2 cases as "no documents".
-_PUBLICACCESS = re.compile(r'href="(/publicaccess/[^"]+)"')
-_LEADING_CASE = re.compile(r"^(\d{6})")
-_DECISION_DOC = re.compile(
-    r'href="(/anbordpleanala/media/abp/cases/(reports|orders|directions|bmr)/\d{3}/[^"]+)"'
+# EVERY /publicaccess/ document href. Anchored on the enclosing double quote, NOT on a character
+# class: an earlier version excluded "'" and silently TRUNCATED paths like
+# ".../1.0 King's Island FRS Cover Letter/..." — which then failed the filename test and dropped a
+# whole case's tree. Delimit on the quote and nothing else.
+_PUBACCESS_HREF = re.compile(r'href="(/publicaccess/[^"]+)"', re.I)
+# Observed EIAR-NIS path depths run 4..9 segments:
+#   /publicaccess/EIAR-NIS/<cid>/<file>                          FLAT (no folders at all)
+#   /publicaccess/EIAR-NIS/<cid>/<category>/<file>
+#   /publicaccess/EIAR-NIS/<cid>/<category>/<subcategory>/.../<file>
+# so category/subcategory are OPTIONAL, and anything deeper is kept in `rel_path`.
+_EIARNIS_SEG = "eiar-nis"
+# Board decision documents on the same host, all deterministic on the 3-digit case group.
+_DECISION_HREF = re.compile(
+    r"/?(?:anbordpleanala/)?media/abp/cases/(reports|orders|directions|bmr)/(\d{3})/([^\"'<>]+\.pdf)", re.I
 )
-# The case detail block is a run of label/value pairs in sibling divs.
-_PAIR = re.compile(r'case-sub">\s*(.*?)\s*</p>.*?case-summary">\s*(.*?)\s*</p>', re.S)
+# Server-rendered key/value block: <p class="case-sub">LABEL</p> ... <p class="case-summary">VALUE</p>
+_FIELD = re.compile(
+    r'case-sub">\s*([^<]{1,40}?)\s*</p>.{0,200}?class="case-summary">\s*(.{0,600}?)\s*</p>', re.S
+)
+_EIA_PROCEDURE = re.compile(r"subject to an EIA procedure", re.I)
 _TAG = re.compile(r"<[^>]+>")
-_WS = re.compile(r"\s+")
-# The EIA-procedure sentence. Captured as a whole sentence so a NEGATED variant
-# ("is not subject to") is visible in the data rather than silently read as True.
-_EIA_SENTENCE = re.compile(r"[^.<>]{0,120}subject to an EIA procedure[^.<>]{0,60}\.", re.I)
+
+_WANTED_FIELDS = {
+    "description": "Description",
+    "case_type": "Case type",
+    "page_decision": "Decision",
+    "date_signed": "Date signed",
+    "eiar_flag": "EIAR",
+    "nis_flag": "NIS",
+}
+# Scoping-document filename variants. Kept deliberately loose: the probe REPORTS the variants it
+# sees rather than assuming "Appendix 2-1 - Scoping Responses.pdf" is the canonical name.
 _SCOPING = re.compile(r"scoping", re.I)
 
 
-def _clean(s: str) -> str:
-    return _WS.sub(" ", _TAG.sub(" ", s)).strip()
+# ---------------------------------------------------------------- sampling frame
 
 
-def _abs_url(href: str) -> str:
-    """Absolute URL with the path percent-encoded (hrefs carry literal spaces)."""
-    return HOST + quote(href, safe="/-_.~()&,'")
+def build_sample(seed: int, size: int) -> tuple[pl.DataFrame, dict[tuple[str, int | None], int]]:
+    """Stratified (category, case_year) sample from the inspector-report frame.
 
-
-def parse_documents(cid: str, html: str) -> list[dict]:
-    """Every /publicaccess/ document on the page, split into its path parts.
-
-    Within the EIAR-NIS tree, depth VARIES: 'Environmental' documents sit under a
-    subcategory ('EIAR Chapters', 'Photomontages', ...); 'Planning' documents sit
-    directly under the category with NO subcategory. Both shapes are recorded,
-    with doc_subcategory null for the flat shape — do not assume a fixed depth.
+    Allocation is deliberately NOT proportional: 89% of the frame is 'Appeals', so a proportional
+    draw would leave ~2 SID cases and could not answer the concentration question at all. Instead
+    every category with enough rows gets a floor of MIN_PER_CATEGORY, small categories are taken
+    whole, and the remainder goes to Appeals. Each row carries its stratum weight so a frame-level
+    rate can still be estimated (Horvitz-Thompson) — see report().
     """
-    out, seen = [], set()
-    for href in _PUBLICACCESS.findall(html):
-        if href in seen:
-            continue
-        seen.add(href)
-        parts = unquote(href).strip("/").split("/")
-        if len(parts) < 3:
-            continue
-        if parts[1] == "EIAR-NIS" and len(parts) >= 5:
-            tree, path_case_id, category, rest = "EIAR-NIS", parts[2], parts[3], parts[4:]
-        else:
-            m = _LEADING_CASE.match(parts[1])
-            tree, path_case_id, category, rest = "other", (m.group(1) if m else None), parts[1], parts[2:]
-        filename = rest[-1]
-        subcategory = "/".join(rest[:-1]) or None
-        out.append(
-            {
-                "abp_case": cid,
-                "tree": tree,
-                "path_case_id": path_case_id,
-                "doc_category": category,
-                "doc_subcategory": subcategory,
-                "filename": filename,
-                "file_ext": filename.rsplit(".", 1)[-1].lower() if "." in filename else None,
-                "path_depth": len(rest),
-                "is_scoping_doc": bool(_SCOPING.search(filename)),
-                "full_url": _abs_url(href),
-                "href_path": href,
-            }
-        )
-    return out
-
-
-def parse_decision_docs(html: str) -> list[dict]:
-    """The four deterministic decision-doc trees, as actually linked on the page."""
-    out, seen = [], set()
-    for href, kind in _DECISION_DOC.findall(html):
-        if href in seen:
-            continue
-        seen.add(href)
-        out.append({"doc_kind": kind, "full_url": HOST + quote(href, safe="/-_.~()&,'"), "href_path": href})
-    return out
-
-
-def parse_case_fields(html: str) -> dict:
-    """Label/value pairs from the case detail block (Description, Case type,
-    Decision, Date signed, EIAR, NIS)."""
-    fields = {}
-    for k, v in _PAIR.findall(html):
-        key = _clean(k)
-        if key and key not in fields:
-            fields[key] = _clean(v)
-    sent = _EIA_SENTENCE.search(_clean(html))
-    return {
-        "page_description": (fields.get("Description") or None),
-        "page_case_type": fields.get("Case type"),
-        "page_decision": fields.get("Decision"),
-        "page_date_signed": fields.get("Date signed"),
-        "page_eiar_flag": fields.get("EIAR"),
-        "page_nis_flag": fields.get("NIS"),
-        "eia_procedure_sentence": _clean(sent.group(0)) if sent else None,
-        "states_eia_procedure": bool(sent) and " not subject" not in sent.group(0).lower(),
-        "detail_field_labels": "|".join(sorted(fields)),
-    }
-
-
-# --- sampling ----------------------------------------------------------------
-def build_sample(n: int, seed: int, min_per_category: int) -> pl.DataFrame:
-    """Stratified sample over (category, case_year), fixed seed.
-
-    Allocation is NOT proportional: each category gets a floor of
-    ``min(stratum_size, min_per_category)`` so the rare, EIA-heavy categories
-    (SID, LAP SID, Substitute Consent) are actually observed. The remainder is
-    allocated proportionally. Each row carries ``stratum_weight`` =
-    population_size / sampled_size so the population base rate can be recovered.
-    """
-    frame = pl.read_parquet(
-        FRAME_PARQUET, columns=["abp_case", "category", "case_year", "planning_authority", "abp_decision_raw"]
-    ).unique(subset=["abp_case"], keep="first")
-    total = frame.height
-    cats = frame.group_by("category").len().sort("len", descending=True)
+    frame = pl.read_parquet(FRAME_PARQUET).select(
+        ["abp_case", "planning_authority", "category", "case_year", "abp_decision_raw"]
+    )
+    counts = {c: n for c, n in frame.group_by("category").len().iter_rows()}
+    min_per_cat = 20
 
     alloc: dict[str, int] = {}
-    for cat, size in cats.iter_rows():
-        alloc[cat] = min(size, min_per_category)
-    used = sum(alloc.values())
-    remaining = max(0, n - used)
-    # Proportional top-up on the population that the floor has not already taken.
-    spare = {c: max(0, s - alloc[c]) for c, s in cats.iter_rows()}
-    spare_total = sum(spare.values())
-    if spare_total and remaining:
-        for cat, sp in sorted(spare.items(), key=lambda kv: -kv[1]):
-            add = int(round(remaining * sp / spare_total))
-            alloc[cat] += min(add, sp)
-    # Trim/expand to hit n exactly, largest category absorbing the difference.
-    biggest = cats.row(0)[0]
-    diff = n - sum(alloc.values())
-    alloc[biggest] = max(0, alloc[biggest] + diff)
+    for cat, n in counts.items():
+        alloc[cat] = min(n, min_per_cat)
+    spare = size - sum(alloc.values())
+    if spare > 0:  # give the slack to the dominant category
+        big = max(counts, key=lambda c: counts[c])
+        alloc[big] = min(counts[big], alloc[big] + spare)
 
     rng = random.Random(seed)
     picked: list[dict] = []
-    for cat, k in alloc.items():
+    stratum_sizes: dict[tuple[str, int | None], int] = {}
+    for cat, want in sorted(alloc.items()):
         sub = frame.filter(pl.col("category") == cat)
-        if k >= sub.height:
-            chosen = sub
-        else:
-            # Spread across years within the category, then random inside each year.
-            years = sub.group_by("case_year").len().sort("len", descending=True)
-            per_year, left = {}, k
-            for yr, size in years.iter_rows():
-                per_year[yr] = min(size, max(1, int(k * size / sub.height)))
-            # fix rounding
-            over = sum(per_year.values()) - k
-            for yr in sorted(per_year, key=lambda y: -per_year[y]):
-                while over > 0 and per_year[yr] > 1:
-                    per_year[yr] -= 1
-                    over -= 1
-            left = k - sum(per_year.values())
-            for yr in sorted(per_year, key=lambda y: -per_year[y]):
-                cap = years.filter(pl.col("case_year").is_null() if yr is None else pl.col("case_year") == yr).row(0)[1]
-                take = min(left, cap - per_year[yr])
-                per_year[yr] += take
-                left -= take
-                if left <= 0:
-                    break
-            frames = []
-            for yr, kk in per_year.items():
-                if kk <= 0:
-                    continue
-                pool = sub.filter(pl.col("case_year").is_null() if yr is None else pl.col("case_year") == yr)
-                ids = pool["abp_case"].to_list()
-                rng.shuffle(ids)
-                frames.append(pool.filter(pl.col("abp_case").is_in(ids[:kk])))
-            chosen = pl.concat(frames) if frames else sub.head(0)
-        pop = sub.height
-        got = chosen.height
-        for r in chosen.iter_rows(named=True):
-            picked.append(
-                {
-                    **r,
-                    "stratum_category": cat,
-                    "stratum_population": pop,
-                    "stratum_sampled": got,
-                    "stratum_weight": pop / got if got else 0.0,
-                }
+        years = sorted(
+            ((y, n) for y, n in sub.group_by("case_year").len().iter_rows()),
+            key=lambda t: (t[0] is None, t[0]),
+        )
+        total = sum(n for _, n in years)
+        # largest-remainder allocation across years, capped by each year's size
+        raw = {y: want * n / total for y, n in years}
+        take = {y: min(int(v), dict(years)[y]) for y, v in raw.items()}
+        while sum(take.values()) < want:
+            rem = sorted(
+                ((y, raw[y] - take[y]) for y, n in years if take[y] < dict(years)[y]),
+                key=lambda t: -t[1],
             )
-    df = pl.DataFrame(picked).sort("abp_case")
-    print(f"[sample] frame={total} cases  drawn={df.height}  seed={seed}  floor={min_per_category}/category")
-    small = [c for c, k in alloc.items() if k >= dict(cats.iter_rows())[c]]
-    if small:
-        print(f"[sample] TAKEN IN FULL (stratum smaller than allocation): {', '.join(sorted(small))}")
-    return df
+            if not rem:
+                break
+            take[rem[0][0]] += 1
+        for y, n_take in take.items():
+            if n_take <= 0:
+                continue
+            rows = sub.filter(
+                pl.col("case_year").is_null() if y is None else pl.col("case_year") == y
+            ).to_dicts()
+            rows.sort(key=lambda r: r["abp_case"])  # deterministic order before the seeded shuffle
+            rng.shuffle(rows)
+            chosen = rows[:n_take]
+            stratum_sizes[(cat, y)] = len(rows)
+            for r in chosen:
+                r["_stratum_frame_n"] = len(rows)
+                r["_stratum_sample_n"] = len(chosen)
+                r["_stratum_whole"] = len(chosen) == len(rows)
+            picked.extend(chosen)
+    # Interleave the strata so --limit N is a spread across categories/years, not the first
+    # category alphabetically. Same seeded rng, so the order is still reproducible.
+    rng.shuffle(picked)
+    return pl.DataFrame(picked), stratum_sizes
 
 
-# --- fetch / resume ----------------------------------------------------------
-def _bronze_paths(cid: str) -> tuple[Path, Path]:
-    return BRONZE_DIR / f"case_{cid}.html", BRONZE_DIR / f"case_{cid}.meta.json"
+def boost_category(sample: pl.DataFrame, category: str, n_extra: int, seed: int) -> pl.DataFrame:
+    """Add n_extra cases of one category, DISJOINT from the existing sample, and recompute the
+    stratum sample sizes so the Horvitz-Thompson weights stay correct.
 
-
-def _load_misses() -> dict[str, str]:
-    if not MISSES.exists():
-        return {}
-    out = {}
-    for line in MISSES.read_text(encoding="utf-8").splitlines():
-        if "\t" in line:
-            cid, status = line.split("\t", 1)
-            out[cid] = status
-    return out
-
-
-def _save_misses(m: dict[str, str]) -> None:
-    MISSES.parent.mkdir(parents=True, exist_ok=True)
-    MISSES.write_text("\n".join(f"{k}\t{v}" for k, v in sorted(m.items())), encoding="utf-8")
-
-
-def get_case_html(cid: str) -> tuple[str | None, dict]:
-    """Cached-first GET of a case page. Returns (html|None, meta).
-
-    meta['http_status'] distinguishes a 404 (case page does not exist) from a
-    200 that simply carries no document tree — the two are DIFFERENT findings
-    and must never be collapsed.
+    Needed because 'Appeals' is 89% of the ACP register: a 0/49 result there is consistent with
+    anything up to ~7% by Clopper-Pearson, and 7% of 23,386 appeals is a 1,600-case swing in the
+    corpus projection. A bigger Appeals stratum buys a much tighter upper bound.
     """
-    html_p, meta_p = _bronze_paths(cid)
-    if html_p.exists() and meta_p.exists():
-        meta = json.loads(meta_p.read_text(encoding="utf-8"))
+    frame = pl.read_parquet(FRAME_PARQUET).select(
+        ["abp_case", "planning_authority", "category", "case_year", "abp_decision_raw"]
+    )
+    have = set(sample["abp_case"].to_list())
+    pool = frame.filter((pl.col("category") == category) & ~pl.col("abp_case").is_in(list(have)))
+    rows = pool.to_dicts()
+    rows.sort(key=lambda r: r["abp_case"])
+    random.Random(seed + 1).shuffle(rows)
+    extra = rows[:n_extra]
+    for r in extra:
+        r["_stratum_frame_n"] = 0  # placeholder; recomputed below
+        r["_stratum_sample_n"] = 0
+        r["_stratum_whole"] = False
+    out = pl.concat([sample, pl.DataFrame(extra)], how="diagonal_relaxed")
+    # Recompute per-(category, year) sample sizes; frame sizes come from the frame itself.
+    fsize = {
+        (c, y): n for c, y, n in frame.group_by(["category", "case_year"]).len().iter_rows()
+    }
+    ssize = {
+        (c, y): n for c, y, n in out.group_by(["category", "case_year"]).len().iter_rows()
+    }
+    return out.with_columns(
+        pl.struct(["category", "case_year"])
+        .map_elements(lambda s: fsize.get((s["category"], s["case_year"]), 0), return_dtype=pl.Int64)
+        .alias("_stratum_frame_n"),
+        pl.struct(["category", "case_year"])
+        .map_elements(lambda s: ssize.get((s["category"], s["case_year"]), 0), return_dtype=pl.Int64)
+        .alias("_stratum_sample_n"),
+    ).with_columns((pl.col("_stratum_frame_n") == pl.col("_stratum_sample_n")).alias("_stratum_whole"))
+
+
+# ---------------------------------------------------------------- parsing
+
+
+def parse_case_page(cid: str, text: str) -> dict:
+    """Everything the probe needs from one server-rendered case page."""
+    fields: dict[str, str] = {}
+    for label, value in _FIELD.findall(text):
+        lab = html.unescape(_TAG.sub("", label)).strip()
+        val = re.sub(r"\s+", " ", html.unescape(_TAG.sub("", value))).strip()
+        fields.setdefault(lab, val)
+
+    docs: list[dict] = []
+    other_fams: Counter = Counter()
+    seen: set[str] = set()
+    for href in _PUBACCESS_HREF.findall(text):
+        path = html.unescape(href).strip()
+        if path in seen:
+            continue
+        seen.add(path)
+        seg = [s for s in path.split("/") if s]
+        if len(seg) < 3 or "." not in seg[-1]:
+            continue  # not a file link
+        if seg[1].lower() != _EIARNIS_SEG:
+            # A DIFFERENT publicaccess tree (Case Documentation / Submissions / FurtherInformation /
+            # Observation / referrals / Responses / SubstituteConsent, plus per-case one-off folders).
+            # Counted, because "no EIAR-NIS tree" is NOT the same as "no documents".
+            fam = seg[1]
+            if re.match(r"^\d{4,6}", fam) or " - " in fam:
+                fam = "<case-specific folder>"
+            other_fams[fam] += 1
+            continue
+        filename = seg[-1]
+        doc_cid = seg[2]
+        category = seg[3] if len(seg) >= 5 else None
+        subcategory = seg[4] if len(seg) >= 6 else None
+        docs.append(
+            {
+                "abp_case": cid,
+                "path_case_id": doc_cid,
+                "doc_category": category,
+                "doc_subcategory": subcategory,
+                "path_depth": len(seg),
+                "rel_path": "/".join(seg[3:-1]) or None,
+                "filename": filename,
+                "file_ext": filename.rsplit(".", 1)[-1].lower(),
+                "full_url": HOST + quote(path),
+                "is_scoping": bool(_SCOPING.search(filename)),
+            }
+        )
+
+    decision: list[dict] = []
+    dseen: set[tuple[str, str]] = set()
+    for kind, grp, name in _DECISION_HREF.findall(text):
+        key = (kind.lower(), name)
+        if key in dseen:
+            continue
+        dseen.add(key)
+        decision.append(
+            {
+                "abp_case": cid,
+                "doc_kind": kind.lower(),
+                "filename": name,
+                "full_url": f"{HOST}/anbordpleanala/media/abp/cases/{kind.lower()}/{grp}/{quote(name)}",
+            }
+        )
+
+    out = {
+        "eia_procedure_stated": bool(_EIA_PROCEDURE.search(text)),
+        "doc_count": len(docs),
+        "has_eiar_tree": len(docs) > 0,
+        "scoping_doc_count": sum(1 for d in docs if d["is_scoping"]),
+        "decision_doc_kinds": ",".join(sorted({d["doc_kind"] for d in decision})) or None,
+        "decision_doc_count": len(decision),
+        # The wider applicant-document surface OUTSIDE the EIAR-NIS tree.
+        "other_doc_count": int(sum(other_fams.values())),
+        "other_doc_families": ",".join(sorted(other_fams)) or None,
+        "has_any_documents": bool(docs) or bool(other_fams),
+    }
+    for key, label in _WANTED_FIELDS.items():
+        out[key] = fields.get(label)
+    return out | {"_docs": docs, "_decision": decision}
+
+
+# ---------------------------------------------------------------- fetch / cache
+
+
+def _bronze_paths(cid: str):
+    d = BRONZE / SOURCE
+    return d / f"case_{cid}.html", d / f"case_{cid}.meta.json"
+
+
+def get_case_html(cid: str, refresh: bool) -> tuple[str | None, dict]:
+    """Return (html, meta). Cached HTML is reused unless --refresh. meta['http_status'] is 404
+    when the case page is gone — recorded, never silently skipped."""
+    hp, mp = _bronze_paths(cid)
+    if hp.exists() and mp.exists() and not refresh:
+        meta = json.loads(mp.read_text(encoding="utf-8"))
         meta["from_cache"] = True
-        return html_p.read_text(encoding="utf-8", errors="ignore"), meta
+        return hp.read_text(encoding="utf-8", errors="ignore"), meta
     url = CASE_URL.format(cid=cid)
     try:
-        html, meta = fetch(url)
+        payload, meta = fetch(url)
     except requests.HTTPError as e:
-        status = e.response.status_code if e.response is not None else -1
-        return None, {"source_url": url, "http_status": status, "fetched_at": _common.now_iso(), "from_cache": False}
-    except Exception as e:  # noqa: BLE001 — network/DNS; recorded, not fatal
-        return None, {"source_url": url, "http_status": -1, "error": str(e)[:200],
-                      "fetched_at": _common.now_iso(), "from_cache": False}
-    body = html.encode("utf-8", errors="ignore")
-    cache_raw(SOURCE, f"case_{cid}.html", body)
+        status = e.response.status_code if e.response is not None else 0
+        return None, {
+            "source_url": url,
+            "http_status": status,
+            "source_document_hash": None,
+            "fetched_at": now_iso(),
+            "bytes": 0,
+            "from_cache": False,
+        }
+    except requests.RequestException as e:  # noqa: BLE001 — transient network, recorded as an error row
+        return None, {
+            "source_url": url,
+            "http_status": -1,
+            "error": type(e).__name__,
+            "source_document_hash": None,
+            "fetched_at": now_iso(),
+            "bytes": 0,
+            "from_cache": False,
+        }
+    raw = payload.encode("utf-8", errors="ignore")
+    cache_raw(SOURCE, f"case_{cid}.html", raw)
     meta = {
         "source_url": meta["source_url"],
         "http_status": meta["status"],
-        "source_document_hash": sha256_bytes(body),
-        "source_last_modified": meta.get("source_last_modified"),
+        "source_document_hash": sha256_bytes(raw),
         "fetched_at": meta["fetched_at"],
-        "bytes": len(body),
+        "source_last_modified": meta.get("source_last_modified"),
+        "bytes": len(raw),
         "from_cache": False,
     }
-    meta_p.write_text(json.dumps(meta), encoding="utf-8")
-    return html, meta
+    _bronze_paths(cid)[1].write_text(json.dumps(meta), encoding="utf-8")
+    return payload, meta
 
 
-PROV_METHOD = "html_href_regex"
+# ---------------------------------------------------------------- reporting
+
+
+def report(cov: pl.DataFrame, docs: pl.DataFrame) -> None:
+    ok = cov.filter(pl.col("http_status") == 200)
+    hit = ok.filter(pl.col("has_eiar_tree"))
+    print("\n================ COVERAGE ================")
+    print(f"[sample] {cov.height} cases fetched  |  200={ok.height}  404={cov.filter(pl.col('http_status') == 404).height}  error={cov.filter(pl.col('http_status') < 0).height}")
+    print(f"[base rate] cases WITH an EIAR-NIS tree: {hit.height}/{ok.height} = {100 * hit.height / max(ok.height, 1):.1f}% (sample, category-balanced)")
+
+    # Horvitz-Thompson: reweight the balanced sample back to the frame.
+    w = ok.with_columns((pl.col("stratum_frame_n") / pl.col("stratum_sample_n")).alias("w"))
+    num = w.filter(pl.col("has_eiar_tree"))["w"].sum()
+    den = w["w"].sum()
+    print(f"[base rate] frame-weighted estimate (Horvitz-Thompson over 13,720-case frame): {100 * num / den:.2f}%")
+
+    print("\n-- by category --")
+    by_cat = (
+        ok.group_by("category")
+        .agg(
+            pl.len().alias("n"),
+            pl.col("has_eiar_tree").sum().alias("with_tree"),
+            pl.col("doc_count").sum().alias("docs"),
+        )
+        .with_columns((100 * pl.col("with_tree") / pl.col("n")).round(1).alias("pct"))
+        .sort("pct", descending=True)
+    )
+    with pl.Config(tbl_rows=30):
+        print(by_cat)
+
+    print("\n-- by year --")
+    by_yr = (
+        ok.group_by("case_year")
+        .agg(pl.len().alias("n"), pl.col("has_eiar_tree").sum().alias("with_tree"))
+        .with_columns((100 * pl.col("with_tree") / pl.col("n")).round(1).alias("pct"))
+        .sort("case_year")
+    )
+    with pl.Config(tbl_rows=30):
+        print(by_yr)
+
+    print("\n-- page EIAR flag vs actual tree (is the flag a cheap predictor?) --")
+    with pl.Config(tbl_rows=20):
+        print(
+            ok.group_by(["eiar_flag", "has_eiar_tree"]).len().sort("len", descending=True)
+        )
+    print("\n-- page NIS flag vs actual tree --")
+    with pl.Config(tbl_rows=20):
+        print(ok.group_by(["nis_flag", "has_eiar_tree"]).len().sort("len", descending=True))
+
+    if hit.height:
+        d = hit["doc_count"]
+        print(f"\n[docs/case | cases WITH a tree] n={hit.height} median={d.median():.0f} mean={d.mean():.1f} min={d.min()} max={d.max()}")
+
+    if docs.height:
+        print(f"\n-- taxonomy: {docs.height} document rows --")
+        with pl.Config(tbl_rows=40, fmt_str_lengths=60):
+            print(
+                docs.group_by(["doc_category", "doc_subcategory"])
+                .agg(pl.len().alias("docs"), pl.col("abp_case").n_unique().alias("cases"))
+                .sort("docs", descending=True)
+            )
+        print("\n-- scoping-style filenames --")
+        sc = docs.filter(pl.col("is_scoping"))
+        print(f"[scoping] {sc['abp_case'].n_unique()} of {docs['abp_case'].n_unique()} tree-bearing cases carry >=1 scoping-named doc ({sc.height} docs)")
+        with pl.Config(tbl_rows=25, fmt_str_lengths=90):
+            print(sc.group_by("filename").len().sort("len", descending=True).head(25))
+
+    print("\n-- OTHER publicaccess trees (EIAR-NIS is not the only document surface) --")
+    anyd = ok.filter(pl.col("has_any_documents"))
+    other_only = ok.filter(~pl.col("has_eiar_tree") & (pl.col("other_doc_count") > 0))
+    print(f"[surface] cases with ANY publicaccess document: {anyd.height}/{ok.height} = {100 * anyd.height / max(ok.height, 1):.1f}%")
+    print(f"[surface] cases with documents but NO EIAR-NIS tree: {other_only.height}")
+    fam_counter: Counter = Counter()
+    for s in ok["other_doc_families"].drop_nulls().to_list():
+        for f in s.split(","):
+            fam_counter[f] += 1
+    for k, v in fam_counter.most_common(15):
+        print(f"    {v:4d} cases  /publicaccess/{k}")
+    with pl.Config(tbl_rows=20):
+        print(other_only.group_by("category").len().sort("len", descending=True))
+
+    print("\n-- decision-doc availability (reports/orders/directions/bmr) --")
+    with pl.Config(tbl_rows=20):
+        print(ok.group_by("decision_doc_kinds").len().sort("len", descending=True))
+
+    print("\n-- case type of tree-bearing cases (the concentration question) --")
+    with pl.Config(tbl_rows=25, fmt_str_lengths=60):
+        print(hit.group_by("case_type").len().sort("len", descending=True))
+
+    # Corpus-size projection over the SAMPLE FRAME only (13,720 report-bearing cases 2020-2026).
+    frame_total = int(ok["stratum_frame_n"].unique().sum()) if ok.height else 0
+    if hit.height:
+        w_hit = w.filter(pl.col("has_eiar_tree"))
+        est_cases = float(num)
+        est_docs = float((w_hit["w"] * w_hit["doc_count"]).sum())
+        print(f"\n[projection] frame strata covered = {frame_total} cases")
+        print(f"[projection] estimated tree-bearing cases in frame: {est_cases:,.0f}")
+        print(f"[projection] estimated document ROWS if the whole frame were indexed: {est_docs:,.0f}")
+
+
+# ---------------------------------------------------------------- main
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="ACP case-page document-tree coverage probe (sandbox).")
+    ap = argparse.ArgumentParser(description="ACP case-document coverage probe (measurement, not an ingest)")
     ap.add_argument("--sample-size", type=int, default=200, help="stratified sample size (default 200)")
-    ap.add_argument("--limit", type=int, default=0, help="cap on cases actually fetched this run (0 = all sampled)")
-    ap.add_argument("--seed", type=int, default=SEED, help="fixed sampling seed (reproducibility)")
-    ap.add_argument("--min-per-category", type=int, default=12, help="floor per category stratum")
+    ap.add_argument("--seed", type=int, default=20260817, help="fixed seed — the run is reproducible")
+    ap.add_argument("--limit", type=int, default=0, help="stop after N cases (0 = whole sample)")
+    ap.add_argument("--refresh", action="store_true", help="re-fetch even if bronze HTML is cached")
+    ap.add_argument(
+        "--boost",
+        default="",
+        help="tighten one category's CI, e.g. 'Appeals=200'. Appeals is 89%% of the register, so a "
+        "0/49 result there leaves a wide upper bound on the whole corpus estimate. Boost rows are "
+        "drawn with the SAME seed, disjoint from the main sample, and their stratum weights are "
+        "recomputed so the Horvitz-Thompson estimate stays unbiased.",
+    )
+    ap.add_argument("--report-only", action="store_true", help="re-report from existing silver, no network")
     args = ap.parse_args()
 
-    BRONZE_DIR.mkdir(parents=True, exist_ok=True)
-    sample = build_sample(args.sample_size, args.seed, args.min_per_category)
-    todo = sample.head(args.limit) if args.limit else sample
-    misses = _load_misses()
-    print(f"[queue] {todo.height} cases to process (known non-200 from previous runs: {len(misses)})")
+    if args.report_only:
+        cov = pl.read_parquet(SILVER / f"{COVERAGE_SOURCE}.parquet")
+        docs = pl.read_parquet(SILVER / f"{SOURCE}.parquet")
+        report(cov, docs)
+        return
+
+    sample, strata = build_sample(args.seed, args.sample_size)
+    if args.boost:
+        cat, n_extra = args.boost.rsplit("=", 1)
+        sample = boost_category(sample, cat, int(n_extra), args.seed)
+        print(f"[boost] +{n_extra} extra '{cat}' cases; stratum weights recomputed")
+    print(f"[sample] {sample.height} cases, seed={args.seed}, strata={len(strata)}")
+    whole = sample.filter(pl.col("_stratum_whole"))
+    print(f"[sample] {whole.height} rows come from strata taken WHOLE (stratum smaller than its allocation)")
+    with pl.Config(tbl_rows=20):
+        print(sample.group_by("category").len().sort("len", descending=True))
+
+    todo = sample.to_dicts()
+    if args.limit:
+        todo = todo[: args.limit]
 
     cov_rows: list[dict] = []
     doc_rows: list[dict] = []
-    cached = fetched = 0
-    for i, r in enumerate(todo.iter_rows(named=True), 1):
+    dec_rows: list[dict] = []
+    misses: set[str] = set()
+    cached = 0
+    for i, r in enumerate(todo, 1):
         cid = r["abp_case"]
-        html, meta = get_case_html(cid)
-        if meta.get("from_cache"):
-            cached += 1
-        else:
-            fetched += 1
+        payload, meta = get_case_html(cid, args.refresh)
+        cached += bool(meta.get("from_cache"))
         base = {
             "abp_case": cid,
-            "frame_category": r["category"],
-            "frame_case_year": r["case_year"],
             "planning_authority": r["planning_authority"],
-            "stratum_population": r["stratum_population"],
-            "stratum_sampled": r["stratum_sampled"],
-            "stratum_weight": r["stratum_weight"],
-            "case_url": meta.get("source_url"),
-            "http_status": meta.get("http_status"),
-            "source_url": meta.get("source_url"),
-            "source_document_hash": meta.get("source_document_hash"),
+            "category": r["category"],
+            "case_year": r["case_year"],
+            "abp_decision_raw": r["abp_decision_raw"],
+            "stratum_frame_n": r["_stratum_frame_n"],
+            "stratum_sample_n": r["_stratum_sample_n"],
+            "stratum_whole": r["_stratum_whole"],
+            "http_status": meta["http_status"],
+            "source_url": meta["source_url"],
+            "source_document_hash": meta["source_document_hash"],
+            "fetched_at": meta["fetched_at"],
             "source_last_modified": meta.get("source_last_modified"),
             "source_published_date": None,
-            "fetched_at": meta.get("fetched_at"),
-            "extraction_method": PROV_METHOD,
+            "extraction_method": "html_regex_case_page",
             "privacy_tier": "public",
         }
-        if html is None:
-            misses[cid] = str(meta.get("http_status"))
-            cov_rows.append({**base, "page_ok": False, "n_eiar_nis_docs": None, "n_decision_docs": None,
-                             "has_eiar_nis_tree": None, "confidence": "none", "page_bytes": None})
+        if payload is None:
+            # A 404 (or transient error) is a DISTINCT outcome from a 200 with no tree. Recorded.
+            if meta["http_status"] == 404:
+                misses.add(cid)
+            cov_rows.append(
+                base
+                | {
+                    "has_eiar_tree": None,
+                    "doc_count": 0,
+                    "scoping_doc_count": 0,
+                    "decision_doc_count": 0,
+                    "decision_doc_kinds": None,
+                    "eia_procedure_stated": None,
+                    "description": None,
+                    "case_type": None,
+                    "page_decision": None,
+                    "date_signed": None,
+                    "eiar_flag": None,
+                    "nis_flag": None,
+                    "confidence": "none",
+                }
+            )
             continue
-        alldocs = parse_documents(cid, html)
-        docs = [d for d in alldocs if d["tree"] == "EIAR-NIS"]
-        other = [d for d in alldocs if d["tree"] != "EIAR-NIS"]
-        decs = parse_decision_docs(html)
-        fields = parse_case_fields(html)
-        for d in alldocs:
-            doc_rows.append({
-                **d,
-                "frame_category": r["category"],
-                "frame_case_year": r["case_year"],
-                "page_case_type": fields["page_case_type"],
-                "source_url": base["source_url"],
-                "source_document_hash": base["source_document_hash"],
-                "source_last_modified": base["source_last_modified"],
-                "source_published_date": None,
-                "fetched_at": base["fetched_at"],
-                "extraction_method": PROV_METHOD,
-                "confidence": "high",  # a literal href on the case page — no inference
-                "privacy_tier": "public",
-            })
-        subcats = sorted({d["doc_subcategory"] or d["doc_category"] for d in docs})
-        cov_rows.append({
-            **base,
-            **fields,
-            "page_ok": True,
-            "page_bytes": len(html.encode("utf-8", errors="ignore")),
-            "n_eiar_nis_docs": len(docs),
-            "has_eiar_nis_tree": bool(docs),
-            "n_other_publicaccess_docs": len(other),
-            "has_other_publicaccess": bool(other),
-            "other_publicaccess_folders": "|".join(sorted({d["doc_category"] for d in other})) if other else None,
-            "n_doc_categories": len({d["doc_category"] for d in docs}),
-            "doc_subcategories": "|".join(subcats) if subcats else None,
-            "n_scoping_docs": sum(1 for d in alldocs if d["is_scoping_doc"]),
-            "n_decision_docs": len(decs),
-            "decision_doc_kinds": "|".join(sorted({d["doc_kind"] for d in decs})) if decs else None,
-            "has_inspector_report": any(d["doc_kind"] == "reports" for d in decs),
-            "has_order": any(d["doc_kind"] == "orders" for d in decs),
-            "has_direction": any(d["doc_kind"] == "directions" for d in decs),
-            "has_bmr": any(d["doc_kind"] == "bmr" for d in decs),
-            "confidence": "high",
-        })
+        parsed = parse_case_page(cid, payload)
+        docs = parsed.pop("_docs")
+        dec = parsed.pop("_decision")
+        prov = {
+            "source_url": meta["source_url"],
+            "source_document_hash": meta["source_document_hash"],
+            "fetched_at": meta["fetched_at"],
+            "source_last_modified": meta.get("source_last_modified"),
+            "source_published_date": None,
+            "extraction_method": "html_regex_case_page",
+            "confidence": "high",  # the manifest is server-rendered markup, not inference
+            "privacy_tier": "public",
+        }
+        for d in docs:
+            doc_rows.append(
+                d
+                | {
+                    "category": r["category"],
+                    "case_year": r["case_year"],
+                    "case_type": parsed.get("case_type"),
+                    "planning_authority": r["planning_authority"],
+                }
+                | prov
+            )
+        dec_rows.extend(d | prov for d in dec)
+        cov_rows.append(base | parsed | {"confidence": "high"})
         if i % 25 == 0:
-            print(f"  [{i}/{todo.height}] cached={cached} fetched={fetched} "
-                  f"with_tree={sum(1 for c in cov_rows if c.get('has_eiar_nis_tree'))}")
+            print(f"  [{i}/{len(todo)}] trees so far={sum(1 for c in cov_rows if c.get('has_eiar_tree'))} docs={len(doc_rows)} cached={cached}")
 
-    _save_misses(misses)
-    cov = pl.DataFrame(cov_rows, infer_schema_length=None)
-    write_silver(COVERAGE_SOURCE, cov)
-    if doc_rows:
-        write_silver(SOURCE, pl.DataFrame(doc_rows, infer_schema_length=None))
-    print(f"[silver] coverage rows={cov.height}  document rows={len(doc_rows)}  (cached={cached} fetched={fetched})")
-    report(cov, pl.DataFrame(doc_rows, infer_schema_length=None) if doc_rows else None)
+    if misses:
+        MISSES.write_text("\n".join(sorted(misses)), encoding="utf-8")
 
+    cov = pl.DataFrame(cov_rows)
+    docs_df = pl.DataFrame(doc_rows) if doc_rows else pl.DataFrame()
+    p1 = _common.write_silver(COVERAGE_SOURCE, cov)
+    print(f"\n[silver] coverage (case grain, ZEROS INCLUDED) {cov.height} rows -> {p1}")
+    if not docs_df.is_empty():
+        p2 = _common.write_silver(SOURCE, docs_df)
+        print(f"[silver] documents (document grain) {docs_df.height} rows -> {p2}")
+    if dec_rows:
+        p3 = _common.write_silver("abp_case_decision_docs", pl.DataFrame(dec_rows))
+        print(f"[silver] decision docs {len(dec_rows)} rows -> {p3}")
+    print(f"[cache] {cached}/{len(todo)} served from bronze (resumable)")
 
-# --- measurement -------------------------------------------------------------
-def report(cov: pl.DataFrame, docs: pl.DataFrame | None) -> None:
-    pl.Config.set_tbl_rows(60)
-    pl.Config.set_fmt_str_lengths(60)
-    ok = cov.filter(pl.col("page_ok"))
-    n404 = cov.filter(~pl.col("page_ok")).height
-    with_tree = ok.filter(pl.col("has_eiar_nis_tree"))
-    print("\n================ COVERAGE ================")
-    print(f"sampled={cov.height}  page_200={ok.height}  page_non200={n404}")
-    print(f"RAW sample rate with an EIAR-NIS tree: {with_tree.height}/{ok.height} "
-          f"({100 * with_tree.height / max(1, ok.height):.1f}%)  <- NOT the population rate (rare cats over-sampled)")
+    report(cov, docs_df)
 
-    # Stratum-weighted population estimate: sum(weight * hit) / sum(weight).
-    wt = ok.select(
-        (pl.col("stratum_weight") * pl.col("has_eiar_nis_tree").cast(pl.Float64)).sum().alias("num"),
-        pl.col("stratum_weight").sum().alias("den"),
-    ).row(0)
-    print(f"WEIGHTED population estimate: {100 * wt[0] / wt[1]:.2f}% of the 13,720-case frame carry a tree")
-
-    oth = ok.filter(pl.col("has_other_publicaccess").fill_null(False))
-    any_pa = ok.filter(pl.col("has_eiar_nis_tree") | pl.col("has_other_publicaccess").fill_null(False))
-    wt2 = ok.select(
-        (pl.col("stratum_weight") * (pl.col("has_eiar_nis_tree") | pl.col("has_other_publicaccess").fill_null(False))
-         .cast(pl.Float64)).sum().alias("num"),
-        pl.col("stratum_weight").sum().alias("den"),
-    ).row(0)
-    print(f"OTHER (free-text folder) /publicaccess tree: {oth.height}/{ok.height} raw")
-    print(f"ANY /publicaccess documents: {any_pa.height}/{ok.height} raw; "
-          f"WEIGHTED {100 * wt2[0] / wt2[1]:.2f}% of the frame")
-
-    print("\n--- by CATEGORY (raw, within stratum) ---")
-    print(ok.group_by("frame_category").agg(
-        pl.len().alias("sampled"),
-        pl.col("has_eiar_nis_tree").sum().alias("with_tree"),
-        (100 * pl.col("has_eiar_nis_tree").mean()).round(1).alias("pct"),
-        pl.col("stratum_population").first().alias("pop"),
-    ).sort("pct", descending=True))
-
-    print("\n--- by YEAR (raw) ---")
-    print(ok.group_by("frame_case_year").agg(
-        pl.len().alias("sampled"),
-        pl.col("has_eiar_nis_tree").sum().alias("with_tree"),
-        (100 * pl.col("has_eiar_nis_tree").mean()).round(1).alias("pct"),
-    ).sort("frame_case_year"))
-
-    print("\n--- by PAGE case type (the register's own type string) ---")
-    print(ok.group_by("page_case_type").agg(
-        pl.len().alias("sampled"),
-        pl.col("has_eiar_nis_tree").sum().alias("with_tree"),
-    ).sort("with_tree", descending=True).head(20))
-
-    print("\n--- EIAR / NIS flags vs the tree ---")
-    print(ok.group_by(["page_eiar_flag", "page_nis_flag"]).agg(
-        pl.len().alias("cases"),
-        pl.col("has_eiar_nis_tree").sum().alias("with_tree"),
-        pl.col("n_eiar_nis_docs").sum().alias("docs"),
-    ).sort("cases", descending=True))
-    print(f"states 'subject to an EIA procedure': {ok['states_eia_procedure'].sum()}/{ok.height}")
-
-    if with_tree.height:
-        s = with_tree["n_eiar_nis_docs"]
-        print(f"\ndocs per case WITH a tree: n={with_tree.height} median={s.median()} "
-              f"mean={s.mean():.1f} min={s.min()} max={s.max()} total={s.sum()}")
-
-    print("\n--- decision-doc trees (linked on the page) ---")
-    print(ok.select(
-        pl.col("has_inspector_report").sum().alias("reports"),
-        pl.col("has_order").sum().alias("orders"),
-        pl.col("has_direction").sum().alias("directions"),
-        pl.col("has_bmr").sum().alias("bmr"),
-        pl.len().alias("of_pages"),
-    ))
-
-    if docs is not None and not docs.is_empty():
-        print("\n--- TAXONOMY: tree / doc_category / doc_subcategory frequencies ---")
-        print(docs.group_by(["tree", "doc_category", "doc_subcategory"]).agg(
-            pl.len().alias("docs"), pl.col("abp_case").n_unique().alias("cases")
-        ).sort("docs", descending=True).head(45))
-        print("\n--- EIAR-NIS subcategory naming stability (cases carrying each label) ---")
-        e = docs.filter(pl.col("tree") == "EIAR-NIS")
-        print(e.group_by(["doc_category", "doc_subcategory"]).agg(
-            pl.col("abp_case").n_unique().alias("cases"), pl.len().alias("docs")
-        ).sort("cases", descending=True).head(30))
-        print("\n--- SCOPING documents: filename variants ---")
-        sc = docs.filter(pl.col("is_scoping_doc"))
-        print(f"scoping docs={sc.height} across {sc['abp_case'].n_unique()} cases")
-        if sc.height:
-            print(sc.group_by("filename").agg(pl.len().alias("n")).sort("n", descending=True).head(25))
-        print("\n--- file extensions ---")
-        print(docs.group_by("file_ext").agg(pl.len().alias("n")).sort("n", descending=True).head(10))
-
-    # Corpus projection: weighted per-case document expectation x frame size.
-    per_case = ok.select(
-        (pl.col("stratum_weight") * pl.col("n_eiar_nis_docs").fill_null(0)).sum().alias("num"),
-        pl.col("stratum_weight").sum().alias("den"),
-    ).row(0)
-    print(f"\n[projection] weighted mean docs/case = {per_case[0] / per_case[1]:.2f} "
-          f"-> ~{per_case[0] / per_case[1] * 13720:,.0f} document rows if the whole 13,720-case frame were indexed")
+    # Naming-drift check: is the subcategory vocabulary stable across cases, or does it wander?
+    if not docs_df.is_empty():
+        vocab = Counter(
+            (d or "") for d in docs_df["doc_subcategory"].to_list()
+        )
+        print(f"\n[naming] {len(vocab)} distinct subcategory strings observed across {docs_df['abp_case'].n_unique()} tree-bearing cases")
+        for k, v in vocab.most_common(30):
+            print(f"    {v:5d}  {k!r}")
 
 
 if __name__ == "__main__":

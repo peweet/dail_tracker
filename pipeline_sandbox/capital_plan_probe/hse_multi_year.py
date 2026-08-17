@@ -30,7 +30,18 @@ PLANS = {
 REF_RE = re.compile(r"^\d{4,6}[A-Z]{0,2}$")
 STATUS_VOCAB = {"Construction", "Complete", "Tender", "Detailed Design",
                 "Design Feasibility", "Appraisal", "Appraisal - AG 0",
-                "Appraisal - AG0", "Preliminary Business Case", "Final Business Case"}
+                "Appraisal - AG0", "Preliminary Business Case", "Final Business Case",
+                "Equipping & Commissioning", "Review"}
+STATUS_BY_LEN = sorted(STATUS_VOCAB, key=len, reverse=True)
+
+
+def line_status_suffix(line: str) -> tuple[str | None, str | None]:
+    """A few rows land 'description... Status' on one glued line (no newline before the
+    status token). Detect a vocab token as a trailing suffix and split it off."""
+    for tok in STATUS_BY_LEN:
+        if line.endswith(" " + tok) and line != tok:
+            return tok, line[: -(len(tok) + 1)].strip()
+    return None, None
 APPENDIX_HEAD_RE = re.compile(r"^Appendix\s+(\d[A-Z]?)\s*(?:[-–]\s*(.+))?$", re.I)
 
 
@@ -83,6 +94,13 @@ def rows_for_range(doc, lo: int, hi: int) -> list[dict]:
             while j < n and not REF_RE.match(lines[j]):
                 if lines[j] in STATUS_VOCAB:
                     status = lines[j]
+                    j += 1
+                    break
+                tok, prefix = line_status_suffix(lines[j])
+                if tok:
+                    if prefix:
+                        desc_parts.append(prefix)
+                    status = tok
                     j += 1
                     break
                 desc_parts.append(lines[j])

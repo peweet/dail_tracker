@@ -163,11 +163,14 @@ never garbled or ref_no-mismatched. Full raw dumps in `hse_precision_audit_raw.j
 [Verified — manual read of independently-generated context windows, this session].
 
 **Two things the audit surfaced, disclosed rather than fixed:**
-- **A real status-vocabulary gap.** `"Review"` appears as a status token in the source (row
-  `11671`) and isn't in `STATUS_VOCAB`, so that row (not one of the 20 audited) parses with
-  `status: null`. Quantified across the whole document: **50/~600 rows unmatched in the 2025
-  plan, 20/~600 in 2026** [Verified — rerun with a miss-counter, this session] — a modest,
-  disclosed completeness gap, not a correctness one; none of the 20 audited rows hit it.
+- **A real status-vocabulary gap — FIXED same session.** `"Review"` and `"Equipping &
+  Commissioning"` were missing from `STATUS_VOCAB`, plus a few rows glue the status onto the
+  end of the description line with no newline (handled with a suffix-split,
+  `line_status_suffix()`). Before: 491/541 (2025) and 537/554 (2026) rows had a status. After:
+  **501/541 and 542/554** [Verified — rerun, this session]. The 20 audited `→ Tender` rows are
+  byte-identical before/after the fix — it only recovered previously-null rows elsewhere.
+  Residual gap (~40 + 12 rows) is presumably further vocabulary/formatting variants not yet
+  chased down; not re-measured token-by-token.
 - **Facility name is not a safe cross-year join field** (the `14162` example above) — confirms
   `ref_no` is the only field that should be used to link a project across plan years, which the
   extractor already does.
