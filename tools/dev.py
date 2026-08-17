@@ -195,13 +195,16 @@ def _reexec_in_dev_profile(args: list[str]) -> int | None:
     if not _requires_dev_profile(args) or os.environ.get(DEV_PROFILE_ENV) == "1" or _dev_profile_is_available():
         return None
 
+    reexec_args = list(args)
+    if reexec_args[0] == "verify" and "--no-cache" not in reexec_args:
+        reexec_args.append("--no-cache")
     command = (
         UV,
         "run",
         *DEV_PROFILE_ARGS,
         "python",
         str(Path(__file__).resolve()),
-        *args,
+        *reexec_args,
     )
     env = dict(os.environ)
     env[DEV_PROFILE_ENV] = "1"

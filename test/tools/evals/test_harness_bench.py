@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import anyio
 import pytest
 
-from tools.evals import harness_bench
+from tools.evals import harness_bench, provider_adapter
 
 
 def test_private_task_contract_scores_expected_json_leaves():
@@ -24,10 +24,36 @@ def test_private_task_file_must_be_outside_repo(tmp_path):
 
     external = tmp_path / "holdout.json"
     external.write_text(
-        json.dumps({"tasks": {"hidden": {"prompt": "Return JSON", "expected": {"answer": 7}}}}),
+        json.dumps(
+            {
+                "tasks": {
+                    "hidden": {
+                        "prompt": "Return JSON",
+                        "expected": {"answer": 7},
+                        "allowed_mcp_tools": ["mcp__dail-tracker__search_project"],
+                    }
+                }
+            }
+        ),
         encoding="utf-8",
     )
-    assert harness_bench.load_private_tasks(external)["hidden"]["kind"] == "private-exact"
+    loaded = harness_bench.load_private_tasks(external)
+    assert loaded["hidden"]["kind"] == "private-exact"
+    assert loaded["hidden"]["allowed_mcp_tools"] == ["mcp__dail-tracker__search_project"]
+
+
+def test_public_task_mcp_policies_are_narrow_and_no_policy_is_empty():
+    assert harness_bench.PUBLIC_TASKS["never-sum"]["allowed_mcp_tools"] == []
+    assert harness_bench.PUBLIC_TASKS["conventions"]["allowed_mcp_tools"] == []
+    assert harness_bench.PUBLIC_TASKS["data-shape"]["allowed_mcp_tools"] == [
+        "mcp__dail-tracker__describe_dataset",
+        "mcp__dail-tracker__list_datasets",
+    ]
+    assert harness_bench.PUBLIC_TASKS["code-nav"]["allowed_mcp_tools"] == [
+        "mcp__dail-tracker__search_project",
+        "mcp__dail-tracker__code_outline",
+    ]
+    assert harness_bench.PUBLIC_TASKS["memory-xbrl"]["allowed_mcp_tools"] == ["mcp__dail-tracker__search_project"]
 
 
 def test_summary_reports_repeat_range_and_errors():
@@ -132,3 +158,66 @@ def test_variant_chains_project_and_hook_settings_to_provider(monkeypatch, tmp_p
     request = captured["request"]
     assert request.project_settings is expected
     assert request.trusted_project_hooks is expected
+
+
+@pytest.mark.parametrize(
+    ("task_id", "variant", "allowed", "has_mcp"),
+    [
+        ("never-sum", "on", [], False),
+        (
+            "data-shape",
+            "on",
+            ["mcp__dail-tracker__describe_dataset", "mcp__dail-tracker__list_datasets"],
+            True,
+        ),
+        ("data-shape", "offclean", [], False),
+    ],
+)
+def test_harness_request_uses_only_task_mcp_policy(monkeypatch, tmp_path, task_id, variant, allowed, has_mcp):
+    captured = {}
+
+    async def fake_run_eval(request):
+        captured["command"] = provider_adapter.build_codex_command(request, executable="codex", model=None)
+        captured["request"] = request
+        return SimpleNamespace(
+            is_error=False,
+            error=None,
+            tool_names=[],
+            final_text='{"combined_figure_allowed": false}',
+            cost_usd=None,
+            provider="codex",
+            model="test",
+            usage={},
+        )
+
+    monkeypatch.setattr(harness_bench, "run_eval", fake_run_eval)
+
+    async def invoke():
+        return await harness_bench.run_task(
+            task_id,
+            harness_bench.PUBLIC_TASKS[task_id],
+            variant,
+            cwd=tmp_path,
+            repeat_index=1,
+            run_id="run-1",
+        )
+
+    anyio.run(invoke)
+    request = captured["request"]
+    assert request.allowed_tools == (allowed or None)
+    assert bool(request.mcp_servers) is has_mcp
+    command = captured["command"]
+    rendered = "\n".join(command)
+    if variant == "on":
+        assert "--dangerously-bypass-hook-trust" in command
+        assert "--ignore-rules" not in command
+        assert "project_doc_max_bytes" not in rendered
+    else:
+        assert "--dangerously-bypass-hook-trust" not in command
+        assert "--ignore-rules" in command
+        assert "project_doc_max_bytes=0" in rendered
+    if not has_mcp:
+        command = provider_adapter.build_codex_command(request, executable="codex", model=None)
+        rendered = "\n".join(command)
+        assert "mcp_servers={}" in rendered
+        assert request.allowed_tools is None

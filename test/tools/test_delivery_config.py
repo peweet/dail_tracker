@@ -49,8 +49,17 @@ def test_public_docker_context_excludes_the_private_planning_overlay() -> None:
     private_ignore = (ROOT / "planning" / "product" / "Dockerfile.dockerignore").read_text(encoding="utf-8")
 
     assert "!planning/product/" not in public_ignore
-    assert "!planning/product/**" in private_ignore
-    assert "planning/product/.env*" in private_ignore
+    # The private build moved to a standalone-repository context (2026-08-16 WIP):
+    # paths are no longer planning/product/-prefixed. The invariants that survive
+    # the move: deny-all first, env files never transmitted, and no allowlist
+    # line re-admits env/deploy/test material.
+    private_lines = [ln.strip() for ln in private_ignore.splitlines() if ln.strip() and not ln.startswith("#")]
+    assert private_lines[0] == "*", "private context must open with a deny-all"
+    assert "**/.env*" in private_lines
+    assert not any(ln.startswith("!") and ".env" in ln for ln in private_lines)
+    assert not any(ln.startswith("!") and "deploy" in ln for ln in private_lines)
+    assert "deploy/" in private_lines
+    assert "test/" in private_lines
 
 
 def test_ci_installs_api_and_mcp_and_smokes_delivery() -> None:

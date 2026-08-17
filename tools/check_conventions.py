@@ -39,18 +39,9 @@ PAGES = ROOT / "utility" / "pages_code"
 # R1: hand-rolled HTTP. New scrapers must use services.http_engine
 #     (fetch_bytes / fetch_json / fetch_text / polite_headers).
 RE_RAW_HTTP = re.compile(r"requests\.(get|post|Session)\(|urllib\.request")
-BASELINE_RAW_HTTP = {
-    "_gnews_resolve.py",
-    "cbi_registers_extract.py",
-    "cro_financial_statements_extract.py",
-    "member_contact_extract.py",
-    "ministerial_diaries_extract.py",
-    "planning_appeal_outcomes.py",
-    "planning_applications_ingest.py",
-    "planning_decision_profiles.py",
-    "sipo_candidate_expenses_crawl.py",
-    "stateboards_roster_extract.py",
-}
+# Ratcheted to empty 2026-08-17: every remaining entry stopped offending
+# (http_engine adoption reached 100% of extractors).
+BASELINE_RAW_HTTP: set[str] = set()
 
 # R2: User-Agent literals. Use polite_headers(browser=...) instead.
 RE_UA_LITERAL = re.compile(r"Mozilla/5\.0")
@@ -96,19 +87,14 @@ BASELINE_RAW_COVERAGE = {
     "legal_diary_openview_extract.py",
     "ministerial_briefs_extract.py",
     "noac_scorecard_history_extract.py",
-    "planning_appeal_outcomes.py",
     "planning_cpo_compensation.py",
-    "planning_decision_profiles.py",
-    "procurement_award_spend_link.py",
     "procurement_dept_readingorder_parser.py",
-    "procurement_etenders_extract.py",
     "procurement_hse_tusla_materialize.py",
     "procurement_hse_tusla_parser.py",
     "procurement_la_payments_extract.py",
     "procurement_la_seed.py",
     "procurement_nphdb_parser.py",
     "procurement_nta_parser.py",
-    "procurement_payments_consolidate.py",
     "procurement_seai_parser.py",
     "sample_extract_procurement_pdf.py",
     "si_legislation_directory_extract.py",
@@ -123,7 +109,6 @@ BASELINE_RAW_COVERAGE = {
     "ted_ireland_extract.py",
     "ted_ireland_buyer_history_extract.py",
     "ted_ireland_tenders_extract.py",
-    "ted_ireland_winner_history_extract.py",
 }
 
 # R11: pandas in the ETL layer. CLAUDE.md never-break rule: "Polars for ETL,
@@ -392,7 +377,9 @@ def _raw_parquet_outside_extractors() -> list[str]:
         for py in sorted(root.rglob("*.py")):
             rel = py.relative_to(ROOT).as_posix()
             parts = set(rel.split("/"))
-            if parts & {"sandbox", "pipeline_sandbox", "test", "__pycache__"}:
+            # ".tmp" skips release-staging copies (e.g. planning/product/.tmp/
+            # release-*/), which mirror source files but are build artifacts.
+            if parts & {"sandbox", "pipeline_sandbox", "test", "__pycache__", ".tmp"}:
                 continue
             if rel in PARQUET_SCAN_EXEMPT or rel in BASELINE_RAW_PARQUET_REPO:
                 continue
@@ -464,7 +451,10 @@ def _hand_rolled_nfkd() -> tuple[list[str], list[str]]:
     offenders: set[str] = set()
     for rel in tracked:
         rel = rel.replace("\\", "/")
-        if rel.startswith(("test/", "pipeline_sandbox/")) or rel in NFKD_CANONICAL:
+        # .cosmic-ray/ holds mutation-target copies that are deliberately
+        # self-contained: importing the shared normaliser would remove the very
+        # fold logic the mutation session exists to mutate (commit 8827eee1).
+        if rel.startswith(("test/", "pipeline_sandbox/", ".cosmic-ray/")) or rel in NFKD_CANONICAL:
             continue
         path = ROOT / rel
         if not path.exists():

@@ -50,6 +50,16 @@ _VALID_REASONING_EFFORTS = {"none", "low", "medium", "high", "xhigh", "max"}
 _DEFAULT_TIMEOUT_SECONDS = 900.0
 _DEFAULT_CODEX_MODEL = "gpt-5.6-sol"
 _DEFAULT_CODEX_REASONING_EFFORT = "medium"
+_CLAUDE_READ_ONLY_DISALLOWED_TOOLS = ("Bash", "Edit", "Write", "NotebookEdit")
+_CLAUDE_READ_ONLY_BUILTIN_TOOLS = ("Read", "Glob", "Grep")
+_PROJECT_GUIDANCE_MAX_BYTES = 64 * 1024
+_PUBLIC_DAIL_TRACKER_MCP_TOOLS = frozenset(
+    {
+        "mcp__dail-tracker__siting_decision_documents",
+        "mcp__dail-tracker__search_planning_precedents",
+        "mcp__dail-tracker__siting_check",
+    }
+)
 
 
 class EvalProviderError(RuntimeError):
@@ -228,6 +238,113 @@ def _toml_key(value: str) -> str:
     return value if re.fullmatch(r"[A-Za-z0-9_-]+", value) else json.dumps(value)
 
 
+def _validate_read_only_mcp_policy(request: EvalRequest) -> None:
+    if request.sandbox != "read-only":
+        return
+    allowed = [str(tool) for tool in (request.allowed_tools or ())]
+    invalid = []
+    for tool in allowed:
+        if "*" in tool:
+            invalid.append(tool)
+            continue
+        if not tool.startswith("mcp__"):
+            continue
+        rest = tool[len("mcp__") :]
+        server, separator, suffix = rest.partition("__")
+        if not server or not separator or not suffix or "__" in suffix:
+            invalid.append(tool)
+    if invalid:
+        raise EvalProviderError(
+            "read-only tool allowlist rejects wildcard or empty MCP permissions: " + ", ".join(invalid)
+        )
+    invalid_builtins = [
+        tool for tool in allowed if not tool.startswith("mcp__") and tool not in _CLAUDE_READ_ONLY_BUILTIN_TOOLS
+    ]
+    if invalid_builtins:
+        raise EvalProviderError(
+            "read-only tool allowlist permits only Read, Glob, Grep, and exact MCP tools: "
+            + ", ".join(invalid_builtins)
+        )
+    forbidden = sorted(_PUBLIC_DAIL_TRACKER_MCP_TOOLS.intersection(allowed))
+    if forbidden:
+        raise EvalProviderError("public read-only dail-tracker policy forbids MCP tool(s): " + ", ".join(forbidden))
+    allowed_servers = {tool[len("mcp__") :].partition("__")[0] for tool in allowed if tool.startswith("mcp__")}
+    configured_servers = {str(name) for name in request.mcp_servers}
+    unknown = sorted(allowed_servers - configured_servers)
+    if unknown:
+        raise EvalProviderError(
+            "read-only MCP allowlist names server(s) absent from request.mcp_servers: " + ", ".join(unknown)
+        )
+    if not request.mcp_servers:
+        return
+    missing = [name for name in request.mcp_servers if not any(tool.startswith(f"mcp__{name}__") for tool in allowed)]
+    if missing:
+        raise EvalProviderError(
+            "read-only MCP requests require an explicit MCP tool allowlist in allowed_tools "
+            f"for configured server(s): {', '.join(map(str, missing))}"
+        )
+
+
+def _read_only_mcp_hook(allowed_tools: frozenset[str]):
+    async def enforce(input_data, _tool_use_id, _context):
+        tool_name = str(input_data.get("tool_name", ""))
+        if not tool_name.startswith("mcp__"):
+            return {}
+        if tool_name in allowed_tools and tool_name not in _PUBLIC_DAIL_TRACKER_MCP_TOOLS:
+            return {}
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": (f"read-only MCP policy does not allow {tool_name!r}"),
+            }
+        }
+
+    return enforce
+
+
+def _load_strict_project_guidance(request: EvalRequest) -> str | None:
+    """Load only the workdir's bounded AGENTS.md for strict read-only guidance."""
+
+    root = Path(request.cwd).resolve()
+    candidate = root / "AGENTS.md"
+    if not candidate.exists():
+        if candidate.is_symlink():
+            raise EvalProviderError("strict read-only AGENTS.md is a broken symlink")
+        return None
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise EvalProviderError(f"could not resolve strict read-only AGENTS.md: {exc}") from exc
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise EvalProviderError("strict read-only AGENTS.md symlink escapes the workdir") from exc
+    if not resolved.is_file():
+        raise EvalProviderError("strict read-only AGENTS.md must be a regular file")
+    try:
+        # Read one sentinel byte beyond the cap, never the whole file.
+        with resolved.open("rb") as guidance_file:
+            payload = guidance_file.read(_PROJECT_GUIDANCE_MAX_BYTES + 1)
+    except OSError as exc:
+        raise EvalProviderError(f"could not read strict read-only AGENTS.md: {exc}") from exc
+    if len(payload) > _PROJECT_GUIDANCE_MAX_BYTES:
+        raise EvalProviderError("strict read-only AGENTS.md exceeds the 64 KiB limit")
+    try:
+        return payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise EvalProviderError("strict read-only AGENTS.md must be UTF-8") from exc
+
+
+def _compose_strict_system_prompt(guidance: str | None, explicit: str | None) -> str | None:
+    parts = []
+    if guidance:
+        parts.append(f"<project-guidance>\n{guidance}\n</project-guidance>")
+    if explicit:
+        parts.append(f"<caller-system-prompt>\n{explicit}\n</caller-system-prompt>")
+    return "\n\n".join(parts) or None
+
+
 def _append_config(command: list[str], key: str, value: Any) -> None:
     command.extend(["--config", f"{key}={_toml_value(value)}"])
 
@@ -246,6 +363,7 @@ def build_codex_command(
 ) -> list[str]:
     """Build the shell-free, workspace-scoped ``codex exec`` argv."""
 
+    _validate_read_only_mcp_policy(request)
     cwd = Path(request.cwd).resolve()
     command = [
         executable,
@@ -279,8 +397,10 @@ def build_codex_command(
 
     if not request.project_settings:
         command.append("--ignore-rules")
+    if not request.project_settings:
         _append_config(command, "project_doc_max_bytes", 0)
         _append_config(command, "project_doc_fallback_filenames", [])
+    if request.sandbox == "read-only" or not request.project_settings:
         # Prevent a project config from silently adding an MCP server to an OFF arm.
         _append_config(command, "mcp_servers", {})
 
@@ -306,7 +426,10 @@ def build_codex_command(
         if disabled:
             _append_config(command, f"{prefix}.disabled_tools", list(dict.fromkeys(disabled)))
         enabled = [str(tool) for tool in config.get("enabled_tools", [])]
-        if enabled:
+        if request.sandbox == "read-only" and request.allowed_tools is not None:
+            enabled = [str(tool)[len(marker) :] for tool in request.allowed_tools if str(tool).startswith(marker)]
+            _append_config(command, f"{prefix}.enabled_tools", list(dict.fromkeys(enabled)))
+        elif enabled:
             _append_config(command, f"{prefix}.enabled_tools", enabled)
 
     # Read the prompt from stdin: this avoids platform command-length and quoting
@@ -578,22 +701,39 @@ async def run_claude(
 ) -> EvalResult:
     """Run the legacy Claude backend without importing its SDK on Codex paths."""
 
+    _validate_read_only_mcp_policy(request)
+    guidance = (
+        _load_strict_project_guidance(request) if request.sandbox == "read-only" and request.project_settings else None
+    )
     sdk = sdk_importer("claude_agent_sdk")
     kwargs: dict[str, Any] = {
         "max_turns": request.max_turns,
         "cwd": str(Path(request.cwd).resolve()),
-        "setting_sources": ["project"] if request.project_settings else [],
-        "permission_mode": "bypassPermissions",
+        # Strict read-only runs use only bounded AGENTS.md guidance; they never
+        # inherit project settings/permissions/skills.
+        "setting_sources": [] if request.sandbox == "read-only" else (["project"] if request.project_settings else []),
+        "permission_mode": "dontAsk" if request.sandbox == "read-only" else "bypassPermissions",
     }
+    if request.sandbox == "read-only":
+        kwargs["strict_mcp_config"] = True
+        kwargs["skills"] = []
     if model:
         kwargs["model"] = model
-    if request.system_prompt:
-        kwargs["system_prompt"] = request.system_prompt
-    if request.allowed_tools is not None:
+    composed_system_prompt = _compose_strict_system_prompt(guidance, request.system_prompt)
+    if composed_system_prompt:
+        kwargs["system_prompt"] = composed_system_prompt
+    if request.sandbox == "read-only":
+        mcp_allowed = [str(tool) for tool in (request.allowed_tools or ()) if str(tool).startswith("mcp__")]
+        kwargs["tools"] = list(_CLAUDE_READ_ONLY_BUILTIN_TOOLS)
+        kwargs["allowed_tools"] = [*_CLAUDE_READ_ONLY_BUILTIN_TOOLS, *mcp_allowed]
+    elif request.allowed_tools is not None:
         kwargs["allowed_tools"] = list(request.allowed_tools)
-    if request.disallowed_tools:
-        kwargs["disallowed_tools"] = list(request.disallowed_tools)
-    if request.mcp_servers:
+    disallowed_tools = list(request.disallowed_tools)
+    if request.sandbox == "read-only":
+        disallowed_tools = list(dict.fromkeys([*_CLAUDE_READ_ONLY_DISALLOWED_TOOLS, *disallowed_tools]))
+    if disallowed_tools:
+        kwargs["disallowed_tools"] = disallowed_tools
+    if request.sandbox == "read-only" or request.mcp_servers:
         # Codex-only selection/timeout keys are not part of the Claude SDK's
         # stdio-server TypedDict. Keep the legacy backend payload byte-for-byte
         # compatible with the command/args/env shape it used before this port.
@@ -601,6 +741,15 @@ async def run_claude(
         kwargs["mcp_servers"] = {
             name: {key: value for key, value in config.items() if key in claude_mcp_keys}
             for name, config in request.mcp_servers.items()
+        }
+    if request.sandbox == "read-only" and request.mcp_servers:
+        kwargs["hooks"] = {
+            "PreToolUse": [
+                sdk.HookMatcher(
+                    matcher="mcp__.*",
+                    hooks=[_read_only_mcp_hook(frozenset(str(tool) for tool in (request.allowed_tools or ())))],
+                )
+            ]
         }
     if request.env:
         kwargs["env"] = dict(request.env)

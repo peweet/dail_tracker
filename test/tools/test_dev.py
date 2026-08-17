@@ -87,6 +87,25 @@ def test_real_task_reexecutes_once_in_the_full_dev_profile(monkeypatch):
     assert captured["env"][dev.DEV_PROFILE_ENV] == "1"
 
 
+def test_verify_profile_bootstrap_adds_exactly_one_no_cache(monkeypatch):
+    captured: list[tuple[str, ...]] = []
+
+    def run(command, **kwargs):
+        captured.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.delenv(dev.DEV_PROFILE_ENV, raising=False)
+    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
+    monkeypatch.setattr(dev.subprocess, "run", run)
+
+    assert dev.main(["verify"]) == 0
+    assert captured[-1][-1] == "--no-cache"
+    assert captured[-1].count("--no-cache") == 1
+
+    assert dev.main(["verify", "--no-cache"]) == 0
+    assert captured[-1].count("--no-cache") == 1
+
+
 def test_available_dev_profile_does_not_reexec(monkeypatch):
     monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: True)
 

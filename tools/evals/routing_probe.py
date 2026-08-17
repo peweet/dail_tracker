@@ -17,13 +17,14 @@ if str(REPO) not in sys.path:
 
 from tools.evals.provider_adapter import EvalRequest, dail_tracker_mcp, run_eval  # noqa: E402
 
-NAV = {
+NAV_ALLOWED_TOOLS = (
     "mcp__dail-tracker__describe_dataset",
     "mcp__dail-tracker__search_project",
     "mcp__dail-tracker__list_datasets",
-    "mcp__dail-tracker__outline",
+    "mcp__dail-tracker__code_outline",
     "mcp__dail-tracker__view_deps",
-}
+)
+NAV = set(NAV_ALLOWED_TOOLS)
 RAW = {"Read", "Grep", "Glob"}
 
 PROBES = [
@@ -60,6 +61,7 @@ async def run_probe(name: str, prompt: str) -> dict:
                 # Explicit for both backends: neither should rely on accidental
                 # user-level MCP configuration in a benchmark.
                 mcp_servers=dail_tracker_mcp(PROJ),
+                allowed_tools=list(NAV_ALLOWED_TOOLS),
             )
         )
         calls = result.tool_names
@@ -92,9 +94,12 @@ async def main():
 
     # Unknown arguments are ignored because promptfoo's exec provider appends
     # the prompt as a trailing argv; they must not silently select zero probes.
+    # --require-all is the fail-closed gate flag: any failed probe exits nonzero
+    # (test/tools/evals/test_promptfoo_probe_contracts.py pins this contract).
     known = {name for name, _ in PROBES}
+    require_all = "--require-all" in sys.argv[1:]
     wanted = [arg for arg in sys.argv[1:] if arg in known]
-    ignored = [arg for arg in sys.argv[1:] if arg not in known]
+    ignored = [arg for arg in sys.argv[1:] if arg not in known and arg != "--require-all"]
     if ignored:
         print(f"NOTE: ignoring non-probe args {ignored!r}; probes: {sorted(known)}")
     probes = [(name, prompt) for name, prompt in PROBES if not wanted or name in wanted]
@@ -107,6 +112,8 @@ async def main():
         print(json.dumps(results[-1]))
     passed = sum(1 for result in results if result.get("pass"))
     print(f"SUMMARY: {passed}/{len(results)} probes chose navigation-first")
+    if require_all and passed < len(results):
+        raise SystemExit(f"require-all: {len(results) - passed}/{len(results)} probes failed")
 
 
 if __name__ == "__main__":

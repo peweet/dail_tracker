@@ -105,6 +105,49 @@ def test_codex_command_is_noninteractive_scoped_and_reproducible(tmp_path):
     assert 'mcp_servers.dail-tracker.disabled_tools=["search_speeches"]' in rendered
 
 
+def test_codex_read_only_mcp_tools_are_explicitly_enabled(tmp_path):
+    request = adapter.EvalRequest(
+        prompt="inspect",
+        cwd=tmp_path,
+        mcp_servers={"dail-tracker": {"command": "python", "args": ["server.py"]}},
+        allowed_tools=["mcp__dail-tracker__describe_dataset"],
+    )
+
+    command = adapter.build_codex_command(request, executable="codex", model=None)
+
+    rendered = "\n".join(command)
+    assert 'mcp_servers.dail-tracker.enabled_tools=["describe_dataset"]' in rendered
+    assert 'mcp_servers.dail-tracker.enabled_tools=["*"]' not in rendered
+
+
+@pytest.mark.parametrize(
+    "bad_tool",
+    ["*", "mcp__dail-tracker__*", "mcp__dail-tracker__", "mcp____describe_dataset"],
+)
+def test_read_only_mcp_allowlist_rejects_wildcards_and_empty_names(tmp_path, bad_tool):
+    request = adapter.EvalRequest(
+        prompt="inspect",
+        cwd=tmp_path,
+        allowed_tools=[bad_tool],
+        mcp_servers={"dail-tracker": {"command": "python", "args": ["server.py"]}},
+    )
+
+    with pytest.raises(adapter.EvalProviderError, match="wildcard or empty MCP"):
+        adapter.build_codex_command(request, executable="codex", model=None)
+
+
+def test_codex_read_only_clears_inherited_project_mcp_without_dropping_guidance(tmp_path):
+    command = adapter.build_codex_command(
+        adapter.EvalRequest(prompt="inspect", cwd=tmp_path, project_settings=True),
+        executable="codex",
+        model=None,
+    )
+
+    rendered = "\n".join(command)
+    assert "mcp_servers={}" in rendered
+    assert "--ignore-rules" not in command
+
+
 def test_codex_on_arm_explicitly_trusts_vetted_cleanroom_hooks(tmp_path):
     request = adapter.EvalRequest(prompt="x", cwd=tmp_path, trusted_project_hooks=True)
 
@@ -306,6 +349,11 @@ def test_legacy_claude_backend_remains_lazy_and_contract_compatible(tmp_path):
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
+    class HookMatcher:
+        def __init__(self, *, matcher, hooks):
+            self.matcher = matcher
+            self.hooks = hooks
+
     async def query(**kwargs):
         captured.update(kwargs)
         yield AssistantMessage()
@@ -317,6 +365,7 @@ def test_legacy_claude_backend_remains_lazy_and_contract_compatible(tmp_path):
         ResultMessage=ResultMessage,
         TextBlock=TextBlock,
         ToolUseBlock=ToolUseBlock,
+        HookMatcher=HookMatcher,
         query=query,
     )
 
@@ -326,7 +375,7 @@ def test_legacy_claude_backend_remains_lazy_and_contract_compatible(tmp_path):
                 prompt="task",
                 cwd=tmp_path,
                 claude_model="claude-test",
-                allowed_tools=["Read"],
+                allowed_tools=["Read", "mcp__dail-tracker__describe_dataset"],
                 mcp_servers={
                     "dail-tracker": {
                         "command": "python",
@@ -347,9 +396,285 @@ def test_legacy_claude_backend_remains_lazy_and_contract_compatible(tmp_path):
     assert result.final_text == "final"
     assert result.tool_names == ["Read"]
     assert result.cost_usd == 0.25
-    assert captured["allowed_tools"] == ["Read"]
+    assert captured["permission_mode"] == "dontAsk"
+    assert captured["setting_sources"] == []
+    assert captured["skills"] == []
+    assert captured["tools"] == ["Read", "Glob", "Grep"]
+    assert captured["allowed_tools"] == [
+        "Read",
+        "Glob",
+        "Grep",
+        "mcp__dail-tracker__describe_dataset",
+    ]
+    assert captured["strict_mcp_config"] is True
     assert captured["mcp_servers"]["dail-tracker"] == {
         "command": "python",
         "args": ["server.py"],
         "env": {"PYTHONUTF8": "1"},
     }
+    matcher = captured["hooks"]["PreToolUse"][0]
+    assert matcher.matcher == "mcp__.*"
+    hook = matcher.hooks[0]
+    assert anyio.run(hook, {"tool_name": "mcp__dail-tracker__describe_dataset"}, None, {}) == {}
+    for tool in (
+        "mcp__dail-tracker__search_project",
+        "mcp__dail-tracker__siting_decision_documents",
+        "mcp__dail-tracker__search_planning_precedents",
+        "mcp__dail-tracker__siting_check",
+    ):
+        denied = anyio.run(hook, {"tool_name": tool}, None, {})
+        assert denied["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_claude_sandbox_maps_to_safe_or_write_capable_permissions(tmp_path):
+    captured = {}
+
+    class ClaudeAgentOptions:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    async def query(**kwargs):
+        captured.update(kwargs)
+        if False:
+            yield None
+
+    sdk = SimpleNamespace(ClaudeAgentOptions=ClaudeAgentOptions, query=query)
+
+    async def exercise(request):
+        await adapter.run_claude(
+            request,
+            model="claude-test",
+            sdk_importer=lambda _name: sdk,
+            environ={},
+        )
+
+    anyio.run(
+        exercise,
+        adapter.EvalRequest(
+            prompt="inspect",
+            cwd=tmp_path,
+            disallowed_tools=["mcp__dail-tracker__search_speeches"],
+        ),
+    )
+    assert captured["permission_mode"] == "dontAsk"
+    assert captured["strict_mcp_config"] is True
+    assert captured["mcp_servers"] == {}
+    assert captured["setting_sources"] == []
+    assert captured["skills"] == []
+    assert captured["tools"] == ["Read", "Glob", "Grep"]
+    assert captured["allowed_tools"] == ["Read", "Glob", "Grep"]
+    assert "bypassPermissions" not in captured.values()
+    assert set(captured["disallowed_tools"]) >= {
+        "Bash",
+        "Edit",
+        "Write",
+        "NotebookEdit",
+        "mcp__dail-tracker__search_speeches",
+    }
+
+    captured.clear()
+    anyio.run(
+        exercise,
+        adapter.EvalRequest(
+            prompt="change",
+            cwd=tmp_path,
+            sandbox="workspace-write",
+            disallowed_tools=["mcp__dail-tracker__search_speeches"],
+        ),
+    )
+    assert captured["permission_mode"] == "bypassPermissions"
+    assert "strict_mcp_config" not in captured
+    assert "hooks" not in captured
+    assert "tools" not in captured
+    assert "skills" not in captured
+    assert captured["disallowed_tools"] == ["mcp__dail-tracker__search_speeches"]
+
+
+def test_strict_read_only_uses_bounded_agents_guidance_only(tmp_path):
+    (tmp_path / "AGENTS.md").write_text("ON-SENTINEL\n", encoding="utf-8")
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "CLAUDE.md").write_text("MUST-NOT-LOAD", encoding="utf-8")
+    captured = {}
+
+    class ClaudeAgentOptions:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    async def query(**kwargs):
+        captured.update(kwargs)
+        if False:
+            yield None
+
+    sdk = SimpleNamespace(ClaudeAgentOptions=ClaudeAgentOptions, query=query)
+
+    async def exercise(request):
+        await adapter.run_claude(
+            request,
+            model="claude-test",
+            sdk_importer=lambda _name: sdk,
+            environ={},
+        )
+
+    anyio.run(
+        exercise,
+        adapter.EvalRequest(
+            prompt="task",
+            cwd=tmp_path,
+            project_settings=True,
+            system_prompt="CALLER-SYSTEM",
+        ),
+    )
+    assert captured["permission_mode"] == "dontAsk"
+    assert captured["setting_sources"] == []
+    assert captured["skills"] == []
+    assert captured["system_prompt"] == (
+        "<project-guidance>\nON-SENTINEL\r\n\n</project-guidance>\n\n"
+        "<caller-system-prompt>\nCALLER-SYSTEM\n</caller-system-prompt>"
+    )
+    assert "MUST-NOT-LOAD" not in captured["system_prompt"]
+
+    captured.clear()
+    anyio.run(
+        exercise,
+        adapter.EvalRequest(
+            prompt="task",
+            cwd=tmp_path,
+            project_settings=False,
+        ),
+    )
+    assert "system_prompt" not in captured
+    assert captured["setting_sources"] == []
+    assert captured["skills"] == []
+
+    captured.clear()
+    anyio.run(
+        exercise,
+        adapter.EvalRequest(
+            prompt="task",
+            cwd=tmp_path,
+            sandbox="workspace-write",
+            project_settings=True,
+            system_prompt="CALLER-SYSTEM",
+        ),
+    )
+    assert captured["setting_sources"] == ["project"]
+    assert captured["system_prompt"] == "<caller-system-prompt>\nCALLER-SYSTEM\n</caller-system-prompt>"
+    assert "ON-SENTINEL" not in captured["system_prompt"]
+
+
+def test_strict_guidance_rejects_oversize_and_directory(tmp_path):
+    async def exercise():
+        with pytest.raises(adapter.EvalProviderError, match="64 KiB"):
+            await adapter.run_claude(
+                adapter.EvalRequest(prompt="task", cwd=tmp_path),
+                model="claude-test",
+                sdk_importer=lambda _name: (_ for _ in ()).throw(AssertionError("SDK must stay lazy")),
+                environ={},
+            )
+
+    (tmp_path / "AGENTS.md").write_bytes(b"x" * (64 * 1024 + 1))
+    anyio.run(exercise)
+    (tmp_path / "AGENTS.md").unlink()
+    (tmp_path / "AGENTS.md").mkdir()
+
+    async def exercise_directory():
+        with pytest.raises(adapter.EvalProviderError, match="regular file"):
+            await adapter.run_claude(
+                adapter.EvalRequest(prompt="task", cwd=tmp_path),
+                model="claude-test",
+                sdk_importer=lambda _name: (_ for _ in ()).throw(AssertionError("SDK must stay lazy")),
+                environ={},
+            )
+
+    anyio.run(exercise_directory)
+
+
+def test_read_only_mcp_requires_an_explicit_allowlist(tmp_path):
+    async def exercise():
+        with pytest.raises(adapter.EvalProviderError, match="explicit MCP tool allowlist"):
+            await adapter.run_claude(
+                adapter.EvalRequest(
+                    prompt="inspect",
+                    cwd=tmp_path,
+                    mcp_servers={"dail-tracker": {"command": "python", "args": ["server.py"]}},
+                ),
+                model="claude-test",
+                sdk_importer=lambda _name: (_ for _ in ()).throw(AssertionError("SDK must stay lazy")),
+                environ={},
+            )
+
+    anyio.run(exercise)
+
+
+def test_read_only_mcp_allowlist_cannot_name_an_unconfigured_server(tmp_path):
+    async def exercise():
+        with pytest.raises(adapter.EvalProviderError, match="absent from request.mcp_servers"):
+            await adapter.run_claude(
+                adapter.EvalRequest(
+                    prompt="inspect",
+                    cwd=tmp_path,
+                    allowed_tools=["Read", "mcp__inherited__search_project"],
+                ),
+                model="claude-test",
+                sdk_importer=lambda _name: (_ for _ in ()).throw(AssertionError("SDK must stay lazy")),
+                environ={},
+            )
+
+    anyio.run(exercise)
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    sorted(adapter._PUBLIC_DAIL_TRACKER_MCP_TOOLS),
+)
+def test_read_only_dail_tracker_forbids_project_sensitive_tools(tmp_path, forbidden):
+    async def exercise():
+        with pytest.raises(adapter.EvalProviderError, match="public read-only dail-tracker policy"):
+            await adapter.run_claude(
+                adapter.EvalRequest(
+                    prompt="inspect",
+                    cwd=tmp_path,
+                    allowed_tools=[forbidden],
+                    mcp_servers={"dail-tracker": {"command": "python", "args": ["server.py"]}},
+                ),
+                model="claude-test",
+                sdk_importer=lambda _name: (_ for _ in ()).throw(AssertionError("SDK must stay lazy")),
+                environ={},
+            )
+
+    anyio.run(exercise)
+
+
+def test_eval_callers_use_explicit_mcp_policies(monkeypatch):
+    from tools.evals import package_bench, routing_probe
+
+    assert set(package_bench.BASELINE_TOOLS).isdisjoint(package_bench.NEW_TOOLS)
+    assert not {"siting_decision_documents", "search_planning_precedents", "siting_check"} & set(
+        package_bench.BASELINE_TOOLS
+    )
+
+    captured = {}
+
+    async def fake_run_eval(request):
+        captured["request"] = request
+        return adapter.EvalResult(provider="claude", model="test", final_text="[]")
+
+    monkeypatch.setattr(routing_probe, "run_eval", fake_run_eval)
+    anyio.run(routing_probe.run_probe, "data-shape", routing_probe.PROBES[0][1])
+    assert captured["request"].allowed_tools == list(routing_probe.NAV_ALLOWED_TOOLS)
+    assert set(captured["request"].allowed_tools) == {
+        "mcp__dail-tracker__describe_dataset",
+        "mcp__dail-tracker__search_project",
+        "mcp__dail-tracker__list_datasets",
+        "mcp__dail-tracker__code_outline",
+        "mcp__dail-tracker__view_deps",
+    }
+
+    monkeypatch.setattr(package_bench, "run_eval", fake_run_eval)
+    anyio.run(package_bench.run_task, "column-lineage", "newtools")
+    assert set(captured["request"].allowed_tools) == set(package_bench.NEW_TOOLS)
+    assert captured["request"].mcp_servers
+
+    anyio.run(package_bench.run_task, "column-lineage", "baseline")
+    assert captured["request"].allowed_tools == [f"mcp__dail-tracker__{tool}" for tool in package_bench.BASELINE_TOOLS]
+    assert captured["request"].mcp_servers

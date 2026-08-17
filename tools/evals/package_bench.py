@@ -2,7 +2,10 @@
 beat the baseline toolset on the SAME tasks?
 
 Design (PaddleOCR-style): identical prompts, identical model, two variants —
-`baseline` blocks the new tools via disallowed_tools, `newtools` allows them.
+`baseline` and `newtools` both wire the MCP server explicitly. The baseline uses a
+static public-safe legacy catalog: every registered public tool except the three
+new tools and the three project-disabled private siting tools below. It is static
+by design so a future catalog addition cannot silently widen the benchmark arm.
 Ground truth was established INDEPENDENTLY of the new tools (plain ILIKE
 reference queries; manual read of the payments view chain) so the test is not
 circular. Metrics per run: correctness score vs ground truth, tool-call count,
@@ -33,6 +36,77 @@ NEW_TOOLS = [
     "mcp__dail-tracker__search_questions",
     "mcp__dail-tracker__column_deps",
 ]
+
+BASELINE_TOOLS = (
+    "search_members",
+    "get_member_record",
+    "list_recent_votes",
+    "get_division",
+    "division_interest_breakdown",
+    "voting_vs_interests",
+    "search_legislation",
+    "get_bill",
+    "search_statutory_instruments",
+    "circular_si_crosswalk",
+    "top_payments",
+    "lobbying_organisations",
+    "revolving_door",
+    "ministerial_diary_top_organisations",
+    "ministerial_diary_organisation",
+    "who_ministers_meet",
+    "company_influence",
+    "access_to_contracts",
+    "procurement_lobbying_overlap",
+    "search_suppliers",
+    "get_supplier",
+    "procurement_competition",
+    "list_committees",
+    "get_committee",
+    "get_member_interests",
+    "who_was_minister",
+    "get_member_questions",
+    "member_question_count_by_year",
+    "payments_by_year",
+    "member_speeches",
+    "party_donations",
+    "party_election_spend",
+    "judicial_appointments",
+    "courts_health",
+    "public_appointments",
+    "charity_financials",
+    "corporate_distress_notices",
+    "corporate_repeat_distress",
+    "nphdb_bam_disclosures",
+    "public_body_payments",
+    "procurement_by_authority",
+    "procurement_by_cpv",
+    "open_tenders",
+    "current_cabinet",
+    "dpo_lobbying_profile",
+    "search_votes_by_topic",
+    "join_map",
+    "data_coverage",
+    "list_datasets",
+    "describe_dataset",
+    "search_project",
+    "code_outline",
+    "py_deps",
+    "py_refs",
+    "json_peek",
+    "view_deps",
+    "search_council_minutes",
+    "source_fetch_failures",
+    "procurement_notice",
+    "project_value_estimate",
+    "cross_register_watchlist",
+    "organisation_dossier",
+    "derelict_levy_compliance",
+    "council_scorecard",
+    "afs_coverage",
+    "housing_money",
+    "attendance_ranking",
+    "gov_finance_annual",
+)
 
 TASKS = {
     "column-lineage": {
@@ -120,6 +194,9 @@ async def run_task(task: str, variant: str) -> dict:
                 max_turns=12,
                 sandbox="read-only",
                 project_settings=True,
+                allowed_tools=(
+                    NEW_TOOLS if variant == "newtools" else [f"mcp__dail-tracker__{tool}" for tool in BASELINE_TOOLS]
+                ),
                 disallowed_tools=NEW_TOOLS if variant == "baseline" else [],
                 mcp_servers=dail_tracker_mcp(PROJ),
             )
@@ -155,13 +232,21 @@ async def run_task(task: str, variant: str) -> dict:
 async def main():
     import sys
 
-    args = [a.lower() for a in sys.argv[1:]]
+    # --require-perfect is the fail-closed gate flag: any score below 1.0 exits
+    # nonzero (test/tools/evals/test_promptfoo_probe_contracts.py pins this).
+    require_perfect = "--require-perfect" in sys.argv[1:]
+    args = [a.lower() for a in sys.argv[1:] if a != "--require-perfect"]
     variants = [v for v in ("baseline", "newtools") if not args or v in args] or ["baseline", "newtools"]
     tasks = [t for t in TASKS if t in args] or list(TASKS)
+    imperfect: list[str] = []
     for variant in variants:
         for task in tasks:
             r = await run_task(task, variant)
             print(json.dumps(r, ensure_ascii=False))
+            if float(r.get("score") or 0.0) < 1.0:
+                imperfect.append(f"{task}/{variant}={r.get('score')}")
+    if require_perfect and imperfect:
+        raise SystemExit(f"require-perfect: score(s) below 1.0: {', '.join(imperfect)}")
 
 
 if __name__ == "__main__":

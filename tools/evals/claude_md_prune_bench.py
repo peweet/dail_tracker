@@ -39,9 +39,16 @@ PY = str(Path(PROJ) / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "b
 WT = r"C:\tmp\dail_prune_bench"
 
 sys.path.insert(0, os.path.join(PROJ, "tools", "evals"))
-from harness_bench import TASKS, parse_answer, score  # noqa: E402 — after sys.path insert
+from harness_bench import PUBLIC_TASKS, parse_answer, score_answer  # noqa: E402 ? after sys.path insert
 
-NAV = {"mcp__dail-tracker__describe_dataset", "mcp__dail-tracker__search_project", "mcp__dail-tracker__list_datasets"}
+STEER_POLICIES = {
+    "steer-datashape": [
+        "mcp__dail-tracker__describe_dataset",
+        "mcp__dail-tracker__list_datasets",
+    ],
+    "steer-wherelives": ["mcp__dail-tracker__search_project"],
+}
+NAV = set(STEER_POLICIES["steer-datashape"] + STEER_POLICIES["steer-wherelives"])
 RAW = {"Read", "Grep", "Glob"}
 
 # The editorial trim: load-bearing content only. Kept deliberately faithful to the
@@ -119,7 +126,7 @@ STEER = [
 ]
 
 
-async def run_one(prompt, wt):
+async def run_one(prompt, wt, allowed_mcp_tools=()):
     calls, cost, text = [], None, ""
     provider, model = None, None
     try:
@@ -135,7 +142,8 @@ async def run_one(prompt, wt):
                     "PATH": str(Path(PROJ) / ".venv" / "Scripts") + os.pathsep + os.environ.get("PATH", ""),
                     "PYTHONUTF8": "1",
                 },
-                mcp_servers=dail_tracker_mcp(PROJ, PY),
+                allowed_tools=list(allowed_mcp_tools) or None,
+                mcp_servers=dail_tracker_mcp(PROJ, PY) if allowed_mcp_tools else {},
             )
         )
         calls = result.tool_names
@@ -158,15 +166,17 @@ async def main():
         try:
             tot_score = tot_cost = 0.0
             rows = []
-            for task, spec in TASKS.items():
-                calls, cost, text, provider, model = await run_one(spec["prompt"], WT)
-                s = score(task, parse_answer(text))
+            for task, spec in PUBLIC_TASKS.items():
+                calls, cost, text, provider, model = await run_one(
+                    spec["prompt"], WT, spec.get("allowed_mcp_tools", [])
+                )
+                s = score_answer(spec, parse_answer(text))
                 tot_score += s
                 tot_cost += cost or 0
                 rows.append(f"{task}={s}")
             steer_ok = 0
-            for _name, prompt in STEER:
-                calls, cost, text, provider, model = await run_one(prompt, WT)
+            for name, prompt in STEER:
+                calls, cost, text, provider, model = await run_one(prompt, WT, STEER_POLICIES[name])
                 first_nav = next((i for i, c in enumerate(calls) if c in NAV), None)
                 first_raw = next((i for i, c in enumerate(calls) if c in RAW), None)
                 ok = first_nav is not None and (first_raw is None or first_nav < first_raw)

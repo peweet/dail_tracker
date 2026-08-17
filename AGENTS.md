@@ -43,6 +43,14 @@ is unavailable or not applicable.
 - Wait for every requested result, adjudicate disagreements against repository evidence, and report unresolved uncertainty explicitly.
 - Permit at most one write-capable agent in a checkout. Parallel implementation requires separate Git worktrees and explicit integration ownership; do not improvise worktrees for the nested `planning/product` repository.
 
+### Review, test, and repair contract
+
+- Strict Claude read-only `project_settings` is bounded workdir `AGENTS.md` guidance only; it never inherits project permissions, settings, skills, or `.claude` configuration. Codex ON cleanroom hooks are a deliberate benchmark intervention, not a general permission grant.
+- Review and verification requests are read-only: inspect the current tree and run the relevant checks, but do not author tests, repair implementation, regenerate fixtures, or apply patches.
+- Test authoring or repair is a separate write task. The captain names one worker, names its files, and gives it one worktree; do not parallelize repairs or let read-only agents use `git apply`.
+- After any repair, or after the dev runner bootstraps/repairs its dependency profile, run `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify --no-cache`. `verify --plan` remains an inspection-only exemption and does not execute or bootstrap.
+- Keep private-release verification gates serial; do not bypass or parallelize them.
+
 ## Routing
 
 | Work | Start with | Local guidance |

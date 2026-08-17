@@ -22,9 +22,9 @@ description: "Dáil Tracker harness regression: routing + package + counterfactu
 # .venv\Scripts\python also ENOENTed); machine-specific by design — this gate is
 # local tooling, not CI. The probes locate the repo from __file__, so cwd is moot.
 providers:
-  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\routing_probe.py'
-  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\package_bench.py newtools'
-  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\harness_bench.py on'
+  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\routing_probe.py --require-all'
+  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\package_bench.py --require-perfect newtools'
+  - 'exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\harness_bench.py --require-perfect on'
 
 prompts:
   - "{{task}}"   # probes ignore stdin; tasks are baked into each script
@@ -32,21 +32,21 @@ prompts:
 tests:
   - description: "Project guidance steers navigation-first (3/3 probes)"
     vars: { task: routing }
-    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\routing_probe.py']
+    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\routing_probe.py --require-all']
     assert:
       - type: contains
         value: "SUMMARY: 3/3"
 
-  - description: "New tools keep beating baseline paths (no task scores 0)"
+  - description: "New tools score 1.0 on every task (fail-closed via --require-perfect)"
     vars: { task: package }
-    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\package_bench.py newtools']
+    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\package_bench.py --require-perfect newtools']
     assert:
       - type: not-contains
         value: '"score": 0.0'
 
   - description: "Full-stack arm answers all 5 counterfactual tasks correctly"
     vars: { task: harness }
-    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\harness_bench.py on']
+    providers: ['exec: C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Scripts\python.exe C:\Users\pglyn\PycharmProjects\dail_extractor\tools\evals\harness_bench.py --require-perfect on']
     assert:
       - type: not-contains
         value: '"score": 0.0'

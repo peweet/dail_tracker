@@ -160,6 +160,13 @@ procurement/payments.payments_real_by_year
 procurement/payments.payments_supplier_header
 procurement/payments.payments_supplier_summary
 procurement/payments.supplier_payments_by_year
+# pre_tender_* (4): page-scoped facet/summary aggregations for the pre-tender lane,
+# re-baselined deliberately 2026-08-17 — MCP/API exposure deferred while
+# mcp_server/server.py sits under its size ratchet with a consolidation in flight.
+procurement/pre_tender.pre_tender_areas
+procurement/pre_tender.pre_tender_sectors
+procurement/pre_tender.pre_tender_stages
+procurement/pre_tender.pre_tender_summary
 procurement/signals.call_offs_for_supplier
 procurement/signals.charity_overlap
 procurement/signals.competition_by_cpv

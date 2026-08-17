@@ -78,6 +78,7 @@ PUBLIC_TASKS: dict[str, dict[str, Any]] = {
             "add the awarded total and the paid total into one combined figure? Reply ONLY "
             'with JSON: {"combined_figure_allowed": true|false, "reason": "<one sentence>"}'
         ),
+        "allowed_mcp_tools": [],
     },
     "data-shape": {
         "kind": "data-shape",
@@ -86,6 +87,10 @@ PUBLIC_TASKS: dict[str, dict[str, Any]] = {
             "rows does it hold, and name five of its columns. Reply ONLY with JSON: "
             '{"grain": "...", "rows": <integer>, "columns": ["...", 5 names]}'
         ),
+        "allowed_mcp_tools": [
+            "mcp__dail-tracker__describe_dataset",
+            "mcp__dail-tracker__list_datasets",
+        ],
     },
     "code-nav": {
         "kind": "code-nav",
@@ -94,6 +99,10 @@ PUBLIC_TASKS: dict[str, dict[str, Any]] = {
             "parquet write with the row-floor guard that all pipeline ETL must use? Reply "
             'ONLY with JSON: {"file": "<repo-relative path>", "function": "<name>"}'
         ),
+        "allowed_mcp_tools": [
+            "mcp__dail-tracker__search_project",
+            "mcp__dail-tracker__code_outline",
+        ],
     },
     "conventions": {
         "kind": "conventions",
@@ -103,6 +112,7 @@ PUBLIC_TASKS: dict[str, dict[str, Any]] = {
             "(2) coverage logging, (3) parquet writing, and (4) extractor run "
             'orchestration? Reply ONLY with JSON: {"helpers": ["...four module names..."]}'
         ),
+        "allowed_mcp_tools": [],
     },
     "memory-xbrl": {
         "kind": "memory-xbrl",
@@ -112,6 +122,7 @@ PUBLIC_TASKS: dict[str, dict[str, Any]] = {
             "these statements that the project should be consuming instead? Reply ONLY "
             'with JSON: {"structured_feed_available": true|false, "reason": "<one sentence>"}'
         ),
+        "allowed_mcp_tools": ["mcp__dail-tracker__search_project"],
     },
 }
 
@@ -201,11 +212,17 @@ def load_private_tasks(path: Path) -> dict[str, dict[str, Any]]:
             raise ValueError(f"task {task_id!r} needs a string prompt")
         if not isinstance(record.get("expected"), dict):
             raise ValueError(f"task {task_id!r} needs an expected JSON object")
-        tasks[str(task_id).lower()] = {
+        task_key = str(task_id).lower()
+        tasks[task_key] = {
             "kind": "private-exact",
             "prompt": record["prompt"],
             "expected": record["expected"],
         }
+        if "allowed_mcp_tools" in record:
+            allowed = record["allowed_mcp_tools"]
+            if not isinstance(allowed, list) or not all(isinstance(tool, str) for tool in allowed):
+                raise ValueError(f"task {task_id!r} allowed_mcp_tools must be a list of strings")
+            tasks[task_key]["allowed_mcp_tools"] = list(allowed)
     return tasks
 
 
@@ -269,6 +286,7 @@ async def run_task(
     result = None
     error = None
     try:
+        allowed_mcp_tools = list(task.get("allowed_mcp_tools", [])) if on else []
         result = await run_eval(
             EvalRequest(
                 prompt=task["prompt"],
@@ -279,7 +297,8 @@ async def run_task(
                 project_settings=on,
                 trusted_project_hooks=on,
                 env={"PYTHONUTF8": "1"},
-                mcp_servers=dail_tracker_mcp(PROJ) if on else {},
+                allowed_tools=allowed_mcp_tools or None,
+                mcp_servers=dail_tracker_mcp(PROJ) if on and allowed_mcp_tools else {},
             )
         )
         if result.is_error:
@@ -385,6 +404,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--repeat", type=_positive_int, default=1)
     parser.add_argument("--tasks-file", type=Path, help="private holdout JSON outside the repository")
     parser.add_argument("--preflight", action="store_true", help="validate isolation and wiring without provider calls")
+    parser.add_argument(
+        "--require-perfect",
+        action="store_true",
+        help="fail-closed gate: exit nonzero unless every attempt scores 1.0",
+    )
     return parser.parse_args(argv)
 
 
@@ -442,6 +466,12 @@ async def main(argv: list[str] | None = None) -> None:
 
     for row in summary_rows(attempts, manifest["run_id"]):
         print(json.dumps(row, ensure_ascii=False), flush=True)
+    if args.require_perfect:
+        imperfect = [
+            f"{row['task']}/{row['variant']}={row['score']}" for row in attempts if float(row.get("score") or 0.0) < 1.0
+        ]
+        if imperfect:
+            raise SystemExit(f"require-perfect: score(s) below 1.0: {', '.join(imperfect)}")
 
 
 if __name__ == "__main__":
