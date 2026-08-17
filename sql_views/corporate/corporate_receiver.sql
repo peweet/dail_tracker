@@ -48,5 +48,21 @@ SELECT
     COUNT(*) FILTER (WHERE is_receivership)                            AS n_recv,
     COUNT(*) FILTER (WHERE is_receivership AND is_spv)                 AS n_spv,
     COUNT(*) FILTER (WHERE is_receivership AND has_parent_mention)     AS n_tagged,
-    COUNT(*) FILTER (WHERE is_receivership AND has_receiver_firm)      AS n_any_tagged
+    COUNT(*) FILTER (WHERE is_receivership AND has_receiver_firm)      AS n_any_tagged,
+    -- Big-6 share NUMERATOR, at the same grain as n_any_tagged: notices naming at
+    -- least one Big-6 firm, counted ONCE. The page used to sum per-firm n_notices
+    -- across the displayed top-10 and divide by n_any_tagged — two different grains,
+    -- so the 17 notices naming two Big-6 firms were counted twice (89% vs a true 88%),
+    -- and the figure silently broke whenever a Big-6 firm fell out of the top 10.
+    -- The Big-6 membership stays single-sourced: it is read from the firms table's
+    -- own is_big6 flag (set in extractors/corporate_receiver_enrich.py), never
+    -- restated as a name list here.
+    COUNT(*) FILTER (
+        WHERE is_receivership
+          AND list_has_any(
+                  receiver_firms,
+                  (SELECT list(firm)
+                     FROM read_parquet('data/gold/parquet/corporate_receiver_firms.parquet')
+                    WHERE is_big6))
+    )                                                                  AS n_big6_tagged
 FROM read_parquet('data/gold/parquet/corporate_notices_enriched.parquet');

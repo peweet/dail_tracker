@@ -111,10 +111,18 @@ def test_featured_returns_early_when_no_receiverships(capture_html, monkeypatch)
 
 # ── _render_operator_strip ────────────────────────────────────────────────────
 def test_operator_strip_big6_pct_and_firm_chips(capture_html, monkeypatch):
-    # n_recv=100, n_any_tagged=50. Big6 (Deloitte 30 + KPMG 10) = 40 of 50 -> 80%.
+    """The Big-6 share is READ from the summary, never re-derived from the firm chips.
+
+    The fixture is deliberately discriminating: summing per-firm ``n_notices`` across the
+    displayed firms gives 30 + 10 = 40 of 50 (80%), but the precomputed corpus-wide
+    ``n_big6_tagged`` is 35 of 50 (70%). Those differ exactly as they do in production,
+    where a notice naming two Big-6 firms is counted once in the summary and twice by a
+    per-firm sum. Asserting 70% therefore FAILS against the old page code and passes only
+    while the page renders the view's own figure.
+    """
     _patch_receiver(
         monkeypatch,
-        summary=pd.DataFrame([{"n_recv": 100, "n_spv": 0, "n_tagged": 0, "n_any_tagged": 50}]),
+        summary=pd.DataFrame([{"n_recv": 100, "n_spv": 0, "n_tagged": 0, "n_any_tagged": 50, "n_big6_tagged": 35}]),
         appointers=pd.DataFrame(columns=["parent", "n_notices", "dominant_fund_type", "type_bucket"]),
         bucket_mix=pd.DataFrame(columns=["type_bucket", "n"]),
         firms=pd.DataFrame(
@@ -129,7 +137,8 @@ def test_operator_strip_big6_pct_and_firm_chips(capture_html, monkeypatch):
     corporate._render_operator_strip()
     html = " ".join(capture_html)
     assert "Deloitte" in html and "Friel Stafford" in html, "firm chips must render"
-    assert "80%" in html, "Big-6 share = (30+10)/50 = 80% must render"
+    assert "70%" in html, "Big-6 share = n_big6_tagged/n_any_tagged = 35/50 = 70% must render"
+    assert "80%" not in html, "80% would mean the page re-derived the share by summing firm chips"
     assert "50%" in html, "coverage = n_any_tagged/n_recv = 50/100 = 50% must render"
 
 

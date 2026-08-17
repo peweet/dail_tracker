@@ -1303,10 +1303,11 @@ def _render_operator_strip() -> None:
 
     top = firms.head(10)
     cov_pct = round(100 * n_any_tagged / max(n_recv, 1))
-    # Big 6 share of those tagged (the concentration story) — matches the original
-    # which summed Big-6 presence across the displayed top-10 only.
-    n_big6 = int(top.loc[top["is_big6"], "n_notices"].sum())
-    big6_pct_of_tagged = round(100 * n_big6 / max(n_any_tagged, 1))
+    # Big 6 share of those tagged (the concentration story). Numerator and denominator
+    # are both corpus-wide notice counts from v_corporate_receiver_summary — the page
+    # does not derive it from the displayed top-10, which mixed two grains.
+    n_big6_tagged = int(summary["n_big6_tagged"].iloc[0])
+    big6_pct_of_tagged = round(100 * n_big6_tagged / max(n_any_tagged, 1))
 
     chip_html: list[str] = []
     for name, n in zip(top["firm"], top["n_notices"], strict=True):
