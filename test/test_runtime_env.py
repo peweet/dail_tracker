@@ -157,7 +157,13 @@ def test_entry_point_imports_runtime_env_before_anything_heavy(relpath, later_im
 @pytest.mark.parametrize("relpath,expected", CONFIG_CAPS)
 def test_config_pins_thread_cap(relpath, expected):
     """Claude-spawned processes get the cap from env, not from an import."""
-    cfg = json.loads((REPO / relpath).read_text(encoding="utf-8"))
+    config_path = REPO / relpath
+    if not config_path.exists():
+        # .claude/ is gitignored (.gitignore:322) because it is per-workstation
+        # config, so CI never checks it out. The cap it pins only governs
+        # Claude-spawned processes, which exist only where that file does.
+        pytest.skip(f"{relpath} is not present in this checkout")
+    cfg = json.loads(config_path.read_text(encoding="utf-8"))
     env = cfg["mcpServers"]["dail-tracker"]["env"] if relpath == ".mcp.json" else cfg["env"]
     assert env.get("OPENBLAS_NUM_THREADS") == expected
     assert env.get("OMP_NUM_THREADS") == expected

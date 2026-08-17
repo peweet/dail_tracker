@@ -18,12 +18,23 @@
 .parquet
 # === Pipeline data outputs (regenerable, don't track) ===
 *.csv
+# The councillors roster the LIVE sandbox->gold promote reads
+# (extractors/councillors_promote_to_gold.py:188). Its two sibling inputs
+# (member_votes.jsonl, data/_meta/la_councillors.csv) are already tracked, so the
+# promote's test guard did not skip in CI and crashed on this one instead.
+!pipeline_sandbox/council_minutes/councillors_roster.csv
 *.xml
 *.json
 # Static-analysis policy, not generated application data. CI must see the same
 # inline-markup debt limits and explicit file-lineage rules as local runs.
 !tools/baselines/markup_inline_baseline.json
 !utility/static/frontend_contract.json
+# Hand-authored gate inputs the blanket *.json above was swallowing (2026-08-17):
+# CI read neither, so `lint` and four tests failed on a FileNotFoundError for a
+# file that had sat untracked in the tree since August. Same class of miss as the
+# doc/source_pdfs note below — a blanket rule hiding a load-bearing input.
+!tools/evals/tool_retrieval_queries.json
+!tools/baselines/source_fidelity_baseline.json
 *.xlsx
 *.pdf
 # doc/source_pdfs — CACHED SOURCE DOCUMENTS that LIVE extractors read as their input

@@ -141,8 +141,6 @@ doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 #    2110-2112   Siting check (planning-constraint triage for a point — the c
 #    2113-2125   _brief_item
 #    2126-2219   siting_check
-#    2220-2269   _siting_nearby_history
-#    2270-2297   _siting_process_context
 #    2298-2301   Cross-register watchlist + organisation dossier (entity-cros
 #    2302-2325   cross_register_watchlist
 #    2326-2343   _org_name_key
@@ -2509,84 +2507,6 @@ def siting_check(
         return {"error": "The siting request is invalid."}
     except Exception:  # noqa: BLE001 — do not expose private storage or runtime detail through MCP
         return {"error": "Siting check is unavailable."}
-
-
-def _siting_nearby_history(lon: float, lat: float, dev_type: str) -> dict:
-    """First-instance council decisions near the point (applications register, 1 km default)."""
-    try:
-        from planning.product.core import applications as _apps
-    except Exception as exc:  # noqa: BLE001
-        return {"available": False, "reason": f"applications module unavailable: {exc}"}
-    n = _apps.nearby_applications(lon, lat, dev_type)
-    out = {
-        "available": n.available,
-        "reason": n.unavailable_reason,
-        "radius_m": n.radius_m,
-        "summary": n.summary,
-    }
-    if n.available:
-        out.update(
-            total=n.total,
-            decided=n.decided,
-            granted=n.granted,
-            refused=n.refused,
-            withdrawn_invalid_undecided=n.withdrawn + n.invalid + n.undecided,
-            as_of=n.as_of.isoformat() if n.as_of else "",
-            # Promoted recent same-type refusals ≤250 m / ≤3 y — the records not to miss; a
-            # fi_requested=False refusal was decided on first assessment (nothing FI could fix).
-            notable_refusals=[
-                {
-                    "application_number": r.application_number,
-                    "distance_m": r.distance_m,
-                    "decision_date": r.decision_date.isoformat() if r.decision_date else None,
-                    "fi_requested": r.fi_requested,
-                    "description": r.dev_desc,
-                    "url": r.url,
-                    "action": "obtain this file's stated refusal reasons before designing",
-                }
-                for r in n.notable_refusals
-            ],
-            sample=[
-                {
-                    "decision_year": a.decision_date.year if a.decision_date else None,
-                    "distance_m": a.distance_m,
-                    "decision": a.decision_normalised,
-                    "type": a.application_type,
-                    "description": a.dev_desc,
-                    "url": a.url,
-                }
-                for a in n.nearest
-            ],
-        )
-    return out
-
-
-def _siting_process_context(result, dev_type: str) -> dict:
-    """Decision-latency / RFI / appeal baseline for comparable files in this authority."""
-    try:
-        from planning.product.core import process_stats as _proc
-    except Exception as exc:  # noqa: BLE001
-        return {"available": False, "reason": f"process_stats module unavailable: {exc}"}
-    council = getattr(result, "council", None)
-    # the raw PlanningAuthority string is the register's own vocabulary — the exact join key
-    authority = getattr(council, "authority", "") or getattr(council, "council_name", "") or ""
-    ctx = _proc.decision_context(authority, dev_type)
-    out = {"available": ctx.available, "reason": ctx.reason, "summary": ctx.summary}
-    if ctx.available:
-        out.update(
-            authority=ctx.authority,
-            scope=ctx.scope,
-            cohort=ctx.cohort,
-            cohort_note=ctx.cohort_note,
-            since=ctx.since,
-            n_decided=ctx.n_decided,
-            median_days=ctx.median_days,
-            p80_days=ctx.p80_days,
-            rfi_rate_pct=round(ctx.rfi_rate_pct, 1),
-            appeal_rate_pct=round(ctx.appeal_rate_pct, 1),
-            grant_rate_pct=round(ctx.grant_rate_pct, 1),
-        )
-    return out
 
 
 # ── Cross-register watchlist + organisation dossier (entity-crosswalk spine) ─────

@@ -596,6 +596,11 @@ def main() -> None:
         "Main Cpv Code": "cpv_code",
         "Main Cpv Code Description": "cpv_description",
         "Threshold Level": "threshold_level",
+        # 'None' is a REAL category here, not a null sentinel: it means no EU
+        # procurement directive applies, and every one of the 681 such awards is
+        # Threshold Level='Direct Invite' (checked 2026-08-17). It is distinct from a
+        # NULL directive, which means not stated — do not collapse the two, and do not
+        # "clean" it. gold_quality_baseline.json records the count for that reason.
         "Directive": "directive",
         "Evaluation Type": "evaluation_type",
         "Platform": "platform",

@@ -294,11 +294,13 @@ def test_discover_changes_includes_all_four_git_surfaces(tmp_path: Path) -> None
 
 
 def test_collect_file_states_records_contents_and_deleted_files(tmp_path: Path) -> None:
-    (tmp_path / "present.py").write_text("x = 1\n", encoding="utf-8")
+    # newline="" keeps the byte on disk LF everywhere; a default write_text would
+    # store CRLF on Windows and make the recorded size platform-dependent.
+    (tmp_path / "present.py").write_text("x = 1\n", encoding="utf-8", newline="")
     present, missing = vc.collect_file_states(tmp_path, ["present.py", "gone.py"])
     assert present.path == "gone.py" and not present.exists  # alphabetical order
     assert missing.path == "present.py" and missing.exists
-    assert missing.size == 7 and len(missing.sha256) == 64
+    assert missing.size == 6 and len(missing.sha256) == 64
 
 
 def test_fingerprint_covers_state_commands_runtime_and_policy() -> None:

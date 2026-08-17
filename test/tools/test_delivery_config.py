@@ -5,6 +5,8 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
+import pytest
+
 from pipeline import CHAINS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +31,9 @@ def test_wheel_declares_runtime_packages_resources_and_chains() -> None:
         "tools/build_delivery_smoke_fixture.py",
         "utility/static/dailtracker.css",
         "utility/static/frontend_contract.json",
+        # api.main's lifespan calls load_data_snapshot() at startup, so an installed
+        # wheel without this file cannot boot at all.
+        "data/_meta/runtime_data_manifest.json",
     ]
     required.extend(script for _, script in CHAINS)
     missing = [path for path in required if not _wheel_includes(path, entries)]
@@ -46,9 +51,18 @@ def test_api_container_copies_services_and_drops_root() -> None:
 
 def test_public_docker_context_excludes_the_private_planning_overlay() -> None:
     public_ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
-    private_ignore = (ROOT / "planning" / "product" / "Dockerfile.dockerignore").read_text(encoding="utf-8")
 
+    # The public half runs everywhere and is the one that protects this repo: the
+    # public image context must never re-admit the private overlay.
     assert "!planning/product/" not in public_ignore
+
+    # planning/product/ is the gitignored private overlay, so a public checkout (CI,
+    # a fresh clone) does not have it. Its context rules can only be asserted where
+    # the overlay is actually present.
+    private_dockerignore = ROOT / "planning" / "product" / "Dockerfile.dockerignore"
+    if not private_dockerignore.exists():
+        pytest.skip("private planning overlay is not present in this checkout")
+    private_ignore = private_dockerignore.read_text(encoding="utf-8")
     # The private build moved to a standalone-repository context (2026-08-16 WIP):
     # paths are no longer planning/product/-prefixed. The invariants that survive
     # the move: deny-all first, env files never transmitted, and no allowlist

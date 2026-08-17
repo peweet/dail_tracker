@@ -491,7 +491,10 @@ def test_claude_sandbox_maps_to_safe_or_write_capable_permissions(tmp_path):
 
 
 def test_strict_read_only_uses_bounded_agents_guidance_only(tmp_path):
-    (tmp_path / "AGENTS.md").write_text("ON-SENTINEL\n", encoding="utf-8")
+    # newline="" keeps the byte on disk LF on every platform. The adapter reads raw
+    # bytes and does not normalise, so a default write_text would store CRLF on
+    # Windows and make the exact-prompt assertion below platform-dependent.
+    (tmp_path / "AGENTS.md").write_text("ON-SENTINEL\n", encoding="utf-8", newline="")
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "CLAUDE.md").write_text("MUST-NOT-LOAD", encoding="utf-8")
     captured = {}
@@ -528,7 +531,7 @@ def test_strict_read_only_uses_bounded_agents_guidance_only(tmp_path):
     assert captured["setting_sources"] == []
     assert captured["skills"] == []
     assert captured["system_prompt"] == (
-        "<project-guidance>\nON-SENTINEL\r\n\n</project-guidance>\n\n"
+        "<project-guidance>\nON-SENTINEL\n\n</project-guidance>\n\n"
         "<caller-system-prompt>\nCALLER-SYSTEM\n</caller-system-prompt>"
     )
     assert "MUST-NOT-LOAD" not in captured["system_prompt"]

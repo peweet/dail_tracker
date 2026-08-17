@@ -4,6 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from tools import dev_env
 
 
@@ -102,10 +104,16 @@ def test_run_refuses_to_mutate_or_execute_a_stale_profile(monkeypatch, capsys) -
 
 def test_canonical_guidance_separates_persistent_and_isolated_environments() -> None:
     agents = (dev_env.ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    private_agents = (dev_env.ROOT / "planning" / "product" / "AGENTS.md").read_text(encoding="utf-8")
+    assert "uv run --locked --group dev --extra pipeline --extra api --extra mcp" in agents
+
+    # planning/product/ is the gitignored private overlay, so its guidance file only
+    # exists on a checkout that carries the overlay.
+    private_path = dev_env.ROOT / "planning" / "product" / "AGENTS.md"
+    if not private_path.exists():
+        pytest.skip("private planning overlay is not present in this checkout")
+    private_agents = private_path.read_text(encoding="utf-8")
 
     assert "uv run --isolated --locked" in private_agents
-    assert "uv run --locked --group dev --extra pipeline --extra api --extra mcp" in agents
     assert "tools/dev_env.py sync siting" in private_agents
 
 

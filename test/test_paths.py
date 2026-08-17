@@ -59,12 +59,22 @@ def test_config_data_root_can_live_outside_the_installed_resources(tmp_path: Pat
 def test_data_consumers_follow_the_configured_root(tmp_path: Path) -> None:
     data_root = (tmp_path / "mounted-data").resolve()
     env = dict(os.environ, DAIL_DATA_DIR=str(data_root), PYTHONPATH=str(PROJECT_ROOT))
+    # planning/product/ is the gitignored private overlay, absent from a public
+    # checkout. The two public consumers below are asserted everywhere; the siting
+    # root only where the overlay exists.
+    siting_present = (PROJECT_ROOT / "planning" / "product" / "paths.py").exists()
     command = (
         "from dail_tracker_core.buyer_xref import XREF_CSV; "
         "from services.data_contracts import QUARANTINE_DIR; "
-        "from planning.product.paths import DATA as SITING_DATA; "
-        "print(XREF_CSV); print(QUARANTINE_DIR); print(SITING_DATA)"
+        "print(XREF_CSV); print(QUARANTINE_DIR); "
     )
+    expected = [
+        str(data_root / "_meta" / "procurement_publishers" / "buyer_xref.csv"),
+        str(data_root / "_meta" / "quarantine"),
+    ]
+    if siting_present:
+        command += "from planning.product.paths import DATA as SITING_DATA; print(SITING_DATA)"
+        expected.append(str(data_root))
     completed = subprocess.run(
         [sys.executable, "-c", command],
         cwd=tmp_path,
@@ -73,8 +83,4 @@ def test_data_consumers_follow_the_configured_root(tmp_path: Path) -> None:
         text=True,
         check=True,
     )
-    assert completed.stdout.splitlines() == [
-        str(data_root / "_meta" / "procurement_publishers" / "buyer_xref.csv"),
-        str(data_root / "_meta" / "quarantine"),
-        str(data_root),
-    ]
+    assert completed.stdout.splitlines() == expected

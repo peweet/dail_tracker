@@ -140,7 +140,10 @@ def _runtime_config_text(python: str) -> str:
     data = tomllib.loads(CONFIG_TEMPLATE.read_text(encoding="utf-8"))["cosmic-ray"]
     # Cosmic Ray uses POSIX shlex even on Windows. Forward slashes prevent it
     # from consuming path backslashes as escapes before CreateProcess sees them.
-    python_command = subprocess.list2cmdline((Path(python).as_posix(),))
+    # The explicit replace is what makes this deterministic: PurePosixPath treats a
+    # backslash as an ordinary character, so as_posix() alone converts a Windows
+    # interpreter path only when the generator itself runs on Windows.
+    python_command = subprocess.list2cmdline((Path(python).as_posix().replace("\\", "/"),))
     test_command = data["test-command"].replace("__PYTHON__", python_command)
     if "__PYTHON__" in test_command:
         raise PilotError("The mutation config contains more than one unresolved Python placeholder")

@@ -500,4 +500,9 @@ only-include = [
     "wikidata",
     "dail_tracker_core",
     "mcp_server",
+    # api/snapshot.py resolves this relative to the INSTALLED package, so the API
+    # cannot start outside a checkout without it (the delivery smoke caught this as
+    # "cannot load runtime data manifest"). The single file only — the rest of
+    # data/_meta carries multi-MB manifests the runtime never reads.
+    "data/_meta/runtime_data_manifest.json",
 ]

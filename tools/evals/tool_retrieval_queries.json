@@ -1,0 +1,528 @@
+{
+  "_meta": {
+    "purpose": "ToolLLM-style synthetic instruction set for measuring tool-retrieval Recall@K over the dail-tracker MCP catalog (Qin et al. 2023, arXiv:2307.16789 — LLM-generated diverse instructions per API, retriever scored by Recall@K).",
+    "authored": "2026-07-31, by Claude from the live tools/list catalog. Each tool gets ~5 realistic user/agent phrasings; roughly two per tool deliberately avoid the tool's own name-words so description-vocabulary gaps surface as misses.",
+    "gold_rule": "gold = the ONE tool that should serve the query per the catalog descriptions. Confusable clusters (payments grains, procurement views, diary tools) are authored to respect the never-sum/grain boundaries in CLAUDE.md.",
+    "caveat": "Queries authored by the same model family that will consume the retriever — vocabulary leakage inflates absolute recall, so treat absolute numbers as optimistic; the RANKING of tools by recall is the actionable signal."
+  },
+  "queries": [
+    {"tool": "search_members", "queries": [
+      "find the TD called Michael Healy-Rae",
+      "look up a senator by name",
+      "what is the member id for Pearse Doherty",
+      "is there a deputy whose surname is Ó Murchú",
+      "resolve this politician's name to their record"
+    ]},
+    {"tool": "get_member_record", "queries": [
+      "give me the full accountability dossier for one TD",
+      "everything we hold on deputy X — votes, payments, interests",
+      "profile page data for a single member",
+      "how many days has this TD been in the chamber and what did they claim",
+      "one politician's complete track record"
+    ]},
+    {"tool": "list_recent_votes", "queries": [
+      "what were the most recent Dáil votes",
+      "latest divisions in the Seanad",
+      "show me this week's votes in the chamber",
+      "what did the Dáil divide on lately",
+      "newest roll-call votes"
+    ]},
+    {"tool": "get_division", "queries": [
+      "full result of vote id 12345 with every member's position",
+      "who voted yes and no in that division",
+      "party breakdown for one specific vote",
+      "the tally and individual positions for a single division",
+      "how did each TD vote on that motion"
+    ]},
+    {"tool": "division_interest_breakdown", "queries": [
+      "for that vote, how many of the yes voters are landlords",
+      "break one division's tally down by declared private interests",
+      "did property owners vote differently on this division",
+      "cross the yes/no camps of a single vote with what members declare",
+      "interest profile of the voters in one division"
+    ]},
+    {"tool": "voting_vs_interests", "queries": [
+      "TDs who are landlords and how they voted on housing",
+      "do members vote in line with their declared financial interests",
+      "cross-reference voting records with the register of interests",
+      "conflicts of interest in voting patterns",
+      "who voted on things they have a stake in"
+    ]},
+    {"tool": "search_legislation", "queries": [
+      "find the bill about assisted dying",
+      "current bills before the Oireachtas containing 'housing'",
+      "search for legislation by title",
+      "is there a bill on defective concrete blocks",
+      "list bills with status Current"
+    ]},
+    {"tool": "get_bill", "queries": [
+      "full lifecycle of one bill including amendments and debates",
+      "timeline for bill 45 of 2023",
+      "the detail record for a specific bill id",
+      "where is this bill in the legislative process and what are its PDFs",
+      "amendment intensity for one piece of legislation"
+    ]},
+    {"tool": "search_statutory_instruments", "queries": [
+      "find SIs from 2024 about planning",
+      "statutory instruments that commence an act",
+      "search secondary legislation by year",
+      "which SI brought that section into operation",
+      "regulations signed under the planning act"
+    ]},
+    {"tool": "circular_si_crosswalk", "queries": [
+      "which government circular implements that statutory instrument",
+      "the rule chain from circular to SI to act",
+      "operational instructions to public bodies and their legal basis",
+      "trace a department circular back to its statutory footing",
+      "crosswalk between circulars and secondary legislation"
+    ]},
+    {"tool": "top_payments", "queries": [
+      "which TD has claimed the most travel and accommodation allowance ever",
+      "all-time expenses ranking for members",
+      "biggest TAA claimants in the history of the data",
+      "rank members by total allowance claimed",
+      "who has cost the most in travel money overall"
+    ]},
+    {"tool": "payments_by_year", "queries": [
+      "who claimed the most travel allowance in 2023",
+      "expenses ranking for a single calendar year",
+      "top TAA claimants last year",
+      "member allowance ranking for 2022 only",
+      "that year's biggest expense claimers"
+    ]},
+    {"tool": "lobbying_organisations", "queries": [
+      "search the lobbying register for organisations named 'Ibec'",
+      "is that company a registered lobbyist",
+      "find lobbying organisations by name",
+      "which registered lobby groups match this substring",
+      "look up an interest group on the lobbying register"
+    ]},
+    {"tool": "revolving_door", "queries": [
+      "former ministers now working as lobbyists",
+      "ex officials who moved into lobbying",
+      "the revolving door between government and lobbying firms",
+      "which designated public officials later registered as lobbyists",
+      "politicians turned lobbyists"
+    ]},
+    {"tool": "ministerial_diary_top_organisations", "queries": [
+      "which organisations get the most meetings with ministers",
+      "rank companies by ministerial access",
+      "who appears most often in ministers' published diaries",
+      "most-met organisations across all ministerial diaries",
+      "the access league table"
+    ]},
+    {"tool": "ministerial_diary_organisation", "queries": [
+      "how often have ministers met Ryanair",
+      "one company's full record of ministerial meetings",
+      "the diary entries mentioning a specific organisation",
+      "which ministers has this lobby group been meeting",
+      "ministerial access record for a single organisation"
+    ]},
+    {"tool": "who_ministers_meet", "queries": [
+      "search ministerial diary meetings about data centres",
+      "what external meetings did the finance minister log",
+      "who has minister Chambers been meeting and about what",
+      "diary meetings on the subject of vaping",
+      "search meetings by minister surname and topic"
+    ]},
+    {"tool": "company_influence", "queries": [
+      "access and money profile for one company",
+      "how connected is this firm — meetings plus public payments",
+      "the influence footprint of a single company",
+      "did that company both meet ministers and win contracts",
+      "one firm's combined access-and-award record"
+    ]},
+    {"tool": "access_to_contracts", "queries": [
+      "companies that met ministers and then won public money",
+      "rank firms that have both ministerial access and state payments",
+      "who gets meetings and contracts",
+      "the access-to-contracts pipeline ranking",
+      "firms with diary meetings that also appear on the payment registers"
+    ]},
+    {"tool": "procurement_lobbying_overlap", "queries": [
+      "suppliers who are also registered lobbyists",
+      "companies on both the procurement register and the lobbying register",
+      "which contract winners lobby the government",
+      "overlap between eTenders awards and lobbying registrations",
+      "state suppliers that lobby"
+    ]},
+    {"tool": "search_suppliers", "queries": [
+      "rank public procurement suppliers by award count",
+      "biggest winners of state contracts on eTenders",
+      "search the supplier ranking for construction firms",
+      "which vendors win the most public tenders",
+      "supplier league table"
+    ]},
+    {"tool": "get_supplier", "queries": [
+      "every contract award won by one supplier",
+      "the full procurement record for a specific vendor",
+      "list all awards to that company with authority and value",
+      "one supplier's complete award history",
+      "detail on a single contractor's public wins"
+    ]},
+    {"tool": "procurement_competition", "queries": [
+      "which public buyers award contracts without competition",
+      "single-bid contract rates by contracting authority",
+      "procurement competition quality from TED data",
+      "how competitive are that department's tenders",
+      "no-tender award patterns per buyer"
+    ]},
+    {"tool": "list_committees", "queries": [
+      "all Dáil committees and their chairs",
+      "which Oireachtas committees exist",
+      "committee list with party seat counts",
+      "who chairs the health committee",
+      "current committees of the Seanad"
+    ]},
+    {"tool": "get_committee", "queries": [
+      "membership composition of one committee",
+      "the party seats on the finance committee",
+      "detail for a single committee",
+      "one committee's rollup and members by party",
+      "who sits on that committee"
+    ]},
+    {"tool": "get_member_interests", "queries": [
+      "what has this TD declared on the register of interests",
+      "a member's directorships and property declarations by year",
+      "declared interests for one deputy",
+      "does that politician own rental property per their declarations",
+      "one member's register entries over time"
+    ]},
+    {"tool": "who_was_minister", "queries": [
+      "who was justice minister in March 2019",
+      "which TD held the health portfolio on a given date",
+      "minister for housing at the time that decision was made",
+      "who ran that department back then",
+      "historical holder of a ministerial office on a date"
+    ]},
+    {"tool": "get_member_questions", "queries": [
+      "parliamentary questions tabled by one TD about housing",
+      "a member's PQ feed filtered by ministry and year",
+      "what has deputy X been asking the health department",
+      "questions this politician submitted in 2024",
+      "one member's written questions on a topic"
+    ]},
+    {"tool": "member_question_count_by_year", "queries": [
+      "how many PQs does that TD table per year",
+      "question volume by year for one member",
+      "annual count of parliamentary questions for a deputy",
+      "is this member asking more questions than they used to",
+      "yearly PQ totals for one politician"
+    ]},
+    {"tool": "member_speeches", "queries": [
+      "floor contributions by one TD about immigration",
+      "what has deputy X said in the chamber this year",
+      "a member's speeches from the debate transcript",
+      "oral contributions by a single politician on a topic",
+      "when did that TD last speak in the Dáil"
+    ]},
+    {"tool": "party_donations", "queries": [
+      "political donations disclosed to SIPO by party",
+      "who donated to Sinn Féin",
+      "corporate donations to political parties",
+      "the party donations ranking",
+      "disclosed political contributions"
+    ]},
+    {"tool": "party_election_spend", "queries": [
+      "what did candidates spend at the 2024 general election",
+      "GE2024 election expenses by party",
+      "campaign spending disclosures",
+      "which party spent most per candidate at the election",
+      "SIPO election expense returns"
+    ]},
+    {"tool": "judicial_appointments", "queries": [
+      "who has been appointed to the courts and by which government",
+      "judicial appointment events with nomination context",
+      "recent judge appointments",
+      "appointments to the High Court since 2020",
+      "the judiciary as appointment data"
+    ]},
+    {"tool": "courts_health", "queries": [
+      "case clearance rates by court",
+      "is the court system keeping up with incoming cases",
+      "annual backlog figures for the circuit court",
+      "court system throughput no judge names",
+      "how efficient are the courts year on year"
+    ]},
+    {"tool": "public_appointments", "queries": [
+      "state board appointment notices",
+      "who was appointed to public bodies recently",
+      "appointments to state boards this year",
+      "public appointment notices per body",
+      "who got seats on semi-state boards"
+    ]},
+    {"tool": "charity_financials", "queries": [
+      "financial trajectory of one registered charity",
+      "a charity's income and spending over the years",
+      "look up charity accounts by RCN",
+      "is that charity's income growing or shrinking",
+      "multi-year financials for a charity"
+    ]},
+    {"tool": "corporate_distress_notices", "queries": [
+      "recent receiverships and liquidations from Iris Oifigiúil",
+      "corporate distress notices in the state gazette",
+      "companies entering voluntary strike-off",
+      "which firms had winding-up notices published",
+      "insolvency events from the official gazette"
+    ]},
+    {"tool": "corporate_repeat_distress", "queries": [
+      "regulated financial firms with repeated distress notices",
+      "CBI-authorised entities that keep appearing in the gazette",
+      "repeat insolvency offenders among regulated firms",
+      "central-bank-authorised companies in recurring distress",
+      "which regulated entities show a pattern of register notices"
+    ]},
+    {"tool": "public_body_payments", "queries": [
+      "purchase orders over 20k by government bodies",
+      "what did the HSE actually pay suppliers",
+      "realised spend by public bodies",
+      "payments over twenty thousand euro from state agencies",
+      "the paid-out grain of public money not the awarded grain"
+    ]},
+    {"tool": "procurement_by_authority", "queries": [
+      "contract awards grouped by contracting authority",
+      "which public buyer awards the most contracts",
+      "eTenders award activity per department",
+      "award counts and values by buyer",
+      "who is procuring the most"
+    ]},
+    {"tool": "procurement_by_cpv", "queries": [
+      "what categories of goods does the state buy most",
+      "awards grouped by CPV code",
+      "procurement spend by product category",
+      "which sectors win the tenders — IT, construction, consultancy",
+      "award activity by what was bought"
+    ]},
+    {"tool": "open_tenders", "queries": [
+      "current open tender opportunities in Ireland",
+      "live calls for tender right now",
+      "what contracts are out for bid at the moment",
+      "open procurement competitions from TED",
+      "tenders still accepting bids"
+    ]},
+    {"tool": "current_cabinet", "queries": [
+      "who is in the cabinet right now",
+      "the current ministerial line-up",
+      "which TD holds each department today",
+      "list of serving ministers",
+      "who currently runs the department of finance"
+    ]},
+    {"tool": "dpo_lobbying_profile", "queries": [
+      "which firms does that former official lobby for",
+      "one ex-official's lobbying client list",
+      "the lobbying footprint of a designated public official",
+      "who are this former minister's lobbying clients",
+      "a revolving-door individual's current lobbying work"
+    ]},
+    {"tool": "search_votes_by_topic", "queries": [
+      "how did members vote on eviction ban divisions",
+      "find all votes about the carbon tax and the positions taken",
+      "corpus-wide search of divisions by topic keywords",
+      "every vote touching gambling and who voted which way",
+      "divisions matching a subject across all years"
+    ]},
+    {"tool": "join_map", "queries": [
+      "how do I cross-reference procurement with lobbying safely",
+      "what keys join these two registers",
+      "can I link diary meetings to suppliers and on what field",
+      "the association rules between datasets",
+      "which joins are valid before I combine registers"
+    ]},
+    {"tool": "data_coverage", "queries": [
+      "how far back does the payments data go",
+      "what years does this tracker cover",
+      "is 2015 inside the coverage window for votes",
+      "scope and completeness of the data before I answer",
+      "coverage limits per domain"
+    ]},
+    {"tool": "list_datasets", "queries": [
+      "what datasets does the tracker hold",
+      "index of every fact available",
+      "list all silver and gold facts by domain",
+      "what data do we have on procurement",
+      "enumerate the available datasets"
+    ]},
+    {"tool": "describe_dataset", "queries": [
+      "what columns does the payments dataset have",
+      "schema and row count for one fact",
+      "grain and freshness of the votes dataset",
+      "describe the shape of that parquet without reading it",
+      "column list and year span for a dataset"
+    ]},
+    {"tool": "search_project", "queries": [
+      "where does the TD name normaliser live in this repo",
+      "which dataset or view covers ministerial diaries",
+      "find the module that handles parquet writing",
+      "which doc explains the confidence tiers",
+      "locate the code for attendance calculations"
+    ]},
+    {"tool": "code_outline", "queries": [
+      "outline the functions in pipeline.py without reading it",
+      "what classes and defs are in that module",
+      "structural summary of a python file",
+      "list the function signatures in services/http_engine.py",
+      "x-ray a big module before reading a span"
+    ]},
+    {"tool": "py_deps", "queries": [
+      "which modules import services/parquet_io.py",
+      "what does this file import and who imports it",
+      "import blast radius before I move a module",
+      "is this python file dead code — nothing imports it",
+      "repo-internal import edges for one module"
+    ]},
+    {"tool": "py_refs", "queries": [
+      "who calls the save_parquet function",
+      "every call site of this method before I rename it",
+      "find all usages of a symbol across the repo",
+      "which lines reference normalise_name",
+      "signature change blast radius for one def"
+    ]},
+    {"tool": "json_peek", "queries": [
+      "look inside fact_cards.json without reading the whole file",
+      "navigate a big json file by path",
+      "what keys are at the top level of that jsonl",
+      "peek at one entry of a large json without flooding context",
+      "sample a json file's structure"
+    ]},
+    {"tool": "view_deps", "queries": [
+      "which views depend on v_payments_base",
+      "the sql view dependency graph",
+      "what breaks downstream if I change this view",
+      "upstream and downstream edges for a sql view",
+      "view-to-view lineage in sql_views"
+    ]},
+    {"tool": "search_speeches", "queries": [
+      "who has spoken most about mica redress in the Dáil",
+      "search all floor debates for mentions of direct provision",
+      "which TDs talk about data centres",
+      "corpus-wide speech search on a topic",
+      "find debate contributions about the eviction ban"
+    ]},
+    {"tool": "search_council_minutes", "queries": [
+      "which councils discussed data centres in their meetings",
+      "search local authority minutes for flood relief",
+      "find council meeting documents mentioning IPAS",
+      "cross-council minutes search by topic",
+      "where did councillors debate this proposed scheme"
+    ]},
+    {"tool": "search_questions", "queries": [
+      "search all parliamentary questions about ambulance delays",
+      "which departments get asked about defective blocks",
+      "corpus-wide PQ search by topic",
+      "find written questions mentioning modular housing",
+      "who is asking about school places"
+    ]},
+    {"tool": "siting_decision_documents", "queries": [
+      "get the council's refusal reasons for planning file 22451",
+      "scanned decision documents from the eplanning viewer",
+      "the notification of decision for a planning application",
+      "quote the planning authority's own refusal schedule",
+      "list the decision files the council holds for this application"
+    ]},
+    {"tool": "search_planning_precedents", "queries": [
+      "how have quarry blasting conditions been decided before",
+      "inspector report precedents for karst percolation refusals",
+      "search ABP inspector reports about right of way disputes",
+      "past board decisions on wind farm shadow flicker",
+      "planning appeal precedent for septic tank setbacks"
+    ]},
+    {"tool": "column_deps", "queries": [
+      "which views break if I rename total_paid in v_payments_yearly",
+      "column-level lineage through the view graph",
+      "is this column referenced downstream before I drop it",
+      "trace one column through aliases and select star",
+      "rename blast radius for a view column"
+    ]},
+    {"tool": "source_fetch_failures", "queries": [
+      "which procurement source sites failed to download last run",
+      "did any extractor fetches break recently",
+      "failed source downloads and what data is at stake",
+      "are the upstream procurement portals reachable",
+      "extractor fetch failure log"
+    ]},
+    {"tool": "procurement_notice", "queries": [
+      "open the original TED notice behind that award",
+      "the authoritative source document for a procurement award",
+      "read the full contract award notice text",
+      "what does the official journal notice actually say",
+      "source notice detail the gold layer drops"
+    ]},
+    {"tool": "project_value_estimate", "queries": [
+      "rough construction cost benchmark for a 40-unit scheme",
+      "quantity surveyor style estimate for this project",
+      "analyst benchmark value of a development",
+      "ballpark build cost never to be shown in the app",
+      "internal value estimate for a planning project"
+    ]},
+    {"tool": "siting_check", "queries": [
+      "what planning constraints apply at this point in Galway",
+      "triage the planning issues for a site at these coordinates",
+      "run the constraint surfacer on a proposed development location",
+      "which planning layers does this site trigger",
+      "site screening for a proposed glamping development"
+    ]},
+    {"tool": "cross_register_watchlist", "queries": [
+      "organisations appearing on the most public registers at once",
+      "the multi-register watchlist",
+      "firms that are suppliers, lobbyists and donors simultaneously",
+      "who shows up everywhere across the registers",
+      "entities with the widest register footprint"
+    ]},
+    {"tool": "organisation_dossier", "queries": [
+      "everything on one company across all registers in one call",
+      "the 360 view of an organisation by name",
+      "full dossier for a firm including CRO number",
+      "one-call company profile — awards, lobbying, meetings, distress",
+      "resolve a company name and give me its whole footprint"
+    ]},
+    {"tool": "derelict_levy_compliance", "queries": [
+      "which councils actually collect the derelict sites levy",
+      "national derelict-site levy enforcement ranking",
+      "cross-council comparison of dereliction enforcement",
+      "who is failing to collect dereliction levies",
+      "derelict sites levy compliance by local authority"
+    ]},
+    {"tool": "council_scorecard", "queries": [
+      "accountability scorecard for Galway county council",
+      "how does this council rank nationally",
+      "the 31-council chief executive comparison",
+      "one local authority's performance rollup",
+      "council accountability headline figures"
+    ]},
+    {"tool": "afs_coverage", "queries": [
+      "which councils have audited financial statements on file",
+      "AFS coverage by local authority and year",
+      "do we have the 2023 accounts for Mayo county council",
+      "audited budget grain coverage for councils",
+      "annual financial statement availability"
+    ]},
+    {"tool": "housing_money", "queries": [
+      "the national housing money picture",
+      "social housing waiting list totals and spend",
+      "how much goes into housing and how long are the lists",
+      "housing expenditure and waiting list numbers",
+      "national housing finance rollup"
+    ]},
+    {"tool": "attendance_ranking", "queries": [
+      "which TDs miss the most votes",
+      "division turnout per member for 2024",
+      "attendance ranking for the Dáil this year",
+      "who has the worst voting attendance",
+      "per-member turnout in divisions for one year"
+    ]},
+    {"tool": "gov_finance_annual", "queries": [
+      "national government revenue and expenditure per year",
+      "the general government balance over time",
+      "state income versus spending by year",
+      "CSO national accounts government finance figures",
+      "annual fiscal position of the state"
+    ]},
+    {"tool": "nphdb_bam_disclosures", "queries": [
+      "BAM's disclosed National Children's Hospital completion dates",
+      "the children's hospital schedule slippage ledger",
+      "compare the 2017 and 2018 NCH project cost estimates",
+      "Dáil written answers about BAM hospital delays",
+      "National Children's Hospital programme baseline updates"
+    ]}
+  ]
+}
