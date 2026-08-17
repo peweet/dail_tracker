@@ -1,0 +1,36 @@
+# Dáil Tracker web app on the Hetzner box — its own compose project, fully
+# separate from the redline-review (siting) stack. Never combine the two:
+# an operation on one must not be able to restart or reconfigure the other.
+#
+#   docker compose -p dailtracker -f compose.dailtracker.yaml up -d
+#
+# The web service binds to loopback only; public traffic arrives through the
+# cloudflared tunnel container once the dailtracker.ie zone is restored.
+# TUNNEL_TOKEN comes from /srv/dailtracker/config/tunnel.env (out-of-tree
+# secrets, same convention as the siting stack) — never from this file.
+
+name: dailtracker
+
+services:
+  web:
+    image: ${DAILTRACKER_WEB_IMAGE:-dailtracker-web:latest}
+    restart: unless-stopped
+    # The box has 7.6 GB total and also carries the siting stack. The app
+    # needs ~1 GB (measured by the ui_capture harness serve); 2 GB is the
+    # hard ceiling so a leak can never pressure the siting containers.
+    mem_limit: 2g
+    ports:
+      - "127.0.0.1:8502:8501"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    env_file:
+      - /srv/dailtracker/config/tunnel.env
+    depends_on:
+      - web
+    profiles:
+      # Enabled only after the dailtracker.ie zone + tunnel exist:
+      #   docker compose -p dailtracker -f compose.dailtracker.yaml --profile tunnel up -d
+      - tunnel

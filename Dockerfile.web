@@ -1,0 +1,63 @@
+# Dáil Tracker web app — the Streamlit UI served as a container.
+#
+# Same contract as the API image (Dockerfile): the image bakes the committed
+# gold/silver data in, so a data refresh ships as a new image build, never a
+# runtime mutation. Build from a CLEAN CHECKOUT (CI / fresh clone): a local
+# working tree carries multi-GB untracked bronze/silver artefacts that the
+# whitelist in Dockerfile.web.dockerignore excludes — if a page 503s in the
+# container, check that whitelist first.
+#
+#   docker build -f Dockerfile.web -t dailtracker-web .
+#   docker run -p 8501:8501 dailtracker-web
+#
+# Replaces the Streamlit Community Cloud deployment: this app previously ran on
+# dailtracker.streamlit.app behind an unsupported Cloudflare Worker reverse
+# proxy (deploy/cloudflare/dailtracker-proxy.worker.js). Served on the Hetzner
+# box behind a Cloudflare Tunnel instead — see deploy/hetzner/.
+
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PYTHONUNBUFFERED=1
+
+# Dependency layer first so code/data changes don't bust the cache. The core
+# project deps already include Streamlit (app and API share one lockfile).
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Run without root privileges; source and data stay root-owned read-only.
+RUN groupadd --system --gid 10001 dailtracker \
+    && useradd --system --uid 10001 --gid dailtracker --home-dir /app --no-create-home dailtracker
+
+# Code + the SQL view firewall + theme + the committed data the views read.
+COPY paths.py config.py ./
+COPY .streamlit ./.streamlit
+COPY utility ./utility
+COPY dail_tracker_core ./dail_tracker_core
+COPY services ./services
+COPY sql_views ./sql_views
+COPY sql_queries ./sql_queries
+COPY data ./data
+
+ENV PATH="/app/.venv/bin:$PATH"
+# HOME=/tmp: uid 10001 has no home dir and Streamlit writes ~/.streamlit state.
+ENV DAIL_DATA_DIR="/app/data" \
+    DAIL_LOG_DIR="/app/logs" \
+    HOME="/tmp"
+
+# Compile smoke catches missing COPY entries before an image can be published.
+# (utility/app.py executes Streamlit calls at import, so compileall not import.)
+RUN python -m compileall -q utility dail_tracker_core services \
+    && python -c "import streamlit, duckdb, pandas" \
+    && mkdir -p /app/logs /app/data/_export_cache \
+    && chown -R dailtracker:dailtracker /app/logs /app/data/_export_cache
+
+USER 10001:10001
+EXPOSE 8501
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s \
+    CMD python -c "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5); sys.exit(0 if r.status==200 else 1)"
+
+CMD ["streamlit", "run", "utility/app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]

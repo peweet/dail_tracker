@@ -1,0 +1,70 @@
+# Build and publish the Dáil Tracker web (Streamlit) image on every push to
+# main that touches the app, its data, or the image definition. The Hetzner
+# box pulls the digest-pinned image; it never builds this image itself.
+#
+# This is what makes a data refresh a deploy: the local ETL commits gold
+# parquet, the owner pushes, this workflow bakes a new image, and the box-side
+# update script swaps it in. Same pattern as the siting web-image workflow.
+
+name: dailtracker-web-image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile.web"
+      - "Dockerfile.web.dockerignore"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "paths.py"
+      - "config.py"
+      - ".streamlit/**"
+      - "utility/**"
+      - "dail_tracker_core/**"
+      - "services/**"
+      - "sql_views/**"
+      - "sql_queries/**"
+      - "data/gold/**"
+      - "data/silver/**"
+      - "data/_meta/**"
+      - ".github/workflows/dailtracker-web-image.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: dailtracker-web-image
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.web
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/dailtracker-web:latest
+            ghcr.io/${{ github.repository_owner }}/dailtracker-web:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Print pull line for the box
+        run: |
+          echo "On the box:"
+          echo "  DAILTRACKER_WEB_IMAGE=ghcr.io/${{ github.repository_owner }}/dailtracker-web:sha-${{ github.sha }} \\"
+          echo "  docker compose -p dailtracker -f ~/apps/dailtracker/compose.dailtracker.yaml up -d web"
