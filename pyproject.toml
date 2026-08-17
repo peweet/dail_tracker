@@ -116,6 +116,10 @@ siting = [
 # dependencies or require an API key.
 siting-ai = [
     "openai>=2.53,<3",
+    # LLM tracing (planning/product/core/assistant.py). Lazy-imported and inert unless
+    # SITING_LLM_TRACING=1; prompt/response content is withheld unless SITING_LLM_TRACE_CONTENT=1,
+    # because that module's contract is that prompts are never logged.
+    "langfuse>=4.14,<5",
 ]
 
 # Headless-browser scraping for JS-rendered sources that curl/RSS can't reach:
@@ -311,6 +315,7 @@ known_first_party = [
     "_invariants", "_publisher_regime", "accommodation_spend", "afs_amalgamated_extract",
     "check_gold_quality", "company", "cro_corporate_xref_enrichment",
     "cro_financial_statements_extract", "data_access", "derelict_sites_levy_extract",
+    "disclosed_bq_po_extract", "disclosed_bq_po_newbodies_extract",
     "enrichment_promote_to_gold", "epa_promote_to_gold", "extract", "follow_the_money",
     "freshness_heartbeat", "ipas_sources", "judiciary", "judiciary_bench_extract",
     "la_afs_extract", "la_budgets_extract", "legal_diary_extract",

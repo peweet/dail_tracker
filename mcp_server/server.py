@@ -2360,6 +2360,7 @@ def siting_check(
     process_capacity: dict | None = None,
     floor_area_basis: str = "",
     storeys: int = 0,
+    basement_levels: int = 0,
 ) -> dict:
     """Planning-constraint TRIAGE for a single point in Ireland: which planning ISSUES a proposed
     development triggers at (lat, lon), each with the governing rule quoted verbatim from the
@@ -2453,96 +2454,61 @@ def siting_check(
     # an unguarded import here crashes the whole MCP server on a tool the checkout cannot run
     # anyway. The try/except is also what tools/check_no_untracked_imports.py exempts.
     try:
-        from planning.product.core import brief as _brief
+        from planning.product.api.serialize import serialize_result
         from planning.product.core import engine as _engine
         from planning.product.core.layers import make_store
         from planning.product.core.process_capacity import ProcessCapacity
         from planning.product.core.seveso_inventory import InventoryLine
-    except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
-        return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
-
-    store = make_store()
-    available = sorted(store.available())
-    if not available:
-        return {"error": "no planning-designation layers are ingested — siting check cannot run here"}
-    inventory = (
-        [
-            InventoryLine(
-                name=r["name"],
-                quantity_t=r["quantity_t"],
-                cas=r.get("cas"),
-                hazardous_processing=bool(r.get("hazardous_processing", False)),
-            )
-            for r in substance_inventory
-        ]
-        if substance_inventory
-        else None
-    )
-    # ProcessCapacity validates ranges and raises on a unit error (a mistyped MW that would
-    # otherwise render a confident wrong consent route). 0 is the MCP tool's not-supplied
-    # convention for every numeric here, so it maps to None rather than to a zero capacity.
-    _cap = process_capacity or {}
-    capacity = ProcessCapacity(
-        reactor_trains=_cap.get("reactor_trains") or None,
-        installed_reactor_volume_m3=_cap.get("installed_reactor_volume_m3") or None,
-        working_fill_factor=_cap.get("working_fill_factor") or None,
-        mean_solvent_density_t_m3=_cap.get("mean_solvent_density_t_m3") or None,
-        combustion_aggregate_mw=_cap.get("combustion_aggregate_mw") or None,
-    )
-    result = _engine.evaluate(
-        lon,
-        lat,
-        dt,
-        num_units=num_units or None,
-        floor_area_m2=floor_area_m2 or None,
-        store=store,
-        use_class=(use_class or "").strip() or None,
-        site_area_ha=site_area_ha or None,
-        substance_inventory=inventory,
-        substance_inventory_source=(substance_inventory_source or "").strip() or None,
-        programme_items=programme_items or None,
-        process_capacity=capacity,
-        floor_area_basis=(floor_area_basis or "").strip() or None,
-        storeys=storeys or None,
-    )
-    b = _brief.build_brief(result)
-    return {
-        "site": b.site,
-        "headline": b.headline,
-        # land-plausibility gate: non-empty not_evaluated = the issue walk did NOT run (pin in
-        # the sea / a lake / on a carriageway or runway / inside a curated out-of-scope
-        # landmark). Every other list is then empty because it was NOT EVALUATED — never
-        # read that as "no constraints".
-        "not_evaluated": b.not_evaluated,
-        "plausibility_checks_not_run": (list(result.plausibility.unchecked) if result.plausibility is not None else []),
-        "excluded": b.excluded,
-        "exclusions": [
-            {"designation": e.designation, "site_name": e.site_name, "layer": e.layer, "mitigation": e.mitigation}
-            for e in b.exclusions
-        ],
-        # TIERED so the site-specific signal isn't drowned by boilerplate (see catalogue.Node):
-        # site_specific_* = notable at THIS location; standard_requirements = apply to ~every rural
-        # one-off here (the rural-housing-need gate is in here, marked pass_fail); checks_to_confirm =
-        # depend on a layer we can't read / site features we can't see (flood, bats).
-        "site_specific_hard": [_brief_item(i) for i in b.hard_constraints],
-        "site_specific_shaping": [_brief_item(i) for i in b.shaping_constraints],
-        "access": b.access,
-        "standard_requirements": [_brief_item(i) for i in b.obligations],
-        "checks_to_confirm": [_brief_item(i) for i in b.to_verify],
-        "required_reports": list(b.required_reports),
-        "rfi_note": b.rfi_note,
-        "not_assessed": list(b.not_assessed),
-        "available_layers": available,
-        # Pre-planning context (2026-07-25, Dexcom benchmark): the register's own history around
-        # this point and the decision-process baseline for comparable files. Both are COUNTS over
-        # a named cohort — history, never a forecast — and both degrade to an explicit
-        # unavailable/reason rather than a silent zero.
-        "nearby_history": _siting_nearby_history(lon, lat, dt),
-        "process_context": _siting_process_context(result, dt),
-        "disclaimer": b.disclaimer,
-        "caveat": "planning-risk TRIAGE, never a grant/refuse verdict; an empty list is not proof the "
-        "site is developable, and a point outside ingested layer coverage has NO data (not 'no issue')",
-    }
+    except Exception:  # noqa: BLE001 — private overlay may be absent from a public checkout
+        return {"error": "Siting check is unavailable."}
+    try:
+        store = make_store()
+        if not tuple(store.available()):
+            return {"error": "Siting check is unavailable."}
+        inventory = (
+            [
+                InventoryLine(
+                    name=row["name"],
+                    quantity_t=row["quantity_t"],
+                    cas=row.get("cas"),
+                    hazardous_processing=bool(row.get("hazardous_processing", False)),
+                )
+                for row in substance_inventory
+            ]
+            if substance_inventory
+            else None
+        )
+        # Zero is this MCP surface's not-supplied convention for numeric inputs.
+        capacity_data = process_capacity or {}
+        capacity = ProcessCapacity(
+            reactor_trains=capacity_data.get("reactor_trains") or None,
+            installed_reactor_volume_m3=capacity_data.get("installed_reactor_volume_m3") or None,
+            working_fill_factor=capacity_data.get("working_fill_factor") or None,
+            mean_solvent_density_t_m3=capacity_data.get("mean_solvent_density_t_m3") or None,
+            combustion_aggregate_mw=capacity_data.get("combustion_aggregate_mw") or None,
+        )
+        result = _engine.evaluate(
+            lon,
+            lat,
+            dt,
+            num_units=num_units or None,
+            floor_area_m2=floor_area_m2 or None,
+            store=store,
+            use_class=(use_class or "").strip() or None,
+            site_area_ha=site_area_ha or None,
+            substance_inventory=inventory,
+            substance_inventory_source=(substance_inventory_source or "").strip() or None,
+            programme_items=programme_items or None,
+            process_capacity=capacity,
+            floor_area_basis=(floor_area_basis or "").strip() or None,
+            storeys=storeys or None,
+            basement_levels=basement_levels or None,
+        )
+        return serialize_result(result, dt, include_context=False)
+    except (KeyError, TypeError, ValueError):
+        return {"error": "The siting request is invalid."}
+    except Exception:  # noqa: BLE001 — do not expose private storage or runtime detail through MCP
+        return {"error": "Siting check is unavailable."}
 
 
 def _siting_nearby_history(lon: float, lat: float, dev_type: str) -> dict:
