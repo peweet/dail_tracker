@@ -31,12 +31,12 @@ classifiers = [
 # Cloud install lean. Transitive deps (certifi, urllib3, pytz, …) are resolved
 # automatically — don't pin them here.
 dependencies = [
-    "streamlit>=1.50,<2",
-    "altair>=6.0,<7",
-    "plotly>=6.0,<7",
-    "duckdb>=1.4,<2",
+    "streamlit>=1.61.1,<2",
+    "altair>=6.2.2,<7",
+    "plotly>=6.9.0,<7",
+    "duckdb>=1.5.5,<2",
     "pandas>=2.2,<3.0",  # capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order pd.Series bug; revisit post-launch
-    "numpy>=2.0",
+    "numpy>=2.5.2",
     "pyarrow>=14",       # duckdb/pandas parquet I/O for the gold/silver reads
 ]
 
@@ -56,15 +56,15 @@ Issues = "https://github.com/peweet/dail_tracker/issues"
 # the deployed Streamlit app, so kept out of core to keep the Cloud `uv sync`
 # lean.
 pipeline = [
-    "polars>=1.39,!=1.41.0",  # 1.41.0 (+ polars-runtime-32) was yanked upstream
+    "polars!=1.41.0,>=1.43.2",  # 1.41.0 (+ polars-runtime-32) was yanked upstream
     "shapely>=2.0",           # planning/civic extractors import it in the default test/pipeline lane
     "PyMuPDF>=1.25",
     "requests>=2.31",
-    "beautifulsoup4>=4.12",
+    "beautifulsoup4>=4.15.0",
     "flatten-json>=0.1.14",
     "jsonschema>=4.0,<5",  # validate-at-fetch of Oireachtas API envelopes (services/schema_validation.py)
     "orjson>=3.9",         # fast JSON read/write in manifest.py, members_api_service.py, member_interests.py, wiki_data.py
-    "regex>=2023.0",       # \p{Lu} unicode-property patterns in member_interests.py (stdlib re can't do these)
+    "regex>=2026.7.19",       # \p{Lu} unicode-property patterns in member_interests.py (stdlib re can't do these)
     "openpyxl>=3.1",       # charity_normalise.py reads the Charities Register .xlsx via load_workbook
     "xlrd>=2.0",           # legacy .xls reader (pre-2021 OPW/LA payment quarterlies are .xls; openpyxl is .xlsx-only)
     "scikit-learn>=1.9",   # tier-2 model fallback in diary_entry_classify.py (OCR-mangled subjects the
@@ -73,7 +73,7 @@ pipeline = [
 
 # OCR pipeline for scanned PDFs (read_scan_pdf.py)
 ocr = [
-    "ocrmypdf>=17.0",
+    "ocrmypdf>=17.10.0",
     "winocr>=0.0.15; sys_platform == 'win32'",  # Windows.Media.Ocr wrapper — works locally on this
                          # box where PaddleOCR crashes (feedback_paddleocr_crashes_local_box); used by
                          # pipeline_sandbox/council_minutes/council_minutes_ocr_recover.py. Was
@@ -88,14 +88,14 @@ ocr = [
 # range-read; pyyaml = issue catalogue; polars = layer parquet reads.
 siting = [
     "shapely>=2.0",
-    "rasterio>=1.3",
+    "rasterio>=1.5.1",
     "pyyaml>=6.0",
-    "polars>=1.39,!=1.41.0",
+    "polars!=1.41.0,>=1.43.2",
     "python-docx>=1.1",  # .docx report export (dail_tracker_core/siting/report.py render_docx)
     "weasyprint>=66",    # paged-media PDF (dail_tracker_core/siting/pdf.py) — needs GTK3 native libs:
                          # Windows = winget install tschoonj.GTKForWindows; Linux = apt install libpango-1.0-0
-    "playwright>=1.40",  # public council document viewers (DCC/iDocs); browser binary provisioned separately
-    "plutoprint>=0.21.0", # PILOT (2026-08-02): candidate paged-media engine to compare against WeasyPrint —
+    "playwright>=1.62.0",  # public council document viewers (DCC/iDocs); browser binary provisioned separately
+    "plutoprint>=0.22.0", # PILOT (2026-08-02): candidate paged-media engine to compare against WeasyPrint —
                          # ships prebuilt Windows wheels, might drop the GTK3 DLL shim above. Not wired into
                          # any runtime path yet; used only by the render-comparison pilot script.
     "jinja2>=3.1",       # nature-designations template (planning/product/core/templates/) — pure Python, no native deps
@@ -123,14 +123,14 @@ siting-ai = [
 # the lobbying.ie fallback. Kept out of `pipeline` so the standard ETL run stays
 # browser-free; the daily live-tenders GitHub Action installs this + the chromium binary.
 scrape = [
-    "playwright>=1.40",
+    "playwright>=1.62.0",
 ]
 
 # Read-only JSON API over the Streamlit-free core (dail_tracker_core). Optional:
 # the deployed Streamlit app does NOT import these, so they stay out of the lean
 # Cloud `uv sync`. Run the API with `uv sync --extra api` then `uvicorn api.main:app`.
 api = [
-    "fastapi>=0.115,<1",
+    "fastapi>=0.141.1,<1",
     "uvicorn[standard]>=0.30",
     "pydantic>=2.0,<3",  # dail_tracker_core.models.* (BillDossier/DivisionDossier/MemberDossier) import it directly; api/routers/* are the only consumers. Declared explicitly here rather than relying on fastapi to pull it transitively.
 ]
@@ -140,7 +140,7 @@ api = [
 # `uv sync --extra mcp` then `./.venv/Scripts/python.exe mcp_server/server.py`.
 mcp = [
     "mcp>=1.20,<2",
-    "sqlglot>=25",     # column-level SQL lineage for the column_deps tool — view_deps (DuckDB AST) only sees view→view edges, not which views break on a COLUMN rename
+    "sqlglot>=30.17.0",     # column-level SQL lineage for the column_deps tool — view_deps (DuckDB AST) only sees view→view edges, not which views break on a COLUMN rename
     "jedi>=0.19",      # symbol-level Python references for the py_refs tool — py_deps (stdlib ast) only sees module→module import edges, not which LINES call a renamed def
 ]
 
@@ -167,31 +167,31 @@ all = [
 #   uv sync --extra pipeline --extra api --extra mcp --group dev
 [dependency-groups]
 code-scanning = [
-    "ast-grep-cli>=0.44",
+    "ast-grep-cli>=0.45.1",
 ]
 dev = [
     "scikit-learn>=1.9",      # TF-IDF/LinearSVC classifier exercises (works-type, council-minutes doc_type) — was pip-installed undeclared 2026-07-26; uv sync pruned such deps before (camelot, winocr)
-    "pytest>=8.0",
+    "pytest>=9.1.1",
     "pytest-cov>=5.0",
-    "ruff>=0.11",
-    "responses>=0.25",        # HTTP mocking for tests of services/http_engine.py and API scrapers
+    "ruff>=0.16.3",
+    "responses>=0.26.2",        # HTTP mocking for tests of services/http_engine.py and API scrapers
     "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
-    "hypothesis>=6.100",      # property-based fuzzing of the data_contracts engine (uses polars.testing.parametric)
-    "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
-    "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
+    "hypothesis>=6.165.7",      # property-based fuzzing of the data_contracts engine (uses polars.testing.parametric)
+    "basedpyright>=1.39.10",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
+    "pip-audit>=2.10.1",         # supply-chain CVE audit — run in .github/workflows/audit.yml
     # structural code search — find real call-sites/usages before a signature change or convention audit (grep can't tell a call from a comment); NOT a grep replacement, see cheap-code-scanning memory
     "deptry>=0.20",           # undeclared/transitive dependency audit — a bare `uv sync` installs ONLY core, so an app-path import that's merely transitive is a latent Cloud crash. Config + rationale for every ignore in [tool.deptry].
     "pytest-testmon>=2.1",    # OPT-IN test selection (`pytest --testmon`) during iterative fixing; never the default command — its DB invalidates on wide refactors and silently degrades to a full run
-    "cosmic-ray>=8.4,<9",     # opt-in mutation audit for small, deterministic business-rule modules; never part of the fast/check lanes
-    "pypdf>=5.0",             # test-only: inspect the WeasyPrint PDF output (pages/outline/footer) in test/siting/test_pdf.py — import-guarded so the suite skips it when absent
+    "cosmic-ray>=8.7.0,<9",     # opt-in mutation audit for small, deterministic business-rule modules; never part of the fast/check lanes
+    "pypdf>=6.16.0",             # test-only: inspect the WeasyPrint PDF output (pages/outline/footer) in test/siting/test_pdf.py — import-guarded so the suite skips it when absent
     "pyyaml>=6.0",            # expected-failure ledger (test/expected_failures.yaml) read by test/conftest.py + tools/check_expected_failures.py; also in the siting extra, declared here so CI test jobs get it
-    "sqlglot>=25",            # money-grain SQL lint (tools/check_money_grain_sums.py) — without this the test SKIPS in CI and the never-sum query gate only bites locally; also in the mcp extra
+    "sqlglot>=30.17.0",            # money-grain SQL lint (tools/check_money_grain_sums.py) — without this the test SKIPS in CI and the never-sum query gate only bites locally; also in the mcp extra
     "httpx>=0.27",
 ]
 evals = [
     # Retained as the Claude provider; the OpenAI provider drives the installed
     # Codex CLI through its stable JSONL interface and needs no Python SDK here.
-    "claude-agent-sdk>=0.2.126",
+    "claude-agent-sdk>=0.2.138",
 ]
 
 # ── Script entry points ──────────────────────────────────────────────────────
