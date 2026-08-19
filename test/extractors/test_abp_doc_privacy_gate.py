@@ -35,7 +35,9 @@ def _frame(**over) -> pl.DataFrame:
         "public_display": False,
     }
     row.update(over)
-    return pl.DataFrame([row], schema={"n_chars": pl.Int64, "text": pl.String, "privacy_tier": pl.String, "public_display": pl.Boolean})
+    return pl.DataFrame(
+        [row], schema={"n_chars": pl.Int64, "text": pl.String, "privacy_tier": pl.String, "public_display": pl.Boolean}
+    )
 
 
 def test_text_bearing_row_tiered_public_is_refused():
