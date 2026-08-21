@@ -26,8 +26,14 @@ Paged per COUNTY rather than by global offset: each county is spatially coherent
 Morton sort WITHIN the county gives row groups tight enough for statistics pruning, while peak
 memory stays at one county (Dublin, the largest, is ~331k rows) instead of 3.1M.
 
-    python -m extractors.cadastre_parcels_fetch
-    python -m extractors.cadastre_parcels_fetch --county Galway   # one county, for a smoke test
+Resumable since 2026-08-21: each county lands in its own part file under cadastre/parts/ and the
+national parquet is assembled only when every part exists and the total clears ROW_FLOOR. A
+one-county run writes its part and stops — it can no longer replace the national file (the
+previous `--county` path lowered the floor to 1 and wrote straight onto DEST).
+
+    python -m extractors.cadastre_parcels_fetch                    # fetch missing parts, assemble
+    python -m extractors.cadastre_parcels_fetch --county Galway    # one part only; DEST untouched
+    python -m extractors.cadastre_parcels_fetch --assemble         # assemble from existing parts
 """
 
 from __future__ import annotations
@@ -205,48 +211,104 @@ def _to_table(rows: list[tuple]) -> pa.Table:
     return df.to_arrow().cast(SCHEMA)
 
 
-def build(only: str | None = None) -> Path:
-    """Fetch every county and stream it into one Morton-ordered parquet.
+PARTS_DIR = OUT_DIR / "parts"
 
-    Atomicity and the row floor are enforced here rather than via services.parquet_io.
-    save_parquet, because that helper takes a materialised frame and 3.1M parcels will not fit
-    in the ~1.7 GB of headroom this box has. Same two guarantees, streamed: write to
-    <dest>.part, refuse to replace on a short harvest, then os.replace onto dest.
+
+def _part_path(county: str | None) -> Path:
+    slug = "_null" if county is None else "".join(ch if ch.isalnum() else "_" for ch in county).strip("_").lower()
+    return PARTS_DIR / f"{slug or 'county'}.parquet"
+
+
+def fetch_county_part(county: str | None, *, refresh: bool = False) -> Path | None:
+    """One county → its own complete, atomically written part file. Never touches DEST.
+
+    Resumable by construction: a part that already exists is kept unless `refresh` is set, so
+    a run that dies at county 3 of 27 resumes at county 4 instead of starting over — the
+    2026-08-09 national build got exactly that far and left nothing reusable behind.
     """
+    part = _part_path(county)
+    if part.exists() and not refresh:
+        LOG.info("part exists, kept: %s", part.name)
+        return part
+    rows = _fetch_county(county)
+    if not rows:
+        LOG.warning("county %s returned 0 parcels", county)
+        return None
+    table = _to_table(rows)
+    PARTS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = part.with_suffix(".parquet.tmp")
+    pq.write_table(table, tmp, compression="zstd", write_statistics=True, row_group_size=ROW_GROUP)
+    tmp.replace(part)
+    LOG.info("%-12s %7d parcels -> %s", county, table.num_rows, part.name)
+    del rows, table  # one county at a time is the memory contract
+    return part
+
+
+def assemble(counties: list[str | None]) -> Path:
+    """Stream every county part into one Morton-ordered parquet, then replace DEST atomically.
+
+    Refuses when any county's part is missing and when the total is under ROW_FLOOR — the same
+    two guarantees as before, but a refusal now costs nothing: the parts stay, and the next run
+    fetches only what is missing. Atomicity and the row floor are enforced here rather than via
+    services.parquet_io.save_parquet because that helper takes a materialised frame and 3.1M
+    parcels will not fit in this box's headroom.
+    """
+    missing = [c for c in counties if not _part_path(c).exists()]
+    if missing:
+        raise SystemExit(
+            f"assemble: {len(missing)} county part(s) missing ({', '.join(str(c) for c in missing[:6])}"
+            f"{', …' if len(missing) > 6 else ''}) — fetch them first; {DEST.name} is untouched"
+        )
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    counties = [only] if only else _counties()
-    part = DEST.with_suffix(".parquet.part")
+    staging = DEST.with_suffix(".parquet.part")
     total = 0
-    writer = pq.ParquetWriter(part, SCHEMA, compression="zstd", write_statistics=True)
+    writer = pq.ParquetWriter(staging, SCHEMA, compression="zstd", write_statistics=True)
     try:
         for i, county in enumerate(counties, 1):
-            rows = _fetch_county(county)
-            if not rows:
-                LOG.warning("county %s returned 0 parcels", county)
-                continue
-            table = _to_table(rows)
+            table = pq.read_table(_part_path(county)).cast(SCHEMA)
             writer.write_table(table, row_group_size=ROW_GROUP)
             total += table.num_rows
             LOG.info("[%2d/%d] %-12s %7d parcels (running %s)", i, len(counties), county, table.num_rows, f"{total:,}")
-            del rows, table  # one county at a time is the memory contract
+            del table
     finally:
         writer.close()
-
-    floor = 1 if only else ROW_FLOOR
-    if total < floor:
-        part.unlink(missing_ok=True)
-        raise SystemExit(f"row floor: {total:,} parcels < {floor:,} — refusing to replace {DEST.name}")
-    part.replace(DEST)
+    if total < ROW_FLOOR:
+        staging.unlink(missing_ok=True)
+        raise SystemExit(f"row floor: {total:,} parcels < {ROW_FLOOR:,} — refusing to replace {DEST.name}")
+    staging.replace(DEST)
     LOG.info("wrote %s — %s parcels, %.2f GB", DEST, f"{total:,}", DEST.stat().st_size / 1e9)
     return DEST
 
 
+def build(only: str | None = None, *, refresh: bool = False, assemble_only: bool = False) -> Path | None:
+    """Fetch the missing county parts (or one county), then assemble the national file.
+
+    `only` fetches ONE county's part and stops — it never replaces DEST. Until 2026-08-21 a
+    one-county run wrote straight onto DEST with the row floor lowered to 1, so
+    `--county Galway` would have overwritten the national (then Dublin-only) file with Galway.
+    """
+    stale = DEST.with_suffix(".parquet.part")
+    if stale.exists():
+        LOG.warning("removing stale partial write from an earlier run: %s (%.0f MB)", stale.name, stale.stat().st_size / 1e6)
+        stale.unlink()
+    if only:
+        return fetch_county_part(only, refresh=refresh)
+    counties = _counties()
+    if not assemble_only:
+        for i, county in enumerate(counties, 1):
+            LOG.info("[%2d/%d] fetching %s", i, len(counties), county)
+            fetch_county_part(county, refresh=refresh)
+    return assemble(counties)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--county", help="fetch ONE county only (smoke test; skips the row floor)")
+    ap.add_argument("--county", help="fetch ONE county's part only (never replaces the national file)")
+    ap.add_argument("--refresh", action="store_true", help="re-fetch counties whose part already exists")
+    ap.add_argument("--assemble", action="store_true", help="assemble the national file from existing parts without fetching")
     args = ap.parse_args()
     setup_standalone_logging("cadastre_parcels_fetch")
-    build(only=args.county)
+    build(only=args.county, refresh=args.refresh, assemble_only=args.assemble)
 
 
 if __name__ == "__main__":
