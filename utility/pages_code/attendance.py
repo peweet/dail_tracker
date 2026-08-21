@@ -22,6 +22,7 @@ sourced links; it never infers a reason or a verdict.
 from __future__ import annotations
 
 import datetime
+import logging
 from html import escape as _h
 
 import pandas as pd
@@ -55,6 +56,8 @@ from data_access.attendance_data import (
     fetch_turnout as _fetch_turnout,
     views_ready as _views_ready,
 )
+
+_log = logging.getLogger(__name__)
 
 _LIST_SIZE = 20
 _ABSENCE_LEAD = 8  # notable-absence rows shown before "show all" (2026-07-21)
@@ -310,9 +313,12 @@ def _render_divergence(df: pd.DataFrame) -> None:
 def attendance_page() -> None:
     try:
         ready = _views_ready()
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
+        # The detail goes to the server log only. str(exc) here can carry SQL text
+        # and filesystem paths from duckdb/polars, which must never render into the
+        # public page — the same rule page_error_boundary enforces for uncaught ones.
+        _log.exception("attendance views probe failed")
         empty_state("Attendance views not available", "Run the pipeline to register the participation views.")
-        st.caption(str(exc))
         return
     if not ready:
         empty_state("No attendance data found", "The participation views returned no rows.")

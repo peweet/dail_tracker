@@ -125,6 +125,12 @@ app = FastAPI(
     version=__version__,
     description=_DESCRIPTION,
     lifespan=lifespan,
+    # Explicit, not inherited. _request_context re-raises unhandled exceptions so
+    # they reach Starlette's ServerErrorMiddleware; under debug that renders a full
+    # traceback page (source lines, locals, filesystem paths) to the client. False
+    # gives the bare "Internal Server Error" body instead. The detail is already
+    # captured server-side by the log.exception in the middleware.
+    debug=False,
 )
 
 
