@@ -125,6 +125,10 @@ TASKS: dict[str, Task] = {
         "planning/product, apps/public-signal)",
         ((PYTHON, "tools/roots_status.py"),),
     ),
+    "backup-freshness": Task(
+        "Report how stale each backup lane is, by snapshot age rather than task state",
+        ((PYTHON, "tools/backup_freshness.py"),),
+    ),
 }
 
 CHECK_TASKS = (
