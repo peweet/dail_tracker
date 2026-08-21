@@ -181,3 +181,11 @@ def test_rehash_updates_the_header_to_the_current_source_hash(tmp_path, monkeypa
     session.rehash("some-session")
 
     session.assert_fresh(target)  # no longer raises once rehashed to the current source
+
+
+def test_committed_copy_based_mutation_targets_are_fresh():
+    """Source refactors must refresh their tracked mutation copies in the same change."""
+
+    for name in session.available():
+        for target in sorted((session.SESSION_ROOT / name).glob("*_target.py")):
+            session.assert_fresh(target)
