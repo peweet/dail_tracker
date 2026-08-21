@@ -289,7 +289,9 @@ def build(only: str | None = None, *, refresh: bool = False, assemble_only: bool
     """
     stale = DEST.with_suffix(".parquet.part")
     if stale.exists():
-        LOG.warning("removing stale partial write from an earlier run: %s (%.0f MB)", stale.name, stale.stat().st_size / 1e6)
+        LOG.warning(
+            "removing stale partial write from an earlier run: %s (%.0f MB)", stale.name, stale.stat().st_size / 1e6
+        )
         stale.unlink()
     if only:
         return fetch_county_part(only, refresh=refresh)
@@ -305,7 +307,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--county", help="fetch ONE county's part only (never replaces the national file)")
     ap.add_argument("--refresh", action="store_true", help="re-fetch counties whose part already exists")
-    ap.add_argument("--assemble", action="store_true", help="assemble the national file from existing parts without fetching")
+    ap.add_argument(
+        "--assemble", action="store_true", help="assemble the national file from existing parts without fetching"
+    )
     args = ap.parse_args()
     setup_standalone_logging("cadastre_parcels_fetch")
     build(only=args.county, refresh=args.refresh, assemble_only=args.assemble)
