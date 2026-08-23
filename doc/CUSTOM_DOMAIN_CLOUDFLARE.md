@@ -47,22 +47,26 @@ Streamlit's interactivity dies without WS, so that part is non-negotiable.
 ## One-time setup
 
 ### 0. Register / connect the domain
+
 `.ie` domains are issued by **IEDR** and require an Irish connection — fine for
 this project, just not open registration. Register `dailtracker.ie` with any
 IEDR-accredited registrar (Blacknight, Register365, etc.).
 
 ### 1. Add the domain to Cloudflare
+
 1. Cloudflare dashboard → **Add a site** → `dailtracker.ie` (Free plan is fine).
 2. Cloudflare gives you two nameservers. At your registrar, **change the domain's
    nameservers** to those two. Propagation: minutes to a few hours.
 
 ### 2. Set the Streamlit subdomain (the proxy target)
+
 In `share.streamlit.io` → your app → **Settings → General → App URL**, set the
 subdomain to **`dailtracker`** so the app is reachable at
 `https://dailtracker.streamlit.app`. Confirm that URL loads on its own first.
 (If you pick a different subdomain, update `ORIGIN_HOST` in the Worker.)
 
 ### 3. Create the DNS records that make the hostnames proxy
+
 The Worker does the real fetching, so the DNS record just needs to **resolve and
 be proxied (orange cloud ON)**. Use a placeholder address:
 
@@ -75,20 +79,24 @@ be proxied (orange cloud ON)**. Use a placeholder address:
 intercepts before anything is sent there.)
 
 ### 4. SSL/TLS mode
+
 Cloudflare → **SSL/TLS → Overview → Full** (not Flexible, not Off). The Worker
 talks HTTPS to Streamlit, so Full is correct. Leave "Always Use HTTPS" on.
 
 ### 5. Deploy the Worker
+
 ```bash
 cd deploy/cloudflare
 # edit ORIGIN_HOST in dailtracker-proxy.worker.js if your subdomain differs
 npx wrangler login      # one-time, browser auth
 npx wrangler deploy
 ```
+
 `wrangler.toml` already binds the Worker to `dailtracker.ie/*` and
 `www.dailtracker.ie/*`.
 
 ### 6. Test
+
 - `https://dailtracker.ie` loads the app, address bar stays on `dailtracker.ie`.
 - Interact with a widget / change a page — if the UI updates (doesn't hang on
   "Connecting…"), the WebSocket proxy is working.

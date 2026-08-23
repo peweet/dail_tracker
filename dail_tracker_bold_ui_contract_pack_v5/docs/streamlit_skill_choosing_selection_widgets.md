@@ -46,6 +46,7 @@ selected = st.pills(
 ```
 
 Can also be used to mimic an "example" widget, especially with `label_visibility="collapsed"`:
+
 ```python
 st.pills("Examples", ["Show me sales data", "Top customers"], label_visibility="collapsed")
 ```

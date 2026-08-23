@@ -30,6 +30,7 @@ The seeds feed the canonical registry; sandbox lists are pre-promotion targets a
 not enter the public ledger until promoted.
 
 ### The canonical registry is generated from these 5 configs
+
 `oireachtas_pdf_poller.SOURCES` · `ipas_sources.IPAS_SOURCES` ·
 `procurement_public_body_extract.PUBLISHERS` · `procurement_la_payments_extract.SCHEMA_MAP`
 · `afs_amalgamated_extract.URLS` + `procurement_hse_tusla_parser.SPECS` +
@@ -69,6 +70,7 @@ release_window, poller, runner, test_packages, curated, notes`
    surprising; `--strict` is green.
 
 ### The ratchet that enforces it
+
 `python tools/migration/build_source_cadence.py --check` **exits 1 on drift** — any public source
 missing from the ledger (or a ledger row whose source vanished). Wire
 it into the fast test subset / the source-health canary so a new source cannot ship

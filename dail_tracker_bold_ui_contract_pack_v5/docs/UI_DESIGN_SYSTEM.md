@@ -24,12 +24,14 @@ These apply to every page. Do not use the deprecated alternatives.
 Editorial civic data reference.
 
 The UI should feel like:
+
 - investigative newspaper
 - public evidence database
 - parliamentary accountability reference
 - serious research tool
 
 It should not feel like:
+
 - generic Streamlit
 - fintech SaaS dashboard
 - AI demo
@@ -39,6 +41,7 @@ It should not feel like:
 ## Layout language
 
 Use:
+
 - strong editorial hero
 - compact command/filter bar
 - clear evidence summary
@@ -56,6 +59,7 @@ utility/ui/
 ```
 
 Useful helpers:
+
 - `civic_page_header`
 - `evidence_summary_panel`
 - `filter_bar`
@@ -73,6 +77,7 @@ Useful helpers:
 ### When to use ranked cards instead of a table
 
 A table is the default. Switch to ranked cards when:
+
 - the primary question is "who is top / who is bottom?" (not "show me all members")
 - a strong emotional or competitive dimension exists (attendance extremes, most declarations)
 - the record set is intentionally small (top 3 / bottom 3, top 10 leaderboard)
@@ -84,16 +89,19 @@ Never replace a full browse table with cards — card rendering at 100+ rows is 
 Used when the page's primary view is a good-cop / bad-cop split (e.g. attendance best vs worst).
 
 **Layout:**
+
 - Two `st.columns` — left column for "good" (green), right column for "bad" (red/amber)
 - Three cards per side (top 3 / bottom 3) rendered as a **single `st.markdown` HTML block** — do not call `st.markdown` per card or Streamlit's inter-element padding breaks the visual grouping
 
 **Medal convention:**
+
 ```python
 _GOOD_MEDALS = ["🥇", "🥈", "🥉"]   # top attenders / best performers
 _BAD_MEDALS  = ["💀", "👻", "😴"]   # lowest attenders / worst performers
 ```
 
 **Card Python helper:**
+
 ```python
 def _hall_card(row, medal: str, side: str) -> str:
     name  = row["member_name"]
@@ -114,12 +122,14 @@ def _hall_card(row, medal: str, side: str) -> str:
 ```
 
 **Rendering all cards as one block:**
+
 ```python
 html_block = "".join(_hall_card(r, medal, "good") for r, medal in zip(top_rows, _GOOD_MEDALS))
 st.html(html_block)   # st.html — never st.markdown(..., unsafe_allow_html=True)
 ```
 
 **CSS classes (in `shared_css.py`):**
+
 - `.att-hall-card-good` — green gradient background, left green border
 - `.att-hall-card-bad` — red gradient background, left red border
 - `.att-hall-heading-good` / `.att-hall-heading-bad` — colored heading above each side
@@ -129,6 +139,7 @@ st.html(html_block)   # st.html — never st.markdown(..., unsafe_allow_html=Tru
 - `.att-hall-days` — key stat; `strong` inside uses 1.25rem font-size, font-weight 800
 
 **Partial / in-progress year:** When the current year has too little data for a meaningful good/bad ranking (e.g. all members tied at the same day count), display `st.info` with an in-progress notice and fall back to a flat `st.dataframe` ranked by `rank_high ASC`. Detect with:
+
 ```python
 import datetime
 if year >= datetime.date.today().year:
@@ -136,6 +147,7 @@ if year >= datetime.date.today().year:
 ```
 
 **Navigation buttons below cards:** After the card groups, render last-initial navigation buttons so users can jump to a member's profile without scrolling through the flat table:
+
 ```python
 cols = st.columns(len(buttons))
 for col, label in zip(cols, sorted_initials):
@@ -156,6 +168,7 @@ Used for ranked member leaderboards (e.g. interests page "most declarations").
 - Use `→` navigation triggers in an `st.columns([5, 1])` split (never `[11, 1]`) to link to the member's profile
 
 **CSS classes (in `shared_css.py`):**
+
 - `.int-rank-card` — flex row card with border, shadow
 - `.int-rank-num` — 1.5rem, weight 800, muted color
 - `.int-rank-num-top` — overrides color to `--dt-primary`
@@ -170,6 +183,7 @@ Used for ranked member leaderboards (e.g. interests page "most declarations").
 ### Large typography convention for key statistics
 
 When a single number is the hero of a card (days attended, total declarations, amount), use:
+
 ```css
 font-size: 1.25rem;
 font-weight: 800;
@@ -185,6 +199,7 @@ The surrounding label text should be 0.82rem or smaller. This contrast creates a
 The user has not made a selection yet. Lead with the index table immediately after the filter bar.
 
 Do **not** add before the table:
+
 - charts (bar, heatmap, or otherwise)
 - a stat strip that duplicates data already in the hero badges
 - multiple stacked expanders
@@ -192,7 +207,8 @@ Do **not** add before the table:
 These bury the table and overwhelm the user before they have context for what they are looking at.
 
 Accepted structure:
-```
+
+```text
 hero (kicker + title + dek + badges)
 command bar (filters)
 ────────────────────────────
@@ -205,7 +221,8 @@ about & provenance expander   ← collapsed, at bottom (if contract requires it)
 ### Secondary view (detail / profile / drilldown)
 
 The user selected a record. Complexity is acceptable because scope is narrow. Accepted structure:
-```
+
+```text
 identity strip (name, party, constituency)
 summary stats (3 columns max)
 ────────────────────────────

@@ -37,4 +37,3 @@ running any check.
   dry-run output.
 - `test/tools/test_verify_changed.py` proves captured Unicode diagnostics are
   escaped safely on a strict CP1252 stream.
-

@@ -77,11 +77,12 @@ limitation, that **Iris Oifigiúil** material is Government of Ireland copyright
 and is **not** licensed to the Licensee hereunder.
 
 2.4 **Affiliates / sub-licensing.** [OPTION — select one]
-  - **(default)** The licence may not be sub-licensed or extended to affiliates
-    without the Licensor's prior written consent; or
-  - The licence extends to the Licensee's wholly-owned affiliates listed in
-    Schedule 1, and the Licensee may grant end users of the Licensee Product a
-    sub-licence to use the Software solely as embedded in the Licensee Product.
+
+- **(default)** The licence may not be sub-licensed or extended to affiliates
+  without the Licensor's prior written consent; or
+- The licence extends to the Licensee's wholly-owned affiliates listed in
+  Schedule 1, and the Licensee may grant end users of the Licensee Product a
+  sub-licence to use the Software solely as embedded in the Licensee Product.
 
 2.5 **Reservation.** All rights not expressly granted are reserved by the
 Licensor. The Licensor retains all right, title, and interest in the Software.
@@ -221,8 +222,8 @@ the Licensor) and are deemed received on delivery.
 
 **Signed for and on behalf of the Licensor:**
 
-Name: Patrick Glynn  Signature: __________________  Date: __________
+Name: Patrick Glynn Signature: __________________ Date: __________
 
 **Signed for and on behalf of the Licensee:**
 
-Name: ____________  Title: __________  Signature: __________  Date: __________
+Name: ____________ Title: __________ Signature: __________ Date: __________

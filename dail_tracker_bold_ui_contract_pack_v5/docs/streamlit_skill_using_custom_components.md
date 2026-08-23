@@ -40,7 +40,7 @@ Custom components can break when Streamlit updates, so prefer core features when
 
 Text input that fires on every keystroke instead of waiting for enter/blur. Useful for live search.
 
-- **Repo:** https://github.com/blackary/streamlit-keyup
+- **Repo:** <https://github.com/blackary/streamlit-keyup>
 
 ```bash
 uv add streamlit-keyup
@@ -58,7 +58,7 @@ st.dataframe(filtered)
 
 Official replacement for `st.bokeh_chart` (removed from Streamlit API). Maintained by Streamlit.
 
-- **Repo:** https://github.com/streamlit/streamlit-bokeh
+- **Repo:** <https://github.com/streamlit/streamlit-bokeh>
 
 ```bash
 uv add streamlit-bokeh
@@ -77,7 +77,7 @@ streamlit_bokeh(p)
 
 Interactive dataframes with sorting, filtering, cell editing, grouping, and pivoting.
 
-- **Repo:** https://github.com/PablocFonseca/streamlit-aggrid
+- **Repo:** <https://github.com/PablocFonseca/streamlit-aggrid>
 
 ```bash
 uv add streamlit-aggrid
@@ -90,6 +90,7 @@ AgGrid(df, editable=True, filter=True)
 ```
 
 **When to use aggrid over st.dataframe:**
+
 - Interactive row grouping and pivoting
 - Advanced filtering and sorting UI
 - Complex cell editing workflows
@@ -99,7 +100,7 @@ AgGrid(df, editable=True, filter=True)
 
 Interactive maps powered by Folium.
 
-- **Repo:** https://github.com/randyzwitch/streamlit-folium
+- **Repo:** <https://github.com/randyzwitch/streamlit-folium>
 
 ```bash
 uv add streamlit-folium
@@ -117,7 +118,7 @@ st_folium(m, width=700)
 
 Tableau-like drag-and-drop data exploration.
 
-- **Repo:** https://github.com/Kanaries/pygwalker
+- **Repo:** <https://github.com/Kanaries/pygwalker>
 
 ```bash
 uv add pygwalker
@@ -133,7 +134,7 @@ pyg.walk(df, env="Streamlit")
 
 A collection of community utilities. Cherry-pick what you need.
 
-- **Repo:** https://github.com/arnaudmiribel/streamlit-extras
+- **Repo:** <https://github.com/arnaudmiribel/streamlit-extras>
 
 ```bash
 uv add streamlit-extras
@@ -147,7 +148,7 @@ selection = image_selector(image, selections=["Region A", "Region B"])
 
 ## Discover more
 
-Browse the custom component gallery: https://streamlit.io/components
+Browse the custom component gallery: <https://streamlit.io/components>
 
 ## References
 

@@ -770,4 +770,3 @@ Before using the data in reporting, publication, or public claims:
 5. For lobbying data, confirm whether the count is based on distinct returns or exploded activity rows.
 6. For interests data, check whether a blank means `nil`, `not published`, `not extracted`, or `not applicable`.
 7. For generated URLs, manually open the link and confirm it points to the expected bill, vote, debate, lobbying return, or organisation page.
-

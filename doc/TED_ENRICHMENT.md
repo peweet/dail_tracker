@@ -73,21 +73,25 @@ enrichment moves that remain. Companion to:
 Ranked by leverage ÷ cost. All must keep the §4 honesty rails.
 
 ### 3.1 TED ↔ lobbying overlap — **cheap, high value, do next**
+
 The lobbying cross-reference (`extractors/procurement_lobbying_xref.py`) currently
 matches **eTenders** winners against lobbying clients/registrants by normalised
 name. TED winners are *not* yet in it. Extend the same exact-norm-match pattern to
 `v_procurement_ted_awards` so a TED winner's profile shows the same neutral
 co-occurrence card ("appears on both registers" — never "influenced").
+
 - **How:** add a TED branch to the xref (or a sibling view joining
   `v_procurement_ted_supplier_summary.winner_join_norm` to the lobbying norm key).
 - **Risk:** L. Honesty rail: co-occurrence ≠ causation; reuse existing caveat copy.
 
 ### 3.2 Suffix cleanup at the extractor source — **tidy, blocks drift**
+
 The `_NNNNN` suffix is stripped *in-view* only. Clean it at the silver source in
 `ted_ireland_extract.py` so the join-norm is canonical everywhere and the view
 logic simplifies. (Already noted as a follow-up in `PROCUREMENT_MASTER.md` Stage B.)
 
 ### 3.3 CRO match-rate uplift — **incremental**
+
 ~35% of winners are still unmatched. Levers: lean harder on eForms organisation
 identifiers (national reg numbers carried in the notice), tighten name
 normalisation, and reconcile against the CRO bulk register's alias table. Each
@@ -95,14 +99,17 @@ percentage point upgrades more rows from `review_personal_data` → `ok` and fro
 sole-trader → company (so they become rankable).
 
 ### 3.4 TED → realised-spend linkage — **gated behind Stage D**
+
 `extractors/procurement_award_spend_link.py` already joins TED + eTenders awards to
 public-body spend facts on a hybrid CRO-or-name key, **as a sandbox**. Promoting it
 to production is blocked by the same privacy/`vat_status` gate as the payments tier
 (`PROCUREMENT_MASTER.md` Stage D). Keep it sandbox until that gate clears.
+
 - **Honesty rail:** award ceiling vs realised spend are **different tiers** — show
   side by side, never summed.
 
 ### 3.5 Historical backfill — **the API backfill is hollow; real backfill needs the bulk lane** (verified 2026-06-08)
+
 Current silver is 2024+ **by choice**, not by API limit — but the choice is correct,
 because the pre-2024 API data is missing the one thing this silver is built around:
 **the winner.**
@@ -143,6 +150,7 @@ winner-centric silver. Build only if buyer-side trend is wanted.
 
 **Bulk legacy lane (the real backfill) — proven feasible but costly.**
 Probed the bulk packages directly:
+
 - Daily/monthly XML packages **download via plain `curl`, no bot-gating** (~6–9 MB
   per daily OJ S issue; `Content-Type: application/gzip`).
 - A daily issue is **all-EU** (1,100–3,400 notices); Irish notices are only ~2–4
@@ -177,6 +185,7 @@ Probed the bulk packages directly:
 > backfill in §6 remains the separate, larger build.
 
 ### 3.6 TD interest × TED award — **deep investigation, last**
+
 RoMI declared shareholdings → CRO → TED/eTenders winners: surface where a TD's
 declared interests received public contracts during their term. High editorial
 value, highest matching/privacy care. Depends on 3.1 + 3.3 being solid first.
@@ -247,6 +256,7 @@ per-contract `VALUE` (€2.688m, €0.672m…) plus the framework `VAL_TOTAL` �
 (`TYPE="PROCUREMENT_TOTAL"`).
 
 **Pipeline:**
+
 1. **Enumerate** Irish award publication-numbers 2016–2023 via the existing API
    query (`buyer-country=IRL AND notice-type=can-standard`, paginate). ~10k PNs.
    (The buyer-side layer from §3.5 already produces this list — reuse it.)
@@ -306,6 +316,7 @@ total** — so any pull over the cap *silently truncated*. This is exactly what 
 **The remodel:** new `services/ted_search.py` — a single reusable paginator that
 combines TED's official ITERATION scroll with the project's own retry + truncation-
 assertion idiom:
+
 - ITERATION mode, `limit=250`; follows `iterationNextToken` until exhausted.
 - Exponential backoff on 429 + 5xx + connection/timeout (mirrors `http_engine.py`).
 - **Asserts** `len(notices) >= totalNoticeCount` — the anti-silent-truncation guard

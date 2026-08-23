@@ -140,6 +140,7 @@ The **grain identity** of every cell (which ledger: AWARD / PLANNED / TED / enri
 **So-what (consultant):** "Target-buyer list for the category."
 
 **Status: NOT BUILT (two gaps).**
+
 - **Ranked top buyers with share** — no per-CPV buyer ranking function (`authority_summary` ranks across all CPVs, not within one). Requires `top_buyers_for_cpv(conn, cpv_code, *, limit=N)` returning per-buyer `n_awards`, `share_pct`, `share_denominator` — **`share_pct` and its denominator computed inside the view against the same award population it ranks**, so the report renders a stored share and never divides across views. Do **not** compute buyer share from `cpv_summary.N_AWARDS`.
 - **Number of distinct buyers (award grain, all-time)** — `cpv_summary` exposes `n_suppliers` but **not** `n_buyers`. The only `n_buyers` available today is `competition_by_cpv.n_buyers` = **{{N_BUYERS_TED}}**, which is **TED-2024+ competition scope**, a different lane — do **not** present it as the all-time award-grain buyer count.
 

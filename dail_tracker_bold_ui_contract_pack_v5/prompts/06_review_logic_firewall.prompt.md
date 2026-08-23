@@ -1,6 +1,7 @@
 Review page `<PAGE_ID>` for logic-firewall violations.
 
 Check:
+
 - no backend files modified
 - no `read_parquet`
 - no `parquet_scan`
@@ -21,6 +22,7 @@ python tools/check_contract_shape.py utility/page_contracts/<PAGE_ID>.yaml
 ```
 
 Result contract:
+
 - `Verdict: PASS | FAIL` (`PASS` requires no blocker or major finding)
 - each finding with `Severity`, `Evidence: path:line`, consequence, and required action
 - commands run and observed results; label unavailable checks `NOT RUN`

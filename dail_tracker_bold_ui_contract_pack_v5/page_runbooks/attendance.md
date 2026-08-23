@@ -27,13 +27,12 @@ Shared patterns:
 date_range_filter, timeline, member_drilldown, csv_export, government_source_links
 ```
 
-
 Attendance-specific interaction:
+
 - date range is the primary control
 - ISO date values like 2015-01-01 must use calendar/date range controls
 - timeline should run left-to-right chronologically
 - member drilldown should answer what happened for one TD in the selected period
-
 
 ## Files Claude may modify
 

@@ -82,6 +82,7 @@ Where `{{OWNER_TIER_LABEL}}` is the **owner-chosen wording** for the tier, mappe
 No chart — a definition card + a chip row.
 
 **Data source:**
+
 - Identity fields (`company_num`, `company_status`, `cro_match_method`): `fetch_supplier_summary_result` → `v_procurement_supplier_summary`; grain **AWARDED**.
 - Register flags/counts (`cross_register_count`, CRO/lobbying/charity/EPA/corporate-notice flags): `fetch_entity_xref_result` → `v_supplier_entity_xref`; grain **enrichment**. Use **`cross_register_count`** for the "appears across N public registers" statement — it is the full-footprint count that matches the 7-chip strip.
 - Presence strip (`in_etenders`, `in_ted`, `in_payments`, `n_registers`): `fetch_entity_chain_for_company_result(company_num)` → grain **multi-grain enrichment (NEVER sum)**. **Note:** `n_registers` counts only the **procurement** registers spanned (etenders / ted / payments, max 3) — never use it for the headline "N public registers" line above; reserve it for procurement-register context only.
@@ -103,6 +104,7 @@ No chart — a definition card + a chip row.
 Charts (optional): award-**count** by year (bars, counts not €); a **separate, grain-labelled** "Awarded ceiling by year — not money paid" panel. Never combine the two.
 
 **Data source:**
+
 - Headline totals (`n_awards`, `n_authorities`, `n_value_safe_awards`, `awarded_value_safe_eur`, `n_ceiling_notices`): `fetch_supplier_summary_result` → `v_procurement_supplier_summary`; grain **AWARDED**. *(This view carries **no** supplier-wide first/last-award-year column — do **not** attribute `{{FIRST_AWARD_YEAR}}`/`{{LAST_AWARD_YEAR}}` to it.)*
 - First / most-recent award year (`{{FIRST_AWARD_YEAR}}` / `{{LAST_AWARD_YEAR}}`): **[requires Phase 2 view]** — no supplier-scoped first/last-award-year column exists in `supplier_summary`. Candidate sources pending that view: the per-authority `first_year`/`last_year` on `fetch_incumbency_for_supplier_result`, or the earliest/latest `year` in `fetch_supplier_year_trend_result` — but a supplier-wide min/max is a rollup and belongs in a pipeline-owned view, not the report.
 - Count/ceiling by year: `fetch_supplier_year_trend_result(supplier_norm)`; grain **AWARDED (per-year)**.
@@ -125,6 +127,7 @@ Charts (optional): award-**count** by year (bars, counts not €); a **separate,
 Chart: horizontal bar of award-count share by buyer ("all others" bucket shown). Never a pie, never value across grains.
 
 **Data source:**
+
 - Buyer concentration: `fetch_dependency_for_supplier_result(supplier_norm)` → grain **AWARDED (relationship; only if ≥5 awards)**; fields `top_authority`, `top_authority_share_pct`, `awards_from_top_authority`, `total_awards`, `n_authorities`.
 - CPV-mix share: **[requires Phase 2 view]** (nearest existing is authority-side `authority_category_mix`, also PHASE-2-TODO — neither is supplier-scoped).
 
@@ -155,6 +158,7 @@ Per-publisher SPENT / COMMITTED detail (each tier its own cell, never blended): 
 Charts (optional): **paired panels** — "Awarded ceiling by year" | "Paid (SPENT) by year" — same x-axis, **separate y-axes, hard divider, two grain labels.** COMMITTED is a third, separately labelled panel. Never one axis, never a stack.
 
 **Data source:**
+
 - Side-by-side footprint: `fetch_entity_chain_for_company_result(company_num: str)` → grain **multi-grain (NEVER sum)**; fields `etenders_awarded_value_safe_eur`, `ted_awards`, `ted_n_buyers`, `paid_safe_eur`, `committed_safe_eur`, `in_etenders/in_ted/in_payments`, `n_registers`. TED is count-only here; monetary values stay at individual-notice level.
 - Per-publisher SPENT / COMMITTED for this supplier: **[requires Phase 2 view]** — a supplier-scoped (`supplier_norm`-keyed) per-publisher registered view. `fetch_payments_supplier_summary_result(tier=…)` is an **unscoped top-60 leaderboard** over `v_procurement_payments_supplier_summary` and must **not** be filtered/reshaped to the supplier in the report.
 - Leaf lines (known pair): `fetch_payment_lines_for_pair_result(supplier_norm, publisher_name, tier=...)`; grain **PAID / COMMITTED (line-level)**.
@@ -185,6 +189,7 @@ TED lane (do not union with national, do not total) —
 Chart: bar of the supplier's awards by disclosed bidder-count bucket (row-level, from `awards_for_supplier`).
 
 **Data source:**
+
 - Row-level bid counts (`n_bids_received`, `competition_type`): `fetch_awards_for_supplier(supplier_norm)`; grain **AWARDED (row-level)**.
 - Category context: `fetch_competition_by_cpv_result(min_lots=…)` → grain **enrichment (competition, TED 2024+)**. *(Per-buyer `competition()` exists in core but is **UNWIRED** — no `data_access` wrapper — do not call it from the report.)*
 - Supplier single-bid share aggregate: **[requires Phase 2 view]**.
@@ -207,6 +212,7 @@ Chart: bar of the supplier's awards by disclosed bidder-count bucket (row-level,
 Chart: renewal timeline (Gantt of published end-dates, **dates only**); companion open-tender table.
 
 **Data source:**
+
 - Award dates / duration for listing: `fetch_awards_for_supplier(supplier_norm)`; grain **AWARDED (row-level)**.
 - Renewal-cycle function: **[requires Phase 2 view]** (`renewal_cycle` PHASE-2-TODO).
 - Open national pipeline: `fetch_live_tenders_result(sector=…)` → grain **PLANNED (national eTenders)**.
@@ -227,6 +233,7 @@ Chart: renewal timeline (Gantt of published end-dates, **dates only**); companio
 Table only — register · present? · record count · link. **No network diagram, no influence visual** (a graph would imply connection and breach the no-framing rail).
 
 **Data source:**
+
 - Flags/counts + `cross_register_count`: `fetch_entity_xref_result(supplier_norm)` → `v_supplier_entity_xref`; grain **enrichment**.
 - Charity detail: `fetch_charity_overlap_result(conn)` → grain **enrichment (co-occurrence via shared CRO)**.
 - EPA detail: `fetch_epa_compliance_result(company_num: int)` → `v_procurement_epa_compliance`; grain **enrichment (NEVER sum)**.
@@ -292,7 +299,7 @@ Carry the matching row on every report that uses the source (licence · attribut
 | Public-body payments | CC-BY-4.0 (per-publisher source lists; see source_landing_url per row) | Compiled from official payment/PO publications of each public body (Circular 07/2012 / FOI publication schemes). |
 | TED / EU-OJ | EU open data (Commission Decision 2011/833/EU) | Contains information from TED (© European Union), reused under Decision 2011/833/EU. |
 | CRO (Companies Registration Office) | CC BY 4.0 | Contains Irish Public Sector Data licensed under a Creative Commons Attribution 4.0 International (CC BY 4.0) licence. |
-| Iris Oifigiúil *(corporate-distress rows — `{{CORP_NOTICE_FLAG}}` / `{{N_CORP_NOTICES}}`; mandatory wherever they render)* | **Government copyright — NOT open** (solicitor-checklist item; fact-only + attributed) | Contains public sector information from Iris Oifigiúil © Government of Ireland. Source: https://www.irisoifigiuil.ie/ |
+| Iris Oifigiúil *(corporate-distress rows — `{{CORP_NOTICE_FLAG}}` / `{{N_CORP_NOTICES}}`; mandatory wherever they render)* | **Government copyright — NOT open** (solicitor-checklist item; fact-only + attributed) | Contains public sector information from Iris Oifigiúil © Government of Ireland. Source: <https://www.irisoifigiuil.ie/> |
 | Charities Regulator *(if A7 charity row used)* | CC BY 4.0 | Contains Irish Public Sector Data licensed under a Creative Commons Attribution 4.0 International (CC BY 4.0) licence. |
 | lobbying.ie / SIPO *(optional panel — reports only, never exported)* | PSI re-use | Contains lobbying register data © Standards in Public Office Commission, reused under its PSI re-use policy. |
 | EPA register *(if A7 EPA row used)* | **[owner to confirm — not in NOTICE.md]** | **[owner to confirm attribution string]** |

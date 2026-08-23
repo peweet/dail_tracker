@@ -6,19 +6,21 @@ If an existing page file exists: it is a functional reference, not a design refe
 If no existing page file exists (greenfield): build from the contract and runbook only.
 
 Read only:
+
 1. repository `AGENTS.md` and `utility/pages_code/AGENTS.md`
 2. `page_runbooks/<PAGE_ID>.md`
 3. `utility/page_contracts/<PAGE_ID>.yaml`
 4. `utility/page_contracts/_shared_ui_policy.yaml`
 5. `utility/page_contracts/_interaction_patterns.yaml`
 6. matching page file (if it exists)
-7. `utility/shared_css.py`              ← primary CSS file; read before adding any new classes
+7. `utility/shared_css.py` ← primary CSS file; read before adding any new classes
 8. relevant `utility/ui` helpers
 
 Do NOT read `utility/styles/base.css` — it is a legacy file; new styles go in shared_css.py only.
 You may modify only the files listed in the page runbook.
 
 Required:
+
 - materially different layout (or strong civic design if greenfield)
 - stronger editorial hero
 - clearer controls
@@ -29,6 +31,7 @@ Required:
 - shared CSS and helper reuse
 
 Mandatory API rules — do not use the forbidden alternatives:
+
 - `st.html(...)` — not `st.markdown(..., unsafe_allow_html=True)`
 - `width="stretch"` on buttons — not `use_container_width=True`
 - `st.segmented_control` — not `st.radio(horizontal=True)`
@@ -39,6 +42,7 @@ Mandatory API rules — do not use the forbidden alternatives:
 - All new CSS in `utility/shared_css.py` — not page-local blocks
 
 Forbidden:
+
 - backend changes
 - raw Parquet scans
 - persistent DuckDB file assumption
@@ -51,6 +55,7 @@ Missing data:
 `TODO_PIPELINE_VIEW_REQUIRED: <specific missing item>`
 
 Result contract:
+
 - changed files and why
 - acceptance checks with commands and observed results
 - visual checks distinguished from automated checks

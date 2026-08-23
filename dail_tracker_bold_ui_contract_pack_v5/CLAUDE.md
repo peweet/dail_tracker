@@ -24,6 +24,7 @@ Aesthetic: **editorial accountability journalism** — investigative newspaper c
 Data tables and numbers are the hero. The interface should feel serious, legible, and trustworthy. It should not feel like a generic Streamlit dashboard.
 
 Avoid:
+
 - generic Streamlit defaults
 - purple-gradient AI dashboards
 - glassmorphism
@@ -39,6 +40,7 @@ Custom JavaScript is permitted only via the CCv2 API (`st.components.v2.componen
 Streamlit is a thin **data-semantics** layer, not a thin **user-experience** layer.
 
 Pipeline and in-process DuckDB registered analytical views own:
+
 - joins
 - fuzzy matching
 - normalisation
@@ -52,6 +54,7 @@ Pipeline and in-process DuckDB registered analytical views own:
 - registered analytical view creation
 
 Streamlit owns:
+
 - page layout
 - filter controls
 - parameter binding
@@ -93,6 +96,7 @@ pipeline_sandbox/   ← all new enrichment/join/transformation code lives here
 ```
 
 Rules for `pipeline_sandbox/`:
+
 - Self-contained — does not import from or call into the main pipeline
 - Produces a Parquet or CSV output file that a SQL view can then read
 - Can be examined, tested, and discarded without risk to the main pipeline
@@ -118,6 +122,7 @@ Streamlit page files query approved registered views only.
 Do not assume a persistent `.duckdb` database file unless the page contract explicitly says so.
 
 Forbidden in Streamlit page files:
+
 - connecting directly to a persistent `.duckdb` file as a modelling shortcut
 - registering views
 - `read_parquet`
@@ -170,6 +175,7 @@ Do not treat “thin Streamlit layer” as “boring UI.”
 The existing page is a **functional reference**, not a design reference.
 
 Preserve:
+
 - backend/data semantics
 - approved registered views
 - approved columns
@@ -179,6 +185,7 @@ Preserve:
 - provenance requirements
 
 Rethink boldly:
+
 - layout
 - section order
 - filter placement
@@ -212,6 +219,7 @@ utility/styles/base.css ← loaded only by lobbying_2.py for backwards compatibi
 Before writing any new CSS, read `utility/shared_css.py` to see what already exists.
 
 Known class families:
+
 - `dt-*` — core layout chrome (`dt-hero`, `dt-kicker`, `dt-dek`, `dt-badge`, `dt-callout`, `dt-provenance-box`)
 - `att-hall-*` — attendance hall of fame/shame cards (`att-hall-card-good`, `att-hall-card-bad`, `att-hall-rank`, `att-hall-medal`, `att-hall-body`, `att-hall-name`, `att-hall-meta`, `att-hall-badge-good`, `att-hall-badge-bad`)
 - `att-list-*` — attendance ranked list rows (`att-list-row`, `att-list-rank`, `att-list-pill`, `att-list-pill-name`, `att-list-pill-meta`)
@@ -232,6 +240,7 @@ utility/page_contracts/<page>.yaml
 ```
 
 The contract is the source of truth for:
+
 - page purpose
 - approved registered views
 - approved columns
@@ -251,6 +260,7 @@ The contract is the source of truth for:
 ## Token discipline
 
 For a page task, read only:
+
 1. the target page runbook
 2. the target page contract
 3. the target page file
@@ -267,6 +277,7 @@ Do not inspect unrelated pages unless the runbook asks you to.
 ## Final response format
 
 Return only:
+
 1. Files changed
 2. Main UI changes made
 3. Registered views queried

@@ -17,7 +17,7 @@ Output file: `utility/pages_code/member_overview.py`
 
 ## Full sequence
 
-```
+```text
 Step 0  explore agent            ← read-only: confirm views, CSS, helpers  (no code)
 Step 1  /shape                   ← design brief                             (no code)
         contract agent           ← only if shape reveals contract gaps      (no code)
@@ -33,7 +33,7 @@ Add the **supplements block** (copy below) after each skill invocation (Steps 1�
 
 ## Supplements block — copy after every skill invocation
 
-```
+```text
 Member Overview page-specific supplements:
 
 FRESH DESIGN: This is a greenfield page. There is no existing page to preserve.
@@ -101,7 +101,7 @@ Use the `explore` agent. Read-only scan — do not edit any files.
 
 Prompt:
 
-```
+```text
 We are working on member_overview only.
 
 Read only — do not edit any files:
@@ -133,7 +133,7 @@ Use the output to validate the contract before shaping.
 
 ## Step 1 — Shape (design brief, no code)
 
-```
+```text
 /shape member_overview
 
 [paste supplements block above]
@@ -144,7 +144,7 @@ interaction model, chart strategy, empty states, TODO items, and implementation 
 
 **If the shape output reveals contract gaps** (missing views, wrong column names, etc.):
 
-```
+```text
 Use the contract agent to update utility/page_contracts/member_overview.yaml.
 Keep: data_access.mode = duckdb_in_process_registered_analytical_views
 Keep: no provenance footer (source_links.note already set)
@@ -158,7 +158,7 @@ Approve the brief (and updated contract if changed) before moving to Step 2.
 
 ## Step 2 — Build
 
-```
+```text
 /build-page member_overview
 
 [paste supplements block above]
@@ -169,6 +169,7 @@ what the shared skill does not know: no provenance, two-stage flow, per-domain v
 mart pending, colour rules.
 
 **Files the build may touch:**
+
 - `utility/pages_code/member_overview.py` ← main output
 - `utility/shared_css.py` ← new CSS classes only; read first before adding
 - `utility/ui/components.py` ← new helpers only; read first
@@ -177,6 +178,7 @@ mart pending, colour rules.
 - `utility/page_contracts/member_overview.yaml` ← if contract gaps found
 
 **Files the build must not touch:**
+
 - `pipeline.py`, `enrich.py`, `normalise_join_key.py` — main pipeline, fragile
 - `data/` — generated data, read-only
 - Any other page file
@@ -185,7 +187,7 @@ mart pending, colour rules.
 
 ## Step 3 — Review
 
-```
+```text
 /civic-ui-review member_overview
 
 Additional checks specific to this page:
@@ -207,7 +209,7 @@ Additional checks specific to this page:
 Each tab must feel like an evidence panel, not a dataframe dump.
 Run this if any tab is missing a headline stat, empty state, or visual affordance:
 
-```
+```text
 /streamlit-frontend member_overview
 
 The Stage 2 domain tabs are too sparse. For each tab add:
@@ -232,6 +234,7 @@ The Stage 2 domain tabs are too sparse. For each tab add:
 Two outstanding items block full Stage 1 and the Legislation tab.
 
 **Architecture rule before starting:**
+
 - SQL analytical views → create directly in `sql_views/` (cheap, serves frontend, no pipeline risk)
 - Any new Python/Polars enrichment (joins, normalisation, flag computation) → `pipeline_sandbox/` only
 - Never touch `pipeline.py`, `enrich.py`, or `normalise_join_key.py`
@@ -240,7 +243,7 @@ Two outstanding items block full Stage 1 and the Legislation tab.
 
 This requires joining 5 per-domain views on `join_key` — Python/Polars work needed first.
 
-```
+```text
 /pipeline-view v_member_overview_browse
 
 Enrichment approach:
@@ -257,7 +260,7 @@ Columns needed: member_name, join_key, party, constituency, government_status,
 
 If the source data already has the sponsor join_key, this is SQL only.
 
-```
+```text
 /pipeline-view v_legislation_index — add sponsor_join_key column
 
 If sponsor data exists in the source Parquet:

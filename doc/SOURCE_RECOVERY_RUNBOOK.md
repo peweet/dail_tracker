@@ -48,7 +48,7 @@ can read directly:
 
 ## 1. Triage — classify the failure in 60 seconds
 
-```
+```text
 Is the source reachable at all? ───────────────► NO  → §2  Unreachable / link-rot
         │ yes
 Did a harvest come back tiny/empty? (RowFloorViolation, EMPTIED) ─► YES → §3  Truncated harvest

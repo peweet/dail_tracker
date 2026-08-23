@@ -325,6 +325,7 @@ The pipeline produces Parquet files that the app reads. Today those are produced
 **Recommendation when you get here:** start with (1) on a `data` branch (so `main` history stays clean) or (2) once parquets get large.
 
 **Prerequisites before this is worth building:**
+
 - Pipeline must run end-to-end on a fresh machine (no manual intervention, no machine-local config).
 - Lobbying CSV ingestion needs the automated path from `project_lobbying_automation.md` to land first.
 - Tests for parquet schema contracts (Phase 2b) become *required*, not optional — broken outputs would silently break the deploy.

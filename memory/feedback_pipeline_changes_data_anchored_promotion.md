@@ -20,6 +20,7 @@ fast, bundled into a rapid sequence, without a deliberate validated promotion st
 me revert the pipeline change.
 
 **How to apply — before touching pipeline code:**
+
 1. ANCHOR IN DATA FIRST. Prove the change against the actual rows in a sandbox probe — counts,
    tier split (never sum payment_actual + po_committed), year span (cumulative ≠ a figure),
    null/aggregate/outlier rows, double-count across publishers. State numbers honestly with their

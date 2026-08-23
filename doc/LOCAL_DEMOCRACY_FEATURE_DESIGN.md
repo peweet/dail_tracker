@@ -93,11 +93,13 @@ The statutory list is **Schedule 14A** (inserted by LGRA 2014 Sch. 3): **182 res
 That taxonomy is the most valuable thing in the feature and it is **sourced, not inferred**.
 
 ### 4b. What they CANNOT decide
+
 Every individual planning permission · all staff and HR (**s.159**) · all procurement and contracts · every individual housing allocation · enforcement · day-to-day spending. By operation of **s.149(4)**.
 
 ### 4c. The levers — the horizontal tension, with receipts
 
 **Chief Executive → councillors**
+
 - **Writes the budget they "adopt"** (s.102(3) — prepared *"under the direction of the chief executive"*); must only *"take account of"* the district budgetary plans.
 - **Writes the report on the plan and on every public submission** — members may depart from it, but only against the expert record.
 - **s.183 and Part 8 default to "yes"** — he needs members to do *nothing*.
@@ -105,6 +107,7 @@ Every individual planning permission · all staff and HR (**s.159**) · all proc
 - **Outlasts them** — 7 years (extendable to 10) against a Cathaoirleach's 1.
 
 **Councillors → Chief Executive**
+
 - **s.140** — require him to do a specific act (notice signed by 2 members; **⅓ of total membership** to carry). **But s.140(10)(e), inserted by LGRA 2014 s.52(d) with effect from 1 June 2014, excludes ALL planning functions** — which is the only thing it was ever really used for.
 - **s.136 monthly management report** — the 2014 quid pro quo. **The bargain was: you lose the power to command; you gain the right to be told.**
 - **Remove him — s.146:** notice signed by ⅓ of members; **¾ of the TOTAL membership** must vote in favour; **and the Minister must sanction it**.
@@ -112,15 +115,18 @@ Every individual planning permission · all staff and HR (**s.159**) · all proc
   ⚠️ **Two errors in circulation — do not repeat:** that CE removal needs *two-thirds* (**it is three-quarters + Ministerial sanction** — the Council of Europe report itself gets this wrong at para 28), and that PDA 2024 cut material contravention to two-thirds (**it remains three-quarters of total membership**, PDA 2024 s.99).
 
 ### 4d. The trapdoor — the budget
+
 The budget is their biggest formal power, and **exercising it against the executive can get them abolished**: failure to adopt → **Part 21 (ss.216–220)** → the Minister may remove the members and appoint a **commissioner**, whose salary the council pays.
 ⭐ **Cork City Council, Nov 2014** — councillors failed to adopt the budget; abolition and a commissioner were openly on the table; they passed it **17–12** on the second attempt, one member urging colleagues back *"from the brink."*
 
 > **A power you cannot exercise without destroying yourself is not a power. It is a hostage arrangement.** That sentence is the thesis of the piece.
 
 ### 4e. The government above
+
 The OPR/Ministerial Direction chain (**built** — 33 plans, 20 councils, incl. the 2 cases where the **Minister declined** to overrule). Plus the continuing erosion, all documented: development plans extended **6 → 10 years** (a councillor can now serve a full term and never vote on one); the **Land Development Agency** carve-out from s.183 (council land transferring without members' approval — *secondary sources only, verify before use*).
 
 ### 4f. The honest history — why this happened
+
 Not "power was stolen." **Power was forfeited.** The **s.4 motion** (1955 Act) let councillors order the manager to grant planning permission. The **Mahon Tribunal** found a generation of them had sold the zoning of Dublin. The 2014 reform removed the planning power — and *Putting People First* says so in the government's own words. The OPR itself exists because of Mahon. **The regulator that overrules councillors on rezoning was created because councillors were corrupt about rezoning.** Both halves of that sentence must survive into the copy.
 
 ---
@@ -149,9 +155,11 @@ The register isn't an explainer if we can show **which powers each council actua
 Two artifacts. **They must not be merged** — one is national and editorial, one is per-council and factual.
 
 ### A. A national explainer — *"How much power does your council actually have?"*
+
 One page, identical for everyone. Carries the Council of Europe findings, the three-actor model, the s.4→Mahon→2014→OPR history, and the *"hostage arrangement"* thesis. This is where the **un-countable** material lives honestly (Cork City 2014, Louth 2007, the commissioner history) — as sourced narrative, not fake metrics.
 
 ### B. A per-council **Powers Register** — *"What your councillors can decide"*
+
 Slots into the existing **Your Council** page, after the power statement. For each reserved function:
 
 > **the function** (statute's own words) · **its provision** · **who exercises it** (your municipal district / the full council) · **its real character** (power / veto / rubber-stamp) · **can it be overridden, and by whom** · **has this council used it** (from our data, honestly caveated)
@@ -171,6 +179,7 @@ The already-built **OPR Directions card** then sits underneath it as §4e — th
 5. **The 8% / 23.3% stat** is the strongest thing we have. Comfortable leading the national explainer with a Council of Europe finding?
 
 ## 8. Do NOT
+
 - Merge the three override relationships into one number (regulator↔councillors ≠ board↔planners ≠ bypass). Never-blend, same as the money grains.
 - Print "no CE has ever been removed" (unverified), "two-thirds" for CE removal or material contravention (both wrong), or the LDA s.183 carve-out without reading the LDA Act itself.
 - Present the OPR as a villain. It exists because of Mahon, and much of what it strikes is zoning in flood zones.

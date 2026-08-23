@@ -27,6 +27,7 @@ selected_year = int(selected_year_str) if selected_year_str else int(year_option
 ```
 
 **Rules:**
+
 - Years must be ordered newest first: 2026, 2025, 2024, 2023 …
 - Default to the most recent year — do not default to "All years"
 - Place in the **main content area**, not the sidebar
@@ -42,7 +43,7 @@ should not be the first thing seen. This approach was validated on the Attendanc
 
 When a page has both member search and notable member shortcuts in the sidebar, the order is always:
 
-```
+```text
 1. Text search input  (placeholder "e.g. Name", label_visibility="collapsed")
 2. Browse all members selectbox  (filtered by search text, label_visibility="collapsed")
 3. st.divider()
@@ -85,12 +86,14 @@ for i, name in enumerate(_NOTABLE_TDS):
 Many pages show a list of members and allow drilling into one member's record.
 
 **Stage 1 — Primary / browse view:**
+
 - Year pills (if applicable) → member list (always full, unfiltered)
 - Member navigation via sidebar search + selectbox or notable member chips
 - Clean, minimal, no charts between year pills and the ranked list
 - Clicking a row navigates to Stage 2
 
 **Stage 2 — Secondary / profile view:**
+
 - Back button at the **top of the main content area** — not only in the sidebar
 - Member identity strip: name, party, constituency
 - Summary stats for selected year (or all time)
@@ -107,6 +110,7 @@ if st.button("← Back to all members", key="<page>_back"):
 ```
 
 **Navigation triggers for Stage 1 → Stage 2:**
+
 - Row click on the member table (`on_select="rerun"`, `selection_mode="single-row"`)
 - Sidebar selectbox
 - Sidebar notable-member chips
@@ -118,10 +122,12 @@ if st.button("← Back to all members", key="<page>_back"):
 If a column is ISO date formatted like `2015-01-01`, treat it as event-date data.
 
 Preferred controls:
+
 - `st.date_input` date range
 - left-to-right timeline when showing change over time
 
 Avoid:
+
 - radio buttons for individual dates
 - long dropdowns of dates
 - sorting timelines by value when the purpose is chronological evolution
@@ -135,6 +141,7 @@ If the data is yearly, treat it as reporting-year data.
 Preferred control: **year pills** (see above). Use `st.pills` horizontal.
 
 Rules:
+
 - Newest year first
 - Default to most recent year
 - Oldest-to-newest left to right in charts (time flows left to right)
@@ -178,6 +185,7 @@ _YEAR_SOURCE_NOTE = (
 Use `TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL` until the pipeline exposes it.
 
 **Rules:**
+
 - One expander, not two ("About" and "Data provenance" must be merged)
 - Always collapsed by default
 - Always at the bottom of the page or profile view
@@ -189,6 +197,7 @@ Use `TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL` until the pipeline ex
 ## CSV export
 
 CSV export should export the current displayed view:
+
 - active filters
 - date/year scope
 - visible table rows
@@ -204,6 +213,7 @@ dataframe is empty.
 ## Member drilldown
 
 Many pages should allow a user to focus on one member:
+
 - row selection
 - member search
 - member identity strip
@@ -225,6 +235,7 @@ Use when showing individual dated records (attendance days, votes, events) for o
 across a calendar year. Clearer than a heatmap for sparse event data.
 
 **Key decisions:**
+
 - Gray background band spanning the full domain so recess gaps read as empty space, not
   missing data
 - Green `mark_tick` on top — tall and thick enough to be legible (`size=72, thickness=6`)
@@ -247,12 +258,14 @@ See `CHART_AND_TABLE_STYLE_GUIDE.md` for the full Altair code pattern.
 Use this pattern when the primary user question is about extremes — who is at the top, who is at the bottom — rather than browsing all members. Validated on the Attendance page.
 
 **When to use:**
+
 - Page question has a natural good / bad polarity (attendance, expenses, compliance)
 - Data for the selected year is complete enough for a meaningful ranking (see partial-year caveat below)
 - The ranked set is small enough for cards (top 3 / bottom 3 per side)
 
 **Structure:**
-```
+
+```text
 year pills (newest first)
 ────────────────────────────
 [HALL OF FAME col]   [HALL OF SHAME col]
@@ -269,12 +282,14 @@ about & provenance expander (collapsed, if contract requires it)
 ```
 
 **Medal convention:**
+
 ```python
 _GOOD_MEDALS = ["🥇", "🥈", "🥉"]   # top performers
 _BAD_MEDALS  = ["💀", "👻", "😴"]   # lowest performers
 ```
 
 **Rendering — single HTML block per side:**
+
 ```python
 html = "".join(_hall_card(row, medal, "good") for row, medal in zip(top_rows, _GOOD_MEDALS))
 st.html(html)   # st.html — never st.markdown(..., unsafe_allow_html=True)
@@ -283,6 +298,7 @@ st.html(html)   # st.html — never st.markdown(..., unsafe_allow_html=True)
 Never call `st.html` once per card — Streamlit's inter-element padding breaks the visual grouping.
 
 **Tie-breaking sort** (prevents the same person appearing on both sides when many members share the same count):
+
 ```python
 top3 = df.sort_values(["rank_high", "attended_count"], ascending=[True, False]).head(3)
 bot3 = df.sort_values(["rank_low",  "attended_count"], ascending=[True, True ]).head(3)
@@ -302,6 +318,7 @@ for col, (_, row), key in zip(btn_cols, all_rows, keys, strict=False):
 
 **Partial / in-progress year:**
 When the current year is incomplete (same day count across most members), the good/bad split is misleading. Detect and fall back:
+
 ```python
 import datetime
 if year >= datetime.date.today().year:
@@ -312,6 +329,7 @@ else:
 ```
 
 **Back button rule:** The "← Back to all members" button must be at the top of the main content area in the secondary/profile view, not only in the sidebar. Clear the selection key with:
+
 ```python
 if st.button("← Back to all members", key="att_back"):
     st.session_state.pop("att_member_sel", None)
@@ -327,12 +345,14 @@ Use `st.session_state.pop("key", None)` — do not assign directly after a widge
 Use this pattern when the primary view is a ranked list of members (not a flat browse table).
 
 **When to use:**
+
 - The user question is "who has the most X?" (declarations, payments, lobbying contacts)
 - One aggregated row per member fits on screen without overwhelming the user
 - The ranked set is 10–50 members (for larger sets, use a sortable `st.dataframe` instead)
 
 **Card structure per member:**
-```
+
+```text
 [rank #]  Name                              [→]
           Party · Constituency
           [pill: 42 declarations] [pill: landlord]
@@ -356,6 +376,7 @@ for i, (_, row) in enumerate(df.iterrows()):
 The card outer div must be `display: inline-flex; width: fit-content`. Without the `:has()` CSS rule below, the card shrinks but the Streamlit column row still spans full page width, stranding the `→` button at the far right.
 
 **Required CSS in `shared_css.py` (once per unique card class):**
+
 ```css
 [data-testid="stHorizontalBlock"]:has(.my-card-class) {
     width: fit-content !important; max-width: 100% !important; gap: 0.4rem !important;
@@ -375,6 +396,7 @@ Do not use `st.columns([11, 1])` or `st.columns([7, 1, 2])` for card+button rows
 ## Government source links
 
 Official source links are evidence. Render them clearly:
+
 - "Official PDF"
 - "Oireachtas record"
 - "Source document"

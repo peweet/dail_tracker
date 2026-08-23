@@ -77,6 +77,7 @@ Ordered by urgency. Items 1–3 are needed before you accept any contribution or
 quote any customer; 4–7 can follow.
 
 ### 3.1 — Fill in the placeholders (5 minutes)
+
 Every template uses `{{DOUBLE_BRACE}}` tokens for things only you can supply.
 Find them all:
 
@@ -103,6 +104,7 @@ foreach ($f in $files) {
 ```
 
 Placeholder reference:
+
 - `{{DOMAIN}}` — the registered domain (you said it's ready to go).
 - `{{LICENSING_EMAIL}}` — the inbox for commercial enquiries (e.g. `licensing@…`).
 - `{{LICENSOR_ADDRESS}}` — postal address for contractual notices.
@@ -111,14 +113,18 @@ Placeholder reference:
   copyright to the company (a one-line IP-assignment your solicitor can do).
 
 ### 3.2 — Engage a solicitor (the one thing you can't DIY)
+
 Have an **Irish software-IP solicitor** review, before first use:
+
 - [`legal/COMMERCIAL_LICENCE_AGREEMENT_TEMPLATE.md`](../legal/COMMERCIAL_LICENCE_AGREEMENT_TEMPLATE.md) — the contract you'll actually sign with customers. Key clauses to confirm: royalty/fee mechanics, liability cap, the data-exclusion clause, audit rights, governing law (Ireland).
 - [`CLA.md`](../CLA.md) — confirm the relicensing grant is enforceable and that the inbound grant is broad enough to support commercial relicensing.
 This is a one-time cost producing reusable templates; budget a few hours of their time.
 
 ### 3.3 — Turn on CLA enforcement before merging any external PR
+
 Until a contributor has signed the CLA, **do not merge their code** — it
 poisons your ability to dual-licence.
+
 - **Already scaffolded:** [`.github/workflows/cla.yml`](../.github/workflows/cla.yml)
   (CLA Assistant Lite). It activates automatically once merged to `main` — no
   GitHub app install or secret needed (same-repo storage uses the built-in
@@ -130,17 +136,20 @@ poisons your ability to dual-licence.
   relicensing grant is what matters.
 
 ### 3.4 — Decide the pricing / royalty model
+
 The agreement template ships with three interchangeable fee structures (annual
 subscription, revenue-share royalty, per-deployment). Pick a default and a
 rough number. Guidance in [`COMMERCIAL-LICENSE.md`](../COMMERCIAL-LICENSE.md) §"Pricing".
 You can decide this last — you don't need it to publish the open-source side.
 
 ### 3.5 — Wire up the domain
+
 - Create the `{{LICENSING_EMAIL}}` mailbox.
 - Publish [`legal/website_licensing_page.md`](../legal/website_licensing_page.md) at `https://{{DOMAIN}}/licensing`.
 - Point `README.MD` and `COMMERCIAL-LICENSE.md` enquiry links at it (already templated).
 
 ### 3.6 — File the trademark
+
 - **Turnkey runbook:** [`legal/TRADEMARK_FILING_CHECKLIST.md`](../legal/TRADEMARK_FILING_CHECKLIST.md)
   — scope decision, Nice classes (9 + 42 core), pre-filing clearance search,
   IPOI filing steps, and the post-filing timeline, as a tick-box list.
@@ -151,12 +160,14 @@ You can decide this last — you don't need it to publish the open-source side.
 - See [`legal/TRADEMARK_POLICY.md`](../legal/TRADEMARK_POLICY.md) for the usage policy that backs the mark.
 
 ### 3.7 — Copyright registration (low priority)
+
 Copyright is **automatic** in Ireland/EU — no registration needed or available
 for enforceability. If you ever expect **US** infringement litigation, US
 Copyright Office registration adds statutory-damages eligibility there. Not
 urgent; note and move on.
 
 ### 3.8 — Optional: SPDX headers in source files
+
 Per-file licence headers make provenance unambiguous and help automated
 licence scanners. **Not done automatically** (it's a large, noisy diff across
 hundreds of files and is better reviewed deliberately). When you want it, the
@@ -195,7 +206,7 @@ trees) can be added on request; keep it a separate, reviewable commit.
 
 ## 5. Sequencing (suggested)
 
-```
+```text
 Now (autonomous)         3.1 fill placeholders ──► 3.5 wire domain ──► publish open-source side as-is
 Before 1st contributor   3.3 CLA enforcement on
 Before 1st customer      3.2 solicitor review ──► 3.4 pricing decided

@@ -11,7 +11,7 @@ Structure and navigation for apps with multiple pages.
 
 ## Directory structure
 
-```
+```text
 streamlit_app.py          # Main entry point
 app_pages/
     home.py
@@ -118,6 +118,7 @@ st.session_state.settings = load_settings()
 **Tip:** Use `st.session_state.setdefault("key", default_value)` to initialize values only if they don't exist.
 
 **Why main module (for global state):**
+
 - Runs before every page
 - Ensures state is initialized
 - Single source of truth
@@ -192,6 +193,7 @@ page.run()
 ```
 
 Common conditions for showing/hiding pages:
+
 - `st.user.is_logged_in` for authenticated users
 - `st.session_state` flags (roles, permissions, feature flags)
 - Environment variables or secrets

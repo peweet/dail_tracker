@@ -27,8 +27,6 @@ Shared patterns:
 csv_export, government_source_links
 ```
 
-
-
 ## Files Claude may modify
 
 - `utility/pages_code/home_overview.py`

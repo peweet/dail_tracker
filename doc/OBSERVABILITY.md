@@ -27,11 +27,13 @@ so local runs keep rotated text files under `logs/` exactly as before.
 ## Three consumers, one shape
 
 ### 1. API request logging
+
 `api/main.py` — a middleware binds a request id (reusing an inbound `X-Request-ID`), logs one
 line per request with method/path/status/`duration_ms`, and surfaces unhandled exceptions and
 `SourceUnavailable` outages. Slow requests (>1 s) log at WARNING.
 
 ### 2. Pipeline tracing
+
 `pipeline.py::_run_chain` emits one `pipeline_step` event per chain — step, ordinal, status,
 `exit_code`, `duration_ms` — carrying the run's `run_id`. Cloud-only: a local run already has
 the per-step files under `logs/runs/<run_id>/steps/`, so tracing there would be the "useless

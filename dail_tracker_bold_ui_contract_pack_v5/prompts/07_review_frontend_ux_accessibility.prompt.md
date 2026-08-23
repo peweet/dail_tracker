@@ -44,6 +44,7 @@ at the bottom of the page.
 - Only approved_url_columns from the contract are used
 
 Result contract:
+
 - `Verdict: PASS | FAIL` (`PASS` requires no blocker or major finding)
 - each issue with `Severity: blocker | major | minor`, `Evidence: path:line` or screenshot,
   user consequence, and smallest required action

@@ -27,8 +27,6 @@ Shared patterns:
 member_drilldown, csv_export, government_source_links
 ```
 
-
-
 ## Files Claude may modify
 
 - `utility/pages_code/committees.py`

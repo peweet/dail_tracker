@@ -10,6 +10,7 @@ sources in memory: `reference_verification_calibration_literature_2026_07_31`,
 ## The report an extraction must ship (section markers R12 checks)
 
 ### `## Completeness`
+
 Correctness gates (clean/quarantine) say what you captured is good; they say nothing about
 what you MISSED. State the expected universe (the denominator) and where it comes from:
 meeting cadence × councils × years, a register's published row count, a sitemap, an index
@@ -17,6 +18,7 @@ page. If the denominator is assumed rather than checked, band it `[Indicative]` 
 "Docs harvested" alone is not completeness.
 
 ### `## Recall`
+
 A rule/regex classifier has unknown recall until measured. Either report measured per-class
 precision AND recall against a labeled set (accuracy alone hides rare-class failure), or
 write "recall unmeasured" explicitly. Proving a class is absent from a doc needs a BROAD
@@ -24,6 +26,7 @@ search (looser nets, synonyms, section-number-free phrasings), not the absence o
 pattern hit.
 
 ## Labeling protocol (when building the golden set)
+
 - **P(True) phrasing**: verifier prompts ask "is this specific item an X — true?" per item,
   never "rate your confidence in these labels" (Kadavath 2022 — calibration holds in that
   format only).
@@ -37,8 +40,10 @@ pattern hit.
   and says its sample size (evidence.md).
 
 ## When a model tier earns its place (measured across two domains, 2026-08-01)
+
 Rules stay tier 1 always — they are provenance-clean and precise by construction. Add a
 model tier ONLY when both hold:
+
 - **Labeled volume**: tens of thousands of rule-labeled rows to train on (diaries: 90k →
   93% top-of-queue precision; minutes: hundreds/class → 0–50% on confounded classes).
 - **Miss shape is noise-variants, not vocabulary-confounds**: OCR mangling ("Government
@@ -54,6 +59,7 @@ guarded so its absence degrades to rules-only. Worked example:
 invariants test.
 
 ## Mechanics (existing repo rules, restated for one-stop reading)
+
 - Quarantine with a reason code, never drop silently; re-triage buckets when tooling
   improves (winocr recovered 74/91 docs the day it landed).
 - Declare every new dependency in pyproject the day it is first imported — `uv sync` prunes

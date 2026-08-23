@@ -3,6 +3,7 @@ Apply shared behaviours to page `<PAGE_ID>`.
 Only apply behaviours declared in `uses_patterns`.
 
 Supported:
+
 - ISO dates -> date-range controls
 - reporting years -> year controls
 - timelines -> left-to-right chronological

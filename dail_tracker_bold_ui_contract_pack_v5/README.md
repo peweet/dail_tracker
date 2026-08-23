@@ -7,6 +7,7 @@ The central correction in this version:
 > Streamlit is a thin **data-semantics** layer, not a thin **user-experience** layer.
 
 That means:
+
 - The pipeline and in-process DuckDB registered analytical views own modelling, joins, rollups, metrics, flags, fuzzy matching, and raw Parquet access.
 - Streamlit owns layout, interaction, charts over already-shaped data, tables, filter controls, source links, member drilldowns, CSV export, and strong visual hierarchy.
 

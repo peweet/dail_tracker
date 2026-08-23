@@ -183,7 +183,7 @@ can run directly. Per-chain logs land at `logs/runs/<run_id>/steps/`; a manifest
 records each chain; chain-level try/except keeps one flaky source from poisoning
 the rest, and the end-of-run summary lists which chains failed.
 
-#### Running a refresh yourself (Windows)
+### Running a refresh yourself (Windows)
 
 ```powershell
 .venv\Scripts\python.exe pipeline.py            # full refresh (~30 sources, runs a while)

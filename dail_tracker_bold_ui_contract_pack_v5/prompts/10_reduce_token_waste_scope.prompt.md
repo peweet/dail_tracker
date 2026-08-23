@@ -1,6 +1,7 @@
 Reduce context scope for current task.
 
 Return:
+
 1. files already read that are irrelevant
 2. files still needed
 3. files that should not be read

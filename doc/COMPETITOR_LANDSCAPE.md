@@ -11,11 +11,13 @@ externally.
 ## Headline finding
 
 No product found — UK, Irish, or EU — combines **procurement + lobbying + votes + interests
-+ planning** as a live, queryable, per-record cross-register join. Each lane has a strong
+
+- planning** as a live, queryable, per-record cross-register join. Each lane has a strong
 incumbent; the *integration* is the gap. [Indicative — absence after ~8 search rounds is not
 proof; no counter-example surfaced across 40 sources.]
 
 The closest structural peers each join 2–3 registers around ONE theme:
+
 - **Digiwhist / opentender.eu** — procurement × company ownership × politician asset
   declarations, for conflict-of-interest scoring. Pan-EU incl. Ireland (153,777 tenders /
   43,223 awards, to Dec 2024). No lobbying, no votes. [Reported — live-UI join unverified,
@@ -35,6 +37,7 @@ interest in X" as a live flag.** That specific gap is the differentiator to prot
 ## By category
 
 ### Procurement / spend intelligence
+
 | Tool | Country | Data | Model | Verdict vs us |
 |---|---|---|---|---|
 | Tussell | UK | tenders + **invoice-grain spend, kept separate from award value** + 80k contacts | paid sub, 3 tiers | PARTIAL — same never-sum grain discipline; supplier-facing |
@@ -50,6 +53,7 @@ interest in X" as a live flag.** That specific gap is the differentiator to prot
 | TheyBuyForYou | EU | procurement knowledge graph | **defunct 2020** | DEAD |
 
 ### Planning / land / property
+
 | Tool | Country | Data | Model | Verdict |
 |---|---|---|---|---|
 | **PlanningAlerts.ie** | IE | LA applications + **ABP appeals** + decisions/FI/commencement | free / €1.99mo / biz | **CLOSEST IRISH COMPARABLE** — alert-first, not analytical |
@@ -64,6 +68,7 @@ interest in X" as a live flag.** That specific gap is the differentiator to prot
 | PlanWatch/Plottr/MB Planning Alerts | UK | apps + objection-letter tools | 99p–£30/mo | commercial micro-SaaS; validates resident demand |
 
 ### Votes / interests / parliament
+
 | Tool | Country | Join? | Note |
 |---|---|---|---|
 | TheyWorkForYou (mySociety) | UK×4 | per-person tabs, NOT queryable join | interests page won't link votes |
@@ -76,6 +81,7 @@ interest in X" as a live flag.** That specific gap is the differentiator to prot
 | Democracy Club | UK | candidates + polling stations | elections logistics only |
 
 ### Lobbying / ownership / integrity
+
 | Tool | Join? | Note |
 |---|---|---|
 | **EU Integrity Watch** (TI-EU) | EC meetings × Transparency Register (live); revolving-door × register (investigative) | MEP meetings CAN'T join (EP data quality); Red Flags procurement is a SEPARATE unjoined tool |

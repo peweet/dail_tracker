@@ -5,6 +5,7 @@
 Charts must answer a user question.
 
 Good:
+
 - attendance over time
 - yearly payment change
 - vote result breakdown
@@ -12,6 +13,7 @@ Good:
 - lobbying contacts by period
 
 Bad:
+
 - decorative charts
 - pie charts with too many categories
 - random gradients
@@ -27,11 +29,13 @@ Bad:
 ## Ranking cards vs tables
 
 Use **ranking cards** (HTML rendered via `st.markdown`) instead of a `st.dataframe` when:
+
 - The primary question is about extremes (top / bottom N)
 - Each record carries a strong identity element (name + medal + hero statistic)
 - The rendered set is intentionally small (≤ 15 cards per side)
 
 Use **`st.dataframe`** when:
+
 - The user needs to browse or sort a full list (> 15 rows)
 - The question is "find member X" rather than "who is top/bottom?"
 - The partial-year fallback is active (all members at the same count — cards add no value)
@@ -45,6 +49,7 @@ Use **`st.dataframe`** when:
 Tables are evidence.
 
 Use:
+
 - clear column labels
 - type-aware column config
 - compact but readable density
@@ -53,6 +58,7 @@ Use:
 - current-view CSV export
 
 Avoid:
+
 - raw snake_case labels
 - unreadable long text columns without configuration
 - hidden source/provenance
@@ -116,6 +122,7 @@ chart = alt.layer(background, ticks).properties(height=100).configure_view(strok
 ```
 
 **Rules:**
+
 - Always layer a gray background rect first so the green ticks pop and gaps are visible
 - Smart domain clipping: current/future year clips right edge to `today.isoformat()`; past
   years use `{year}-12-31` so the full calendar is shown and recess gaps are informative

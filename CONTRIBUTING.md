@@ -33,15 +33,19 @@ with:
 
 - Set up the CI-equivalent dev environment: `uv sync --locked --extra pipeline --extra api --extra mcp --group dev`.
 - Run focused checks while working, then the deterministic local gates before pushing:
+
   ```bash
   uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify
   uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py check
   ```
+
 - Periodically audit the high-consequence data-contract assertions with the opt-in
   mutation pilot (it is intentionally not part of `check`):
+
   ```bash
   uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py mutation-data-contracts
   ```
+
   The resumable session is stored under `.cosmic-ray/`. Use `--fresh` to replace
   that generated session or `--prepare-only` to initialize and baseline without
   executing the mutations. Add `--show-survivors` for Cosmic Ray's detailed
@@ -57,4 +61,4 @@ with:
 
 ## Questions
 
-Open an issue, or for licensing/commercial questions email **p.glynn18@gmail.com**.
+Open an issue, or for licensing/commercial questions email **<p.glynn18@gmail.com>**.

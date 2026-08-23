@@ -25,24 +25,29 @@ Run everything from the repo root (the tools resolve paths relative to it):
 ## The outputs (kept in their required homes — see below)
 
 **Docs** — in `doc/` so `build_doc_index.py` indexes them:
+
 - [FRAMEWORK_DECOUPLING_PLAN.md](../../doc/FRAMEWORK_DECOUPLING_PLAN.md) — the decoupling plan + all five ratchets + CORS/auth readiness
 - [URL_CONTRACT.md](../../doc/URL_CONTRACT.md) · [CLASS_CONTRACT.md](../../doc/CLASS_CONTRACT.md) — the two frozen contracts
 - [CLOUD_READINESS.md](../../doc/CLOUD_READINESS.md) — WAF exposure + runtime blockers
 - [SOURCE_CADENCE_PROCEDURE.md](../../doc/SOURCE_CADENCE_PROCEDURE.md) — the registry map + new-source procedure
 
 **Runtime contract** — shipped with the UI package for any frontend or installed-wheel smoke:
+
 - [frontend_contract.json](../../utility/static/frontend_contract.json) — deterministic routes, parameters, classes, and CSS hashes
 
 **Data** — in `data/_meta/` so the `.gitignore` negation keeps it tracked:
+
 - [source_cadence.csv](../../data/_meta/source_cadence.csv) — the public source-registry cadence ledger
 
 **Baselines** — in `tools/baselines/` (the ratchet baseline convention):
+
 - `api_parity_baseline.txt` · `unstyled_classes_baseline.txt` · `markup_inline_baseline.json`
 
 ## Why the outputs did NOT move into this directory
 
 Physical co-location stops at the scripts on purpose. Three machineries depend on the
 other files staying where they are:
+
 - `build_doc_index.py` scans `doc/` — docs moved here would drop out of the doc map.
 - `data/_meta/source_cadence.csv` is git-tracked only via a `!data/_meta/` negation in
   `.gitignore`; elsewhere it becomes untracked and the cadence tools lose their input.

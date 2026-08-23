@@ -9,6 +9,7 @@ data_access:
 ```
 
 Include:
+
 - approved registered views
 - retrieval SQL policy
 - temporal mode

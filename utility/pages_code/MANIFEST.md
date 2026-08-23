@@ -23,7 +23,7 @@ costs more than most tasks are worth.** Use the size column below, then:
 
 A domain `X` has the *same file stem* in each layer, and you walk it **right-to-left**:
 
-```
+```text
 sql_views/<domain>/X_*.sql   →  dail_tracker_core/queries/X.py  →  utility/data_access/X_data.py  →  utility/pages_code/X.py
    (SQL: all joins/aggregation)      (Streamlit-free retrieval)        (thin cache adapter)      (render ONLY)
 ```

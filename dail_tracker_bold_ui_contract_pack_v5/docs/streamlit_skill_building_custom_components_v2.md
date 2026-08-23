@@ -14,11 +14,13 @@ Use Streamlit Custom Components v2 (CCv2) when core Streamlit doesn't have the U
 Custom Components **v1 is deprecated and removed**. Every API below belongs to v1 and must **NEVER** appear in any code you write:
 
 **Banned Python APIs (v1):**
+
 - `st.components.v1` — the entire v1 module
 - `components.declare_component()` — v1 registration
 - `components.html()` — v1 raw HTML embed
 
 **Banned JavaScript patterns (v1):**
+
 - `Streamlit.setComponentValue(...)` — use `setStateValue()` / `setTriggerValue()` instead
 - `Streamlit.setFrameHeight(...)` — CCv2 handles sizing automatically
 - `Streamlit.setComponentReady()` — CCv2 has no ready signal
@@ -26,11 +28,13 @@ Custom Components **v1 is deprecated and removed**. Every API below belongs to v
 - `window.parent.postMessage(...)` — CCv2 does not use iframes
 
 **Banned npm packages (v1):**
+
 - `streamlit-component-lib` — use `@streamlit/component-v2-lib` if you need types
 
 ## When to use
 
 Activate when the user mentions any of:
+
 - CCv2, Custom Components v2, "bidi component", "component v2"
 - `st.components.v2.component`
 - `@streamlit/component-v2-lib`
@@ -125,6 +129,7 @@ st.write("submitted (trigger):", result.submitted)
 ```
 
 Notes:
+
 - **Inline JS/CSS should be multi-line**. CCv2 treats path-like strings as file references.
 - Prefer querying under `parentElement` (not `document`) to avoid cross-instance leakage.
 
@@ -153,6 +158,7 @@ Notes:
 Graduate to packaged when you need multiple frontend files, npm dependencies, a bundler, tests, CI, versioning, or distribution.
 
 Guardrails:
+
 - **MUST** start from Streamlit's official `component-template` v2.
 - **NEVER** hand-scaffold packaging/manifest/build wiring.
 - **NEVER** copy scaffold structure from internet examples or blog posts.

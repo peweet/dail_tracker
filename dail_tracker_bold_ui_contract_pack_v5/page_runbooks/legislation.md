@@ -27,8 +27,6 @@ Shared patterns:
 date_range_filter, timeline, csv_export, government_source_links
 ```
 
-
-
 ## Files Claude may modify
 
 - `utility/pages_code/legislation.py`

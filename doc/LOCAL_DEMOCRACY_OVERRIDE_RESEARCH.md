@@ -38,13 +38,17 @@ key: CONTEXT|LIVE|local-gov
 ## 2. The ladder of override (each rung verified)
 
 ### Rung 0 — the structural asymmetry that makes all the rest possible
+
 **LGA 2001 s.149(4):** *"Every function of a local authority which is not a reserved function is … an executive function."* Councillors get a list; the Chief Executive gets **the residue**. This residual clause is the root of the whole story.
 
 ### Rung 1 — most planning was never theirs
+
 Deciding an individual planning application is an **executive** function (the CE/planners), not a councillor vote. Councillors set the plan; they do not grant permissions.
+
 - **The one reverse lever:** *material contravention*, **PDA 2000 s.34(6)** — where officials want to grant something that breaks the adopted plan, councillors must vote it through, and it takes **three-quarters of the *total* membership** (not of those present). Note it is a *pro-development* override, and the resulting permission is still appealable.
 
 ### Rung 2 — the OPR → Ministerial Direction chain (the mechanism the owner found)
+
 Created by **Planning and Development (Amendment) Act 2018, Part 2**; operational **April 2019**; a direct recommendation of the **Mahon Tribunal**.
 
 | Step | Section (PDA 2000 as amended) | What happens |
@@ -58,6 +62,7 @@ Created by **Planning and Development (Amendment) Act 2018, Part 2**; operationa
 | 7 | s.31(17) / s.31AN(11) | Final Direction has **immediate effect**, is **"deemed to be incorporated into the plan"**, and the councillors' offending provisions are **"deemed not to be included"** |
 
 Two facts that make this vivid and are **verified**:
+
 - At the draft-Direction consultation stage, **"the OPR only receives submissions from elected members"** — the public is not consulted on the reversal of a public vote.
 - **There is no appeal.** The only remedy is judicial review, on process.
 - In practice the Direction is signed by a **Minister of State**, not the Cabinet Minister (Burke, O'Donnell, Dillon, Cummins across the cases below).
@@ -77,18 +82,22 @@ Two facts that make this vivid and are **verified**:
 **The countable headline (PQ, 25 Oct 2022):** since April 2019 the OPR assessed **22** city/county development plans to adoption; **14** drew a s.31AM(8) notice; **all 14** draft Directions issued; final Directions recommended on **9**, issued on **6** at that date. *(Rated HIGH-not-certain — corroborated twice via search, direct source fetch timed out. Verify before printing.)*
 
 ### Rung 3 — SPPRs: override without any Direction at all
+
 Ministerial guidelines under **s.28** may contain **Specific Planning Policy Requirements (SPPRs)** with which planning authorities **"shall comply."** Where an SPPR conflicts with the development plan, **the SPPR wins and the plan must be amended**. The plan must also be consistent with the **Regional Spatial & Economic Strategy**, which must be consistent with the **National Planning Framework** — and inconsistency is itself a ground for a s.31 Direction. So central policy can bind straight through the councillors' plan without anyone issuing a Direction.
 
 ### Rung 4 — the full bypass: the council isn't even in the room
+
 - **Strategic Housing Developments (2016 Act, ran 2017–2021):** schemes of **100+ homes** applied **directly to An Bord Pleanála**, bypassing the council entirely — no official decision, no councillor input, and **no right of appeal** (only judicial review). **401 applications.** ~**18%** were judicially reviewed and, of contested cases that concluded, the board **lost roughly 90%** — permissions quashed. Replaced Dec 2021 by **Large-scale Residential Developments**, restoring the first-instance decision to councils (to the *officials*, not the members).
 - **Strategic Infrastructure (2006 Act):** motorways, major energy, large utilities go **straight to the board**.
 - **Marine (MARA, 2021 Act):** offshore consenting sits with a central agency and the national board; councils are peripheral.
 
 ### Rung 5 — appeal: the national board can reverse the council
+
 Any grant/refusal can be appealed and decided afresh. **⚠️ Note carefully: this overturns the Chief Executive's planners, *not* councillors** (see §4 — this is a trap).
 **Naming update:** An Bord Pleanála was **renamed An Coimisiún Pleanála**, effective **18 June 2025** (Planning and Development Act 2024, Part 17). **Our live UI still says "An Bord Pleanála" — that's a factual refresh we owe regardless of this piece.**
 
 ### Rung 6 — the nuclear option: refuse the budget, lose the council
+
 The budget is the councillors' single biggest reserved power (**LGA 2001 ss.102–103**: members *"shall by resolution adopt"* it). Refusing to is caught by **Part 21, "Consequential Provisions on Failure to Perform Functions."**
 
 - **s.216(1)(e)** — the Minister **may remove the members from office** where the authority *"refuses or wilfully neglects to comply with any … express requirement imposed by enactment."*
@@ -106,15 +115,18 @@ The budget is the councillors' single biggest reserved power (**LGA 2001 ss.102�
 | Nov 2019 | **Dublin City Council** | Budget standoff | *Near-miss* — replacement of all 63 members by a commissioner was genuinely on the table |
 
 ### Rung 7 — the councillors' one real counter-power, progressively de-fanged
+
 **LGA 2001 s.140** lets members, by resolution, **require the CE to do a specific thing** — and s.140(9) says the CE *"shall cause [it] … to be implemented."* A genuine command, not a request (needs 2 signatures; one-third of total membership in favour).
 
 But **s.140(10)** excludes:
+
 - **(e) planning** — *inserted by the Local Government Reform Act 2014, s.52(d), commenced **1 June 2014***;
 - **(f) any benefit "to any named person or group"** — an explicit anti-clientelism bar.
 
 **The backstory is the piece's spine in miniature:** s.140 is the successor to the notorious **"section 4 motion"** (1955 Act), by which councillors directed managers **to grant planning permissions** — the very instrument the **Mahon Tribunal** found at the heart of planning corruption. It was stripped of planning in 2014. *The one real power councillors held over officials was removed in precisely the area where it had been abused.*
 
 ### Rung 8 — the watchdogs report; they do not bite
+
 The **Local Government Audit Service** auditor issues an opinion and report; the council merely **"considers"** it (ss.120–121). **NOAC** scrutinises, monitors, evaluates and **recommends** — it has **no power to direct**. *The money watchdogs bark, they don't bite.* The only genuine financial override is the ministerial removal power at Rung 6.
 
 ---
@@ -180,6 +192,7 @@ There are **three structurally different override relationships** and merging th
 4. **Tie-in we already own:** for the five roll-call councils, link the **actual councillor votes on rezoning** to the plan they belong to.
 
 **Honesty rails (non-negotiable):**
+
 - **Never blend the three override types** (§4). Separate views, separate counts, separate copy.
 - **Carry the counter-case.** Meath and Sligo were overruled for zoning **flood-prone land**. The piece must state what the regulator's stated reason was, in the regulator's words, and must not imply the override was illegitimate. No "democracy stolen" framing — present the machinery, present the counts, let the reader judge. (This is the existing no-inference rule doing exactly its job.)
 - **The OPR can only strike, never create** — say so, or readers will assume a general power.

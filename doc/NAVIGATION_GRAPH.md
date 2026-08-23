@@ -76,6 +76,7 @@ canonical fix of the crosswalk's council name-form rows (the dossier tolerates t
 `V` = verified in live DOM. Severity: **H** primary subject, **M** secondary.
 
 ### False dead-ends — entity named, target exists, not linked
+
 | # | Page | Entity (plain text) | Target | Sev | State |
 |---|---|---|---|---|---|
 | 1 | Public Payments | supplier (drill detail) | `/company` | H | **V → FIXED 2026-06-20** |
@@ -90,6 +91,7 @@ canonical fix of the crosswalk's council name-form rows (the dossier tolerates t
 | 10 | Lobbying | politicians in targeted lists | `member_profile_url` | M | **FIXED 2026-06-20** (return-card politician names; the ranked "targeted" cards already navigate via `?lp3_result_pol=`) |
 
 ### Contextual return edges missing (one-way slides)
+
 | Page | Has only | Missing | Note |
 |---|---|---|---|
 | Company | global nav chrome to Procurement/Public Payments | *contextual* "this supplier's awards/payments" return | **V**: my earlier "no link at all" was wrong — the only back-links are nav chrome that drops the supplier. |
@@ -98,7 +100,7 @@ canonical fix of the crosswalk's council name-form rows (the dossier tolerates t
 
 ## Deep dive — the supplier/money graph (richest payoff)
 
-```
+```text
    SELLER side                              BUYER side
  ┌──────────────────┐                  ┌──────────────────────────┐
  │ /company  ✅      │   awards →       │ public body / authority /│
@@ -120,6 +122,7 @@ not a missing link.
 **High-payoff build: a canonical `/body` (authority) page** mirroring
 `/company`. It would unify, per body: awards published, payments made, council
 lane (if applicable), top suppliers paid. Three wins fall out:
+
 1. Creates the **reciprocal of `/company`** → supplier↔body becomes a true
    bidirectional loop (the core "overlaps flow into one another").
 2. Collapses the three scattered buyer drills into one destination (fixes #9
@@ -169,6 +172,7 @@ resolves to IPv6 here — use `127.0.0.1`.
 "mismatches", not app regressions.** State-indexing is subtler than "hit the detail
 page": some edges are *further* gated, and a blind first-candidate seed lands on an
 ineligible entity.
+
 1. The `member → bill` edge lives behind the `?section=legislation` router
    (`member_overview.py:_section_legislation`) — the default overview never shows it,
    so drive `?section=legislation`. And a member with no bills in their own section

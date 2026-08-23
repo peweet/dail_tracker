@@ -5,6 +5,7 @@
 Dáil Tracker is informed by **theyworkforyou.com** (UK) and **theyvoteforyou.eu**. Their UX decisions are proven, trusted, and user-tested. When a design decision is unclear, ask: would theyworkforyou ship this?
 
 Characteristics of that style:
+
 - Simple primary views — a clean list of members or records, not a dashboard
 - Minimal hero — title and a short orientation line, no badge counts or stat strips
 - Year navigation is prominent and direct, not buried in dropdowns
@@ -19,6 +20,7 @@ This is not copying their code or IP. It is keeping execution close to a proven 
 The existing Streamlit page is a **functional reference**, not a design reference.
 
 A redesign is not complete if it only:
+
 - renames headings
 - wraps old content in containers
 - moves widgets slightly
@@ -66,6 +68,7 @@ The secondary view (profile / detail / drilldown) may be more complex, because t
 Do not say “I preserved the existing layout for consistency” unless the contract or user explicitly asks for that.
 
 Consistency should come from:
+
 - shared CSS
 - shared UI helpers
 - shared interaction patterns

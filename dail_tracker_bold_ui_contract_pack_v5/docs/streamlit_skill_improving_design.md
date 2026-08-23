@@ -10,6 +10,7 @@ source: https://github.com/streamlit/agent-skills/tree/main/developing-with-stre
 Small touches that make apps feel polished.
 
 **Related skills:** Visual design works hand-in-hand with other skills:
+
 - `choosing-streamlit-selection-widgets` → Choosing the right widget (segmented control, pills, toggle)
 - `displaying-streamlit-data` → Column config, sparklines, bordered metrics
 - `using-streamlit-layouts` → Containers, alignment, dashboard cards
@@ -27,6 +28,7 @@ st.set_page_config(
 ```
 
 **Layout options:**
+
 - `layout="centered"` (default) → Best for most apps, content is constrained to a readable width
 - `layout="wide"` → Full-width, good for dashboards and data-heavy apps
 
@@ -55,7 +57,7 @@ st.markdown("Celebration! 🎉")
 
 Format: `:material/icon_name:`
 
-Find icons: https://fonts.google.com/icons
+Find icons: <https://fonts.google.com/icons>
 
 **Popular icons by category:**
 
@@ -71,6 +73,7 @@ Find icons: https://fonts.google.com/icons
 ## Badges for status
 
 For standalone badges:
+
 ```python
 st.badge("Active", icon=":material/check:", color="green")
 st.badge("Pending", icon=":material/schedule:", color="orange")
@@ -78,6 +81,7 @@ st.badge("Deprecated", color="red")
 ```
 
 For inline badges in text:
+
 ```python
 st.markdown("""
 :green-badge[Active] :orange-badge[Pending] :red-badge[Deprecated] :blue-badge[New]
@@ -85,6 +89,7 @@ st.markdown("""
 ```
 
 Avoid the old verbose syntax:
+
 ```python
 # OLD (still works but cluttered)
 st.markdown(":orange-background[:orange[Pending]]")
@@ -108,6 +113,7 @@ st.header("Section 2")
 ```
 
 If you genuinely need spacing:
+
 ```python
 st.space("small")   # Small gap
 st.space("medium")  # Medium gap
@@ -145,6 +151,7 @@ st.info("Data last updated 5 minutes ago")
 ```
 
 **When to use what:**
+
 - `st.caption` → Simple info, metadata, timestamps
 - `st.info` → Important instructions
 - `st.warning` → Caution, potential issues

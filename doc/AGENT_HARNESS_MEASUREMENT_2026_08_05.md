@@ -81,4 +81,3 @@ Keep the structural gates and role contracts: they are fast, deterministic contr
 that the harness improves product correctness based on this run. Before widening use, reduce the
 MCP latency on `memory-xbrl`, route dataset-shape questions to authoritative metadata, and run a
 larger private holdout containing implementation tasks and critical provenance boundaries.
-

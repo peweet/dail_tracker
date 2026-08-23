@@ -27,13 +27,12 @@ Shared patterns:
 year_selector, yearly_evolution, member_drilldown, csv_export, government_source_links
 ```
 
-
 Interests-specific interaction:
+
 - reporting year controls are primary
 - yearly evolution matters
 - source PDFs/official records are evidence
 - selected member view should be prominent
-
 
 ## Files Claude may modify
 

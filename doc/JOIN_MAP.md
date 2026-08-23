@@ -20,11 +20,12 @@ Siblings: `doc/DATA_GRAINS.md` (the 3-money-grain rule) · `doc/archive/DATA_MAP
 
 ---
 
-## 1. There are TWO canonical keys. Never conflate them.
+## 1. There are TWO canonical keys. Never conflate them
 
 The code says this explicitly, and it is load-bearing.
 
 ### ORG key — `shared/name_norm.py`
+
 `name_norm_expr(col)` (Polars) and `name_norm_str(s)` (Python row-loops). The two are pinned
 **byte-identical** by `test/shared/test_name_norm.py` — if you add a third normaliser you WILL
 reintroduce the "distress join = 0" class of bug.
@@ -41,6 +42,7 @@ Used by: CRO companies · procurement suppliers · lobbying registrants & client
 ministerial-diary orgs · CBI registers. ~18 call sites.
 
 ### PERSON key (TD/member) — `shared/normalise_join_key.py`
+
 `normalise_df_td_name(df, col)` → a `join_key` column. Rule: lowercase → NFD accent-fold → strip
 apostrophes → strip non-alpha → strip honorifics (`dr|prof|rev|fr|sr|mr|mrs|ms|miss|br`) → remove
 ALL whitespace → **sort the characters alphabetically**.
@@ -65,6 +67,7 @@ awarded_value_safe_eur, on_lobbying_register, lobby_returns, has_corporate_notic
 corporate_notices, is_charity, has_epa_licence, cross_register_count`.
 
 ### 🚨 THE SPINE IS ANCHORED ON PROCUREMENT SUPPLIERS
+
 It contains **10,017 organisations — and every one of them won public procurement.**
 **An organisation that never won a public contract is ABSENT FROM THE SPINE ENTIRELY.**
 You cannot ask "what else does the State know about org X" via the spine if X is a lobbying-only
@@ -81,6 +84,7 @@ body, a charity that holds no contracts, or a company that appears only in Iris 
 | EPA licence | **38** (0.4%) | — | |
 
 These low numbers are **two effects mixed together**, and the data cannot separate them:
+
 1. a genuinely small overlap (most lobbyists don't win contracts), and
 2. **exact-name match failure** (subsidiaries, trading names, spelling variants).
 
@@ -119,6 +123,7 @@ already enforced in the MCP docstrings — keep it.
    **Never silently fuse a fuzzy match into the data.**
 
 ## 5. Useful MCP entry points
+
 `organisation_dossier` (one-call cross-register) · `cross_register_watchlist` (orgs on the most
 registers) · `procurement_lobbying_overlap` (⚠ never sum awarded_value) · `company_influence`
 (meeting-level access) · `data_coverage` (year ranges / scope guard) · `join_map` (this document,

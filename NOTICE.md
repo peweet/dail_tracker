@@ -34,6 +34,7 @@ their own licences and copyright**. The AGPL above does **not** apply to them an
 does **not** grant you any rights over them.
 
 ### 2a. Houses of the Oireachtas — debates, divisions (votes), parliamentary
+
 questions, bills, acts
 
 Source: <https://api.oireachtas.ie/> and <https://data.oireachtas.ie/>
@@ -52,6 +53,7 @@ Licence: <https://www.oireachtas.ie/en/open-data/license/>
 Open data policy: <https://www.oireachtas.ie/en/open-data/>
 
 ### 2b. Iris Oifigiúil — statutory instruments, public notices, official
+
 appointments, corporate/register notices
 
 Source: <https://www.irisoifigiuil.ie/>
@@ -73,7 +75,7 @@ authorised by these notices and should not be assumed to be permitted.
 Required acknowledgement when reusing Iris-derived data:
 
 > Contains public sector information from Iris Oifigiúil © Government of Ireland.
-> Source: https://www.irisoifigiuil.ie/
+> Source: <https://www.irisoifigiuil.ie/>
 
 ### 2c. lobbying.ie — Register of Lobbying (SIPO)
 

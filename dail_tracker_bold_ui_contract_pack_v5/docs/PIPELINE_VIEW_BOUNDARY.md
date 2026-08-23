@@ -44,6 +44,7 @@ read the corresponding `.sql` file in `sql_views/` and confirm the column is com
 real data — not hardcoded.**
 
 Common traps found in real views:
+
 - `'Present' AS attendance_status` — hardcoded string, useless for classification
 - `NULL::VARCHAR AS mart_version` — always null, do not surface in UI logic
 - `TRUE AS present_flag` — constant, cannot be used to filter
@@ -82,6 +83,7 @@ and must be justified explicitly.
    developer can verify it.
 
 **Canonical example — `_YEAR_SITTING_DAYS` in `attendance.py`:**
+
 ```python
 # Official plenary sitting-day counts from Houses of the Oireachtas Commission annual reports.
 # Sources: oireachtas.ie/en/press-centre/press-releases/
@@ -94,11 +96,13 @@ _YEAR_SITTING_DAYS: dict[int, int] = {
     2025: 82,   # 2025 partial period
 }
 ```
+
 The alternative — correctly extracting the total sitting-days denominator from the source PDFs
 — would require non-trivial pipeline work. The values are immutable historical facts. Hardcoding
 is the right call.
 
 **NOT permitted — hardcoding is still forbidden when:**
+
 - The value changes over time (threshold, weight, active-year cutoff, party list, etc.)
 - The value is approximate or estimated
 - The pipeline could reasonably expose it without major rework

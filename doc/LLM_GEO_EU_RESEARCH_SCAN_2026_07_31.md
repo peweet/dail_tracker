@@ -247,12 +247,14 @@ session's own follow-up code read.
 ### Assessment — what's already solid vs. genuinely open
 
 **Already handled well, confirmed by this session's code read, not just assumed:**
+
 - `always_xy=True` is set on the one live pyproj `Transformer` call, and it's built once and reused, not per-row `[Verified — extractors/epa_licensed_facilities_extract.py:110-124]`.
 - The float32 bbox prefilter deliberately outward-rounds via `np.nextafter` specifically to avoid the shrink-boundary bug the literature warns about `[Verified — planning/product/tools/build_point_scoped_layers.py:8-69]`.
 - No geopandas runtime dependency — the entire GeoPandas-specific bug family (sjoin memory leak, sjoin_nearest CRS trap, unary_union segfault, full-dataset `read_file`) doesn't apply `[Verified — pyproject.toml:83]`.
 - `make_valid()` + Ireland-bbox guard is an established, documented pattern in this codebase already (`planning_decision_profiles.py`, `planning_applications_ingest.py`) — this isn't new territory, it's an existing convention.
 
 **Genuinely open, not previously logged (status re-checked 2026-07-31, later same day):**
+
 1. **`buffer(0)`-only validity repair with no bbox sanity check** in `reference/local_authority_boundaries_extract.py:142-143` and `reference/constituency_boundaries_extract.py:77-78` — the weaker pattern sat right next to the stronger one (`planning_decision_profiles.py`) in the same codebase. **SHIPPED 2026-07-31**: both sites now check the repaired geometry's bounds against the same `IRL` envelope `planning_decision_profiles.py` uses and print a warning (not a hard drop — these are locator-map builders with their own "all N canonical entries present" integrity check, so a silent drop would fail that check loudly instead; a raise was judged too strict for a manually-run `--write` script).
 2. **No golden-coordinate regression test gating pyproj/GDAL version bumps.** **Substantially covered by the `Anchor`/`AnchorTracker` mechanism SHIPPED 2026-07-31** (see item 4 in "What this could concretely change" above, `planning/product/ingest/planning_layers_ingest.py:79,1874`) — 6 layers now carry a known-reference-point tripwire checked at every ingest, which would catch a pyproj/GDAL-version-driven coordinate shift for those layers. Not identical to a dedicated CI-gated regression test (it fires at ingest time for 6 specific layers, not on every dependency bump for the whole transform chain), so a narrower gap remains if that distinction matters, but the core mechanism this item asked for now exists.
 3. **WGS84/ETRS89 datum-passthrough — checked, not found.** Grepped project-wide for `ETRS89`/`29903`/`29902`/`WGS84.*ETRS` — no ingest path treats a raw WGS84 coordinate as directly comparable to ITM/ETRS89-derived layers without an explicit transform step. Downgraded from "open" to "checked, no live instance found" — not proof none exists (per the proving-absence standard), but no longer an unchecked claim.

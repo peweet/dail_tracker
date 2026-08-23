@@ -102,7 +102,7 @@ Readers should not parse 11 fields per row. Derive **one** headline grade with a
 testable function. Each component maps to a tier *ceiling*; the record's grade is the **minimum**
 (weakest-link). This is the single most important guard against overclaiming.
 
-```
+```text
 trust_grade(record) = min(
     ceiling_extraction(extraction_method),
     ceiling_match(match_method),          # NONE when record is single-source (no join)
@@ -182,12 +182,14 @@ triple-count trap) — `supplier_class=public_body` flags the intergovernmental 
 ## 5. Label definitions
 
 ### 5.A `source_type` — dataset family
+
 `etenders_award`, `ted_award`, `public_body_payment`, `hse_tusla_payment`, `la_payment`,
 `disclosed_bq_extract`, `cro_company`, `lobbying_return`, `charity_financials`,
 `corporate_notice`, `ministerial_diary`, `sipo_donation`, `sipo_expense`,
 `afs_audited_accounts`, `member_allowance`, `derived_signal`.
 
 ### 5.B `extraction_method` — how the value was lifted
+
 | Label (UI) | Enum | Meaning |
 |---|---|---|
 | **Official API** | `official_api` | Structured pull from an official endpoint (CSO PxStat, Oireachtas API). Highest fidelity. |
@@ -198,6 +200,7 @@ triple-count trap) — `supplier_class=public_body` flags the intergovernmental 
 | **Derived** | `derived` | Computed/inferred signal (ratios, overlaps, links). Not a primary observation. |
 
 ### 5.C `match_method` — how an entity was cross-referenced
+
 | Label (UI) | Enum | conf | Meaning | maps from |
 |---|---|---|---|---|
 | **Exact match** | `exact` | 1.0 | Company-number key, or unique normalised-name → single CRO entity. | `exact_unique` |
@@ -212,6 +215,7 @@ triple-count trap) — `supplier_class=public_body` flags the intergovernmental 
 > truth: *"possible match — several companies share this name"*, with no company-number assertion.
 
 ### 5.D `pipeline_status` — maturity
+
 `live` (in production chain + surfaced) · `sandbox` (gitignored experiment) ·
 `experimental` (derived/unvalidated signal) · `quarantined` (rejected — never served).
 
@@ -222,7 +226,7 @@ triple-count trap) — `supplier_class=public_body` flags the intergovernmental 
 Reuse the existing CSS foundation — `.dt-badge` family (role/status pills) and `.con-grain`
 (grain-colour tags). Add three badge **rails** plus state badges and one explain-popover.
 
-```
+```text
 ┌────────────────────────────────────────────────────────────┐
 │  John Sisk & Son                                            │
 │  €221,400,000  [ PAID ]  [ ✓ Verified ]  [ ⚷ Exact match ] │   ← three rails
@@ -256,6 +260,7 @@ Final caveat/legal copy is the owner's to ratify (§13); these are drop-in defau
 the existing tone in `attendance.py` / `election_2024.py` / `payments.py`.
 
 ### 7.1 Grain captions (the verb, never a bare €)
+
 - payment_actual — *"€{amt} **paid** by {publisher} in {period}."*
 - po_committed — *"€{amt} **ordered** (purchase orders raised) — not necessarily paid."*
 - award_value — *"Contract **awarded** at €{amt}."*
@@ -265,19 +270,22 @@ the existing tone in `attendance.py` / `election_2024.py` / `payments.py`.
 - donation / election_expense / allowance — *"**donated** / campaign **spend** / **claimed**…"*
 
 ### 7.2 Trust-badge tooltips
+
 - Verified — *"From an official source, exactly matched. Highest confidence."*
 - Reported — *"Parsed from an official published document. Reliable; not a structured feed."*
 - Extracted — *"Read from a scan or a caveated document. Check against the source where it matters."*
 - Indicative — *"A weak match, an estimate, or an experimental signal. Treat as a pointer, not a fact."*
 
 ### 7.3 Match-badge wording (the no-overclaim line)
+
 - exact — *"Matched to {company} (CRO {num}) by company number."*
 - strong/fuzzy — *"Likely {company} — matched by name, not company number."*
 - **weak** — *"Possible match only: several companies share this name. We have **not** established this is the same company."*
 - none — *(render nothing; make no entity claim.)*
 
 ### 7.4 Explain-popover body
-```
+
+```text
 {grain_label} · {verb} €{amt}
 Trust: {grade} — {binding_reason, e.g. "limited by an OCR-read source"}
 Match: {match_sentence from 7.3}
@@ -287,13 +295,15 @@ This figure is one record; totals on this page are a floor, never audited.
 ```
 
 ### 7.5 Standing disclaimers (render once per section)
+
 - **Floor** — *"Coverage is partial. Every total here is **at least** this much — a floor, not the full picture."*
 - **No-sum** — *"These figures measure different stages of public money and are **never added together**."*
 - **No-causation** — *"Co-occurrence is not causation. A meeting or lobbying return does **not** mean it caused any contract or decision."*
 - **Single-bid** — *"A single bid is a competition signal, **never** a verdict — many single-bid contracts are entirely proper."*
 
 ### 7.6 Email / report wording (no email system exists yet — these are the templates)
-```
+
+```text
 Subject: {Entity} — your {weekly|monthly} procurement brief
 
 {Entity} appears in {N} records this period.
@@ -400,6 +410,7 @@ carries the distinction, so `failed` is now a first-class `MATCH_METHOD` value (
 the ambiguous `none` case, never be the sole evidence that a join succeeded.**
 
 Two Phase-0 items deliberately NOT done, both needing an owner call:
+
 - *Widening `VALUE_KIND` to the union* — the shipped code keeps `VALUE_KIND` (payment grain) and
   `AWARD_VALUE_KIND` (award grain) as separate closed enums precisely so an award kind cannot pass
   the payment-fact contract. Widening to a union would weaken that never-sum guard, so it is left
@@ -508,6 +519,7 @@ problem. The guard itself is validated by the 2,452 `is_large_award_review` coun
 Re-ran with cross-tabs to confirm the never-sum and PII rules actually **hold in the data**:
 
 **Guards hold 100% — confirmed**
+
 - **Largest awards are all correctly excluded.** Top-8 by value (non-null) are *all*
   `framework_or_dps_ceiling`, `value_safe_to_sum=false`, `is_large_award_review=true` — six NTA
   frameworks at €2.5bn, two LDA at €2.0bn. The Go-Ahead €1.486bn sits *below* these, all flagged.
@@ -519,6 +531,7 @@ Re-ran with cross-tabs to confirm the never-sum and PII rules actually **hold in
   intergovernmental-transfer exclusion holds); `unknown` → false for 4,359 / 4,359.
 
 **PII suppression is airtight — confirmed (and a stale memory corrected)**
+
 - `privacy_status=review_personal_data` → `public_display=false` for **19,295 / 19,295** (100%).
 - `supplier_class=sole_trader_or_individual` → false for **18,783 / 18,783**; `id_code` → false for
   **1,531 / 1,531**. (Note: `sole_trader` — a registered business name — stays *displayable*; only
@@ -528,6 +541,7 @@ Re-ran with cross-tabs to confirm the never-sum and PII rules actually **hold in
   `sole_trader_or_individual` rows are `public_display=False`. The blocker has since been closed.
 
 **Asserted grains now verified in data**
+
 - AFS: `la_afs_divisions` = `net_expenditure_actual`/SPENT (776); `la_afs_capital` =
   `capital_expenditure_actual`/SPENT (782); `afs_amalgamated` = `net_expenditure_actual`/SPENT (64).
 - `estimate_advertised` confirmed real: `etenders_live_tenders` = PLANNED, 2,363 rows, with
@@ -535,6 +549,7 @@ Re-ran with cross-tabs to confirm the never-sum and PII rules actually **hold in
   unverified; it may be extractor-only or in a tenders-not-awards file.)
 
 **Two new material findings (fed back into the rules above)**
+
 1. **`value_safe_to_sum=true` does NOT partition by VAT.** Both `incl_vat` (92,786) and `unknown`
    (319,521) payment rows are flagged sum-safe. So the flag *alone* permits a cross-VAT blend — the
    view layer **must additionally partition by `vat_status`**. This makes test **T1 necessary, not

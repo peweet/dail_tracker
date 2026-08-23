@@ -14,11 +14,13 @@ Name the main file `streamlit_app.py` (Streamlit's default).
 ## When to split
 
 **Keep in one file (most apps):**
+
 - Apps under ~1000 lines
 - One-off scripts and prototypes
 - Apps where logic is straightforward
 
 **Consider splitting when:**
+
 - Data processing is complex (50+ lines of non-UI code)
 - Multiple pages share logic
 - You want to test business logic separately
@@ -27,7 +29,7 @@ If splitting makes sense, here's how to organize it.
 
 ## Directory structure
 
-```
+```text
 my-app/
 ├── streamlit_app.py      # Main entry point
 ├── app_pages/            # Page UI modules
@@ -59,7 +61,7 @@ st.metric("Revenue", f"${metrics['revenue']:,.0f}")
 st.dataframe(data)
 ```
 
-## Avoid if __name__ == "__main__"
+## Avoid if **name** == "**main**"
 
 Streamlit apps run the entire file on each interaction. Don't use the main guard in Streamlit files.
 

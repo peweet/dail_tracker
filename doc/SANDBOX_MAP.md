@@ -48,6 +48,7 @@ imported by a test:
 | `procurement_payee_cro_anchor_probe.py` | cited as provenance for the promoted CRO override map | — |
 
 **Before retiring anything from sandbox**, confirm it isn't referenced by path:
+
 ```bash
 git grep -l -- "<basename>" -- extractors services sql_views test doc planning_rules
 ```
@@ -93,6 +94,7 @@ or `git checkout 18dd551 -- pipeline_sandbox/<f>`. See that folder's `README.md`
 `procurement_la_registry.py` (routes merged into `extractors/procurement_la_payments_extract.py`).
 
 ### Still under review (NOT archived — confirm before moving)
+
 - **`pipeline_sandbox/housing/` experimental cluster** (~19 probes) — the Housing PAGE is
   LIVE and integrated; a handful of these feed it (see below), the rest are exploratory.
   Needs a per-file producer check before any move.

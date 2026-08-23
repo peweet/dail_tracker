@@ -15,10 +15,12 @@ documentation, or other material — a **"Contribution"**), You agree to the
 following terms with **Patrick Glynn** (the **"Maintainer"**).
 
 ## 1. You keep your copyright
+
 You retain all right, title, and interest in Your Contribution. This CLA does not
 transfer ownership.
 
 ## 2. Copyright licence (including the right to relicense)
+
 You grant the Maintainer a **perpetual, worldwide, non-exclusive, royalty-free,
 irrevocable** licence in Your Contribution to reproduce, prepare derivative works
 of, publicly display, publicly perform, sublicense, and distribute Your
@@ -30,6 +32,7 @@ sublicense** Your Contribution as part of the project under the project's
 commercial licence, now or in future.
 
 ## 3. Patent licence
+
 You grant the Maintainer and recipients of the software a perpetual, worldwide,
 non-exclusive, royalty-free, irrevocable (except as below) patent licence to
 make, use, sell, offer to sell, import, and otherwise transfer Your Contribution,
@@ -40,6 +43,7 @@ a Contribution infringes a patent, the patent licences granted to that entity
 under this CLA terminate.
 
 ## 4. Your representations
+
 You represent that:
   (a) each Contribution is Your original creation, or You have the right to
       submit it under this CLA;
@@ -51,13 +55,16 @@ You represent that:
       and licence and it is compatible with this CLA and the project licences.
 
 ## 5. No obligation
+
 You understand the Maintainer is not obliged to use or merge Your Contribution.
 
 ## 6. As-is
+
 Except as stated in clause 4, You provide Your Contribution **"AS IS"** without
 warranties of any kind.
 
 ## 7. Governing law
+
 This CLA is governed by the laws of **Ireland**.
 
 ---
@@ -71,7 +78,7 @@ This CLA is governed by the laws of **Ireland**.
 - **On behalf of an organisation (Entity CLA):** if you are contributing as part
   of your employment or on behalf of a company, an authorised signatory should
   confirm agreement to these terms for the entity and list the employees
-  authorised to contribute. Email **p.glynn18@gmail.com** to arrange this.
+  authorised to contribute. Email **<p.glynn18@gmail.com>** to arrange this.
 
 > Note: a `Signed-off-by` line on its own (the [DCO](https://developercertificate.org/))
 > certifies provenance but does **not** grant the relicensing rights in clause 2.

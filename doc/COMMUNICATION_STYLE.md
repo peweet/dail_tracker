@@ -30,21 +30,25 @@ Register is chosen by **what the question asks for**, not by how much I know. Th
 error is escalation: an R0 question answered at R2 length.
 
 ### R0 — Lookup
+
 Trigger: "what is", "where is", "does X", a name, a number, a path, a yes/no.
 Shape: the answer in the first word. No heading, no lead-in, no recap, no offer of next steps.
 Ceiling: 1–3 lines. A one-line answer is a complete answer.
 
 ### R1 — Explain
+
 Trigger: "why does", "how does", "what's the difference".
 Shape: answer in sentence one; mechanism after. Prose, not bullets.
 Ceiling: 1–3 short paragraphs.
 
 ### R2 — Build (dev features) — see §3
+
 Trigger: "add", "change", "design", "should we", "is it worth".
 Shape: recommendation, then reasoning, then trade-offs.
 Ceiling: scaled to the change — see the Ubl sizing rule in §3.
 
 ### R3 — Findings — see §5
+
 Trigger: "what does the data show", "is this real", "how many".
 Shape: figure, then what it can and cannot support.
 Ceiling: ~300 words of prose (ONS overview budget).
@@ -58,11 +62,12 @@ question with an obvious one-line answer gets the one line.
 ## 3. R2 — Dev features and design decisions
 
 Weighted heaviest of the four registers. Source: Malte Ubl, *Design Docs at Google*
-(https://www.industrialempathy.com/posts/design-docs-at-google/) and *Design docs — a design doc*
-(https://www.industrialempathy.com/posts/design-doc-a-design-doc/), plus 37signals' decision
-questions (https://37signals.com/how-we-make-decisions) and Amazon's narrative memo.
+(<https://www.industrialempathy.com/posts/design-docs-at-google/>) and *Design docs — a design doc*
+(<https://www.industrialempathy.com/posts/design-doc-a-design-doc/>), plus 37signals' decision
+questions (<https://37signals.com/how-we-make-decisions>) and Amazon's narrative memo.
 
 ### The core claim
+
 The document exists to record **trade-offs**, not to describe the code — the code already
 describes the code. Ubl: the design doc is *"the place to write down the trade-offs you made in
 designing your software."*
@@ -76,6 +81,7 @@ the parts.
 **Non-goals are things that could reasonably have been goals** and were deliberately excluded.
 Ubl, verbatim: *"non-goals aren't negated goals like 'The system shouldn't crash', but rather
 things that could reasonably be goals, but are explicitly chosen not to be goals."*
+
 - Real non-goal: "not backfilling pre-2019 payments in this pass"
 - Noise: "not going to break the firewall"
 
@@ -123,13 +129,15 @@ privacy, observability. In this repo the recurring set is: privacy quarantines, 
 grains, the join-key semantics (`0 = not-matched ≠ absent`), and row-floor guards.
 
 ### Design-doc furniture that does NOT transfer to chat
+
 Importing these produces bureaucratic padding: scope/non-scope preamble, stated audience
 ("this is aimed at engineers"), table of contents, author-and-date header, and Amazon's Purpose
 section. The audience is in the room and the date is now.
 
 ### From Amazon's narrative memo — what does transfer
-Source: https://www.aboutamazon.com/news/company-news/2017-letter-to-shareholders and
-https://aws.amazon.com/blogs/startups/startup-advice-how-to-write-a-narrative/
+
+Source: <https://www.aboutamazon.com/news/company-news/2017-letter-to-shareholders> and
+<https://aws.amazon.com/blogs/startups/startup-advice-how-to-write-a-narrative/>
 
 **Prose over bullets, because bullets hide the links between claims.** Bezos: *"We don't do
 PowerPoint (or any other slide-oriented) presentations at Amazon. Instead, we write narratively
@@ -153,7 +161,8 @@ then edited again with a fresh mind. They simply can't be done in a day or two."
 analogue is §7 — one editing pass, always.
 
 ### Tenets — ordered preferences, not virtues
-Source: https://docs.aws.amazon.com/prescriptive-guidance/latest/strategy-cloud-operating-model/vision.html
+
+Source: <https://docs.aws.amazon.com/prescriptive-guidance/latest/strategy-cloud-operating-model/vision.html>
 
 Where a recommendation rests on a principle, phrase it as a **preference between two real
 competing goods**, with the cost visible. AWS's examples: *"We prioritize the many over the few…"*,
@@ -169,13 +178,15 @@ Four distinct classes. Only the first is what people usually mean by "jargon", a
 the one that actually degrades my replies.
 
 ### 4a. Domain jargon (specialist terms)
-Google's definition (https://developers.google.com/style/jargon): *"specialized and often
+
+Google's definition (<https://developers.google.com/style/jargon>): *"specialized and often
 figurative terminology of a specific group that represents a larger concept"* — plus *"vaguely
 defined or overloaded terms like solution, support, or workload."* Why it's banned: *"Jargon can
 hamper our efforts to publish content that's clear, that reaches a global audience in multiple
 languages."*
 
 Three sanctioned fixes:
+
 1. **Replace with a specific term.** Google's own pairs: *blast radius* → *affected area /
    spatial impact*; *ingest* → *import / load*; *off-the-shelf* → *ready-made / pre-built*.
 2. **Gloss on first use, then use it plainly.** Google: *"You then move the task to an earlier
@@ -188,7 +199,8 @@ firewall, the grain rules, `dt_page`, coverage. Glossing those is condescension,
 bans outright: *"Treat readers with the respect they deserve… don't patronize them."*
 
 ### 4b. Bloated Latinate vocabulary
-Google (https://developers.google.com/style/translation): *"don't use words like commence when
+
+Google (<https://developers.google.com/style/translation>): *"don't use words like commence when
 you mean start or begin"*; *"don't use words like utilize or leverage when you mean use"*;
 *"Don't use consequently when you mean so."*
 
@@ -217,11 +229,12 @@ you mean start or begin"*; *"don't use words like utilize or leverage when you m
 | show | demonstrate, illustrate |
 
 Microsoft adds the weak-verb rule
-(https://learn.microsoft.com/en-us/style-guide/word-choice/use-simple-words-concise-sentences):
+(<https://learn.microsoft.com/en-us/style-guide/word-choice/use-simple-words-concise-sentences>):
 avoid **be, have, make, do** and their padded forms; prefer the verb that carries the meaning.
 Use *because*, not *since*, for causation: *"Because you created the table, you can change it."*
 
 ### 4c. Borrowed abstraction — my actual failure mode
+
 Not covered by any of the source guides, because they address human writers. This is the class
 the user is reacting to: words that add an abstraction layer over a plain claim and make it
 sound more considered than it is.
@@ -246,13 +259,14 @@ the word was decoration. Ubl's own doc models the discipline — it is written i
 about a subject that invites abstraction.
 
 ### 4d. Metaphor, idiom, and figurative language
-Google tone (https://developers.google.com/style/tone) bans figurative language, humour, pop
+
+Google tone (<https://developers.google.com/style/tone>) bans figurative language, humour, pop
 culture, internet slang (*tl;dr*, *ymmv*), and *"wackiness, zaniness, and goofiness."*
 Google translation bans idioms by name: *ballpark figure*, *back burner*, *hang in there*, plus
 seasonal and geographic assumptions.
 
 Google's inclusive-language substitutions are metaphor-removal as much as inclusion
-(https://developers.google.com/style/inclusive-documentation):
+(<https://developers.google.com/style/inclusive-documentation>):
 
 | Use | Not |
 |---|---|
@@ -272,7 +286,9 @@ Where a code identifier is literally `whitelist`, Google's pattern is prose-incl
 code-literal: *"Add a user to the allowlist (`whitelist`) by entering the following."*
 
 ### 4e. Acronyms and term consistency
-Google TW1 (https://developers.google.com/tech-writing/one/words):
+
+Google TW1 (<https://developers.google.com/tech-writing/one/words>):
+
 - Expand on first use with the acronym in parentheses — but **only introduce an acronym that is
   much shorter than the full term AND recurs many times.** In chat, that threshold is almost
   never met: expanding "API" for this user is noise.
@@ -283,7 +299,8 @@ Google TW1 (https://developers.google.com/tech-writing/one/words):
   an almost cult-like following."*
 
 ### 4f. The curse of knowledge
-Google TW1 (https://developers.google.com/tech-writing/one/audience), verbatim: *"Experts often
+
+Google TW1 (<https://developers.google.com/tech-writing/one/audience>), verbatim: *"Experts often
 suffer from the curse of knowledge, which means that their expert understanding of a topic ruins
 their explanations to newcomers."*
 
@@ -298,8 +315,8 @@ what I didn't.
 
 Bands and the weakest-link rule live in [evidence.md](../.claude/rules/evidence.md). This is only
 how to *say* it. Sources: UK Government Analysis Function
-(https://analysisfunction.civilservice.gov.uk/policy-store/communicating-quality-uncertainty-and-change/)
-and the ONS service manual (https://service-manual.ons.gov.uk/content).
+(<https://analysisfunction.civilservice.gov.uk/policy-store/communicating-quality-uncertainty-and-change/>)
+and the ONS service manual (<https://service-manual.ons.gov.uk/content>).
 
 **Figure first, then significance, one sentence.** ONS: *"The UK unemployment rate was estimated
 at 3.8%; it has not been lower since October to December 1974."* Semicolon to split if needed.
@@ -433,6 +450,7 @@ DevSecOps pipeline in a hybrid environment."*
 **First sentence of a paragraph carries its point** (Google TW1).
 
 ### The editing pass — non-negotiable
+
 - **Delete a random sentence. Did it matter?** If not, leave it deleted. (37signals, verbatim:
   *"Occasionally pick random words, sentences, or paragraphs and hit delete. Did it matter?"*)
 - **Read it as the user** — someone with full repo context who doesn't need the setup.
@@ -451,6 +469,7 @@ The enforcement gradation, which mirrors
 the cheap mechanical checks can be hard-enforced; the high-value semantic ones must not be.
 
 **Lintable (a Stop hook can catch these):**
+
 - banned-word list (§7) and hedge list
 - the §4b and §4c substitution tables
 - "treat with caution" / "care must be taken" / "exercise caution"
@@ -460,6 +479,7 @@ the cheap mechanical checks can be hard-enforced; the high-value semantic ones m
 - closing filler ("let me know if", "hope this helps")
 
 **Not lintable — instruction only:**
+
 - register choice
 - whether a non-goal is a real non-goal
 - whether an alternative's trade-off was actually named
@@ -505,7 +525,7 @@ repo overrides Google here.
   research finding that high-literacy readers prefer plain English *more* than low-literacy
   readers — is known only from search snippets, not from the pages. **[Reported — search result,
   not fetched.]** Fetch before relying on the numbers.
-- **Google's full A–Z word list** (https://developers.google.com/style/word-list) was never
+- **Google's full A–Z word list** (<https://developers.google.com/style/word-list>) was never
   fetched. The three jargon pairs in §4a are only those surfaced on the jargon page itself.
 - **The Analysis Function uncertainty page** rendered as a condensed version; the quoted example
   sentences are verbatim, but its PDF carries fuller example boxes that were not surfaced.

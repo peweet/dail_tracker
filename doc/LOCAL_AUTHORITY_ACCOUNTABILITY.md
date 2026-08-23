@@ -28,6 +28,7 @@ performance signals so a citizen can see who runs their county and how it perfor
 ## What is BUILT (2026-06-20)
 
 ### 1. Chief Executive roster — DONE, verified
+
 - `data/_meta/la_chief_executives.csv` — 31 councils, hand-curated, git-tracked
   (the `!data/_meta/*.csv` negation keeps it from the blanket `*.csv` ignore).
   Each name verified against an authoritative page (council site preferred);
@@ -42,6 +43,7 @@ performance signals so a citizen can see who runs their county and how it perfor
   the crosswalk, view builds.
 
 ### 2. NOAC collection-rate accountability layer — DONE
+
 - `v_la_collection_rates` (sql_views/constituency/constituency_la_collection_rates.sql)
   over **gold `data/gold/parquet/noac_m2_collection_wide.parquet`** — the FULL per-LA
   M2 grid (31 LAs × 2020–2024; commercial rates, rent & annuities, housing loans),
@@ -56,12 +58,14 @@ performance signals so a citizen can see who runs their county and how it perfor
   composite score, no editorial label (the user's choice).
 
 ### 3. Planning overturn rate — DONE
+
 - `v_la_planning_overturn` (sql_views/constituency/constituency_la_planning_overturn.sql)
   over silver `planning_appeal_outcomes.parquet`. Per-council ABP overturn rate vs
   26.4% national benchmark. ⚠️ Cork County absent from source (30/31). Test
   test/sql_views/test_la_planning_overturn.py (skips in CI).
 
 ### 4. Derelict Sites Levy — DONE (the sharpest enforcement signal)
+
 - `extractors/derelict_sites_levy_extract.py` (PROMOTED 2026-06-20 from sandbox:
   save_parquet, writes by default, fidelity-gated, --download, in pipeline.py)
   parses the DHLGH 2024 annual-return XLSX (gov.ie, CC-BY; cached at
@@ -80,6 +84,7 @@ performance signals so a citizen can see who runs their county and how it perfor
   publishes the next annual return (the watch will go amber to prompt it).
 
 ## NOAC extraction — what works, what doesn't
+
 NOAC is **PDF-only** (no CSV/Excel/dashboard). BUT the report contains a mix of real
 data **tables** and chart figures, and **Camelot DOES extract the tables**: the M2
 collection grid and the H-series housing indicators are already pulled to full per-LA
@@ -93,7 +98,9 @@ the text layer still gives national averages + named best/worst as a fallback. D
 not OCR bar charts (local OCR banned on this box).
 
 ## Roadmap — more accountability signals (published-indicators framing)
+
 Ordered by cleanliness of source:
+
 1. ~~**Planning overturn rate**~~ — DONE (see §3 above).
 2. ~~**Derelict Sites Levy charged vs collected**~~ — DONE (see §4 above). NOTE
    still: the **Vacant Homes Tax is Revenue-administered, not councils** — do not
@@ -106,10 +113,12 @@ Ordered by cleanliness of source:
 5. **Local Government Audit Service** — per-council audit findings (PDF set).
 
 ## Page — "Who runs your county" — BUILT
+
 `utility/pages_code/local_government.py` (`local_government_page`), nav under **Your
 Area** → url_path `local-government`. Stack: page → `data_access/local_government_data.py`
 (reuses the cached `get_constituency_conn`) → `dail_tracker_core/queries/local_government.py`
 → the registered `v_la_*` views. DISPLAY ONLY (no JOIN/GROUP/derivation on the page).
+
 - INDEX: hero + national headline strip (`v_la_accountability_summary`: €26.29m
   uncollected, 9/31 levied €0, 26.4% overturn) + searchable card grid of 31 councils
   (CE named, "Appointed, not elected") → `?la=` soft-rerun.

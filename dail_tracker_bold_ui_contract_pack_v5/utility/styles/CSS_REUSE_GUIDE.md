@@ -27,6 +27,7 @@ The standard pattern for any ranked list with a navigation button. Used on inter
 **Why this pattern:** `st.columns()` always expands to full page width. Without the `:has()` collapse rule, even a `fit-content` card leaves the `→` button stranded at the far right of the page.
 
 **Streamlit — 2 columns `[5, 1]`:**
+
 ```python
 for i, (_, row) in enumerate(df.iterrows()):
     c1, c2 = st.columns([5, 1])
@@ -38,6 +39,7 @@ for i, (_, row) in enumerate(df.iterrows()):
 ```
 
 **Card outer div — must use `inline-flex` + `fit-content`:**
+
 ```css
 .my-card-class {
     display: inline-flex;
@@ -49,6 +51,7 @@ for i, (_, row) in enumerate(df.iterrows()):
 ```
 
 **`:has()` collapse rule — paste this into `shared_css.py` for each new card class:**
+
 ```css
 [data-testid="stHorizontalBlock"]:has(.my-card-class) {
     width: fit-content !important;
@@ -63,11 +66,13 @@ for i, (_, row) in enumerate(df.iterrows()):
 ```
 
 **Button vertical centering:**
+
 ```css
 .dt-nav-anchor { margin-top: 1.1rem; }
 ```
 
 **Rules:**
+
 - Amount badges and extra metadata go **inside the card HTML** — not in a third column
 - The trigger class (e.g. `.int-rank-card`, `.pay-name-row`) must be unique per page so `:has()` selectors don't collide
 - Do not use 3-column layouts (`[7, 1, 2]` etc.) for card + button rows — always 2 columns `[5, 1]`
@@ -124,6 +129,7 @@ CSS classes for layout (flex, borders, backgrounds) work correctly when injected
 **Card structure:** flex row — `#rank` · medal emoji · name + meta body · days badge (right-aligned).
 
 **Medal convention:**
+
 ```python
 _GOOD_MEDALS = ["🥇", "🥈", "🥉"]
 _BAD_MEDALS  = ["💀", "👻", "😴"]
@@ -162,6 +168,7 @@ Used on declaration items to mark changes between years.
 | `int-diff-badge-removed` | Red pill — "REMOVED" declaration no longer present |
 
 Always add a trailing space after the badge so the declaration text is not flush against it:
+
 ```python
 badge = '<span class="int-diff-badge-new">NEW</span> '
 ```

@@ -2,7 +2,7 @@
 
 Source: Giles Edwards-Alexander, "The Economic Benefit of Refactoring", martinfowler.com
 Exploring Gen AI series, 30 July 2026
-(https://martinfowler.com/articles/exploring-gen-ai/refactoring-economic-benefit.html).
+(<https://martinfowler.com/articles/exploring-gen-ai/refactoring-economic-benefit.html>).
 All figures in §1–§2 are [Reported — single authoritative source, not reproduced here].
 The application of the findings to this repo (§4) is this document's own analysis.
 
@@ -63,6 +63,7 @@ The saving repeats on every future change that touches the layer.
 ## 3. Design patterns
 
 ### P1 — Cost-of-Change Benchmark
+
 *You want to know whether a refactoring (or any structure/tooling change) pays for itself
 in agent-time.* Freeze one representative change as a single self-contained prompt. Execute
 it in a fresh sub-agent against the current tree; have the agent report files read with
@@ -72,12 +73,14 @@ valid. Consequence: the benchmark is only as representative as the frozen change
 additive change measures orientation cost, not design quality.
 
 ### P2 — Refactor-for-Reading
+
 *A hot file has grown past the point where an agent can orient cheaply.* Optimise the read
 path: the target metric is input tokens per change (proxy: largest-file LoC on the paths
 agents actually touch), not total LoC, not elegance. Prioritise by
 change-frequency × file-size, because the saving is banked per future change.
 
 ### P3 — Dedup, then Split (in that order)
+
 *How to actually execute P2.* First pass: local, in-file refactorings — Extract Function,
 Extract Class, Replace Inline Code with Function Call, builders — to compress boilerplate
 and expose the repeating core. Second pass: Move Function into a module directory, split
@@ -87,11 +90,13 @@ they exercise. Splitting first (or only splitting) fails: the seams aren't visib
 random splits make reading worse.
 
 ### P4 — Interface-Preserving Boundary
+
 *Choosing the target.* Refactor behind a boundary that external callers already treat as an
 interface, and hold that interface fixed for the whole sequence. If a module has no clear
 boundary, establishing one is the prerequisite refactoring, not step 3.
 
 ### P5 — Human-Directed, Step-Tested Plan
+
 *Executing with agents.* A human (or a deliberately-prompted planning pass citing a named
 catalogue — the article used Fowler's *Refactoring* 2nd ed. by section number) selects the
 refactorings and their order. Each step is separately applied, separately tested, and

@@ -25,6 +25,7 @@ Builds only the contract-approved Streamlit page. It may be bold on UI, but stri
 ## Reviewer agent
 
 Checks:
+
 - logic firewall
 - contract compliance
 - visual boldness

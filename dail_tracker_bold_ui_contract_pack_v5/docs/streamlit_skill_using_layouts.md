@@ -30,10 +30,12 @@ with st.sidebar:
 ```
 
 **What goes in sidebar:**
+
 - Global filters (date range, user selection, region)
 - App info (version, feedback link)
 
 **What stays out:**
+
 - Main content, charts, tables, results
 
 ## Columns: max 4, set alignment
@@ -164,6 +166,7 @@ if st.button("Delete item"):
 ```
 
 **Key points:**
+
 - Dialogs rerun independently from the main script
 - Use `st.session_state` to pass widget values from dialog to main app
 - Call `st.rerun()` to close dialog and refresh main app
@@ -171,6 +174,7 @@ if st.button("Delete item"):
 - `st.sidebar` is not supported inside dialogs
 
 **When to use dialogs:**
+
 - Confirmation prompts
 - Settings panels
 - Forms that don't need to be always visible

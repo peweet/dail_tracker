@@ -73,7 +73,7 @@ Ireland, BIM, Dublin Bus, UCD, Maynooth, Mater, Clúid, Tuath, Cork ETB.
 
 ### MyProjectIreland is a queryable Feature Service, not a map †
 
-```
+```text
 https://services1.arcgis.com/eNO7HHeQ3rUcBllm/arcgis/rest/services/myProjectIreland_All_Projects/FeatureServer/0
 ```
 

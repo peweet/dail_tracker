@@ -7,7 +7,9 @@ Consolidated from official Streamlit docs. Covers caching, session state, multip
 ## Caching
 
 ### st.cache_data — for serializable data
+
 Use for anything that returns DataFrames, arrays, dicts, strings, numbers.
+
 - Creates a **copy** on each call — mutations don't affect the cache
 - Safe for concurrent access
 - Uses pickle under the hood
@@ -19,7 +21,9 @@ def load_data(year: int) -> pd.DataFrame:
 ```
 
 ### st.cache_resource — for shared global objects
+
 Use for database connections, ML models, DuckDB connections, file handles.
+
 - Returns the **same object instance** every time (singleton)
 - Mutations affect ALL sessions simultaneously — thread-safety is your responsibility
 - Not serialized, so no copy overhead
@@ -33,6 +37,7 @@ def get_conn() -> duckdb.DuckDBPyConnection:
 ```
 
 ### Key parameters
+
 ```python
 @st.cache_data(
     ttl=3600,          # seconds until cache expires (or datetime.timedelta)
@@ -43,7 +48,9 @@ def get_conn() -> duckdb.DuckDBPyConnection:
 ```
 
 ### Excluding params from hashing
+
 Prefix with underscore — the param is passed but not used as a cache key:
+
 ```python
 @st.cache_data
 def fetch(_conn, num_rows):  # _conn not hashed — safe for connection objects
@@ -51,6 +58,7 @@ def fetch(_conn, num_rows):  # _conn not hashed — safe for connection objects
 ```
 
 ### Decision matrix
+
 | Use case | Decorator |
 |----------|-----------|
 | CSV / parquet reads | `st.cache_data` |
@@ -67,19 +75,24 @@ def fetch(_conn, num_rows):  # _conn not hashed — safe for connection objects
 Streamlit reruns the entire script on every interaction. Session state persists values across reruns for a given browser session.
 
 ### Initialization pattern
+
 Always check before setting — re-running the script would otherwise reset:
+
 ```python
 if "selected_td" not in st.session_state:
     st.session_state["selected_td"] = None
 ```
 
 Or use `setdefault`:
+
 ```python
 st.session_state.setdefault("selected_td", None)
 ```
 
 ### Widget state
+
 Widgets with a `key` are automatically synced to session state:
+
 ```python
 st.selectbox("Year", options, key="selected_year")
 # st.session_state["selected_year"] is now the selected value
@@ -88,7 +101,9 @@ st.selectbox("Year", options, key="selected_year")
 **Restriction:** Cannot programmatically set `st.button` or `st.file_uploader` state — raises `StreamlitAPIException`.
 
 ### Callbacks
+
 Triggered before the next script run — use for state transitions:
+
 ```python
 def on_select():
     st.session_state["selected_td"] = st.session_state["td_picker"]
@@ -97,6 +112,7 @@ st.selectbox("Member", members, key="td_picker", on_change=on_select)
 ```
 
 ### Scope
+
 - Persists within one browser tab session
 - Persists across page navigations in multipage apps
 - Lost on server restart or tab close
@@ -128,6 +144,7 @@ pg.run()
 - `position="hidden"` disables the auto sidebar menu (use `st.page_link` for custom nav)
 
 ### Dynamic pages (role-based access)
+
 ```python
 if st.session_state.get("is_admin"):
     pg = st.navigation([public_pages + admin_pages])
@@ -142,9 +159,11 @@ else:
 Widgets defined in different pages have different IDs — their state resets when navigating away and back.
 
 ### Option 1: Define widget in the entrypoint file
+
 Widgets in `streamlit_app.py` (sidebar filters, navigation) persist because the entrypoint runs on every rerun.
 
 ### Option 2: Dummy key pattern
+
 ```python
 # Store real value under a permanent key
 if "my_value" not in st.session_state:
@@ -158,7 +177,9 @@ st.selectbox("Choose", options, key="_my_widget", on_change=_sync,
 ```
 
 ### Option 3: Prevent cleanup (simplest)
+
 At the top of any page that uses persistent keys:
+
 ```python
 # Prevent Streamlit from cleaning up these keys on page switch
 for key in ("selected_td", "selected_year"):
@@ -171,12 +192,15 @@ for key in ("selected_td", "selected_year"):
 ## Multithreading
 
 ### Architecture
+
 Streamlit runs one **server thread** (Tornado) plus one **script thread** per session. Each interaction creates a new script thread.
 
 ### The NoSessionContext problem
+
 Custom threads don't have a `ScriptRunContext` — calling `st.session_state`, `st.write`, etc. from them raises `streamlit.errors.NoSessionContext`.
 
 ### Safe pattern: do work in threads, display in script thread
+
 ```python
 import threading
 
@@ -192,14 +216,17 @@ st.write(result["data"])  # display from script thread, not worker
 ```
 
 ### Unsafe pattern: exposing ScriptRunContext
+
 ```python
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 add_script_run_ctx(thread, get_script_run_ctx())
 ```
+
 ⚠️ Not officially supported. May break across versions. Security risk if threads outlive the session. Avoid unless you have no alternative.
 
 ### When to use threading vs alternatives
+
 | Need | Approach |
 |------|----------|
 | Cache expensive queries | `@st.cache_data` or `@st.cache_resource` |
@@ -214,6 +241,7 @@ add_script_run_ctx(thread, get_script_run_ctx())
 Streamlit reruns the script on every interaction, redefining classes each time. This breaks equality checks using `is` or `==` when instances come from different runs.
 
 ### Pattern 1: Define classes in a separate module (preferred)
+
 ```python
 # models.py
 class FilterState:
@@ -221,9 +249,11 @@ class FilterState:
         self.year = year
         self.member = member
 ```
+
 Streamlit doesn't re-import external modules, so the class identity stays stable.
 
-### Pattern 2: Override __eq__
+### Pattern 2: Override **eq**
+
 ```python
 class FilterState:
     def __eq__(self, other):
@@ -231,6 +261,7 @@ class FilterState:
 ```
 
 ### Pattern 3: st.cache_resource for singleton instances
+
 ```python
 class AppConfig:
     @staticmethod
@@ -240,6 +271,7 @@ class AppConfig:
 ```
 
 ### Enum coercion (Streamlit ≥ 1.29)
+
 `enumCoercion` is on by default — Enum members in selectbox/multiselect are automatically coerced to the latest class definition, so enum comparisons usually just work.
 
 ---
@@ -259,6 +291,7 @@ st.image(
 ```
 
 **Accepted image types:**
+
 - Remote URLs: `"https://example.com/image.png"`
 - Local static assets: `"/app/static/logo.png"`
 - SVG strings: `"<svg xmlns=...>...</svg>"`

@@ -90,7 +90,7 @@ of you for free, and we're flexible on the rest.
 
 ## How to get a commercial licence
 
-Email **p.glynn18@gmail.com** with:
+Email **<p.glynn18@gmail.com>** with:
 
 1. your organisation and a short description of what you want to build/host;
 2. whether you'll modify the code and whether it'll be offered to outside users;

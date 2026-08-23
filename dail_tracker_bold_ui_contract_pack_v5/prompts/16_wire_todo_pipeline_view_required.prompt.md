@@ -1,12 +1,14 @@
 Wire TODO_PIPELINE_VIEW_REQUIRED items.
 
 Input:
+
 - page contract
 - page implementation
 - list of TODO_PIPELINE_VIEW_REQUIRED items
 
 Task:
 Classify each TODO as:
+
 1. missing registered view
 2. missing column
 3. missing filter
@@ -19,6 +21,7 @@ Then propose pipeline/view-layer changes only.
 Do not implement in Streamlit.
 
 For each TODO, return:
+
 - target view name
 - required columns
 - grain

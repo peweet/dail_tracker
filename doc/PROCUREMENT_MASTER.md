@@ -67,6 +67,7 @@ their first questions.
    *Want:* concentration metrics; cross-register overlap; data-quality honesty.
 
 **Their headline questions, in priority order:**
+
 - Who wins the most public contracts? *(count — the honest lead metric)*
 - How concentrated is it? *(top-N share)*
 - Which bodies award the most, and for what?
@@ -134,6 +135,7 @@ All cards (no `st.dataframe` on primary views); all CSS in `shared_css.py` (`pr-
 logic in `sql_views/procurement_*.sql` only.
 
 **Above the fold (lean — see the 2026-06-06 audit fix):**
+
 - Hero (kicker / title / dek), **one** scale-anchor stat strip, glossary, year pills.
 
 **The signature panel — "The €570bn that isn't":** a compact contrast showing the naive
@@ -142,6 +144,7 @@ and one line on why (multi-supplier framework ceilings repeat). This is the meth
 *and* the hook.
 
 **Tabs (one tier each):**
+
 1. **Suppliers** — ranked by awards won (count default; value lens secondary). CRO chip +
    "also on lobbying register" badge. Concentration line: "top 10 firms hold N% of awards".
 2. **Contracting authorities** — who buys most; drill to their awards.
@@ -231,6 +234,7 @@ concurrent-writer file: broken gold refs, only 2 of 5 facts, old `public_display
 the owner overrode) — superseded by the above.
 
 **Stage D execution order (revised — privacy un-blocked):**
+
 1. Display all suppliers as named in the source (drop the `public_display` suppression for the
    spend tier; keep `value_safe_to_sum` + `extraction_status` for data quality).
 2. Add `vat_status` (per-publisher map: HSE/Tusla = `incl_vat`, others = `excl_vat`).
@@ -263,6 +267,7 @@ inference/causal copy.
 
 A formal review pass after the A–D uplift found and fixed 5 issues (all firewall-clean,
 verified live on a fresh server):
+
 1. Above-the-fold over-furnished (the contrast panel re-added height) → trimmed via #2/#3.
 2. The caveat prose duplicated the €570bn panel's framework explanation → caveat shortened to
    its unique no-causation point; the panel owns the "mirage" story.

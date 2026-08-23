@@ -84,7 +84,6 @@ Each of these writes or reads a Windows/`c:/tmp` path that does not exist on a L
 
 Unreviewed `requests`/`urlopen` calls bypass the shared pooling/retry policy, scraper validation and curl fallback. Move ordinary calls to the engine or document the response/session state the direct transport must retain.
 
-
 ### Reviewed direct transports — 17
 
 These modules intentionally own response/session state that the generic helpers do not expose. Their rationale is part of the generated report so suppressions cannot become invisible.

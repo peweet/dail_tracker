@@ -3,6 +3,7 @@
 ## Native Streamlit first
 
 Prefer:
+
 - `st.dataframe`
 - `st.column_config`
 - `st.tabs`
@@ -17,6 +18,7 @@ Prefer:
 ## Approved chart libraries
 
 Use these when the chart directly answers a user question:
+
 - Plotly
 - Altair
 
@@ -25,6 +27,7 @@ Do not add charts for decoration.
 ## Optional with justification
 
 Use only when native Streamlit cannot provide the interaction:
+
 - `streamlit-echarts` for richer timelines, breakdowns, treemaps, or relationship charts
 - `streamlit-aggrid` for researcher-grade tables with pinned columns or advanced grid controls
 - `streamlit-extras` for small UI polish only
@@ -43,6 +46,7 @@ Use only when native Streamlit cannot provide the interaction:
 Bare `<script>` injection via `st.markdown(..., unsafe_allow_html=True)` is **forbidden**.
 
 Custom JavaScript is permitted when:
+
 1. Delivered via CCv2 (`st.components.v2.component()`) — follow the `building-streamlit-custom-components-v2` skill exactly
 2. The interaction cannot be achieved with a native Streamlit widget
 3. The purpose is functional, not decorative

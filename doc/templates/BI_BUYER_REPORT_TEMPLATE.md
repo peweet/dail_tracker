@@ -60,12 +60,14 @@ This dossier is an **AWARDED**-grain report. Payments to this authority live in 
 | Awarded value (sum-safe rows only) | {{AWARDED_VALUE_SAFE_EUR}} — *award ceiling, not spend* | `awarded_value_safe_eur` |
 
 > **PHASE-2-TODO — these profile fields have NO wired data-access path and are NOT returned by `authority_summary`; do not fill or invent them.** `authority_summary` / `fetch_authority_summary_result` is all-time only (no 24-month window). Until a registered buyer-keyed view projects them, leave each stubbed rather than presenting a fill-in placeholder:
+>
 > - **Authority class / sector** — no data-access function returns an authority class. If shown at all it is analyst-assigned descriptive metadata (see header), never a data figure.
 > - **Award notices (last 24 months)** — the function is all-time only; a 24-month split would require date-filtering + counting the awards frame in report logic, which the logic firewall forbids (GT-4 (b)). Wire `n_awards_24m` into a registered view first.
 > - **Distinct CPV categories** — not returned here. If wanted, derive display-only from the Section 4 `fetch_awards_for_authority` frame (`# logic_firewall: display_only`); never attribute it to `authority_summary`.
 > - **Publishes a payment register? / threshold / award & payment disclosure chips** — no authority function returns payment-register publication, a threshold, or disclosure flags. There is no data-access path for these today; do not present fill-in placeholders or a disclosure chip row.
 
 **Caveats:**
+
 - Publishing behaviour varies by body; a low count may reflect disclosure practice, not activity.
 - `awarded_value_safe_eur` sums only rows where `value_safe_to_sum = TRUE`. Per the awards caveat (`api/routers/exports.py`, `procurement_awards`):
   > AWARD values are ceilings/estimates, NOT money paid. Frameworks/DPS repeat one ceiling across supplier rows. Sum ONLY rows where value_safe_to_sum — and even that is awarded value, never expenditure. Upstream publishes quarterly with an inherent ~6-month lag (see data_currency).
@@ -86,6 +88,7 @@ This dossier is an **AWARDED**-grain report. Payments to this authority live in 
 | {{YEAR}} | {{N_AWARDS_YEAR}} | {{AWARDED_VALUE_SAFE_YEAR}} |
 
 **Caveats:**
+
 - Counts are of *notices*; a single framework can generate many call-off notices, inflating the count.
 - Awarded value is the contract ceiling at notice, not spend (see Section 1 verbatim caveat). Never stack the count and value series in one chart — a stacked axis reads as a sum.
 
@@ -108,6 +111,7 @@ This dossier is an **AWARDED**-grain report. Payments to this authority live in 
 Concentration facts (denominators shown, no "risk" label): top-5 suppliers hold **{{TOP5_SHARE_PCT}}%** of **{{DENOMINATOR_N_AWARDS}}** award notices. New suppliers winning a first award from this buyer in the last 12 months: **{{N_NEW_SUPPLIERS}}**.
 
 **Caveats:**
+
 - Concentration is measured on award *counts*, not value or spend. Descriptive only — not a competitiveness or fairness assessment. Never a pie summing value across grains.
 - No contract end-date is shown in this section: `fetch_awards_for_authority` returns `award_date` and `contract_duration_months` but **no end-date column** — an end date would have to be derived (`award_date + contract_duration_months`), which this frame does not carry. The renewal/expiry calendar with published end dates lives in **Section 8** (`est_end_date` / `contract_end_date_est`).
 - "New supplier" means first appearance in the award corpus for this buyer within the window, subject to entity-matching limits.
@@ -130,6 +134,7 @@ Concentration facts (denominators shown, no "risk" label): top-5 suppliers hold 
 | {{CPV_CODE}} | {{CPV_DESC}} | {{N_AWARDS}} | {{N_SUPPLIERS}} |
 
 **Caveats:**
+
 - Distribution is on award counts, not value/spend.
 - `fetch_awards_for_authority` returns `cpv_code` and `cpv_description`, **not** a `cpv_division` column. If you roll up to CPV *division*, that is the two-digit prefix of `cpv_code` computed as a display-only transform (`# logic_firewall: display_only`), never a returned field.
 - CPV coding is buyer-assigned and inconsistent; adjacent codes may hold related activity.
@@ -153,6 +158,7 @@ Concentration facts (denominators shown, no "risk" label): top-5 suppliers hold 
 Multi-supplier frameworks currently mapped to this buyer (TED expiring feed): **{{N_MULTI_SUPPLIER_FRAMEWORKS}}**.
 
 **Caveats:**
+
 - Framework/DPS rows carry a **ceiling**, not money paid, and repeat one ceiling across supplier rows — they are never summed and never summed with the one-off award rows.
 - Per the awards caveat: "Frameworks/DPS repeat one ceiling across supplier rows. Sum ONLY rows where value_safe_to_sum — and even that is awarded value, never expenditure."
 
@@ -205,6 +211,7 @@ Multi-supplier frameworks currently mapped to this buyer (TED expiring feed): **
 | {{TENDER_TITLE}} | {{PUBLISHED_DATE}} | {{SUBMISSION_DEADLINE}} | {{DAYS_TO_DEADLINE}} | {{PROCEDURE}} | {{ESTIMATED_VALUE_EUR}} | {{DETAIL_URL}} |
 
 **Caveats:**
+
 - Estimated values are PLANNED-grain estimates — an opportunity, not a transaction. Never summed with any AWARDED/PAID figure.
 - A factual live feed, not a forecast of award.
 
@@ -216,6 +223,7 @@ Multi-supplier frameworks currently mapped to this buyer (TED expiring feed): **
 **So-what (consultant):** "Build the re-tender calendar for this authority."
 
 **Data sources (two lanes, never unioned):**
+
 - National eTenders: `fetch_expiring_etenders_result(conn, months_ahead=24)` → filter `buyer_name`.
 - TED: `fetch_expiring_contracts_result(conn, months_ahead=12)` → filter `buyer_name`.
 
@@ -236,6 +244,7 @@ Multi-supplier frameworks currently mapped to this buyer (TED expiring feed): **
 > **Renewal cadence note:** there is **no dedicated `renewal_cycle` function (PHASE-2-TODO)**. The only renewal signal today is the `renewal_max` column carried inside the TED expiring feed above.
 
 **Caveats:**
+
 - Contract end-dates are as published, frequently missing, and nominal; frameworks may extend. The timeline shows only awards with a stated end date — a discovery calendar, not a forecast of volume or re-award.
 - Award values are AWARDED-grain ceilings (display-only); never summed, and the national and TED lanes are never unioned into one total.
 - TED rail (verbatim — `api/routers/exports.py`, `ted_awards`):

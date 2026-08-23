@@ -27,8 +27,8 @@ Shared patterns:
 date_range_filter, vote_explorer, member_drilldown, csv_export, government_source_links
 ```
 
-
 Votes-specific interaction:
+
 - search/browse votes
 - group by date where data allows
 - select one vote
@@ -39,7 +39,6 @@ Votes-specific interaction:
 - export current view
 
 Use HowTheyVote-style flow only as interaction inspiration. Do not copy its visual design.
-
 
 ## Files Claude may modify
 

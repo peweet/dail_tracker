@@ -3,6 +3,7 @@
 Do not preload the whole pack.
 
 Claude should read:
+
 - `CLAUDE.md`
 - the target page runbook
 - the target page contract
@@ -11,6 +12,7 @@ Claude should read:
 - relevant helper files only
 
 Do not read:
+
 - every page contract
 - generated data folders
 - unrelated pages

@@ -3,11 +3,12 @@ Explore the relevant files for page: `<PAGE_ID>`.
 Do not edit files.
 
 Read only:
+
 1. repository `AGENTS.md` and `utility/pages_code/AGENTS.md`
 2. `page_runbooks/<PAGE_ID>.md`
 3. `utility/page_contracts/<PAGE_ID>.yaml`
 4. matching page file in `utility/pages_code/`
-5. `utility/shared_css.py`              ← primary CSS file (base.css is legacy — do not add to it)
+5. `utility/shared_css.py` ← primary CSS file (base.css is legacy — do not add to it)
 6. relevant `utility/ui/` helpers
 
 Do not scan generated data folders.
@@ -15,6 +16,7 @@ Do not inspect unrelated pages.
 Do not read every contract.
 
 Return:
+
 1. exact files relevant to this page
 2. current page structure in 6 bullets
 3. apparent data access pattern
