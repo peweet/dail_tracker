@@ -26,6 +26,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import os
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -327,7 +328,11 @@ def download(source: PollSource, entry: IndexEntry, session: requests.Session) -
                 head = f.read(5)
             if head != b"%PDF-":
                 raise ValueError(f"not a PDF (first 5 bytes = {head!r}): {entry.url}")
-        tmp.rename(final)
+        # os.replace, not Path.rename: on Windows rename raises FileExistsError
+        # when the target exists, so refreshing a SUPERSEDED file — the very
+        # thing check_supersessions tells you to do — could never succeed here.
+        # os.replace overwrites atomically on both platforms.
+        os.replace(tmp, final)
         return final
     except Exception:
         tmp.unlink(missing_ok=True)

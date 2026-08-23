@@ -98,12 +98,14 @@ def check_link(rec: dict, timeout: float = 20.0) -> dict:
     url = rec.get("listing_url") or (rec.get("direct_files") or [None])[0]
     if not url:
         return _health(rec, SKIPPED, "no listing_url or direct_files to check")
-    from services.http_engine import new_session  # lazy: the offline path stays network-free
+    # lazy: the offline path stays network-free
+    from services.http_engine import RESEARCH_UA, new_session
 
-    client = new_session(
-        headers={"User-Agent": "dail-tracker-bot/0.1 (source-health)"},
-        retry_statuses=False,
-    )
+    # A bot-shaped User-Agent is refused by the gov.ie WAF (403 to HEAD *and* to
+    # a ranged GET), which reported 13 healthy sources as broken. RESEARCH_UA is
+    # the repo's own contactable identity and the one every extractor already
+    # fetches gov.ie with, so the checker now agrees with the fetch path.
+    client = new_session(headers={"User-Agent": RESEARCH_UA}, retry_statuses=False)
     try:
         r = client.head(url, allow_redirects=True, timeout=timeout)
         # some servers 405 on HEAD — retry a lightweight ranged GET before judging
@@ -125,6 +127,37 @@ def check_link(rec: dict, timeout: float = 20.0) -> dict:
         if r.status_code >= 400:
             return _health(rec, FAILED, f"HTTP {r.status_code}", **meta)
         return _health(rec, OK, f"HTTP {r.status_code}", **meta)
+    except Exception as e:  # noqa: BLE001 - a transport error IS the health signal
+        import requests.exceptions
+
+        if isinstance(e, requests.exceptions.SSLError):
+            return _check_link_system_trust(rec, url, timeout)
+        return _health(rec, FAILED, f"{type(e).__name__}: {e}")
+
+
+def _check_link_system_trust(rec: dict, url: str, timeout: float) -> dict:
+    """Re-check a link against the OS trust store after a certifi failure.
+
+    ``requests`` verifies against the certifi bundle, which cannot resolve the
+    chains meath.ie, sligococo.ie and irishprisons.ie serve; the Windows/macOS
+    store resolves all three. A certifi-only failure is therefore ours, not the
+    publisher's, and reporting it as a broken source is a false positive.
+    Stdlib-only so the offline path still needs no third-party TLS stack.
+    """
+    import ssl
+    import urllib.error
+    import urllib.request
+
+    from services.http_engine import RESEARCH_UA
+
+    request = urllib.request.Request(url, headers={"User-Agent": RESEARCH_UA})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout, context=ssl.create_default_context()) as r:
+            return _health(rec, OK, f"HTTP {r.status} (system trust store)", http_status=r.status, final_url=r.url)
+    except urllib.error.HTTPError as e:
+        status = e.code
+        detail = f"HTTP {status} (system trust store)"
+        return _health(rec, FAILED if status >= 400 else OK, detail, http_status=status)
     except Exception as e:  # noqa: BLE001 - a transport error IS the health signal
         return _health(rec, FAILED, f"{type(e).__name__}: {e}")
 
