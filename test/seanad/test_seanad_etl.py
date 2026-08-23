@@ -11,6 +11,7 @@ small additive changes that gave the Dáil parsers Senator awareness:
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as _dt
 import sys
 from pathlib import Path
@@ -90,6 +91,53 @@ def test_build_full_psa_house_tag(tmp_path, monkeypatch):
     assert "house" in df.columns
     assert set(df["house"].unique().to_list()) == {"Seanad"}
     assert df.height == 2
+
+
+def test_build_full_psa_quarantines_future_dated_row(tmp_path, monkeypatch):
+    """A payment cannot post in the future.
+
+    The 2025-11-18 Senator PDF prints Date Paid "26/09/2026" against a "PSA
+    September 2025" narrative — a publisher typo. The row must land in
+    quarantine with its printed date INTACT, never silently rewritten to 2025:
+    inferring the year would put an invented value into a money fact.
+    """
+    future, ok = _fake_rows()
+    future = dataclasses.replace(future, date_paid=_dt.date(2026, 9, 26))
+    monkeypatch.setattr(P, "_iter_rows_from_pdf", lambda _p: [future, ok])
+    (tmp_path / "dummy.pdf").write_bytes(b"%PDF-1.4")
+    out, quarantine = tmp_path / "out.parquet", tmp_path / "q.parquet"
+
+    stats = P.build_full_psa(
+        pdf_dir=tmp_path,
+        out_parquet=out,
+        out_csv=tmp_path / "out.csv",
+        quarantine_parquet=quarantine,
+        house="Seanad",
+        as_of=_dt.date(2026, 8, 23),
+    )
+
+    assert stats == {"clean_rows": 1, "quarantine_rows": 1}
+    assert pl.read_parquet(out)["date_paid"].to_list() == [_dt.date(2026, 2, 27)]
+    quarantined = pl.read_parquet(quarantine)
+    assert quarantined["date_paid"].to_list() == [_dt.date(2026, 9, 26)]
+
+
+def test_build_full_psa_keeps_row_dated_exactly_as_of(tmp_path, monkeypatch):
+    """The cutoff is inclusive — a payment posted today is not future-dated."""
+    row = dataclasses.replace(_fake_rows()[0], date_paid=_dt.date(2026, 8, 23))
+    monkeypatch.setattr(P, "_iter_rows_from_pdf", lambda _p: [row])
+    (tmp_path / "dummy.pdf").write_bytes(b"%PDF-1.4")
+
+    stats = P.build_full_psa(
+        pdf_dir=tmp_path,
+        out_parquet=tmp_path / "out.parquet",
+        out_csv=tmp_path / "out.csv",
+        quarantine_parquet=tmp_path / "q.parquet",
+        house="Seanad",
+        as_of=_dt.date(2026, 8, 23),
+    )
+
+    assert stats == {"clean_rows": 1, "quarantine_rows": 0}
 
 
 def test_build_full_psa_default_has_no_house_col(tmp_path, monkeypatch):

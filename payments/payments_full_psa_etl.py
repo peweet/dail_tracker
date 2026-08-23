@@ -468,6 +468,7 @@ def build_full_psa(
     out_csv: Path = OUTPUT_CSV,
     quarantine_parquet: Path = QUARANTINE_PARQUET,
     house: str | None = None,
+    as_of: date | None = None,
 ) -> dict[str, int]:
     """Parse every PSA PDF in pdf_dir into the gold parquet.
 
@@ -475,6 +476,9 @@ def build_full_psa(
     passes pdf_dir=PAYMENTS_PDF_DIR_SEANAD + house="Seanad" + Senator output
     paths to reuse the entire parser unchanged (only _split_position learned
     'Senator'). `house`, when given, is tagged onto every row.
+
+    ``as_of`` is the date a payment cannot post after (default: today); rows
+    dated later are quarantined, not corrected — see the future-date rule below.
     """
     pdfs = sorted(pdf_dir.glob("*.pdf"))
     print(f"Found {len(pdfs)} PSA PDFs in {pdf_dir}")
@@ -508,10 +512,17 @@ def build_full_psa(
     # (some PDFs are republished or share rows across listings).
     df = df.unique(subset=["member_name", "date_paid", "amount", "payment_kind"], keep="first")
 
+    # A payment cannot post in the future. When the publisher's own Date Paid
+    # column is wrong the row is QUARANTINED, never rewritten: the 2025-11-18
+    # Senator PDF prints "26/09/2026" against a "PSA September 2025" narrative,
+    # and inferring 2025 from the narrative would put a value we invented into a
+    # money fact. Quarantine keeps the error visible and the provenance intact.
+    cutoff = as_of or date.today()
     is_clean = (
         pl.col("amount").is_not_null()
         & pl.col("amount").is_between(1, 100_000)
         & pl.col("date_paid").is_not_null()
+        & (pl.col("date_paid") <= cutoff)
         & (pl.col("payment_kind") != "UNKNOWN")
         & pl.col("member_name").str.len_chars().gt(0)
     )
