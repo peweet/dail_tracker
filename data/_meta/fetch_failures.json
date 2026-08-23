@@ -1,12 +1,12 @@
 {
-  "generated_utc": "2026-08-14T07:19:40+00:00",
+  "generated_utc": "2026-08-23T11:29:30+00:00",
   "extractors": {
     "public_body": {
-      "run_utc": "2026-08-14T07:16:09+00:00",
+      "run_utc": "2026-08-23T11:26:29+00:00",
       "n_failures": 2,
       "failures": [
         {
-          "ts_utc": "2026-08-14T07:16:02+00:00",
+          "ts_utc": "2026-08-23T11:26:24+00:00",
           "publisher_id": "ie_prisons",
           "publisher_name": "Irish Prison Service",
           "stage": "file",
@@ -19,7 +19,7 @@
           "last_period_in_gold": "2024"
         },
         {
-          "ts_utc": "2026-08-14T07:16:02+00:00",
+          "ts_utc": "2026-08-23T11:26:24+00:00",
           "publisher_id": "ie_prisons",
           "publisher_name": "Irish Prison Service",
           "stage": "file",
@@ -34,15 +34,7 @@
       ],
       "zero_harvest": [
         {
-          "ts_utc": "2026-08-14T07:13:55+00:00",
-          "publisher_id": "ie_bordbia",
-          "publisher_name": "Bord Bia",
-          "listing_url": "https://www.bordbia.ie/about/governance/corporate-governance/purchase-orders/",
-          "rows_in_gold": 5154,
-          "last_period_in_gold": "2026-Q1"
-        },
-        {
-          "ts_utc": "2026-08-14T07:14:24+00:00",
+          "ts_utc": "2026-08-23T11:25:08+00:00",
           "publisher_id": "dept_housing",
           "publisher_name": "Department of Housing, Local Government and Heritage",
           "listing_url": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/procurement-related-payments-over-20000-euro/",
@@ -50,23 +42,19 @@
           "last_period_in_gold": "2025-Q3"
         },
         {
-          "ts_utc": "2026-08-14T07:15:15+00:00",
+          "ts_utc": "2026-08-23T11:25:42+00:00",
           "publisher_id": "dept_finance",
           "publisher_name": "Department of Finance",
-          "listing_url": "https://www.gov.ie/en/department-of-finance/collections/purchase-orders/",
-          "rows_in_gold": 104,
-          "last_period_in_gold": "2026-Q2"
+          "listing_url": "https://www.gov.ie/en/department-of-finance/collections/purchase-orders/"
         },
         {
-          "ts_utc": "2026-08-14T07:15:15+00:00",
+          "ts_utc": "2026-08-23T11:25:43+00:00",
           "publisher_id": "dept_children",
           "publisher_name": "Department of Children, Disability and Equality",
-          "listing_url": "https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/",
-          "rows_in_gold": 30432,
-          "last_period_in_gold": "2026-Q2"
+          "listing_url": "https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/"
         },
         {
-          "ts_utc": "2026-08-14T07:15:20+00:00",
+          "ts_utc": "2026-08-23T11:25:47+00:00",
           "publisher_id": "ie_hsa",
           "publisher_name": "Health and Safety Authority",
           "listing_url": "https://www.hsa.ie/eng/about_us/public_sector_information/purchase_orders_in_excess_of_-20_000/"
@@ -75,11 +63,11 @@
       "breaker_trips": []
     },
     "la_payments": {
-      "run_utc": "2026-08-14T07:19:40+00:00",
+      "run_utc": "2026-08-23T11:29:30+00:00",
       "n_failures": 4,
       "failures": [
         {
-          "ts_utc": "2026-08-14T07:16:47+00:00",
+          "ts_utc": "2026-08-23T11:27:03+00:00",
           "publisher_id": "kilkenny",
           "publisher_name": "Kilkenny",
           "stage": "file",
@@ -90,7 +78,7 @@
           "attempts": 2
         },
         {
-          "ts_utc": "2026-08-14T07:18:31+00:00",
+          "ts_utc": "2026-08-23T11:28:43+00:00",
           "publisher_id": "galway_county",
           "publisher_name": "Galway County",
           "stage": "file",
@@ -101,7 +89,7 @@
           "attempts": 2
         },
         {
-          "ts_utc": "2026-08-14T07:18:54+00:00",
+          "ts_utc": "2026-08-23T11:28:57+00:00",
           "publisher_id": "sligo",
           "publisher_name": "Sligo",
           "stage": "file",
@@ -112,7 +100,7 @@
           "attempts": 1
         },
         {
-          "ts_utc": "2026-08-14T07:19:00+00:00",
+          "ts_utc": "2026-08-23T11:29:00+00:00",
           "publisher_id": "sligo",
           "publisher_name": "Sligo",
           "stage": "file",

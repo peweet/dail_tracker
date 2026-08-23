@@ -41,7 +41,7 @@ yet-older boundaries), so the card intentionally shows 2022 figures only — a
 PyMuPDF, and self-checks before writing: the 43 populations must sum to the
 report's national total **5,149,139** and the derived seats to **174**.
 
-```
+```text
 python pipeline_sandbox/ec_constituency_pop_extract.py --write
 ```
 

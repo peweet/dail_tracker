@@ -1,24 +1,24 @@
 {
   "publishers_attempted": 43,
-  "publishers_with_rows": 38,
-  "rows_extracted": 85837,
-  "rows_deduped_within_file": 936,
-  "rows_public_display": 67934,
-  "rows_review_personal_data": 17903,
-  "rows_quarantined": 17903,
+  "publishers_with_rows": 39,
+  "rows_extracted": 87862,
+  "rows_deduped_within_file": 997,
+  "rows_public_display": 68404,
+  "rows_review_personal_data": 19458,
+  "rows_quarantined": 19458,
   "supplier_class_counts": {
-    "company": 58333,
-    "sole_trader_or_individual": 17903,
-    "foreign_company": 682,
-    "unknown": 4847,
-    "public_body": 4072
+    "company": 61769,
+    "sole_trader_or_individual": 19458,
+    "foreign_company": 768,
+    "unknown": 1735,
+    "public_body": 4132
   },
   "amount_semantics_counts": {
-    "payment_actual": 49347,
-    "po_committed": 36490
+    "payment_actual": 49346,
+    "po_committed": 38516
   },
-  "value_safe_to_sum_rows": 76439,
-  "value_safe_to_sum_total_eur": 15964100221.83931,
+  "value_safe_to_sum_rows": 81492,
+  "value_safe_to_sum_total_eur": 16299465247.00931,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -108,11 +108,11 @@
       "id": "ie_bordbia",
       "name": "Bord Bia",
       "tier": "A",
-      "files_seen": 0,
-      "files_parsed": 0,
+      "files_seen": 41,
+      "files_parsed": 41,
       "files_skipped": 0,
-      "files_with_rows": 0,
-      "rows": 0,
+      "files_with_rows": 41,
+      "rows": 5155,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -184,7 +184,7 @@
       "files_parsed": 58,
       "files_skipped": 0,
       "files_with_rows": 58,
-      "rows": 1358,
+      "rows": 1357,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -240,11 +240,11 @@
       "id": "ie_marine",
       "name": "Marine Institute",
       "tier": "C",
-      "files_seen": 37,
-      "files_parsed": 37,
+      "files_seen": 1,
+      "files_parsed": 1,
       "files_skipped": 0,
-      "files_with_rows": 37,
-      "rows": 3232,
+      "files_with_rows": 1,
+      "rows": 103,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -540,6 +540,6 @@
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-08-14T07:16:09+00:00",
+  "generated_at": "2026-08-23T11:26:29+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

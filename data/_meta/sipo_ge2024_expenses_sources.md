@@ -54,7 +54,7 @@ the statutory limit (universal) rather than any party's assigned amounts.
   - PDF: <https://assets.sipo.ie/media/283883/b6e53676-bb38-4bfd-8773-565b4cd95135.pdf>
   - Collection: <https://www.sipo.ie/en/collection/30d00-2024-general-election-guidelines/>
 - **Per-party expenses returns** (the scanned forms this fact is OCR'd from) —
-  SIPO _Dáil General Election 2024_ collection:
+  SIPO *Dáil General Election 2024* collection:
   <https://www.sipo.ie/en/collection/2e0c0-dail-general-election-2024/>
   - Fianna Fáil <https://assets.sipo.ie/media/283955/6261d302-2a56-49af-abfc-57e9364c13fe.pdf>
   - Fine Gael <https://assets.sipo.ie/media/283936/7be18f2f-5cdc-4333-9f77-86830b14615c.pdf>

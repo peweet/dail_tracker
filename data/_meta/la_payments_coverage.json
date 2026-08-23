@@ -1,22 +1,22 @@
 {
   "councils_attempted": 24,
   "councils_with_rows": 23,
-  "rows_extracted": 100548,
-  "rows_public_display": 80676,
-  "rows_quarantined": 19872,
+  "rows_extracted": 100835,
+  "rows_public_display": 80941,
+  "rows_quarantined": 19894,
   "supplier_class_counts": {
-    "company": 78677,
-    "sole_trader_or_individual": 19350,
-    "public_body": 1970,
+    "sole_trader_or_individual": 19372,
+    "company": 78938,
+    "public_body": 1974,
     "foreign_company": 29,
     "id_code": 522
   },
   "value_kind_counts": {
-    "po_committed": 92533,
+    "po_committed": 92820,
     "payment_actual": 8015
   },
-  "public_safe_to_sum_rows": 80676,
-  "public_safe_to_sum_total_eur": 9380717101.89,
+  "public_safe_to_sum_rows": 80941,
+  "public_safe_to_sum_total_eur": 9396496238.289999,
   "by_council": [
     {
       "slug": "south_dublin",
@@ -321,10 +321,10 @@
       "council": "Cork County",
       "region": "Munster",
       "value_kind": "po_committed",
-      "files_parsed": 38,
-      "rows": 9790,
-      "total_eur": 683906557.36,
-      "cro_rate": 0.309,
+      "files_parsed": 39,
+      "rows": 10082,
+      "total_eur": 701030447.97,
+      "cro_rate": 0.307,
       "periods": [
         "2017-Q1",
         "2017-Q2",
@@ -362,7 +362,8 @@
         "2025-Q2",
         "2025-Q3",
         "2025-Q4",
-        "2026-Q1"
+        "2026-Q1",
+        "2026-Q2"
       ]
     },
     {
@@ -886,6 +887,6 @@
   "parser_version": "0.1.0",
   "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
   "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
-  "generated_at": "2026-08-14T07:19:40+00:00",
+  "generated_at": "2026-08-23T11:29:30+00:00",
   "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
 }

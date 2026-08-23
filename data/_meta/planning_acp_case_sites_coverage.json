@@ -1,0 +1,14 @@
+{
+  "schema": "dail-planning-acp-case-sites-coverage/1",
+  "generated_utc": "2026-08-23T11:39:16.059637+00:00",
+  "source_layer": "https://services-eu1.arcgis.com/o56BSnENmD5mYs3j/arcgis/rest/services/Cases_2016_Onwards/FeatureServer/3",
+  "source_licence": "No reuse licence stated on the ArcGIS service; owner clearance required",
+  "source_coverage_note": "The official service says not all cases are included, invalid and withdrawn cases are typically not mapped, and updates may lag. A zero-result search is scoped to this snapshot and is not proof that no case exists.",
+  "source_geometry_note": "Published case geometry; not proof of a submitted red-line, parcel identity, ownership or legal interest.",
+  "pulled_polygon_rows": 26254,
+  "retained_polygon_rows": 26254,
+  "geometry_results": {
+    "ok": 26098,
+    "repaired": 156
+  }
+}

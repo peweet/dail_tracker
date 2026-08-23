@@ -13,15 +13,15 @@ Memory: `project_judiciary_feature_validation`. Each file is written as both `.p
 |---|--:|---|---|
 | `judicial_appointments_spine` | 134 | Iris Oifigiúil (existing `public_appointments.parquet`, `appointment_type=='judicial'`) | internal gold |
 | `judicial_appointments_exploded` | 153 | ↑ exploded to one row per named appointee, real-court only | derived |
-| `judiciary_current_roster` | 198 | Courts Service "The Judges" (incl. ex-officio dup listings) | https://www.courts.ie/judges (Published 26/05/2026) |
+| `judiciary_current_roster` | 198 | Courts Service "The Judges" (incl. ex-officio dup listings) | <https://www.courts.ie/judges> (Published 26/05/2026) |
 | `judiciary_appointment_roster_join` | 153 | spine→roster name-join, `status` ∈ matched/elevated/unmatched | derived |
 | `judicial_nominations_govie` | 16 | 4 gov.ie nomination press releases (nominee, prior career, vacancy cause) | gov.ie/department-of-the-taoiseach & /justice press-releases |
-| `judiciary_hc_assignments` | 22 | High Court judge assignments, Hilary Term 2026 | https://www.courts.ie/news/assignments-of-high-court-judges---hilary-term-2026 |
-| `judicial_conduct_stats` | 23 | Judicial Council Annual Report, statutory Section 87(4) table (2022–24) | https://judicialcouncil.ie/publications/ (fitz `find_tables`) |
-| `courts_clearance` | 741 | Courts Service annual-report data, 2017–2024 (jurisdiction×category, incoming/resolved) | https://data.courts.ie (CC-BY 4.0) |
+| `judiciary_hc_assignments` | 22 | High Court judge assignments, Hilary Term 2026 | <https://www.courts.ie/news/assignments-of-high-court-judges---hilary-term-2026> |
+| `judicial_conduct_stats` | 23 | Judicial Council Annual Report, statutory Section 87(4) table (2022–24) | <https://judicialcouncil.ie/publications/> (fitz `find_tables`) |
+| `courts_clearance` | 741 | Courts Service annual-report data, 2017–2024 (jurisdiction×category, incoming/resolved) | <https://data.courts.ie> (CC-BY 4.0) |
 | `courts_waiting_times` | 45 | Courts Service Annual Report 2024 PDF, Waiting Times section pp.133–140 | courts.ie/docs/.../courts-service-annual-report-2024.pdf (fitz) |
-| `courthouses` | 94 | Active courthouses (geocoded) | https://data.courts.ie/files/court-offices/court-offices.csv (CC-BY) |
-| `judicial_salaries` | 8 | Judicial Remuneration Order (salary by rank) | https://www.irishstatutebook.ie/eli/2021/si/323/made/en/print |
+| `courthouses` | 94 | Active courthouses (geocoded) | <https://data.courts.ie/files/court-offices/court-offices.csv> (CC-BY) |
+| `judicial_salaries` | 8 | Judicial Remuneration Order (salary by rank) | <https://www.irishstatutebook.ie/eli/2021/si/323/made/en/print> |
 | `judges_european_seats` | 8 | Irish judges at CJEU/ECtHR (standalone factual list, NOT bench-linked) | Wikidata SPARQL (CC0) |
 
 ## Linkages & interesting findings (2026-06-04 review)

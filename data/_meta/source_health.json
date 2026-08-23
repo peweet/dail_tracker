@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-08-17T19:17:24Z",
+  "generated_at": "2026-08-23T11:42:13Z",
   "links_checked": true,
   "summary": {
     "sources_checked": 134,
-    "sources_ok": 108,
+    "sources_ok": 124,
     "sources_warning": 0,
-    "sources_failed": 21,
+    "sources_failed": 5,
     "sources_skipped": 5,
     "stale_sources": 0
   },
@@ -122,10 +122,10 @@
       "source_id": "api_canary:etenders",
       "group": "api_canary",
       "check_type": "api_canary",
-      "status": "failed",
-      "detail": "HTTP 429",
-      "http_status": 429,
-      "rows": null
+      "status": "ok",
+      "detail": "1 CKAN resources",
+      "http_status": 200,
+      "rows": 1
     },
     {
       "source_id": "api_canary:lobbying",
@@ -168,10 +168,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "108d old (<= 180d)",
+      "detail": "114d old (<= 180d)",
       "input_pattern": "data/bronze/charities/public_register_*.xlsx",
       "latest_file": "data/bronze/charities/public_register_20260426.xlsx",
-      "days_old": 108,
+      "days_old": 114,
       "stale_after_days": 180
     },
     {
@@ -179,10 +179,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "3d old (<= 7d)",
+      "detail": "0d old (<= 7d)",
       "input_pattern": "data/bronze/cro/companies_*.csv",
-      "latest_file": "data/bronze/cro/companies_20260814.csv",
-      "days_old": 3,
+      "latest_file": "data/bronze/cro/companies_20260823.csv",
+      "days_old": 0,
       "stale_after_days": 7
     },
     {
@@ -190,10 +190,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "74d old (<= 200d)",
+      "detail": "79d old (<= 200d)",
       "input_pattern": "data/silver/cro/financial_statements.parquet",
       "latest_file": "data/silver/cro/financial_statements.parquet",
-      "days_old": 74,
+      "days_old": 79,
       "stale_after_days": 200
     },
     {
@@ -218,7 +218,7 @@
       "final_url": "https://www.tusla.ie/about/your-personal-information/new-freedom-of-information/financial-information/",
       "content_type": "text/html; charset=UTF-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:17:37 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:42:43 GMT"
     },
     {
       "source_id": "ipas_accommodation:cag_reports_index",
@@ -285,11 +285,11 @@
       "group": "ipas_accommodation",
       "check_type": "index_poll",
       "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "detail": "HTTP 404",
+      "http_status": 404,
       "final_url": "https://www.gov.ie/en/collection/ipas-statistics/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": "323769",
       "last_modified": null
     },
     {
@@ -302,7 +302,7 @@
       "final_url": "https://carlow.ie/information-technology/local-authority-publications/annual-financial-statement-publication",
       "content_type": "text/html; charset=utf-8",
       "content_length": "108207",
-      "last_modified": "Mon, 17 Aug 2026 19:17:40 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:42:46 GMT"
     },
     {
       "source_id": "local_authority_afs:cavan",
@@ -326,7 +326,7 @@
       "final_url": "https://www.clarecoco.ie/council/about-the-council/council-finance",
       "content_type": "text/html; charset=UTF-8",
       "content_length": "55283",
-      "last_modified": "Mon, 17 Aug 2026 19:17:41 GMT"
+      "last_modified": "Sun, 23 Aug 2026 10:51:42 GMT"
     },
     {
       "source_id": "local_authority_afs:cork_city",
@@ -350,7 +350,7 @@
       "final_url": "https://www.corkcoco.ie/en/council/accessibility-maps-and-publications/annual-financial-statement",
       "content_type": "text/html; charset=utf-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:17:44 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:42:48 GMT"
     },
     {
       "source_id": "local_authority_afs:dlr",
@@ -361,8 +361,8 @@
       "http_status": 200,
       "final_url": "https://www.dlrcoco.ie/council-democracy/finance/annual-financial-statements",
       "content_type": "text/html; charset=UTF-8",
-      "content_length": "337279",
-      "last_modified": "Mon, 17 Aug 2026 19:17:46 GMT"
+      "content_length": "337199",
+      "last_modified": "Sun, 23 Aug 2026 10:51:46 GMT"
     },
     {
       "source_id": "local_authority_afs:donegal",
@@ -386,7 +386,7 @@
       "final_url": "https://www.dublincity.ie/your-city-council/governance-within-council/making-informed-and-transparent-decisions/financial-accounting",
       "content_type": "text/html; charset=UTF-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:17:48 GMT"
+      "last_modified": "Sun, 23 Aug 2026 10:51:48 GMT"
     },
     {
       "source_id": "local_authority_afs:fingal",
@@ -398,7 +398,7 @@
       "final_url": "https://www.fingal.ie/council/service/annual-financial-statement",
       "content_type": "text/html; charset=utf-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:17:50 GMT"
+      "last_modified": "Sun, 23 Aug 2026 10:51:50 GMT"
     },
     {
       "source_id": "local_authority_afs:galway_city",
@@ -410,7 +410,7 @@
       "final_url": "https://www.galwaycity.ie/services/finance-services/budgets-and-financial-publications",
       "content_type": "text/html; charset=utf-8",
       "content_length": "79745",
-      "last_modified": "Mon, 17 Aug 2026 19:17:51 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:42:52 GMT"
     },
     {
       "source_id": "local_authority_afs:galway_county",
@@ -422,7 +422,7 @@
       "final_url": "https://www.gaillimh.ie/en/finance/financial-publications/annual-financial-statements",
       "content_type": "text/html; charset=UTF-8",
       "content_length": "33848",
-      "last_modified": "Mon, 17 Aug 2026 19:17:51 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:42:52 GMT"
     },
     {
       "source_id": "local_authority_afs:kerry",
@@ -434,7 +434,7 @@
       "final_url": "https://www.kerrycoco.ie/finance/financial-documents/",
       "content_type": "text/html; charset=utf-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 11:58:08 GMT"
+      "last_modified": "Sat, 22 Aug 2026 11:58:05 GMT"
     },
     {
       "source_id": "local_authority_afs:kildare",
@@ -445,8 +445,8 @@
       "http_status": 200,
       "final_url": "https://kildarecoco.ie/YourCouncil/Publications/Finance/",
       "content_type": "text/html",
-      "content_length": "11519",
-      "last_modified": "Fri, 14 Aug 2026 11:03:18 GMT"
+      "content_length": "11431",
+      "last_modified": "Fri, 21 Aug 2026 11:03:21 GMT"
     },
     {
       "source_id": "local_authority_afs:kilkenny",
@@ -470,7 +470,7 @@
       "final_url": "https://laois.ie/finance",
       "content_type": "text/html; charset=UTF-8",
       "content_length": "84379",
-      "last_modified": "Mon, 17 Aug 2026 19:17:54 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:42:54 GMT"
     },
     {
       "source_id": "local_authority_afs:leitrim",
@@ -481,7 +481,7 @@
       "http_status": 200,
       "final_url": "https://www.leitrim.ie/council/services/finance/finance-publications/annual-financial-statements/",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "37293",
+      "content_length": "37370",
       "last_modified": null
     },
     {
@@ -493,8 +493,8 @@
       "http_status": 200,
       "final_url": "https://www.limerick.ie/council/services/your-council/budgets-expenditure-and-financial-statements/annual-financial",
       "content_type": "text/html; charset=UTF-8",
-      "content_length": "89312",
-      "last_modified": "Mon, 17 Aug 2026 19:17:57 GMT"
+      "content_length": "89874",
+      "last_modified": "Sun, 23 Aug 2026 11:42:56 GMT"
     },
     {
       "source_id": "local_authority_afs:longford",
@@ -536,8 +536,10 @@
       "source_id": "local_authority_afs:meath",
       "group": "local_authority_afs",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "SSLError: HTTPSConnectionPool(host='www.meath.ie', port=443): Max retries exceeded with url: /council/your-council/finance-and-procurement (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')))"
+      "status": "ok",
+      "detail": "HTTP 200 (system trust store)",
+      "http_status": 200,
+      "final_url": "https://www.meath.ie/council/your-council/finance-and-procurement"
     },
     {
       "source_id": "local_authority_afs:monaghan",
@@ -572,15 +574,17 @@
       "http_status": 200,
       "final_url": "https://www.roscommoncoco.ie/en/download-it/finance-publications/annual_financial_statement/",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "94233",
+      "content_length": "93132",
       "last_modified": null
     },
     {
       "source_id": "local_authority_afs:sligo",
       "group": "local_authority_afs",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "SSLError: HTTPSConnectionPool(host='www.sligococo.ie', port=443): Max retries exceeded with url: /YourCouncil/Finance/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')))"
+      "status": "ok",
+      "detail": "HTTP 200 (system trust store)",
+      "http_status": 200,
+      "final_url": "https://www.sligococo.ie/YourCouncil/Finance/"
     },
     {
       "source_id": "local_authority_afs:south_dublin",
@@ -591,7 +595,7 @@
       "http_status": 200,
       "final_url": "https://www.sdcc.ie/en/services/our-council/policies-and-plans/budgets-and-spending/financial-statements/",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "143401",
+      "content_length": "143231",
       "last_modified": null
     },
     {
@@ -604,7 +608,7 @@
       "final_url": "https://www.tipperarycoco.ie/finance/financial-reports",
       "content_type": "text/html; charset=UTF-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:18:12 GMT"
+      "last_modified": "Sun, 23 Aug 2026 10:52:19 GMT"
     },
     {
       "source_id": "local_authority_afs:waterford",
@@ -640,7 +644,7 @@
       "final_url": "https://www.wexfordcoco.ie/council-and-democracy/council-plans-publications-reports-and-minutes/annual-financial-statements",
       "content_type": "text/html; charset=UTF-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:18:15 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:43:27 GMT"
     },
     {
       "source_id": "local_authority_afs:wicklow",
@@ -678,7 +682,7 @@
       "final_url": "https://www.clarecoco.ie/business-licensing-and-economy/procurement-and-tenders",
       "content_type": "text/html; charset=UTF-8",
       "content_length": "58313",
-      "last_modified": "Mon, 17 Aug 2026 19:18:17 GMT"
+      "last_modified": "Fri, 21 Aug 2026 22:13:54 GMT"
     },
     {
       "source_id": "local_authority_payments:cork_city",
@@ -702,7 +706,7 @@
       "final_url": "https://www.corkcoco.ie/en/council/accessibility-maps-and-publications/purchase-orders-in-excess-of-eur20000",
       "content_type": "text/html; charset=utf-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:18:20 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:43:30 GMT"
     },
     {
       "source_id": "local_authority_payments:dlr",
@@ -740,7 +744,7 @@
       "final_url": "https://www.fingal.ie/council/service/procurement",
       "content_type": "text/html; charset=utf-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:18:23 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:43:31 GMT"
     },
     {
       "source_id": "local_authority_payments:galway_city",
@@ -752,7 +756,7 @@
       "final_url": "https://www.galwaycity.ie/services/finance-services/budgets-and-financial-publications",
       "content_type": "text/html; charset=utf-8",
       "content_length": "79745",
-      "last_modified": "Mon, 17 Aug 2026 19:17:51 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:42:52 GMT"
     },
     {
       "source_id": "local_authority_payments:galway_county",
@@ -764,7 +768,7 @@
       "final_url": "https://www.gaillimh.ie/en/finance/financial-publications/purchase-orders",
       "content_type": "text/html; charset=UTF-8",
       "content_length": "44048",
-      "last_modified": "Mon, 17 Aug 2026 19:18:24 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:43:32 GMT"
     },
     {
       "source_id": "local_authority_payments:kerry",
@@ -776,7 +780,7 @@
       "final_url": "https://www.kerrycoco.ie/finance/financial-documents/",
       "content_type": "text/html; charset=utf-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 11:58:08 GMT"
+      "last_modified": "Sat, 22 Aug 2026 11:58:05 GMT"
     },
     {
       "source_id": "local_authority_payments:kildare",
@@ -787,8 +791,8 @@
       "http_status": 200,
       "final_url": "https://kildarecoco.ie/YourCouncil/Publications/Finance/PurchaseOrdersover20000/",
       "content_type": "text/html",
-      "content_length": "12676",
-      "last_modified": "Fri, 14 Aug 2026 11:02:53 GMT"
+      "content_length": "12601",
+      "last_modified": "Fri, 21 Aug 2026 11:02:55 GMT"
     },
     {
       "source_id": "local_authority_payments:kilkenny",
@@ -812,7 +816,7 @@
       "final_url": "https://laois.ie/finance/business-and-enterprise-support/procurement-information-and-advice",
       "content_type": "text/html; charset=UTF-8",
       "content_length": "51226",
-      "last_modified": "Mon, 17 Aug 2026 19:18:27 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:43:34 GMT"
     },
     {
       "source_id": "local_authority_payments:leitrim",
@@ -823,7 +827,7 @@
       "http_status": 200,
       "final_url": "https://www.leitrim.ie/council/services/finance/accounts-payable/purchase-to-pay/",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "39301",
+      "content_length": "39363",
       "last_modified": null
     },
     {
@@ -835,8 +839,8 @@
       "http_status": 200,
       "final_url": "https://www.limerick.ie/council/services/business-and-economy/revenue-collection/accounts-payable",
       "content_type": "text/html; charset=UTF-8",
-      "content_length": "65460",
-      "last_modified": "Mon, 17 Aug 2026 19:18:28 GMT"
+      "content_length": "66022",
+      "last_modified": "Sun, 23 Aug 2026 11:43:35 GMT"
     },
     {
       "source_id": "local_authority_payments:longford",
@@ -847,7 +851,7 @@
       "http_status": 200,
       "final_url": "https://www.longfordcoco.ie/services/finance/finance-documents/large-purchase-orders/",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "16546",
+      "content_length": "16564",
       "last_modified": null
     },
     {
@@ -866,20 +870,17 @@
       "source_id": "local_authority_payments:meath",
       "group": "local_authority_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "SSLError: HTTPSConnectionPool(host='www.meath.ie', port=443): Max retries exceeded with url: /council/your-council/finance-and-procurement/tenders-and-contracts/payments-over-eu20000 (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')))"
+      "status": "ok",
+      "detail": "HTTP 200 (system trust store)",
+      "http_status": 200,
+      "final_url": "https://www.meath.ie/council/your-council/finance-and-procurement/tenders-and-contracts/payments-over-eur20000"
     },
     {
       "source_id": "local_authority_payments:monaghan",
       "group": "local_authority_payments",
       "check_type": "index_poll",
-      "status": "ok",
-      "detail": "HTTP 200",
-      "http_status": 200,
-      "final_url": "https://monaghan.ie/finance/publication-of-purchase-orders/",
-      "content_type": "text/html; charset=UTF-8",
-      "content_length": null,
-      "last_modified": null
+      "status": "failed",
+      "detail": "ConnectionError: HTTPSConnectionPool(host='monaghan.ie', port=443): Max retries exceeded with url: /finance/publication-of-purchase-orders/ (Caused by ReadTimeoutError(\"HTTPSConnectionPool(host='monaghan.ie', port=443): Read timed out. (read timeout=20.0)\"))"
     },
     {
       "source_id": "local_authority_payments:offaly",
@@ -904,8 +905,10 @@
       "source_id": "local_authority_payments:sligo",
       "group": "local_authority_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "SSLError: HTTPSConnectionPool(host='www.sligococo.ie', port=443): Max retries exceeded with url: /YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')))"
+      "status": "ok",
+      "detail": "HTTP 200 (system trust store)",
+      "http_status": 200,
+      "final_url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/"
     },
     {
       "source_id": "local_authority_payments:south_dublin",
@@ -916,7 +919,7 @@
       "http_status": 200,
       "final_url": "https://www.sdcc.ie/en/services/business/payments/",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "188336",
+      "content_length": "188166",
       "last_modified": null
     },
     {
@@ -940,7 +943,7 @@
       "http_status": 200,
       "final_url": "https://www.westmeathcoco.ie/en/ourservices/finance/procurement/purchaseorders/",
       "content_type": "text/html",
-      "content_length": "8381",
+      "content_length": "30549",
       "last_modified": "Fri, 24 Jul 2026 14:28:08 GMT"
     },
     {
@@ -953,7 +956,7 @@
       "final_url": "https://www.wexfordcoco.ie/council-and-democracy/procurement-finance-and-credit-control/council-spend",
       "content_type": "text/html; charset=UTF-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 15:24:40 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:27:01 GMT"
     },
     {
       "source_id": "local_authority_payments:wicklow",
@@ -1031,84 +1034,84 @@
       "source_id": "public_body_payments:dept_agriculture",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
-      "final_url": "https://www.gov.ie/en/collection/903f95-purchase-orders/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
+      "final_url": "https://www.gov.ie/en/department-of-finance/collections/purchase-orders/",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_children",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": "387632",
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_climate",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-climate-energy-and-the-environment/collections/payments-over-20000/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_culture",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-culture-communications-and-sport/collections/purchase-orders/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_defence",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-defence/collections/purchase-orders-over-20000/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_dper",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation/collections/dpendr-ogcio-and-ogp-purchase-order-payments-2024/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_education",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-education/collections/department-of-education-payments-greater-than-20000/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
@@ -1120,55 +1123,55 @@
       "http_status": 200,
       "final_url": "https://enterprise.gov.ie/en/publications/payments-over-20k.html",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "11092",
+      "content_length": "11732",
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_finance",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-finance/collections/purchase-orders/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_health",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-health/collections/department-of-health-payments-over-20000/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_housing",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/procurement-related-payments-over-20000-euro/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": "335013",
       "last_modified": null
     },
     {
       "source_id": "public_body_payments:dept_social_protection",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 403",
-      "http_status": 403,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/department-of-social-protection/collections/purchase-orders-for-20000-or-above/",
-      "content_type": "text/html",
-      "content_length": "919",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
@@ -1180,7 +1183,7 @@
       "http_status": 200,
       "final_url": "https://www.atu.ie/freedom-of-information/freedom-of-information-financial-information",
       "content_type": "text/html; charset=UTF-8",
-      "content_length": null,
+      "content_length": "21236",
       "last_modified": null
     },
     {
@@ -1193,7 +1196,7 @@
       "final_url": "https://www.beaumont.ie/page/financial-statements",
       "content_type": "text/html; charset=UTF-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 17:36:52 GMT"
+      "last_modified": "Sat, 22 Aug 2026 15:34:39 GMT"
     },
     {
       "source_id": "public_body_payments:ie_bim",
@@ -1265,7 +1268,7 @@
       "final_url": "https://www.citizensinformationboard.ie/en/freedom_of_information/financial_information/payments_or_purchase_orders_for_goods_and_services.html",
       "content_type": "text/html; charset=utf-8",
       "content_length": "5485",
-      "last_modified": "Mon, 17 Aug 2026 19:19:07 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:24:23 GMT"
     },
     {
       "source_id": "public_body_payments:ie_cnam",
@@ -1336,8 +1339,8 @@
       "http_status": 200,
       "final_url": "https://www.hpra.ie/transparency/financial-information/purchase-orders",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "27551",
-      "last_modified": "Wed, 12 Aug 2026 13:18:22 GMT"
+      "content_length": "27554",
+      "last_modified": "Mon, 17 Aug 2026 18:19:14 GMT"
     },
     {
       "source_id": "public_body_payments:ie_hsa",
@@ -1367,13 +1370,13 @@
       "source_id": "public_body_payments:ie_marine",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "ok",
-      "detail": "HTTP 200",
-      "http_status": 200,
+      "status": "failed",
+      "detail": "HTTP 500",
+      "http_status": 500,
       "final_url": "https://www.marine.ie/site-area/about-us/purchase-orders",
       "content_type": "text/html; charset=UTF-8",
       "content_length": "0",
-      "last_modified": "Mon, 17 Aug 2026 12:34:39 GMT"
+      "last_modified": null
     },
     {
       "source_id": "public_body_payments:ie_mtu",
@@ -1396,8 +1399,8 @@
       "http_status": 200,
       "final_url": "https://www.nli.ie/corporate-information",
       "content_type": "text/html; charset=UTF-8",
-      "content_length": "125423",
-      "last_modified": "Mon, 17 Aug 2026 19:19:18 GMT"
+      "content_length": "125420",
+      "last_modified": "Sun, 23 Aug 2026 11:45:32 GMT"
     },
     {
       "source_id": "public_body_payments:ie_ntma",
@@ -1415,12 +1418,12 @@
       "source_id": "public_body_payments:ie_opw",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "HTTP 405",
-      "http_status": 405,
+      "status": "ok",
+      "detail": "HTTP 200",
+      "http_status": 200,
       "final_url": "https://www.gov.ie/en/office-of-public-works/collections/payments-greater-than-20000/",
-      "content_type": "text/html; charset=UTF-8",
-      "content_length": "2111",
+      "content_type": "text/html; charset=utf-8",
+      "content_length": null,
       "last_modified": null
     },
     {
@@ -1439,8 +1442,10 @@
       "source_id": "public_body_payments:ie_prisons",
       "group": "public_body_payments",
       "check_type": "index_poll",
-      "status": "failed",
-      "detail": "SSLError: HTTPSConnectionPool(host='www.irishprisons.ie', port=443): Max retries exceeded with url: /information-centre/procurement/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')))"
+      "status": "ok",
+      "detail": "HTTP 200 (system trust store)",
+      "http_status": 200,
+      "final_url": "https://www.irishprisons.ie/information-centre/procurement/"
     },
     {
       "source_id": "public_body_payments:ie_revenue",
@@ -1451,7 +1456,7 @@
       "http_status": 200,
       "final_url": "https://www.revenue.ie/en/corporate/statutory-obligations/freedom-of-information/section8/procurement.aspx",
       "content_type": "text/html; charset=utf-8",
-      "content_length": "31998",
+      "content_length": "31996",
       "last_modified": null
     },
     {
@@ -1464,7 +1469,7 @@
       "final_url": "https://www.screenireland.ie/about/policies/purchase-orders-for-20000-or-above/2025",
       "content_type": "text/html; charset=UTF-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 19:19:23 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:45:43 GMT"
     },
     {
       "source_id": "public_body_payments:ie_sportireland",
@@ -1476,7 +1481,7 @@
       "final_url": "https://www.sportireland.ie/about-us/freedom-of-information/financial-information",
       "content_type": "text/html; charset=UTF-8",
       "content_length": "82566",
-      "last_modified": "Mon, 17 Aug 2026 19:19:24 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:45:44 GMT"
     },
     {
       "source_id": "public_body_payments:ie_tailte",
@@ -1500,7 +1505,7 @@
       "final_url": "https://teagasc.ie/about/corporate-responsibility/information-for-suppliers/",
       "content_type": "text/html; charset=UTF-8",
       "content_length": null,
-      "last_modified": "Mon, 17 Aug 2026 18:36:40 GMT"
+      "last_modified": "Sun, 23 Aug 2026 11:36:54 GMT"
     },
     {
       "source_id": "public_body_payments:ie_tii",
@@ -1535,18 +1540,18 @@
       "http_status": 200,
       "final_url": "https://tus.ie/privacy/freedom-of-information/publications/financial-reports/",
       "content_type": "text/html; charset=UTF-8",
-      "content_length": null,
-      "last_modified": null
+      "content_length": "17779",
+      "last_modified": "Sun, 23 Aug 2026 11:25:27 GMT"
     },
     {
       "source_id": "stateboards:register",
       "group": "stateboards",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "3d old (<= 60d)",
+      "detail": "0d old (<= 60d)",
       "input_pattern": "data/silver/parquet/stateboards_roster.parquet",
       "latest_file": "data/silver/parquet/stateboards_roster.parquet",
-      "days_old": 3,
+      "days_old": 0,
       "stale_after_days": 60
     }
   ]

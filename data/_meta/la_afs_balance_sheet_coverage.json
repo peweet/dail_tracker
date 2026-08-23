@@ -575,6 +575,6 @@
   ],
   "value_kind": "balance_sheet_stock",
   "scope": "per-LA audited AFS Balance Sheet — financial position line items (long) at 31 December",
-  "generated_at": "2026-08-14T06:49:39.128702+00:00",
+  "generated_at": "2026-08-23T11:17:36.493066+00:00",
   "caveat": "STOCK grain — positions at a point in time, NOT flows. NEVER sum or reconcile with any AFS expenditure (la_afs_divisions / la_afs_capital_divisions), procurement-awarded, payments or budget euros, and NEVER sum one item across years for one council (double-counts a carried balance). Read directly from the printed Balance Sheet (no reconcile gate). One value per (council, year, item); the prior-year comparative column is kept only where no statement-year read exists for that year. Sub-total lines are not captured — sum the labelled components (e.g. fixed assets = the fa_* items)."
 }

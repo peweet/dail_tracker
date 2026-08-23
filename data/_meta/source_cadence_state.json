@@ -1,4 +1,68 @@
 {
-  "generated_at": "2026-08-17",
-  "sources": {}
+  "generated_at": "2026-08-23",
+  "sources": {
+    "api_canary:etenders": {
+      "first_broken_at": "2026-08-23"
+    },
+    "ipas_accommodation:hiqa_inspection_reports": {
+      "first_broken_at": "2026-08-23"
+    },
+    "ipas_accommodation:ipas_weekly_stats": {
+      "first_broken_at": "2026-08-23"
+    },
+    "local_authority_afs:meath": {
+      "first_broken_at": "2026-08-23"
+    },
+    "local_authority_afs:sligo": {
+      "first_broken_at": "2026-08-23"
+    },
+    "local_authority_payments:meath": {
+      "first_broken_at": "2026-08-23"
+    },
+    "local_authority_payments:sligo": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_agriculture": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_children": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_climate": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_culture": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_defence": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_dper": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_education": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_finance": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_health": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_housing": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:dept_social_protection": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:ie_bordbia": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:ie_opw": {
+      "first_broken_at": "2026-08-23"
+    },
+    "public_body_payments:ie_prisons": {
+      "first_broken_at": "2026-08-23"
+    }
+  }
 }

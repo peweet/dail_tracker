@@ -1,0 +1,203 @@
+{
+  "schema": "dail-planning-application-sites-coverage/1",
+  "generated_utc": "2026-08-22T09:38:35.058516+00:00",
+  "source_layer": "https://services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services/IrishPlanningApplications/FeatureServer/1",
+  "source_licence": "CC BY 4.0",
+  "source_geometry_note": "Published planning-register site geometry; not verified submitted red-line, parcel identity, ownership or legal interest.",
+  "live_polygon_rows": 502774,
+  "pulled_polygon_rows": 502774,
+  "retained_polygon_rows": 502772,
+  "geometry_results": {
+    "ok": 502437,
+    "repaired": 335,
+    "empty": 2
+  },
+  "authorities": [
+    {
+      "planning_authority": "Carlow County Council",
+      "point_rows": 4570,
+      "polygon_rows": 4583,
+      "polygon_point_ratio": 1.0028
+    },
+    {
+      "planning_authority": "Cavan County Council",
+      "point_rows": 6198,
+      "polygon_rows": 6225,
+      "polygon_point_ratio": 1.0044
+    },
+    {
+      "planning_authority": "Clare County Council",
+      "point_rows": 10892,
+      "polygon_rows": 10935,
+      "polygon_point_ratio": 1.0039
+    },
+    {
+      "planning_authority": "Cork City Council",
+      "point_rows": 6763,
+      "polygon_rows": 5963,
+      "polygon_point_ratio": 0.8817
+    },
+    {
+      "planning_authority": "Cork County Council",
+      "point_rows": 126549,
+      "polygon_rows": 127450,
+      "polygon_point_ratio": 1.0071
+    },
+    {
+      "planning_authority": "Donegal County Council",
+      "point_rows": 21377,
+      "polygon_rows": 21465,
+      "polygon_point_ratio": 1.0041
+    },
+    {
+      "planning_authority": "Dublin City Council",
+      "point_rows": 24879,
+      "polygon_rows": 24879,
+      "polygon_point_ratio": 1.0
+    },
+    {
+      "planning_authority": "Dun Laoghaire Rathdown County Council",
+      "point_rows": 38520,
+      "polygon_rows": 38560,
+      "polygon_point_ratio": 1.001
+    },
+    {
+      "planning_authority": "Fingal County Council",
+      "point_rows": 20148,
+      "polygon_rows": 20206,
+      "polygon_point_ratio": 1.0029
+    },
+    {
+      "planning_authority": "Galway City Council",
+      "point_rows": 3416,
+      "polygon_rows": 3430,
+      "polygon_point_ratio": 1.0041
+    },
+    {
+      "planning_authority": "Galway County Council",
+      "point_rows": 18772,
+      "polygon_rows": 18864,
+      "polygon_point_ratio": 1.0049
+    },
+    {
+      "planning_authority": "Kerry County Council",
+      "point_rows": 12989,
+      "polygon_rows": 13088,
+      "polygon_point_ratio": 1.0076
+    },
+    {
+      "planning_authority": "Kildare County Council",
+      "point_rows": 15155,
+      "polygon_rows": 15232,
+      "polygon_point_ratio": 1.0051
+    },
+    {
+      "planning_authority": "Kilkenny County Council",
+      "point_rows": 8698,
+      "polygon_rows": 8749,
+      "polygon_point_ratio": 1.0059
+    },
+    {
+      "planning_authority": "Laois County Council",
+      "point_rows": 7909,
+      "polygon_rows": 7935,
+      "polygon_point_ratio": 1.0033
+    },
+    {
+      "planning_authority": "Leitrim County Council",
+      "point_rows": 2097,
+      "polygon_rows": 2103,
+      "polygon_point_ratio": 1.0029
+    },
+    {
+      "planning_authority": "Limerick County Council",
+      "point_rows": 12615,
+      "polygon_rows": 12624,
+      "polygon_point_ratio": 1.0007
+    },
+    {
+      "planning_authority": "Longford County Council",
+      "point_rows": 2846,
+      "polygon_rows": 2857,
+      "polygon_point_ratio": 1.0039
+    },
+    {
+      "planning_authority": "Louth County Council",
+      "point_rows": 10592,
+      "polygon_rows": 10626,
+      "polygon_point_ratio": 1.0032
+    },
+    {
+      "planning_authority": "Mayo County Council",
+      "point_rows": 11194,
+      "polygon_rows": 11239,
+      "polygon_point_ratio": 1.004
+    },
+    {
+      "planning_authority": "Meath County Council",
+      "point_rows": 16665,
+      "polygon_rows": 16757,
+      "polygon_point_ratio": 1.0055
+    },
+    {
+      "planning_authority": "Monaghan County Council",
+      "point_rows": 6102,
+      "polygon_rows": 6122,
+      "polygon_point_ratio": 1.0033
+    },
+    {
+      "planning_authority": "Offaly County Council",
+      "point_rows": 6604,
+      "polygon_rows": 6629,
+      "polygon_point_ratio": 1.0038
+    },
+    {
+      "planning_authority": "Roscommon County Council",
+      "point_rows": 6328,
+      "polygon_rows": 6357,
+      "polygon_point_ratio": 1.0046
+    },
+    {
+      "planning_authority": "Sligo County Council",
+      "point_rows": 4532,
+      "polygon_rows": 4543,
+      "polygon_point_ratio": 1.0024
+    },
+    {
+      "planning_authority": "South Dublin County Council",
+      "point_rows": 33124,
+      "polygon_rows": 33164,
+      "polygon_point_ratio": 1.0012
+    },
+    {
+      "planning_authority": "Tipperary County Council",
+      "point_rows": 14684,
+      "polygon_rows": 14743,
+      "polygon_point_ratio": 1.004
+    },
+    {
+      "planning_authority": "Waterford City and County Council",
+      "point_rows": 9950,
+      "polygon_rows": 9999,
+      "polygon_point_ratio": 1.0049
+    },
+    {
+      "planning_authority": "Westmeath County Council",
+      "point_rows": 6080,
+      "polygon_rows": 6109,
+      "polygon_point_ratio": 1.0048
+    },
+    {
+      "planning_authority": "Wexford County Council",
+      "point_rows": 17756,
+      "polygon_rows": 17805,
+      "polygon_point_ratio": 1.0028
+    },
+    {
+      "planning_authority": "Wicklow County Council",
+      "point_rows": 13299,
+      "polygon_rows": 13531,
+      "polygon_point_ratio": 1.0174
+    }
+  ]
+}
