@@ -1,0 +1,19 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "dail-native"
+version = "0.1.0"
+description = "Optional PyO3 acceleration trials for dail_extractor"
+requires-python = ">=3.12"
+license = { text = "AGPL-3.0-or-later" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+]
+
+[tool.maturin]
+python-source = "python"
+module-name = "dail_native._dail_native"

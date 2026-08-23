@@ -1,0 +1,4 @@
+target/
+python/dail_native/_dail_native*.pyd
+python/dail_native/_dail_native*.pdb
+python/dail_native/__pycache__/

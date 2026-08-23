@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable
+from typing import Literal
 
 import polars as pl
 
@@ -90,3 +92,54 @@ def name_norm_str(name: object) -> str:
     s = _NON_ALNUM_RE.sub(" ", s)
     s = _WS_RE.sub(" ", s).strip()
     return s
+
+
+NameNormBackend = Literal["python", "native", "shadow"]
+
+
+def name_norm_many(names: Iterable[object], *, backend: NameNormBackend = "python", workers: int = 1) -> list[str]:
+    """Batch-normalise names through the explicit PyO3 trial seam.
+
+    ``python`` is the production-safe default and always uses
+    :func:`name_norm_str`. ``native`` is opt-in and requires the separately
+    built ``dail_native`` package. ``shadow`` executes both implementations,
+    returns the Python oracle, and raises on any byte-level difference.
+
+    No existing extractor calls this function. A caller may only promote the
+    native result after an end-to-end profile and a corpus-equivalence review.
+    ``workers`` defaults to one so it cannot silently oversubscribe a cgroup- or
+    memory-constrained pipeline; callers requesting more must set the bound.
+    """
+    if backend not in {"python", "native", "shadow"}:
+        raise ValueError(f"unknown name-normalisation backend: {backend!r}")
+    if workers < 1:
+        raise ValueError("workers must be at least one")
+
+    # PyO3 accepts owned strings only. Preserve the scalar contract before the
+    # handoff: None -> "" and any other object follows str(name).
+    values = ["" if name is None else str(name) for name in names]
+    if backend == "python":
+        return [name_norm_str(value) for value in values]
+
+    try:
+        from dail_native import name_norm_many as native_name_norm_many
+    except ImportError as exc:
+        raise RuntimeError(
+            "the optional dail_native PyO3 trial is not built; "
+            "use backend='python' or build native/dail_native with maturin"
+        ) from exc
+
+    native_result = native_name_norm_many(values, workers=workers)
+    if backend == "native":
+        return native_result
+
+    python_result = [name_norm_str(value) for value in values]
+    if len(native_result) != len(python_result):
+        raise RuntimeError("native name normaliser returned the wrong number of rows")
+    for index, (expected, actual) in enumerate(zip(python_result, native_result, strict=True)):
+        if expected != actual:
+            raise AssertionError(
+                "native name normaliser drifted from the Python contract at "
+                f"index {index}: python={expected!r}, native={actual!r}"
+            )
+    return python_result
