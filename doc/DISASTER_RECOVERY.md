@@ -2,9 +2,9 @@
 tier: PLAN
 status: LIVE
 domain: infra
-updated: 2026-08-15
+updated: 2026-08-21
 supersedes: []
-read_when: the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub + R2
+read_when: the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub and object storage
 key: PLAN|LIVE|infra
 ---
 
@@ -14,7 +14,8 @@ Read this first. It tells you where everything lives and how to get back to a
 working machine. The backup side (what runs, how it's configured) is in
 [DATA_BACKUP.md](DATA_BACKUP.md) — this doc is the **restore** side.
 
-> **Recovery boundary:** committed code is on GitHub and data is in Cloudflare R2,
+> **Recovery boundary:** committed code is on GitHub and data is split between Hetzner Object
+> Storage and Cloudflare R2,
 > but an unpushed change, a Restic password held only on the laptop, or an account
 > without recoverable 2FA is still a single point of failure. A destroyed laptop is
 > recoverable only when the off-laptop credentials listed below are available.
@@ -30,9 +31,9 @@ working machine. The backup side (what runs, how it's configured) is in
 | `data/raw_bq/` (raw bulk-query captures) | R2 bucket `dail-tracker-backup/raw_bq/` | `rclone copy` (below) |
 | `data/gold/` (beyond the git slice), rest of `data/silver` | **not backed up** — regenerable | rebuild via the pipeline from bronze |
 | `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
-| `planning/` (including the authoritative nested `planning/product/.git` private history) | restic repo `restic_private` → R2 bucket **`dail-siting`** | `restic restore` (below) |
+| `planning/` (including the authoritative nested `planning/product/.git` private history) | restic repo `restic_private` → Hetzner bucket **`specplan-ie-private-restic-nbg1`** | `restic restore` (below) |
 | **The whole repo otherwise** (~3.8 GB: `.git`, the non-mirrored parts of `data/`, `pipeline_sandbox`, `doc`, `ida`, `out`, `logs`, `audit_screenshots`, `.claude`, tests, tools) | restic repo `restic_sandbox` → R2 bucket `dail-tracker-backup` | `restic restore` (below) |
-| Production authentication, waitlist and deployment configuration | verified local state stage and encrypted Restic repository `dail-siting/redline-production-state` | rebuild the Hetzner VM, restore the latest encrypted state snapshot, then complete an isolated sign-in/case-reopen rehearsal |
+| Production authentication, waitlist and deployment configuration | verified local state stage and encrypted Restic repository `specplan-ie-private-restic-nbg1/redline-production-state` | rebuild the Hetzner VM, restore the latest encrypted state snapshot, then complete an isolated sign-in/case-reopen rehearsal |
 
 The sandbox job is defined as **the repo minus a denylist**, not as a list of directories —
 so a new top-level directory is protected the day it appears. That is deliberate: the
@@ -41,7 +42,8 @@ allowlist that reality had moved past. The denylist and the reason for each entr
 [tools/backup_restic_to_r2.ps1](../tools/backup_restic_to_r2.ps1).
 
 ⚠ **Private history is backed up only in the private lane.** The authoritative private
-repository is `planning/product/.git`, which travels with `planning/` to `dail-siting`.
+repository is `planning/product/.git`, which travels with `planning/` to
+`specplan-ie-private-restic-nbg1/restic_private`.
 The retired `.git-siting` overlay remains excluded from the public lane and may be captured
 incidentally by the private lane, but it is not a source of truth. This routing prevents
 commercial siting work from reaching the public-data bucket; always run a dry run after
@@ -49,6 +51,9 @@ changing backup exclusions.
 
 R2 account ID: `dda75db5c9db02954a7b45e69052c742`
 S3 endpoint: `https://dda75db5c9db02954a7b45e69052c742.r2.cloudflarestorage.com`
+
+Hetzner private-backup endpoint: `https://nbg1.your-objectstorage.com`
+Bucket: `specplan-ie-private-restic-nbg1`
 
 As of 2026-08-15, R2 Bucket Lock retains objects under `dail-tracker-backup/versions/`
 and `dail-tracker-backup/manifests/archive/` for 45 days. Mutable current-data paths and
@@ -194,16 +199,14 @@ repositories. You need the repository password from your password manager.
 ```powershell
 winget install --id restic.restic
 
-# Option A - point restic straight at R2 (no download step; this is how the 2026-08-02
-# verification ran). AWS_* are the R2 token for that bucket; the r2private token covers
-# dail-siting, the original r2 token covers dail-tracker-backup.
-$env:AWS_ACCESS_KEY_ID     = '<access key id>'
-$env:AWS_SECRET_ACCESS_KEY = '<secret access key>'
+# Option A - point Restic straight at object storage. The private repository uses the
+# hetzner-backup AWS profile; the sandbox repository still uses the separate R2 token.
+$env:AWS_PROFILE           = 'hetzner-backup'
 $env:RESTIC_PASSWORD       = '<repository password from your password manager>'
-restic -r s3:https://dda75db5c9db02954a7b45e69052c742.r2.cloudflarestorage.com/dail-siting/restic_private snapshots
+restic -r s3:https://nbg1.your-objectstorage.com/specplan-ie-private-restic-nbg1/restic_private snapshots
 
 # Option B - pull the repository down first (it is just a directory of files)
-rclone copy r2private:dail-siting/restic_private   C:\restore\restic_private
+rclone copy hetznerbackup:specplan-ie-private-restic-nbg1/restic_private C:\restore\restic_private
 rclone copy r2:dail-tracker-backup/restic_sandbox  C:\restore\restic_sandbox
 
 # Restore. --target is a PREFIX: restic recreates the original absolute path beneath it,
@@ -293,11 +296,10 @@ Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` aft
   git can never be its backup). [tools/backup_restic_to_r2.ps1](../tools/backup_restic_to_r2.ps1)
   now covers that set. It is a **separate lane** from `backup_to_r2.ps1`, not a
   replacement: bronze/silver/raw_bq still go up as a plain rclone mirror.
-- **Two repositories, two buckets, two passwords — deliberate.** `planning/` is
-  commercial IP; the sandbox trees are not. Separate R2 buckets with separately-scoped
-  API tokens mean a leaked token for the public-data backup grants no access to the
-  private tree, and separate repository passwords give the same isolation at the
-  encryption layer.
+- **Two repositories, two providers, two passwords — deliberate.** `planning/` is
+  commercial IP; the sandbox trees are not. Hetzner holds the private repository while R2 holds
+  the public-data repository, so a leaked token for either lane grants no access to the other;
+  separate repository passwords give the same isolation at the encryption layer.
 - **Verified live 2026-08-02, three ways.** (a) Both repositories checked *from R2* with
   `restic check --read-data`, which re-reads and re-hashes every pack in the bucket rather
   than trusting rclone's transfer report. After the scope expansion to the whole repo:
@@ -314,6 +316,12 @@ Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` aft
   written by an active session in the ~2 h since the snapshot, and 342 `__pycache__` files
   the backup excludes on purpose. This is the restic-lane equivalent of the 2026-06-13
   rclone-lane drill.
+- **Private storage migrated and re-verified 2026-08-21.** The current 18-snapshot
+  `restic_private` repository was copied to Hetzner as 907 objects / 15,553,400,962 bytes. Exact
+  key/size comparison, 907-file local checksum comparison and `restic check --read-data` over all
+  883 packs passed. The production `redline-production-state` repository also passed full-data
+  checks and isolated restores before and after its first Hetzner-backed nightly. The retired
+  `dail-siting` R2 bucket was then emptied and deleted.
 - **Freshness is the real limit, not integrity.** That drill quantified it: an actively-
   developed tree drifted by ~46 files in two hours. `DailTracker-BackupRestic` runs daily
   at 03:00, so the ordinary recovery-point objective for `planning/` is one day. Run

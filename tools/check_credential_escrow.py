@@ -2,7 +2,7 @@
 
 WHY THIS EXISTS (2026-08-21): both restic repositories are AES-256 encrypted and their
 only password copy lived in one ACL'd file on the laptop being backed up. Lose it and
-15.2 GB of commercial IP in R2 becomes permanently unreadable. The fix is an escrow copy
+the commercial IP in object storage becomes permanently unreadable. The fix is an escrow copy
 in a password manager -- but an escrow nobody has ever read back is a guess, not a backup.
 
 So this tool deliberately does NOT read restic_passwords.txt. You paste the secret from
@@ -30,9 +30,12 @@ from pathlib import Path
 
 BACKUP_ROOT = Path(r"C:\Users\pglyn\dail_tracker_backup")
 
-#: repo name -> (R2 repository URL, local repository path)
+#: repo name -> (off-site repository URL, local repository path)
 REPOS = {
-    "private": ("rclone:r2private:dail-siting/restic_private", BACKUP_ROOT / "restic_private"),
+    "private": (
+        "rclone:hetznerbackup:specplan-ie-private-restic-nbg1/restic_private",
+        BACKUP_ROOT / "restic_private",
+    ),
     "sandbox": ("rclone:r2:dail-tracker-backup/restic_sandbox", BACKUP_ROOT / "restic_sandbox"),
 }
 
@@ -71,7 +74,7 @@ def main() -> int:
     if not args.local:
         rclone = _find("rclone", "rclone.exe")
         if rclone is None:
-            print("rclone not found, and the R2 check needs it - pass --local or install it", file=sys.stderr)
+            print("rclone not found, and the off-site check needs it - pass --local or install it", file=sys.stderr)
             return 2
         environment["PATH"] = f"{Path(rclone).parent}{os.pathsep}{environment.get('PATH', '')}"
 

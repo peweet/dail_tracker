@@ -1,6 +1,6 @@
 <#
 backup_restic_to_r2.ps1 - snapshot the trees that backup_to_r2.ps1 does NOT cover,
-then mirror those restic repositories to Cloudflare R2.
+then mirror those restic repositories to their off-site object stores.
 
 WHY THIS EXISTS (2026-08-01 audit):
   tools/backup_to_r2.ps1 mirrors data/bronze + data/silver + data/raw_bq only. An audit
@@ -12,21 +12,21 @@ WHY THIS EXISTS (2026-08-01 audit):
   planning/product is commercial IP going into cloud storage. restic also dedupes and
   compresses, which plain `rclone copy` does not.
 
-TWO REPOSITORIES, TWO BUCKETS - deliberate isolation:
-  restic_private  -> $bucketPrivate   planning/  (commercial IP)
-  restic_sandbox  -> $bucketSandbox   sandbox / doc / ida / out trees
-  Separate R2 buckets each with their own scoped API token, so a leaked token for the
+TWO REPOSITORIES, TWO PROVIDERS - deliberate isolation:
+  restic_private  -> Hetzner Object Storage   planning/  (commercial IP)
+  restic_sandbox  -> Cloudflare R2            sandbox / doc / ida / out trees
+  Separate providers, buckets and scoped credentials ensure that a leaked token for the
   public-data backup grants NO access to the private tree. Separate repository passwords
-  for the same reason at the encryption layer.
+  provide the same isolation at the encryption layer.
 
 TIERING: the local repos under $backupRoot are tier 1 (fast restore, survives a bad
-  refactor). The R2 copies are tier 2 (survives laptop loss). Local alone is NOT a
+  refactor). The off-site copies are tier 2 (survives laptop loss). Local alone is NOT a
   backup - a dead disk takes both the source and the local repo.
 
 PREREQS (one-time):
   1. restic on PATH or at the winget location (winget install --id restic.restic)
-  2. rclone `r2` remote already configured - see doc/DATA_BACKUP.md
-  3. Both R2 buckets created, and $pwFile populated (see doc/DISASTER_RECOVERY.md)
+  2. rclone `r2` and `hetznerbackup` remotes configured - see doc/DISASTER_RECOVERY.md
+  3. Both object-storage buckets created, and $pwFile populated (see doc/DISASTER_RECOVERY.md)
 
 USAGE:
   tools/backup_restic_to_r2.ps1 -DryRun    # snapshot + check, no upload
@@ -44,16 +44,15 @@ $ErrorActionPreference = 'Stop'
 # --- config ---
 $backupRoot     = 'C:\Users\pglyn\dail_tracker_backup'
 $pwFile         = Join-Path $backupRoot 'restic_passwords.txt'   # ACL-restrict this file
-# Two rclone remotes, NOT one. The existing `r2` remote's API token is scoped to the
-# `dail-tracker-backup` bucket (doc/DATA_BACKUP.md step 3), so it CANNOT write to the
-# private bucket - and giving it account-wide reach would defeat the isolation this
-# split exists for. Create a second remote holding the private bucket's own token:
-#   rclone config create r2private s3 provider=Cloudflare region=auto `
-#     access_key_id=... secret_access_key=... `
-#     endpoint=https://<accountid>.r2.cloudflarestorage.com
+# Two rclone remotes, NOT one. The existing `r2` remote remains scoped to the public-data
+# `dail-tracker-backup` bucket. The private lane uses Hetzner Object Storage and reads its
+# credentials from the existing `hetzner-backup` AWS profile, so secrets are not duplicated
+# in rclone.conf:
+#   rclone config create hetznerbackup s3 provider=Other env_auth=true `
+#     profile=hetzner-backup region=nbg1 endpoint=https://nbg1.your-objectstorage.com
 $remoteSandbox  = 'r2'
-$remotePrivate  = 'r2private'
-$bucketPrivate  = 'dail-siting'          # created 2026-08-02; holds the planning/siting IP
+$remotePrivate  = 'hetznerbackup'
+$bucketPrivate  = 'specplan-ie-private-restic-nbg1'
 $bucketSandbox  = 'dail-tracker-backup'      # sandbox trees share the existing bucket
 
 $root  = Split-Path -Parent $PSScriptRoot
@@ -67,7 +66,7 @@ Set-Location $root
 # even though their normal triggers are an hour apart.  The data lane is smaller
 # and is the priority recovery point, so let it finish before the heavier restic
 # snapshot starts.  This also avoids two backup clients competing for local I/O
-# and the R2 connection immediately after wake-up.
+# and the object-storage connections immediately after wake-up.
 function Wait-ForDataBackupIfRunning {
     $taskName = 'DailTracker-BackupR2'
     $deadline = (Get-Date).AddHours(2)
@@ -206,7 +205,9 @@ foreach ($job in $jobs) {
 
     if ($SkipUpload) { continue }
 
-    $common = @('--fast-list','--transfers','8','--checkers','16',
+    # Restic objects are content-addressed. Checksum comparison also makes a provider
+    # migration idempotent when S3 Last-Modified values differ from the local repository.
+    $common = @('--fast-list','--checksum','--transfers','8','--checkers','16',
                 '--stats-one-line','--log-file',$rclog,'--log-level','INFO')
     if ($DryRun) { $common += '--dry-run' }
 
