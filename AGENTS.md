@@ -43,6 +43,16 @@ is unavailable or not applicable.
 - Wait for every requested result, adjudicate disagreements against repository evidence, and report unresolved uncertainty explicitly.
 - Permit at most one write-capable agent in a checkout. Parallel implementation requires separate Git worktrees and explicit integration ownership; do not improvise worktrees for the nested `planning/product` repository.
 
+### Cross-session sidecars
+
+- Session size alone is not a reason to parallelize: use `/compact` when the work is still one tightly coupled evidence chain. Do not fill idle slots without a distinct independent lane.
+- Keep the original session as captain, integration owner, and sole writer. Cross-session sidecars are read-only scouts or reviewers with exact read paths; they never mark their own work integrated or verified.
+- Before dispatch, run `python tools/dev.py roots`, choose one stable task key from objective, scope, source snapshot, and role, and check that the same task is not already active or complete.
+- Create the packet in a temporary file outside the source worktree with `python tools/dev.py sidecar-handoff template`; bind it with `sidecar-handoff snapshot --root <worktree> --read-path <bounded-relative-path>` (repeat read paths), then validate or queue it with the same `--source-root`.
+- A queue receipt means `accepted_unconsumed`, not delivered. Run `sidecar-handoff status` to confirm `delivered`; the target alone owns `integrated`, `verified`, and `closed`.
+- An ambiguous queue or receipt-write outcome keeps an exact recovery claim and reports `recovery_required`. Inspect the target first, then use `sidecar-handoff recover --resolution accepted|failed`; never delete or bypass a claim blindly.
+- Never resend blindly. Use `supersedes: <handoff-id>` only for a corrected packet with the same task key; otherwise create a genuinely different bounded task.
+
 ### Review, test, and repair contract
 
 - Strict Claude read-only `project_settings` is bounded workdir `AGENTS.md` guidance only; it never inherits project permissions, settings, skills, or `.claude` configuration. Codex ON cleanroom hooks are a deliberate benchmark intervention, not a general permission grant.
