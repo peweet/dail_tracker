@@ -18,6 +18,7 @@ def test_canonical_task_surface_contains_required_checks():
         "conventions",
         "mcp-catalog",
         "agent-context",
+        "sidecar-handoff",
         "ui-contracts",
         "doc-index",
         "test-fast",
@@ -121,3 +122,15 @@ def test_agent_context_does_not_bootstrap_the_full_dev_profile(monkeypatch):
     )
 
     assert dev._reexec_in_dev_profile(["agent-context"]) is None
+
+
+def test_sidecar_handoff_is_stdlib_only_and_forwards_arguments(monkeypatch):
+    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
+    monkeypatch.setattr(
+        dev.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected bootstrap")),
+    )
+
+    assert dev._reexec_in_dev_profile(["sidecar-handoff", "template"]) is None
+    assert dev.commands_for("sidecar-handoff", ("template",)) == ((dev.PYTHON, "tools/sidecar_handoff.py", "template"),)

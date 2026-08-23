@@ -21,6 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 PYTHON = sys.executable
+# rumdl has no `-m` shim (unlike ruff/basedpyright) — `python -m rumdl` errors looking
+# for a cargo-built binary. Resolve the console-script installed alongside PYTHON.
+RUMDL = str(Path(PYTHON).parent / ("rumdl.exe" if os.name == "nt" else "rumdl"))
 UV = shutil.which("uv") or "uv"
 FAST_MARKERS = "not integration and not sql and not sources and not bronze and not layers"
 DEV_PROFILE_ENV = "DAIL_DEV_PROFILE_ACTIVE"
@@ -46,7 +49,7 @@ DEV_PROFILE_MODULES = (
     "polars",
     "sqlglot",
 )
-STDLIB_TASKS = frozenset({"agent-context"})
+STDLIB_TASKS = frozenset({"agent-context", "sidecar-handoff"})
 
 
 @dataclass(frozen=True)
@@ -62,6 +65,7 @@ TASKS: dict[str, Task] = {
         ((PYTHON, "-m", "ruff", "format", "--check", "."),),
     ),
     "type": Task("Run the scoped basedpyright contract", ((PYTHON, "-m", "basedpyright"),)),
+    "lint-md": Task("Markdown lint via rumdl (informational — not in check/CI)", ((RUMDL, "check", "."),)),
     "firewall": Task(
         "Enforce the Streamlit data/logic boundary",
         ((PYTHON, "tools/check_streamlit_logic_firewall.py"),),
@@ -77,6 +81,10 @@ TASKS: dict[str, Task] = {
     "agent-context": Task(
         "Check reusable prompt contracts, budgets, and review rubrics",
         ((PYTHON, "tools/check_agent_context.py"),),
+    ),
+    "sidecar-handoff": Task(
+        "Validate, queue, or confirm a cross-session Codex handoff",
+        ((PYTHON, "tools/sidecar_handoff.py"),),
     ),
     "ui-contracts": Task(
         "Check live frontend URL, style, markup, API, and machine-readable contracts",
