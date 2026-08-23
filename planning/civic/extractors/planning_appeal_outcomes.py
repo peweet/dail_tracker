@@ -37,11 +37,13 @@ case with no appeal outcome (the `0 = not-matched != absent` trap in reference_j
 Inputs:  ACP Cases_2016_Onwards FeatureServer layer 3 (PC02); planning_applications_silver.parquet (PC01)
 Output:  data/silver/parquet/planning_appeal_outcomes.parquet
          data/silver/parquet/planning_acp_cases.parquet   (the case spine)
+         data/silver/parquet/planning_acp_case_sites.parquet (published case polygons)
          data/_meta/planning_appeal_outcomes_coverage.json
 """
 
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import logging
 import re
@@ -49,6 +51,7 @@ import unicodedata
 from pathlib import Path
 
 import polars as pl
+import shapely
 
 from planning.civic.extractors.planning_appeal_vector import (
     OUT_COLS as _OUT_COLS,
@@ -61,6 +64,7 @@ from planning.civic.extractors.planning_appeal_vector import (
     epoch_ms_date_expr,
     spatial_temporal_matches,
 )
+from planning.civic.extractors.planning_applications_ingest import _polygonal_geometry
 from services.coverage_io import save_coverage
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
@@ -71,8 +75,11 @@ ROOT = Path(__file__).resolve().parents[3]
 SILVER = ROOT / "data/silver/parquet/planning_applications_silver.parquet"
 OUT = ROOT / "data/silver/parquet/planning_appeal_outcomes.parquet"
 OUT_SPINE = ROOT / "data/silver/parquet/planning_acp_cases.parquet"
+OUT_SITES = ROOT / "data/silver/parquet/planning_acp_case_sites.parquet"
 OUT_COV = ROOT / "data/_meta/planning_appeal_outcomes_coverage.json"
+OUT_SITES_COV = ROOT / "data/_meta/planning_acp_case_sites_coverage.json"
 ACP = "https://services-eu1.arcgis.com/o56BSnENmD5mYs3j/arcgis/rest/services/Cases_2016_Onwards/FeatureServer/3/query"
+ACP_LAYER = ACP.removesuffix("/query")
 _APPLICATION_COLUMNS = (
     "ApplicationNumber",
     "PlanningAuthority",
@@ -222,6 +229,73 @@ def _fetch_acp() -> pl.DataFrame:
     )
 
 
+def _fetch_acp_sites() -> tuple[pl.DataFrame, dict[str, int], int]:
+    """Retain every published ACP case polygon part without changing the centroid join."""
+    rows: list[dict] = []
+    reasons: dict[str, int] = {}
+    offset = 0
+    while True:
+        response, _ = fetch_json(
+            ACP,
+            params={
+                "where": "1=1",
+                "outFields": (
+                    "ABPCASEID,DECISION,PLANINGATY,CATEGORY,DECIDED_ON,LODGEDON,DEVDESC,LINKABPWEB,UPDATED_ON"
+                ),
+                "returnGeometry": "true",
+                "outSR": 4326,
+                "resultOffset": offset,
+                "resultRecordCount": 2000,
+                "orderByFields": "OBJECTID",
+                "f": "geojson",
+            },
+            timeout=120,
+        )
+        features = response.get("features", [])
+        if not features:
+            break
+        for feature in features:
+            geometry, reason = _polygonal_geometry(feature.get("geometry"))
+            reasons[reason] = reasons.get(reason, 0) + 1
+            if geometry is None:
+                continue
+            properties = feature.get("properties") or {}
+            minx, miny, maxx, maxy = geometry.bounds
+            rows.append(
+                {
+                    "abp_case": str(properties.get("ABPCASEID") or "").strip(),
+                    "planning_authority": properties.get("PLANINGATY"),
+                    "category": properties.get("CATEGORY"),
+                    "decision_as_reported": properties.get("DECISION"),
+                    "lodged_date": properties.get("LODGEDON"),
+                    "decided_date": properties.get("DECIDED_ON"),
+                    "updated_date": properties.get("UPDATED_ON"),
+                    "description_as_reported": properties.get("DEVDESC"),
+                    "case_url": properties.get("LINKABPWEB"),
+                    "wkb": shapely.to_wkb(geometry),
+                    "bbox_minx": minx,
+                    "bbox_miny": miny,
+                    "bbox_maxx": maxx,
+                    "bbox_maxy": maxy,
+                    "geometry_repaired": reason == "repaired",
+                    "source_layer_url": ACP_LAYER,
+                    "source_licence": "No reuse licence stated on the ArcGIS service; owner clearance required",
+                    "source_checked_date": dt.date.today(),
+                }
+            )
+        offset += len(features)
+        if len(features) < 2000:
+            break
+    frame = pl.DataFrame(rows, infer_schema_length=None)
+    if frame.height:
+        frame = frame.with_columns(
+            epoch_ms_date_expr("lodged_date").alias("lodged_date"),
+            epoch_ms_date_expr("decided_date").alias("decided_date"),
+            epoch_ms_date_expr("updated_date").alias("updated_date"),
+        )
+    return frame, reasons, sum(reasons.values())
+
+
 def _load_applications(path: Path = SILVER) -> pl.DataFrame:
     """Read only the seven application columns used by both match paths."""
     return pl.read_parquet(path, columns=list(_APPLICATION_COLUMNS))
@@ -301,8 +375,49 @@ def _spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.
     return spatial_temporal_matches(residual, apps)
 
 
+def _refresh_acp_sites() -> tuple[pl.DataFrame, dict[str, int], int]:
+    case_sites, geometry_results, rows_pulled = _fetch_acp_sites()
+    save_parquet(case_sites, OUT_SITES, min_rows=20_000, compression_level=9)
+    coverage = {
+        "schema": "dail-planning-acp-case-sites-coverage/1",
+        "generated_utc": dt.datetime.now(dt.UTC).isoformat(),
+        "source_layer": ACP_LAYER,
+        "source_licence": ("No reuse licence stated on the ArcGIS service; owner clearance required"),
+        "source_coverage_note": (
+            "The official service says not all cases are included, invalid and withdrawn cases "
+            "are typically not mapped, and updates may lag. A zero-result search is scoped to "
+            "this snapshot and is not proof that no case exists."
+        ),
+        "source_geometry_note": (
+            "Published case geometry; not proof of a submitted red-line, parcel identity, ownership or legal interest."
+        ),
+        "pulled_polygon_rows": rows_pulled,
+        "retained_polygon_rows": case_sites.height,
+        "geometry_results": geometry_results,
+    }
+    save_coverage(coverage, OUT_SITES_COV)
+    LOG.info(
+        "ACP case polygons: %d retained of %d pulled -> %s | %s",
+        case_sites.height,
+        rows_pulled,
+        OUT_SITES,
+        geometry_results,
+    )
+    return case_sites, geometry_results, rows_pulled
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--sites-only",
+        action="store_true",
+        help="refresh the published ACP case-polygon snapshot without rewriting outcome facts",
+    )
+    args = parser.parse_args()
     setup_standalone_logging("planning_appeal_outcomes")
+    if args.sites_only:
+        _refresh_acp_sites()
+        return
     if not SILVER.exists():
         raise SystemExit(f"silver missing: {SILVER}")
     acp = _fetch_acp()
@@ -311,6 +426,10 @@ def main() -> None:
         acp.height,
         *(acp.filter(pl.col("abp_decision") == v).height for v in ("GRANT", "REFUSE", "OTHER")),
     )
+
+    # Preserve source polygons in a separate part-grained fact. The existing case spine and
+    # appeal matcher deliberately keep their validated representative-centroid semantics.
+    case_sites, site_geometry_results, site_rows_pulled = _refresh_acp_sites()
 
     # SPINE — every case with a representative point, independent of whether it joins to a council
     # application. Written before the join so a council-side failure can't cost us the register.
@@ -404,6 +523,14 @@ def main() -> None:
         "spine_live": n_live,
         "spine_decided": spine.height - n_live,
         "spine_multi_polygon": n_multi,
+        "case_site_polygon_rows": case_sites.height,
+        "case_site_polygon_rows_pulled": site_rows_pulled,
+        "case_site_geometry_results": site_geometry_results,
+        "case_site_note": (
+            "planning_acp_case_sites.parquet retains every published case polygon part for "
+            "reviewable spatial comparison. Published register geometry is not proof of a "
+            "submitted red-line, parcel identity, ownership or legal interest."
+        ),
         "spine_note": "planning_acp_cases.parquet — one row per ACP case (register spine, matched or "
         "not). Representative point = largest polygon's centroid; multi-site cases carry n_polygons "
         "+ site_spread_m. status='live' cases are still before the Board and have NO outcome.",

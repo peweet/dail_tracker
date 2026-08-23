@@ -158,8 +158,8 @@ Columns: **Source / domain · Status · Chain / extractor · Output / view / API
 
 | Source / domain | Status | Notes |
 |---|---|---|
-| National Planning Applications (ArcGIS REST) | `partial` | Committed `planning_applications_silver` is a **static input**; the national ingest is **not yet a chain**. |
-| An Coimisiún Pleanála appeals (PC02) | `partial` | Fetched live by `planning_appeal_outcomes` (ArcGIS FeatureServer). |
+| National Planning Applications (ArcGIS REST) | `partial` | Layer 0 points remain a **static input** and the national ingest is **not yet a chain**. Layer 1 polygon retention and coverage reporting are implemented as `planning_application_sites.parquet`, but the operational national snapshot still has to be generated. The publisher describes participating-authority data since 2012; geometry presence and fidelity vary. |
+| An Coimisiún Pleanála appeals (PC02) | `partial` | Fetched live by `planning_appeal_outcomes`; every published layer-3 polygon part is now retained as `planning_acp_case_sites.parquet`. The official service says not all cases are included, invalid/withdrawn cases are typically not mapped, and updates can lag. |
 | Siting Check (geospatial designation engine) | `private-overlay` | Not shipped in the public app or API. The optional MCP tool reports unavailable when the local `planning/product` overlay is absent. |
 | MyPlan zoning / NPWS designated areas + derogation / OPW flood zones / BCMS commencement (CKAN) / CSO planning permissions (PxStat) / Tailte boundaries | `private-overlay` / `candidate` | The endpoint registry belongs to the untracked private planning overlay; it is not a public-checkout source contract. |
 
