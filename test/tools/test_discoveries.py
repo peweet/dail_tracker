@@ -47,3 +47,14 @@ def test_mcp_session_pileup_lesson_has_a_portable_detail_card():
     assert resolve_memory(row["memory"], [root / "memory"]) == (
         root / "memory" / "windows_mcp_session_pileup_2026_08_05.md"
     )
+
+
+def test_cross_session_sidecar_lesson_has_a_portable_detail_card():
+    root = Path(__file__).resolve().parents[2]
+    row = next(item for item in load() if item.get("id") == "codex-cross-session-sidecar-handoff")
+
+    assert row["memory"] == "project_codex_sidecar_handoff_2026_08_23"
+    assert {"massive session", "add workers", "parralelize", "share findings"} <= set(row["trigger"])
+    assert resolve_memory(row["memory"], [root / "memory"]) == (
+        root / "memory" / "project_codex_sidecar_handoff_2026_08_23.md"
+    )
