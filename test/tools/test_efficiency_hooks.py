@@ -161,7 +161,9 @@ def test_tripwire_fires_at_200k_once(tmp_path, monkeypatch, capsys):
 
     assert _run(tw, {"session_id": sid, "transcript_path": str(t)}, monkeypatch) == 0
     ctx = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    # /clear is offered only for unrelated work; continuing the same thread is not discouraged
     assert "context-tripwire" in ctx and "/clear" in ctx
+    assert "250,000" in ctx and "UNRELATED" in ctx and "keep going" in ctx
 
     # same session, still in the 200k band -> marker exists -> silent
     assert _run(tw, {"session_id": sid, "transcript_path": str(t)}, monkeypatch) == 0
@@ -176,7 +178,8 @@ def test_tripwire_escalates_to_400k_handoff(tmp_path, monkeypatch, capsys):
     t = _tripwire_transcript(tmp_path, 450_000)
     assert _run(tw, {"session_id": sid, "transcript_path": str(t)}, monkeypatch) == 0
     ctx = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
-    assert "400k" in ctx and "closeout" in ctx
+    # the level-2 nudge reports the measured size and offers /compact before any handoff
+    assert "450,000" in ctx and "closeout" in ctx and "/compact" in ctx
 
     # after the 400k nudge the session stays silent
     assert _run(tw, {"session_id": sid, "transcript_path": str(t)}, monkeypatch) == 0

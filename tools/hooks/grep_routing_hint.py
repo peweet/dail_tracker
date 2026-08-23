@@ -37,10 +37,19 @@ _BARE_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _SYMBOL_SHAPED = re.compile(r"_|[a-z][A-Z]")  # snake_case or camelCase/PascalCase interior
 _IMPORT_LIKE = re.compile(r"^\s*(from\s+[\w.]+\s+import\b|import\s+[\w.]+)")
 _REGEX_META = re.compile(r"[\\()\[\]|^$*+?{}]")
+_FILE_SCOPED = re.compile(r"\.(py|md|json|ya?ml|toml|sql|txt|jsonl)$", re.I)
+# planning/product and apps/public-signal are nested private repos with their own
+# MCP index; the public py_refs/search_project never see them.
+_PRIVATE_SCOPE = re.compile(r"planning/product|apps/public-signal")
+_PRIVATE_TOOL = {
+    "py_refs": "siting_py_refs(symbol)",
+    "py_deps": "siting_py_deps(path)",
+    "search_project": "search_siting_project(query)",
+}
 
 NUDGE = {
     "py_refs": (
-        "That Grep pattern looks like a single Python symbol searched repo-wide. "
+        "That Grep pattern is a single Python symbol swept across a directory. "
         "py_refs(path, name) answers 'who calls this' at the line, alias- and "
         "re-export-aware — a plain Grep can't tell a def from a call site."
     ),
@@ -55,9 +64,9 @@ NUDGE = {
         "instead of grepping import lines by hand."
     ),
     "search_project": (
-        "That Grep looks like a 'where does this topic live' search, unscoped. "
+        "That Grep looks like a 'where does this topic live' search. "
         "search_project(query) ranks matches across datasets/docs/views/code in "
-        "one call instead of a repo-wide text search."
+        "one call, returning line spans instead of a text dump."
     ),
 }
 
@@ -80,13 +89,15 @@ def _classify(ti: dict) -> str | None:
         return "sql_lineage"
 
     py_scoped = file_type in ("", "py") and (not glob or ".py" in glob)
-    repo_wide = path in ("", ".")
+    # A grep at one named file is Grep's job; a directory or repo-wide sweep is the
+    # index's. Requiring repo-wide missed 867 of 874 real greps on 2026-08-21.
+    dir_scoped = not _FILE_SCOPED.search(path)
 
     if _IMPORT_LIKE.search(pattern) and py_scoped:
         return "py_deps"
 
     if (
-        repo_wide
+        dir_scoped
         and py_scoped
         and _BARE_IDENT.fullmatch(pattern)
         and len(pattern) >= 4
@@ -96,10 +107,10 @@ def _classify(ti: dict) -> str | None:
         return "py_refs"
 
     if (
-        repo_wide
+        dir_scoped
         and not glob
         and not file_type
-        and output_mode == "files_with_matches"
+        and output_mode in ("", "content", "files_with_matches")
         and " " in pattern.strip()
         and not _REGEX_META.search(pattern)
     ):
@@ -160,12 +171,16 @@ def main() -> int:
     _log_trial(session, category, nudged=not already, pattern=str(_tool_input(payload).get("pattern") or ""))
     if already:
         return 0
+    message = NUDGE[category]
+    scope = str(_tool_input(payload).get("path") or "").replace("\\", "/")
+    if _PRIVATE_SCOPE.search(scope) and category in _PRIVATE_TOOL:
+        message = f"{message} That path is a nested private repo — use {_PRIVATE_TOOL[category]}."
     print(
         json.dumps(
             {
                 "hookSpecificOutput": {
                     "hookEventName": "PostToolUse",
-                    "additionalContext": f"[tool-routing] {NUDGE[category]}",
+                    "additionalContext": f"[tool-routing] {message}",
                 }
             }
         )

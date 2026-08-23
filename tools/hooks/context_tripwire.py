@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""UserPromptSubmit hook — nudge toward /clear when this session's context balloons.
+"""UserPromptSubmit hook — price a ballooning context, without ending useful work.
 
 THE MEASURED CASE (2026-07-31 week review, memory
 project_token_spend_week_review_2026_07_31): 78% of the week's cache-read tokens were
@@ -8,6 +8,17 @@ billed on turns whose context had already passed 200k (36% past 400k); peak cont
 bill. CLAUDE.md's "/clear between unrelated tasks" rule demonstrably doesn't fire on its
 own — this hook raises it in-context at the moment it's actionable (a new user prompt =
 a task boundary).
+
+RE-SCOPED 2026-08-21 on user feedback ("sometimes the long sessions are very
+valuable"). The original wording told the agent to finish up and suggest /clear at 200k
+regardless of what the session was doing, which is wrong in the case that matters most:
+a long session sustained on ONE thread is frequently the cheap option, because the
+alternative is paying to re-derive everything it already holds. Size alone is not the
+signal — size PLUS a topic change is. So the nudge now states the cost, tells the agent
+to keep going when the prompt continues the work, offers /compact as the middle option
+that preserves the session, and reserves /clear for an unrelated task. The cost lever
+that survives in every case is not ending the session but keeping its context from
+growing: spans over dumps, subagents for sweeps, bounded Reads.
 
 Context size is read from the transcript itself: the last assistant turn's
 usage.cache_read_input_tokens is the exact prompt-cache size, no estimation. Only the
@@ -35,16 +46,21 @@ WARN_1 = 200_000
 WARN_2 = 400_000
 
 NUDGE_1 = (
-    "[context-tripwire] This session's context has passed 200k tokens — every further "
-    "turn re-bills all of it as cache-read. Finish the task in hand, then suggest the "
-    "user /clear (or open a fresh session) before starting anything unrelated."
+    "[context-tripwire] Context is ~{ctx:,} tokens, so each further turn re-bills all of "
+    "it as cache-read. If this prompt CONTINUES the current work, keep going — a long "
+    "session on one thread is often the cheaper option, because ending it means "
+    "re-deriving what it already holds. Just stop the context growing: prefer index "
+    "spans over file dumps, send bulky sweeps to a subagent, and Read with offset/limit. "
+    "Only raise /clear if this prompt starts something UNRELATED."
 )
 NUDGE_2 = (
-    "[context-tripwire] Context has passed 400k tokens — each turn now bills roughly 4x "
-    "a fresh session's. Offer the user a handoff at the next natural break: write a "
-    "short closeout note (task state, open items, key file:line pointers — "
-    "tools/session_closeout.py is the existing surface), then they /clear and the next "
-    "session resumes from the note for a few k tokens instead of this context."
+    "[context-tripwire] Context is ~{ctx:,} tokens — each turn bills roughly 4x a fresh "
+    "session's, and most of that prefix is probably spent work rather than live state. "
+    "If the thread is still valuable, offer /compact first: it keeps the session and the "
+    "task, and drops the dead weight. Reserve the full handoff (a closeout note via "
+    "tools/session_closeout.py, then /clear) for a genuine topic change. Never end a "
+    "session that is mid-task purely because it is large — say the cost and let the user "
+    "choose."
 )
 
 
@@ -110,6 +126,7 @@ def main() -> int:
         level, msg = 1, NUDGE_1
     if _already_nudged(session, level):
         return 0
+    msg = msg.format(ctx=ctx)
     print(
         json.dumps(
             {
