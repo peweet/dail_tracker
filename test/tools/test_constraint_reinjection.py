@@ -20,7 +20,9 @@ def _write_transcript(tmp_path: Path, context_tokens: int) -> Path:
     path = tmp_path / "transcript.jsonl"
     row = {
         "type": "assistant",
-        "message": {"usage": {"cache_read_input_tokens": context_tokens, "cache_creation_input_tokens": 0, "input_tokens": 0}},
+        "message": {
+            "usage": {"cache_read_input_tokens": context_tokens, "cache_creation_input_tokens": 0, "input_tokens": 0}
+        },
     }
     path.write_text(json.dumps(row) + "\n", encoding="utf-8")
     return path

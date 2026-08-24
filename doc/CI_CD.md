@@ -281,32 +281,19 @@ Streamlit Cloud auto-redeploys the app on every push to `main`. No workflow need
 
 Required: the repo + `requirements.txt` (or a Streamlit-Cloud-compatible `pyproject.toml`), a `streamlit_app.py` entry, and any secrets configured in the Streamlit Cloud UI.
 
-### 5b. Docker image (optional)
+### 5b. Docker image
 
-If you ever want to host elsewhere (Fly.io, Render, your own VM), publishing to GitHub Container Registry on every tag is straightforward:
+Live, in `.github/workflows/dailtracker-web-image.yml`. It builds `Dockerfile.web` and publishes to `ghcr.io/${{ github.repository_owner }}/dailtracker-web` on every push to `main` touching the app, its data, the image definition, or `tools/image_registry_footprint.py` — plus `workflow_dispatch`. This is what turns a data refresh into a deploy: local ETL commits gold parquet, the push bakes a new image, and the box-side update script swaps it in. The Hetzner box pulls the image and never builds it.
 
-```yaml
-on:
-  push:
-    tags: ["v*"]
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
-        with:
-          push: true
-          tags: ghcr.io/peweet/dail_tracker:${{ github.ref_name }}
-```
+The Dockerfile pins every input so a rebuild months later cannot drift underneath it. `ARG PYTHON_IMAGE=python:3.12-slim-bookworm@sha256:...` fixes the base by digest, and the `uv` binary is copied from `ghcr.io/astral-sh/uv:0.11.16@sha256:...` rather than a floating tag. `uv sync --frozen --no-dev --no-install-project` runs under `RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked`, so BuildKit keeps the download cache on the builder instead of baking it into a shipped layer.
 
-Defer until there's a reason. Streamlit Cloud is free; Docker is for when you need a different host or self-host.
+`docker/build-push-action@v6` pushes one tag, `:sha-${{ github.sha }}`. It never pushes `:latest` directly, so nothing is servable under the tag the box reaches for until two later steps clear it.
+
+**Enforce candidate image footprint** runs `tools/image_registry_footprint.py` against that sha tag with `--max-compressed-bytes 650000000`. The script reads the pushed manifest's layer sizes from the registry with `docker buildx imagetools inspect --raw` — no pull, no image contents — sums them, and fails the job over the ceiling. Its JSON receipt goes into the step summary, and **Upload image-footprint receipt** keeps it as a build artifact under `if-no-files-found: error`, so a missing receipt fails the run too.
+
+Only after that gate passes does **Promote the checked candidate to latest** run `docker buildx imagetools create` to tag `:latest` from the sha tag. That is a registry-side retag of the digest just checked, not a rebuild, so `:latest` can never point at an image that skipped the footprint check. A final step prints the pull line for the box.
+
+Local Docker disk management (`tools/docker_gc.py`, `tools/box_docker_gc.py`) is a separate concern — see [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md).
 
 ---
 

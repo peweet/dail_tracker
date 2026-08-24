@@ -8,14 +8,15 @@ when the configured compressed-byte ceiling is exceeded.
 from __future__ import annotations
 
 import argparse
-from datetime import UTC, datetime
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from typing import Any, Sequence
+from collections.abc import Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 
 class RegistryFootprintError(RuntimeError):
@@ -100,9 +101,7 @@ def _write_receipt(path: Path, payload: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
-def inspect_registry_image(
-    *, image: str, max_compressed_bytes: int, receipt: Path, platform: str
-) -> int:
+def inspect_registry_image(*, image: str, max_compressed_bytes: int, receipt: Path, platform: str) -> int:
     raw_manifest, resolved_image, index_manifest = resolve_platform_manifest(image, platform)
     metrics = manifest_metrics(raw_manifest)
     compressed = int(metrics["compressed_layer_bytes"])

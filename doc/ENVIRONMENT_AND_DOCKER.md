@@ -86,6 +86,72 @@ Application images pin the Python base and `uv` image digests. Updating a digest
 is a reviewed dependency change: rebuild the image, assert its non-root user,
 start it, and wait for its health/readiness endpoint.
 
+## Docker disk management
+
+Four tools bound Docker's on-disk footprint in the three places it accumulates:
+the Windows/WSL2 dev laptop, the Linux deployment host, and the image CI pushes.
+Every one of them reports by default and mutates only when told to.
+
+| Tool | Host | Default | Mutating flag |
+| --- | --- | --- | --- |
+| `tools/docker_gc.py` | Windows/WSL2 dev laptop | Report only | `--reclaim`; `--compact` (asks first) |
+| `tools/register_docker_gc_task.ps1` | Windows dev laptop | Registers the weekly task | `-RunNow` starts it immediately |
+| `tools/box_docker_gc.py` | Linux deployment host | Dry run | `--apply` |
+| `tools/image_registry_footprint.py` | CI, after image push | Inspects and reports | Exits non-zero over `--max-compressed-bytes` |
+
+**`tools/docker_gc.py`** exists because local Docker reached 80 images (104.3GB
+reclaimable) and a 152.6GB `docker_data.vhdx` on a drive with 102GB free, entirely
+from rebuilds leaving prior layers as dangling `<none>` images with nobody watching
+between sessions. `--reclaim` runs three commands judged safe to run unattended:
+
+- `docker image prune -a -f --filter until=24h` — any image, dangling or tagged, that
+  no container references and nothing has touched for 24h.
+- `docker builder prune -f --filter until=168h` — build cache older than a week.
+- `docker volume prune -f` (no `-a`) — anonymous volumes only. A named-but-unused
+  volume can hold real data with no container pointing at it, so it is left alone.
+
+Add `--dry-run` to print those commands without running them. `--trim` runs `fstrim`
+inside the Docker distro alone; it changes no data, needs no shutdown, and is a
+prerequisite for compaction rather than an optional extra, because `compact vdisk`
+can only return blocks the guest has already TRIMmed.
+
+`--compact` is excluded from the schedule and prompts before acting (`--yes` skips
+the prompt): it calls `wsl --shutdown`, which stops every WSL distro on the box, not
+just Docker's. Keep it a deliberate, confirmed action.
+
+**`tools/register_docker_gc_task.ps1`** registers `DailTracker-DockerGC`, a Scheduled
+Task running `docker_gc.py --reclaim` on Sundays at 04:00 local, catching up after
+sleep. It never registers `--compact`. Re-run it to update the registration, pass
+`-RunNow` to start the task immediately, and remove it with:
+
+```powershell
+Unregister-ScheduledTask -TaskName 'DailTracker-DockerGC' -Confirm:$false
+```
+
+**`tools/box_docker_gc.py`** is the Linux deployment-host counterpart. Deleted bytes
+return to the filesystem there, so the problem is not a vhdx that never shrinks but
+unbounded accumulation of superseded release tags. It applies a retention policy
+rather than `docker image prune -a` because those release tags are local-only — they
+exist in no registry, so a blanket prune destroys the ability to roll back, and
+`prune -a` keeps only images backing a running container, which is the wrong
+retention set.
+
+Dry run is the default; `--apply` is required to delete anything. An image any
+container references, running or stopped, is never removed. `--min-age-days`
+(default 3) floors how young an image can be, `--keep` (default 3) holds the newest
+tags per repository as rollback targets, and `--protect` (default `:latest$`) is
+absolute. `--env-file` reads deployment env files and treats every `*IMAGE=` pin as a
+deploy-time dependency — a ref pinned there survives even with no container running
+it, which is the guard against deleting a pinned image mid-rollback. Every run writes
+a JSON receipt to `--receipt`, so an unattended invocation can be proven to have run
+and to have done what it claimed. `--help` lists the remaining policy flags.
+
+**`tools/image_registry_footprint.py`** runs in CI after a candidate image is pushed.
+It reads the pushed manifest with `docker buildx imagetools inspect --raw`, sums the
+compressed layer bytes, and fails when the total exceeds `--max-compressed-bytes`. It
+never pulls the image or reads its contents. `--image`, `--max-compressed-bytes` and
+`--receipt` are required; `--platform` defaults to `linux/amd64`.
+
 ## Failure classification
 
 Diagnose the layer that failed before changing dependencies:

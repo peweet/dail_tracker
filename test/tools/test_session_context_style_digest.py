@@ -34,9 +34,7 @@ def test_style_digest_buckets_each_warning_kind_correctly(tmp_path, monkeypatch)
         {"ts": "x", "session": "c", "warns": ["420-word reply (rule 1 -- answer at the size of the question)"]},
         {"ts": "x", "session": "d", "warns": ["8 bullet lines (rule 5 -- prose by default)"]},
     ]
-    (logs_dir / "style_lint_log.jsonl").write_text(
-        "\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8"
-    )
+    (logs_dir / "style_lint_log.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
 
     note = module._style_digest_note()
 
