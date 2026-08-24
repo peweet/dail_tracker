@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WSL_DISTRO = "Ubuntu"
@@ -27,6 +26,7 @@ PI_PATH = "/home/pglyn/.local/bin:/usr/local/bin:/usr/bin:/bin"
 MAX_TASK_CHARS = 12_000
 MAX_RESULT_CHARS = 40_000
 PREFLIGHT_TIMEOUT_SECONDS = 240
+WSL_ACCESS_DENIED_CODE = "wsl/service/e_accessdenied"
 
 TOOL_ANNOTATIONS = {
     "readOnlyHint": True,
@@ -50,15 +50,13 @@ def _wsl_command(*command: str) -> list[str]:
     return ["wsl.exe", "-d", distro, "--cd", firstmate_root, "--", "env", f"PATH={PI_PATH}", *command]
 
 
-def _run(command: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+def _run(command: list[str], *, timeout: int) -> subprocess.CompletedProcess[bytes]:
     """Run a fixed bridge command with no shell or inherited project writes."""
 
     return subprocess.run(
         command,
         check=False,
         capture_output=True,
-        encoding="utf-8",
-        errors="replace",
         shell=False,
         timeout=timeout,
     )
@@ -79,6 +77,60 @@ def _bounded_text(text: str) -> str:
     if len(text) <= MAX_RESULT_CHARS:
         return text
     return f"{text[:MAX_RESULT_CHARS]}\n\n[Firstmate output truncated at {MAX_RESULT_CHARS:,} characters.]"
+
+
+def _decode_stream(value: str | bytes | None) -> str:
+    """Decode WSL output, including Windows' UTF-16 service errors."""
+
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return value.replace("\x00", "")
+    if value.startswith(b"\xff\xfe"):
+        return value.decode("utf-16", errors="replace")
+    if value.startswith(b"\xfe\xff"):
+        return value.decode("utf-16", errors="replace")
+    if len(value) > 1 and value[1::2].count(0) > len(value) // 4:
+        return value.decode("utf-16-le", errors="replace")
+    if len(value) > 1 and value[0::2].count(0) > len(value) // 4:
+        return value.decode("utf-16-be", errors="replace")
+    return value.decode("utf-8", errors="replace")
+
+
+def _process_output(*, stdout: str | bytes | None, stderr: str | bytes | None) -> str:
+    """Keep both output streams: WSL service diagnostics can arrive on stderr."""
+
+    stdout_text = _decode_stream(stdout).strip()
+    stderr_text = _decode_stream(stderr).strip()
+    if stdout_text and stderr_text:
+        return f"stdout: {stdout_text}\nstderr: {stderr_text}"
+    return stdout_text or stderr_text
+
+
+def _wsl_access_denied_message(output: str) -> str | None:
+    """Return a stable diagnosis when WSL rejected the transport before Pi ran."""
+
+    if WSL_ACCESS_DENIED_CODE not in output.casefold():
+        return None
+    distro, _, _ = _settings()
+    return (
+        "WSL denied the bridge (Wsl/Service/E_ACCESSDENIED) before Pi started; "
+        "no Pi Firstmate advisory was produced. This is a transport/permission failure, "
+        "not Pi or OAuth evidence. Verify "
+        f"`wsl.exe -d {distro} -- id -un` from an approved host context before changing "
+        "the distro, Pi, or authentication."
+    )
+
+
+def _launch_access_denied_message() -> str:
+    """Return the equivalent diagnosis when Windows blocks process creation itself."""
+
+    return (
+        "The process that launches WSL was denied access before Pi started; no Pi Firstmate "
+        "advisory was produced. This can be a managed-sandbox boundary rather than a WSL/Pi "
+        "failure. Verify the WSL bridge from an approved host context before changing the distro, "
+        "Pi, or authentication."
+    )
 
 
 def _tool_result(text: str, *, is_error: bool = False) -> dict[str, Any]:
@@ -105,11 +157,17 @@ def _doctor() -> dict[str, Any]:
             completed = _run(command, timeout=30)
         except FileNotFoundError:
             return _tool_result("WSL is unavailable: wsl.exe was not found on this Codex host.", is_error=True)
+        except PermissionError:
+            return _tool_result(_launch_access_denied_message(), is_error=True)
         except subprocess.TimeoutExpired:
             lines.append(f"FAIL  {label}: timed out")
             failed = True
             continue
-        output = (completed.stdout or completed.stderr).strip() or "(no output)"
+        output = _process_output(stdout=completed.stdout, stderr=completed.stderr)
+        denied = _wsl_access_denied_message(output)
+        if denied:
+            return _tool_result(denied, is_error=True)
+        output = output or "(no output)"
         prefix = "OK" if completed.returncode == 0 else "FAIL"
         lines.append(f"{prefix}  {label}: {output}")
         failed = failed or completed.returncode != 0
@@ -166,10 +224,15 @@ def _preflight(arguments: object) -> dict[str, Any]:
         completed = _run(command, timeout=PREFLIGHT_TIMEOUT_SECONDS)
     except FileNotFoundError:
         return _tool_result("WSL is unavailable: wsl.exe was not found on this Codex host.", is_error=True)
+    except PermissionError:
+        return _tool_result(_launch_access_denied_message(), is_error=True)
     except subprocess.TimeoutExpired:
         return _tool_result("Pi Firstmate preflight timed out after four minutes.", is_error=True)
 
-    output = (completed.stdout or completed.stderr).strip()
+    output = _process_output(stdout=completed.stdout, stderr=completed.stderr)
+    denied = _wsl_access_denied_message(output)
+    if denied:
+        return _tool_result(denied, is_error=True)
     if completed.returncode != 0:
         detail = output or f"Pi exited with status {completed.returncode}."
         return _tool_result(f"Pi Firstmate preflight failed:\n{detail}", is_error=True)

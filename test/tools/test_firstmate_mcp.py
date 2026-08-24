@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
+import json
 import subprocess
+import sys
+from pathlib import Path
+from typing import Any
 
 import pytest
-
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -40,6 +42,24 @@ def test_notifications_do_not_emit_responses(firstmate_mcp):
     assert firstmate_mcp.dispatch({"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
 
 
+def test_initialize_works_over_the_real_stdio_transport():
+    request = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}}
+    completed = subprocess.run(
+        [sys.executable, str(REPO / "tools" / "firstmate_mcp.py")],
+        input=json.dumps(request) + "\n",
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=10,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    response = json.loads(completed.stdout)
+    assert response["id"] == 1
+    assert response["result"]["serverInfo"]["name"] == "pi-firstmate"
+
+
 def test_preflight_rejects_unbounded_or_missing_arguments(firstmate_mcp):
     missing = firstmate_mcp.dispatch(
         {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "firstmate_preflight"}}
@@ -60,7 +80,7 @@ def test_preflight_rejects_unbounded_or_missing_arguments(firstmate_mcp):
 
 
 def test_preflight_uses_fixed_read_only_pi_command(firstmate_mcp, monkeypatch):
-    seen: dict[str, object] = {}
+    seen: dict[str, Any] = {}
 
     def fake_run(command, **kwargs):
         seen["command"] = command
@@ -84,3 +104,61 @@ def test_preflight_uses_fixed_read_only_pi_command(firstmate_mcp, monkeypatch):
     assert "bash" not in command and "edit" not in command and "write" not in command
     assert seen["kwargs"]["timeout"] == firstmate_mcp.PREFLIGHT_TIMEOUT_SECONDS
     assert response["result"]["content"][0]["text"] == "advisory"
+
+
+def test_wsl_service_access_denied_is_a_clear_non_advisory_result(firstmate_mcp, monkeypatch):
+    denial = "Access is denied.\r\nError code: Wsl/Service/E_ACCESSDENIED\r\n".encode("utf-16-le")
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(command, 1, stdout=b"launcher detail", stderr=denial)
+
+    monkeypatch.setattr(firstmate_mcp, "_run", fake_run)
+    response = firstmate_mcp.dispatch(
+        {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "firstmate_doctor"}}
+    )
+
+    text = response["result"]["content"][0]["text"]
+    assert response["result"]["isError"] is True
+    assert "Wsl/Service/E_ACCESSDENIED" in text
+    assert "before Pi started" in text
+    assert "no Pi Firstmate advisory was produced" in text
+
+
+def test_launch_permission_error_is_a_clear_non_advisory_result(firstmate_mcp, monkeypatch):
+    def denied_run(command, **kwargs):
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(firstmate_mcp, "_run", denied_run)
+    response = firstmate_mcp.dispatch(
+        {
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "tools/call",
+            "params": {"name": "firstmate_preflight", "arguments": {"task": "Check the bridge."}},
+        }
+    )
+
+    text = response["result"]["content"][0]["text"]
+    assert response["result"]["isError"] is True
+    assert "managed-sandbox boundary" in text
+    assert "no Pi Firstmate advisory was produced" in text
+
+
+def test_preflight_keeps_nonzero_stdout_and_stderr(firstmate_mcp, monkeypatch):
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(command, 7, stdout=b"wrapper detail", stderr=b"Pi diagnostic")
+
+    monkeypatch.setattr(firstmate_mcp, "_run", fake_run)
+    response = firstmate_mcp.dispatch(
+        {
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {"name": "firstmate_preflight", "arguments": {"task": "Check the bridge."}},
+        }
+    )
+
+    text = response["result"]["content"][0]["text"]
+    assert response["result"]["isError"] is True
+    assert "stdout: wrapper detail" in text
+    assert "stderr: Pi diagnostic" in text
