@@ -1,0 +1,26 @@
+*** Begin Patch
+*** Update File: planning/product/core/s3_artifacts.py
+@@
+ S3_POINTER_SCHEMA = "dail-siting-s3-artifact-pointer/1"
+ R2_POINTER_SCHEMA = "dail-siting-r2-artifact-pointer/1"
+-S3_ORPHAN_SCHEMA = "dail-siting-s3-orphan-generation/1"
+-S3_FINALIZATION_CLAIM_SCHEMA = "dail-siting-s3-finalization-claim/1"
++S3_CONTROL_SCHEMA = "dail-siting-s3-publication-control/1"
++S3_PUBLICATION_STATES = frozenset({"publishing", "published", "reaping"})
+@@
+ def _is_precondition_failed(exc: BaseException) -> bool:
+@@
+     return _error_code(exc) in {"409", "412", "ConditionalRequestConflict", "PreconditionFailed"}
++
++
++def _etag(response: Any) -> str | None:
++    """Read an S3 ETag from either the operation response or HTTP metadata."""
++    if not isinstance(response, dict):
++        return None
++    value = response.get("ETag")
++    if value is None:
++        metadata = response.get("ResponseMetadata")
++        headers = metadata.get("HTTPHeaders") if isinstance(metadata, dict) else None
++        value = headers.get("etag") if isinstance(headers, dict) else None
++    return str(value) if value else None
+*** End Patch
