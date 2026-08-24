@@ -16,11 +16,19 @@ found the original check blind to the claim shape a whole week of work was using
     or memory card does NOT discharge one of these: it is [Reported] at best. Only a web
     source or an explicit admission does. Check the internet, cite the URL.
 
-Jargon (Rule 3), sentence length (Rule 4) and reply length (Rule 1) are LOGGED SILENTLY
-to logs/style_lint_log.jsonl (demoted from per-reply advisory 2026-07-25) and surfaced as
-a weekly digest by session_context.py — a linter aggressive enough to force a rewrite on
-style teaches the agent to write evasively around the checker rather than plainly. See
-feedback_guardrail_determinism_tiers in memory: determinism is inverse to consequence.
+Jargon (Rule 3), sentence length (Rule 4), reply length (Rule 1) and bullet density
+(Rule 5, added 2026-08-24) are LOGGED SILENTLY to logs/style_lint_log.jsonl (demoted from
+per-reply advisory 2026-07-25) and surfaced as a weekly digest by session_context.py — a
+linter aggressive enough to force a rewrite on style teaches the agent to write evasively
+around the checker rather than plainly. See feedback_guardrail_determinism_tiers in memory:
+determinism is inverse to consequence.
+
+The Rule 5 check reuses the bullet-line regex arXiv:2604.20911 ("Omission Constraints Decay
+While Commission Constraints Persist in Long-Context LLM Agents") uses to operationalize its
+own "never use bullet points" test constraint (Appendix A.3, C3) — that paper measured this
+exact rule shape decaying from 73% to 20% compliance over a 25-turn session in one model. It
+is a density signal for the weekly digest, not a verdict: Rule 5 permits bullets for
+genuinely parallel/unordered items, which this regex cannot judge.
 
 The escape hatch IS compliance. A figure is discharged by citing a file, linking a repo
 path, tagging a band ("[Indicative -- no query run]"), showing the query, or writing
@@ -199,6 +207,13 @@ JARGON = (
 )
 JARGON_RE = re.compile(r"\b(" + "|".join(re.escape(w) for w in JARGON) + r")\b", re.IGNORECASE)
 
+# Rule 5 (added 2026-08-24). A line-start dash or asterisk bullet -- same shape as the SRD
+# paper's own C3 detector (`^\s*[-*]\s`, negated). Threshold is a first guess, NOT measured
+# against real reply data the way LONG_REPLY_WORDS was: recalibrate once
+# logs/style_lint_log.jsonl has enough bullets rows to know what "normal" looks like.
+BULLET_LINE_RE = re.compile(r"^\s*[-*]\s+\S", re.MULTILINE)
+BULLET_LINE_THRESHOLD = 6
+
 
 def _strip_noncheckable(text: str) -> str:
     """Remove regions that must never be linted: code, quotes, tables, URLs.
@@ -265,6 +280,9 @@ def _warnings(message: str) -> list[str]:
     total = len(prose.split())
     if total > LONG_REPLY_WORDS:
         out.append(f"{total}-word reply (rule 1 -- answer at the size of the question)")
+    bullet_lines = len(BULLET_LINE_RE.findall(prose))
+    if bullet_lines > BULLET_LINE_THRESHOLD:
+        out.append(f"{bullet_lines} bullet lines (rule 5 -- prose by default)")
     return out
 
 

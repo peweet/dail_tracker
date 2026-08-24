@@ -312,7 +312,19 @@ def _style_digest_note() -> str:
                 continue
             rows += 1
             for w in o.get("warns", []):
-                kinds["jargon" if str(w).startswith("jargon") else "long-sentence"] += 1
+                s = str(w)
+                # bucket by the fixed rule-name substrings _warnings() emits in style_lint.py --
+                # fixes a pre-2026-08-24 bug where "N-word reply" (rule 1) silently miscounted
+                # into the "long-sentence" (rule 4) bucket because both lacked a distinguishing
+                # check; "reply" must be tested before the catch-all.
+                if s.startswith("jargon"):
+                    kinds["jargon"] += 1
+                elif "reply" in s:
+                    kinds["long-reply"] += 1
+                elif "bullet" in s:
+                    kinds["bullets"] += 1
+                else:
+                    kinds["long-sentence"] += 1
         if not rows:
             return ""
         state.write_text(json.dumps({"last": now}), encoding="utf-8")

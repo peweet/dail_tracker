@@ -245,6 +245,35 @@ def test_long_sentence_logs_silently():
     assert rows and any("sentence" in w for w in rows[-1]["warns"])
 
 
+def test_bullet_heavy_reply_logs_silently_and_never_blocks():
+    sid = "bullet" + uuid.uuid4().hex
+    msg = "\n".join(f"- item {i}" for i in range(8)) + "\n" + PAD
+    r = run(msg, session_id=sid)
+    assert r.returncode == 0
+    assert r.stdout.strip() == ""
+    rows = _my_log_rows(sid)
+    assert rows and any("bullet" in w for w in rows[-1]["warns"])
+
+
+def test_few_bullets_do_not_log():
+    sid = "fewbullet" + uuid.uuid4().hex
+    msg = "- one\n- two\n- three\n" + PAD
+    r = run(msg, session_id=sid)
+    assert r.returncode == 0
+    rows = _my_log_rows(sid)
+    assert not rows or not any("bullet" in w for w in rows[-1]["warns"])
+
+
+def test_numbered_list_is_not_a_bullet():
+    """Rule 5 tolerates numbered lists when order matters; only dash/asterisk count."""
+    sid = "numbered" + uuid.uuid4().hex
+    msg = "\n".join(f"{i}. step {i}" for i in range(1, 9)) + "\n" + PAD
+    r = run(msg, session_id=sid)
+    assert r.returncode == 0
+    rows = _my_log_rows(sid)
+    assert not rows or not any("bullet" in w for w in rows[-1]["warns"])
+
+
 def test_logged_warnings_are_capped():
     """MAX_WARNINGS = 3 still applies to the logged row."""
     sid = "capd" + uuid.uuid4().hex
