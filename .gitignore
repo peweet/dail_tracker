@@ -756,6 +756,7 @@ tools/siting_report.py
 # marker matrix — run after ANY engine/catalogue/brief/report change
 tools/siting_report_dryrun.py
 siting_reports/
+fil-result/
 # eval bench prompts that brief a builder against private-engine internals (e.g.
 # planning/product/core/report.py function names/paths) — the prompt text itself is IP
 tools/evals/bench_prompts/*siting*

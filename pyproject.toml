@@ -108,6 +108,12 @@ siting = [
                          # mis-projected as ITM, 2026-07-30) — the runtime layer store stays shapely-only
     "pyshp>=2.3,<4",     # ZIP-only council Shapefiles at INGEST only (for example Dublin City Z15)
     "pyreqwest>=0.12,<0.13",  # SpecPlan HTTP transport: Rust-backed pooled client behind services/http_engine.py
+    # Mandatory for a private external release: the bounded junction kernel is packaged from
+    # source below; public/default profiles never select this Siting-only extra.
+    "siting-native==0.1.0",
+    # CI-enforced offline contract checks; imported only by focused private tests, never by report/API delivery.
+    "jsonschema-rs==0.51.0",
+    "selectolax==0.4.11",
     "ezdxf>=1.3,<2",     # DXF R2010 CAD export (planning/product/core/gis_dxf.py) — pure Python, no native deps
     "osmium>=3.6",       # OSM .pbf streaming at INGEST only (ingest/planning_osm_roads_geofabrik.py builds
                          # the 1.28M-way osm_roads layer). WAS UNDECLARED AND ABSENT — found 2026-08-18 while
@@ -146,6 +152,7 @@ api = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.30",
     "pydantic>=2.0,<3",  # dail_tracker_core.models.* (BillDossier/DivisionDossier/MemberDossier) import it directly; api/routers/* are the only consumers. Declared explicitly here rather than relying on fastapi to pull it transitively.
+    "stripe>=11,<13",    # planning/product/core/stripe_gateway.py — hosted Checkout + webhook signature verification. Webhook verification is security-critical (HMAC over the raw body, with a replay-tolerance window); stripe.Webhook.construct_event is the reference implementation and is not worth reimplementing. Imported lazily so the rest of the API loads without it.
 ]
 
 # MCP server (mcp_server/server.py) — stdio tools over the same Streamlit-free
@@ -202,6 +209,11 @@ dev = [
     "sqlglot>=25",            # money-grain SQL lint (tools/check_money_grain_sums.py) — without this the test SKIPS in CI and the never-sum query gate only bites locally; also in the mcp extra
     "httpx>=0.27",
 ]
+# Manual Linux memory-profiling tools. Fil does not support Windows or subprocess accounting,
+# so it is deliberately excluded from normal development, CI and runtime profiles.
+profiling-linux = [
+    "filprofiler>=2024.11.2,<2025; sys_platform == 'linux'",
+]
 evals = [
     # Retained as the Claude provider; the OpenAI provider drives the installed
     # Codex CLI through its stable JSONL interface and needs no Python SDK here.
@@ -254,6 +266,10 @@ dail-pipeline = "pipeline:main"
 # group explicitly with `--group dev`; the requirements.txt export below relies
 # on this too (no default group → app-runtime-only export).
 default-groups = []
+
+[tool.uv.sources]
+# The private product is a nested repository; this source is selected only by the Siting profile.
+siting-native = { path = "planning/product/native/siting_native" }
 
 [tool.ruff]
 target-version = "py312"
@@ -377,7 +393,10 @@ known_first_party = [
 #   box — feedback_paddleocr_crashes_local_box). Historically ignored under DEP003;
 #   when the package is absent from the venv deptry classifies it DEP001, so it is
 #   ignored under both codes for the same reason.
-DEP001 = ["camelot", "paddleocr"]
+#   dail_native: an optional PyO3 extension built from native/dail_native with maturin.
+#   It is deliberately absent from the normal environment; only explicit native/shadow
+#   name-normalisation trials import it, while the production default remains Python.
+DEP001 = ["camelot", "dail_native", "paddleocr"]
 # DEP002 — declared but "unused": all three are correct declarations deptry can't see.
 #   uvicorn/ocrmypdf are CLI-invoked (`uvicorn api.main:app`), never imported;
 #   dail-tracker is the `all` extra's self-reference.
