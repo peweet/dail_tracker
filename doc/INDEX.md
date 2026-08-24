@@ -3,7 +3,7 @@
 
 # doc/ index
 
-71 docs · ~356.1k tokens total · 28 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+71 docs · ~357.9k tokens total · 28 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -17,14 +17,14 @@
 | [AST_SCANNER_FAILURE_MODES.md](AST_SCANNER_FAILURE_MODES.md) | engineering | 7.3k | 2026-08-04 | auditing an AST-based code scanner, contract extractor, repository indexer, or migration ratchet for false positives and false negatives |
 | [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 2.2k | 2026-08-05 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
 | [AGENT_HARNESS_MEASUREMENT_2026_08_05.md](AGENT_HARNESS_MEASUREMENT_2026_08_05.md) | infra | 1.0k | 2026-08-05 | deciding whether the current agent harness improves correctness or efficiency |
-| [CI_CD.md](CI_CD.md) | infra | 4.9k | 2026-06-21 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
+| [CI_CD.md](CI_CD.md) | infra | 5.3k | 2026-08-24 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [CREDENTIAL_ESCROW.md](CREDENTIAL_ESCROW.md) | infra | 1.4k | 2026-08-21 | setting up or auditing the off-box copy of the credentials a restore needs, or checking whether the escrow is still complete |
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-08-14 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 4.7k | 2026-08-21 | the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub and object storage |
-| [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md) | infra | 1.2k | 2026-08-06 | setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile |
-| [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.8k | 2026-08-04 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
-| [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.2k | 2026-08-06 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
+| [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md) | infra | 2.3k | 2026-08-24 | setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile |
+| [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.8k | 2026-08-24 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
+| [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.5k | 2026-08-24 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |
 | [LOCAL_AUTHORITY_ACCOUNTABILITY.md](LOCAL_AUTHORITY_ACCOUNTABILITY.md) | local-gov | 2.1k | 2026-06-20 | when working on local-authority accountability data — CE roster, NOAC collection rates, planning overturn rate, or derelict sites levy |
@@ -39,7 +39,6 @@
 | [NAVIGATION_GRAPH.md](NAVIGATION_GRAPH.md) | ui | 2.9k | 2026-06-20 | before adding, hiding, or removing a page link, or judging whether a link creates a contextual cul-de-sac (entity doesn't travel) |
 
 ## Archived superseded / stale
-
 > Kept in [archive/](archive/) for history and inbound references. Do not rely on their bodies.
 
 | doc | domain | ~tok | updated | read when |
@@ -77,7 +76,6 @@
 | [PUBLICINFORMATION_PARTNERSHIP.md](archive/PUBLICINFORMATION_PARTNERSHIP.md) | sources | 7.4k | 2026-06-22 | judging whether to pursue a data partnership with publicinformation.ie (gingertechie) — the single self-contained doc to share externally |
 
 ## Unclassified (no front-matter yet)
-
 > Backlog: add the 7-line front-matter block (tier/status/domain/updated/supersedes/read_when/key) so these move into the tables above.
 
 | doc | domain | ~tok | updated | read when |
@@ -95,4 +93,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-08-23 -->
+<!-- generated 2026-08-24 -->

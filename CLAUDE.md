@@ -75,6 +75,10 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
 - **Logic firewall:** pages (`utility/pages_code/`) contain **no business logic** — queries/transforms go through `utility/data_access/`, and pages render from registered contracts. The firewall checker enforces this.
 - Dataframes are secondary UI; prefer deliberate components and shared design tokens. Use the `civic-ui-review` / `impeccable` skills when they are installed.
 
+## Explaining systems
+
+- When a comment, doc, or chat answer needs to explain how a multi-part system fits together — a pipeline stage graph, a request path across the logic-firewall boundary, a join across money grains — a small ASCII diagram beats a paragraph of prose. Reserve it for genuine multi-part flows; don't diagram a single function or a one-hop call.
+
 ## Environment & commands
 
 - The environment is managed with `uv`; run development tasks with `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py ...` so they use the CI-equivalent profile across platforms. The runner handles legacy console encodings safely; do not depend on a user-local UTF-8 override.
