@@ -1,18 +1,18 @@
 {
   "link_version": "1.2.0",
-  "generated_at": "2026-08-23T11:17:08.507329+00:00",
+  "generated_at": "2026-08-24T19:00:28.585406+00:00",
   "judge_court_pairs": 8903,
-  "matched_pairs": 5996,
+  "matched_pairs": 5922,
   "match_methods": {
-    "surname-bench-wide": 1164,
-    "honorific-conflict": 142,
     "roster-notice": 4,
-    "ambiguous": 399,
-    "exact": 159,
-    "honorific-other-person": 90,
     "no-candidate": 1623,
+    "surname-bench-wide": 1163,
     "office-title": 649,
-    "surname-court": 4673
+    "exact": 159,
+    "surname-court": 4600,
+    "honorific-conflict": 219,
+    "ambiguous": 399,
+    "honorific-other-person": 87
   },
   "unmatched": [
     {
@@ -54,6 +54,11 @@
       "judge": "MR JUSTICE CROSS & MR JUSTICE SIMONS & MS JUSTICE REYNOLDS & MS JUSTICE PILKINGTON & MR JUSTICE ALLEN & MR JUSTICE NOONAN & MS JUSTICE FAHERTY & MS JUSTICE BAKER & MR JUSTICE KEANE & MR JUSTICE BINCHY & MR JUSTICE HANNA & MS JUSTICE O'REGAN & MS JUSTICE BARRETT & MS JUSTICE O'HANLON & MS JUSTICE NÍ RAIFEARTAIGH & MR JUSTICE TWOMEY & MR JUSTICE JORDAN & MR JUSTICE MACGRATH & MR JUSTICE QUINN & MR JUSTICE O'CONNOR & MR JUSTICE HAUGHTON & MR JUSTICE EAGAR & MR JUSTICE HUNT & MS JUSTICE STEWART & MR JUSTICE BARTON & MR JUSTICE MEENAN & MR JUSTICE BARR & MR JUSTICE MCDONALD & MR JUSTICE SIMONS",
       "court": "Central Criminal Court",
       "match_method": "roster-notice"
+    },
+    {
+      "judge": "MR JUSTICE MC DONALD",
+      "court": "Central Criminal Court",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "MR JUSTICE O CONNOR",
@@ -571,12 +576,42 @@
       "match_method": "honorific-other-person"
     },
     {
+      "judge": "Mr Justice Allen & Mr Justice McDonald & Mr Justice Collins",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Allen & Mr Justice McDonald & Mr Justice Sanfey",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Allen & Mr Justice McDonald & Ms Justice Egan",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Mr Justice Allen & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
     {
+      "judge": "Mr Justice Allen & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Mr Justice Allen & Ms Justice Burns & Ms Justice Hyland",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Allen & Ms Justice Butler & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Allen & Ms Justice Hyland & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
@@ -606,14 +641,44 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Mr Justice Binchy & Mr Justice Allen & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Mr Justice Binchy & Mr Justice Allen & Ms Justice Burns",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Binchy & Mr Justice MacGrath & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Binchy & Mr Justice MacGrath & Ms Justice McDonald",
       "court": "Court of Appeal",
-      "match_method": "honorific-other-person"
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Binchy & Mr Justice McDonald & Mr Justice Collins",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Binchy & Mr Justice McDonald & Mr Justice Owens",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Binchy & Mr Justice McDonald & Mr Justice Sanfey & Mr Justice Allen & Mr Justice Meenan & Ms Justice Egan",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Binchy & Mr Justice Meenan & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Binchy & Mr Justice Meenan & Ms Justice Burns",
@@ -629,6 +694,16 @@
       "judge": "Mr Justice Binchy & Ms Justice Butler & Ms Justice Pilkington & The President & Mr Justice Binchy & Ms Justice Butler",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "Mr Justice Binchy & Ms Justice Hyland & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Binchy & Ms Justice Pilkington & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Binchy & Ms Justice Pilkington & Ms Justice Burns",
@@ -1426,6 +1501,11 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Mr Justice MacGrath & Ms Justice Hyland & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Mr Justice MacMenamin & Mr Justice Peart & Mr Justice Hedigan",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
@@ -1509,6 +1589,16 @@
       "judge": "Mr Justice McCarty & Ms Justice Ni Raifeartaigh & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice McDonald & Mr Justice Collins & Mr Justice Owens",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice McGovern",
@@ -1719,6 +1809,26 @@
       "judge": "Mr Justice McGovern will sit for the last time as a Judge of the Court of Appeal on Thursday the 12th March 2020 (rather than Friday the 13th March 2020), in Court 1, Court of Appeal Building, at 10 o'clock & Ms Justice Whelan & Ms Justice Donnelly & Ms Justice Power",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Mr Justice Mcdonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Meenan & Mr Justice McDonald & Mr Justice Collins",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Meenan & Mr Justice McDonald & Mr Justice Owens",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Meenan & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Meenan & Ms Justice Burns & Mr Justice Collins",
@@ -1951,6 +2061,11 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Mr Justice Noonan & Mr Justice Binchy & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Mr Justice Noonan & Mr Justice Binchy & Mr Justice Meenan",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
@@ -2126,9 +2241,19 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Mr Justice Noonan & Mr Justice MacGrath & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Mr Justice Noonan & Mr Justice MacGrath & Mr. Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Mr Justice Noonan & Mr Justice MacGrath & Mr. Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Noonan & Mr Justice MacGrath & Ms Justice Hyland",
@@ -2246,6 +2371,11 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Mr Justice Noonan & Ms Justice Faherty & Mr Justice Binchy & Mr Justice Allen & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Mr Justice Noonan & Ms Justice Faherty & Mr Justice Binchy & Mr Justice Binchy & Mr Justice Meenan & Ms Justice Hyland",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
@@ -2254,6 +2384,11 @@
       "judge": "Mr Justice Noonan & Ms Justice Faherty & Mr Justice Binchy & Mr Justice Binchy & Ms Justice Hyland & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Mr Justice Noonan & Ms Justice Faherty & Mr Justice Binchy & Mr Justice Binchy & Ms Justice Hyland & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Mr Justice Noonan & Ms Justice Faherty & Mr Justice Collins",
@@ -2542,6 +2677,11 @@
     },
     {
       "judge": "Mr Justice O'Moore & Mr Justice Edwards & Ms Justice Burns",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice O'Moore & Mr Justice McDonald & Mr Justice Owens",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
@@ -3781,6 +3921,11 @@
       "match_method": "honorific-conflict"
     },
     {
+      "judge": "Ms Justice Butler & Mr Justice McDonald & Mr Justice Collins",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Butler & Mr Justice Meenan & Mr Justice Burns",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
@@ -3791,12 +3936,22 @@
       "match_method": "honorific-conflict"
     },
     {
+      "judge": "Ms Justice Butler & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Butler & Ms Justice Burns & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Butler & Ms Justice Burns & Mr Justice O'Moore",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Butler & Ms Justice Hyland & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
@@ -4976,7 +5131,27 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Ms Justice Faherty & Mr Justice Allen & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Faherty & Mr Justice Allen & Mr Justice McDonald & Mr Justice Binchy & Ms Justice Pilkington & Ms Justice Egan",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Faherty & Mr Justice Allen & Mr Justice McDonald & Ms Justice Whelan & Mr Justice Binchy & Ms Justice Pilkington",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Faherty & Mr Justice Allen & Ms Justice Burns",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Faherty & Mr Justice Binchy & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
@@ -4984,6 +5159,11 @@
       "judge": "Ms Justice Faherty & Mr Justice Butler & Ms Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "honorific-other-person"
+    },
+    {
+      "judge": "Ms Justice Faherty & Mr Justice Butler & Ms Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Faherty & Mr Justice Collins & Mr Justice Butler",
@@ -5056,6 +5236,21 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Ms Justice Faherty & Mr Justice McDonald & Mr Justice Collins",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Faherty & Mr Justice McDonald & Mr Justice Owens",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Faherty & Mr Justice McDonald & Mr Justice Sanfey",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Faherty & Mr Justice Meenan & Ms Justice Burns",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
@@ -5086,6 +5281,11 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Ms Justice Faherty & Ms Justice Butler & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Faherty & Ms Justice Costello & Mr Justice Haughton & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "ambiguous"
@@ -5094,6 +5294,11 @@
       "judge": "Ms Justice Faherty & Ms Justice Costello & Mr Justice Haughton & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Ms Justice Faherty & Ms Justice Hyland & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Faherty & Ms Justice Ni Raifeartaigh",
@@ -5164,6 +5369,11 @@
       "judge": "Ms Justice Faherty & Ms Justice Pilkington & Mr Justice Allen & Mr Justice Noonan & Mr Justice Binchy & Ms Justice Butler",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Ms Justice Faherty & Ms Justice Pilkington & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Faherty & Ms Justice Pilkington & Ms Justice Burns",
@@ -5473,7 +5683,7 @@
     {
       "judge": "Ms Justice Mcdonald",
       "court": "Court of Appeal",
-      "match_method": "honorific-other-person"
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Ni Raifeartaigh & Mr Justice Allen & Mr Justice Meenan",
@@ -5736,7 +5946,22 @@
       "match_method": "honorific-other-person"
     },
     {
+      "judge": "Ms Justice Pilkington & Mr Justice McDonald & Mr Justice Collins",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Pilkington & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Pilkington & Ms Justice Burns & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Pilkington & Ms Justice Butler & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
@@ -5759,6 +5984,16 @@
       "judge": "Ms Justice Whelan & Mr Justice  Noonan & Mr Justice Binchy",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Ms Justice Whelan & Mr Justice Allen & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Whelan & Mr Justice Binchy & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Whelan & Mr Justice Binchy & Ms Justice Burns",
@@ -5831,6 +6066,16 @@
       "match_method": "ambiguous"
     },
     {
+      "judge": "Ms Justice Whelan & Mr Justice McDonald & Mr Justice Collins",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Whelan & Mr Justice McDonald & Mr Justice Owens",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Whelan & Mr Justice McGovern & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
@@ -5861,6 +6106,21 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Ms Justice Whelan & Mr Justice Meenan & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Whelan & Mr Justice Meenan & Mr Justice McDonald & Ms Justice Kennedy & Mr Justice O'Moore & Mr Justice MacGrath",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Whelan & Mr Justice Meenan & Mr Justice McDonald & The President & Mr Justice Binchy & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Whelan & Mr Justice Meenan & Mr Justice McDonald & The President & Mr Justice Binchy & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "office-title"
@@ -5873,7 +6133,7 @@
     {
       "judge": "Ms Justice Whelan & Mr Justice Meenan & Ms Justice McDonald",
       "court": "Court of Appeal",
-      "match_method": "honorific-other-person"
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Whelan & Mr Justice Noonan & Mr Justice Allen",
@@ -6101,6 +6361,11 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Ms Justice Whelan & Ms Justice Faherty & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms Justice Whelan & Ms Justice Faherty & Ms Justice Binchy",
       "court": "Court of Appeal",
       "match_method": "honorific-other-person"
@@ -6109,6 +6374,11 @@
       "judge": "Ms Justice Whelan & Ms Justice Faherty & Ms Justice Ni Raifeartaigh",
       "court": "Court of Appeal",
       "match_method": "no-candidate"
+    },
+    {
+      "judge": "Ms Justice Whelan & Ms Justice Faherty & Ms Justice Pilkington & Mr Justice Allen & Mr Justice McDonald & Mr Justice Collins",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Whelan & Ms Justice Faherty & Ms Justice Pilkington & The President & Mr Justice Allen & Mr Justice O'Moore",
@@ -6189,6 +6459,11 @@
       "judge": "Ms Justice Whelan & Ms Justice Pilkington & Mr Justice Butler",
       "court": "Court of Appeal",
       "match_method": "honorific-other-person"
+    },
+    {
+      "judge": "Ms Justice Whelan & Ms Justice Pilkington & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms Justice Whelan & Ms Justice Pilkington & Mr Justice O'Moore & Mr Justice Haughton & Mr Justice Collins & Ms Justice Pilkington",
@@ -6321,6 +6596,11 @@
       "match_method": "ambiguous"
     },
     {
+      "judge": "Ms. Justice Caroline Costello & Mr Justice Allen & Mr Justice Meenan & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms. Justice Caroline Costello & Mr Justice Allen & Ms Justice Butler & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "ambiguous"
@@ -6336,6 +6616,11 @@
       "match_method": "ambiguous"
     },
     {
+      "judge": "Ms. Justice Caroline Costello & Mr Justice Binchy & Mr Justice Allen & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms. Justice Caroline Costello & Mr Justice Binchy & Mr Justice Allen & Ms Justice Butler",
       "court": "Court of Appeal",
       "match_method": "ambiguous"
@@ -6344,6 +6629,11 @@
       "judge": "Ms. Justice Caroline Costello & Mr Justice Binchy & Mr Justice McDonald & Mr Justice Owens",
       "court": "Court of Appeal",
       "match_method": "ambiguous"
+    },
+    {
+      "judge": "Ms. Justice Caroline Costello & Mr Justice Binchy & Mr Justice McDonald & Mr Justice Owens",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms. Justice Caroline Costello & Mr Justice Binchy & Mr Justice Meenan & Mr Justice Collins",
@@ -6374,6 +6664,11 @@
       "judge": "Ms. Justice Caroline Costello & Mr Justice Meenan & Mr Justice O'Moore & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "ambiguous"
+    },
+    {
+      "judge": "Ms. Justice Caroline Costello & Mr Justice Meenan & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms. Justice Caroline Costello & Mr Justice Meenan & Ms Justice Burns & Mr Justice Collins",
@@ -6511,6 +6806,11 @@
       "match_method": "office-title"
     },
     {
+      "judge": "Ms. Justice Caroline Costello & The President & Mr Justice Allen & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms. Justice Caroline Costello & The President & Mr Justice Binchy & Mr Justice Allen",
       "court": "Court of Appeal",
       "match_method": "ambiguous"
@@ -6541,6 +6841,11 @@
       "match_method": "office-title"
     },
     {
+      "judge": "Ms. Justice Caroline Costello & The President & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Ms. Justice Caroline Costello & The President & Ms Justice Butler & Mr Justice Owens",
       "court": "Court of Appeal",
       "match_method": "ambiguous"
@@ -6569,6 +6874,11 @@
       "judge": "Ms. Justice Caroline Costello & The President & Ms Justice Pilkington & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "Ms. Justice Caroline Costello & The President & Ms Justice Pilkington & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "Ms. Justice Caroline Costello & The President & Ms Justice Whelan & Mr Justice Allen",
@@ -7026,9 +7336,19 @@
       "match_method": "office-title"
     },
     {
+      "judge": "The President & Mr Justice Allen & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "The President & Mr Justice Allen & Mr Justice McDonald & Mr Justice Binchy & Mr Justice Meenan & Mr Justice Owens",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "The President & Mr Justice Allen & Mr Justice McDonald & Mr Justice Binchy & Mr Justice Meenan & Mr Justice Owens",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President & Mr Justice Allen & Mr Justice Meenan",
@@ -7084,6 +7404,11 @@
       "judge": "The President & Mr Justice Binchy & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "The President & Mr Justice Binchy & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President & Mr Justice Binchy & Mr Justice Meenan",
@@ -7451,6 +7776,11 @@
       "match_method": "office-title"
     },
     {
+      "judge": "The President & Mr Justice McDonald & Mr Justice Owens",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "The President & Mr Justice McGovern & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "office-title"
@@ -7519,6 +7849,11 @@
       "judge": "The President & Mr Justice Meenan & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "The President & Mr Justice Meenan & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President & Mr Justice Meenan & Mr Justice O'Moore",
@@ -7611,6 +7946,11 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "The President & Mr Justice Noonan & Ms Justice Pilkington & Mr Justice Noonan & Ms Justice Faherty & Mr Justice Binchy & Mr Justice Allen & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "The President & Mr Justice O'Moore & Mr Justice Collins",
       "court": "Court of Appeal",
       "match_method": "office-title"
@@ -7619,6 +7959,11 @@
       "judge": "The President & Mr Justice O'Moore & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "The President & Mr Justice O'Moore & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President & Mr Justice Peart & Mr Justice Edwards",
@@ -7719,6 +8064,11 @@
       "judge": "The President & Mr. Justice Binchy & Mr. Justice McDonald & Ms Justice Whelan & Ms Justice Pilkington & Ms Justice Butler",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "The President & Mr. Justice Binchy & Mr. Justice McDonald & Ms Justice Whelan & Ms Justice Pilkington & Ms Justice Butler",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President & Mr. Justice Edwards",
@@ -7824,6 +8174,11 @@
       "judge": "The President & Ms Justice Allen & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "honorific-other-person"
+    },
+    {
+      "judge": "The President & Ms Justice Allen & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President & Ms Justice Baker",
@@ -7956,6 +8311,11 @@
       "match_method": "office-title"
     },
     {
+      "judge": "The President & Ms Justice Butler & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "The President & Ms Justice Butler & Mr Justice O'Moore",
       "court": "Court of Appeal",
       "match_method": "office-title"
@@ -8074,6 +8434,11 @@
       "judge": "The President & Ms Justice Faherty & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "The President & Ms Justice Faherty & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President & Ms Justice Faherty & Mr Justice Meenan",
@@ -8259,6 +8624,11 @@
       "judge": "The President & Ms Justice Pilkington & Mr Justice McDonald",
       "court": "Court of Appeal",
       "match_method": "office-title"
+    },
+    {
+      "judge": "The President & Ms Justice Pilkington & Mr Justice McDonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
     },
     {
       "judge": "The President & Ms Justice Pilkington & Mr Justice O'Moore",
@@ -14553,12 +14923,12 @@
   ],
   "row_level": {
     "cases": {
-      "rows_with_judge": 11952,
-      "rows_matched": 11081
+      "rows_with_judge": 12210,
+      "rows_matched": 11274
     },
     "schedule": {
-      "rows_with_judge": 2557,
-      "rows_matched": 2415
+      "rows_with_judge": 2595,
+      "rows_matched": 2426
     }
   },
   "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."
