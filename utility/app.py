@@ -46,7 +46,7 @@ from ui.spa_links import install_spa_links
 
 st.set_page_config(
     page_title="Dáil Tracker",
-    page_icon=":material/account_balance:",
+    page_icon=str(Path(__file__).resolve().parent / "static" / "favicon.svg"),
     layout="wide",
     # Sidebar→filter-bar migration: all filters live in main-panel bars now;
     # every page calls ui.components.hide_sidebar(). Collapsing by default
