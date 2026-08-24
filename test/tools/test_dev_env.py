@@ -12,6 +12,7 @@ from tools import dev_env
 def test_profiles_do_not_share_an_environment(tmp_path: Path) -> None:
     assert dev_env.environment_path("public", tmp_path) == (tmp_path / "public").resolve()
     assert dev_env.environment_path("siting", tmp_path) == (tmp_path / "siting").resolve()
+    assert dev_env.environment_path("siting-ai", tmp_path) == (tmp_path / "siting-ai").resolve()
 
 
 def test_siting_profile_is_a_superset_of_public() -> None:
@@ -19,6 +20,13 @@ def test_siting_profile_is_a_superset_of_public() -> None:
     siting = set(dev_env.PROFILES["siting"].extras)
     assert public < siting
     assert siting - public == {"siting"}
+
+
+def test_siting_ai_profile_adds_only_the_optional_model_edge() -> None:
+    siting = set(dev_env.PROFILES["siting"].extras)
+    siting_ai = set(dev_env.PROFILES["siting-ai"].extras)
+    assert siting < siting_ai
+    assert siting_ai - siting == {"siting-ai"}
 
 
 def test_profile_arguments_are_locked_and_explicit() -> None:

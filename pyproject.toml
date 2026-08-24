@@ -122,6 +122,9 @@ siting = [
 # dependencies or require an API key.
 siting-ai = [
     "openai>=2.53,<3",
+    # Local, diagnostic-only token estimates for the OpenAI Responses edge. The returned
+    # server usage remains authoritative; this package is lazy-imported by assistant.py.
+    "tiktoken>=0.12,<1",
     # LLM tracing (planning/product/core/assistant.py). Lazy-imported and inert unless
     # SITING_LLM_TRACING=1; prompt/response content is withheld unless SITING_LLM_TRACE_CONTENT=1,
     # because that module's contract is that prompts are never logged.

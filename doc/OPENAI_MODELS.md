@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-08-06
+updated: 2026-08-24
 supersedes: []
 read_when: configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -26,7 +26,7 @@ Install the private engine and optional OpenAI transport without adding either t
 deployed runtime:
 
 ```powershell
-uv sync --frozen --extra siting --extra siting-ai --group dev
+py -3.12 tools/dev_env.py sync siting-ai
 ```
 
 Set the standard OpenAI API key outside source control, then choose the provider:
@@ -57,6 +57,17 @@ strict JSON Schema output for intake and consultant-report structures. Every obj
 rejects additional properties and requires all declared fields. Refusals, incomplete responses,
 missing content, timeouts, and malformed output fail as `AssistantError`; SDK exceptions are not
 echoed because they may contain request data.
+
+The optional `siting-ai` extra also supplies `tiktoken` for a local, metadata-only estimate of the
+plain instruction and input text sent by the OpenAI adapter. It never controls truncation, fact
+selection, model access or any deterministic planning result. The estimate deliberately excludes
+Responses API framing, strict-schema/tool overhead, cached tokens and output; returned OpenAI usage
+is the authoritative post-call count. Missing/unknown tokenizer mappings degrade to a status-only
+record rather than a guessed encoding. The estimator runs only when a caller explicitly collects
+usage (including opted-in tracing), not on the normal model-call path. A cold `tiktoken` encoding
+may load a checked public vocabulary asset; it receives no prompt, and a failure remains
+non-blocking metadata. The API's server-side input-token count endpoint is a separate calibration
+capability, not a default second submission of private prompts.
 
 The legacy appraisal writer can receive a project description, deterministic engine output and
 explicitly supplied authority case evidence. The customer API uses the narrower controlled path:

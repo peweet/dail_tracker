@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-08-04
+updated: 2026-08-24
 supersedes: []
 read_when: auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project
 key: REFERENCE|LIVE|infra
@@ -115,14 +115,14 @@ non-repeatable model call being hidden behind an ordinary assessment request.
 
 ```toml
 [project.optional-dependencies]
-siting-ai = ["openai>=2.53,<3"]
+siting-ai = ["openai>=2.53,<3", "tiktoken>=0.12,<1"]
 ```
 
 The OpenAI client is therefore not a dependency of the public Dáil Tracker runtime.
 For a complete private Siting development environment, use:
 
 ```powershell
-uv sync --frozen --extra siting --extra siting-ai --group dev
+py -3.12 tools/dev_env.py sync siting-ai
 ```
 
 Keep `OPENAI_API_KEY` in the user's environment or the deployment secret store; do

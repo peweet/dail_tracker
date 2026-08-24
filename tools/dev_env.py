@@ -46,6 +46,9 @@ class Profile:
 PROFILES: dict[str, Profile] = {
     "public": Profile(("pipeline", "api", "mcp")),
     "siting": Profile(("pipeline", "api", "mcp", "siting")),
+    # Keep the model edge separate: deterministic planning work must not acquire an SDK,
+    # tokenizer or API-key-shaped runtime just by selecting the standard Siting profile.
+    "siting-ai": Profile(("pipeline", "api", "mcp", "siting", "siting-ai")),
 }
 
 

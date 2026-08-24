@@ -2,7 +2,7 @@
 tier: RUNBOOK
 status: LIVE
 domain: infra
-updated: 2026-08-06
+updated: 2026-08-24
 supersedes: []
 read_when: setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile
 key: RUNBOOK|LIVE|infra
@@ -21,6 +21,7 @@ is not an environment contract.
 | --- | --- | --- |
 | `.uv-envs/public` | Public app, pipeline, API, MCP, and developer tools | Only `tools/dev_env.py sync public` may repair it |
 | `.uv-envs/siting` | Public profile plus the private Siting runtime | Only `tools/dev_env.py sync siting` may repair it |
+| `.uv-envs/siting-ai` | Siting profile plus optional OpenAI SDK, tracing and local tokenizer | Only `tools/dev_env.py sync siting-ai` may repair it |
 | Isolated verification | Temporary locked public profile | Created by `uv run --isolated`; never changes a persistent environment |
 | Dev container | Linux public profile in `/opt/dail-tracker-env` | Rebuilt from `.devcontainer/`; never reuses the host `.venv` |
 | Scheduled job | A job-specific `UV_PROJECT_ENVIRONMENT` | The job owns its environment; it must not target an editor environment |
@@ -36,6 +37,7 @@ Windows: this machine may resolve it to a 32-bit interpreter.
 # Deliberate, exact mutations:
 py -3.12 tools/dev_env.py sync public
 py -3.12 tools/dev_env.py sync siting
+py -3.12 tools/dev_env.py sync siting-ai
 
 # Read-only state checks:
 py -3.12 tools/dev_env.py check public
@@ -49,9 +51,11 @@ Invoke PowerShell automation with `pwsh -NoProfile -File ...`. Repository jobs
 must not depend on a personal profile, and a profile execution-policy warning
 must not be confused with a Docker or application failure.
 
-Use the Siting profile only for private work. Switching profiles means changing
-the profile argument, not exact-syncing a different package set into the same
-directory.
+Use the Siting profiles only for private work. `siting` keeps deterministic
+planning development free of model transport dependencies; select `siting-ai`
+only for the OpenAI/Claude edge and its local token diagnostics. Switching
+profiles means changing the profile argument, not exact-syncing a different
+package set into the same directory.
 
 ## Verification
 
