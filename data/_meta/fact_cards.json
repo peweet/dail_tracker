@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-08-23T11:39:19+00:00",
+  "generated_utc": "2026-08-24T14:38:46+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 196,
   "facts": {
@@ -1931,7 +1931,7 @@
       "read_by": [
         "read by attendance/attendance_participation_turnout.sql, votes/vote_base.sql {SEANAD_VOTE_PARQUET_PATH}"
       ],
-      "size_bytes": 441750
+      "size_bytes": 440723
     },
     "current_senator_payment_rankings": {
       "file": "data/gold/parquet/current_senator_payment_rankings.parquet",
@@ -1956,7 +1956,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 4683
+      "size_bytes": 4703
     },
     "current_td_payment_rankings": {
       "file": "data/gold/parquet/current_td_payment_rankings.parquet",
@@ -5891,7 +5891,7 @@
       "read_by": [
         "read by payments/payments_base.sql"
       ],
-      "size_bytes": 120932,
+      "size_bytes": 121157,
       "grain": "one row per PSA payment line",
       "money_grain": "payments",
       "never_sum_with": "awarded|budget|ted",
@@ -5932,7 +5932,7 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 4890
+      "size_bytes": 4876
     },
     "planning_appeal_outcomes": {
       "file": "data/silver/parquet/planning_appeal_outcomes.parquet",
@@ -6928,7 +6928,7 @@
     "seanad_payments_full_psa": {
       "file": "data/gold/parquet/seanad_payments_full_psa.parquet",
       "layer": "gold",
-      "rows": 960,
+      "rows": 900,
       "columns": [
         "member_name",
         "position",
@@ -6968,12 +6968,12 @@
       "read_by": [
         "read by payments/payments_base.sql"
       ],
-      "size_bytes": 15256
+      "size_bytes": 14901
     },
     "seanad_payments_full_psa_quarantine": {
       "file": "data/gold/parquet/seanad_payments_full_psa_quarantine.parquet",
       "layer": "gold",
-      "rows": 0,
+      "rows": 60,
       "columns": [
         "member_name",
         "position",
@@ -7000,10 +7000,14 @@
         "schema": "String",
         "house": "String"
       },
+      "year_span": [
+        2026,
+        2026
+      ],
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 1156
+      "size_bytes": 5959
     },
     "si_current_state": {
       "file": "data/gold/parquet/si_current_state.parquet",

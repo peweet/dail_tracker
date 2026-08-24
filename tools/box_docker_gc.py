@@ -19,7 +19,10 @@ Safety properties, in order of importance:
 2. An image referenced by any container -- running or stopped -- is never removed.
 3. Images newer than ``--min-age-days`` are never removed, regardless of policy.
 4. The newest ``--keep`` tags of every repository are never removed, so a rollback
-   target always survives.
+   target always survives. A keep-N slot is a rollback slot, so it is granted only to
+   images that could actually serve as one: a tag older than ``--keep-max-age-days`` or
+   matching ``--disposable`` (experiment, rehearsal and dry-run shapes) is passed over.
+   That disqualification removes ONLY keep-N -- properties 2 and 3 still apply.
 5. Every run writes a JSON receipt so an unattended invocation can be proven to have
    happened, and to have done what it claimed.
 

@@ -60,6 +60,31 @@ def _select(images, **overrides):
     return gc.select_removable(images, **kwargs)
 
 
+def _reclaim_kwargs(**overrides) -> dict:
+    """A full, valid reclaim() call, so the argument-guard tests below assert the guard
+    rather than a TypeError.
+
+    Centralised deliberately: reclaim() takes every policy knob as a REQUIRED keyword, so
+    adding one breaks every guard test with a TypeError at once -- which is how
+    keep_max_age_days and disposable broke this file. One place to update instead of N.
+    Values mirror the module defaults; both guards raise before in_use_image_ids(), so
+    nothing here reaches a Docker daemon."""
+    kwargs = {
+        "apply_changes": False,
+        "keep": 1,
+        "keep_max_age_days": 30,
+        "disposable": gc.DEFAULT_DISPOSABLE,
+        "min_age_days": 3,
+        "protected": (),
+        "prune_cache": False,
+        "cache_keep_hours": 168,
+        "receipt": Path("unused.json"),
+        "disk_path": "/",
+    }
+    kwargs.update(overrides)
+    return kwargs
+
+
 # ---------------------------------------------------------------- safety property 2
 
 
@@ -110,13 +135,41 @@ def test_pinned_env_refs_are_retained():
 
 
 def test_newest_keep_per_repository_survive():
-    """Rollback target always survives: --keep newest tags per repository."""
-    images = [_image("engine", f"git-{i}", age_days=30 + i) for i in range(5)]
+    """Rollback target always survives: --keep newest tags per repository.
+
+    Ages stay INSIDE the --keep-max-age-days horizon on purpose. A keep-N slot is only
+    granted to an image still young enough to be a plausible rollback target, so a
+    fixture built from 30-day-old images would exercise the horizon rule below rather
+    than this one and pass or fail for the wrong reason."""
+    images = [_image("engine", f"git-{i}", age_days=1 + i) for i in range(5)]
     removable, retained = _select(images, keep=3, min_age_days=0)
     assert len(retained) == 3
     assert len(removable) == 2
     # The two oldest go.
     assert {image["tag"] for image in removable} == {"git-3", "git-4"}
+
+
+def test_keep_slot_is_not_granted_past_the_rollback_horizon():
+    """An image older than --keep-max-age-days does not earn a keep-N slot.
+
+    Without this, a repository whose newest tags are all ancient keeps them forever
+    purely for being newest -- the observed deployment-host case where 12-13 day old
+    experiment tags survived while the only real release sat below them."""
+    ancient = [_image("engine", f"git-{i}", age_days=60 + i) for i in range(3)]
+    removable, retained = _select(ancient, keep=3, min_age_days=3, keep_max_age_days=30)
+    assert retained == [], "an image past the rollback horizon took a keep-N slot"
+    assert len(removable) == 3
+
+
+def test_disposable_tag_shapes_never_earn_a_keep_slot():
+    """Experiment/rehearsal builds are not rollback targets, so being newest-of-repo
+    must not protect them -- while a real git-<sha> release in the same repository does
+    take the slot."""
+    rehearsal = _image("engine", "rehearsal-879b268", age_days=1)
+    release = _image("engine", "git-8889022", age_days=5)
+    removable, retained = _select([rehearsal, release], keep=1, min_age_days=0)
+    assert [image["ref"] for image in removable] == [rehearsal["ref"]]
+    assert [r["ref"] for r in retained] == [release["ref"]]
 
 
 def test_min_age_days_floor_beats_policy():
@@ -141,30 +194,12 @@ def test_latest_tag_is_protected_by_default():
 def test_keep_below_one_is_refused():
     """keep=0 would delete every tag of a repository, destroying the rollback target."""
     with pytest.raises(gc.DockerGCError, match="rollback target"):
-        gc.reclaim(
-            apply_changes=False,
-            keep=0,
-            min_age_days=3,
-            protected=(),
-            prune_cache=False,
-            cache_keep_hours=168,
-            receipt=Path("unused.json"),
-            disk_path="/",
-        )
+        gc.reclaim(**_reclaim_kwargs(keep=0, min_age_days=3))
 
 
 def test_negative_min_age_is_refused():
     with pytest.raises(gc.DockerGCError):
-        gc.reclaim(
-            apply_changes=False,
-            keep=1,
-            min_age_days=-1,
-            protected=(),
-            prune_cache=False,
-            cache_keep_hours=168,
-            receipt=Path("unused.json"),
-            disk_path="/",
-        )
+        gc.reclaim(**_reclaim_kwargs(keep=1, min_age_days=-1))
 
 
 def test_apply_defaults_to_false():

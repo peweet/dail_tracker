@@ -33,10 +33,14 @@ LIMITATIONS (static AST scan, same class of blind spot as the rest of this repo'
     * A local module shadowed by an installed third-party package of the same top-level
       name would false-negative; none currently exist in this repo.
 
-EXEMPTION: an import inside a `try` block that has at least one `except` handler is not
-    flagged — that is the repo's existing pattern for a genuinely optional dependency (see
-    mcp_server/server.py's "optional 'siting' extra not installed (public clone)" guards),
-    which degrades gracefully instead of crashing collection/import on a clean checkout.
+EXEMPTION: an import the author deliberately made optional is not flagged, in either of the
+    two forms this repo uses. Both degrade gracefully instead of crashing collection/import
+    on a clean checkout, which is the only failure this guard exists to prevent:
+      * inside a `try` block with at least one `except` handler — see mcp_server/server.py's
+        "optional 'siting' extra not installed (public clone)" guards;
+      * inside `with contextlib.suppress(ImportError | ModuleNotFoundError | Exception)` —
+        see mcp_server/resource_policy.py's best-effort precedent_fts cache drop. A
+        `suppress()` naming only unrelated exceptions protects nothing and is still flagged.
 """
 
 from __future__ import annotations
@@ -66,16 +70,45 @@ def _resolve_local(dotted: str) -> Path | None:
     return None
 
 
+#: Exception names that actually catch a missing module. A `suppress(ValueError)` around an
+#: import protects nothing, so it must not earn the exemption.
+_IMPORT_SAFE_EXCEPTIONS = {"ImportError", "ModuleNotFoundError", "Exception", "BaseException"}
+
+
+def _suppresses_import_error(node: ast.With | ast.AsyncWith) -> bool:
+    """True for `with contextlib.suppress(ImportError | Exception | ...)` — semantically the
+    same guard as try/except, and the form mcp_server/resource_policy.py uses."""
+    for item in node.items:
+        call = item.context_expr
+        if not isinstance(call, ast.Call):
+            continue
+        func = call.func
+        name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else None
+        if name != "suppress":
+            continue
+        if any(isinstance(arg, ast.Name) and arg.id in _IMPORT_SAFE_EXCEPTIONS for arg in call.args):
+            return True
+    return False
+
+
 def _guarded_import_ids(tree: ast.AST) -> set[int]:
-    """id()s of Import/ImportFrom nodes inside a `try` body that has an `except` handler —
-    the repo's existing pattern for a deliberately optional dependency."""
+    """id()s of Import/ImportFrom nodes the author deliberately made optional — inside a
+    `try` body with an `except` handler, or a `with contextlib.suppress(ImportError|...)`.
+
+    Both degrade gracefully on a clean checkout, which is the only failure this guard is
+    for; flagging either would push authors to delete a working optional-dependency guard.
+    """
     guarded: set[int] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Try) and node.handlers:
-            for stmt in node.body:
-                for sub in ast.walk(stmt):
-                    if isinstance(sub, (ast.Import, ast.ImportFrom)):
-                        guarded.add(id(sub))
+        is_guard = (isinstance(node, ast.Try) and bool(node.handlers)) or (
+            isinstance(node, (ast.With, ast.AsyncWith)) and _suppresses_import_error(node)
+        )
+        if not is_guard:
+            continue
+        for stmt in node.body:
+            for sub in ast.walk(stmt):
+                if isinstance(sub, (ast.Import, ast.ImportFrom)):
+                    guarded.add(id(sub))
     return guarded
 
 
