@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # Dáil Tracker API — read-only JSON API + bulk exports over committed parquet.
 #
 # The image bakes the data in (the API is a read-only serve layer over the
@@ -13,24 +15,38 @@
 # Note: `uv sync` installs the core project deps (which include Streamlit — the
 # app and API share one lockfile) plus the api extra. That costs ~150MB of
 # unused app deps in exchange for lockfile fidelity; revisit only if image size
-# ever matters.
+# ever matters. Runtime image tooling and caches are guarded by the image
+# footprint contracts in test/tools/test_runtime_image_layout.py.
 
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+ARG PYTHON_IMAGE=python:3.12-slim-bookworm@sha256:4766d8b510c428e595d74b9cc5bbb2fae8e26316fffb4adc89908d79aacd58a2
+
+FROM ${PYTHON_IMAGE} AS runtime-base
 
 WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    PYTHONUNBUFFERED=1
-
-# Dependency layer first so code/data changes don't bust the cache.
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project --extra api
+ENV PYTHONUNBUFFERED=1
 
 # Run the network service without root privileges. Source and committed data
 # remain root-owned/read-only; only the generated export cache and logs are
 # writable by the service account.
 RUN groupadd --system --gid 10001 dailtracker \
     && useradd --system --uid 10001 --gid dailtracker --home-dir /app --no-create-home dailtracker
+
+FROM runtime-base AS deps
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.16@sha256:440fd6477af86a2f1b38080c539f1672cd22acb1b1a47e321dba5158ab08864d /uv /uvx /bin/
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+# Dependency layer first so code/data changes don't bust the cache. The cache
+# mount is retained by BuildKit, not copied into the deployable image.
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    uv sync --frozen --no-dev --no-install-project --extra api
+
+FROM runtime-base AS runtime
+
+WORKDIR /app
+COPY --from=deps /app/.venv /app/.venv
 
 # Code + the SQL view firewall + the committed data the views read.
 COPY paths.py config.py ./
