@@ -27,6 +27,7 @@ on:
       - "data/gold/**"
       - "data/silver/**"
       - "data/_meta/**"
+      - "tools/image_registry_footprint.py"
       - ".github/workflows/dailtracker-web-image.yml"
   workflow_dispatch: {}
 
@@ -58,10 +59,30 @@ jobs:
           file: Dockerfile.web
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/dailtracker-web:latest
             ghcr.io/${{ github.repository_owner }}/dailtracker-web:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Enforce candidate image footprint
+        run: |
+          python tools/image_registry_footprint.py \
+            --image ghcr.io/${{ github.repository_owner }}/dailtracker-web:sha-${{ github.sha }} \
+            --max-compressed-bytes 650000000 \
+            --receipt "$RUNNER_TEMP/dailtracker-web-footprint.json"
+          cat "$RUNNER_TEMP/dailtracker-web-footprint.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload image-footprint receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: dailtracker-web-footprint-${{ github.sha }}
+          path: ${{ runner.temp }}/dailtracker-web-footprint.json
+          if-no-files-found: error
+
+      - name: Promote the checked candidate to latest
+        run: >-
+          docker buildx imagetools create
+          --tag ghcr.io/${{ github.repository_owner }}/dailtracker-web:latest
+          ghcr.io/${{ github.repository_owner }}/dailtracker-web:sha-${{ github.sha }}
 
       - name: Print pull line for the box
         run: |
