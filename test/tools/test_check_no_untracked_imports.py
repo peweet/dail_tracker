@@ -1,9 +1,12 @@
 """Tests for the tracked-import boundary guard (tools/check_no_untracked_imports.py).
 
-Covers: a tracked file importing an untracked local module is flagged; a `try`/`except`-
-guarded optional import is not; an ordinary tracked-to-tracked import is not; the real
-tracked tree is clean — the live regression that fails the moment a commit ships a file
-depending on something git doesn't have.
+Covers: a tracked file importing an untracked local module is flagged; a deliberately
+optional import is not, in either guarded form (`try`/`except` and
+`contextlib.suppress(ImportError|Exception)`); the exemption does NOT widen to a
+`suppress()` naming an unrelated exception, nor to any plain `with` block; an ordinary
+tracked-to-tracked import is not flagged; and the real tracked tree is clean — the live
+regression that fails the moment a commit ships a file depending on something git
+doesn't have.
 """
 
 from __future__ import annotations
@@ -52,9 +55,7 @@ def test_contextlib_suppress_guarded_import_is_not_flagged(tmp_path: Path) -> No
     best-effort precedent_fts cache drop."""
     src = tmp_path / "suppressed.py"
     src.write_text(
-        "import contextlib\n"
-        "with contextlib.suppress(Exception):\n"
-        "    from planning.product.mcp import precedent_fts\n",
+        "import contextlib\nwith contextlib.suppress(Exception):\n    from planning.product.mcp import precedent_fts\n",
         encoding="utf-8",
     )
     assert guard._imports_in(src) == [("contextlib", 1)], (
