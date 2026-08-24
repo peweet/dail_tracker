@@ -2,7 +2,7 @@
 tier: PLAN
 status: LIVE
 domain: infra
-updated: 2026-06-21
+updated: 2026-08-24
 supersedes: []
 read_when: changing CI/CD workflows, or checking what checks already exist before adding a new one
 key: PLAN|LIVE|infra
@@ -202,21 +202,20 @@ Won't catch runtime/Streamlit-context bugs but catches every import-time regress
 
 Things that aren't code-quality gates but pay off over time.
 
-### 3a. Pre-commit hooks (mirror CI locally)
+### 3a. Manual Prek pilot (mirror CI locally)
 
-A `.pre-commit-config.yaml` with `ruff` and `ruff-format` runs the same checks before commit. Stops you pushing a known-failing change.
+`prek.toml` runs Ruff check and format-check over Python files using the same Ruff release as the
+locked developer environment. It is intentionally a **manual** pilot:
 
-```yaml
-repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.0
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
+```powershell
+uv tool run --from "prek==0.4.14" prek validate-config prek.toml
+uv tool run --from "prek==0.4.14" prek run --config prek.toml --all-files
 ```
 
-Install via `pre-commit install`. The CI run becomes a backstop, not the only line of defence.
+Do **not** run `prek install -f` in this checkout. `core.hooksPath` already points to the tracked
+`.githooks/` guards, including the private-IP pre-push firewall. The pilot must demonstrate a
+useful, equivalent staged-file workflow before anyone changes those hook shims. Prek explicitly
+excludes the nested private planning repository from workspace discovery.
 
 ### 3b. Dependabot
 

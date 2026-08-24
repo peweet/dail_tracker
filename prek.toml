@@ -1,0 +1,15 @@
+# Manual Prek pilot. Do not run `prek install -f` here: this repository's tracked
+# .githooks/ shims contain commit hygiene and private-IP safeguards that remain authoritative.
+#
+# Ruff 0.15.14 matches the version currently resolved in uv.lock. Both hooks are checks only;
+# they never rewrite a contributor's staged files.
+exclude = "^planning/product/"
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.14"
+
+hooks = [
+  { id = "ruff-check", types_or = ["python", "pyi"] },
+  { id = "ruff-format", types_or = ["python", "pyi"] },
+]

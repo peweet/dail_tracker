@@ -1,0 +1,3 @@
+# The planning product is an independent, private Git repository with its own
+# tooling and release gates. It must not be discovered or managed by root Prek.
+planning/product/
