@@ -137,6 +137,10 @@ TASKS: dict[str, Task] = {
         "Report how stale each backup lane is, by snapshot age rather than task state",
         ((PYTHON, "tools/backup_freshness.py"),),
     ),
+    "docker-gc": Task(
+        "Report reclaimable Docker disk (add --reclaim to prune, --compact for the vhdx)",
+        ((PYTHON, "tools/docker_gc.py"),),
+    ),
     "escrow-check": Task(
         "Prove a password-manager copy of a restic password still opens its repository",
         ((PYTHON, "tools/check_credential_escrow.py"),),

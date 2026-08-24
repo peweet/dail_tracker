@@ -360,7 +360,8 @@ known_first_party = [
     # Sibling-module imports missed by the original list (found when deptry was
     # wired into the test suite 2026-07-31, tools/check_dependency_declarations.py):
     "la_afs_balancesheet_extract", "guard_memory", "harness_bench",
-    "check_mcp_adoption", "session_closeout",
+    "check_mcp_adoption", "session_closeout", "docker_gc", "session_context",
+    "box_docker_gc",
 ]
 
 [tool.deptry.per_rule_ignores]

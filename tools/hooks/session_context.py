@@ -23,6 +23,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 
+#: Docker warn thresholds. 25 GB reclaimable is roughly five stale engine-image rebuilds
+#: (each ~5 GB, measured 2026-08-24) — enough to be worth a prune, low enough to catch the
+#: buildup early. 60 GB of vhdx is where the file starts to matter against free space on
+#: this box; the vhdx never shrinks on its own, so it needs its own threshold.
+DOCKER_RECLAIMABLE_WARN_GB = 25.0
+DOCKER_VHDX_WARN_GB = 60.0
+
 
 def _git_branch() -> str:
     try:
@@ -435,6 +442,51 @@ def _memory_currency_note() -> str:
         return ""
 
 
+def _docker_disk_note() -> str:
+    """Warn when Docker's local store has grown past a disk threshold (added 2026-08-24
+    after it reached 80 images / 104.3GB reclaimable and a 152.6GB docker_data.vhdx on a
+    drive with 102GB free — weeks of dev rebuilds nobody was watching between sessions).
+
+    Pull, not push: one count line, the detail lives in `python tools/docker_gc.py`.
+    Throttled to once per 12h via a cache file — `docker system df` measured ~250 ms warm
+    on this box, comparable to _session_pressure_note's tasklist, but a cold-starting
+    Docker daemon can hang far longer, so most sessions read the cached numbers instead.
+    Fails open to "" like every note here; Docker being absent is not a status line."""
+    cache_path = REPO / "logs" / "docker_disk_cache.json"
+    try:
+        cached = None
+        if cache_path.exists() and time.time() - cache_path.stat().st_mtime < 12 * 3600:
+            with contextlib.suppress(Exception):
+                cached = json.loads(cache_path.read_text(encoding="utf-8"))
+        if cached is None:
+            import sys as _sys
+
+            tools = REPO / "tools"
+            if str(tools) not in _sys.path:
+                _sys.path.insert(0, str(tools))
+            from docker_gc import df_report, vhdx_size_mb  # type: ignore
+
+            rows = df_report(timeout=4.0)
+            if rows is None:
+                return ""  # Docker not running — silence, not a warning
+            cached = {
+                "reclaimable_gb": sum(r["reclaimable_mb"] for r in rows.values()) / 1024,
+                "vhdx_gb": (vhdx_size_mb() or 0) / 1024,
+            }
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps(cached), encoding="utf-8")
+        reclaimable = float(cached.get("reclaimable_gb", 0))
+        vhdx = float(cached.get("vhdx_gb", 0))
+        if reclaimable < DOCKER_RECLAIMABLE_WARN_GB and vhdx < DOCKER_VHDX_WARN_GB:
+            return ""
+        note = f"docker: {reclaimable:.0f} GB reclaimable"
+        if vhdx >= DOCKER_VHDX_WARN_GB:
+            note += f", vhdx {vhdx:.0f} GB on disk"
+        return note + " — `python tools/dev.py docker-gc` (add --reclaim)"
+    except Exception:
+        return ""
+
+
 def _closeout_note() -> str:
     """Substantive sessions (ledger rows) never closed out — pull, not push: one
     count line here, the list lives in `python tools/session_closeout.py`."""
@@ -525,6 +577,7 @@ def main() -> int:
         _adoption_tripwire(),
         _style_digest_note(),
         _session_pressure_note(),
+        _docker_disk_note(),
         _unvalidated_note(),
         _closeout_note(),
         _memory_currency_note(),
