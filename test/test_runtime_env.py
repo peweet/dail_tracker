@@ -169,7 +169,14 @@ def test_config_pins_thread_cap(relpath, expected):
     assert env.get("OMP_NUM_THREADS") == expected
 
 
-def test_memory_guard_blocks_heavy_command_under_the_floor(monkeypatch):
+@pytest.mark.parametrize(
+    "command",
+    [
+        "python -m pytest test/siting -q",
+        "python -m pytest planning/product/test -q",
+    ],
+)
+def test_memory_guard_blocks_heavy_command_under_the_floor(monkeypatch, command):
     """The backstop: a measured-heavy command must be refused when RAM is exhausted."""
     sys.path.insert(0, str(REPO / "tools" / "hooks"))
     import guard_memory  # type: ignore
@@ -192,7 +199,7 @@ def test_memory_guard_blocks_heavy_command_under_the_floor(monkeypatch):
         type(
             "S",
             (),
-            {"read": staticmethod(lambda: json.dumps({"tool_input": {"command": "python -m pytest test/siting -q"}}))},
+            {"read": staticmethod(lambda: json.dumps({"tool_input": {"command": command}}))},
         )(),
     )
     assert guard_memory.main() == 2, "heavy command was allowed with 200 MB free"

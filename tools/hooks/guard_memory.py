@@ -44,6 +44,10 @@ LEDGER = REPO / "logs" / "memory_pressure.jsonl"
 #: Add here only with a measurement — a pattern with no number behind it is superstition.
 HEAVY_PATTERNS = (
     (r"pytest\s+test/siting", "siting test suite (~5.4 GB measured 2026-07-26)"),
+    (
+        r"pytest(?:\s+\S+)*\s+planning[\\/]+product[\\/]+test(?:\s|$)",
+        "SpecPlan full test suite (~6.6 GB observed 2026-08-24)",
+    ),
     (r"siting_engine_(regression|backtest|calibration)", "siting engine harness (~0.5-1 GB)"),
     (r"\bpipeline\.py", "full ETL pipeline (spawns per-chain subprocesses)"),
     (r"siting_report(_dryrun)?\.py", "siting report harness (loads the layer store)"),
