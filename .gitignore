@@ -90,6 +90,13 @@ build/
 /out/
 /tmp/
 /.tmp/
+# Scratch trees and files from document extraction probes, e.g. .tmp_finance_docx/ and
+# _tmp_pdf_qa_<hash>. The rules above only match `tmp` as a whole path segment, so the
+# underscore-suffixed forms had no rule at all and were swept up by `git add -A`.
+# Anchored to the repo root on purpose: an unanchored `_tmp_*` would match nested paths
+# and risk swallowing a load-bearing file somewhere deeper in the tree.
+/.tmp_*/
+/_tmp_*
 /.uv-envs/
 /storybook-static/
 /playwright-report/
