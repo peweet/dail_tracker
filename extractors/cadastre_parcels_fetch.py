@@ -1,4 +1,8 @@
-"""Tailte Éireann cadastral parcels (freehold) — the registered-title geometry for a point.
+"""Tailte Éireann cadastral parcels — the registered-title geometry for a point.
+
+Both registers, selected with `--tenure`: freehold (3.1M parcels, national) and leasehold
+(131,073, added 2026-08-25). They are the same service family with the same two attributes, so
+one code path serves both; everything that differs lives in the `TENURES` table below.
 
 WHY THIS IS NOT A PLANNING LAYER. Every file under data/silver/parquet/planning_layers/ is a
 CONSTRAINT: some rulebook node in planning/product/core/engine.py fires on it. This one is an
@@ -18,9 +22,16 @@ resulting in reduction and simplification of features which may affect accuracie
 used for reference purposes only". Same standing as HM Land Registry's INSPIRE polygons: an
 index, not the title plan. Never present a parcel edge as a legal boundary.
 
-Source  : https://data.gov.ie — "High Value Dataset - Cadastral Parcels Freehold" (Tailte Éireann)
-Licence : CC BY 4.0 (per the ArcGIS item licenceInfo)
+⚠ LEASEHOLD IS NOT A NATIONAL COMPLEMENT TO FREEHOLD. Dublin holds 65,019 of the 131,073
+leasehold parcels (49.6%, from the live per-county groupBy on 2026-08-25) because leasehold
+title is an urban apartment/commercial instrument. Outside the cities, "no leasehold parcel
+here" is the expected answer and carries no information about the site.
+
+Source  : https://data.gov.ie — "High Value Dataset - Cadastral Parcels Freehold" / "… Leasehold"
+          (Tailte Éireann)
+Licence : CC BY 4.0 (per the ArcGIS item licenceInfo, both items, re-read 2026-08-25)
 Writes  : data/silver/parquet/cadastre/parcels_freehold.parquet
+          data/silver/parquet/cadastre/parcels_leasehold.parquet
 
 Paged per COUNTY rather than by global offset: each county is spatially coherent, so a
 Morton sort WITHIN the county gives row groups tight enough for statistics pruning, while peak
@@ -31,9 +42,10 @@ national parquet is assembled only when every part exists and the total clears R
 one-county run writes its part and stops — it can no longer replace the national file (the
 previous `--county` path lowered the floor to 1 and wrote straight onto DEST).
 
-    python -m extractors.cadastre_parcels_fetch                    # fetch missing parts, assemble
-    python -m extractors.cadastre_parcels_fetch --county Galway    # one part only; DEST untouched
-    python -m extractors.cadastre_parcels_fetch --assemble         # assemble from existing parts
+    python -m extractors.cadastre_parcels_fetch                       # freehold; fetch + assemble
+    python -m extractors.cadastre_parcels_fetch --tenure leasehold    # the leasehold register
+    python -m extractors.cadastre_parcels_fetch --county Galway       # one part only; DEST untouched
+    python -m extractors.cadastre_parcels_fetch --assemble            # assemble from existing parts
 """
 
 from __future__ import annotations
@@ -49,6 +61,7 @@ import json
 import logging
 import urllib.parse
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import polars as pl
@@ -63,18 +76,82 @@ from services.logging_setup import setup_standalone_logging
 LOG = logging.getLogger("cadastre_parcels")
 
 OUT_DIR = Path(__file__).resolve().parents[1] / "data" / "silver" / "parquet" / "cadastre"
-DEST = OUT_DIR / "parcels_freehold.parquet"
 
-SERVICE = (
-    "https://services-eu1.arcgis.com/FH5XCsx8rYXqnjF5/arcgis/rest/services"
-    "/Cadastral_Parcels_Freehold/FeatureServer/12/query"
-)
 PAGE = 1000  # the service's maxRecordCount
 ROW_GROUP = 20_000  # matches planning/product/tools/build_point_scoped_layers.py — prunable groups
-# Published national total, cross-checked two ways on 2026-07-27 (returnCountOnly, and the
-# sum of the per-county groupBy). The floor is deliberately slack: a re-register can move it.
-EXPECTED_TOTAL = 3_086_691
-ROW_FLOOR = 2_700_000
+
+_ARCGIS = "https://services-eu1.arcgis.com/FH5XCsx8rYXqnjF5/arcgis/rest/services"
+
+
+class Tenure(NamedTuple):
+    """Everything that differs between the freehold and leasehold registers.
+
+    The two services are schema-identical (SP_ID, COUNTY_NAM, polygon) and differ only in
+    endpoint and size, so one code path serves both. ⚠ `parts` MUST differ per tenure: the
+    parts directory is keyed by county name alone, so a shared directory would let a leasehold
+    run assemble freehold parts into a file labelled leasehold, silently and with no row-floor
+    complaint. Separate directories are the only thing preventing that.
+    """
+
+    name: str
+    service: str
+    dest_name: str
+    parts_name: str
+    expected_total: int
+    row_floor: int
+
+
+TENURES: dict[str, Tenure] = {
+    # Published national total, cross-checked two ways on 2026-07-27 (returnCountOnly, and the
+    # sum of the per-county groupBy). The floor is deliberately slack: a re-register can move it.
+    "freehold": Tenure(
+        "freehold",
+        f"{_ARCGIS}/Cadastral_Parcels_Freehold/FeatureServer/12/query",
+        "parcels_freehold.parquet",
+        "parts",
+        3_086_691,
+        2_700_000,
+    ),
+    # Added 2026-08-25. 131,073 parcels over 27 counties, both figures from the live service
+    # (returnCountOnly, and the per-county groupBy summing to the same total). Leasehold title is
+    # overwhelmingly urban — Dublin alone holds 65,019 (49.6%) — so it is NOT a national
+    # complement to freehold coverage, and a point outside Dublin/Cork returning no leasehold
+    # parcel says almost nothing. Same slack-floor convention as freehold, at ~88% of today's
+    # count.
+    "leasehold": Tenure(
+        "leasehold",
+        f"{_ARCGIS}/Cadastral_Parcels_Leasehold/FeatureServer/13/query",
+        "parcels_leasehold.parquet",
+        "parts_leasehold",
+        131_073,
+        115_000,
+    ),
+}
+
+# The ACTIVE tenure. These stay module-level rather than becoming parameters because the test
+# suite monkeypatches DEST/PARTS_DIR/ROW_FLOOR directly; `use_tenure()` is the only supported
+# way to move them, and `main()` calls it before any fetch.
+TENURE = TENURES["freehold"]
+SERVICE = TENURE.service
+DEST = OUT_DIR / TENURE.dest_name
+PARTS_DIR = OUT_DIR / TENURE.parts_name
+EXPECTED_TOTAL = TENURE.expected_total
+ROW_FLOOR = TENURE.row_floor
+
+
+def use_tenure(name: str) -> Tenure:
+    """Point the module at one register. Returns the selected tenure."""
+    global TENURE, SERVICE, DEST, PARTS_DIR, EXPECTED_TOTAL, ROW_FLOOR
+    try:
+        TENURE = TENURES[name]
+    except KeyError:
+        raise SystemExit(f"unknown tenure {name!r}; choices: {', '.join(TENURES)}") from None
+    SERVICE = TENURE.service
+    DEST = OUT_DIR / TENURE.dest_name
+    PARTS_DIR = OUT_DIR / TENURE.parts_name
+    EXPECTED_TOTAL = TENURE.expected_total
+    ROW_FLOOR = TENURE.row_floor
+    return TENURE
 
 SCHEMA = pa.schema(
     [
@@ -211,9 +288,6 @@ def _to_table(rows: list[tuple]) -> pa.Table:
     return df.to_arrow().cast(SCHEMA)
 
 
-PARTS_DIR = OUT_DIR / "parts"
-
-
 def _part_path(county: str | None) -> Path:
     slug = "_null" if county is None else "".join(ch if ch.isalnum() else "_" for ch in county).strip("_").lower()
     return PARTS_DIR / f"{slug or 'county'}.parquet"
@@ -305,6 +379,12 @@ def build(only: str | None = None, *, refresh: bool = False, assemble_only: bool
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--tenure",
+        choices=sorted(TENURES),
+        default="freehold",
+        help="which register to fetch (default: freehold)",
+    )
     ap.add_argument("--county", help="fetch ONE county's part only (never replaces the national file)")
     ap.add_argument("--refresh", action="store_true", help="re-fetch counties whose part already exists")
     ap.add_argument(
@@ -312,6 +392,8 @@ def main() -> None:
     )
     args = ap.parse_args()
     setup_standalone_logging("cadastre_parcels_fetch")
+    tenure = use_tenure(args.tenure)
+    LOG.info("tenure=%s -> %s (floor %s)", tenure.name, DEST.name, f"{ROW_FLOOR:,}")
     build(only=args.county, refresh=args.refresh, assemble_only=args.assemble)
 
 
