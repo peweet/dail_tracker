@@ -377,7 +377,14 @@ def _spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.
 
 def _refresh_acp_sites() -> tuple[pl.DataFrame, dict[str, int], int]:
     case_sites, geometry_results, rows_pulled = _fetch_acp_sites()
-    save_parquet(case_sites, OUT_SITES, min_rows=20_000, compression_level=9)
+    save_parquet(
+        case_sites,
+        OUT_SITES,
+        min_rows=20_000,
+        compression_level=9,
+        geoparquet=True,
+        source_crs="EPSG:4326_XY",
+    )
     coverage = {
         "schema": "dail-planning-acp-case-sites-coverage/1",
         "generated_utc": dt.datetime.now(dt.UTC).isoformat(),

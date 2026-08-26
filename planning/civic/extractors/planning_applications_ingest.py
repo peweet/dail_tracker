@@ -597,7 +597,14 @@ def main() -> None:
             f"site row-count drift: {pulled} vs {live_sites}"
         )
     minimum = 450_000 if not args.authority and not args.max_pages else None
-    site_dest = save_parquet(sites, OUT / site_out_name, min_rows=minimum, compression_level=9)
+    site_dest = save_parquet(
+        sites,
+        OUT / site_out_name,
+        min_rows=minimum,
+        compression_level=9,
+        geoparquet=True,
+        source_crs="EPSG:4326_XY",
+    )
     site_counts = _counts_by_authority(sites)
     authorities = []
     for authority in sorted(set(point_counts) | set(site_counts)):
