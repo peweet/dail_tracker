@@ -62,6 +62,26 @@ def council_decision_expr(column: str | pl.Expr) -> pl.Expr:
     )
 
 
+def abp_decision_expr(column: str | pl.Expr) -> pl.Expr:
+    """Map ABP planning-appeal vocabulary to GRANT / REFUSE / OTHER without inference."""
+    expr = pl.col(column) if isinstance(column, str) else column
+    decision = expr.fill_null("").str.to_lowercase()
+    non_substantive = (
+        decision.str.strip_chars().eq("")
+        | decision.str.contains(
+            r"withdraw|invalid|leave to appeal|is development|contribution appeal|"
+            r"confirm the determination|set aside|determination of the local"
+        )
+    )
+    return (
+        pl.when(non_substantive)
+        .then(pl.lit("OTHER"))
+        .when(decision.str.contains(r"refuse"))
+        .then(pl.lit("REFUSE"))
+        .when(decision.str.contains(r"grant|approve|permission"))
+        .then(pl.lit("GRANT"))
+        .otherwise(pl.lit("OTHER"))
+    )
 def case_status_expr(decision_column: str, decided_column: str) -> pl.Expr:
     """Classify a case as live using the extractor's existing two-part rule."""
     decision = pl.col(decision_column).fill_null("")

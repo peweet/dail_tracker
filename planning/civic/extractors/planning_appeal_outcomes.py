@@ -58,6 +58,7 @@ from planning.civic.extractors.planning_appeal_vector import (
 )
 from planning.civic.extractors.planning_appeal_vector import (
     appeal_case_expr,
+    abp_decision_expr,
     authority_key_expr,
     case_status_expr,
     council_decision_expr,
@@ -91,7 +92,7 @@ _APPLICATION_COLUMNS = (
 )
 
 # Cases still before the Board carry a DECISION of "Case is due to be decided by <date>" — 1,383 of
-# the register's 1,580 distinct DECISION strings on 2026-07-20. They are NOT outcomes; _norm_abp maps
+# the register's 1,580 distinct DECISION strings on 2026-07-20. They are NOT outcomes; abp_decision_expr maps
 # them to OTHER, which would pool them with withdrawn/invalid. The spine marks them `live` instead.
 _LIVE = re.compile(r"^\s*case is due to be decided", re.I)
 # metres per degree at ~53°N — a spread/size measure only (never a distance the user is shown).
@@ -164,31 +165,6 @@ def _council_decision(d: str | None) -> str:
     return "REFUSE" if d == "Refused" else "OTHER"
 
 
-def _norm_abp(d: str | None) -> str:
-    """ABP planning-appeal decision -> GRANT / REFUSE / OTHER (no-inference; OTHER = non-substantive:
-    s.5 declarations, contribution appeals, withdrawn/invalid/leave, confirm/set-aside determinations)."""
-    s = (d or "").lower()
-    if not s.strip() or any(
-        w in s
-        for w in (
-            "withdraw",
-            "invalid",
-            "leave to appeal",
-            "is development",
-            "contribution appeal",
-            "confirm the determination",
-            "set aside",
-            "determination of the local",
-        )
-    ):
-        return "OTHER"
-    if "refuse" in s:
-        return "REFUSE"
-    if "grant" in s or "approve" in s or "permission" in s:
-        return "GRANT"
-    return "OTHER"
-
-
 def _fetch_acp() -> pl.DataFrame:
     rows, off = [], 0
     while True:
@@ -223,7 +199,7 @@ def _fetch_acp() -> pl.DataFrame:
         # prefix (RL/LV/FS/SU/RP/QD/VV/…), and digit-stripping collapses distinct cases onto one key
         # (DV0005, QD0005, VV0005 and ZE0005 all become "0005"). Verified 2026-07-20.
         pl.col("ABPCASEID").cast(pl.Utf8).str.strip_chars().alias("abp_case"),
-        pl.col("DECISION").map_elements(_norm_abp, return_dtype=pl.Utf8).alias("abp_decision"),
+        abp_decision_expr("DECISION").alias("abp_decision"),
         epoch_ms_date_expr("LODGEDON").alias("lodged_date"),
         authority_key_expr("PLANINGATY").alias("auth_key"),
     )
