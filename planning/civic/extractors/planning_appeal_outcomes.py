@@ -57,8 +57,8 @@ from planning.civic.extractors.planning_appeal_vector import (
     OUT_COLS as _OUT_COLS,
 )
 from planning.civic.extractors.planning_appeal_vector import (
-    appeal_case_expr,
     abp_decision_expr,
+    appeal_case_expr,
     authority_key_expr,
     case_status_expr,
     council_decision_expr,
