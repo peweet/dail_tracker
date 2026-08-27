@@ -48,6 +48,31 @@ log = logging.getLogger(__name__)
 
 MANIFEST_PATH = DATA_DIR / "_meta" / "backup_manifest.tsv"
 ROOTS = (BRONZE_DIR, SILVER_DIR)
+
+# The siting layer store moved on 2026-08-27 from data/silver/parquet/planning_layers/ to
+# planning/product/data/planning_layers/ (private tree). The old path is a directory JUNCTION
+# onto it, which pathlib descends (a junction is not `is_symlink()`), so the silver scan must
+# skip it or every layer file is hashed twice under two names. The store is scanned from its
+# real location under its OLD manifest prefix, so the manifest keys match the R2 layout that
+# tools/backup_to_r2.ps1 keeps (`silver/parquet/planning_layers/`). The same excludes as that
+# script apply: raw upstream archives and the _ingest staging tree are public re-downloadable
+# sources and are neither backed up nor fingerprinted.
+LAYERS_DIR = DATA_DIR.parent / "planning" / "product" / "data" / "planning_layers"
+LAYERS_MANIFEST_PREFIX = "silver/parquet/planning_layers"
+_LAYERS_JUNCTION = SILVER_DIR / "parquet" / "planning_layers"
+_LAYERS_SKIP_DIRS = frozenset(
+    {"_ingest", "_corrupt", "_superseded", "_archived", "_retired", "_rebuild_logs"}
+)
+_LAYERS_SKIP_SUFFIXES = (".zip", ".gpkg", ".shp")
+
+
+def _layer_file_is_backed_up(path: Path) -> bool:
+    rel = path.relative_to(LAYERS_DIR)
+    if rel.parts and rel.parts[0] in _LAYERS_SKIP_DIRS:
+        return False
+    if any(part.endswith(".gdb") for part in rel.parts[:-1]):
+        return False
+    return not path.name.lower().endswith(_LAYERS_SKIP_SUFFIXES)
 _CHUNK = 1024 * 1024  # 1 MiB read buffer for hashing
 
 
@@ -67,8 +92,18 @@ def _scan() -> dict[str, tuple[str, int]]:
             log.warning("root missing, skipping: %s", root)
             continue
         for path in sorted(p for p in root.rglob("*") if p.is_file()):
+            if _LAYERS_JUNCTION in path.parents:
+                continue  # scanned below from its real location
             rel = path.relative_to(DATA_DIR).as_posix()
             out[rel] = (_sha256(path), path.stat().st_size)
+    if LAYERS_DIR.is_dir():
+        for path in sorted(p for p in LAYERS_DIR.rglob("*") if p.is_file()):
+            if not _layer_file_is_backed_up(path):
+                continue
+            rel = f"{LAYERS_MANIFEST_PREFIX}/{path.relative_to(LAYERS_DIR).as_posix()}"
+            out[rel] = (_sha256(path), path.stat().st_size)
+    else:
+        log.warning("layer store missing, skipping: %s", LAYERS_DIR)
     return out
 
 

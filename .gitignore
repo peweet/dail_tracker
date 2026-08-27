@@ -748,7 +748,11 @@ pipeline_sandbox/planning_plausibility_layers.py
 pipeline_sandbox/planning_osm_roads.py
 pipeline_sandbox/planning_osm_roads_geofabrik.py
 pipeline_sandbox/planning_osm_extras_geofabrik.py
-# siting plausibility-gate + designation layer data (curated landmarks, OSM/ArcGIS caches)
+# siting plausibility-gate + designation layer data (curated landmarks, OSM/ArcGIS caches).
+# MOVED 2026-08-27 to planning/product/data/planning_layers/ (private tree, ignored by the
+# /planning/product/ prefix below). This path is now a directory JUNCTION onto it, kept so the
+# public extractors that still write layers (hsa_comah, epa_licensed_facilities, cadastre)
+# resolve. Keep the rule: git would otherwise descend the junction into 52 GB of parquet.
 data/silver/parquet/planning_layers/
 doc/PLAN_ACP_GEOMETRY_AND_PRECEDENT.md
 data/silver/parquet/planning_acp_cases.parquet

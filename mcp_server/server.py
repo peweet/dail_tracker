@@ -2309,7 +2309,8 @@ _SITING_DESCRIPTION = (
     "the site; dev_type is one_off_house, multi_unit, or commercial. num_units, "
     "floor_area_m2, site_area_ha, floor_area_basis, and storeys drive scale checks. "
     "use_class may be 'wind_farm', 'solar_farm', 'intensive_agri', "
-    "'quarry_extractive', 'warehouse_logistics', 'pharma_chemical', "
+    "'quarry_extractive', 'warehouse_logistics', 'retail_leisure_community', "
+    "'office_education_hospital', 'tourism_accommodation', 'pharma_chemical', "
     "'ad_biogas_waste', 'general_manufacturing', or 'data_centre'; blank or unknown "
     "values trigger no use-specific rule. For "
     "pharma_chemical, substance_inventory is the maximum tonnes present at one time, "
@@ -2336,10 +2337,27 @@ SITING_USE_CLASSES = (
     "intensive_agri",
     "quarry_extractive",
     "warehouse_logistics",
+    "retail_leisure_community",
+    "office_education_hospital",
+    "tourism_accommodation",
     "pharma_chemical",
     "ad_biogas_waste",
     "general_manufacturing",
     "data_centre",
+)
+# Mirror of planning.product.core.engine.NON_RESIDENTIAL_COMPONENTS (2026-08-27 scheme-mix
+# build); pinned equal by test_mcp_siting_vocabulary. Declared components of a residential-led
+# scheme — undeclared keeps the zoning-objective mix node silent, so the same typo-becomes-
+# omission trap as use_class applies and the same closed-vocabulary guard runs below.
+SITING_NON_RESIDENTIAL_COMPONENTS = (
+    "retail",
+    "office",
+    "cafe_restaurant",
+    "childcare",
+    "medical",
+    "community",
+    "hotel",
+    "other",
 )
 
 
@@ -2355,6 +2373,7 @@ def siting_check(
     substance_inventory: list[dict] | None = None,
     substance_inventory_source: str = "",
     programme_items: list[str] | None = None,
+    non_residential_components: list[str] | None = None,
     process_capacity: dict | None = None,
     floor_area_basis: str = "",
     storeys: int = 0,
@@ -2371,7 +2390,8 @@ def siting_check(
     AD/biogas/waste — EPA licence + odour/air, general manufacturing — EPA licence screening,
     data centres — grid/CPPA strategy + generators licence + carbon ceiling + project splitting)
     that otherwise stay silent; pass one of the canonical values exactly: 'wind_farm', 'solar_farm',
-    'intensive_agri', 'quarry_extractive', 'warehouse_logistics', 'pharma_chemical',
+    'intensive_agri', 'quarry_extractive', 'warehouse_logistics',
+    'retail_leisure_community', 'office_education_hospital', 'tourism_accommodation', 'pharma_chemical',
     'ad_biogas_waste', 'general_manufacturing', 'data_centre'. Leave it unset for an ordinary house
     or a use that doesn't match one of those — an unmatched or unset use_class fires nothing on
     that axis rather than guessing. `substance_inventory` (only read when use_class is
@@ -2447,6 +2467,15 @@ def siting_check(
             f"licence and mandatory-EIA nodes would stay silent). Pass one of: "
             f"{', '.join(SITING_USE_CLASSES)}, or leave it unset to skip use gating deliberately"
         }
+    if non_residential_components:
+        _unknown_components = [c for c in non_residential_components if c not in SITING_NON_RESIDENTIAL_COMPONENTS]
+        if _unknown_components:
+            return {
+                "error": f"unknown non_residential_components {_unknown_components!r} — an unrecognised "
+                f"component would be dropped and the zoning-objective mix check would stay silent, "
+                f"indistinguishable from declaring nothing. Pass only: "
+                f"{', '.join(SITING_NON_RESIDENTIAL_COMPONENTS)}, or leave it unset when no mix is declared"
+            }
 
     # Guarded because planning/product is the private overlay: a public clone has no engine, and
     # an unguarded import here crashes the whole MCP server on a tool the checkout cannot run
@@ -2497,6 +2526,7 @@ def siting_check(
             substance_inventory=inventory,
             substance_inventory_source=(substance_inventory_source or "").strip() or None,
             programme_items=programme_items or None,
+            non_residential_components=non_residential_components or None,
             process_capacity=capacity,
             floor_area_basis=(floor_area_basis or "").strip() or None,
             storeys=storeys or None,

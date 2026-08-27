@@ -22,7 +22,7 @@ $root     = Split-Path -Parent $PSScriptRoot
 $wrapper  = Join-Path $root 'tools\backup_to_r2.ps1'
 
 $action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$wrapper`"" `
+    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`"" `
     -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -Daily -At 2:00am
 # Run on AC or battery; catch up a missed run; allow up to 2h for a large first sync.

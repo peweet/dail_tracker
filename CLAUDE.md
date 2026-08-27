@@ -2,6 +2,16 @@
 
 Front-load conventions so sessions don't re-discover them by exploring (the biggest recurring token cost), and codify the data/UI boundaries that keep the project correct.
 
+## Default subject — an unqualified request means SPECPLAN
+
+"The app", "the deploy", "push changes", "how are we" with no stack named = **specplan**, the
+private planning/siting product: code in `planning/product/`, compose project `redline-review` on
+the Hetzner box, public host `specplan.ie`. **Not** the civic Streamlit app — dailtracker.ie, the
+`dailtracker` compose project — which must be named explicitly. Both stacks share one server, so
+`docker ps`, disk and RAM evidence look identical and never disambiguate; resolve the subject
+before running the check, not after. When scope is genuinely unclear, `python tools/dev.py roots`
+reports all three roots at once.
+
 ## Never-break rules
 
 **When rules collide:** correctness and provenance beat token economy beat speed.

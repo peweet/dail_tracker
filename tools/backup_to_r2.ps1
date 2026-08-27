@@ -4,8 +4,10 @@ backup_to_r2.ps1 - mirror the raw + derived data trees to Cloudflare R2.
 Steps (both idempotent, safe to run by hand):
   1. Regenerate data/_meta/backup_manifest.tsv (content hashes; lets a restore be
      verified and shows what changed). Skip with -SkipManifest.
-  2. rclone sync data/bronze, data/silver and data/raw_bq into the R2 bucket,
-     retaining displaced remote objects in a dated version archive.
+  2. rclone sync data/bronze, data/silver, data/raw_bq and the siting layer store
+     (planning/product/data/planning_layers, synced to silver/parquet/planning_layers so
+     the bucket layout predates the 2026-08-27 move) into the R2 bucket, retaining
+     displaced remote objects in a dated version archive.
 
 Version-preserving by design: `rclone sync --backup-dir` makes the normal R2 tree
 match the current local tree, but moves every overwritten or deleted remote object
@@ -81,13 +83,45 @@ $common = @(
 )
 if ($DryRun) { $common += '--dry-run' }
 
+# The siting layer store moved on 2026-08-27 from data\silver\parquet\planning_layers to
+# planning\product\data\planning_layers (the private repo tree, gitignored there). The old
+# path is now a directory junction. rclone treats a junction as a symlink and SKIPS it
+# without -L, so a plain sync of data\silver would delete silver/parquet/planning_layers
+# from R2 (into --backup-dir, but a 52 GB churn and a restore that no longer matches
+# doc/DISASTER_RECOVERY.md). Exclude the junction from the silver sync and sync the real
+# directory to the SAME remote prefix, so the bucket layout and the restore steps are unchanged.
+#
+# Only the DERIVED serving set of the layer store is backed up: the live parquets and their
+# *_coverage.json sidecars, _point_scoped/ (what the engine image ships) and _snapshots/ (the
+# rollback pairs). The raw upstream archives (*.zip / *.gdb, 10.2 GB on 2026-08-27) and the
+# _ingest/ staging tree (12.0 GB) are public re-downloadable sources, not our work product,
+# so they stay laptop-only. Measured 2026-08-27: 52.1 GB total, ~40 GB after these excludes.
+$layersSrc = Join-Path $root 'planning\product\data\planning_layers'
+$layersExclude = @(
+    '--exclude', '_ingest/**',
+    '--exclude', '_corrupt/**',
+    '--exclude', '_superseded/**',
+    '--exclude', '_archived/**',
+    '--exclude', '_retired/**',
+    '--exclude', '_rebuild_logs/**',
+    '--exclude', '*.zip',
+    '--exclude', '*.gdb/**',
+    '--exclude', '*.gpkg',
+    '--exclude', '*.shp'
+)
+$trees = @(
+    @{ src = (Join-Path $root 'data\bronze');  dest = 'bronze';  extra = @() },
+    @{ src = (Join-Path $root 'data\silver');  dest = 'silver';  extra = @('--exclude', 'parquet/planning_layers/**') },
+    @{ src = (Join-Path $root 'data\raw_bq');  dest = 'raw_bq';  extra = @() },
+    @{ src = $layersSrc;                       dest = 'silver/parquet/planning_layers'; extra = $layersExclude }
+)
+
 $failed = 0
-foreach ($tree in 'bronze', 'silver', 'raw_bq') {
-    $src = Join-Path $root "data\$tree"
-    if (-not (Test-Path $src)) { continue }
-    $dest = "${remote}:${bucket}/$tree"
-    $versionDest = "${remote}:${bucket}/versions/$runId/$tree"
-    & $rclone sync $src $dest '--backup-dir' $versionDest @common
+foreach ($t in $trees) {
+    if (-not (Test-Path $t.src)) { continue }
+    $dest = "${remote}:${bucket}/$($t.dest)"
+    $versionDest = "${remote}:${bucket}/versions/$runId/$($t.dest)"
+    & $rclone sync $t.src $dest '--backup-dir' $versionDest @common @($t.extra)
     if ($LASTEXITCODE -ne 0) { $failed = 1 }
 }
 

@@ -164,13 +164,28 @@ $excludeSandbox = @(
     '--exclude', "$root\apps",
     '--exclude', "$root\.cache",
     '--exclude', "$root\.venv",
+    # Re-runnable spatial benchmark scratch (68 GB, 122k files on 2026-08-27) and the GeoParquet
+    # migration's hard-linked rollback originals (35 GB) — restic would store the hard links as
+    # full copies. A dry-run that night showed 105 GiB "new" from these alone. Rolling a
+    # converted layer back after _migration is retired means a re-ingest, not a byte restore.
+    '--exclude', "$root\data\_sandbox\*_benchmark",
+    '--exclude', "$root\data\_migration",
     '--exclude', '**/node_modules/**',
     '--exclude', '**/__pycache__/**'
 )
 
+# The siting layer store (52 GB, 2026-08-27) moved under planning\product\data\planning_layers.
+# Its serving set is mirrored by tools/backup_to_r2.ps1 (rclone, R2 silver/parquet/planning_layers)
+# and its raw archives are public re-downloads, so restic must NOT snapshot it into the Hetzner
+# private bucket: that is 52 GB of dedupe-hostile parquet on a repo sized for ~1.2 GB of code.
+$excludePrivate = @(
+    '--exclude', '**/__pycache__/**',
+    '--exclude', "$root\planning\product\data\planning_layers"
+)
+
 $jobs = @(
     @{ name='restic_private'; pw=$pwPrivate; remote=$remotePrivate; bucket=$bucketPrivate;
-       tag='private-ip'; excl=@('--exclude','**/__pycache__/**');
+       tag='private-ip'; excl=$excludePrivate;
        paths=@("$root\planning", "$root\.git-siting", "$root\.git-publicsignal", "$root\apps") },
     @{ name='restic_sandbox'; pw=$pwSandbox; remote=$remoteSandbox; bucket=$bucketSandbox;
        tag='whole-repo'; excl=$excludeSandbox; paths=@($root) }

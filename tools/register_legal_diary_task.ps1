@@ -21,7 +21,7 @@ $root     = Split-Path -Parent $PSScriptRoot
 $wrapper  = Join-Path $root 'tools\run_legal_diary_daily.ps1'
 
 $action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$wrapper`"" `
+    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`"" `
     -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -Daily -At 7:00am
 # Run on AC or battery; allow start if a scheduled run was missed (laptop asleep).

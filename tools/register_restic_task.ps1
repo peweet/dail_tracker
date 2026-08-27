@@ -37,7 +37,7 @@ if (-not (Test-Path $pwFile)) {
 }
 
 $action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$wrapper`"" `
+    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`"" `
     -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -Daily -At 3:00am
 # Same settings rationale as register_backup_task.ps1; 2h ceiling covers a full re-upload.

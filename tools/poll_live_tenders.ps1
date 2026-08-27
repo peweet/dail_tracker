@@ -30,7 +30,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 $TaskName = 'DailTracker-LiveTenders-Poll'
 
 if ($Register) {
-    $action = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -MaxPages $MaxPages -DelayMs $DelayMs -MaxDetails $MaxDetails"
+    $action = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`" -MaxPages $MaxPages -DelayMs $DelayMs -MaxDetails $MaxDetails"
     schtasks /Create /TN $TaskName /SC DAILY /ST 06:30 /F `
         /TR "powershell.exe $action" | Out-Null
     Write-Host "Registered scheduled task '$TaskName' (daily 06:30). Disable: tools/poll_live_tenders.ps1 -Unregister"

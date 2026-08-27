@@ -28,6 +28,8 @@ working machine. The backup side (what runs, how it's configured) is in
 | `data/_meta/backup_manifest.tsv` (restore-verification baseline) | GitHub when committed and R2 `manifests/latest.tsv` | pull the R2 copy before verification |
 | `data/bronze/` (~7.4 GB raw captures) | R2 bucket `dail-tracker-backup/bronze/` | `rclone copy` (below) |
 | `data/silver/` (~1.7 GB derived) | R2 bucket `dail-tracker-backup/silver/` | `rclone copy` (below) |
+| `planning/product/data/planning_layers/` — the siting layer store's **derived serving set** (~31 GiB: live parquets + `*_coverage.json`, `_point_scoped/`, `_snapshots/`; moved 2026-08-27 from `data/silver/parquet/planning_layers/`, which is now a junction) | R2 bucket `dail-tracker-backup/silver/parquet/planning_layers/` (old prefix kept on purpose) | `rclone copy` (below) — restore to the NEW path, then recreate the junction |
+| the store's raw upstream archives (`*.zip`, `*.gdb`, `_ingest/` — ~22 GB) | **not backed up** — public re-downloadable sources | re-run the ingest for that layer (`planning/product/ingest/`) |
 | `data/raw_bq/` (raw bulk-query captures) | R2 bucket `dail-tracker-backup/raw_bq/` | `rclone copy` (below) |
 | `data/gold/` (beyond the git slice), rest of `data/silver` | **not backed up** — regenerable | rebuild via the pipeline from bronze |
 | `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
@@ -180,8 +182,11 @@ rclone lsd r2:dail-tracker-backup            # sanity check: lists cleanly
 
 # 4. Pull the data back (R2 egress is free)
 rclone copy r2:dail-tracker-backup/bronze data\bronze
-rclone copy r2:dail-tracker-backup/silver data\silver
+rclone copy r2:dail-tracker-backup/silver data\silver --exclude "parquet/planning_layers/**"
 rclone copy r2:dail-tracker-backup/raw_bq data\raw_bq
+# The siting layer store lives in the private tree since 2026-08-27; the public path is a junction.
+rclone copy r2:dail-tracker-backup/silver/parquet/planning_layers planning\product\data\planning_layers
+New-Item -ItemType Junction -Path data\silver\parquet\planning_layers -Target planning\product\data\planning_layers
 rclone copyto r2:dail-tracker-backup/manifests/latest.tsv data\_meta\backup_manifest.tsv
 
 # 5. PROVE the restore is bit-perfect — re-hashes every file vs the committed manifest

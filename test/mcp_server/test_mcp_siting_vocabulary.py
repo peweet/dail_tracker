@@ -35,6 +35,11 @@ def _call(**kw):
     return fn(lat=LAT, lon=LON, **kw)
 
 
+def _error(out) -> str:
+    """Return a guard error while accepting the tool's typed success response."""
+    return str(out.get("error", "")) if isinstance(out, dict) else ""
+
+
 @pytest.mark.parametrize(
     "bogus",
     ["One_Off_House", "one-off-house", "one_off_home", "house", "dwelling"],
@@ -60,6 +65,32 @@ def test_unknown_use_class_is_refused_rather_than_silently_ungated(bogus):
     assert "pharma_chemical" in out["error"], "the error must list the canonical use classes"
 
 
+@pytest.mark.parametrize("bogus", ["Retail", "shops", "cafe", "creche"])
+def test_unknown_non_residential_component_is_refused(bogus):
+    """Same trap as use_class: an unrecognised component would be dropped by the engine's own
+    validation only if it reached it, but the MCP mirror must refuse first and name the list —
+    a silent drop is indistinguishable from declaring no mix at all."""
+    out = _call(dev_type="multi_unit", num_units=20, non_residential_components=[bogus])
+    assert "error" in out
+    assert bogus in out["error"]
+    assert "cafe_restaurant" in out["error"], "the error must list the canonical components"
+
+
+def test_non_residential_components_mirror_pins_equal_to_the_engine():
+    try:
+        from planning.product.core.assistant import NON_RESIDENTIAL_COMPONENTS as ASSISTANT_COMPONENTS
+        from planning.product.core.engine import NON_RESIDENTIAL_COMPONENTS
+    except ImportError:
+        pytest.skip("planning/product is private and not installed in this checkout")
+    from mcp_server import server
+
+    assert tuple(NON_RESIDENTIAL_COMPONENTS) == server.SITING_NON_RESIDENTIAL_COMPONENTS
+    assert tuple(ASSISTANT_COMPONENTS) == server.SITING_NON_RESIDENTIAL_COMPONENTS
+    for component in NON_RESIDENTIAL_COMPONENTS:
+        out = _call(dev_type="multi_unit", num_units=20, non_residential_components=[component])
+        assert "unknown non_residential_components" not in out.get("error", ""), f"{component} wrongly refused"
+
+
 def test_empty_use_class_stays_legal():
     """Unset genuinely means "do not gate on use" — the documented safe default, not an error.
 
@@ -69,7 +100,7 @@ def test_empty_use_class_stays_legal():
     """
     for empty in ("", "   "):
         out = _call(dev_type="one_off_house", use_class=empty)
-        assert "unknown use_class" not in out.get("error", "")
+        assert "unknown use_class" not in _error(out)
 
 
 def test_valid_vocabulary_is_not_refused_by_the_guard():
@@ -94,7 +125,7 @@ def test_valid_vocabulary_is_not_refused_by_the_guard():
 
     for dev_type in DEV_TYPES:
         out = _call(dev_type=dev_type)
-        assert "unknown dev_type" not in out.get("error", ""), f"{dev_type} wrongly refused"
+        assert "unknown dev_type" not in _error(out), f"{dev_type} wrongly refused"
     for use_class in USE_CLASSES:
         out = _call(dev_type="commercial", use_class=use_class)
-        assert "unknown use_class" not in out.get("error", ""), f"{use_class} wrongly refused"
+        assert "unknown use_class" not in _error(out), f"{use_class} wrongly refused"
