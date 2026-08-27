@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+import services.coverage_qa as coverage_qa
 from services.coverage_qa import (
     CoverageError,
     amount_tokens,
@@ -82,3 +83,85 @@ def test_pdf_amount_yield_on_synthetic_pdf(tmp_path):
     assert rep.expected == 3  # three amounts, zero refs miscounted
     assert rep.extracted == 2
     assert rep.missing == 1
+
+
+def test_payment_publisher_scan_pushes_filter_and_projection_into_parquet(monkeypatch, tmp_path):
+    pl = pytest.importorskip("polars")
+    fact = tmp_path / "payments.parquet"
+    pl.DataFrame(
+        {
+            "publisher_id": ["target", "target", "other"],
+            "source_file_url": [
+                "https://example.test/target.pdf",
+                "https://example.test/target.pdf",
+                "https://example.test/other.pdf",
+            ],
+            "amount_eur": [20_000.0, 30_000.0, 99_000.0],
+            "unneeded": ["x", "y", "z"],
+        }
+    ).write_parquet(fact)
+    bronze = tmp_path / "bronze" / "target"
+    bronze.mkdir(parents=True)
+    (bronze / "target.pdf").write_bytes(b"%PDF")
+    calls = []
+
+    def fake_yield(pdf_path, extracted_count, *, extracted_eur, **_kwargs):
+        calls.append((pdf_path, extracted_count, extracted_eur))
+        return coverage_qa.YieldReport("target/target.pdf", 2, extracted_count, extracted_eur=extracted_eur)
+
+    def fail_eager(*_args, **_kwargs):
+        raise AssertionError("eager read")
+
+    monkeypatch.setattr(coverage_qa, "pdf_amount_yield", fake_yield)
+    monkeypatch.setattr(pl, "read_parquet", fail_eager)
+
+    reports = coverage_qa.scan_payment_publisher("target", fact_path=fact, bronze_dir=tmp_path / "bronze")
+
+    assert len(reports) == 1
+    assert calls == [(bronze / "target.pdf", 2, 50_000.0)]
+
+
+def test_payment_all_publisher_scan_reads_each_fact_once(monkeypatch, tmp_path):
+    pl = pytest.importorskip("polars")
+    fact = tmp_path / "payments.parquet"
+    pl.DataFrame(
+        {
+            "publisher_id": ["first", "second"],
+            "source_file_url": [
+                "https://example.test/first.pdf",
+                "https://example.test/second.pdf",
+            ],
+            "amount_eur": [20_000.0, 30_000.0],
+            "unneeded": ["x", "y"],
+        }
+    ).write_parquet(fact)
+    bronze = tmp_path / "bronze"
+    for publisher in ("first", "second"):
+        publisher_dir = bronze / publisher
+        publisher_dir.mkdir(parents=True)
+        (publisher_dir / f"{publisher}.pdf").write_bytes(b"%PDF")
+
+    scans = 0
+    real_scan_parquet = pl.scan_parquet
+
+    def counted_scan(*args, **kwargs):
+        nonlocal scans
+        scans += 1
+        return real_scan_parquet(*args, **kwargs)
+
+    def fake_yield(pdf_path, extracted_count, *, extracted_eur, **_kwargs):
+        return coverage_qa.YieldReport(str(pdf_path), 1, extracted_count, extracted_eur=extracted_eur)
+
+    monkeypatch.setattr(coverage_qa, "_PAYMENT_FACTS", {"public": fact})
+    monkeypatch.setattr(coverage_qa, "_PUBLIC_BODY_BRONZE", bronze)
+    monkeypatch.setattr(coverage_qa, "pdf_amount_yield", fake_yield)
+    monkeypatch.setattr(pl, "scan_parquet", counted_scan)
+    monkeypatch.setattr(pl, "read_parquet", lambda *_args, **_kwargs: pytest.fail("eager read"))
+
+    reports = coverage_qa.scan_all_payment_publishers()
+
+    assert scans == 1
+    assert [(report.expected, report.extracted, report.extracted_eur) for report in reports] == [
+        (1, 1, 20_000.0),
+        (1, 1, 30_000.0),
+    ]

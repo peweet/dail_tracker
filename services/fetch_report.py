@@ -166,13 +166,23 @@ class FetchReport:
             return {}
         import polars as pl  # deferred: report writing is rare, polars import is not free
 
-        gold = pl.read_parquet(GOLD_FACT, columns=["publisher_id", "period"])
-        out: dict[str, dict[str, Any]] = {}
-        for pid in pub_ids:
-            sub = gold.filter(pl.col("publisher_id") == pid)
-            if sub.height:
-                out[pid] = {"rows_in_gold": sub.height, "last_period_in_gold": sub["period"].max()}
-        return out
+        stakes = (
+            pl.scan_parquet(GOLD_FACT)
+            .filter(pl.col("publisher_id").is_in(list(pub_ids)))
+            .group_by("publisher_id")
+            .agg(
+                pl.len().alias("rows_in_gold"),
+                pl.col("period").max().alias("last_period_in_gold"),
+            )
+            .collect()
+        )
+        return {
+            row["publisher_id"]: {
+                "rows_in_gold": row["rows_in_gold"],
+                "last_period_in_gold": row["last_period_in_gold"],
+            }
+            for row in stakes.iter_rows(named=True)
+        }
 
     def write(self) -> Path:
         stakes = self._gold_stakes()

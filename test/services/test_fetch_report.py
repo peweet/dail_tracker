@@ -100,6 +100,11 @@ def test_report_gold_enrichment(tmp_path, monkeypatch):
     monkeypatch.setattr(fr, "OUT_PATH", tmp_path / "fetch_failures.json")
     monkeypatch.setattr(fr, "GOLD_FACT", gold)
 
+    def fail_eager(*_args, **_kwargs):
+        raise AssertionError("eager read")
+
+    monkeypatch.setattr(pl, "read_parquet", fail_eager)
+
     r = FetchReport("la_payments")
     r.record_zero_harvest(publisher_id="wicklow", publisher_name="Wicklow", listing_url="lw")
     path = r.write()

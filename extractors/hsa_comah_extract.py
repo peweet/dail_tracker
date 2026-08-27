@@ -355,7 +355,7 @@ def main() -> None:
         .map_elements(lambda s: shapely.to_wkb(shapely.Point(s["lon"], s["lat"])), return_dtype=pl.Binary)
         .alias("wkb")
     ).drop("lon", "lat")
-    save_parquet(spatial, _OUT_LAYER)
+    save_parquet(spatial, _OUT_LAYER, geoparquet=True, source_crs="EPSG:4326_XY")
     save_coverage(
         {
             "source": _BASE + "(12 region/tier pages)",

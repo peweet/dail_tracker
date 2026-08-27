@@ -7,6 +7,7 @@ import polars as pl
 from planning.civic.extractors import planning_appeal_outcomes as extractor
 from planning.civic.extractors.planning_appeal_outcomes import _auth_key, _case_status, _council_decision, _ms_to_date
 from planning.civic.extractors.planning_appeal_vector import (
+    abp_decision_expr,
     appeal_case_expr,
     authority_key_expr,
     case_status_expr,
@@ -34,6 +35,44 @@ def test_native_scalar_expressions_preserve_existing_contracts():
     assert out["decision"].to_list() == [_council_decision(v) for v in rows["decision"]]
     assert out["appeal"].to_list() == ["312345", None, None, "123456"]
     assert out["date"].to_list() == [_ms_to_date(v) for v in rows["ms"]]
+
+
+def test_abp_decision_expression_preserves_no_inference_precedence():
+    decisions = [
+        None,
+        " ",
+        "Permission withdrawn after a grant",
+        "Invalid appeal",
+        "Leave to appeal refused",
+        "Is development under section 5",
+        "Contribution appeal - permission granted",
+        "Confirm the determination to refuse",
+        "Set aside the local determination",
+        "Refuse permission",
+        "Permission granted",
+        "Approved development",
+        "Unclassified wording",
+    ]
+    got = (
+        pl.DataFrame({"decision": decisions})
+        .select(abp_decision_expr("decision").alias("decision"))["decision"]
+        .to_list()
+    )
+    assert got == [
+        "OTHER",
+        "OTHER",
+        "OTHER",
+        "OTHER",
+        "OTHER",
+        "OTHER",
+        "OTHER",
+        "OTHER",
+        "OTHER",
+        "REFUSE",
+        "GRANT",
+        "GRANT",
+        "OTHER",
+    ]
 
 
 def test_case_status_expression_preserves_stale_target_semantics():

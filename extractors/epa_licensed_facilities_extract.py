@@ -219,7 +219,13 @@ def main() -> None:
         return
 
     final_df = to_wkb_frame(clean_df)
-    save_parquet(final_df, _OUT, min_rows=_MIN_ROWS)
+    save_parquet(
+        final_df,
+        _OUT,
+        min_rows=_MIN_ROWS,
+        geoparquet=True,
+        source_crs="EPSG:4326_XY",
+    )
     save_coverage(
         {
             "source": _WFS,

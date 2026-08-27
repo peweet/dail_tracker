@@ -213,6 +213,35 @@ def _bronze_for(bronze_dir: Path, publisher: str, url: str) -> Path | None:
     return hits[0] if hits else None
 
 
+def _payment_reports(
+    publisher: str,
+    source_summary,
+    *,
+    bronze_dir: Path,
+    threshold: float,
+) -> list[YieldReport]:
+    reports: list[YieldReport] = []
+    for row in source_summary.sort("source_file_url").iter_rows(named=True):
+        url = row["source_file_url"]
+        f = _bronze_for(bronze_dir, publisher, url)
+        if f is None or f.suffix.lower() != ".pdf":
+            continue
+        extracted_count = int(row["_extracted_count"])
+        extracted_eur = float(row["_extracted_eur"] or 0.0)
+        try:
+            rep = pdf_amount_yield(
+                f,
+                extracted_count,
+                extracted_eur=extracted_eur,
+                threshold=threshold,
+                source=f"{publisher}/{f.name[:40]}",
+            )
+        except Exception as e:  # noqa: BLE001
+            rep = YieldReport(f"{publisher}/{f.name[:40]}", 0, extracted_count, note=f"read error: {e}")
+        reports.append(rep)
+    return reports
+
+
 def scan_payment_publisher(
     publisher: str,
     *,
@@ -226,28 +255,26 @@ def scan_payment_publisher(
 
     fact_path = fact_path or _PAYMENT_FACTS["public"]
     bronze_dir = bronze_dir or _PUBLIC_BODY_BRONZE
-    df = pl.read_parquet(fact_path).filter(pl.col("publisher_id") == publisher)
-    reports: list[YieldReport] = []
-    for url in sorted(df["source_file_url"].unique().to_list()):
-        f = _bronze_for(bronze_dir, publisher, url)
-        if f is None or f.suffix.lower() != ".pdf":
-            continue
-        sub = df.filter(pl.col("source_file_url") == url)
-        try:
-            rep = pdf_amount_yield(
-                f,
-                sub.height,
-                extracted_eur=float(sub["amount_eur"].sum() or 0.0),
-                threshold=threshold,
-                source=f"{publisher}/{f.name[:40]}",
-            )
-        except Exception as e:  # noqa: BLE001
-            rep = YieldReport(f"{publisher}/{f.name[:40]}", 0, sub.height, note=f"read error: {e}")
-        reports.append(rep)
-    return reports
+    source_summary = (
+        pl.scan_parquet(fact_path)
+        .filter(pl.col("publisher_id") == publisher)
+        .select("source_file_url", "amount_eur")
+        .group_by("source_file_url")
+        .agg(
+            pl.len().alias("_extracted_count"),
+            pl.col("amount_eur").sum().alias("_extracted_eur"),
+        )
+        .collect()
+    )
+    return _payment_reports(
+        publisher,
+        source_summary,
+        bronze_dir=bronze_dir,
+        threshold=threshold,
+    )
 
 
-def scan_all_payment_publishers(**kw) -> list[YieldReport]:
+def scan_all_payment_publishers(*, threshold: float = DEFAULT_THRESHOLD) -> list[YieldReport]:
     import polars as pl
 
     out: list[YieldReport] = []
@@ -255,9 +282,26 @@ def scan_all_payment_publishers(**kw) -> list[YieldReport]:
         if not fact.exists():
             continue
         bronze = _LA_BRONZE if key == "la" else _PUBLIC_BODY_BRONZE
-        pubs = pl.read_parquet(fact, columns=["publisher_id"])["publisher_id"].unique().to_list()
-        for p in sorted(pubs):
-            out.extend(scan_payment_publisher(p, fact_path=fact, bronze_dir=bronze, **kw))
+        source_summary = (
+            pl.scan_parquet(fact)
+            .select("publisher_id", "source_file_url", "amount_eur")
+            .group_by("publisher_id", "source_file_url")
+            .agg(
+                pl.len().alias("_extracted_count"),
+                pl.col("amount_eur").sum().alias("_extracted_eur"),
+            )
+            .collect()
+        )
+        publishers = source_summary["publisher_id"].unique().to_list()
+        for publisher in sorted(publishers):
+            out.extend(
+                _payment_reports(
+                    publisher,
+                    source_summary.filter(pl.col("publisher_id") == publisher),
+                    bronze_dir=bronze,
+                    threshold=threshold,
+                )
+            )
     return out
 
 

@@ -10,5 +10,6 @@
   "geometry_results": {
     "ok": 26098,
     "repaired": 156
-  }
+  },
+  "artifact_sha256": "3ffab96da5d57eb06ff58349f7651080407c7c1a523ec9a097ceb3cdb81264ae"
 }

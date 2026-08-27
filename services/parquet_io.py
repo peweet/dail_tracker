@@ -38,6 +38,8 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import tempfile
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,8 @@ _PANDAS_DEFAULTS = {"index": False, "compression": "zstd", "compression_level": 
 # Escape hatch for the min_rows floor: a genuine bootstrap / intentionally scoped
 # small write sets DAIL_SKIP_ROW_FLOOR=1, mirroring cro_poller's --force.
 _FLOOR_BYPASS_ENV = "DAIL_SKIP_ROW_FLOOR"
+_THREAD_LOCKS_GUARD = threading.Lock()
+_THREAD_LOCKS: dict[str, threading.Lock] = {}
 
 
 class RowFloorViolation(ValueError):
@@ -75,16 +79,33 @@ class RowFloorViolation(ValueError):
 
 
 def _is_polars(df) -> bool:
-    """True for a Polars DataFrame without importing polars at module load."""
+    """True for a Polars eager or lazy frame without importing at module load."""
     return type(df).__module__.split(".")[0] == "polars"
+
+
+def _is_polars_lazy(df) -> bool:
+    return _is_polars(df) and type(df).__name__ == "LazyFrame"
 
 
 def _row_count(df) -> int:
     """Row count for a Polars or pandas frame (no polars import at module load)."""
+    if _is_polars_lazy(df):
+        import polars as pl
+
+        return int(df.select(pl.len()).collect().item())
     return int(df.height) if _is_polars(df) else int(len(df))
 
 
-def save_parquet(df, dest, *, min_rows: int | None = None, **kwargs) -> Path:
+def save_parquet(
+    df,
+    dest,
+    *,
+    min_rows: int | None = None,
+    geoparquet: bool = False,
+    geometry_column: str = "wkb",
+    source_crs: str | None = None,
+    **kwargs,
+) -> Path:
     """Atomically write ``df`` (Polars or pandas) to ``dest`` with zstd defaults.
 
     Writes to ``<dest>.part`` then ``os.replace()``s it onto ``dest``. If the
@@ -108,14 +129,18 @@ def save_parquet(df, dest, *, min_rows: int | None = None, **kwargs) -> Path:
                     f"{dest.name}: {n} rows < floor {min_rows}; refusing to overwrite "
                     f"(set {_FLOOR_BYPASS_ENV}=1 to force)"
                 )
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.parent / (dest.name + ".part")
-    try:
+
+    def write_part(tmp: Path) -> None:
         if _is_polars(df):
             import polars as pl
 
             opts = {**_POLARS_DEFAULTS, **kwargs}
-            if df.is_empty() and len(df.columns) == 0:
+            if _is_polars_lazy(df):
+                if len(df.collect_schema()) == 0:
+                    pl.DataFrame({"_empty": pl.Series([], dtype=pl.Int64)}).write_parquet(tmp, **opts)
+                else:
+                    df.sink_parquet(tmp, **opts)
+            elif df.is_empty() and len(df.columns) == 0:
                 # Polars cannot round-trip a truly schemaless empty frame; write a
                 # zero-row sentinel column so scan_parquet still works downstream
                 # (consumers filter on row count, not on this column).
@@ -125,10 +150,130 @@ def save_parquet(df, dest, *, min_rows: int | None = None, **kwargs) -> Path:
         else:
             opts = {**_PANDAS_DEFAULTS, **kwargs}
             df.to_parquet(tmp, **opts)
-        tmp.replace(dest)
-    except BaseException:
-        # Never leave a half-written temp behind, and never touch the good dest.
-        with contextlib.suppress(OSError):
-            tmp.unlink()
-        raise
+
+    save_parquet_stream(
+        write_part,
+        dest,
+        geoparquet=geoparquet,
+        geometry_column=geometry_column,
+        source_crs=source_crs,
+        geoparquet_compression_level=int(kwargs.get("compression_level", 3)),
+    )
     return dest
+
+
+def save_parquet_stream(
+    write_part,
+    dest,
+    *,
+    geoparquet: bool = False,
+    geometry_column: str = "wkb",
+    source_crs: str | None = None,
+    geoparquet_compression_level: int = 3,
+) -> tuple[Path, object]:
+    """Atomically publish a bounded-memory parquet produced by the callback.
+
+    With geoparquet enabled the raw part is converted, deeply validated, and
+    payload-compared before promotion. Any failure leaves the previous canonical
+    file untouched and removes both temporary files.
+    """
+    dest = Path(dest)
+    if geoparquet and source_crs is None:
+        raise ValueError("GeoParquet writes require explicit source_crs axis semantics")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with _destination_write_lock(dest):
+        raw = _unique_part(dest)
+        converted: Path | None = None
+        result = None
+        try:
+            result = write_part(raw)
+            if not raw.is_file():
+                raise RuntimeError(f"stream writer did not create {raw}")
+            publish = raw
+            if geoparquet:
+                from .geoparquet_io import (
+                    compare_source_payload,
+                    convert_parquet_file,
+                    is_geoparquet,
+                    validate_geoparquet,
+                )
+
+                if is_geoparquet(raw):
+                    validate_geoparquet(raw, geometry_column=geometry_column, deep=True)
+                else:
+                    assert source_crs is not None
+                    converted = _unique_part(dest)
+                    convert_parquet_file(
+                        raw,
+                        converted,
+                        source_crs=source_crs,
+                        geometry_column=geometry_column,
+                        compression_level=geoparquet_compression_level,
+                    )
+                    validate_geoparquet(converted, geometry_column=geometry_column, deep=True)
+                    compare_source_payload(raw, converted)
+                    publish = converted
+            publish.replace(dest)
+        finally:
+            with contextlib.suppress(OSError):
+                raw.unlink()
+            if converted is not None:
+                with contextlib.suppress(OSError):
+                    converted.unlink()
+    return dest, result
+
+
+def _thread_lock(dest: Path) -> threading.Lock:
+    key = str(dest.resolve()).casefold() if os.name == "nt" else str(dest.resolve())
+    with _THREAD_LOCKS_GUARD:
+        return _THREAD_LOCKS.setdefault(key, threading.Lock())
+
+
+@contextlib.contextmanager
+def _destination_write_lock(dest: Path):
+    """Serialize writers to one destination across threads and processes."""
+    with _thread_lock(dest):
+        lock_path = dest.parent / f".{dest.name}.write.lock"
+        handle = lock_path.open("a+b")
+        try:
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            else:  # pragma: no cover - Linux CI
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:  # pragma: no cover - Linux CI
+                    import fcntl
+
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            handle.close()
+
+
+# Public migration seam: in-place conversion and ordinary producers must hold
+# the exact same destination lock.  Keep the private name as a compatibility
+# alias for the existing writer call above.
+destination_write_lock = _destination_write_lock
+
+
+def _unique_part(dest: Path) -> Path:
+    descriptor, value = tempfile.mkstemp(prefix=f".{dest.name}.", suffix=".part", dir=dest.parent)
+    os.close(descriptor)
+    part = Path(value)
+    part.unlink()
+    return part

@@ -31,22 +31,10 @@ matcher = "^(startup|resume|clear|compact)$"
 [[hooks.SessionStart.hooks]]
 type = "command"
 command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/session_context.py"'
-command_windows = 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/session_context.py) }"'
+command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/session_context.py) }"'
 timeout = 15
 statusMessage = "Loading bounded project status"
 additionalContextLimit = 1600
-
-# Inject at most two curated, checked-in discovery one-liners when a prompt matches.
-# Codex requires each project hook definition to be reviewed once with `/hooks`.
-[[hooks.UserPromptSubmit]]
-
-[[hooks.UserPromptSubmit.hooks]]
-type = "command"
-command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/discovery_hint.py"'
-command_windows = 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/discovery_hint.py) }"'
-timeout = 10
-statusMessage = "Checking durable project lessons"
-additionalContextLimit = 1200
 
 # Reject ambiguous or policy-bypassing subagent spawns before they start. This
 # makes role selection, fresh context, and the task-packet contract mechanical.
@@ -56,7 +44,7 @@ matcher = "^(Agent|spawn_agent)$"
 [[hooks.PreToolUse.hooks]]
 type = "command"
 command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/guard_subagent_spawn.py"'
-command_windows = 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/guard_subagent_spawn.py) }"'
+command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/guard_subagent_spawn.py) }"'
 timeout = 5
 statusMessage = "Validating subagent contract"
 
@@ -67,7 +55,7 @@ statusMessage = "Validating subagent contract"
 [[hooks.Stop.hooks]]
 type = "command"
 command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/closeout_gate.py"'
-command_windows = 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/closeout_gate.py) }"'
+command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/closeout_gate.py) }"'
 timeout = 10
 statusMessage = "Checking for a durable project lesson"
 

@@ -34,7 +34,7 @@ dependencies = [
     "streamlit>=1.50,<2",
     "altair>=6.0,<7",
     "plotly>=6.0,<7",
-    "duckdb>=1.4,<2",
+    "duckdb==1.5.5",        # exact Spatial/storage version shared with the private pack builder and deployment
     "pandas>=2.2,<3.0",  # capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order pd.Series bug; revisit post-launch
     "numpy>=2.0",
     "pyarrow>=14",       # duckdb/pandas parquet I/O for the gold/silver reads
@@ -57,7 +57,8 @@ Issues = "https://github.com/peweet/dail_tracker/issues"
 # lean.
 pipeline = [
     "polars>=1.39,!=1.41.0",  # 1.41.0 (+ polars-runtime-32) was yanked upstream
-    "shapely>=2.0",           # planning/civic extractors import it in the default test/pipeline lane
+    "shapely>=2.1",           # GeoParquet validation requires Shapely M-coordinate support
+    "pyproj>=3.6",            # GeoParquet validation verifies the explicit OGC:CRS84 PROJJSON contract
     "PyMuPDF>=1.25",
     "requests>=2.31",
     "beautifulsoup4>=4.12",
@@ -87,7 +88,7 @@ ocr = [
 # `uv sync --extra siting`. shapely = point-in-polygon joins; rasterio = DEM
 # range-read; pyyaml = issue catalogue; polars = layer parquet reads.
 siting = [
-    "shapely>=2.0",
+    "shapely>=2.1",
     "rasterio>=1.3",
     "pyyaml>=6.0",
     "polars>=1.39,!=1.41.0",

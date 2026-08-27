@@ -3,7 +3,7 @@
 
 # doc/ index
 
-71 docs · ~357.9k tokens total · 28 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+72 docs · ~359.2k tokens total · 29 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -18,6 +18,7 @@
 | [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 2.2k | 2026-08-05 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
 | [AGENT_HARNESS_MEASUREMENT_2026_08_05.md](AGENT_HARNESS_MEASUREMENT_2026_08_05.md) | infra | 1.0k | 2026-08-05 | deciding whether the current agent harness improves correctness or efficiency |
 | [CI_CD.md](CI_CD.md) | infra | 5.3k | 2026-08-24 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
+| [CODEX_WINDOWS_SANDBOX_RECOVERY.md](CODEX_WINDOWS_SANDBOX_RECOVERY.md) | infra | 1.3k | 2026-08-26 | Codex Windows commands fail before process startup with apply deny-read ACLs, CreateProcess, or helper_unknown_error |
 | [CREDENTIAL_ESCROW.md](CREDENTIAL_ESCROW.md) | infra | 1.4k | 2026-08-21 | setting up or auditing the off-box copy of the credentials a restore needs, or checking whether the escrow is still complete |
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-08-14 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
@@ -93,4 +94,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-08-24 -->
+<!-- generated 2026-08-26 -->

@@ -199,5 +199,6 @@
       "polygon_rows": 13531,
       "polygon_point_ratio": 1.0174
     }
-  ]
+  ],
+  "artifact_sha256": "4ed8b5aea0df66ae8f7491d27ac5732d577c5e897820053882df4153ae568c84"
 }

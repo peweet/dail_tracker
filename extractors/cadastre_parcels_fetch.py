@@ -72,6 +72,7 @@ from shapely.geometry import shape
 
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
+from services.parquet_io import save_parquet_stream
 
 LOG = logging.getLogger("cadastre_parcels")
 
@@ -152,6 +153,7 @@ def use_tenure(name: str) -> Tenure:
     EXPECTED_TOTAL = TENURE.expected_total
     ROW_FLOOR = TENURE.row_floor
     return TENURE
+
 
 SCHEMA = pa.schema(
     [
@@ -310,11 +312,19 @@ def fetch_county_part(county: str | None, *, refresh: bool = False) -> Path | No
         return None
     table = _to_table(rows)
     PARTS_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = part.with_suffix(".parquet.tmp")
-    pq.write_table(table, tmp, compression="zstd", write_statistics=True, row_group_size=ROW_GROUP)
-    tmp.replace(part)
+    save_parquet_stream(
+        lambda raw: pq.write_table(
+            table,
+            raw,
+            compression="zstd",
+            write_statistics=True,
+            row_group_size=ROW_GROUP,
+        ),
+        part,
+        geoparquet=True,
+        source_crs="EPSG:4326_XY",
+    )
     LOG.info("%-12s %7d parcels -> %s", county, table.num_rows, part.name)
-    del rows, table  # one county at a time is the memory contract
     return part
 
 
@@ -339,7 +349,7 @@ def assemble(counties: list[str | None]) -> Path:
     writer = pq.ParquetWriter(staging, SCHEMA, compression="zstd", write_statistics=True)
     try:
         for i, county in enumerate(counties, 1):
-            table = pq.read_table(_part_path(county)).cast(SCHEMA)
+            table = pq.read_table(_part_path(county), columns=SCHEMA.names).cast(SCHEMA)
             writer.write_table(table, row_group_size=ROW_GROUP)
             total += table.num_rows
             LOG.info("[%2d/%d] %-12s %7d parcels (running %s)", i, len(counties), county, table.num_rows, f"{total:,}")
@@ -349,7 +359,12 @@ def assemble(counties: list[str | None]) -> Path:
     if total < ROW_FLOOR:
         staging.unlink(missing_ok=True)
         raise SystemExit(f"row floor: {total:,} parcels < {ROW_FLOOR:,} — refusing to replace {DEST.name}")
-    staging.replace(DEST)
+    save_parquet_stream(
+        lambda raw: staging.replace(raw),
+        DEST,
+        geoparquet=True,
+        source_crs="EPSG:4326_XY",
+    )
     LOG.info("wrote %s — %s parcels, %.2f GB", DEST, f"{total:,}", DEST.stat().st_size / 1e9)
     return DEST
 

@@ -62,6 +62,11 @@
 # data/silver/parquet/ before this rule existed. Covers .bak and .bak_<date> suffixes.
 *.bak
 *.bak_*
+# Transactional parquet/coverage locks and migration rollback receipts are machine-local
+# recovery state. Keep them on disk until the operator retires the migration, but never
+# stage them as source or published data.
+*.write.lock
+data/_migration/
 # DuckDB
 *.duckdb
 *.duckdb.wal

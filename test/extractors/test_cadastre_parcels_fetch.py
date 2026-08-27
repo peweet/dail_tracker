@@ -13,6 +13,7 @@ import shapely
 from shapely.geometry import box
 
 from extractors import cadastre_parcels_fetch as mod
+from services.geoparquet_io import validate_geoparquet
 
 
 def _rows(n: int, x0: float):
@@ -46,6 +47,9 @@ def test_one_county_run_writes_a_part_and_never_the_national_file(sandbox):
     assert part == out / "parts" / "galway.parquet" and part.is_file()
     assert not (out / "parcels_freehold.parquet").exists()
     assert pq.read_table(part).num_rows == 4
+    summary = validate_geoparquet(part, deep=True)
+    assert summary.row_count == 4
+    assert summary.geometry_types == ("Polygon",)
     assert calls == ["Galway"]
 
 
@@ -55,6 +59,9 @@ def test_full_build_is_resumable_and_assembles_once_every_part_exists(sandbox):
     dest = mod.build()
     assert dest == out / "parcels_freehold.parquet" and dest.is_file()
     assert pq.read_table(dest).num_rows == 10
+    summary = validate_geoparquet(dest, deep=True)
+    assert summary.row_count == 10
+    assert summary.geometry_types == ("Polygon",)
     # Galway was not fetched twice: its part was kept.
     assert calls.count("Galway") == 1
     assert (out / "parts" / "_null.parquet").is_file()
