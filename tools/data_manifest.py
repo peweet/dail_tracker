@@ -60,9 +60,7 @@ ROOTS = (BRONZE_DIR, SILVER_DIR)
 LAYERS_DIR = DATA_DIR.parent / "planning" / "product" / "data" / "planning_layers"
 LAYERS_MANIFEST_PREFIX = "silver/parquet/planning_layers"
 _LAYERS_JUNCTION = SILVER_DIR / "parquet" / "planning_layers"
-_LAYERS_SKIP_DIRS = frozenset(
-    {"_ingest", "_corrupt", "_superseded", "_archived", "_retired", "_rebuild_logs"}
-)
+_LAYERS_SKIP_DIRS = frozenset({"_ingest", "_corrupt", "_superseded", "_archived", "_retired", "_rebuild_logs"})
 _LAYERS_SKIP_SUFFIXES = (".zip", ".gpkg", ".shp")
 
 
@@ -73,6 +71,8 @@ def _layer_file_is_backed_up(path: Path) -> bool:
     if any(part.endswith(".gdb") for part in rel.parts[:-1]):
         return False
     return not path.name.lower().endswith(_LAYERS_SKIP_SUFFIXES)
+
+
 _CHUNK = 1024 * 1024  # 1 MiB read buffer for hashing
 
 

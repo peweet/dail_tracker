@@ -38,9 +38,15 @@ def conn():
 # name -> (callable taking a relation name, kwargs that opt out of the guard)
 CHECKS = {
     "nonneg": (lambda c, rel, **kw: inv.nonneg(c, rel, "awarded_value_safe_eur", **kw), {"allow_empty": True}),
-    "in_vocab": (lambda c, rel, **kw: inv.in_vocab(c, rel, "lobby_side", {"client", "registrant"}, **kw), {"allow_empty": True}),
+    "in_vocab": (
+        lambda c, rel, **kw: inv.in_vocab(c, rel, "lobby_side", {"client", "registrant"}, **kw),
+        {"allow_empty": True},
+    ),
     "unique_key": (lambda c, rel, **kw: inv.unique_key(c, rel, "supplier_norm", **kw), {"allow_empty": True}),
-    "flag_consistent": (lambda c, rel, **kw: inv.flag_consistent(c, rel, "n_returns", "n_returns", **kw), {"allow_empty": True}),
+    "flag_consistent": (
+        lambda c, rel, **kw: inv.flag_consistent(c, rel, "n_returns", "n_returns", **kw),
+        {"allow_empty": True},
+    ),
     "functionally_determined": (
         lambda c, rel, **kw: inv.functionally_determined(c, rel, "supplier_norm", "awarded_value_safe_eur", **kw),
         {"allow_empty": True},
