@@ -304,6 +304,28 @@ def _already_blocked_this_turn(session_id: str) -> bool:
     return False
 
 
+def _hits_path(session_id: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9_-]", "", session_id or "nosession")[:64]
+    return os.path.join(tempfile.gettempdir(), f"dail_style_lint_{safe}.hits")
+
+
+def _bump_session_hits(session_id: str) -> int:
+    """Count provenance blocks in THIS session. Same temp-marker discipline as above;
+    a missing/unreadable counter degrades to 1, i.e. no escalation -- never a crash."""
+    try:
+        path = _hits_path(session_id)
+        n = 0
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fh:
+                n = int((fh.read() or "0").strip() or 0)
+        n += 1
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(str(n))
+        return n
+    except Exception:
+        return 1
+
+
 def _set_blocked(session_id: str) -> None:
     try:
         with open(_marker_path(session_id), "w", encoding="utf-8") as fh:
@@ -356,7 +378,22 @@ def main() -> int:
 
     if (figures or world) and not _already_blocked_this_turn(session_id):
         _set_blocked(session_id)
+        hits = _bump_session_hits(session_id)
         parts = []
+        if hits >= 2:
+            # ESCALATION, added 2026-08-28. Grounds: the transcript audit of that date
+            # (memory/feedback_per_event_lineage_hides_session_level_recurrence.md) found
+            # this rule firing up to SIX times in one session, each hit individually
+            # patched and logged as a clean recovery -- so the per-hit message was
+            # treating one habit defect as N successes. Naming the count is what turns
+            # the Nth hit into evidence about the habit instead of another instance.
+            parts.append(
+                f"REPEAT (hit #{hits} this session): the previous hit(s) did not change how the "
+                "next answer was written, so fix the GENERATING habit, not this instance -- carry "
+                "the band into every paragraph that names a figure, recaps included, at the moment "
+                "you write it. A figure grounded once and then restated bare downstream is the "
+                "shape that trips this repeatedly."
+            )
         if figures:
             shown = ", ".join(dict.fromkeys(figures))[:200]
             parts.append(
