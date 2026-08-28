@@ -5,6 +5,12 @@
 requirements.txt text eol=lf
 uv.lock          text eol=lf
 
+# Git hooks are extensionless shell scripts run by `sh`. On a Windows checkout with
+# core.autocrlf=true they arrive with CRLF, and `#!/bin/sh\r` fails as "bad interpreter" — the
+# guard then does not run at all, which is worse than a loud error. The hooks in this repo work
+# today only because they were authored here with LF and never re-checked-out.
+.githooks/* text eol=lf
+
 # Committed runtime data (gold + the silver facts the deployed app reads). Mark
 # binary so git never line-ending-normalizes them — a CRLF rewrite on Windows
 # would corrupt the parquet/avatar payload. git auto-detects this, but pin it.
