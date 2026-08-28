@@ -109,9 +109,13 @@ siting = [
                          # mis-projected as ITM, 2026-07-30) — the runtime layer store stays shapely-only
     "pyshp>=2.3,<4",     # ZIP-only council Shapefiles at INGEST only (for example Dublin City Z15)
     "pyreqwest>=0.12,<0.13",  # SpecPlan HTTP transport: Rust-backed pooled client behind services/http_engine.py
-    # Mandatory for a private external release: the bounded junction kernel is packaged from
-    # source below; public/default profiles never select this Siting-only extra.
-    "siting-native==0.1.0",
+    # NOTE: siting-native (the bounded PyO3 junction kernel) is deliberately NOT declared here.
+    # It lives at planning/product/native/siting_native, which is gitignored — a path source in
+    # this PUBLIC pyproject made every `uv` command exit 2 on a clean checkout ("Distribution not
+    # found"), because uv resolves [tool.uv.sources] eagerly regardless of which extra is selected.
+    # That took all of CI red from 2026-08-16 to 2026-08-28. Install it into the local venv with
+    #   uv pip install --no-deps planning/product/native/siting_native
+    # and verify with `python tools/dev.py siting-native` — `uv sync` prunes it, same as paddle.
     # CI-enforced offline contract checks; imported only by focused private tests, never by report/API delivery.
     "jsonschema-rs==0.51.0",
     "selectolax==0.4.11",
@@ -268,9 +272,9 @@ dail-pipeline = "pipeline:main"
 # on this too (no default group → app-runtime-only export).
 default-groups = []
 
-[tool.uv.sources]
-# The private product is a nested repository; this source is selected only by the Siting profile.
-siting-native = { path = "planning/product/native/siting_native" }
+# No [tool.uv.sources]: a path source pointing into the gitignored private product tree
+# breaks every `uv` invocation on a clean public checkout (uv resolves sources eagerly, even
+# for unselected extras). See the siting-native note in the `siting` extra above.
 
 [tool.ruff]
 target-version = "py312"
@@ -397,7 +401,11 @@ known_first_party = [
 #   dail_native: an optional PyO3 extension built from native/dail_native with maturin.
 #   It is deliberately absent from the normal environment; only explicit native/shadow
 #   name-normalisation trials import it, while the production default remains Python.
-DEP001 = ["camelot", "dail_native", "paddleocr"]
+#   siting_native: same shape — a PyO3 kernel built from the gitignored private tree
+#   (planning/product/native/siting_native). Declaring it here as a path source took CI
+#   red for 12 days; it is now installed manually into the local venv and verified by
+#   `python tools/dev.py siting-native`. Never re-add it to an extra.
+DEP001 = ["camelot", "dail_native", "paddleocr", "siting_native"]
 # DEP002 — declared but "unused": all three are correct declarations deptry can't see.
 #   uvicorn/ocrmypdf are CLI-invoked (`uvicorn api.main:app`), never imported;
 #   dail-tracker is the `all` extra's self-reference.
@@ -455,6 +463,13 @@ source = [
     "payments", "pdf_infra", "planning", "reference", "services", "shared", "tools",
     "utility", "votes", "wikidata", "pipeline.py", "config.py", "manifest.py",
 ]
+# `planning` above is a PUBLIC tree, but on a dev box `planning/product/` is the gitignored
+# private siting engine sitting inside it. Without this omit a local run also measures the
+# whole private product tree — which the public suite deliberately does not test — so the
+# SAME command reports 47% in CI and 21% locally, failing the 38% floor for no real reason.
+# Measured 2026-08-28: 21% as-run vs 47% with this omit. Keeps --cov-fail-under meaning the
+# same thing in both places; it does not change what CI measures.
+omit = ["planning/product/*"]
 
 [tool.coverage.report]
 exclude_also = [

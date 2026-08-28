@@ -1,4 +1,4 @@
-# COPIED-FROM: planning/civic/extractors/planning_appeal_outcomes.py @ sha256:4e4107d23455a9c4d902d5c869606486d9176d7dcb276491f9cd76f7d31fd065
+# COPIED-FROM: planning/civic/extractors/planning_appeal_outcomes.py @ sha256:e312acefe257bea4dbd7fc56220ed888a74ced9ea8ae774c356458c8abb9839a
 """Authoritative council-overturn metric — applications x ACP appeal decisions.
 
 Fixes the data-quality trap in the national profile (planning_decision_profiles.py): the applications
@@ -58,6 +58,7 @@ from planning.civic.extractors.planning_appeal_vector import (
     OUT_COLS as _OUT_COLS,
 )
 from planning.civic.extractors.planning_appeal_vector import (
+    abp_decision_expr,
     appeal_case_expr,
     authority_key_expr,
     case_status_expr,
@@ -92,7 +93,7 @@ _APPLICATION_COLUMNS = (
 )
 
 # Cases still before the Board carry a DECISION of "Case is due to be decided by <date>" — 1,383 of
-# the register's 1,580 distinct DECISION strings on 2026-07-20. They are NOT outcomes; _norm_abp maps
+# the register's 1,580 distinct DECISION strings on 2026-07-20. They are NOT outcomes; abp_decision_expr maps
 # them to OTHER, which would pool them with withdrawn/invalid. The spine marks them `live` instead.
 _LIVE = re.compile(r"^\s*case is due to be decided", re.I)
 # metres per degree at ~53°N — a spread/size measure only (never a distance the user is shown).
@@ -165,31 +166,6 @@ def _council_decision(d: str | None) -> str:
     return "REFUSE" if d == "Refused" else "OTHER"
 
 
-def _norm_abp(d: str | None) -> str:
-    """ABP planning-appeal decision -> GRANT / REFUSE / OTHER (no-inference; OTHER = non-substantive:
-    s.5 declarations, contribution appeals, withdrawn/invalid/leave, confirm/set-aside determinations)."""
-    s = (d or "").lower()
-    if not s.strip() or any(
-        w in s
-        for w in (
-            "withdraw",
-            "invalid",
-            "leave to appeal",
-            "is development",
-            "contribution appeal",
-            "confirm the determination",
-            "set aside",
-            "determination of the local",
-        )
-    ):
-        return "OTHER"
-    if "refuse" in s:
-        return "REFUSE"
-    if "grant" in s or "approve" in s or "permission" in s:
-        return "GRANT"
-    return "OTHER"
-
-
 def _fetch_acp() -> pl.DataFrame:
     rows, off = [], 0
     while True:
@@ -224,7 +200,7 @@ def _fetch_acp() -> pl.DataFrame:
         # prefix (RL/LV/FS/SU/RP/QD/VV/…), and digit-stripping collapses distinct cases onto one key
         # (DV0005, QD0005, VV0005 and ZE0005 all become "0005"). Verified 2026-07-20.
         pl.col("ABPCASEID").cast(pl.Utf8).str.strip_chars().alias("abp_case"),
-        pl.col("DECISION").map_elements(_norm_abp, return_dtype=pl.Utf8).alias("abp_decision"),
+        abp_decision_expr("DECISION").alias("abp_decision"),
         epoch_ms_date_expr("LODGEDON").alias("lodged_date"),
         authority_key_expr("PLANINGATY").alias("auth_key"),
     )
@@ -378,7 +354,14 @@ def _spatial_temporal_matches(residual: pl.DataFrame, apps: pl.DataFrame) -> pl.
 
 def _refresh_acp_sites() -> tuple[pl.DataFrame, dict[str, int], int]:
     case_sites, geometry_results, rows_pulled = _fetch_acp_sites()
-    save_parquet(case_sites, OUT_SITES, min_rows=20_000, compression_level=9)
+    save_parquet(
+        case_sites,
+        OUT_SITES,
+        min_rows=20_000,
+        compression_level=9,
+        geoparquet=True,
+        source_crs="EPSG:4326_XY",
+    )
     coverage = {
         "schema": "dail-planning-acp-case-sites-coverage/1",
         "generated_utc": dt.datetime.now(dt.UTC).isoformat(),

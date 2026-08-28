@@ -80,6 +80,17 @@ SENTINEL_ALLOWLIST: dict[tuple[str, str], str] = {
     ("v_member_questions", "topic"): "as-filed Oireachtas API value",
     ("v_member_question_top_topics", "topic"): "as-filed Oireachtas API value",
     ("v_member_debate_sections", "topic"): "as-filed Oireachtas API value",
+    # eTenders 'Directive' — 'None' is a REAL category (no EU procurement directive
+    # applies), deliberately distinct from a NULL directive (= not stated). Kept as-filed
+    # per extractors/procurement_etenders_extract.py:599-604; gold_quality_baseline.json
+    # records the counts for the same reason.
+    # Verified 2026-08-28 against the committed gold: awards 681 rows (that parquet carries
+    # no threshold_level column, so the extractor comment's "every one is Direct Invite"
+    # cannot be checked there); notices 659 rows = 652 'Direct Invite' + 6 'OJEU' + 1
+    # 'National'. The extractor comment's claim is therefore too strong for notices — the
+    # 7 non-Direct-Invite rows are logged in memory/OPEN_QUESTIONS.md, not asserted clean.
+    ("v_procurement_awards", "directive"): "real category 'None' = no EU directive applies (≠ NULL/not stated)",
+    ("v_procurement_notices", "directive"): "real category 'None' = no EU directive applies (≠ NULL/not stated)",
     # 'none' is a real enum value of the CRO match method, not a stringified null.
     ("v_procurement_ted_awards", "cro_match_method"): "real enum value 'none'",
     ("v_procurement_ted_winner_history", "cro_match_method"): "real enum value 'none'",

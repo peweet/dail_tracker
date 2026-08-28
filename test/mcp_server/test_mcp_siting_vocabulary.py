@@ -88,7 +88,9 @@ def test_non_residential_components_mirror_pins_equal_to_the_engine():
     assert tuple(ASSISTANT_COMPONENTS) == server.SITING_NON_RESIDENTIAL_COMPONENTS
     for component in NON_RESIDENTIAL_COMPONENTS:
         out = _call(dev_type="multi_unit", num_units=20, non_residential_components=[component])
-        assert "unknown non_residential_components" not in out.get("error", ""), f"{component} wrongly refused"
+        # Use the _error() helper above, not out.get(): on the ACCEPT path the tool returns the
+        # typed PublicEvaluationResponse, which has no .get and raised AttributeError here.
+        assert "unknown non_residential_components" not in _error(out), f"{component} wrongly refused"
 
 
 def test_empty_use_class_stays_legal():

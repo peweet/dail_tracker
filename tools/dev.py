@@ -145,6 +145,10 @@ TASKS: dict[str, Task] = {
         "Prove a password-manager copy of a restic password still opens its repository",
         ((PYTHON, "tools/check_credential_escrow.py"),),
     ),
+    "siting-native": Task(
+        "Check the private PyO3 siting kernel survived the last uv sync (local only; no-ops on CI)",
+        ((PYTHON, "tools/check_native_kernel.py"),),
+    ),
 }
 
 CHECK_TASKS = (

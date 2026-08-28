@@ -3,7 +3,7 @@
 
 # doc/ index
 
-72 docs · ~359.2k tokens total · 29 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+72 docs · ~359.5k tokens total · 29 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -22,7 +22,7 @@
 | [CREDENTIAL_ESCROW.md](CREDENTIAL_ESCROW.md) | infra | 1.4k | 2026-08-21 | setting up or auditing the off-box copy of the credentials a restore needs, or checking whether the escrow is still complete |
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-08-14 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
-| [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 4.7k | 2026-08-21 | the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub and object storage |
+| [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 5.0k | 2026-08-21 | the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub and object storage |
 | [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md) | infra | 2.3k | 2026-08-24 | setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile |
 | [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.8k | 2026-08-24 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
 | [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.5k | 2026-08-24 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
@@ -94,4 +94,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-08-26 -->
+<!-- generated 2026-08-28 -->

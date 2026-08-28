@@ -205,10 +205,17 @@ def test_accommodation_spend_views_build():
     # Ukraine combined, incl. the 2023-2024 DCEDIY surge) tops out ~€1.8bn; a leak would
     # balloon it past ~€2.5bn (well over the C&AG IP+Ukraine envelope).
     assert yr["total_eur"].max() < 2_500_000_000
-    # The first published Ukraine-accommodation register is 2022; none may predate it.
-    pre = yr.filter(pl.col("year") < 2022)
-    assert pre["ukraine_eur"].fill_null(0).sum() == 0
-    assert yr.filter((pl.col("year") == 2022) & (pl.col("ukraine_eur") > 0)).height == 1
+    # Ukraine-stream spend must not leak backwards into the pre-surge years. The earliest
+    # Ukraine-category row in the source is 2023 — corrected 2026-08-28: this previously
+    # asserted 2022, which no committed gold has ever satisfied (checked against both the
+    # 2026-08-23 and the 2026-08-14 procurement_payments_fact: zero '%ukraine%' rows at or
+    # before 2022 in each, so this was a false assertion, not a refresh regression). The
+    # only 2022 row the view carries is a single Wexford CoCo asylum payment (€30,837),
+    # which is IP stream, not Ukraine. The view header records the same thing: "2020-2022
+    # remain thin (pre-surge; not separately published in a parsable register)".
+    pre = yr.filter(pl.col("year") < 2023)
+    assert pre["ukraine_eur"].fill_null(0).sum() == 0, "Ukraine spend must not predate 2023"
+    assert yr.filter((pl.col("year") == 2023) & (pl.col("ukraine_eur") > 0)).height == 1
 
     prov = con.execute("SELECT * FROM v_accommodation_spend_providers").pl()
     assert prov.height > 50 and (prov["total_eur"] > 0).all()

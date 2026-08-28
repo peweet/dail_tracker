@@ -18,17 +18,6 @@
         "assignment",
         "assignment_term"
       ],
-      "seanad_payments_full_psa_quarantine.parquet": [
-        "house",
-        "member_name",
-        "narrative",
-        "payment_kind",
-        "position",
-        "schema",
-        "source_pdf",
-        "taa_band_label",
-        "taa_band_raw"
-      ],
       "sipo_donations.parquet": [
         "donor_irish_citizen"
       ]
@@ -39,24 +28,24 @@
         "rows": 273
       },
       "corporate_notices.parquet": {
-        "dup_rows": 1176,
-        "rows": 51465
+        "dup_rows": 1186,
+        "rows": 51574
       },
       "corporate_notices_enriched.parquet": {
-        "dup_rows": 1176,
-        "rows": 51465
+        "dup_rows": 1186,
+        "rows": 51574
       },
       "cro_xref_corporate_notices.parquet": {
-        "dup_rows": 828,
-        "rows": 28223
+        "dup_rows": 830,
+        "rows": 28271
       },
       "judicial_legal_diary_cases.parquet": {
-        "dup_rows": 3632,
-        "rows": 15245
+        "dup_rows": 3682,
+        "rows": 15513
       },
       "judicial_legal_diary_counts.parquet": {
-        "dup_rows": 188,
-        "rows": 1476
+        "dup_rows": 197,
+        "rows": 1509
       },
       "judicial_legal_diary_openview_cases.parquet": {
         "dup_rows": 226120,
@@ -72,11 +61,11 @@
       },
       "public_appointments.parquet": {
         "dup_rows": 4,
-        "rows": 1166
+        "rows": 1167
       },
       "stateboards_roster.parquet": {
         "dup_rows": 12,
-        "rows": 2053
+        "rows": 2049
       }
     },
     "tables_with_encoding_artifacts": {

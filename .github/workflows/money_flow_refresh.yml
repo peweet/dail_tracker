@@ -1,4 +1,4 @@
-name: Money-flow pipeline refresh (manual while readiness is verified)
+name: Money-flow pipeline refresh
 
 # The full continuous-refresh lane for the money-flow data (payments, procurement, TED,
 # LA/HSE/Tusla, CRO, CBI, AFS, CSO) and everything they depend on. This is the project's
@@ -22,9 +22,16 @@ name: Money-flow pipeline refresh (manual while readiness is verified)
 # publish gate will (correctly) abort — safe, but it will open a failure issue each day, so
 # It remains workflow_dispatch-only until the secrets and probe are verified (see the doc).
 
+# MANUAL-ONLY, as the paragraph above already requires ("workflow_dispatch-only until the
+# secrets and probe are verified"). The daily cron was removed 2026-08-28 to match that
+# statement: the job below is gated `if: github.event_name == 'workflow_dispatch'`, so the
+# cron fired every day only to record a skipped run — the config contradicted its own comment.
+# TO RE-ENABLE, in this order: (1) set the R2 secrets, (2) run pipeline_probe.yml once and
+# confirm the runtime fits both the timeout below and GitHub's 6 h job ceiling, (3) restore
+# the two commented lines below, (4) delete that `if:` on the job.
 on:
-  schedule:
-    - cron: "0 4 * * *"   # 04:00 UTC daily — well before the live-tenders 06:30 run
+  # schedule:
+  #   - cron: "0 4 * * *"   # 04:00 UTC daily — well before the live-tenders 06:30 run
   workflow_dispatch:
     inputs:
       chains:

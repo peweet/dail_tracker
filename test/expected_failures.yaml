@@ -25,16 +25,11 @@
 
 pytest: []
 
-jobs:
-  - job: typecheck
-    scope: local
-    reason: >-
-      basedpyright reports 73 errors, all in dail_tracker_core/siting/* — the
-      private untracked lane CI never checks out. The CI typecheck job scope is
-      green; local red is the environment split, not a regression in tracked code.
-    evidence: "local basedpyright run 2026-07-30: 73 errors across 9 siting files, 0 outside siting"
-    added: "2026-07-30"
-    resolution: >-
-      Retire when the siting lane moves to its own private repo with its own
-      typecheck gate (see memory: project_siting_made_private_2026_07_24), or when
-      the siting type errors are fixed locally.
+# RETIRED 2026-08-28 — the `typecheck` entry (added 2026-07-30) claimed 73 local
+# basedpyright errors in dail_tracker_core/siting/*. Its own resolution condition has
+# since been met: that tree no longer exists (0 tracked files, absent on disk) — the
+# siting lane moved to planning/product/ as its own private repo. A local run this date
+# reports "0 errors, 0 warnings, 0 notes", so the entry was documenting a lane that had
+# already gone. An entry whose subject no longer exists is worse than no entry: it
+# explains away a red job that is in fact green.
+jobs: []

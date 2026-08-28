@@ -1,4 +1,4 @@
-name: Legal Diary OpenView refresh (manual while publish failure is investigated)
+name: Legal Diary OpenView refresh
 
 # Keeps the Circuit Court + higher-court diary gold current on the deployed site.
 #
@@ -21,9 +21,16 @@ name: Legal Diary OpenView refresh (manual while publish failure is investigated
 # thinned archive can never ship. The privacy gate in the extractor independently refuses to
 # write gold if any natural-person name survived anonymisation.
 
+# MANUAL-ONLY since 2026-08-05, pending a publish-failure investigation. The daily cron was
+# removed 2026-08-28: the job below is gated `if: github.event_name == 'workflow_dispatch'`,
+# so the cron fired every day only to record a skipped run — daily noise that also hid the
+# real CI breakage underneath it. TO RE-ENABLE: restore the two commented lines below AND
+# delete that `if:` on the refresh job, or the schedule will go on skipping itself.
+# ⚠ Re-enabling also re-arms the stateful bronze cache described above; on a cache MISS the
+# first scheduled run is the ~50 min full re-fetch, which is what the 90-min watchdog is for.
 on:
-  schedule:
-    - cron: "0 7 * * *"   # 07:00 UTC daily (after the diary's morning publish)
+  # schedule:
+  #   - cron: "0 7 * * *"   # 07:00 UTC daily (after the diary's morning publish)
   workflow_dispatch:
     inputs:
       full:

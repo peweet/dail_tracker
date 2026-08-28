@@ -1,4 +1,4 @@
-name: Live tenders refresh (manual while timeout is investigated)
+name: Live tenders refresh
 
 # Keeps the LIVE national tender snapshot current on the deployed site.
 #
@@ -14,9 +14,16 @@ name: Live tenders refresh (manual while timeout is investigated)
 # gold regression, aborts the publish and nothing ships. Replaces the harness-blocked local
 # scheduled task (tools/poll_live_tenders.ps1) with a cloud one.
 
+# MANUAL-ONLY since 2026-08-05, pending a scrape-timeout investigation. The daily cron was
+# removed 2026-08-28: the job below is gated `if: github.event_name == 'workflow_dispatch'`,
+# so the cron fired every day only to record a skipped run — daily noise that also hid the
+# real CI breakage underneath it. TO RE-ENABLE: restore the two commented lines below AND
+# delete that `if:` on the `refresh` job, or the schedule will go on skipping itself.
+# The failure-notifier step (`if: failure() && github.event_name == 'schedule'`) only
+# becomes live again at the same time.
 on:
-  schedule:
-    - cron: "30 6 * * *"   # 06:30 UTC daily — matches the old local poll cadence
+  # schedule:
+  #   - cron: "30 6 * * *"   # 06:30 UTC daily — matches the old local poll cadence
   workflow_dispatch:
     inputs:
       max_pages:
