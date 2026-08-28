@@ -19,6 +19,16 @@ import pytest
 HOOK = Path(__file__).resolve().parents[2] / "tools" / "hooks" / "style_lint.py"
 
 
+@pytest.fixture(autouse=True)
+def _isolated_style_log(tmp_path, monkeypatch) -> Path:
+    """Every test's log writes land in a per-test temp file, never the real
+    logs/style_lint_log.jsonl -- a test session id polluting production
+    telemetry is how the 9 "bulletXXXX" rows ended up there (2026-08-28)."""
+    log_path = tmp_path / "style_lint_log.jsonl"
+    monkeypatch.setenv("DAIL_STYLE_LINT_LOG_PATH", str(log_path))
+    return log_path
+
+
 def run(message: str, session_id: str | None = None, **extra) -> subprocess.CompletedProcess:
     payload = {"last_assistant_message": message, "session_id": session_id or str(uuid.uuid4())}
     payload.update(extra)
@@ -188,12 +198,12 @@ def test_bare_legal_mention_without_an_effect_claim_passes():
     assert r.returncode == 0, r.stderr
 
 
-def test_long_reply_logs_but_never_blocks():
+def test_long_reply_logs_but_never_blocks(_isolated_style_log):
     sid = "longreply" + uuid.uuid4().hex
     msg = " ".join(["word"] * 420) + "."
     r = run(msg, session_id=sid)
     assert r.returncode == 0
-    rows = _my_log_rows(sid)
+    rows = _my_log_rows(sid, _isolated_style_log)
     assert rows and any("reply" in w for w in rows[-1]["warns"])
 
 
@@ -208,14 +218,11 @@ def test_provenance_is_paragraph_scoped():
 # style directives are the harmful rule class; the nudges forced rewrite turns).
 # New contract: exit 0, EMPTY stdout, one row appended to logs/style_lint_log.jsonl.
 
-LOG = Path(__file__).resolve().parents[2] / "logs" / "style_lint_log.jsonl"
-
-
-def _my_log_rows(session_id: str) -> list[dict]:
-    if not LOG.exists():
+def _my_log_rows(session_id: str, log_path: Path) -> list[dict]:
+    if not log_path.exists():
         return []
     rows = []
-    for line in LOG.read_text(encoding="utf-8").splitlines()[-50:]:
+    for line in log_path.read_text(encoding="utf-8").splitlines()[-50:]:
         try:
             o = json.loads(line)
         except Exception:
@@ -225,62 +232,62 @@ def _my_log_rows(session_id: str) -> list[dict]:
     return rows
 
 
-def test_jargon_logs_silently_and_never_blocks():
+def test_jargon_logs_silently_and_never_blocks(_isolated_style_log):
     sid = "jarg" + uuid.uuid4().hex
     r = run("This surfaces the tension here is worth noting and we should utilize it." + PAD, session_id=sid)
     assert r.returncode == 0
     assert r.stdout.strip() == "", "demoted: no per-reply advisory on stdout"
-    rows = _my_log_rows(sid)
+    rows = _my_log_rows(sid, _isolated_style_log)
     assert rows, "warning row should be appended to the silent log"
     assert any("jargon" in w for w in rows[-1]["warns"])
 
 
-def test_long_sentence_logs_silently():
+def test_long_sentence_logs_silently(_isolated_style_log):
     sid = "long" + uuid.uuid4().hex
     long = " ".join(["word"] * 60) + "."
     r = run(long + PAD, session_id=sid)
     assert r.returncode == 0
     assert r.stdout.strip() == ""
-    rows = _my_log_rows(sid)
+    rows = _my_log_rows(sid, _isolated_style_log)
     assert rows and any("sentence" in w for w in rows[-1]["warns"])
 
 
-def test_bullet_heavy_reply_logs_silently_and_never_blocks():
+def test_bullet_heavy_reply_logs_silently_and_never_blocks(_isolated_style_log):
     sid = "bullet" + uuid.uuid4().hex
     msg = "\n".join(f"- item {i}" for i in range(8)) + "\n" + PAD
     r = run(msg, session_id=sid)
     assert r.returncode == 0
     assert r.stdout.strip() == ""
-    rows = _my_log_rows(sid)
+    rows = _my_log_rows(sid, _isolated_style_log)
     assert rows and any("bullet" in w for w in rows[-1]["warns"])
 
 
-def test_few_bullets_do_not_log():
+def test_few_bullets_do_not_log(_isolated_style_log):
     sid = "fewbullet" + uuid.uuid4().hex
     msg = "- one\n- two\n- three\n" + PAD
     r = run(msg, session_id=sid)
     assert r.returncode == 0
-    rows = _my_log_rows(sid)
+    rows = _my_log_rows(sid, _isolated_style_log)
     assert not rows or not any("bullet" in w for w in rows[-1]["warns"])
 
 
-def test_numbered_list_is_not_a_bullet():
+def test_numbered_list_is_not_a_bullet(_isolated_style_log):
     """Rule 5 tolerates numbered lists when order matters; only dash/asterisk count."""
     sid = "numbered" + uuid.uuid4().hex
     msg = "\n".join(f"{i}. step {i}" for i in range(1, 9)) + "\n" + PAD
     r = run(msg, session_id=sid)
     assert r.returncode == 0
-    rows = _my_log_rows(sid)
+    rows = _my_log_rows(sid, _isolated_style_log)
     assert not rows or not any("bullet" in w for w in rows[-1]["warns"])
 
 
-def test_logged_warnings_are_capped():
+def test_logged_warnings_are_capped(_isolated_style_log):
     """MAX_WARNINGS = 3 still applies to the logged row."""
     sid = "capd" + uuid.uuid4().hex
     noisy = "We utilize and leverage, simply, obviously, basically, essentially, very." + PAD
     r = run(noisy, session_id=sid)
     assert r.returncode == 0
-    rows = _my_log_rows(sid)
+    rows = _my_log_rows(sid, _isolated_style_log)
     assert rows
     jargon_rows = [w for w in rows[-1]["warns"] if w.startswith("jargon")]
     assert len(jargon_rows) == 3

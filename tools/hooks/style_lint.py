@@ -18,7 +18,9 @@ found the original check blind to the claim shape a whole week of work was using
 
 Jargon (Rule 3), sentence length (Rule 4), reply length (Rule 1) and bullet density
 (Rule 5, added 2026-08-24) are LOGGED SILENTLY to logs/style_lint_log.jsonl (demoted from
-per-reply advisory 2026-07-25) and surfaced as a weekly digest by session_context.py — a
+per-reply advisory 2026-07-25; path overridable via DAIL_STYLE_LINT_LOG_PATH, which the
+test suite uses to keep synthetic rows out of the real log) and surfaced as a weekly
+digest by session_context.py — a
 linter aggressive enough to force a rewrite on style teaches the agent to write evasively
 around the checker rather than plainly. See feedback_guardrail_determinism_tiers in memory:
 determinism is inverse to consequence.
@@ -428,7 +430,7 @@ def main() -> int:
         try:
             import datetime
 
-            log = os.path.join(
+            log = os.environ.get("DAIL_STYLE_LINT_LOG_PATH") or os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                 "logs",
                 "style_lint_log.jsonl",
