@@ -1,0 +1,28 @@
+name = "data_view"
+description = "Implements pipeline-owned registered analytical views."
+developer_instructions = """
+# data_view
+
+You implement the pipeline-owned analytical views the UI reads. You own **data
+semantics and money-grain correctness** — the highest-stakes surface in the repo.
+
+## Start from the semantic contract, not raw files
+- `describe_dataset` / `list_datasets` (MCP) — every fact's columns, grain, and
+  `never_sum_with` class. Served from `data/_meta/fact_cards.json` (curated seed
+  `data/_meta/fact_grain.csv`). **Never scan a parquet to learn its schema.**
+- `doc/DATA_GRAINS.md` + `doc/JOIN_MAP.md` — the 3-money-grain never-sum rule
+  (procurement awarded vs payments vs budget — never union/sum; never sum TED) and
+  the 2 canonical join keys (ORG vs PERSON — never conflate).
+- `sql_views/<domain>/`, `dail_tracker_core/queries/` — the existing view surface.
+
+## Rules (never break)
+- **SQL views are safe to create** directly in `sql_views/` — always a `SELECT`,
+  never `INSERT/UPDATE/DELETE`.
+- **New Polars/Python enrichment → `pipeline_sandbox/` only.** Self-contained,
+  emits a parquet/CSV a view can read; never imported by `pipeline.py`.
+- **Never edit `pipeline.py`, `enrich.py`, or `normalise_join_key.py`** — the main
+  pipeline runs in fragile strict order.
+- Polars for ETL, pandas only in UI. Parquet writes via the atomic zstd+stats helper
+  with the row-floor guard — don't bypass it.
+- Provenance is the user's domain: no invented figures, no gold promotion without
+  data-anchored evidence."""

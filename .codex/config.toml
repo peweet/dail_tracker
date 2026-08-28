@@ -1,30 +1,18 @@
-# Project-local MCP configuration for the public Dail Tracker repository.
-# Keep startup optional so a missing local data store does not prevent Codex from opening.
-# Existing tracked CLAUDE.md files remain a migration fallback only where a directory
-# has no AGENTS.md; native AGENTS.md always wins Codex's discovery order.
 project_doc_fallback_filenames = ["CLAUDE.md"]
 
 [features]
 hooks = true
 memories = true
 
-# Keep the primary agent focused on requirements, decisions, and final output while
-# allowing a small number of bounded supporting threads. Role-specific model,
-# reasoning, and sandbox settings live in .codex/agents/.
 [agents]
 enabled = true
 max_concurrent_threads_per_session = 3
 
-# Local Codex memories are a personal recall layer, never the source of truth for
-# repository rules.  Keep external-context turns out of automatic extraction: this
-# workspace uses MCP and web evidence that may include private planning material.
 [memories]
 generate_memories = false
 use_memories = true
 disable_on_external_context = true
 
-# Inject bounded, prioritized project status at startup, resume, clear, and
-# post-compaction. Project hooks require one explicit review with `/hooks`.
 [[hooks.SessionStart]]
 matcher = "^(startup|resume|clear|compact)$"
 
@@ -36,8 +24,6 @@ timeout = 15
 statusMessage = "Loading bounded project status"
 additionalContextLimit = 1600
 
-# Reject ambiguous or policy-bypassing subagent spawns before they start. This
-# makes role selection, fresh context, and the task-packet contract mechanical.
 [[hooks.PreToolUse]]
 matcher = "^(Agent|spawn_agent)$"
 
@@ -48,8 +34,6 @@ command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInt
 timeout = 5
 statusMessage = "Validating subagent contract"
 
-# After a substantive session, require one explicit durable-learning assessment.
-# The existing hook understands Codex's Stop payload and fires at most once per session.
 [[hooks.Stop]]
 
 [[hooks.Stop.hooks]]
@@ -59,21 +43,28 @@ command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInt
 timeout = 10
 statusMessage = "Checking for a durable project lesson"
 
-[mcp_servers."dail-tracker"]
+[mcp_servers.dail-tracker]
 enabled = true
 required = false
 command = "uv"
-args = ["run", "--frozen", "--extra", "mcp", "python", "mcp_server/server.py"]
+args = [
+    "run",
+    "--frozen",
+    "--extra",
+    "mcp",
+    "python",
+    "mcp_server/server.py",
+]
 startup_timeout_sec = 360.0
 tool_timeout_sec = 360.0
 default_tools_approval_mode = "auto"
 disabled_tools = [
-  "search_planning_precedents",
-  "siting_check",
-  "siting_decision_documents",
+    "search_planning_precedents",
+    "siting_check",
+    "siting_decision_documents",
 ]
 
-[mcp_servers."dail-tracker".env]
+[mcp_servers.dail-tracker.env]
 PYTHONUTF8 = "1"
 PYTHONIOENCODING = "utf-8"
 OPENBLAS_NUM_THREADS = "1"
@@ -81,26 +72,24 @@ OMP_NUM_THREADS = "1"
 MKL_NUM_THREADS = "1"
 NUMEXPR_NUM_THREADS = "1"
 
-# Private overlay only. It is a separate server: the public project index must not
-# see the private Git worktree. Keep this shared configuration disabled in a clean
-# public clone; enable it in a private local Codex profile when the overlay is present.
 [mcp_servers.siting_private]
 enabled = false
 required = false
 command = "uv"
 args = [
-  "run",
-  "--frozen",
-  "--extra",
-  "mcp",
-  "--extra",
-  "siting",
-  "python",
-  "planning/product/mcp/server.py",
+    "run",
+    "--frozen",
+    "--extra",
+    "mcp",
+    "--extra",
+    "siting",
+    "python",
+    "planning/product/mcp/server.py",
 ]
 startup_timeout_sec = 360.0
 tool_timeout_sec = 360.0
 default_tools_approval_mode = "auto"
+
 [mcp_servers.siting_private.env]
 PYTHONUTF8 = "1"
 PYTHONIOENCODING = "utf-8"
@@ -108,3 +97,45 @@ OPENBLAS_NUM_THREADS = "1"
 OMP_NUM_THREADS = "1"
 MKL_NUM_THREADS = "1"
 NUMEXPR_NUM_THREADS = "1"
+
+[mcp_servers.next-devtools]
+command = "npx"
+args = [
+    "-y",
+    "next-devtools-mcp@latest",
+]
+
+[mcp_servers.siting-private]
+command = "uv"
+args = [
+    "run",
+    "--frozen",
+    "--extra",
+    "mcp",
+    "--extra",
+    "siting",
+    "python",
+    "planning/product/mcp/server.py",
+]
+
+[mcp_servers.siting-private.env]
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+OPENBLAS_NUM_THREADS = "1"
+OMP_NUM_THREADS = "1"
+MKL_NUM_THREADS = "1"
+NUMEXPR_NUM_THREADS = "1"
+
+[mcp_servers.storybook-siting]
+url = "http://127.0.0.1:6006/mcp"
+
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+OPENBLAS_NUM_THREADS = "4"
+OMP_NUM_THREADS = "4"
+MKL_NUM_THREADS = "4"
+NUMEXPR_NUM_THREADS = "4"
