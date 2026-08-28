@@ -218,6 +218,7 @@ def test_provenance_is_paragraph_scoped():
 # style directives are the harmful rule class; the nudges forced rewrite turns).
 # New contract: exit 0, EMPTY stdout, one row appended to logs/style_lint_log.jsonl.
 
+
 def _my_log_rows(session_id: str, log_path: Path) -> list[dict]:
     if not log_path.exists():
         return []
