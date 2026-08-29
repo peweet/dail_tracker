@@ -43,7 +43,18 @@ import subprocess
 import sys
 from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_SCRIPT_PATH = Path(__file__).resolve()
+_PROJECT_ROOT = _SCRIPT_PATH.parents[1]
+
+# planning/product/ is its own nested private repo (separate remote, see CLAUDE.md's
+# multi-root layout) — this guard protects the PUBLIC root's tracked tree only. If a
+# copy of this script is ever invoked from inside that private repo (e.g. its own
+# tooling or hooks), it has nothing to check there and must not scan or error.
+_PRIVATE_NESTED_REPO_MARKER = "planning/product"
+
+
+def _running_inside_private_nested_repo() -> bool:
+    return f"/{_PRIVATE_NESTED_REPO_MARKER}/" in _SCRIPT_PATH.as_posix()
 
 # ── Directories whose entire subtree is private IP ───────────────────────────
 DENY_DIR_PREFIXES: tuple[str, ...] = (
@@ -210,6 +221,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Block private siting IP / secrets from the tracked tree.")
     ap.add_argument("--staged", action="store_true", help="scan only staged files (pre-commit use)")
     args = ap.parse_args()
+
+    if _running_inside_private_nested_repo():
+        print(f"SKIPPED — running inside the private {_PRIVATE_NESTED_REPO_MARKER}/ repo, not the public root.")
+        return 0
 
     paths = _git_paths(args.staged)
     offenders = find_offenders(paths)
