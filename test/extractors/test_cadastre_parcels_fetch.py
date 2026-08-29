@@ -10,7 +10,7 @@ from __future__ import annotations
 import pyarrow.parquet as pq
 import pytest
 import shapely
-from shapely.geometry import box
+from shapely.geometry import box, mapping, shape
 
 from extractors import cadastre_parcels_fetch as mod
 from services.geoparquet_io import validate_geoparquet
@@ -100,3 +100,29 @@ def test_refresh_refetches_an_existing_part(sandbox):
     assert calls.count("Sligo") == 1
     mod.build(only="Sligo", refresh=True)
     assert calls.count("Sligo") == 2
+
+
+def test_fetch_county_is_wired_to_the_duckdb_batch_helper(monkeypatch):
+    # Real _fetch_county, network stubbed at fetch_json — proves it actually calls through to
+    # services.geojson_wkb rather than the old per-feature shapely.geometry.shape() loop.
+    geom = mapping(box(-9.0, 53.0, -8.99, 53.01))
+    page = {
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": geom,
+                "properties": {"SP_ID": "1", "COUNTY_NAM": "Galway", "Shape__Area": 1.0},
+            },
+            {
+                "type": "Feature",
+                "geometry": None,
+                "properties": {"SP_ID": "2", "COUNTY_NAM": "Galway", "Shape__Area": 2.0},
+            },
+        ]
+    }
+    monkeypatch.setattr(mod, "fetch_json", lambda url: (page, {}))
+    rows = mod._fetch_county("Galway")
+    assert len(rows) == 1  # the geometry-less feature is dropped
+    wkb, sp_id, county, area = rows[0]
+    assert shapely.from_wkb(wkb).equals_exact(shape(geom), tolerance=1e-9)
+    assert (sp_id, county, area) == ("1", "Galway", 1.0)

@@ -56,6 +56,7 @@ _PRIVATE_NESTED_REPO_MARKER = "planning/product"
 def _running_inside_private_nested_repo() -> bool:
     return f"/{_PRIVATE_NESTED_REPO_MARKER}/" in _SCRIPT_PATH.as_posix()
 
+
 # ── Directories whose entire subtree is private IP ───────────────────────────
 DENY_DIR_PREFIXES: tuple[str, ...] = (
     # The consolidation (2026-07-31) moved the engine, rulebook and private tests here —
@@ -69,8 +70,13 @@ DENY_DIR_PREFIXES: tuple[str, ...] = (
     "siting_reports/",
     "data/silver/parquet/planning_layers/",
     # Raw scrape cache AND the operator's own tender-response working files — nine .docx
-    # tender documents were nearly pushed inside commit 7259967a (2026-08-13). Nothing
-    # under ida/ has ever been git-tracked; the subtree is regenerable or commercial.
+    # tender documents were nearly pushed inside commit 7259967a (2026-08-13). The subtree
+    # is regenerable or commercial. CORRECTION (2026-08-29): ida/ files WERE git-tracked
+    # once — commit 87616200 (2026-08-01) added three scrape-cache .htm files, removed same
+    # day by 230db850, but both commits are reachable from origin/main today; this guard
+    # only scans the CURRENT tree, so an add-then-revert within one push is invisible to it
+    # (see the --all-branches mode below, which doesn't close that gap either — only a
+    # commit-range scan over the outgoing push would).
     "ida/",
 )
 
@@ -217,14 +223,80 @@ def _git_paths(staged: bool) -> list[str]:
     return [p for p in res.stdout.split("\0") if p]
 
 
+def _remote_branches() -> list[str]:
+    res = subprocess.run(
+        ["git", "for-each-ref", "refs/remotes/origin", "--format=%(refname:short)"],
+        cwd=_PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [b for b in res.stdout.splitlines() if b and not b.endswith("/HEAD")]
+
+
+def _branch_paths(branch: str) -> list[str]:
+    res = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", "-z", branch],
+        cwd=_PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [p for p in res.stdout.split("\0") if p]
+
+
+def find_all_branch_offenders() -> dict[str, list[tuple[str, str]]]:
+    """Scan every remote branch's CURRENT tree, not just the one being pushed.
+
+    Deny rules only apply going forward: a branch pushed before a path was classified
+    private (e.g. `dail_tracker_core/siting/` before the 2026-07-31 consolidation) is never
+    re-checked once new rules land, so it can sit exposed indefinitely. Confirmed 2026-08-29:
+    `origin/bq_hse_enrich`, last pushed 2026-06-25, still carried 20 pre-consolidation engine
+    files at its tip. Run this periodically (see the scheduled workflow), not on every push —
+    it scans every branch, not just the one changing.
+    """
+    out: dict[str, list[tuple[str, str]]] = {}
+    for branch in _remote_branches():
+        offenders = find_offenders(_branch_paths(branch))
+        if offenders:
+            out[branch] = offenders
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Block private siting IP / secrets from the tracked tree.")
     ap.add_argument("--staged", action="store_true", help="scan only staged files (pre-commit use)")
+    ap.add_argument(
+        "--all-branches",
+        action="store_true",
+        help="scan every remote branch's current tree instead of the local tracked/staged tree "
+        "(requires 'git fetch origin' first for a full view; run periodically, not per-push)",
+    )
     args = ap.parse_args()
 
     if _running_inside_private_nested_repo():
         print(f"SKIPPED — running inside the private {_PRIVATE_NESTED_REPO_MARKER}/ repo, not the public root.")
         return 0
+
+    if args.all_branches:
+        by_branch = find_all_branch_offenders()
+        if not by_branch:
+            branches = _remote_branches()
+            print(f"OK — no private siting IP or secrets on any of {len(branches)} remote branches.")
+            return 0
+        print("BLOCKED — sensitive paths found on remote branches:\n")
+        for branch, offenders in sorted(by_branch.items()):
+            print(f"  branch {branch!r}:")
+            for path, reason in sorted(offenders):
+                print(f"    ✗ {path}  ({reason})")
+        print(
+            "\nDelete or rewrite these branches — a stale branch pushed before a path was "
+            "classified private stays exposed until someone re-checks it by hand.\n"
+            "Note: deleting a remote branch does not purge the commit objects; GitHub can "
+            "retain them and any existing clone/fork already has them. Full removal needs "
+            "git-filter-repo across every affected ref, then a coordinated force-push."
+        )
+        return 1
 
     paths = _git_paths(args.staged)
     offenders = find_offenders(paths)

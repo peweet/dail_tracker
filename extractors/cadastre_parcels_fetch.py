@@ -33,9 +33,10 @@ Licence : CC BY 4.0 (per the ArcGIS item licenceInfo, both items, re-read 2026-0
 Writes  : data/silver/parquet/cadastre/parcels_freehold.parquet
           data/silver/parquet/cadastre/parcels_leasehold.parquet
 
-Paged per COUNTY rather than by global offset: each county is spatially coherent, so a
-Morton sort WITHIN the county gives row groups tight enough for statistics pruning, while peak
-memory stays at one county (Dublin, the largest, is ~331k rows) instead of 3.1M.
+Paged per COUNTY rather than by global offset: each county is spatially coherent, so a spatial
+sort WITHIN the county (via `services.spatial_sort.sort_order` — a Hilbert-curve code, at every
+row count) gives row groups tight enough for statistics pruning, while peak memory stays at one
+county (Dublin, the largest, is ~331k rows) instead of 3.1M.
 
 Resumable since 2026-08-21: each county lands in its own part file under cadastre/parts/ and the
 national parquet is assembled only when every part exists and the total clears ROW_FLOOR. A
@@ -68,11 +69,12 @@ import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
 import shapely
-from shapely.geometry import shape
 
+from services.geojson_wkb import geojson_geometries_to_wkb
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet_stream
+from services.spatial_sort import sort_order
 
 LOG = logging.getLogger("cadastre_parcels")
 
@@ -194,8 +196,18 @@ def _where(county: str | None) -> str:
 
 
 def _fetch_county(county: str | None) -> list[tuple]:
-    """Every parcel in one county as (wkb, sp_id, county, area_m2)."""
-    out: list[tuple] = []
+    """Every parcel in one county as (wkb, sp_id, county, area_m2).
+
+    Geometries are collected across every HTTP page first, then converted to WKB in ONE DuckDB
+    round trip via `services.geojson_wkb.geojson_geometries_to_wkb` — not parsed one feature at
+    a time. `PAGE=1000`, so per-page batching would mean ~331 DuckDB round trips for Dublin
+    instead of one, and DuckDB's per-call overhead is large enough to be worth amortizing that
+    way. One behavioural difference from the old per-feature `shapely.geometry.shape()` loop: a
+    malformed geometry now surfaces only after the whole county is fetched, not the page it was
+    on.
+    """
+    geoms: list[dict] = []
+    attrs: list[tuple] = []
     offset = 0
     while True:
         params = {
@@ -214,17 +226,13 @@ def _fetch_county(county: str | None) -> list[tuple]:
             if not geom:
                 continue  # attribute-only row: nothing to place, so nothing to store
             props = ft.get("properties") or {}
-            out.append(
-                (
-                    shapely.to_wkb(shape(geom)),
-                    props.get("SP_ID"),
-                    props.get("COUNTY_NAM"),
-                    props.get("Shape__Area"),
-                )
-            )
+            geoms.append(geom)
+            attrs.append((props.get("SP_ID"), props.get("COUNTY_NAM"), props.get("Shape__Area")))
         if len(feats) < PAGE:
-            return out
+            break
         offset += PAGE
+    wkb = geojson_geometries_to_wkb(geoms)
+    return [(w, *a) for w, a in zip(wkb, attrs, strict=True)]
 
 
 def _outward_f32(vals: np.ndarray, *, toward_pos: bool) -> np.ndarray:
@@ -240,23 +248,8 @@ def _outward_f32(vals: np.ndarray, *, toward_pos: bool) -> np.ndarray:
     return np.nextafter(f32, np.float32(np.inf if toward_pos else -np.inf))
 
 
-def _morton(x: np.ndarray, y: np.ndarray, bits: int = 16) -> np.ndarray:
-    """Interleaved-bit spatial key: sorting on it keeps a row group spatially tight."""
-
-    def _scale(v: np.ndarray) -> np.ndarray:
-        span = float(np.ptp(v)) or 1.0
-        return np.clip(((v - v.min()) / span * (2**bits - 1)).astype(np.uint64), 0, 2**bits - 1)
-
-    xi, yi = _scale(x), _scale(y)
-    z = np.zeros_like(xi)
-    for i in range(bits):
-        z |= ((xi >> np.uint64(i)) & np.uint64(1)) << np.uint64(2 * i)
-        z |= ((yi >> np.uint64(i)) & np.uint64(1)) << np.uint64(2 * i + 1)
-    return z
-
-
 def _to_table(rows: list[tuple]) -> pa.Table:
-    """Morton-sorted arrow table with OUTWARD-rounded f32 bbox columns.
+    """Hilbert-sorted arrow table with OUTWARD-rounded f32 bbox columns.
 
     Outward rounding is the correctness invariant the point-scoped store relies on: an f32
     bbox must be a SUPERSET of the true f64 bounds, so a window filter can only ever
@@ -264,16 +257,13 @@ def _to_table(rows: list[tuple]) -> pa.Table:
     """
     df = pl.DataFrame(rows, schema=["wkb", "sp_id", "county", "area_m2"], orient="row")
     bounds = shapely.bounds(shapely.from_wkb(df["wkb"].to_numpy()))
-    df = (
-        df.with_columns(
-            pl.Series("bbox_minx", _outward_f32(bounds[:, 0], toward_pos=False)),
-            pl.Series("bbox_miny", _outward_f32(bounds[:, 1], toward_pos=False)),
-            pl.Series("bbox_maxx", _outward_f32(bounds[:, 2], toward_pos=True)),
-            pl.Series("bbox_maxy", _outward_f32(bounds[:, 3], toward_pos=True)),
-            pl.Series("_z", _morton((bounds[:, 0] + bounds[:, 2]) / 2, (bounds[:, 1] + bounds[:, 3]) / 2)),
-        )
-        .sort("_z")
-        .drop("_z")
+    order = sort_order((bounds[:, 0] + bounds[:, 2]) / 2, (bounds[:, 1] + bounds[:, 3]) / 2)
+    df, bounds = df[order], bounds[order]
+    df = df.with_columns(
+        pl.Series("bbox_minx", _outward_f32(bounds[:, 0], toward_pos=False)),
+        pl.Series("bbox_miny", _outward_f32(bounds[:, 1], toward_pos=False)),
+        pl.Series("bbox_maxx", _outward_f32(bounds[:, 2], toward_pos=True)),
+        pl.Series("bbox_maxy", _outward_f32(bounds[:, 3], toward_pos=True)),
     )
 
     # Verify the superset invariant on the SORTED frame, before anything reaches disk — the

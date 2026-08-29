@@ -215,6 +215,7 @@ dev = [
     "pyyaml>=6.0",            # expected-failure ledger (test/expected_failures.yaml) read by test/conftest.py + tools/check_expected_failures.py; also in the siting extra, declared here so CI test jobs get it
     "sqlglot>=25",            # money-grain SQL lint (tools/check_money_grain_sums.py) — without this the test SKIPS in CI and the never-sum query gate only bites locally; also in the mcp extra
     "httpx>=0.27",
+    "crosshair-tool>=0.0.110",
 ]
 # Manual Linux memory-profiling tools. Fil does not support Windows or subprocess accounting,
 # so it is deliberately excluded from normal development, CI and runtime profiles.
@@ -444,6 +445,7 @@ markers = [
     "sql: needs a SQL/DuckDB fixture",
     "bronze: reads the bronze corpus from disk",
     "layers: loads the ~1 GB siting layer cache (auto-applied; deselect for a fast, low-RAM run)",
+    "crosshair: symbolic-execution check; seconds not milliseconds, deselect for a fast run",
 ]
 
 # ── Coverage (a RATCHET, not a target) ───────────────────────────────────────

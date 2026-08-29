@@ -10,6 +10,13 @@ GeoParquet conversion never changes the WKB or any source attribute column. It
 adds/replaces only the standard root ``bbox`` struct and the UTF-8 ``geo``
 footer metadata. In-place migration keeps a hard-linked original before the
 validated replacement is published.
+
+Geometry is written PLAIN, never dictionary-encoded — policy
+``plain-wkb-v1``, enforced by :func:`require_plain_geometry` on every validated
+file, not only on ones this writer produced. WKB values are unique and large, so
+a dictionary never pays for itself and costs every windowed reader a whole
+dictionary-page decode before it can skip a row. Attribute columns keep
+pyarrow's default, which is worth having for short repeated strings.
 """
 
 from __future__ import annotations
@@ -33,6 +40,12 @@ DEFAULT_GEOMETRY_COLUMN = "wkb"
 DEFAULT_BBOX_COLUMN = "bbox"
 DEFAULT_BATCH_ROWS = 32_768
 DEFAULT_RESERVE_BYTES = 64 * 1024**3
+
+# The one name for "geometry is stored PLAIN, never dictionary-encoded". The writer, the
+# validator and the tests all resolve the policy through these two constants rather than
+# each spelling the pyarrow encoding string themselves.
+GEOMETRY_ENCODING_POLICY = "plain-wkb-v1"
+_DICTIONARY_ENCODING = "RLE_DICTIONARY"
 
 _TYPE_NAMES = {
     0: "Point",
@@ -301,6 +314,68 @@ def summarize_parquet(
         parquet.close()
 
 
+def dictionary_columns(names: list[str], geometry_column: str) -> list[str]:
+    """The ``use_dictionary`` allow-list for a schema: every column except the geometry one.
+
+    Split out as a pure function so the encoding policy is checkable without writing a file
+    — CrossHair proves the postconditions below exhaustively in
+    ``test/services/test_geoparquet_geometry_encoding.py``. The third postcondition is the
+    one that matters: membership is exactly "is not the geometry column", so no attribute
+    column can be silently dropped from dictionary encoding by a future edit.
+
+    pre: len(names) <= 4
+    post: geometry_column not in __return__
+    post: all((name in __return__) == (name != geometry_column) for name in names)
+    post: len(__return__) == len(names) - names.count(geometry_column)
+    post: __return__ == [n for n in names if n in __return__]
+    """
+    return [name for name in names if name != geometry_column]
+
+
+def geometry_encodings(path: str | Path, geometry_column: str = DEFAULT_GEOMETRY_COLUMN) -> frozenset[str]:
+    """Every Parquet encoding used by ``geometry_column`` across all row groups of ``path``.
+
+    Footer metadata only — no row data is read. This is the single definition of what the
+    writer produced that the validator and the tests both interrogate; before it, each would
+    have had to reach into ``ParquetFile.metadata`` and interpret the footer independently.
+    """
+    import pyarrow.parquet as pq
+
+    parquet = pq.ParquetFile(str(path))
+    try:
+        metadata = parquet.metadata
+        if metadata.num_row_groups == 0:
+            return frozenset()
+        first = metadata.row_group(0)
+        names = [first.column(i).path_in_schema for i in range(first.num_columns)]
+        if geometry_column not in names:
+            raise GeoParquetError(f"{Path(path).name}: no {geometry_column!r} column to inspect")
+        index = names.index(geometry_column)
+        found: set[str] = set()
+        for group in range(metadata.num_row_groups):
+            found.update(str(encoding) for encoding in metadata.row_group(group).column(index).encodings)
+        return frozenset(found)
+    finally:
+        parquet.close()
+
+
+def require_plain_geometry(path: str | Path, geometry_column: str = DEFAULT_GEOMETRY_COLUMN) -> None:
+    """Refuse a file whose geometry column is dictionary-encoded in any row group.
+
+    Policy ``plain-wkb-v1``. WKB values are unique and large, so a dictionary never pays for
+    itself, and a reader must decode a row group's dictionary pages whole before it can skip
+    a single row — which costs 2-4x on every windowed read. Raises
+    :class:`GeoParquetSafetyError`, the same fail-closed class as the other artifact checks
+    here, because a file that reaches this point has already been written.
+    """
+    encodings = geometry_encodings(path, geometry_column=geometry_column)
+    if _DICTIONARY_ENCODING in encodings:
+        raise GeoParquetSafetyError(
+            f"{Path(path).name}: {geometry_column!r} is dictionary-encoded ({sorted(encodings)}); "
+            f"policy {GEOMETRY_ENCODING_POLICY} requires PLAIN — rebuild the file"
+        )
+
+
 def convert_parquet_file(
     source: str | Path,
     output: str | Path,
@@ -348,6 +423,23 @@ def convert_parquet_file(
         source_crs=source_crs,
     )
     writer = None
+    # Never dictionary-encode the geometry column. pyarrow's ``use_dictionary`` defaults to
+    # True for *every* column; WKB values are unique and large, so the dictionary page fills,
+    # the writer falls back to PLAIN mid-row-group, and every reader thereafter has to decode
+    # that group's dictionary pages before it can skip a single row. Measured on the box with
+    # identical rows and row groups: a 2 km window cost 8.0 ms against a PLAIN sibling, 18.0 ms
+    # against this writer's default output, 13.9 ms once rewritten without a dictionary; on a
+    # one-row-group file the loss of page skipping turned a 7 ms read into 228 ms. Attribute
+    # columns keep the default — short repeated strings genuinely do benefit.
+    #
+    # The allow-list holds top-level field names, while pyarrow keys dictionary decisions on
+    # leaf paths, so a struct field's leaves ("bbox.xmin", ...) match nothing here and are
+    # written PLAIN. That is the outcome we want for the bbox covering — near-unique float32
+    # values a dictionary would only pad, measured 35.7 -> 35.3 MB on 60k polygons — but it
+    # would also silently disable dictionaries on a future low-cardinality struct attribute.
+    # test_geometry_encoding_map_is_exact pins the whole map so that drift is caught, not
+    # discovered.
+    allow_dictionary = dictionary_columns(list(schema.names), geometry_column)
     try:
         writer = pq.ParquetWriter(
             output,
@@ -355,6 +447,10 @@ def convert_parquet_file(
             compression=compression,
             compression_level=compression_level,
             write_statistics=True,
+            # pyarrow documents this parameter as "bool or list, default True"; its type stub
+            # narrows it to bool, so the per-column form has to be asserted here rather than
+            # checked. test_geometry_encoding_map_is_exact reads the resulting footer back.
+            use_dictionary=allow_dictionary,  # type: ignore[arg-type]
         )
         for row_group in range(parquet.metadata.num_row_groups):
             for batch in parquet.iter_batches(row_groups=[row_group], batch_size=batch_rows):
@@ -408,11 +504,20 @@ def validate_geoparquet(
     batch_rows: int = DEFAULT_BATCH_ROWS,
     deep: bool = True,
 ) -> GeometrySummary:
-    """Validate footer, exact geometry census, and bbox-superset safety."""
+    """Validate footer, exact geometry census, bbox-superset safety, and encoding policy.
+
+    The encoding gate runs here rather than only in :func:`convert_parquet_file` so that a
+    producer handing in an already-GeoParquet part is covered too: that branch skips
+    conversion entirely, so a dictionary-encoded file would otherwise publish unexamined.
+
+    It runs *last*, after the structural checks. A file whose geometry column is not valid
+    WKB has a more fundamental problem than how that column is encoded, and reporting the
+    structural fault is what tells a caller what to actually fix.
+    """
     path = Path(path)
     parquet, payload = _read_geo_metadata(path)
     try:
-        return _validate_open_geoparquet(
+        summary = _validate_open_geoparquet(
             path,
             parquet,
             payload,
@@ -422,6 +527,8 @@ def validate_geoparquet(
         )
     finally:
         parquet.close()
+    require_plain_geometry(path, geometry_column=geometry_column)
+    return summary
 
 
 def _validate_open_geoparquet(
