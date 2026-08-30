@@ -128,9 +128,7 @@ def main() -> None:
         rng = np.random.default_rng(20260829)
         cx = rng.uniform(-10.5, -6.0, n)
         cy = rng.uniform(51.5, 55.5, n)
-        windows = np.column_stack(
-            (rng.uniform(-10.4, -6.1, QUERY_WINDOWS), rng.uniform(51.6, 55.4, QUERY_WINDOWS))
-        )
+        windows = np.column_stack((rng.uniform(-10.4, -6.1, QUERY_WINDOWS), rng.uniform(51.6, 55.4, QUERY_WINDOWS)))
 
         t0 = time.perf_counter()
         m_order = morton_order(cx, cy)

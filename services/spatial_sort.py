@@ -65,9 +65,7 @@ def hilbert_order(cx: np.ndarray, cy: np.ndarray) -> np.ndarray:
     con.register("_spatial_sort_pts", {"i": np.arange(n), "cx": cx, "cy": cy})
     try:
         bounds = f"ST_Extent(ST_MakeEnvelope({minx!r}, {miny!r}, {maxx!r}, {maxy!r}))::BOX_2D"
-        out = con.execute(
-            f"SELECT i FROM _spatial_sort_pts ORDER BY ST_Hilbert(cx, cy, {bounds}), i"
-        ).fetchnumpy()
+        out = con.execute(f"SELECT i FROM _spatial_sort_pts ORDER BY ST_Hilbert(cx, cy, {bounds}), i").fetchnumpy()
     finally:
         con.unregister("_spatial_sort_pts")
     return out["i"]
