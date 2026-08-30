@@ -68,7 +68,10 @@ def hilbert_order(cx: np.ndarray, cy: np.ndarray) -> np.ndarray:
         out = con.execute(f"SELECT i FROM _spatial_sort_pts ORDER BY ST_Hilbert(cx, cy, {bounds}), i").fetchnumpy()
     finally:
         con.unregister("_spatial_sort_pts")
-    return out["i"]
+    # fetchnumpy() is typed as possibly returning a pandas Categorical per column, which it cannot
+    # be for an integer index column. np.asarray both narrows the declared return type and is a
+    # no-op on the ndarray actually returned.
+    return np.asarray(out["i"])
 
 
 def sort_order(cx: np.ndarray, cy: np.ndarray) -> np.ndarray:
