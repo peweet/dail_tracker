@@ -98,8 +98,29 @@ def test_real_hilbert_call_works_at_a_size_that_would_have_dispatched_before():
 
 
 def test_shared_connection_is_reused_across_calls():
-    # _connection_with_spatial is a process-wide singleton so LOAD spatial is paid once, not
-    # per call (services/spatial_sort.py's own stated rationale) — verify it actually is one.
+    # _connection_with_spatial is a per-thread singleton so LOAD spatial is paid once per
+    # thread, not per call (services/spatial_sort.py's own stated rationale) — verify it
+    # actually is one within a thread.
     con_a = spatial_sort._connection_with_spatial()
     con_b = spatial_sort._connection_with_spatial()
     assert con_a is con_b
+
+
+def test_concurrent_calls_from_different_threads_do_not_corrupt_results():
+    # DuckDBPyConnection is not thread-safe, and con.cursor() does not fix it either — cursors
+    # still serialize on the parent connection (duckdb.org Python client docs, "each thread
+    # must have its own connection", verified 2026-08-29). A shared connection registering a
+    # fixed table name gives concurrent callers zero isolation.
+    import concurrent.futures
+
+    n = 300
+
+    def _call(seed: int) -> bool:
+        rng = np.random.default_rng(seed)
+        cx, cy = rng.uniform(-10, -5, n), rng.uniform(51, 56, n)
+        order = hilbert_order(cx, cy)
+        return sorted(order.tolist()) == list(range(n))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        results = list(ex.map(_call, range(40)))
+    assert all(results), "a concurrent call returned a corrupted (non-permutation) order"

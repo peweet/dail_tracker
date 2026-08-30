@@ -25,20 +25,32 @@ from it, follows the builder's core count. That breaks diffing, caching and cont
 
 from __future__ import annotations
 
+import threading
+
 import duckdb
 import numpy as np
 
-_connection: duckdb.DuckDBPyConnection | None = None
+_local = threading.local()
 
 
 def _connection_with_spatial() -> duckdb.DuckDBPyConnection:
-    """One process-wide DuckDB connection with `spatial` loaded, paid once per process."""
-    global _connection
-    if _connection is None:
+    """One DuckDB connection per thread, `spatial` loaded once per thread, not once per call.
+
+    A DuckDBPyConnection is not thread-safe, and `con.cursor()` does not fix that either —
+    cursors still serialize on their parent connection and cannot run queries at the same time.
+    A thread-local connection is the pattern DuckDB's own docs recommend for parallel use
+    [Reported — duckdb.org/docs/current/clients/python/overview, "each thread must have its own
+    connection", read 2026-08-29]. Found live-hanging a concurrent caller against the prior
+    process-wide singleton (test/services/test_spatial_sort.py, 2026-08-29).
+    """
+    con = getattr(_local, "connection", None)
+    if con is None:
         con = duckdb.connect()
+        # INSTALL first: a fresh runner has no extension directory, and bare LOAD fails there.
+        con.execute("INSTALL spatial")
         con.execute("LOAD spatial")
-        _connection = con
-    return _connection
+        _local.connection = con
+    return con
 
 
 def hilbert_order(cx: np.ndarray, cy: np.ndarray) -> np.ndarray:

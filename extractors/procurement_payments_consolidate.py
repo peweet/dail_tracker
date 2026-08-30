@@ -64,6 +64,7 @@ from services import parse_qa  # noqa: E402
 from services.coverage_io import save_coverage  # noqa: E402
 from services.data_contracts import guard_payment_fact, reconciliation_violations  # noqa: E402
 from services.deflator import value_plausible_expr  # noqa: E402
+from services.frame_ops import map_unique  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
@@ -201,9 +202,18 @@ def _clean_supplier_names(df: pl.DataFrame) -> pl.DataFrame:
     if df.is_empty():
         return df
     before = df["supplier_normalised"].n_unique()
-    df = df.with_columns(
-        pl.col("supplier_raw").map_elements(_strip_leading_ref, return_dtype=pl.Utf8).alias("supplier_raw")
-    ).with_columns(name_norm_expr("supplier_raw").alias("supplier_normalised"))
+    # Per DISTINCT supplier, not per row: 401,624 payment rows carry 40,526 distinct supplier_raw
+    # values (9.9x repetition, 2026-08-30), and _strip_leading_ref is a pure function of that one
+    # column. Measured 6.13x with byte-identical output (tools/row_iteration_ab.py).
+    df = map_unique(
+        df.drop("supplier_raw_cleaned", strict=False),
+        "supplier_raw",
+        _strip_leading_ref,
+        alias="supplier_raw_cleaned",
+        return_dtype=pl.Utf8,
+    )
+    df = df.drop("supplier_raw").rename({"supplier_raw_cleaned": "supplier_raw"})
+    df = df.with_columns(name_norm_expr("supplier_raw").alias("supplier_normalised"))
     after = df["supplier_normalised"].n_unique()
     if after < before:
         print(f"  cleaned leading row-index/ref prefixes: {before - after:,} fewer distinct supplier keys")
@@ -845,9 +855,10 @@ def canon_spend_category(s: str | None) -> str | None:
 def _derive_spend_category(df: pl.DataFrame) -> pl.DataFrame:
     if df.is_empty() or "description" not in df.columns:
         return df.with_columns(pl.lit(None, dtype=pl.Utf8).alias("spend_category"))
-    out = df.with_columns(
-        pl.col("description").map_elements(canon_spend_category, return_dtype=pl.Utf8).alias("spend_category")
-    )
+    # Per DISTINCT description: 401,624 payment rows over 33,484 distinct descriptions (12.0x
+    # repetition, 2026-08-30). canon_spend_category is pure and unit-tested, which is what makes
+    # the per-distinct form provably equivalent. Measured 10.41x, byte-identical.
+    out = map_unique(df, "description", canon_spend_category, alias="spend_category", return_dtype=pl.Utf8)
     n_cat = out.filter(pl.col("spend_category").is_not_null())["spend_category"].n_unique()
     cov = round(100.0 * out["spend_category"].is_not_null().sum() / out.height, 1)
     print(
