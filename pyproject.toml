@@ -119,7 +119,7 @@ siting = [
     #   uv pip install --no-deps planning/product/native/siting_native
     # and verify with `python tools/dev.py siting-native` — `uv sync` prunes it, same as paddle.
     # CI-enforced offline contract checks; imported only by focused private tests, never by report/API delivery.
-    "jsonschema-rs==0.51.0",
+    "jsonschema-rs==0.52.0",
     "selectolax==0.4.11",
     "ezdxf>=1.3,<2",     # DXF R2010 CAD export (planning/product/core/gis_dxf.py) — pure Python, no native deps
     "osmium>=3.6",       # OSM .pbf streaming at INGEST only (ingest/planning_osm_roads_geofabrik.py builds
