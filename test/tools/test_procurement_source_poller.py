@@ -9,6 +9,8 @@ Pure stdlib, no marker, default CI lane.
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import tools.procurement_source_poller as poll  # noqa: E402
 
@@ -277,6 +279,8 @@ def test_ce_report_sources_derive_held_through(tmp_path, monkeypatch):
 
 def test_live_ce_registry_is_well_formed():
     # Runs against the real seed registry; every generated source is evaluator-ready.
+    if not poll.CE_SEEDS.exists():
+        pytest.skip("apps/public-signal is private and not present in this checkout")
     sources = poll._ce_report_sources()
     assert len(sources) == 24  # confirmed councils in ce_report_seeds.csv
     for src in sources:

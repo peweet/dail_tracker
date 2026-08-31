@@ -215,6 +215,7 @@ dev = [
     "pyyaml>=6.0",            # expected-failure ledger (test/expected_failures.yaml) read by test/conftest.py + tools/check_expected_failures.py; also in the siting extra, declared here so CI test jobs get it
     "sqlglot>=25",            # money-grain SQL lint (tools/check_money_grain_sums.py) — without this the test SKIPS in CI and the never-sum query gate only bites locally; also in the mcp extra
     "httpx>=0.27",
+    "crosshair-tool>=0.0.110",
 ]
 # Manual Linux memory-profiling tools. Fil does not support Windows or subprocess accounting,
 # so it is deliberately excluded from normal development, CI and runtime profiles.
@@ -373,7 +374,8 @@ known_first_party = [
     "lgas_audit_reports_extract", "ministerial_briefs_extract",
     "noac_collection_rates_extract", "noac_indicators_long_extract",
     "noac_scorecard_extract", "noac_scorecard_history_extract",
-    "opr_plan_directions_extract", "pages_code", "per_member_search", "procurement",
+    "opr_plan_directions_extract", "pages_code", "paper_findings", "per_member_search",
+    "procurement",
     "procurement_etenders_extract", "procurement_hse_tusla_parser",
     "procurement_la_payments_extract", "procurement_la_seed",
     "procurement_payments_consolidate", "procurement_public_body_extract",
@@ -444,6 +446,7 @@ markers = [
     "sql: needs a SQL/DuckDB fixture",
     "bronze: reads the bronze corpus from disk",
     "layers: loads the ~1 GB siting layer cache (auto-applied; deselect for a fast, low-RAM run)",
+    "crosshair: symbolic-execution check; seconds not milliseconds, deselect for a fast run",
 ]
 
 # ── Coverage (a RATCHET, not a target) ───────────────────────────────────────

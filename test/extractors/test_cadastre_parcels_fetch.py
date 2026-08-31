@@ -10,7 +10,7 @@ from __future__ import annotations
 import pyarrow.parquet as pq
 import pytest
 import shapely
-from shapely.geometry import box
+from shapely.geometry import box, mapping, shape
 
 from extractors import cadastre_parcels_fetch as mod
 from services.geoparquet_io import validate_geoparquet
@@ -100,3 +100,79 @@ def test_refresh_refetches_an_existing_part(sandbox):
     assert calls.count("Sligo") == 1
     mod.build(only="Sligo", refresh=True)
     assert calls.count("Sligo") == 2
+
+
+def test_fetch_county_is_wired_to_the_duckdb_batch_helper(monkeypatch):
+    # Real _fetch_county, network stubbed at fetch_json — proves it actually calls through to
+    # services.geometry rather than the old per-feature shapely.geometry.shape() loop.
+    geom = mapping(box(-9.0, 53.0, -8.99, 53.01))
+    page = {
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": geom,
+                "properties": {"SP_ID": "1", "COUNTY_NAM": "Galway", "Shape__Area": 1.0},
+            },
+            {
+                "type": "Feature",
+                "geometry": None,
+                "properties": {"SP_ID": "2", "COUNTY_NAM": "Galway", "Shape__Area": 2.0},
+            },
+        ]
+    }
+    monkeypatch.setattr(mod, "fetch_json", lambda url: (page, {}))
+    rows = mod._fetch_county("Galway")
+    assert len(rows) == 1  # the geometry-less feature is dropped
+    wkb, sp_id, county, area = rows[0]
+    assert shapely.from_wkb(wkb).equals_exact(shape(geom), tolerance=1e-9)
+    assert (sp_id, county, area) == ("1", "Galway", 1.0)
+
+
+# ── invalid source geometry (Tailte publishes ring self-intersections) ──
+
+
+def _geojson_wkb(geom: dict) -> bytes:
+    from services.geometry import geojson_to_wkb
+
+    [wkb] = geojson_to_wkb([geom])
+    return wkb
+
+
+BOWTIE = {"type": "Polygon", "coordinates": [[[-9, 53], [-8.9, 53.1], [-8.9, 53], [-9, 53.1], [-9, 53]]]}
+DEGENERATE = {"type": "Polygon", "coordinates": [[[-9, 53], [-9, 53], [-9, 53], [-9, 53]]]}
+
+
+def test_a_self_intersecting_parcel_no_longer_fails_the_whole_county(sandbox, monkeypatch):
+    # Regression, 2026-08-29: Tailte's published geometry contains ring self-intersections (6 of
+    # the first 30,000 Carlow parcels), and save_parquet_stream deep-validates every geoparquet
+    # write — so ONE bad parcel failed the entire county with "invalid geometries must be
+    # repaired or quarantined". The extractor could not complete a national run.
+    out, _ = sandbox
+    rows = _rows(9, -9.0) + [(_geojson_wkb(BOWTIE), "SP-BOWTIE", "X", 1.0)]
+    monkeypatch.setattr(mod, "_fetch_county", lambda county: rows)
+    part = mod.build(only="Galway")
+    summary = validate_geoparquet(part, deep=True)
+    assert summary.row_count == 10  # the repaired parcel is KEPT, not dropped
+    assert set(summary.geometry_types) <= {"Polygon", "MultiPolygon"}
+
+
+def test_a_geometry_that_cannot_repair_to_a_polygon_is_dropped_not_written(sandbox, monkeypatch):
+    # make_valid turns a degenerate ring into a Point. A Point would satisfy the GeoParquet
+    # contract while being meaningless as a title boundary, so it must not reach disk.
+    out, _ = sandbox
+    rows = _rows(9, -9.0) + [(_geojson_wkb(DEGENERATE), "SP-DEGENERATE", "X", 1.0)]
+    monkeypatch.setattr(mod, "_fetch_county", lambda county: rows)
+    part = mod.build(only="Galway")
+    summary = validate_geoparquet(part, deep=True)
+    assert summary.row_count == 9
+    assert set(summary.geometry_types) <= {"Polygon", "MultiPolygon"}
+
+
+def test_valid_geometry_is_left_byte_identical():
+    # The repair must be a no-op on a clean frame — not a silent normalising rewrite of every
+    # parcel, which would change stored bytes for 3.1M rows that never needed touching.
+    import polars as pl
+
+    rows = _rows(5, -9.0)
+    frame = pl.DataFrame(rows, schema=["wkb", "sp_id", "county", "area_m2"], orient="row")
+    assert mod._repair_invalid(frame)["wkb"].to_list() == frame["wkb"].to_list()

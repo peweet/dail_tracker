@@ -1,4 +1,4 @@
-# COPIED-FROM: planning/civic/extractors/planning_appeal_outcomes.py @ sha256:e312acefe257bea4dbd7fc56220ed888a74ced9ea8ae774c356458c8abb9839a
+# COPIED-FROM: planning/civic/extractors/planning_appeal_outcomes.py @ sha256:ec5ace357cadb128442961b3aa0471b490d942220bdc6f915143bafa6b80fb4b
 """Authoritative council-overturn metric — applications x ACP appeal decisions.
 
 Fixes the data-quality trap in the national profile (planning_decision_profiles.py): the applications
@@ -52,7 +52,6 @@ import unicodedata
 from pathlib import Path
 
 import polars as pl
-import shapely
 
 from planning.civic.extractors.planning_appeal_vector import (
     OUT_COLS as _OUT_COLS,
@@ -66,8 +65,9 @@ from planning.civic.extractors.planning_appeal_vector import (
     epoch_ms_date_expr,
     spatial_temporal_matches,
 )
-from planning.civic.extractors.planning_applications_ingest import _polygonal_geometry
+from planning.civic.extractors.planning_applications_ingest import IRELAND_BBOX
 from services.coverage_io import save_coverage
+from services.geometry import polygonal_geometries
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
@@ -231,13 +231,15 @@ def _fetch_acp_sites() -> tuple[pl.DataFrame, dict[str, int], int]:
         features = response.get("features", [])
         if not features:
             break
-        for feature in features:
-            geometry, reason = _polygonal_geometry(feature.get("geometry"))
-            reasons[reason] = reasons.get(reason, 0) + 1
-            if geometry is None:
+        # Batched through services/geometry.py, same as planning_applications_ingest — the reason
+        # histogram it produces is provenance and must stay identical to the per-feature version.
+        parsed = polygonal_geometries([feature.get("geometry") for feature in features], ireland_bbox=IRELAND_BBOX)
+        for feature, result in zip(features, parsed, strict=True):
+            reasons[result.reason] = reasons.get(result.reason, 0) + 1
+            if result.wkb is None:
                 continue
             properties = feature.get("properties") or {}
-            minx, miny, maxx, maxy = geometry.bounds
+            minx, miny, maxx, maxy = result.bounds
             rows.append(
                 {
                     "abp_case": str(properties.get("ABPCASEID") or "").strip(),
@@ -249,12 +251,12 @@ def _fetch_acp_sites() -> tuple[pl.DataFrame, dict[str, int], int]:
                     "updated_date": properties.get("UPDATED_ON"),
                     "description_as_reported": properties.get("DEVDESC"),
                     "case_url": properties.get("LINKABPWEB"),
-                    "wkb": shapely.to_wkb(geometry),
+                    "wkb": result.wkb,
                     "bbox_minx": minx,
                     "bbox_miny": miny,
                     "bbox_maxx": maxx,
                     "bbox_maxy": maxy,
-                    "geometry_repaired": reason == "repaired",
+                    "geometry_repaired": result.reason == "repaired",
                     "source_layer_url": ACP_LAYER,
                     "source_licence": "No reuse licence stated on the ArcGIS service; owner clearance required",
                     "source_checked_date": dt.date.today(),

@@ -104,3 +104,40 @@ def test_real_tracked_tree_is_clean() -> None:
         text=True,
     )
     assert result.returncode == 0, f"leak guard flagged tracked files:\n{result.stdout}\n{result.stderr}"
+
+
+# ── 4. --all-branches must catch a leak sitting on a branch other than HEAD's ─
+def _run(cmd: list[str], cwd: Path) -> None:
+    subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True)
+
+
+def test_all_branches_catches_a_leak_on_a_non_head_branch(tmp_path: Path, monkeypatch) -> None:
+    """A branch pushed before a path became private stays exposed until re-swept by hand
+    (confirmed 2026-08-29: origin/bq_hse_enrich sat exposed for 2 months). Uses a synthetic
+    local remote so this doesn't depend on this repo's own branch list."""
+    origin = tmp_path / "origin.git"
+    _run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], tmp_path)
+
+    work = tmp_path / "work"
+    _run(["git", "clone", "-q", str(origin), str(work)], tmp_path)
+    _run(["git", "config", "user.email", "t@example.com"], work)
+    _run(["git", "config", "user.name", "t"], work)
+    (work / "app.py").write_text("print('ok')\n")
+    _run(["git", "add", "-A"], work)
+    _run(["git", "commit", "-q", "-m", "init"], work)
+    _run(["git", "push", "-q", "-u", "origin", "main"], work)
+
+    _run(["git", "checkout", "-q", "-b", "leaky"], work)
+    (work / "planning" / "product").mkdir(parents=True)
+    (work / "planning" / "product" / "engine.py").write_text("secret\n")
+    _run(["git", "add", "-A"], work)
+    _run(["git", "commit", "-q", "-m", "leak"], work)
+    _run(["git", "push", "-q", "-u", "origin", "leaky"], work)
+
+    clone = tmp_path / "clone"
+    _run(["git", "clone", "-q", str(origin), str(clone)], tmp_path)
+
+    monkeypatch.setattr(guard, "_PROJECT_ROOT", clone)
+    by_branch = guard.find_all_branch_offenders()
+    assert set(by_branch) == {"origin/leaky"}
+    assert by_branch["origin/leaky"] == [("planning/product/engine.py", by_branch["origin/leaky"][0][1])]

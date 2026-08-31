@@ -48,12 +48,12 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 import polars as pl
-import shapely
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.coverage_io import save_coverage  # noqa: E402
 from services.extract_runner import run_extractor  # noqa: E402
+from services.geometry import points_to_wkb, wkb_centroids  # noqa: E402
 from services.http_engine import fetch_bytes, polite_headers  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
@@ -275,16 +275,18 @@ def match_epa(df: pl.DataFrame) -> pl.DataFrame:
     """Best-token-overlap name match against EPA licensed facilities; county must agree."""
     epa = pl.read_parquet(_EPA_LAYER)
     facilities = []
-    for r in epa.iter_rows(named=True):
-        pt = shapely.from_wkb(r["wkb"]).centroid
+    # Centroids for the whole layer in one pass rather than one shapely call per row; bit-exact
+    # against shapely's .centroid on this layer (max abs delta 0.0, 2026-08-29).
+    epa_lons, epa_lats = wkb_centroids(epa["wkb"].to_list())
+    for r, pt_x, pt_y in zip(epa.iter_rows(named=True), epa_lons, epa_lats, strict=True):
         facilities.append(
             {
                 "name_tokens": _tokens(r["Name"] or ""),
                 "blob": _norm((r["Name"] or "") + " " + (r["Address"] or "")),
                 "reg": r["RegCD"],
                 "epa_name": r["Name"],
-                "lon": pt.x,
-                "lat": pt.y,
+                "lon": pt_x,
+                "lat": pt_y,
             }
         )
     county_re = re.compile(r"co\.?\s+([a-z]+)|county\s+([a-z]+)", re.I)
@@ -350,10 +352,9 @@ def main() -> None:
 
     save_parquet(df, _OUT_REGISTER)
     spatial = df.filter(pl.col("lat").is_not_null())
+    # Batched via services.geometry — see the note in epa_licensed_facilities_extract.to_wkb_frame.
     spatial = spatial.with_columns(
-        pl.struct(["lon", "lat"])
-        .map_elements(lambda s: shapely.to_wkb(shapely.Point(s["lon"], s["lat"])), return_dtype=pl.Binary)
-        .alias("wkb")
+        pl.Series("wkb", points_to_wkb(spatial["lon"].to_numpy(), spatial["lat"].to_numpy()), dtype=pl.Binary)
     ).drop("lon", "lat")
     save_parquet(spatial, _OUT_LAYER, geoparquet=True, source_crs="EPSG:4326_XY")
     save_coverage(

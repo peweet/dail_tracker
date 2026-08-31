@@ -1,0 +1,39 @@
+name: Private-IP branch sweep
+
+# Periodic audit of EVERY branch on the public remote, not just the one being pushed.
+# check_no_private_ip.py's normal (push-time) mode only ever sees the tree of the commit
+# being pushed, so a branch pushed before a path was classified private is never
+# re-checked once new deny rules land — it can sit exposed indefinitely. Confirmed
+# 2026-08-29: origin/bq_hse_enrich, last pushed 2026-06-25, still carried the
+# pre-consolidation siting engine at its tip two months after that code became private.
+# See tools/check_no_private_ip.py's find_all_branch_offenders().
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"   # Monday 08:00 UTC — matches nightly.yml + Dependabot cadence
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch every remote branch's tip
+        run: git fetch --depth 1 origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Scan every branch for private siting IP / secrets
+        run: python3 tools/check_no_private_ip.py --all-branches
+      - name: Open issue on failure (scheduled runs only)
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Private-IP branch sweep found exposed paths (${new Date().toISOString().slice(0, 10)})`,
+              body: `One or more remote branches carry private siting-engine paths in their current tree.\n\nRun: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nThe job log lists each branch and offending path. Delete the branch (\`git push origin --delete <branch>\`) or, if the content must be fully purged, run git-filter-repo across every affected ref and force-push — see tools/check_no_private_ip.py's --all-branches help text.`,
+              labels: ["security", "private-ip"],
+            });

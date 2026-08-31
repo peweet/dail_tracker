@@ -32,9 +32,11 @@ from pathlib import Path
 
 import polars as pl
 import shapely
+from shapely.errors import ShapelyError
 from shapely.geometry import shape
 
 from services.coverage_io import save_coverage
+from services.geometry import polygonal_geometries
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
@@ -140,13 +142,27 @@ def fetch(where: str, max_pages: int | None) -> list[dict]:
     return rows
 
 
+# What `shapely.geometry.shape()` ACTUALLY raises on a malformed GeoJSON geometry. Until
+# 2026-08-29 this was `(TypeError, ValueError)`, which catches only ONE of the four shapes below —
+# so a single malformed feature aborted the whole national ingest instead of being counted
+# `unreadable` and skipped, which is what the reason code exists for. Verified against the
+# installed shapely: GeometryTypeError subclasses ShapelyError, NOT ValueError.
+#   {"type": "NotAThing", ...}        -> GeometryTypeError   (was uncaught)
+#   {"type": "Polygon"}               -> KeyError            (was uncaught, no "coordinates")
+#   {"coordinates": [...]}            -> AttributeError      (was uncaught, no "type")
+#   {"type": "Polygon", "coords": "x"} -> ValueError          (the only one caught before)
+# Deliberately an explicit tuple rather than a bare `except Exception`: a MemoryError or a
+# KeyboardInterrupt mid-fetch must still stop the run, not be recorded as a bad polygon.
+_UNREADABLE_GEOMETRY = (TypeError, ValueError, KeyError, AttributeError, ShapelyError)
+
+
 def _polygonal_geometry(value: dict | None):
     """Return valid polygonal WGS84 geometry or ``None``; never promote other geometry types."""
     if not value:
         return None, "empty"
     try:
         geometry = shape(value)
-    except (TypeError, ValueError):
+    except _UNREADABLE_GEOMETRY:
         return None, "unreadable"
     if geometry.is_empty:
         return None, "empty"
@@ -190,22 +206,26 @@ def fetch_sites(where: str, max_pages: int | None) -> tuple[list[dict], dict[str
         features = response.get("features", [])
         if not features:
             break
-        for feature in features:
-            geometry, reason = _polygonal_geometry(feature.get("geometry"))
-            reasons[reason] = reasons.get(reason, 0) + 1
-            if geometry is None:
+        # One DuckDB pass for the whole page rather than one shapely call per feature — see
+        # services/geometry.py. The reason histogram below is byte-identical to the per-feature
+        # version's (pinned by tools/geometry_differential.py); it is provenance, written to the
+        # coverage JSON, so a change in it is a regression, not a detail.
+        parsed = polygonal_geometries([feature.get("geometry") for feature in features], ireland_bbox=IRELAND_BBOX)
+        for feature, result in zip(features, parsed, strict=True):
+            reasons[result.reason] = reasons.get(result.reason, 0) + 1
+            if result.wkb is None:
                 continue
             properties = feature.get("properties") or {}
-            minx, miny, maxx, maxy = geometry.bounds
+            minx, miny, maxx, maxy = result.bounds
             row = {field: properties.get(field) for field in SITE_FIELDS}
             row.update(
                 {
-                    "wkb": shapely.to_wkb(geometry),
+                    "wkb": result.wkb,
                     "bbox_minx": minx,
                     "bbox_miny": miny,
                     "bbox_maxx": maxx,
                     "bbox_maxy": maxy,
-                    "geometry_repaired": reason == "repaired",
+                    "geometry_repaired": result.reason == "repaired",
                     "source_layer_url": L1,
                     "source_licence": "CC BY 4.0",
                     "source_checked_date": dt.date.today(),
