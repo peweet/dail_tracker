@@ -1,0 +1,40 @@
+# SCSI/Teagasc Annual Agricultural Land Market Review & Outlook 2026 — provincial land RENTAL
+# values per acre, 2024 and 2025 as published side by side.
+# Source: https://scsi.ie/wp-content/uploads/2026/04/SCSI-Teagasc-Annual-Agricultural-Land-Market-Review-Outlook-2026.pdf
+# Tables 10 (Leinster, p33), 11 (Munster, p34), 12 (Connacht/Ulster, p34). Retrieved 2026-09-03.
+# Survey of SCSI auctioneers/valuers; Dublin excluded from Leinster by the source. Empty
+# eur_per_acre = published as n/a (tillage uses in Connacht/Ulster — small tillage base).
+# pct_change_published is the report's own 2024->2025 figure, carried on 2025 rows only —
+# as published, not re-derived (the report rounds; re-deriving would disagree by a point).
+# (c) SCSI/Teagasc — no open licence stated; internal analysis only until reuse is cleared.
+year,province,land_use,eur_per_acre,pct_change_published
+2024,Leinster,grazing_meadowing_silage,295,
+2025,Leinster,grazing_meadowing_silage,299,1
+2024,Leinster,grazing_only,271,
+2025,Leinster,grazing_only,272,0
+2024,Leinster,cereal_crops,317,
+2025,Leinster,cereal_crops,306,-4
+2024,Leinster,potatoes,467,
+2025,Leinster,potatoes,469,0
+2024,Leinster,other_crops_beet_maize_beans,351,
+2025,Leinster,other_crops_beet_maize_beans,383,9
+2024,Munster,grazing_meadowing_silage,294,
+2025,Munster,grazing_meadowing_silage,350,19
+2024,Munster,grazing_only,284,
+2025,Munster,grazing_only,333,17
+2024,Munster,cereal_crops,322,
+2025,Munster,cereal_crops,366,14
+2024,Munster,potatoes,421,
+2025,Munster,potatoes,533,27
+2024,Munster,other_crops_beet_maize_beans,379,
+2025,Munster,other_crops_beet_maize_beans,401,6
+2024,Connacht/Ulster,grazing_meadowing_silage,208,
+2025,Connacht/Ulster,grazing_meadowing_silage,245,18
+2024,Connacht/Ulster,grazing_only,177,
+2025,Connacht/Ulster,grazing_only,210,18
+2024,Connacht/Ulster,cereal_crops,,
+2025,Connacht/Ulster,cereal_crops,,
+2024,Connacht/Ulster,potatoes,,
+2025,Connacht/Ulster,potatoes,,
+2024,Connacht/Ulster,other_crops_beet_maize_beans,,
+2025,Connacht/Ulster,other_crops_beet_maize_beans,,

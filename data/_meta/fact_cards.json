@@ -1,7 +1,7 @@
 {
-  "generated_utc": "2026-08-28T12:54:50+00:00",
+  "generated_utc": "2026-09-03T07:26:40+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
-  "count": 196,
+  "count": 204,
   "facts": {
     "afs_amalgamated_divisions": {
       "file": "data/silver/parquet/afs_amalgamated_divisions.parquet",
@@ -900,7 +900,11 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 11602
+      "size_bytes": 11602,
+      "grain": "one row per (STATISTIC, year, NUTS3 region, land type)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "CSO agricultural land sales median/mean EUR per acre and hectare from Revenue stamp-duty returns, 2013-2024 \u2014 recorded consideration; excludes development land and parcels under 0.2 ha"
     },
     "cso_construction_materials_deflator": {
       "file": "data/gold/parquet/cso_construction_materials_deflator.parquet",
@@ -1686,6 +1690,36 @@
       ],
       "size_bytes": 5725
     },
+    "cso_rzlpa01": {
+      "file": "data/gold/parquet/cso_rzlpa01.parquet",
+      "layer": "gold",
+      "rows": 504,
+      "columns": [
+        "STATISTIC",
+        "Statistic Label",
+        "TLIST(A1)",
+        "Year",
+        "C03788V04538",
+        "NUTS 3 Region",
+        "UNIT",
+        "VALUE"
+      ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03788V04538": "String",
+        "NUTS 3 Region": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
+      "size_bytes": 5408,
+      "grain": "one row per (STATISTIC, year, NUTS3 region)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "CSO residentially zoned land prices by NUTS3, 2018-2024 \u2014 the only multi-year zoned-land series; never difference against agricultural series to price zoning"
+    },
     "cso_rzlpa02": {
       "file": "data/gold/parquet/cso_rzlpa02.parquet",
       "layer": "gold",
@@ -1713,7 +1747,79 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 4958
+      "size_bytes": 4958,
+      "grain": "one row per (STATISTIC, year, county-or-NUTS3)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "CSO residentially ZONED land prices (transactions, volume, value, median EUR/ha), 2024 only so far \u2014 a different market from agricultural land; never difference against ARA02 to price zoning"
+    },
+    "cso_rzlpa03": {
+      "file": "data/gold/parquet/cso_rzlpa03.parquet",
+      "layer": "gold",
+      "rows": 144,
+      "columns": [
+        "STATISTIC",
+        "Statistic Label",
+        "TLIST(A1)",
+        "Year",
+        "C03788V04538",
+        "NUTS 3 Region",
+        "C03912V04664",
+        "Residentially Zoned Land Tax",
+        "UNIT",
+        "VALUE"
+      ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03788V04538": "String",
+        "NUTS 3 Region": "String",
+        "C03912V04664": "String",
+        "Residentially Zoned Land Tax": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
+      "size_bytes": 4830,
+      "grain": "one row per (STATISTIC, year, NUTS3 region, RZLT status)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "CSO residentially zoned land prices 2024 split by Residential Zoned Land Tax status"
+    },
+    "cso_rzlpa04": {
+      "file": "data/gold/parquet/cso_rzlpa04.parquet",
+      "layer": "gold",
+      "rows": 110,
+      "columns": [
+        "STATISTIC",
+        "Statistic Label",
+        "TLIST(A1)",
+        "Year",
+        "C03453V04171",
+        "Purchaser or Vendor",
+        "C04539V05323",
+        "Type of Participant",
+        "UNIT",
+        "VALUE"
+      ],
+      "column_types": {
+        "STATISTIC": "String",
+        "Statistic Label": "String",
+        "TLIST(A1)": "String",
+        "Year": "String",
+        "C03453V04171": "String",
+        "Purchaser or Vendor": "String",
+        "C04539V05323": "String",
+        "Type of Participant": "String",
+        "UNIT": "String",
+        "VALUE": "String"
+      },
+      "size_bytes": 4692,
+      "grain": "one row per (STATISTIC, year, purchaser-or-vendor, participant type)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "CSO residentially zoned land sales 2024 by market participant type (household/company/state) \u2014 national only"
     },
     "cso_vac14": {
       "file": "data/gold/parquet/cso_vac14.parquet",
@@ -2659,6 +2765,32 @@
         "read by procurement/procurement_eu_tam_state_aid.sql"
       ],
       "size_bytes": 262208
+    },
+    "fj_land_price_report": {
+      "file": "data/gold/parquet/fj_land_price_report.parquet",
+      "layer": "gold",
+      "rows": 4,
+      "columns": [
+        "year",
+        "scope",
+        "geo",
+        "measure",
+        "eur_per_acre",
+        "source_url"
+      ],
+      "column_types": {
+        "year": "Int32",
+        "scope": "String",
+        "geo": "String",
+        "measure": "String",
+        "eur_per_acre": "Float64",
+        "source_url": "String"
+      },
+      "size_bytes": 3043,
+      "grain": "one row per (year, scope, geo, measure) with a per-row source URL",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "Irish Farmers Journal land report figures as republished in FREE coverage only (national averages + published county extremes) \u2014 partial by construction, county tables paywalled; Reported band, every row cites its URL"
     },
     "flattened_members": {
       "file": "data/silver/parquet/flattened_members.parquet",
@@ -3966,6 +4098,30 @@
       ],
       "size_bytes": 5911
     },
+    "ipav_farming_report": {
+      "file": "data/gold/parquet/ipav_farming_report.parquet",
+      "layer": "gold",
+      "rows": 54,
+      "columns": [
+        "year",
+        "geo_level",
+        "geo",
+        "measure",
+        "eur_per_acre"
+      ],
+      "column_types": {
+        "year": "Int32",
+        "geo_level": "String",
+        "geo": "String",
+        "measure": "String",
+        "eur_per_acre": "Float64"
+      },
+      "size_bytes": 2346,
+      "grain": "one row per (year, geo, measure)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "IPAV member-auctioneer survey of achieved land sale and rent averages EUR/acre, national and provincial, 2016-2025 \u2014 agent-reported, not a register; (c) IPAV, internal analysis only"
+    },
     "isif_portfolio": {
       "file": "data/gold/parquet/isif_portfolio.parquet",
       "layer": "gold",
@@ -4010,7 +4166,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 15513,
+      "rows": 15613,
       "columns": [
         "diary_date",
         "court",
@@ -4048,12 +4204,12 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_legal_diary_cases.sql, judiciary/judiciary_plaintiff_league.sql"
       ],
-      "size_bytes": 176953
+      "size_bytes": 178582
     },
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 1509,
+      "rows": 1517,
       "columns": [
         "diary_date",
         "court",
@@ -4075,7 +4231,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 8700
+      "size_bytes": 8753
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -4164,7 +4320,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 2595,
+      "rows": 2626,
       "columns": [
         "diary_date",
         "court",
@@ -4190,7 +4346,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 17971
+      "size_bytes": 18015
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -4809,6 +4965,38 @@
         "ETL input folded into gold procurement_payments_fact (consolidate chain)"
       ],
       "size_bytes": 1305573
+    },
+    "land_value_index": {
+      "file": "data/gold/parquet/land_value_index.parquet",
+      "layer": "gold",
+      "rows": 1577,
+      "columns": [
+        "source",
+        "method",
+        "year",
+        "geo_level",
+        "geo",
+        "land_class",
+        "measure",
+        "unit",
+        "value_eur"
+      ],
+      "column_types": {
+        "source": "String",
+        "method": "String",
+        "year": "Int32",
+        "geo_level": "String",
+        "geo": "String",
+        "land_class": "String",
+        "measure": "String",
+        "unit": "String",
+        "value_eur": "Float64"
+      },
+      "size_bytes": 9779,
+      "grain": "one row per (source, year, geo, land_class, measure, unit)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "The held land-price sources UNIONED for side-by-side display (SCSI survey, IPAV survey, CSO stamp-duty, CSO zoned) \u2014 every row keeps its source and method; rows from different sources are different measurements of different markets and must never be averaged, differenced or summed"
     },
     "lobbying_return_documents": {
       "file": "data/silver/parquet/lobbying_return_documents.parquet",
@@ -6748,6 +6936,56 @@
         "read by lobbying/lobbying_revolving_door.sql"
       ],
       "size_bytes": 17962
+    },
+    "scsi_agri_land_rental": {
+      "file": "data/gold/parquet/scsi_agri_land_rental.parquet",
+      "layer": "gold",
+      "rows": 30,
+      "columns": [
+        "year",
+        "province",
+        "land_use",
+        "eur_per_acre",
+        "pct_change_published"
+      ],
+      "column_types": {
+        "year": "Int32",
+        "province": "String",
+        "land_use": "String",
+        "eur_per_acre": "Float64",
+        "pct_change_published": "Float64"
+      },
+      "size_bytes": 2199,
+      "grain": "one row per (year, province, land use)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "SCSI/Teagasc agent-survey land RENTAL values EUR/acre by province and use \u2014 survey opinion; n/a cells kept as nulls; (c) SCSI, internal analysis only"
+    },
+    "scsi_agri_land_values": {
+      "file": "data/gold/parquet/scsi_agri_land_values.parquet",
+      "layer": "gold",
+      "rows": 150,
+      "columns": [
+        "survey_year",
+        "county",
+        "province",
+        "size_band",
+        "quality",
+        "eur_per_acre"
+      ],
+      "column_types": {
+        "survey_year": "Int32",
+        "county": "String",
+        "province": "String",
+        "size_band": "String",
+        "quality": "String",
+        "eur_per_acre": "Float64"
+      },
+      "size_bytes": 3002,
+      "grain": "one row per (survey_year, county, plot-size band, quality)",
+      "money_grain": "land_value",
+      "never_sum_with": "awarded|payments|budget|land_value",
+      "purpose": "SCSI/Teagasc agent-survey AVERAGE agricultural land values EUR/acre (25 counties, Dublin excluded) \u2014 survey opinion, not transactions; (c) SCSI, internal analysis only"
     },
     "scsi_tpi_deflator": {
       "file": "data/gold/parquet/scsi_tpi_deflator.parquet",

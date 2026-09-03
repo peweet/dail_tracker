@@ -1,0 +1,20 @@
+# Irish Farmers Journal Land Price Report — figures republished in FREE coverage only.
+# The Journal's report compiles actual private-treaty and auction sales (auctioneer direct
+# input); its full county tables are PAYWALLED, so this file holds only figures verifiable
+# from the Journal's own free articles or independent press republication — every row carries
+# its source URL. Reported band: republished figures, not the report itself. County coverage
+# is therefore PARTIAL (published extremes only), not a county grid — do not treat absence of
+# a county as absence of a market. Retrieved 2026-09-03.
+# The 2025-report (Feb 2026) national LEVEL is not in free coverage (the free intro gives
+# only "+3% / EUR 361/ac"); deriving the level from the percentage is forbidden — add the row
+# when a source publishes it. NOTE: the REA Land Price Survey's EUR 13,232 (2025) is a
+# DIFFERENT compiler and must not be entered here.
+# 2024-report figures (EUR 12,515 national, Leitrim lowest) circulate in search summaries but
+# no citable free article was found this session — they are NOT entered; add them with a real
+# URL when found or when the report is licensed.
+# scope: national = whole-market average; county_extreme = a published highest/lowest county.
+year,scope,geo,measure,eur_per_acre,source_url
+2022,national,Ireland,sale_all_farmland,12288,https://www.thejournal.ie/farmland-prices-hit-highest-level-since-celtic-tiger-according-to-a-new-report-6020891-Mar2023/
+2023,national,Ireland,sale_all_farmland,11925,https://www.rte.ie/news/business/2024/0314/1437800-widening-gap-in-farmland-market-as-average-price-drops/
+2023,county_extreme,Dublin,sale_all_farmland_highest_county,38023,https://www.rte.ie/news/business/2024/0314/1437800-widening-gap-in-farmland-market-as-average-price-drops/
+2023,county_extreme,Mayo,sale_all_farmland_lowest_county,6284,https://www.rte.ie/news/business/2024/0314/1437800-widening-gap-in-farmland-market-as-average-price-drops/

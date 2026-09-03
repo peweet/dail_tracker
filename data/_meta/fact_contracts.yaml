@@ -115,3 +115,68 @@ sipo_expenses_fact:
   money_grain: political_finance
   never_sum_with: donations|awarded|payments
   purpose: "SIPO election expenses — never sum with donations"
+
+# ── Land value sources (added 2026-09-03) ────────────────────────────────────
+# FOUR different measurements of "what land costs", each a different grain and
+# method. They must never be averaged, differenced or summed across each other,
+# and none is a valuation of any specific parcel.
+
+scsi_agri_land_values:
+  grain: one row per (survey_year, county, plot-size band, quality)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: SCSI/Teagasc agent-survey AVERAGE agricultural land values EUR/acre (25 counties, Dublin excluded) — survey opinion, not transactions; (c) SCSI, internal analysis only
+
+scsi_agri_land_rental:
+  grain: one row per (year, province, land use)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: SCSI/Teagasc agent-survey land RENTAL values EUR/acre by province and use — survey opinion; n/a cells kept as nulls; (c) SCSI, internal analysis only
+
+cso_ara02:
+  grain: one row per (STATISTIC, year, NUTS3 region, land type)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: CSO agricultural land sales median/mean EUR per acre and hectare from Revenue stamp-duty returns, 2013-2024 — recorded consideration; excludes development land and parcels under 0.2 ha
+
+cso_rzlpa02:
+  grain: one row per (STATISTIC, year, county-or-NUTS3)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: CSO residentially ZONED land prices (transactions, volume, value, median EUR/ha), 2024 only so far — a different market from agricultural land; never difference against ARA02 to price zoning
+
+ipav_farming_report:
+  grain: one row per (year, geo, measure)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: IPAV member-auctioneer survey of achieved land sale and rent averages EUR/acre, national and provincial, 2016-2025 — agent-reported, not a register; (c) IPAV, internal analysis only
+
+cso_rzlpa01:
+  grain: one row per (STATISTIC, year, NUTS3 region)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: CSO residentially zoned land prices by NUTS3, 2018-2024 — the only multi-year zoned-land series; never difference against agricultural series to price zoning
+
+cso_rzlpa03:
+  grain: one row per (STATISTIC, year, NUTS3 region, RZLT status)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: CSO residentially zoned land prices 2024 split by Residential Zoned Land Tax status
+
+cso_rzlpa04:
+  grain: one row per (STATISTIC, year, purchaser-or-vendor, participant type)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: CSO residentially zoned land sales 2024 by market participant type (household/company/state) — national only
+
+land_value_index:
+  grain: one row per (source, year, geo, land_class, measure, unit)
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: The held land-price sources UNIONED for side-by-side display (SCSI survey, IPAV survey, CSO stamp-duty, CSO zoned) — every row keeps its source and method; rows from different sources are different measurements of different markets and must never be averaged, differenced or summed
+
+fj_land_price_report:
+  grain: one row per (year, scope, geo, measure) with a per-row source URL
+  money_grain: land_value
+  never_sum_with: awarded|payments|budget|land_value
+  purpose: Irish Farmers Journal land report figures as republished in FREE coverage only (national averages + published county extremes) — partial by construction, county tables paywalled; Reported band, every row cites its URL

@@ -103,6 +103,16 @@ TABLES = [
     #     market from agricultural land, and the one a site buyer is usually in.
     "ARA02",
     "RZLPA02",
+    # Added 2026-09-03 — the rest of the RZLP product (found via a catalogue sweep; RZLPA02
+    # alone was ingested 07-27). Same zoned-land money grain as RZLPA02; never difference
+    # against ARA02 to price zoning.
+    #   RZLPA01 = NUTS3 x year 2018-2024: mean/median price per acre AND hectare,
+    #     transactions, volume — the only multi-year zoned-land price series.
+    #   RZLPA03 = 2024, NUTS3 x Residential Zoned Land Tax status.
+    #   RZLPA04 = 2024, national, by purchaser/vendor participant type (household/company/etc).
+    "RZLPA01",
+    "RZLPA03",
+    "RZLPA04",
 ]
 
 # Derived reference table built from CPA07 (not a raw PxStat dump).
@@ -180,6 +190,10 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
         # extraction check passes on these national time series.
         "Commodity Group",
         "Type of Material",
+        # RZLPA04 (zoned-land sales by market participant) is national with only these
+        # categorical splits (added 2026-09-03).
+        "Purchaser or Vendor",
+        "Type of Participant",
     }
     time_cols = {"Year", "Quarter", "Month", "CensusYear", "Census Year"}
     has_geo = any(c in have for c in geo_cols)

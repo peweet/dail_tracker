@@ -1,0 +1,65 @@
+# IPAV Farming Report — national and provincial land sale and rent averages, EUR per acre.
+# Sources (retrieved 2026-09-03, both primary PDFs read this session):
+#   2024 edition (pub. 2025-03): https://www.ipav.ie/wp-content/uploads/2025/03/farming_report_2025_web_04.03.25.pdf
+#   2025 edition (pub. 2026-03): https://www.ipav.ie/wp-content/uploads/2026/03/Farming-Report-2025-1003-WEB.pdf
+# IPAV member-auctioneer survey of achieved prices — agent-reported averages, not a transaction
+# register. Chart-labelled figures transcribed; where prose and chart disagree (the 2024 edition
+# gives Leinster 16,259 in prose vs 16,529 in its chart) the CHART value is taken and the prose
+# variant noted here. sale_grazing = their headline "average land sale price" (agricultural
+# grazing land). 2016-2023 national values from the 2025 edition's own back-series chart.
+# (c) IPAV, all rights reserved — internal analysis only until reuse is cleared.
+year,geo_level,geo,measure,eur_per_acre
+2016,national,Ireland,sale_grazing,8750
+2017,national,Ireland,sale_grazing,8450
+2018,national,Ireland,sale_grazing,9250
+2019,national,Ireland,sale_grazing,8900
+2020,national,Ireland,sale_grazing,9500
+2021,national,Ireland,sale_grazing,10350
+2022,national,Ireland,sale_grazing,12231
+2023,national,Ireland,sale_grazing,12840
+2024,national,Ireland,sale_grazing,13949
+2025,national,Ireland,sale_grazing,14442
+2023,province,Leinster,sale_grazing,14563
+2024,province,Leinster,sale_grazing,16529
+2025,province,Leinster,sale_grazing,17333
+2023,province,Munster,sale_grazing,16325
+2024,province,Munster,sale_grazing,17162
+2025,province,Munster,sale_grazing,16100
+2023,province,Connacht,sale_grazing,9500
+2024,province,Connacht,sale_grazing,9750
+2025,province,Connacht,sale_grazing,10667
+2023,province,Ulster,sale_grazing,11000
+2024,province,Ulster,sale_grazing,12625
+2025,province,Ulster,sale_grazing,13667
+2023,national,Ireland,sale_forestry,5940
+2024,national,Ireland,sale_forestry,6407
+2025,national,Ireland,sale_forestry,6602
+2024,province,Ulster,sale_forestry,5833
+2024,province,Munster,sale_forestry,6960
+2024,province,Leinster,sale_forestry,6917
+2024,province,Connacht,sale_forestry,5917
+2025,province,Ulster,sale_forestry,6500
+2025,province,Munster,sale_forestry,6950
+2025,province,Leinster,sale_forestry,7125
+2025,province,Connacht,sale_forestry,5833
+2024,national,Ireland,rent_conacre_grazing,268
+2025,national,Ireland,rent_conacre_grazing,287
+2024,national,Ireland,rent_longterm_lease_grazing,299
+2025,national,Ireland,rent_longterm_lease_grazing,313
+2024,national,Ireland,rent_tillage,304
+2025,national,Ireland,rent_tillage,292
+2024,province,Connacht,rent_tillage,267
+2024,province,Munster,rent_tillage,337
+2024,province,Leinster,rent_tillage,311
+2025,province,Ulster,rent_tillage,250
+2025,province,Munster,rent_tillage,353
+2025,province,Connacht,rent_tillage,260
+2025,province,Leinster,rent_tillage,307
+2025,province,Connacht,rent_conacre_grazing,233
+2025,province,Leinster,rent_conacre_grazing,298
+2025,province,Munster,rent_conacre_grazing,338
+2025,province,Ulster,rent_conacre_grazing,279
+2025,province,Connacht,rent_longterm_lease_grazing,282
+2025,province,Leinster,rent_longterm_lease_grazing,334
+2025,province,Munster,rent_longterm_lease_grazing,362
+2025,province,Ulster,rent_longterm_lease_grazing,274
