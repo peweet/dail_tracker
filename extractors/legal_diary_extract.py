@@ -106,8 +106,8 @@ _MONTHS = {
     )
 }
 _DATE_RE = re.compile(
-    r"(?:MON|TUES|WEDNES|THURS|FRI|SATUR|SUN)DAY\s+THE\s+(\d{1,2})(?:ST|ND|RD|TH)\s+"
-    r"DAY\s+OF\s+([A-Z]+)\s+(\d{4})",
+    r"(?:MON|TUES|WEDNES|THURS|FRI|SATUR|SUN)DAY\s+(?:THE\s+)?(\d{1,2})(?:ST|ND|RD|TH)\s+"
+    r"(?:DAY\s+OF\s+)?([A-Z]+)\s+(\d{4})",
     re.I,
 )
 
@@ -135,7 +135,15 @@ def diary_date_from_lines(lines: list[str]) -> str | None:
             continue
         iso = f"{year:04d}-{_MONTHS[month]:02d}-{day:02d}"
         mentioned[iso] += 1
-        if ln.isupper() and m.group(0).strip() == ln.strip():
+        # startswith, not ==: the masthead sometimes carries a trailing annotation
+        # ("TUESDAY THE 25TH DAY OF AUGUST 2026 (VACATION)") that a strict equality
+        # check rejects, which then fell through to `mentioned` — and `mentioned`
+        # is easily swamped by an unrelated all-caps vacation-notice list of future
+        # sitting dates elsewhere in the same document (2026-08-25.docx: fell back
+        # and picked 2026-10-20, a future date repeated in that list, over the real
+        # 2026-08-25 masthead). A line like "HIGH COURT BAIL LIST TUESDAY 25TH ..."
+        # still correctly fails this: the date is not at the start of the line.
+        if ln.isupper() and ln.strip().startswith(m.group(0).strip()):
             canonical[iso] += 1
     if canonical:
         return canonical.most_common(1)[0][0]
