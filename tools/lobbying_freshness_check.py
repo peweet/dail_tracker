@@ -60,6 +60,12 @@ TIMEOUT = (10, 600)
 PAGE_SIZE = 50_000  # safe ceiling; a probe window holds far fewer returns
 
 
+#: Upstream has used both "1 May, 2026" (comma) and "1 May. 2026" (full stop, seen
+#: 2026-09-04) as the separator between month and year. Try known variants rather
+#: than hard-coding one — the exact punctuation is not the signal we care about.
+_PERIOD_START_FORMATS = ("%d %b, %Y", "%d %b. %Y", "%d %b %Y")
+
+
 def parse_period_start(period: str) -> date | None:
     """Left side of ``"1 May, 2026 to 31 Aug, 2026"`` -> date(2026, 5, 1).
 
@@ -68,10 +74,12 @@ def parse_period_start(period: str) -> date | None:
     if not period:
         return None
     left = period.split(" to ", 1)[0].strip()
-    try:
-        return datetime.strptime(left, "%d %b, %Y").date()
-    except ValueError:
-        return None
+    for fmt in _PERIOD_START_FORMATS:
+        try:
+            return datetime.strptime(left, fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 def latest_period_start(periods: list[str]) -> date | None:
