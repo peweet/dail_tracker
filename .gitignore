@@ -507,6 +507,16 @@ data/silver/sipo_candidate/
 # LGAS statutory audit reports (lgas_audit_reports_extract.py) — verbatim auditor opinion per
 # (council, year) since 2012, read by v_la_lgas_audit; small text fact, same commit rationale
 !data/silver/parquet/la_lgas_audit_reports.parquet
+# DAFM Forestry Licence Viewer layers (dafm_forestry_extract.py) — seven small spatial facts
+# (0.2-8 MB each, WGS84 wkb+bbox) read by the siting land-value/forestry context; committed so
+# a clean clone and Cloud serve them without re-running the DAFM downloads
+!data/silver/parquet/dafm_afforestation_licences.parquet
+!data/silver/parquet/dafm_private_felling_licences.parquet
+!data/silver/parquet/dafm_coillte_thinning_licences.parquet
+!data/silver/parquet/dafm_coillte_clearfell_licences.parquet
+!data/silver/parquet/dafm_forest_road_polygons.parquet
+!data/silver/parquet/dafm_forest_road_polylines.parquet
+!data/silver/parquet/dafm_reconstitution_underplanting.parquet
 # ABP planning-appeal outcomes (extractors/planning_appeal_outcomes.py) — a small (~0.2MB)
 # silver fact read DIRECTLY by v_la_planning_overturn, which feeds the "Who runs your county"
 # planning card AND the national council choropleth (v_la_map_layers). Cloud boots from a clean
@@ -827,3 +837,6 @@ node_modules/
 # binary this size is effectively permanent once pushed to the public remote.
 /data/sources/
 /data/tile_weights.tsv.gz
+
+# Rebuildable spatial selection indexes beside the local cadastral snapshots.
+/data/silver/parquet/cadastre/_land_selection/

@@ -180,3 +180,18 @@ fj_land_price_report:
   money_grain: land_value
   never_sum_with: awarded|payments|budget|land_value
   purpose: Irish Farmers Journal land report figures as republished in FREE coverage only (national averages + published county extremes) — partial by construction, county tables paywalled; Reported band, every row cites its URL
+
+# ── Agri context sweep (added 2026-09-04) ────────────────────────────────────
+# Demand-driver and land-character context behind land_value_index — never price sources.
+
+cso_ava42:
+  grain: one row per (census year, electoral division, livestock type)
+  purpose: Census of Agriculture 2020 farms-with-livestock at ED grain — joinable to osi_electoral_divisions; land-competition context (dairy density), never a price
+
+cso_ava44:
+  grain: one row per (census year, electoral division, crop type)
+  purpose: Census of Agriculture 2020 land utilisation at ED grain — tillage/grass mix around a site; never a price
+
+dafm_forestry_layers:
+  grain: seven silver spatial layers (dafm_afforestation_licences, dafm_private_felling_licences, dafm_coillte_thinning_licences, dafm_coillte_clearfell_licences, dafm_forest_road_polygons, dafm_forest_road_polylines, dafm_reconstitution_underplanting) — one row per licence-application polygon/line, WGS84 wkb+bbox
+  purpose: DAFM Forestry Licence Viewer extracts — forestry-market activity near a site (the demand both land reports say props up marginal land) and siting-relevant works; applications, not grants, unless the attribute says otherwise

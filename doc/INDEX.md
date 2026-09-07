@@ -3,7 +3,7 @@
 
 # doc/ index
 
-72 docs · ~359.5k tokens total · 29 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+74 docs · ~362.3k tokens total · 31 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -23,11 +23,13 @@
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-08-14 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 5.0k | 2026-08-21 | the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub and object storage |
-| [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md) | infra | 2.3k | 2026-08-24 | setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile |
-| [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.8k | 2026-08-24 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
-| [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.5k | 2026-08-24 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
+| [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md) | infra | 2.6k | 2026-08-30 | setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile |
+| [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.9k | 2026-08-30 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
+| [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.5k | 2026-08-30 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |
+| [LAND_VALUE_SOURCES_QUALITY.md](LAND_VALUE_SOURCES_QUALITY.md) | land-value | 1.4k | 2026-09-03 | using ipav_farming_report / land_value_index or any pair of land-price sources together; refreshing from a new IPAV edition |
+| [SCSI_AGRI_LAND_INGEST_QUALITY.md](SCSI_AGRI_LAND_INGEST_QUALITY.md) | land-value | 1.0k | 2026-09-03 | using scsi_agri_land_values / scsi_agri_land_rental, or refreshing them from a new SCSI/Teagasc edition |
 | [LOCAL_AUTHORITY_ACCOUNTABILITY.md](LOCAL_AUTHORITY_ACCOUNTABILITY.md) | local-gov | 2.1k | 2026-06-20 | when working on local-authority accountability data — CE roster, NOAC collection rates, planning overturn rate, or derelict sites levy |
 | [LOCAL_DEMOCRACY_FEATURE_DESIGN.md](LOCAL_DEMOCRACY_FEATURE_DESIGN.md) | local-gov | 3.9k | 2026-07-14 | before building or refining the "Who decides in your county?" feature, or deciding which local-democracy claims are promotable to the app front end |
 | [LOCAL_DEMOCRACY_OVERRIDE_RESEARCH.md](LOCAL_DEMOCRACY_OVERRIDE_RESEARCH.md) | local-gov | 5.7k | 2026-07-14 | when researching or fact-checking how councillors are overruled (OPR/Ministerial Directions, s.4 motions, budget-rejection dissolution) for a local-democracy piece |
@@ -94,4 +96,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-08-28 -->
+<!-- generated 2026-09-07 -->

@@ -113,6 +113,54 @@ TABLES = [
     "RZLPA01",
     "RZLPA03",
     "RZLPA04",
+    # Added 2026-09-04 — the agri context sweep (owner: "ingest these all"). Every CURRENT
+    # table (updated >= 2023) in the land-demand-relevant PxStat products; dead legacy series
+    # (pre-2008 bases, the 1926-1980 historical census) deliberately skipped. These are the
+    # demand-driver and land-character context behind the land_value_index — never price
+    # sources themselves.
+    #   COA Census of Agriculture: AVA42 farms with livestock, AVA44/AVA32/AVA33 land use.
+    "AVA42",
+    "AVA44",
+    "AVA32",
+    "AVA33",
+    #   OIIA output/input/income: values, quantities, stock changes, subsidies, volume indices.
+    "AEA01",
+    "AEA02",
+    "AEA03",
+    "AEA05",
+    "AEA08",
+    "AEA09",
+    #   OIIAP absolute prices — the milk/cattle/input price series both land reports cite as
+    #   what moves farmland demand year to year (annual AJA*, monthly AJM*).
+    "AJA01",
+    "AJA05",
+    "AJA07",
+    "AJA08",
+    "AJA09",
+    "AJA10",
+    "AJM01",
+    "AJM05",
+    "AJM07",
+    "AJM08",
+    "AJM09",
+    "AJM10",
+    #   AYPC area farmed / crop production.
+    "AQA04",
+    "AQA06",
+    #   EAGC ecosystem accounts for grasslands/croplands (CORINE + LPIS-derived aggregates).
+    "GCA14",
+    "GCA15",
+    "GCA16",
+    "GCA17",
+    "GCA18",
+    "GCA19",
+    "GCA20",
+    "GCA21",
+    "GCA22",
+    "GCA23",
+    "GCA24",
+    "GCA25",
+    "GCA26",
 ]
 
 # Derived reference table built from CPA07 (not a raw PxStat dump).
@@ -194,6 +242,26 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
         # categorical splits (added 2026-09-03).
         "Purchaser or Vendor",
         "Type of Participant",
+        # Agri context sweep (2026-09-04): Census of Agriculture ED grain, national accounts
+        # "State" tables, absolute price splits, and the ecosystem-account category columns
+        # (GCA16 is a change matrix; GCA17/GCA23 carry their split in an oddly named column).
+        "Electoral Division",
+        "State",
+        "Type of Livestock",
+        "Type of Crop",
+        "Type of Cattle",
+        "Type of Fertiliser",
+        "Type of Feedstuff",
+        "Product",
+        "Type of Grasslands and Croplands",
+        "Type of Land Use",
+        "Ecosystem",
+        "Crop Category",
+        "Supply",
+        "Ireland",
+        "Opening Extent 2000",
+        "Closing Extent 2018",
+        "Crops (Excluding Fodder Crops)",
     }
     time_cols = {"Year", "Quarter", "Month", "CensusYear", "Census Year"}
     has_geo = any(c in have for c in geo_cols)
