@@ -1,0 +1,9 @@
+# Root-owned /etc/cron.d entry for the SpecPlan Hetzner host.
+#
+# Install this file and tools/box_docker_gc.py together. The scheduled job is deliberately
+# limited to old local engine release tags; it must not prune unrelated images, dangling
+# image layers, or build cache as a side effect of release retention.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+0 4 * * 0 root /usr/bin/python3 /usr/local/libexec/redline-docker-gc.py --apply --repository redline-review-engine --no-cache-prune --receipt /srv/redline-review/monitoring/docker-gc-status.json >> /var/log/redline-docker-gc.log 2>&1

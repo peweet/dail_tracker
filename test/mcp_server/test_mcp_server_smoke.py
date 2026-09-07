@@ -71,7 +71,7 @@ def test_siting_check_docstring_lists_every_canonical_use_class():
     # a use class the engine accepts but the tool docstring never names is invisible to every
     # MCP caller — ad_biogas_waste was undiscoverable for exactly this reason until 2026-07-31.
     engine = pytest.importorskip(
-        "planning.product.core.engine", reason="optional 'siting' extra / private overlay absent"
+        "planning.product.core.evaluation.engine", reason="optional 'siting' extra / private overlay absent"
     )
     tools = {t.name: t for t in asyncio.run(server.mcp.list_tools())}
     desc = tools["siting_check"].description

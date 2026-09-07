@@ -17,6 +17,7 @@ import json
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -33,6 +34,7 @@ NOW = datetime(2026, 8, 24, 12, 0, 0, tzinfo=UTC)
 # A container's .Image is the FULL digest, which is why the two cannot be compared raw.
 SHORT_ID = "670ee99a955d"
 FULL_ID = "sha256:670ee99a955d9361a221680add498b3f73ce48e64ef344051a662f600933d12f"
+MANIFEST_DIGEST = "1" * 64
 
 
 def _image(repository: str, tag: str, *, age_days: float, image_id: str = "aaaaaaaaaaaa") -> dict:
@@ -42,8 +44,29 @@ def _image(repository: str, tag: str, *, age_days: float, image_id: str = "aaaaa
         "ref": f"{repository}:{tag}",
         "tagged": True,
         "id": image_id,
+        "repo_digests": (),
         "created": NOW - timedelta(days=age_days),
         "size": "9.4GB",
+    }
+
+
+def _digest_image(
+    repository: str,
+    *,
+    age_days: float,
+    image_id: str = SHORT_ID,
+    repo_digests: tuple[str, ...] = (),
+) -> dict:
+    """A digest-pinned pull has a repository but no tag in ``docker image ls``."""
+    return {
+        "repository": repository,
+        "tag": "<none>",
+        "ref": image_id,
+        "tagged": False,
+        "id": image_id,
+        "repo_digests": repo_digests,
+        "created": NOW - timedelta(days=age_days),
+        "size": "405MB",
     }
 
 
@@ -134,6 +157,128 @@ def test_pinned_env_refs_are_retained():
     assert "pinned by pilot.env" in reasons["redline-review-engine:git-952965b"]
 
 
+def test_digest_pinned_env_image_is_never_removable():
+    """A ``repo@sha256`` pin must protect the matching untagged local image.
+
+    Registry pulls appear as ``repository|<none>|local-image-id`` in ``docker image
+    ls``. A manifest digest is not that local image/config ID, so the selector must
+    use the exact repository digest recorded by Docker.
+    """
+    repository = "ghcr.io/peweet/redline-review-web"
+    repo_digest = f"{repository}@sha256:{MANIFEST_DIGEST}"
+    pinned_image = _digest_image(repository, age_days=90, repo_digests=(repo_digest,))
+    newer = _image(repository, "git-new", age_days=0)
+    removable, retained = _select(
+        [pinned_image, newer],
+        pinned={repo_digest: ["/srv/redline-review/config/pilot.env"]},
+        keep=1,
+        min_age_days=3,
+    )
+
+    assert pinned_image["ref"] not in [image["ref"] for image in removable]
+    reasons = {image["ref"]: image["retained_because"] for image in retained}
+    assert "pinned by pilot.env" in reasons[pinned_image["ref"]]
+
+
+def test_unreadable_deployment_pin_file_fails_closed(tmp_path):
+    missing = tmp_path / "missing.env"
+
+    with pytest.raises(gc.DockerGCError, match="deployment image pins"):
+        gc.pinned_image_refs([missing])
+
+
+def test_unresolved_deployment_pin_fails_closed_before_selection(tmp_path, monkeypatch):
+    repository = "ghcr.io/peweet/redline-review-web"
+    repo_digest = f"{repository}@sha256:{MANIFEST_DIGEST}"
+    image = _digest_image(repository, age_days=90)
+
+    monkeypatch.setattr(gc, "_disk_free_bytes", lambda _path: 100)
+    monkeypatch.setattr(gc, "in_use_image_ids", lambda: set())
+    monkeypatch.setattr(gc, "pinned_image_refs", lambda _env_files: {repo_digest: ["pilot.env"]})
+    monkeypatch.setattr(gc, "list_images", lambda: [image])
+
+    with pytest.raises(gc.DockerGCError, match="configured image pin.*does not resolve"):
+        gc.reclaim(**_reclaim_kwargs(receipt=tmp_path / "receipt.json"))
+
+
+def test_explicit_env_file_extends_the_required_deployment_pin_pair(tmp_path):
+    extra = tmp_path / "extra.env"
+
+    assert gc.effective_env_files([extra]) == (*gc.DEFAULT_ENV_FILES, extra)
+
+
+def test_apply_requires_an_explicit_repository_scope(monkeypatch):
+    monkeypatch.setattr(gc, "in_use_image_ids", lambda: pytest.fail("must reject before Docker inspection"))
+
+    with pytest.raises(gc.DockerGCError, match="repository scope"):
+        gc.reclaim(**_reclaim_kwargs(apply_changes=True))
+
+
+def test_apply_removes_only_the_explicitly_scoped_repository(tmp_path, monkeypatch):
+    now = datetime.now(UTC)
+    images = [
+        {
+            **_image("redline-review-engine", "git-old", age_days=0),
+            "created": now - timedelta(days=90),
+        },
+        {
+            **_image("redline-review-engine", "git-current", age_days=0),
+            "created": now,
+        },
+        {
+            **_image("unrelated-web", "git-old", age_days=0),
+            "created": now - timedelta(days=90),
+        },
+        {
+            **_image("unrelated-web", "git-current", age_days=0),
+            "created": now,
+        },
+    ]
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(gc, "_disk_free_bytes", lambda _path: 100)
+    monkeypatch.setattr(gc, "in_use_image_ids", lambda: set())
+    monkeypatch.setattr(gc, "pinned_image_refs", lambda _env_files: {})
+    monkeypatch.setattr(gc, "list_images", lambda: images)
+
+    def fake_run(command, **_kwargs):
+        calls.append(list(command))
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+    monkeypatch.setattr(gc.subprocess, "run", fake_run)
+
+    assert (
+        gc.reclaim(
+            **_reclaim_kwargs(
+                apply_changes=True,
+                prune_cache=False,
+                prune_dangling=False,
+                repositories=("redline-review-engine",),
+                receipt=tmp_path / "receipt.json",
+            )
+        )
+        == 0
+    )
+    assert calls == [["docker", "rmi", "redline-review-engine:git-old"]]
+
+
+def test_default_cli_does_not_opt_into_global_cache_or_dangling_prunes():
+    args = gc.parse_args([])
+
+    assert args.prune_cache is False
+    assert args.prune_dangling is False
+    assert gc.parse_args(["--prune-cache", "--prune-dangling"]).prune_cache is True
+    assert gc.parse_args(["--prune-cache", "--prune-dangling"]).prune_dangling is True
+
+
+def test_deployment_cron_template_scopes_the_scheduled_gc_to_engine_images():
+    cron = (REPO / "tools" / "redline-docker-gc.cron").read_text(encoding="utf-8")
+
+    assert "--apply --repository redline-review-engine --no-cache-prune" in cron
+    assert "--prune-cache" not in cron
+    assert "--prune-dangling" not in cron
+
+
 def test_newest_keep_per_repository_survive():
     """Rollback target always survives: --keep newest tags per repository.
 
@@ -222,12 +367,27 @@ def test_unparseable_timestamp_raises_rather_than_defaulting():
         gc._parse_docker_time("not a timestamp")
 
 
-def test_digest_pinned_ref_resolves_against_truncated_id():
-    """repo@sha256:<64hex> never matches a 12-char ID textually; prefix matching is what
-    stops the warning firing on healthy digest-pinned images."""
-    known_hexes = {SHORT_ID}
-    assert gc._pin_resolves(f"ghcr.io/peweet/web@sha256:{FULL_ID.removeprefix('sha256:')}", set(), known_hexes)
-    assert not gc._pin_resolves("ghcr.io/peweet/web@sha256:deadbeef" + "0" * 56, set(), known_hexes)
+def test_digest_pinned_ref_resolves_against_exact_repo_digest():
+    repo_digest = f"ghcr.io/peweet/web@sha256:{MANIFEST_DIGEST}"
+
+    assert gc._pin_resolves(repo_digest, set(), {repo_digest})
+    assert not gc._pin_resolves("ghcr.io/peweet/web@sha256:deadbeef" + "0" * 56, set(), {repo_digest})
+
+
+def test_list_images_reads_repo_digests_separately_from_local_image_ids(monkeypatch):
+    repository = "ghcr.io/peweet/redline-review-web"
+    repo_digest = f"{repository}@sha256:{MANIFEST_DIGEST}"
+
+    def fake_run(command, **_kwargs):
+        if command[:2] == ["docker", "images"]:
+            return f"{repository}{gc.FIELD_SEP}<none>{gc.FIELD_SEP}{SHORT_ID}{gc.FIELD_SEP}2026-08-11 03:33:12 +0000 UTC{gc.FIELD_SEP}405MB\n"
+        if command[:3] == ["docker", "image", "inspect"]:
+            return f"{FULL_ID}{gc.FIELD_SEP}{json.dumps([repo_digest])}\n"
+        raise AssertionError(command)
+
+    monkeypatch.setattr(gc, "_run", fake_run)
+
+    assert gc.list_images()[0]["repo_digests"] == (repo_digest,)
 
 
 def test_receipt_is_written_atomically(tmp_path):

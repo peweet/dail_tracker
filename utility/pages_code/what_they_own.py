@@ -64,6 +64,30 @@ _CATEGORIES: dict[str, object] = {
     "Property owners": lambda df: df["is_property_owner"].fillna(False).astype(bool),
     "Shareholders": lambda df: df["share_count"].fillna(0).astype(int) > 0,
 }
+_LATEST = "Most recent on file"
+
+
+def _render_interest_filters(years: list[int]) -> tuple[str, str]:
+    """Keep the two list scopes legible at every viewport width."""
+    category = (
+        st.selectbox(
+            "Show members with",
+            list(_CATEGORIES),
+            index=0,
+            key="wto_category",
+        )
+        or "Everyone"
+    )
+    year_choice = (
+        st.selectbox(
+            "Declaration year",
+            [_LATEST, *[str(y) for y in years]],
+            index=0,
+            key="wto_year",
+        )
+        or _LATEST
+    )
+    return category, year_choice
 
 
 def _own_card_html(row, *, show_rank: bool) -> str:
@@ -277,31 +301,8 @@ def what_they_own_page() -> None:
     # "Most recent on file" shows each member at their latest declaration year
     # (the all-time snapshot); picking a year shows that year's register,
     # surfacing whoever sat then, including members who have since left.
-    _LATEST = "Most recent on file"
     years = [int(y) for y in opts.get("years", [])]
-    cat_col, yr_col = st.columns([3, 1])
-    with cat_col:
-        category = (
-            st.segmented_control(
-                "What they own",
-                list(_CATEGORIES),
-                default="Everyone",
-                key="wto_category",
-                label_visibility="collapsed",
-            )
-            or "Everyone"
-        )
-    with yr_col:
-        year_choice = (
-            st.selectbox(
-                "Declaration year",
-                [_LATEST, *[str(y) for y in years]],
-                index=0,
-                key="wto_year",
-                label_visibility="collapsed",
-            )
-            or _LATEST
-        )
+    category, year_choice = _render_interest_filters(years)
     selected_year: int | None = None if year_choice == _LATEST else int(year_choice)
 
     # Make the coverage explicit and self-correcting for BOTH houses: derive the

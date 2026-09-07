@@ -8,4 +8,17 @@ for PY in .venv/Scripts/python.exe .venv/Scripts/python .venv/bin/python python3
   command -v "$PY" >/dev/null 2>&1 && break
 done
 
-"$PY" tools/check_commit_hygiene.py --pre-commit
+"$PY" tools/check_commit_hygiene.py --pre-commit || exit $?
+
+# Format drift on STAGED python files only. `ruff format --check` over the whole repo is a `dev.py
+# check` task, but nothing ran it before a commit -- so drift reached CI instead, twice in the
+# 2026-08-27/28 window ("Fix ruff format drift in test_style_lint.py", "Apply ruff format to two
+# files in the unpushed range"). Checking only the staged set keeps this well under a second.
+STAGED=$(git diff --cached --name-only --diff-filter=ACM -- '*.py')
+if [ -n "$STAGED" ]; then
+  # shellcheck disable=SC2086
+  "$PY" -m ruff format --check $STAGED || {
+    echo "pre-commit: ruff format drift in staged files. Run: python -m ruff format <files>" >&2
+    exit 1
+  }
+fi

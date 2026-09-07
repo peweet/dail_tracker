@@ -79,8 +79,11 @@ def test_extractor_change_gets_focused_lint_tests_and_ratchets() -> None:
         "ruff-format",
         "conventions",
         "dependency-declarations",
+        "pytest-integration-focused",
         "pytest-focused",
     ]
+    assert checks[-2].argv[-1] == "test/extractors"
+    assert checks[-2].evidence_scope == vc.LOCAL_PIPELINE_OUTPUT
     pytest_check = checks[-1]
     assert "test/extractors" in pytest_check.argv
     assert "pytest-fast" not in _keys(checks)
@@ -152,8 +155,15 @@ def test_agent_guides_and_prompts_select_the_portable_context_contract() -> None
         ],
         python_executable="python",
     )
-    assert _keys(checks) == ["pytest-agent-context", "mcp-catalog"]
+    assert _keys(checks) == ["pytest-agent-context", "pytest-tdd-policy", "mcp-catalog"]
     assert checks[0].argv[-1] == "test/tools/test_agent_context.py"
+
+
+def test_root_test_first_protocol_selects_its_regression_contract() -> None:
+    checks = vc.build_checks(["AGENTS.md"], python_executable="python")
+    by_key = {check.key: check for check in checks}
+
+    assert by_key["pytest-tdd-policy"].argv[-1] == "test/tools/test_tdd_policy.py"
 
 
 def test_agent_context_checker_changes_select_focused_contract_tests() -> None:
@@ -183,6 +193,7 @@ def test_dependency_manifest_expands_to_global_checks_and_fast_tests() -> None:
         "ruff-format",
         "dependency-declarations",
         "dependency-state",
+        "pytest-tdd-policy",
         "typecheck",
         "expected-failures",
         "pytest-fast",
@@ -201,6 +212,69 @@ def test_unknown_python_and_deleted_test_fail_safe() -> None:
     )
     assert "pytest-fast" in _keys(deleted_test)
     assert all("test_removed.py" not in check.argv for check in deleted_test)
+
+
+def test_changed_marked_tests_add_their_corresponding_non_fast_lanes() -> None:
+    checks = vc.build_checks(
+        [
+            "test/mcp_server/test_resource_policy.py",
+            "test/payments/test_payments_golden.py",
+            "test/pipeline/test_truthfulness.py",
+        ],
+        python_executable="python",
+    )
+    by_key = {check.key: check for check in checks}
+
+    assert by_key["pytest-slow-focused"].argv == (
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "-m",
+        vc.SLOW_MARKERS,
+        "test/mcp_server/test_resource_policy.py",
+    )
+    assert by_key["pytest-integration-focused"].argv[-2:] == (
+        vc.INTEGRATION_MARKERS,
+        "test/payments/test_payments_golden.py",
+    )
+    assert by_key["pytest-integration-focused"].evidence_scope == vc.LOCAL_PIPELINE_OUTPUT
+    assert dict(by_key["pytest-integration-focused"].env)["DAIL_INTEGRATION_TESTS"] == "1"
+    assert by_key["pytest-sources-focused"].argv[-2:] == (
+        vc.SOURCES_MARKERS,
+        "test/pipeline/test_truthfulness.py",
+    )
+    assert by_key["pytest-sources-focused"].evidence_scope == vc.EXTERNAL_SOURCE
+
+
+def test_payment_snapshot_helper_routes_to_its_real_contracts() -> None:
+    checks = vc.build_checks(
+        ["test/fixtures/payments/_generate_expected.py"],
+        python_executable="python",
+    )
+    by_key = {check.key: check for check in checks}
+
+    assert "test/tools/test_tdd_policy.py" in by_key["pytest-focused"].argv
+    assert by_key["pytest-integration-focused"].argv[-1] == "test/payments/test_payments_golden.py"
+    assert "test/fixtures/payments/_generate_expected.py" not in by_key["pytest-focused"].argv
+    assert "test/payments/test_payments_golden.py" not in by_key["pytest-focused"].argv
+
+
+def test_special_only_module_is_not_sent_to_an_empty_fast_selection() -> None:
+    checks = vc.build_checks(["test/payments/test_payments_golden.py"], python_executable="python")
+
+    assert "pytest-integration-focused" in _keys(checks)
+    assert "pytest-focused" not in _keys(checks)
+
+
+def test_sql_marked_contract_outside_sql_views_gets_an_explicit_sql_lane() -> None:
+    checks = vc.build_checks(["test/contracts/test_cpi_deflator_contract.py"], python_executable="python")
+    by_key = {check.key: check for check in checks}
+
+    assert by_key["pytest-sql-focused"].argv[-2:] == (vc.SQL_MARKERS, "test/contracts/test_cpi_deflator_contract.py")
+    assert dict(by_key["pytest-sql-focused"].env)["DAIL_INTEGRATION_TESTS"] == "1"
+    assert by_key["pytest-sql-focused"].evidence_scope == vc.LOCAL_PIPELINE_OUTPUT
+    assert "pytest-focused" not in by_key
 
 
 def test_full_selects_every_deterministic_lane() -> None:
@@ -223,6 +297,7 @@ def test_full_selects_every_deterministic_lane() -> None:
         "typecheck",
         "expected-failures",
         "pytest-fast",
+        "pytest-slow",
         "pytest-sql",
     ]
     assert checks[-1].evidence_scope == vc.LOCAL_PIPELINE_OUTPUT

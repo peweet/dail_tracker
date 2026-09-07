@@ -103,6 +103,17 @@ DEFAULT_ENV_FILES = (
     Path("/srv/redline-review/config/pilot.previous.env"),
 )
 
+
+def effective_env_files(extra_env_files: Iterable[Path] | None = None) -> tuple[Path, ...]:
+    """Return the required current/rollback pin files plus any extra pin sources.
+
+    An explicit ``--env-file`` is additive.  Letting it replace the deployment pair
+    would make a typo or a one-file ad-hoc invocation silently omit a rollback pin.
+    """
+
+    return tuple(dict.fromkeys((*DEFAULT_ENV_FILES, *(extra_env_files or ()))))
+
+
 #: Matches ``SITING_ENGINE_IMAGE=repo:tag`` and every sibling ``*IMAGE=`` assignment.
 _IMAGE_ASSIGNMENT = re.compile(r"^[A-Z0-9_]*IMAGE=(.+)$")
 
@@ -126,8 +137,8 @@ def pinned_image_refs(env_files: Iterable[Path]) -> dict[str, list[str]]:
     for env_file in env_files:
         try:
             content = env_file.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            raise DockerGCError(f"could not read deployment image pins from {env_file}: {exc}") from exc
         for line in content.splitlines():
             match = _IMAGE_ASSIGNMENT.match(line.strip())
             if not match:
@@ -138,11 +149,53 @@ def pinned_image_refs(env_files: Iterable[Path]) -> dict[str, list[str]]:
     return pinned
 
 
+def _repo_digests_by_image_id(image_ids: Sequence[str]) -> dict[str, tuple[str, ...]]:
+    """Return Docker's exact registry digests, keyed by local image ID.
+
+    A deployment pin such as ``repo@sha256:<manifest>`` names a registry manifest,
+    not Docker's local config/image ID.  It is therefore unsafe to infer a pin from
+    an ID prefix; only ``RepoDigests`` can establish that relationship.
+    """
+
+    if not image_ids:
+        return {}
+
+    template = FIELD_SEP.join(("{{.Id}}", "{{json .RepoDigests}}"))
+    raw = _run(["docker", "image", "inspect", "--format", template, *dict.fromkeys(image_ids)])
+    repo_digests_by_id: dict[str, tuple[str, ...]] = {}
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        try:
+            image_id, rendered_digests = line.split(FIELD_SEP, 1)
+            decoded = json.loads(rendered_digests)
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise DockerGCError(f"unparseable Docker RepoDigests row {line!r}") from exc
+        if decoded is None:
+            decoded = []
+        if not isinstance(decoded, list) or not all(isinstance(value, str) for value in decoded):
+            raise DockerGCError(f"unparseable Docker RepoDigests for image {image_id!r}")
+        repo_digests_by_id[image_id.removeprefix("sha256:")] = tuple(decoded)
+    return repo_digests_by_id
+
+
+def _repo_digests_for_image_id(image_id: str, repo_digests_by_id: dict[str, tuple[str, ...]]) -> tuple[str, ...]:
+    """Look up a full inspect ID from either Docker's full or abbreviated listing ID."""
+
+    bare_id = image_id.removeprefix("sha256:")
+    if bare_id in repo_digests_by_id:
+        return repo_digests_by_id[bare_id]
+    matches = [repo_digests for known_id, repo_digests in repo_digests_by_id.items() if known_id.startswith(bare_id)]
+    if len(matches) > 1:
+        raise DockerGCError(f"ambiguous Docker image ID prefix {image_id!r}")
+    return matches[0] if matches else ()
+
+
 def list_images() -> list[dict[str, Any]]:
-    """Return every tagged image as a dict. Untagged images are handled by prune."""
+    """Return every tagged or digest-pinned image, including exact registry digests."""
 
     template = FIELD_SEP.join(("{{.Repository}}", "{{.Tag}}", "{{.ID}}", "{{.CreatedAt}}", "{{.Size}}"))
-    raw = _run(["docker", "images", "--format", template])
+    raw = _run(["docker", "images", "--no-trunc", "--format", template])
     images: list[dict[str, Any]] = []
     for line in raw.splitlines():
         if not line.strip():
@@ -167,11 +220,33 @@ def list_images() -> list[dict[str, Any]]:
                 "ref": f"{repository}:{tag}" if tagged else image_id,
                 "tagged": tagged,
                 "id": image_id,
+                "repo_digests": (),
                 "created": _parse_docker_time(created),
                 "size": size,
             }
         )
+    repo_digests_by_id = _repo_digests_by_image_id([image["id"] for image in images])
+    for image in images:
+        image["repo_digests"] = _repo_digests_for_image_id(image["id"], repo_digests_by_id)
     return images
+
+
+def _pin_sources_for_image(image: dict[str, Any], pinned: dict[str, list[str]] | None) -> list[str]:
+    """Return deployment pin files that resolve to ``image``.
+
+    Docker represents a digest-pinned pull as ``repository|<none>|local-image-id``.
+    The deployment env instead carries a registry manifest digest, so the exact
+    ``RepoDigests`` value protects that pull without conflating it with a local image
+    or config ID.
+    """
+
+    if not pinned:
+        return []
+
+    sources = [*pinned.get(image["ref"], ()), *pinned.get(image["id"], ())]
+    for repo_digest in image.get("repo_digests", ()):
+        sources.extend(pinned.get(repo_digest, ()))
+    return sorted(set(sources))
 
 
 def select_removable(
@@ -225,7 +300,7 @@ def select_removable(
         newest_refs = {image["ref"] for image in eligible[:keep]}
         for image in ordered:
             reason = None
-            pin_sources = (pinned or {}).get(image["ref"]) or (pinned or {}).get(image["id"])
+            pin_sources = _pin_sources_for_image(image, pinned)
             if pin_sources:
                 reason = "pinned by " + ", ".join(Path(source).name for source in pin_sources)
             elif _id_in_use(image["id"], in_use):
@@ -268,23 +343,15 @@ def _id_in_use(image_id: str, in_use: set[str]) -> bool:
     return any(used.removeprefix("sha256:").startswith(bare) for used in in_use if used)
 
 
-def _pin_resolves(ref: str, known_refs: set[str], known_id_hexes: set[str]) -> bool:
+def _pin_resolves(ref: str, known_refs: set[str], known_repo_digests: set[str]) -> bool:
     """Whether a pinned reference matches an image actually present on this host.
 
-    Pins appear in three shapes: ``repo:tag``, a bare image ID, and ``repo@sha256:<hex>``.
-    Docker reports image IDs truncated to twelve characters, so the digest form never
-    matches textually and a naive membership test reports every digest-pinned image as
-    missing. That precision matters more than it looks: a warning that fires on four
-    healthy refs for every real one is a warning nobody reads, which is the same outcome
-    as having no check at all.
+    Pins appear in three shapes: ``repo:tag``, a bare image ID, and
+    ``repo@sha256:<manifest>``. The registry manifest digest must be compared with
+    Docker's exact ``RepoDigests`` metadata, never with a local image/config ID.
     """
 
-    if ref in known_refs:
-        return True
-    _, separator, digest = ref.partition("@sha256:")
-    if not separator:
-        return False
-    return any(digest.startswith(id_hex) for id_hex in known_id_hexes if id_hex)
+    return ref in known_refs or ref in known_repo_digests
 
 
 def _disk_free_bytes(path: str) -> int | None:
@@ -323,7 +390,11 @@ def reclaim(
     receipt: Path,
     disk_path: str,
     env_files: Sequence[Path] = DEFAULT_ENV_FILES,
+    repositories: Sequence[str] = (),
+    prune_dangling: bool = False,
 ) -> int:
+    if apply_changes and not repositories:
+        raise DockerGCError("--apply requires an explicit repository scope")
     if keep < 1:
         raise DockerGCError("--keep must be at least 1; keeping zero destroys the rollback target")
     if min_age_days < 0:
@@ -334,8 +405,15 @@ def reclaim(
     in_use = in_use_image_ids()
     pinned = pinned_image_refs(env_files)
     images = list_images()
+    known_repositories = {image["repository"] for image in images}
+    unknown_repositories = sorted(set(repositories) - known_repositories)
+    if unknown_repositories:
+        raise DockerGCError(
+            "requested repository scope is not present on this host: " + ", ".join(unknown_repositories)
+        )
+    scoped_images = [image for image in images if not repositories or image["repository"] in repositories]
     removable, retained = select_removable(
-        images,
+        scoped_images,
         in_use=in_use,
         pinned=pinned,
         keep=keep,
@@ -350,16 +428,20 @@ def reclaim(
     # it is invisible from the running stack because a live container holds its image by
     # ID. Surface it whether or not this run removes anything.
     known_refs = {image["ref"] for image in images} | {image["id"] for image in images}
-    known_id_hexes = {image["id"].removeprefix("sha256:") for image in images}
-    dangling_pins = sorted(ref for ref in pinned if not _pin_resolves(ref, known_refs, known_id_hexes))
-    for ref in dangling_pins:
-        sources = ", ".join(Path(source).name for source in pinned[ref])
-        print(f"DOCKER_GC_WARN pinned image {ref} ({sources}) does not exist on this host", file=sys.stderr)
+    known_repo_digests = {repo_digest for image in images for repo_digest in image.get("repo_digests", ())}
+    dangling_pins = sorted(ref for ref in pinned if not _pin_resolves(ref, known_refs, known_repo_digests))
+    if dangling_pins:
+        sources = "; ".join(
+            f"{ref} ({', '.join(Path(source).name for source in pinned[ref])})" for ref in dangling_pins
+        )
+        raise DockerGCError(f"configured image pin does not resolve on this host: {sources}")
 
     mode = "APPLY" if apply_changes else "DRY-RUN"
+    scope = ",".join(repositories) if repositories else "all repositories (dry-run only)"
     print(
         f"DOCKER_GC {mode} images={len(images)} in_use={len(in_use)} pinned={len(pinned)} "
-        f"removable={len(removable)} retained={len(retained)} dangling_pins={len(dangling_pins)}"
+        f"scope={scope} removable={len(removable)} retained={len(retained)} "
+        f"dangling_pins={len(dangling_pins)}"
     )
 
     for image in removable:
@@ -377,9 +459,9 @@ def reclaim(
                 removed.append(image["ref"])
 
     dangling_removed = False
-    if apply_changes:
+    if apply_changes and prune_dangling:
         # Untagged layers left behind by rebuilds. Safe: prune without -a never touches
-        # a tagged image, and Docker refuses to remove anything a container references.
+        # a tagged image, but it still has global scope, so it needs an explicit opt-in.
         _run(["docker", "image", "prune", "-f"], check=False)
         dangling_removed = True
 
@@ -399,7 +481,9 @@ def reclaim(
             "disposable": list(disposable),
             "min_age_days": min_age_days,
             "protected": list(protected),
+            "repositories": list(repositories),
             "cache_keep_hours": cache_keep_hours if prune_cache else None,
+            "prune_dangling": prune_dangling,
         },
         "images_total": len(images),
         "images_in_use": len(in_use),
@@ -468,7 +552,29 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         metavar="REGEX",
         help="regex matched against repository:tag; matches are never removed (repeatable)",
     )
-    parser.add_argument("--no-cache-prune", action="store_true", help="leave the build cache alone")
+    parser.add_argument(
+        "--repository",
+        action="append",
+        metavar="NAME",
+        help="repository eligible for deletion (repeatable; required with --apply)",
+    )
+    parser.add_argument(
+        "--prune-dangling",
+        action="store_true",
+        help="also globally prune untagged images after scoped deletion",
+    )
+    cache_group = parser.add_mutually_exclusive_group()
+    cache_group.add_argument(
+        "--prune-cache",
+        action="store_true",
+        help="also globally prune build cache older than --cache-keep-hours",
+    )
+    cache_group.add_argument(
+        "--no-cache-prune",
+        action="store_false",
+        dest="prune_cache",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument(
         "--cache-keep-hours",
         type=int,
@@ -487,8 +593,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="append",
         type=Path,
         metavar="PATH",
-        help="deployment env file whose *IMAGE= pins must never be deleted "
-        "(repeatable; defaults to the pilot env pair)",
+        help="additional deployment env file whose *IMAGE= pins must never be deleted "
+        "(repeatable; the pilot env pair is always required)",
     )
     return parser.parse_args(argv)
 
@@ -503,11 +609,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             disposable=args.disposable or list(DEFAULT_DISPOSABLE),
             min_age_days=args.min_age_days,
             protected=args.protect,
-            prune_cache=not args.no_cache_prune,
+            prune_cache=args.prune_cache,
             cache_keep_hours=args.cache_keep_hours,
             receipt=args.receipt,
             disk_path=args.disk_path,
-            env_files=args.env_file or list(DEFAULT_ENV_FILES),
+            env_files=effective_env_files(args.env_file),
+            repositories=tuple(args.repository or ()),
+            prune_dangling=args.prune_dangling,
         )
     except (DockerGCError, OSError, subprocess.SubprocessError) as exc:
         print(f"DOCKER_GC_ERROR {exc}", file=sys.stderr)

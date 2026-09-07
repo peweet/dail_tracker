@@ -94,6 +94,7 @@ siting = [
     "rasterio>=1.3",
     "pyyaml>=6.0",
     "polars>=1.39,!=1.41.0",
+    "psycopg[binary,pool]>=3.3,<4",  # shared PostgreSQL auth/job integration and its real contract test
     "python-docx>=1.1",  # .docx report export (dail_tracker_core/siting/report.py render_docx)
     "weasyprint>=66",    # paged-media PDF (dail_tracker_core/siting/pdf.py) — needs GTK3 native libs:
                          # Windows = winget install tschoonj.GTKForWindows; Linux = apt install libpango-1.0-0
@@ -111,6 +112,9 @@ siting = [
                          # mis-projected as ITM, 2026-07-30) — the runtime layer store stays shapely-only
     "pyshp>=2.3,<4",     # ZIP-only council Shapefiles at INGEST only (for example Dublin City Z15)
     "pyreqwest>=0.12,<0.13",  # SpecPlan HTTP transport: Rust-backed pooled client behind services/http_engine.py
+    "deflate==0.9.0",         # exact bundled libdeflate build for profile-selected deterministic customer ZIPs; no zlib fallback
+    "zlib-ng==1.0.0",         # exact bundled zlib-ng build for profile-selected deterministic reviewer ZIPs; no zlib fallback
+    "pikepdf==10.7.1",        # QPDF-backed private PDF-pack assembly; pypdf remains the delivery-firewall parser
     # NOTE: siting-native (the bounded PyO3 junction kernel) is deliberately NOT declared here.
     # It lives at planning/product/native/siting_native, which is gitignored — a path source in
     # this PUBLIC pyproject made every `uv` command exit 2 on a clean checkout ("Distribution not
@@ -204,6 +208,7 @@ dev = [
     "responses>=0.25",        # HTTP mocking for tests of services/http_engine.py and API scrapers
     "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
     "hypothesis>=6.100",      # property-based fuzzing of the data_contracts engine (uses polars.testing.parametric)
+    "schemathesis>=4.25",     # OpenAPI contract fuzzing against a RUNNING engine (built on hypothesis). Operator-run, not a pytest case: it needs a live server, and a test that skips without one runs nowhere. Found on its first run that lon/lat publish no bounds in the schema while a field_validator rejects them — the class of gap hand-written tests do not look for.
     "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
     "rumdl>=0.2.60",          # markdown lint (see [tool.rumdl]) — informational only, not in CHECK_TASKS/CI yet
     "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
@@ -374,7 +379,8 @@ known_first_party = [
     "lgas_audit_reports_extract", "ministerial_briefs_extract",
     "noac_collection_rates_extract", "noac_indicators_long_extract",
     "noac_scorecard_extract", "noac_scorecard_history_extract",
-    "opr_plan_directions_extract", "pages_code", "per_member_search", "procurement",
+    "opr_plan_directions_extract", "pages_code", "paper_findings", "per_member_search",
+    "procurement",
     "procurement_etenders_extract", "procurement_hse_tusla_parser",
     "procurement_la_payments_extract", "procurement_la_seed",
     "procurement_payments_consolidate", "procurement_public_body_extract",
@@ -389,6 +395,8 @@ known_first_party = [
     "la_afs_balancesheet_extract", "guard_memory", "harness_bench",
     "check_mcp_adoption", "session_closeout", "docker_gc", "session_context",
     "box_docker_gc",
+    # Streamlit page siblings imported by their focused UI contract tests.
+    "what_they_own", "your_council",
 ]
 
 [tool.deptry.per_rule_ignores]
@@ -434,17 +442,19 @@ DEP004 = ["hypothesis", "pandera", "pytest", "responses"]
 [tool.pytest.ini_options]
 testpaths = ["test"]
 pythonpath = ["."]
+addopts = ["--strict-markers"]
 # Registered so a typo'd marker is an ERROR, not a silently inert decorator. Before this,
 # `integration`/`sources` were unregistered in planning/product and every use emitted a
 # PytestUnknownMarkWarning — a misspelled marker would simply never deselect anything.
 # `layers` is applied AUTOMATICALLY by planning/product/test/conftest.py to any test whose
 # module touches the layer store; it is not hand-applied, so it cannot drift out of date.
 markers = [
-    "integration: needs live network; not run in offline CI",
-    "sources: hits a real upstream source",
+    "integration: needs real local pipeline output or a locally held fixture; not in the default fast lane",
+    "sources: hits a real upstream source; not in the deterministic fast lane",
     "sql: needs a SQL/DuckDB fixture",
     "bronze: reads the bronze corpus from disk",
     "layers: loads the ~1 GB siting layer cache (auto-applied; deselect for a fast, low-RAM run)",
+    "slow: timing, thread, or stress check; run explicitly outside the fast lane",
     "crosshair: symbolic-execution check; seconds not milliseconds, deselect for a fast run",
 ]
 

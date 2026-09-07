@@ -352,8 +352,10 @@ The repo CI (`.github/workflows/ci.yml`) already defines the gates this work has
   sandbox scripts must be lint+format clean *before first commit* (today they are not:
   unused `amt_i` in `inspect_hse_tusla.py`, import-sort in `procurement_hse_tusla_parser.py`).
   While iterating, either keep them uncommitted or clean on commit.
-- **`test` job** runs `pytest -m "not integration and not sql and not sources and not bronze"`
-  → **only unmarked, fast, data-free tests run in CI.**
+- **`test` job** runs `pytest -m "not integration and not sql and not sources and not bronze and not layers and not slow and not crosshair"`
+  → **only deterministic, fast, data-free tests run in CI.**
+- **`slow-contracts` job** runs `pytest -m "slow or crosshair"` separately, so timing,
+  stress, and symbolic tests remain covered without delaying the fast lane.
 - **`sql-contracts` job** runs `pytest -m sql` against *committed gold* (asserts a gold
   parquet exists first).
 - **`basedpyright`** is scoped to `services/` + pure-logic modules — `pipeline_sandbox/` is

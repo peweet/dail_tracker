@@ -806,9 +806,9 @@
         "sha256": "94dd34407cdde5fdcff7108475daea43368636a8b6e6d8ca0d607deea871d095"
       },
       {
-        "bytes": 4514,
+        "bytes": 4114,
         "module": "utility/pages_code/your_council.py",
-        "sha256": "b352f4e8aaaa5e00ba0431d01b5679dd40471e6292c9dc9892a86a851f05be92"
+        "sha256": "4a3a0b21c9c69734f5de020c18eb821428acdf7fd11422046bda4950eaec6535"
       },
       {
         "bytes": 207,
@@ -1806,7 +1806,6 @@
       "yc-flow-kicker",
       "yc-flow-stage",
       "yc-flow-sub",
-      "yc-glance-arrow",
       "yc-glance-card",
       "yc-glance-eyebrow",
       "yc-glance-figure",

@@ -1,0 +1,3 @@
+establishment,tier,method,epa_reg_cd,lat,lon,source,verified_date,note
+Gensys Power Ltd.,lower,epa_regcd,P0483,,,HSA register address names Huntstown Power Station; EPA licence P0483 (Huntstown Power Company Limited) is the same site,2026-09-04,town-geocode error measured ~3.3 km (Finglas village vs Huntstown) — production report understated distance ~2.5x at Moyle Rd case study
+ESB Moneypoint,upper,epa_regcd,P0605,,,EPA licence P0605 (Moneypoint Generating Station) is the same site,2026-09-04,name-token join missed (register says ESB Moneypoint; EPA says Electricity Supply Board (Moneypoint))

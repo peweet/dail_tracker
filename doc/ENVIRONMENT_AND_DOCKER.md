@@ -2,7 +2,7 @@
 tier: RUNBOOK
 status: LIVE
 domain: infra
-updated: 2026-08-24
+updated: 2026-08-30
 supersedes: []
 read_when: setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile
 key: RUNBOOK|LIVE|infra
@@ -20,8 +20,8 @@ is not an environment contract.
 | Environment | Owner and contents | Mutation rule |
 | --- | --- | --- |
 | `.uv-envs/public` | Public app, pipeline, API, MCP, and developer tools | Only `tools/dev_env.py sync public` may repair it |
-| `.uv-envs/siting` | Public profile plus the private Siting runtime | Only `tools/dev_env.py sync siting` may repair it |
-| `.uv-envs/siting-ai` | Siting profile plus optional OpenAI SDK, tracing and local tokenizer | Only `tools/dev_env.py sync siting-ai` may repair it |
+| `.uv-envs/siting` | Private deterministic Siting runtime, CI and test groups from `planning/product/uv.lock` | Only `tools/dev_env.py sync siting` may repair it |
+| `.uv-envs/siting-ai` | Root-project Siting model SDK, tracing and local tokenizer | Only `tools/dev_env.py sync siting-ai` may repair it |
 | Isolated verification | Temporary locked public profile | Created by `uv run --isolated`; never changes a persistent environment |
 | Dev container | Linux public profile in `/opt/dail-tracker-env` | Rebuilt from `.devcontainer/`; never reuses the host `.venv` |
 | Scheduled job | A job-specific `UV_PROJECT_ENVIRONMENT` | The job owns its environment; it must not target an editor environment |
@@ -51,11 +51,13 @@ Invoke PowerShell automation with `pwsh -NoProfile -File ...`. Repository jobs
 must not depend on a personal profile, and a profile execution-policy warning
 must not be confused with a Docker or application failure.
 
-Use the Siting profiles only for private work. `siting` keeps deterministic
-planning development free of model transport dependencies; select `siting-ai`
-only for the OpenAI/Claude edge and its local token diagnostics. Switching
-profiles means changing the profile argument, not exact-syncing a different
-package set into the same directory.
+`siting` is the deterministic private-product profile: it resolves
+`planning/product/uv.lock` and keeps model transport dependencies out. `siting-ai`
+remains a separate root-project model-edge profile because the private project does
+not yet declare a corresponding AI group. Do not treat it as a private-lock
+superset; add and lock a private model group before making that claim. Switching
+profiles means changing the profile argument, not exact-syncing a different package
+set into the same directory.
 
 ## Verification
 
@@ -96,7 +98,7 @@ Every one of them reports by default and mutates only when told to.
 | --- | --- | --- | --- |
 | `tools/docker_gc.py` | Windows/WSL2 dev laptop | Report only | `--reclaim`; `--compact` (asks first) |
 | `tools/register_docker_gc_task.ps1` | Windows dev laptop | Registers the weekly task | `-RunNow` starts it immediately |
-| `tools/box_docker_gc.py` | Linux deployment host | Dry run | `--apply` |
+| `tools/box_docker_gc.py` | Linux deployment host | Dry run | `--apply --repository NAME` |
 | `tools/image_registry_footprint.py` | CI, after image push | Inspects and reports | Exits non-zero over `--max-compressed-bytes` |
 
 **`tools/docker_gc.py`** exists because local Docker reached 80 images (104.3GB
@@ -106,7 +108,9 @@ between sessions. `--reclaim` runs three commands judged safe to run unattended:
 
 - `docker image prune -a -f --filter until=24h` — any image, dangling or tagged, that
   no container references and nothing has touched for 24h.
-- `docker builder prune -f --filter until=168h` — build cache older than a week.
+- `docker builder prune --all -f` — all unused build cache after image pruning. An
+  image prune can expose old layers as freshly timestamped cache, so an age filter
+  would preserve the exact stale storage the cleanup is meant to reclaim.
 - `docker volume prune -f` (no `-a`) — anonymous volumes only. A named-but-unused
   volume can hold real data with no container pointing at it, so it is left alone.
 
@@ -136,8 +140,9 @@ exist in no registry, so a blanket prune destroys the ability to roll back, and
 `prune -a` keeps only images backing a running container, which is the wrong
 retention set.
 
-Dry run is the default; `--apply` is required to delete anything. An image any
-container references, running or stopped, is never removed. `--min-age-days`
+Dry run is the default. `--apply` additionally requires one or more exact
+`--repository NAME` scopes, so an invocation cannot broaden into unrelated images.
+An image any container references, running or stopped, is never removed. `--min-age-days`
 (default 3) floors how young an image can be, `--keep` (default 3) holds the newest
 tags per repository as rollback targets, and `--protect` (default `:latest$`) is
 absolute. `--env-file` reads deployment env files and treats every `*IMAGE=` pin as a
@@ -145,6 +150,15 @@ deploy-time dependency — a ref pinned there survives even with no container ru
 it, which is the guard against deleting a pinned image mid-rollback. Every run writes
 a JSON receipt to `--receipt`, so an unattended invocation can be proven to have run
 and to have done what it claimed. `--help` lists the remaining policy flags.
+
+The current and previous deployment env files are mandatory pin sources;
+`--env-file` only adds another source. Both tag pins and `repo@sha256:` pins protect
+their matching local image, and a missing or unreadable pin file stops the run. Global
+cleanup is separate opt-in: `--prune-dangling` and `--prune-cache` are not appropriate
+for the scheduled stale-release-image job. Update the deployed
+`/usr/local/libexec/redline-docker-gc.py` and the source-controlled
+`tools/redline-docker-gc.cron` command together, recording and comparing their SHA-256
+before changing the host.
 
 **`tools/image_registry_footprint.py`** runs in CI after a candidate image is pushed.
 It reads the pushed manifest with `docker buildx imagetools inspect --raw`, sums the

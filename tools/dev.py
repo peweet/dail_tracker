@@ -25,7 +25,12 @@ PYTHON = sys.executable
 # for a cargo-built binary. Resolve the console-script installed alongside PYTHON.
 RUMDL = str(Path(PYTHON).parent / ("rumdl.exe" if os.name == "nt" else "rumdl"))
 UV = shutil.which("uv") or "uv"
-FAST_MARKERS = "not integration and not sql and not sources and not bronze and not layers"
+FAST_MARKERS = (
+    "not integration and not sql and not sources and not bronze and not layers and not slow and not crosshair"
+)
+SLOW_MARKERS = "slow or crosshair"
+INTEGRATION_MARKERS = "integration"
+SOURCES_MARKERS = "sources"
 DEV_PROFILE_ENV = "DAIL_DEV_PROFILE_ACTIVE"
 DEV_PROFILE_ARGS = (
     "--locked",
@@ -74,6 +79,40 @@ TASKS: dict[str, Task] = {
         "Run repository convention ratchets",
         ((PYTHON, "tools/check_conventions.py"),),
     ),
+    # Same script as .githooks/pre-push and ci.yml. It was previously ONLY at those two points, so
+    # a tracked file importing an untracked module surfaced either at push or in CI — or, locally,
+    # after a ~7-minute full-suite run. It costs ~4s; there is no reason to learn this late.
+    "untracked-imports": Task(
+        "Block tracked files importing modules git does not track",
+        ((PYTHON, "tools/check_no_untracked_imports.py"),),
+    ),
+    "private-ip": Task(
+        "Block private engine/product files reaching the public remote",
+        ((PYTHON, "tools/check_no_private_ip.py"),),
+    ),
+    # Compilation proves a file parses and check_dependency_declarations proves its packages are
+    # declared; neither executes an import. This does, in subprocesses with services.runtime_env
+    # imported first so the BLAS-thread cap is preserved.
+    "imports-execute": Task(
+        "Prove every tracked module actually imports (not just parses)",
+        ((PYTHON, "tools/check_imports_execute.py"),),
+    ),
+    "expected-failures": Task(
+        "Check the expected-failures register matches reality",
+        ((PYTHON, "tools/check_expected_failures.py"),),
+    ),
+    # The committed-gold data contract. These run in CI's sql-contracts job and previously had no
+    # local entry point at all, so a silent row/content/match-rate regression in gold was only
+    # discoverable after a push. They cost ~13s together and read committed parquet, so they work
+    # on any clone.
+    "gold-guards": Task(
+        "Gold completeness, content-drift and extraction match-rate guards",
+        (
+            (PYTHON, "tools/check_output_regressions.py", "--strict"),
+            (PYTHON, "tools/check_gold_quality.py", "--strict"),
+            (PYTHON, "tools/check_extraction_quality.py", "--strict"),
+        ),
+    ),
     "mcp-catalog": Task(
         "Check the MCP read-only and always-loaded context budget",
         ((PYTHON, "tools/check_mcp_catalog.py"),),
@@ -115,6 +154,18 @@ TASKS: dict[str, Task] = {
     "test-fast": Task(
         "Run the deterministic, low-memory pytest lane",
         ((PYTHON, "-m", "pytest", "-q", "-m", FAST_MARKERS),),
+    ),
+    "test-slow": Task(
+        "Run the explicit timing, stress, and symbolic-execution pytest lane",
+        ((PYTHON, "-m", "pytest", "-q", "-m", SLOW_MARKERS),),
+    ),
+    "test-integration": Task(
+        "Run local pipeline-output and locally held-fixture pytest contracts",
+        ((PYTHON, "-m", "pytest", "-q", "-m", INTEGRATION_MARKERS),),
+    ),
+    "test-sources": Task(
+        "Run real upstream-source pytest contracts",
+        ((PYTHON, "-m", "pytest", "-q", "-m", SOURCES_MARKERS),),
     ),
     "sql-contracts": Task(
         "Run SQL contracts against committed gold data",
@@ -158,6 +209,7 @@ CHECK_TASKS = (
     "deps",
     "firewall",
     "conventions",
+    "untracked-imports",
     "mcp-catalog",
     "agent-context",
     "ui-contracts",
@@ -166,14 +218,34 @@ CHECK_TASKS = (
     "test-fast",
 )
 
+# `check` is the fast iteration gate. PREFLIGHT is the pre-push/pre-release gate: everything CI
+# will run that can run locally, so a red build is discovered in ~1 minute here instead of after a
+# push. The gap it closes was real — the private-IP guard, the expected-failures register and the
+# three gold data-contract guards existed only in CI or a git hook, so nothing surfaced them during
+# ordinary local work.
+#
+# NOT included, deliberately: CI's `delivery` job (wheel build, API image build, non-root container
+# smoke) and `pytest -m sql`. Those need Docker or a long run; putting them here would make the
+# gate slow enough that people stop running it, which is worse than not having it.
+PREFLIGHT_TASKS = (
+    *CHECK_TASKS,
+    "test-slow",
+    "private-ip",
+    "expected-failures",
+    "imports-execute",
+    "gold-guards",
+)
+
 
 def task_names() -> tuple[str, ...]:
-    return ("verify", "check", *TASKS)
+    return ("verify", "check", "preflight", *TASKS)
 
 
 def commands_for(name: str, extra: tuple[str, ...] = ()) -> tuple[tuple[str, ...], ...]:
     if name == "check":
         return tuple(command for task in CHECK_TASKS for command in TASKS[task].commands)
+    if name == "preflight":
+        return tuple(command for task in PREFLIGHT_TASKS for command in TASKS[task].commands)
     if name not in TASKS:
         raise KeyError(name)
     commands = TASKS[name].commands
@@ -242,7 +314,7 @@ def run_task(name: str, extra: tuple[str, ...] = (), *, dry_run: bool = False) -
         if dry_run:
             continue
         env = None
-        if name == "sql-contracts":
+        if name in {"sql-contracts", "test-integration"}:
             env = dict(os.environ, DAIL_INTEGRATION_TESTS="1")
         completed = subprocess.run(command, cwd=ROOT, env=env)
         if completed.returncode:

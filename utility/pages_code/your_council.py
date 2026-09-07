@@ -103,6 +103,8 @@ def _go(council: str | None = None, *, section: str | None = None) -> None:
     """Navigate to the council hub (or the index when ``council`` is None), optionally landing on a
     section. Clears drill keys so a leaf's Back returns to clean hub state."""
     st.query_params.clear()
+    if council is None:
+        st.session_state.pop("yc_index_council", None)
     if council:
         st.query_params["council"] = council
     if section:
@@ -144,13 +146,21 @@ def _spend_scale(s) -> float:
     return -2.0
 
 
+def _render_council_picker(councils: list[str]) -> None:
+    """The first action: find a council without scrolling through orientation material."""
+    selected = st.selectbox(
+        "Choose your council",
+        councils,
+        index=None,
+        placeholder="Search by county or city council…",
+        key="yc_index_council",
+    )
+    if selected:
+        _go(selected)
+
+
 def _render_how_councils_work() -> None:
-    """Plain-language power model at the index level (display-only static markup). Who really
-    decides what in a council is the single most misunderstood thing about local government, and
-    until now it lived three clicks deep inside a council dossier. Surfaced here so every visitor
-    reads it before picking a council. Reuses the reserved-vs-executive framing / CSS of the
-    per-council explainer; no data, no logic."""
-    subsection_heading("How your council works — who really holds power")
+    """Plain-language power model for readers who choose the optional explainer."""
     st.html(
         '<p class="con-section-note">Two people run every council. The <strong>councillors you '
         "elect</strong> hold only a short list of <strong>reserved functions</strong> — adopt the "
@@ -190,13 +200,6 @@ def _render_index() -> None:
         dek="Your county or city council in one place — who runs it (the appointed Chief Executive), "
         "the councillors you elect, and what it spends. Pick a council.",
     )
-    # The power model up front (not three clicks deep): who really decides what in local government.
-    _render_how_councils_work()
-    # Clickable national map first (the visual entry point) — reuses the local_government choropleth,
-    # linking each council to this page's ?council= dossier. Degrades silently to the cards if the
-    # map geometry/layers aren't available.
-    _render_choropleth(link_key="council")
-
     res = fetch_chief_executives_result()
     if not res.ok or res.data.empty:
         empty_state(
@@ -206,6 +209,8 @@ def _render_index() -> None:
         return
     summ = fetch_council_summary_result()
     srows = {str(r["council"]): r for _, r in summ.data.iterrows()} if summ.ok and not summ.data.empty else {}
+
+    _render_council_picker(sorted(res.data["local_authority"].dropna().astype(str).unique().tolist()))
 
     # Bucket the 31 councils into province bands (North->South). province comes from the summary row;
     # the 4 councils with no spending row fall back to the fixed geography map.
@@ -239,6 +244,11 @@ def _render_index() -> None:
                 )
             )
         st.html(f'<div class="con-card-grid">{"".join(cards)}</div>')
+
+    with st.expander("How does local council power work?", expanded=False):
+        _render_how_councils_work()
+    with st.expander("Find a council on the map", expanded=False):
+        _render_choropleth(link_key="council")
 
 
 # ── the three sections ────────────────────────────────────────────────────────
@@ -829,24 +839,15 @@ def _spend_glance_sub(summ) -> str:
     return "No machine-readable spending we can read yet"
 
 
-def _glance_card(
-    council: str, section: str, kicker: str, figure: str, sub: str, accent: str, *, preview: bool = False
-) -> str:
-    """One whole-card-clickable summary tile — a solid bordered card showing the
-    firmest fact a concern publishes, with a left accent stripe. Clicking opens that
-    section's deep dive (via the consumable ?yc= param). Display only: every figure
-    arrives pre-computed from a registered view."""
+def _glance_card(kicker: str, figure: str, sub: str, accent: str, *, preview: bool = False) -> str:
+    """One plain-language summary tile before the single section selector."""
     badge = _GLANCE_PREVIEW_BADGE if preview else ""
-    href = f"?council={quote(council)}&yc={quote(section)}"
     return (
-        f'<a class="yc-glance-card" href="{_h(href)}" target="_self" '
-        f'aria-label="Open the {_h(section)} section for {_h(council)}" '
-        f'style="--yc-accent:{accent}">'
+        f'<div class="yc-glance-card" style="--yc-accent:{accent}">'
         f'<span class="yc-glance-eyebrow">{_h(kicker)}{badge}</span>'
         f'<span class="yc-glance-figure">{_h(figure)}</span>'
         f'<span class="yc-glance-sub">{_h(sub)}</span>'
-        '<span class="yc-glance-arrow" aria-hidden="true">→</span>'
-        "</a>"
+        "</div>"
     )
 
 
@@ -863,10 +864,8 @@ _GLANCE_CSS = """
   position: relative; display: flex; flex-direction: column; gap: 0.22rem;
   background: #fff; border: 1px solid rgba(0,0,0,0.08);
   border-left: 4px solid var(--yc-accent, #16243a); border-radius: 8px;
-  padding: 0.75rem 1.9rem 0.8rem 0.95rem; text-decoration: none;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: box-shadow .15s, transform .15s;
+  padding: 0.75rem 0.95rem 0.8rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
-.yc-glance-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.12); transform: translateY(-1px); }
 .yc-glance-eyebrow {
   font-size: 0.64rem; letter-spacing: 0.07em; text-transform: uppercase;
   color: var(--text-meta, #6b7280); font-weight: 700;
@@ -875,11 +874,6 @@ _GLANCE_CSS = """
   font-size: 1.18rem; font-weight: 700; color: #16243a; line-height: 1.18;
 }
 .yc-glance-sub { font-size: 0.8rem; color: var(--text-secondary, #555); line-height: 1.3; }
-.yc-glance-arrow {
-  position: absolute; right: 0.85rem; top: 0.7rem; color: var(--yc-accent, #16243a);
-  font-size: 1.05rem; transition: transform .15s;
-}
-.yc-glance-card:hover .yc-glance-arrow { transform: translateX(3px); }
 </style>
 """
 
@@ -915,15 +909,13 @@ def _render_glance(council: str, ce_nm: str, head_title: str, summ) -> None:
     subsection_heading("At a glance")
     cards = [
         _glance_card(
-            council,
-            "Who runs it",
             "Who runs it",
             ce_nm or "—",
             f"{head_title or 'Chief Executive'} — appointed, not elected",
             "#16243a",
         ),
-        _glance_card(council, "Spending", "Spending", _spend_headline(summ), _spend_glance_sub(summ), "#3d719c"),
-        _glance_card(council, "Your councillors", "Your councillors", *_councillor_glance(council), "#3a6b7e"),
+        _glance_card("Spending", _spend_headline(summ), _spend_glance_sub(summ), "#3d719c"),
+        _glance_card("Your councillors", *_councillor_glance(council), "#3a6b7e"),
     ]
     st.html(f'{_GLANCE_CSS}<div class="yc-glance-grid">{"".join(cards)}</div>')
 
@@ -932,8 +924,7 @@ def _render_glance(council: str, ce_nm: str, head_title: str, summ) -> None:
 def _render_hub(council: str) -> None:
     if back_button("← All councils", key="yc_hub_back"):
         _go()
-    # A glance-card deep link (?yc=Spending) opens that section once, then is consumed
-    # so the switcher below stays in control on subsequent interactions.
+    # Keep valid external ?yc= section links, then let the selector own subsequent navigation.
     yc = st.query_params.get("yc")
     if yc:
         if yc in _SECTIONS:
@@ -961,9 +952,7 @@ def _render_hub(council: str) -> None:
     # The gist of all three concerns, before any switcher.
     _render_glance(council, ce_nm, head_title, summ)
 
-    # Deep dive: open one concern in full. Seed once so the segmented control and the
-    # glance cards both drive the same session-persisted selection (passing both a
-    # default= and a session_state value to a keyed widget would warn).
+    # Deep dive: the one selector is the single owner of section navigation.
     st.html('<hr style="border:none;border-top:1px solid rgba(0,0,0,0.1);margin:1.5rem 0 1rem">')
     subsection_heading("Explore in detail")
     if st.session_state.get("yc_section") not in _SECTIONS:

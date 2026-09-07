@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-08-24
+updated: 2026-08-30
 supersedes: []
 read_when: configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -22,12 +22,15 @@ The repository contains two applications with different model boundaries.
 
 ## Siting language tier
 
-Install the private engine and optional OpenAI transport without adding either to Dáil Tracker's
-deployed runtime:
+Install the root-project OpenAI transport without adding it to Dáil Tracker's deployed runtime:
 
 ```powershell
 py -3.12 tools/dev_env.py sync siting-ai
 ```
+
+This supplies the optional SDK/tokenizer edge only. Run `sync siting` separately for the
+deterministic private engine; until `planning/product` declares and locks an AI group,
+`siting-ai` is not a private-lock-backed full Siting environment.
 
 Set the standard OpenAI API key outside source control, then choose the provider:
 

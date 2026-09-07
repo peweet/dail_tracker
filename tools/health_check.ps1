@@ -121,7 +121,7 @@ if ($uv) { Invoke-Stage CODE 'uv.lock in sync' @('uv', 'lock', '--check') -Gatin
 else { Invoke-Stage CODE 'uv.lock in sync' @() -Gating -Skip -SkipReason 'uv not found' }
 Invoke-Stage CODE 'logic firewall'    (@(Py) + @('tools/check_streamlit_logic_firewall.py')) -Gating
 Invoke-Stage CODE 'basedpyright'      (@(Tool 'basedpyright'))   -Gating -Skip:$Fast -SkipReason '-Fast'
-Invoke-Stage CODE 'pytest (CI subset)' (@(Tool 'pytest') + @('-q', '-m', 'not integration and not sql and not sources and not bronze')) -Gating -Skip:$Fast -SkipReason '-Fast'
+Invoke-Stage CODE 'pytest (CI subset)' (@(Tool 'pytest') + @('-q', '-m', 'not integration and not sql and not sources and not bronze and not layers and not slow and not crosshair')) -Gating -Skip:$Fast -SkipReason '-Fast'
 
 # ---- DATA: drift + sql contracts -------------------------------------------------------------
 Write-Host "`n[DATA]" -ForegroundColor Yellow

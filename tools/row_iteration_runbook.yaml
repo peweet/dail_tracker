@@ -1,0 +1,116 @@
+# Deterministic runbook for the polars row-iteration anti-pattern.
+#
+# THE RULE (owner-set 2026-08-30, deliberately arbitrary rather than empirical): row-materialising
+# calls -- iter_rows / to_dicts / rows -- and per-row Python callbacks -- map_elements / apply --
+# are permitted ONLY on a frame bounded to <= row_threshold rows. Above that they are an
+# anti-pattern to ELIMINATE, not to tune.
+#
+# WHY A LINE AND NOT A JUDGEMENT: a per-site "this one is fine because it is a group-by" argument
+# is unenforceable and has to be re-made at every review. A row count is machine-checkable.
+#
+# WHY ELIMINATE RATHER THAN TUNE (measured 2026-08-30, 200,000 rows -> 200,000 dataclasses,
+# alternating order, median of 5, outputs asserted equal): iter_rows(named=True) 543.4ms /
+# to_dicts() 507.1ms / iter_rows() tuples 342.0ms / zip(col.to_list()) 305.2ms. The BEST idiom is
+# only 1.78x, because Python object construction is the floor. Swapping the iteration style is
+# near-worthless; the win comes from never materialising a row (tier 1).
+#
+# EVERY entry is proved by tools/row_iteration_ab.py, which refuses to report a speedup unless the
+# candidate output is BYTE-IDENTICAL to the baseline (Arrow IPC bytes, not just __eq__).
+#
+#   python tools/scan_row_iteration.py          # inventory the repo
+#   python tools/row_iteration_ab.py            # prove every migrated entry, byte-for-byte
+#   python tools/row_iteration_ab.py --id X     # one entry
+
+version: 1
+
+policy:
+  row_threshold: 100000          # owner-set 2026-08-30; not derived from a benchmark
+  # Exempt BY CONSTRUCTION, because the row count cannot exceed the threshold:
+  exempt_when:
+    - group_by / value_counts result   # one row per category, bounded by cardinality
+    - head(n) / limit(n) slice         # bounded by n
+    - unique() on a low-cardinality key
+    - receiver is not a polars frame   # openpyxl worksheets share the iter_rows name
+  # Tier 1 = the work becomes columnar and no Python row is built. 15-40x measured.
+  # Tier 2 = the boundary genuinely needs N Python objects. 1.78x ceiling; cut ROWS, not style.
+
+equality:
+  # "byte-identical" means the serialized Arrow IPC bytes of the two results match. A dataframe
+  # __eq__ can pass while dtype or null-mask differ, and those reach disk.
+  mode: arrow_ipc_bytes
+  # Timing is only reported AFTER equality passes. A fast wrong answer is a failure.
+  on_mismatch: fail
+
+benchmark:
+  repeats: 5
+  alternate_order: true            # a fixed A-then-B order measures the order, not the code
+  statistic: median
+  # The baseline must replicate the incumbent FAITHFULLY, including expensive steps. A baseline
+  # doing less work than production once inverted a conclusion in this repo.
+
+candidates:
+  - id: procurement_contains_dynamic
+    file: extractors/procurement_award_payment_candidates.py
+    symbol: _contains_dynamic
+    tier: 1
+    status: migrated
+    replacement: pl.col(h).str.contains(pl.col(n), literal=True)
+    scale: join product of a 401,624-row payments fact
+    notes: literal=True is load-bearing; a regex read changes matching semantics, not just speed.
+
+  - id: procurement_has_dynamic_token
+    file: extractors/procurement_award_payment_candidates.py
+    symbol: _has_dynamic_token
+    tier: 1
+    status: migrated
+    replacement: pl.col(t).list.contains(pl.col(n))
+    scale: join product of a 401,624-row payments fact
+    notes: exact list membership; substring matching here would reintroduce tender-ID collisions.
+
+  - id: legal_diary_parties_unique
+    file: extractors/legal_diary_openview_extract.py
+    symbol: build_cases
+    tier: 1
+    status: migrated
+    replacement: compute parties() per DISTINCT raw_case, then join back
+    scale: 785,897 gold rows over 12,290 distinct case titles (63.95x repetition)
+    notes: >
+      parties() cannot be vectorised (splits, anonymises per segment, classifies), so uniquing is
+      the only lever. The join key is the UNREDACTED raw_case and must not outlive the expression.
+
+  - id: object_construction_idioms
+    file: tools/row_iteration_probes.py
+    symbol: reference_only
+    tier: 2
+    status: reference
+    replacement: zip(col.to_list()) instead of iter_rows(named=True)
+    scale: synthetic, 200k rows
+    notes: >
+      Not a migration - the standing evidence for the 1.78x tier-2 ceiling. Kept in the runbook so
+      the ceiling is re-measured on this box whenever the harness runs, rather than trusted.
+
+  - id: procurement_strip_leading_ref
+    file: extractors/procurement_payments_consolidate.py
+    symbol: _strip_leading_ref
+    tier: 1
+    status: migrated
+    helper: services.frame_ops.map_unique
+    measured_speedup: 6.13
+    replacement: compute per DISTINCT supplier_raw, join back
+    scale: 401,624 payment rows over 40,526 distinct suppliers (9.9x repetition)
+    notes: >
+      Pure deterministic function of one column, too branchy to express columnar, so uniquing is
+      the lever. Money-grain file: the transform must stay value-identical, never re-derived.
+
+  - id: procurement_canon_spend_category
+    file: extractors/procurement_payments_consolidate.py
+    symbol: canon_spend_category
+    tier: 1
+    status: migrated
+    helper: services.frame_ops.map_unique
+    measured_speedup: 10.41
+    replacement: compute per DISTINCT description, join back
+    scale: 401,624 payment rows over 33,484 distinct descriptions (12.0x repetition)
+    notes: >
+      Same shape as _strip_leading_ref. canon_spend_category is already unit-tested as a pure
+      function, which is what makes the per-distinct rewrite provably equivalent.

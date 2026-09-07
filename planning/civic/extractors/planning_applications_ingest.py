@@ -23,21 +23,33 @@ Gotchas baked in (project_planning_arcgis_validation / reference_geometry_valida
   - Out-of-bounds coords aren't fixed by make_valid -> detect + quarantine (geo_in_bounds flag).
 """
 
+# Runtime import intentionally precedes Polars; native thread caps are load-order sensitive.
+# ruff: noqa: I001
+
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import logging
+import re
+import tempfile
 from pathlib import Path
+
+# Keep runtime caps ahead of Polars/Shapely native imports.
+import services.runtime_env as _runtime_env  # noqa: F401
 
 import polars as pl
 import shapely
+from shapely.errors import ShapelyError
 from shapely.geometry import shape
 
+from planning.civic.acquisition import AcquisitionError, ArcGISStagedCollector
 from services.coverage_io import save_coverage
+from services.extract_runner import run_extractor
+from services.geometry import polygonal_geometries
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
-from services.parquet_io import save_parquet
 
 LOG = logging.getLogger("planning_applications_ingest")
 
@@ -106,6 +118,12 @@ def _query(layer_url: str = L0, **params) -> dict:
     return response
 
 
+def _arcgis_request(url: str, params: dict) -> dict:
+    """Injected collector seam: metadata URLs and /query URLs are both exact."""
+    response, _ = fetch_json(url, params=params, headers=_HEADERS, timeout=120)
+    return response
+
+
 def fetch(where: str, max_pages: int | None) -> list[dict]:
     """Paginated geometry pull. Returns list of {attributes..., lon, lat}."""
     rows: list[dict] = []
@@ -140,13 +158,27 @@ def fetch(where: str, max_pages: int | None) -> list[dict]:
     return rows
 
 
+# What `shapely.geometry.shape()` ACTUALLY raises on a malformed GeoJSON geometry. Until
+# 2026-08-29 this was `(TypeError, ValueError)`, which catches only ONE of the four shapes below —
+# so a single malformed feature aborted the whole national ingest instead of being counted
+# `unreadable` and skipped, which is what the reason code exists for. Verified against the
+# installed shapely: GeometryTypeError subclasses ShapelyError, NOT ValueError.
+#   {"type": "NotAThing", ...}        -> GeometryTypeError   (was uncaught)
+#   {"type": "Polygon"}               -> KeyError            (was uncaught, no "coordinates")
+#   {"coordinates": [...]}            -> AttributeError      (was uncaught, no "type")
+#   {"type": "Polygon", "coords": "x"} -> ValueError          (the only one caught before)
+# Deliberately an explicit tuple rather than a bare `except Exception`: a MemoryError or a
+# KeyboardInterrupt mid-fetch must still stop the run, not be recorded as a bad polygon.
+_UNREADABLE_GEOMETRY = (TypeError, ValueError, KeyError, AttributeError, ShapelyError)
+
+
 def _polygonal_geometry(value: dict | None):
     """Return valid polygonal WGS84 geometry or ``None``; never promote other geometry types."""
     if not value:
         return None, "empty"
     try:
         geometry = shape(value)
-    except (TypeError, ValueError):
+    except _UNREADABLE_GEOMETRY:
         return None, "unreadable"
     if geometry.is_empty:
         return None, "empty"
@@ -190,22 +222,26 @@ def fetch_sites(where: str, max_pages: int | None) -> tuple[list[dict], dict[str
         features = response.get("features", [])
         if not features:
             break
-        for feature in features:
-            geometry, reason = _polygonal_geometry(feature.get("geometry"))
-            reasons[reason] = reasons.get(reason, 0) + 1
-            if geometry is None:
+        # One DuckDB pass for the whole page rather than one shapely call per feature — see
+        # services/geometry.py. The reason histogram below is byte-identical to the per-feature
+        # version's (pinned by tools/geometry_differential.py); it is provenance, written to the
+        # coverage JSON, so a change in it is a regression, not a detail.
+        parsed = polygonal_geometries([feature.get("geometry") for feature in features], ireland_bbox=IRELAND_BBOX)
+        for feature, result in zip(features, parsed, strict=True):
+            reasons[result.reason] = reasons.get(result.reason, 0) + 1
+            if result.wkb is None:
                 continue
             properties = feature.get("properties") or {}
-            minx, miny, maxx, maxy = geometry.bounds
+            minx, miny, maxx, maxy = result.bounds
             row = {field: properties.get(field) for field in SITE_FIELDS}
             row.update(
                 {
-                    "wkb": shapely.to_wkb(geometry),
+                    "wkb": result.wkb,
                     "bbox_minx": minx,
                     "bbox_miny": miny,
                     "bbox_maxx": maxx,
                     "bbox_maxy": maxy,
-                    "geometry_repaired": reason == "repaired",
+                    "geometry_repaired": result.reason == "repaired",
                     "source_layer_url": L1,
                     "source_licence": "CC BY 4.0",
                     "source_checked_date": dt.date.today(),
@@ -526,117 +562,280 @@ def transform(rows: list[dict]) -> pl.DataFrame:
     return df
 
 
+_POINT_REQUIRED_FIELDS = (
+    "Decision",
+    "ApplicationStatus",
+    "ApplicationType",
+    "OneOffHouse",
+    "OneOffKPI",
+    "FloorArea",
+    "AreaofSite",
+)
+
+
+def _adapt_point_page(features: list[dict], object_id_field: str) -> list[dict]:
+    """Convert one ArcGIS JSON page while discarding transport/identity fields."""
+    rows = []
+    for feature in features:
+        attrs = dict(feature.get("attributes") or feature.get("properties") or {})
+        attrs.pop(object_id_field, None)
+        for column in DROP_COLS:
+            attrs.pop(column, None)
+        geometry = feature.get("geometry") or {}
+        attrs["lon"] = geometry.get("x")
+        attrs["lat"] = geometry.get("y")
+        for column in _POINT_REQUIRED_FIELDS:
+            attrs.setdefault(column, None)
+        rows.append(attrs)
+    return rows
+
+
+def _adapt_site_page(features: list[dict], object_id_field: str) -> tuple[list[dict], dict[str, int]]:
+    """Retain published polygon geometry and provenance from one GeoJSON page."""
+    reasons: dict[str, int] = {}
+    parsed = polygonal_geometries([feature.get("geometry") for feature in features], ireland_bbox=IRELAND_BBOX)
+    rows: list[dict] = []
+    for feature, result in zip(features, parsed, strict=True):
+        reasons[result.reason] = reasons.get(result.reason, 0) + 1
+        if result.wkb is None:
+            continue
+        properties = dict(feature.get("properties") or feature.get("attributes") or {})
+        properties.pop(object_id_field, None)
+        minx, miny, maxx, maxy = result.bounds
+        row = {field: properties.get(field) for field in SITE_FIELDS}
+        row.update(
+            {
+                "wkb": result.wkb,
+                "bbox_minx": minx,
+                "bbox_miny": miny,
+                "bbox_maxx": maxx,
+                "bbox_maxy": maxy,
+                "geometry_repaired": result.reason == "repaired",
+                "source_layer_url": L1,
+                "source_licence": "CC BY 4.0",
+                "source_checked_date": dt.date.today(),
+            }
+        )
+        rows.append(row)
+    return rows, reasons
+
+
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be positive")
+    return parsed
+
+
+def _safe_slug(authority: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", authority.lower()).strip("_")
+    return slug or "authority"
+
+
+def _source_where(authority: str | None) -> str:
+    if authority is None:
+        return "1=1"
+    return "PlanningAuthority='" + authority.replace("'", "''") + "'"
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _existing_authority_counts(path: Path, authority: str | None = None) -> dict[str, int]:
+    if not path.exists():
+        return {}
+    frame = pl.read_parquet(path, columns=["PlanningAuthority"])
+    if authority is not None:
+        frame = frame.filter(pl.col("PlanningAuthority") == authority)
+    return _counts_by_authority(frame)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--authority", help="single PlanningAuthority (smoke test), else national")
-    ap.add_argument("--max-pages", type=int, default=None, help="cap pages (smoke test)")
+    ap.add_argument(
+        "--max-pages", type=_positive_int, default=None, help="collection budget; incomplete runs do not publish"
+    )
+    ap.add_argument("--checkpoint-dir", type=Path, help="SQLite/parquet checkpoint directory")
+    ap.add_argument("--resume", action="store_true", help="resume an existing checkpoint")
+    ap.add_argument("--page-size", type=_positive_int, default=PAGE, help="bounded OBJECTID page size")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--points-only", action="store_true", help="refresh Layer 0 without Layer 1")
     mode.add_argument("--sites-only", action="store_true", help="refresh Layer 1 without Layer 0")
     args = ap.parse_args()
 
     setup_standalone_logging("planning_applications_ingest")
+    started_utc = dt.datetime.now(dt.UTC).isoformat()
     OUT.mkdir(parents=True, exist_ok=True)
-
-    if args.authority:
-        where = f"PlanningAuthority='{args.authority}'"
-        live = _query(L0, where=where, returnCountOnly="true").get("count")
-        LOG.info("SMOKE TEST authority=%s | live count=%s", args.authority, live)
-        slug = args.authority.lower().replace(" ", "_")
-        out_name = f"planning_applications_{slug}.parquet"
-        site_out_name = f"planning_application_sites_{slug}.parquet"
-        coverage_name = f"planning_application_sites_{slug}_coverage.json"
-    else:
-        where = "1=1"
-        live = _query(L0, where=where, returnCountOnly="true").get("count")
-        LOG.info("NATIONAL sweep | live count=%s", live)
-        out_name = "planning_applications_silver.parquet"
-        site_out_name = "planning_application_sites.parquet"
-        coverage_name = "planning_application_sites_coverage.json"
-
-    point_counts: dict[str, int] = {}
-    if not args.sites_only:
-        rows = fetch(where, args.max_pages)
-        df = transform(rows)
-        n = df.height
-        LOG.info("rows pulled=%d (live reported=%s)", n, live)
-        if live and not args.max_pages:
-            assert abs(n - int(live)) <= max(5, int(live) * 0.001), f"row-count drift: {n} vs {live}"
-        geo_ok = df["geo_in_bounds"].sum()
-        LOG.info("decision_normalised: %s", df["decision_normalised"].value_counts(sort=True).to_dicts())
-        LOG.info(
-            "application_type_normalised: %s", df["application_type_normalised"].value_counts(sort=True).to_dicts()
-        )
-        LOG.info(
-            "one-off houses: %d/%d (%.1f%%)", df["is_one_off_house"].sum(), n, 100 * df["is_one_off_house"].sum() / n
-        )
-        flagged = df.filter(pl.col("dq_flags").list.len() > 0).height
-        flag_breakdown = (
-            df.select(pl.col("dq_flags").explode()).drop_nulls().to_series().value_counts(sort=True).head(12).to_dicts()
-        )
-        LOG.info("geo_in_bounds: %d/%d | rows with dq_flags: %d | breakdown: %s", geo_ok, n, flagged, flag_breakdown)
-        point_counts = _counts_by_authority(df)
-        dest = save_parquet(df, OUT / out_name)
-        LOG.info("wrote %s (%d rows, %d cols)", dest, df.height, df.width)
-        print(f"OK points: {dest} | {df.height} rows | geo_in_bounds {geo_ok}/{n}")
-    elif (OUT / "planning_applications_silver.parquet").exists():
-        existing = pl.read_parquet(OUT / "planning_applications_silver.parquet", columns=["PlanningAuthority"])
-        if args.authority:
-            existing = existing.filter(pl.col("PlanningAuthority") == args.authority)
-        point_counts = _counts_by_authority(existing)
-
-    if args.points_only:
-        return
-
-    live_sites = _query(L1, where=where, returnCountOnly="true").get("count")
-    site_rows, reasons = fetch_sites(where, args.max_pages)
-    sites = transform_sites(site_rows)
-    pulled = sum(reasons.values())
-    if live_sites and not args.max_pages:
-        assert abs(pulled - int(live_sites)) <= max(5, int(live_sites) * 0.001), (
-            f"site row-count drift: {pulled} vs {live_sites}"
-        )
-    minimum = 450_000 if not args.authority and not args.max_pages else None
-    site_dest = save_parquet(
-        sites,
-        OUT / site_out_name,
-        min_rows=minimum,
-        compression_level=9,
-        geoparquet=True,
-        source_crs="EPSG:4326_XY",
+    OUT_META.mkdir(parents=True, exist_ok=True)
+    if args.resume and args.checkpoint_dir is None:
+        ap.error("--resume requires --checkpoint-dir")
+    checkpoint = args.checkpoint_dir or Path(tempfile.mkdtemp(prefix="dail-planning-", dir=str(OUT)))
+    where = _source_where(args.authority)
+    slug = _safe_slug(args.authority) if args.authority else None
+    out_name = f"planning_applications_{slug}.parquet" if slug else "planning_applications_silver.parquet"
+    site_out_name = f"planning_application_sites_{slug}.parquet" if slug else "planning_application_sites.parquet"
+    coverage_name = (
+        f"planning_application_sites_{slug}_coverage.json" if slug else "planning_application_sites_coverage.json"
     )
-    site_counts = _counts_by_authority(sites)
-    authorities = []
-    for authority in sorted(set(point_counts) | set(site_counts)):
-        point_count = point_counts.get(authority, 0)
-        polygon_count = site_counts.get(authority, 0)
-        authorities.append(
-            {
-                "planning_authority": authority,
-                "point_rows": point_count,
-                "polygon_rows": polygon_count,
-                "polygon_point_ratio": round(polygon_count / point_count, 4) if point_count else None,
-            }
+    request = _arcgis_request
+    results = []
+    with ArcGISStagedCollector(
+        request,
+        checkpoint,
+        resume=args.resume,
+        page_size=args.page_size,
+        max_pages=args.max_pages,
+    ) as collector:
+        if not args.sites_only:
+            results.append(
+                collector.collect_layer(
+                    L0,
+                    where=where,
+                    layer_name="points",
+                    adapt_page=_adapt_point_page,
+                    drop_cols=DROP_COLS,
+                    transform=transform,
+                    output_params={"f": "json", "outFields": "*"},
+                )
+            )
+        if not args.points_only:
+            results.append(
+                collector.collect_layer(
+                    L1,
+                    where=where,
+                    layer_name="sites",
+                    adapt_page=_adapt_site_page,
+                    drop_cols=DROP_COLS,
+                    transform=transform_sites,
+                    output_params={"f": "geojson", "outFields": ",".join(SITE_FIELDS)},
+                )
+            )
+        if any(not result.complete for result in results):
+            print(f"INCOMPLETE checkpoint: {checkpoint} | rerun with --resume and without --max-pages")
+            return
+        collector.revalidate_layers(results)
+        point_result = next((result for result in results if result.layer_name == "points"), None)
+        site_result = next((result for result in results if result.layer_name == "sites"), None)
+        point_counts = (
+            collector.staged_stats(point_result)[1]
+            if point_result is not None
+            else _existing_authority_counts(
+                OUT / ("planning_applications_silver.parquet" if not slug else out_name), args.authority
+            )
         )
-    coverage = {
-        "schema": "dail-planning-application-sites-coverage/1",
-        "generated_utc": dt.datetime.now(dt.UTC).isoformat(),
-        "source_layer": L1,
-        "source_licence": "CC BY 4.0",
-        "source_geometry_note": (
-            "Published planning-register site geometry; not verified submitted red-line, "
-            "parcel identity, ownership or legal interest."
-        ),
-        "live_polygon_rows": live_sites,
-        "pulled_polygon_rows": pulled,
-        "retained_polygon_rows": sites.height,
-        "geometry_results": reasons,
-        "authorities": authorities,
-    }
-    coverage_dest = save_coverage(coverage, OUT_META / coverage_name)
-    LOG.info("wrote %s (%d rows) and %s", site_dest, sites.height, coverage_dest)
-    print(f"OK sites: {site_dest} | {sites.height} rows | geometry results {reasons}")
+        site_counts = collector.staged_stats(site_result)[1] if site_result is not None else {}
+        if not args.authority:
+            if point_result is not None:
+                old = _existing_authority_counts(OUT / "planning_applications_silver.parquet")
+                new_total, _ = collector.staged_stats(point_result)
+                old_total = sum(old.values())
+                if old_total and new_total < max(1, int(old_total * 0.9)):
+                    raise AcquisitionError(f"point row loss guard: {new_total} below 90% of {old_total}")
+                if set(old) - set(point_counts):
+                    raise AcquisitionError(f"point authority disappearance: {sorted(set(old) - set(point_counts))}")
+            if site_result is not None:
+                site_total, _ = collector.staged_stats(site_result)
+                if site_total < 450_000:
+                    raise AcquisitionError(f"site row floor: {site_total} below 450000")
+                old_sites = _existing_authority_counts(OUT / "planning_application_sites.parquet")
+                if set(old_sites) - set(site_counts):
+                    raise AcquisitionError(f"site authority disappearance: {sorted(set(old_sites) - set(site_counts))}")
+        candidate_dir = checkpoint / "candidates"
+        candidate_dir.mkdir(parents=True, exist_ok=True)
+        point_candidate = candidate_dir / out_name
+        site_candidate = candidate_dir / site_out_name
+        coverage_candidate = candidate_dir / coverage_name
+        if point_result is not None:
+            collector.assemble(point_result, point_candidate)
+        if site_result is not None:
+            collector.assemble(
+                site_result,
+                site_candidate,
+                min_rows=450_000 if not args.authority else None,
+                compression_level=9,
+                geoparquet=True,
+                source_crs="EPSG:4326_XY",
+            )
+            authorities = [
+                {
+                    "planning_authority": authority,
+                    "point_rows": point_counts.get(authority, 0),
+                    "polygon_rows": site_counts.get(authority, 0),
+                    "polygon_point_ratio": round(site_counts.get(authority, 0) / point_counts[authority], 4)
+                    if point_counts.get(authority)
+                    else None,
+                }
+                for authority in sorted(set(point_counts) | set(site_counts))
+            ]
+            coverage = {
+                "schema": "dail-planning-application-sites-coverage/1",
+                "generated_utc": dt.datetime.now(dt.UTC).isoformat(),
+                "source_layer": L1,
+                "source_licence": "CC BY 4.0",
+                "source_geometry_note": "Published planning-register site geometry; not verified submitted red-line, parcel identity, ownership or legal interest.",
+                "live_polygon_rows": site_result.expected_count,
+                "pulled_polygon_rows": site_result.fetched_count,
+                "retained_polygon_rows": site_result.retained_count,
+                "geometry_results": site_result.geometry_reasons,
+                "authorities": authorities,
+            }
+            save_coverage(coverage, coverage_candidate)
+        # Both final artifacts are fully written and validated before either
+        # canonical path is replaced. Cross-file replacement remains a per-file
+        # atomic operation; a process crash between replacements is reported by
+        # the manifest/next run rather than treated as a multi-file transaction.
+        from planning.civic.acquisition import publication_lock
+
+        with publication_lock(OUT / ".planning_applications.publish.lock"):
+            for candidate, destination in (
+                (point_candidate, OUT / out_name),
+                (site_candidate, OUT / site_out_name),
+                (coverage_candidate, OUT_META / coverage_name),
+            ):
+                if candidate.exists():
+                    candidate.replace(destination)
+            artifacts = {}
+            artifact_paths = [OUT / out_name] if point_result is not None else []
+            if site_result is not None:
+                artifact_paths.extend((OUT / site_out_name, OUT_META / coverage_name))
+            for path in artifact_paths:
+                if path.exists():
+                    artifacts[path.name] = {"path": str(path), "sha256": _file_sha256(path)}
+            manifest = {
+                "schema": "dail-planning-acquisition-manifest/1",
+                "started_utc": started_utc,
+                "finished_utc": dt.datetime.now(dt.UTC).isoformat(),
+                "scope": "authority" if args.authority else "national",
+                "authority": args.authority,
+                "layers": [result.layer_name for result in results],
+                "checkpoint_dir": str(checkpoint),
+                "checkpoint_reused_pages": sum(result.reused_pages for result in results),
+                "checkpoint_fetched_pages": sum(result.fetched_pages for result in results),
+                "source_identity": {result.layer_name: result.identity_hash for result in results},
+                "counts": {
+                    "points": point_result.retained_count if point_result else None,
+                    "sites": site_result.retained_count if site_result else None,
+                },
+                "authority_counts": {"points": point_counts, "sites": site_counts},
+                "consistency_limitations": sorted(
+                    {item for result in results for item in result.consistency_limitations}
+                ),
+                "artifacts": artifacts,
+            }
+            manifest_name = (
+                f"planning_applications_{slug}_acquisition_manifest.json"
+                if slug
+                else "planning_applications_acquisition_manifest.json"
+            )
+            save_coverage(manifest, OUT_META / manifest_name)
+            print(f"OK acquisition: {checkpoint} | layers {','.join(result.layer_name for result in results)}")
 
 
 if __name__ == "__main__":
-    main()
+    run_extractor(main)

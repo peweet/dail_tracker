@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 import shapely
 
 from planning.civic.extractors import planning_appeal_outcomes as appeals
@@ -57,6 +58,23 @@ def test_application_site_fetch_retains_wkb_bbox_dates_and_provenance(monkeypatc
     assert row["ETL_DATE"] is not None
     assert row["AreaofSite"] is None
     assert row["source_licence"] == "CC BY 4.0"
+
+
+@pytest.mark.parametrize(
+    ("label", "malformed"),
+    [
+        ("unknown type -> GeometryTypeError", {"type": "NotAThing", "coordinates": "x"}),
+        ("no coordinates -> KeyError", {"type": "Polygon"}),
+        ("no type -> AttributeError", {"coordinates": [[[0, 0], [1, 1], [1, 0], [0, 0]]]}),
+        ("bad coordinates -> ValueError", {"type": "Polygon", "coordinates": "x"}),
+    ],
+)
+def test_malformed_geometry_is_counted_unreadable_not_raised(label, malformed):
+    # Regression, 2026-08-29: the handler caught only (TypeError, ValueError), so three of these
+    # four escaped and aborted the whole national ingest instead of being counted and skipped.
+    # shapely's GeometryTypeError subclasses ShapelyError, not ValueError.
+    geometry, reason = applications._polygonal_geometry(malformed)
+    assert (geometry, reason) == (None, "unreadable"), label
 
 
 def test_geometry_validation_rejects_non_irish_or_non_polygonal_shapes():

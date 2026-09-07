@@ -25,10 +25,11 @@ REPO = Path(__file__).resolve().parents[2]
 
 #: Docker warn thresholds. 25 GB reclaimable is roughly five stale engine-image rebuilds
 #: (each ~5 GB, measured 2026-08-24) — enough to be worth a prune, low enough to catch the
-#: buildup early. 60 GB of vhdx is where the file starts to matter against free space on
-#: this box; the vhdx never shrinks on its own, so it needs its own threshold.
+#: buildup early. The VHDX and host-drive thresholds catch different failure modes: a
+#: comparatively small VHDX can still leave the host volume critically full.
 DOCKER_RECLAIMABLE_WARN_GB = 25.0
 DOCKER_VHDX_WARN_GB = 60.0
+DOCKER_HOST_FREE_WARN_GB = 25.0
 
 
 def _git_branch() -> str:
@@ -448,40 +449,59 @@ def _docker_disk_note() -> str:
     drive with 102GB free — weeks of dev rebuilds nobody was watching between sessions).
 
     Pull, not push: one count line, the detail lives in `python tools/docker_gc.py`.
-    Throttled to once per 12h via a cache file — `docker system df` measured ~250 ms warm
-    on this box, comparable to _session_pressure_note's tasklist, but a cold-starting
-    Docker daemon can hang far longer, so most sessions read the cached numbers instead.
-    Fails open to "" like every note here; Docker being absent is not a status line."""
+    At SessionStart, try the live Docker reading first: a 12-hour-old cache can hide a
+    large rebuild burst. The cache is only a fallback when a cold Docker daemon is
+    unreachable within the bounded probe. Fails open to "" like every note here; Docker
+    being absent is not a status line."""
     cache_path = REPO / "logs" / "docker_disk_cache.json"
     try:
         cached = None
         if cache_path.exists() and time.time() - cache_path.stat().st_mtime < 12 * 3600:
             with contextlib.suppress(Exception):
                 cached = json.loads(cache_path.read_text(encoding="utf-8"))
-        if cached is None:
-            import sys as _sys
+        import sys as _sys
 
-            tools = REPO / "tools"
-            if str(tools) not in _sys.path:
-                _sys.path.insert(0, str(tools))
-            from docker_gc import df_report, vhdx_size_mb  # type: ignore
+        tools = REPO / "tools"
+        if str(tools) not in _sys.path:
+            _sys.path.insert(0, str(tools))
+        from docker_gc import df_report, host_free_mb, vhdx_size_mb  # type: ignore
 
-            rows = df_report(timeout=4.0)
-            if rows is None:
-                return ""  # Docker not running — silence, not a warning
+        rows = df_report(timeout=4.0)
+        if rows is not None:
+            last_vhdx_gb = cached.get("vhdx_gb") if cached is not None else None
+            vhdx_mb = vhdx_size_mb()
             cached = {
                 "reclaimable_gb": sum(r["reclaimable_mb"] for r in rows.values()) / 1024,
-                "vhdx_gb": (vhdx_size_mb() or 0) / 1024,
             }
+            if vhdx_mb is not None:
+                cached["vhdx_gb"] = vhdx_mb / 1024
+            elif last_vhdx_gb is not None:
+                # A missing VHDX probe means unknown, never a 0 GB disk. Keep a recent
+                # last-known value rather than letting a transient probe failure hide it.
+                cached["vhdx_gb"] = last_vhdx_gb
+            host_free_mb_value = host_free_mb()
+            if host_free_mb_value is not None:
+                cached["host_free_gb"] = host_free_mb_value / 1024
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text(json.dumps(cached), encoding="utf-8")
+        elif cached is None:
+            return ""  # Docker not running and no recent reading — silence, not a warning
         reclaimable = float(cached.get("reclaimable_gb", 0))
-        vhdx = float(cached.get("vhdx_gb", 0))
-        if reclaimable < DOCKER_RECLAIMABLE_WARN_GB and vhdx < DOCKER_VHDX_WARN_GB:
+        vhdx_value = cached.get("vhdx_gb")
+        vhdx = float(vhdx_value) if vhdx_value is not None else None
+        host_free = cached.get("host_free_gb")
+        host_free = float(host_free) if host_free is not None else None
+        if (
+            reclaimable < DOCKER_RECLAIMABLE_WARN_GB
+            and (vhdx is None or vhdx < DOCKER_VHDX_WARN_GB)
+            and (host_free is None or host_free >= DOCKER_HOST_FREE_WARN_GB)
+        ):
             return ""
         note = f"docker: {reclaimable:.0f} GB reclaimable"
-        if vhdx >= DOCKER_VHDX_WARN_GB:
+        if vhdx is not None and vhdx >= DOCKER_VHDX_WARN_GB:
             note += f", vhdx {vhdx:.0f} GB on disk"
+        if host_free is not None and host_free < DOCKER_HOST_FREE_WARN_GB:
+            note += f", host drive {host_free:.0f} GB free"
         return note + " — `python tools/dev.py docker-gc` (add --reclaim)"
     except Exception:
         return ""

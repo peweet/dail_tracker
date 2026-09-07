@@ -1,4 +1,4 @@
-# COPIED-FROM: planning/civic/extractors/planning_appeal_outcomes.py @ sha256:e312acefe257bea4dbd7fc56220ed888a74ced9ea8ae774c356458c8abb9839a
+# COPIED-FROM: planning/civic/extractors/planning_appeal_outcomes.py @ sha256:ec5ace357cadb128442961b3aa0471b490d942220bdc6f915143bafa6b80fb4b
 """Mutation target for the current pure outcomes compatibility seam.
 
 The spatial algorithm now lives in planning_appeal_vector.py; this target retains

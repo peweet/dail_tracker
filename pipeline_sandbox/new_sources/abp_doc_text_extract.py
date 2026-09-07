@@ -64,6 +64,7 @@ Licence: doc/source_licensing.md does not exist and no repo doc records pleanala
 Re-use of the APPLICANT's documents (third-party copyright, not ACP's own output) is UNRESOLVED —
 that is why this stays a bounded sandbox extract and nothing here is promotable.
 """
+
 from __future__ import annotations
 
 # isort: off
@@ -78,25 +79,23 @@ import io
 import json
 import math
 import re
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 import fitz  # PyMuPDF — born-digital text first; OCR only where text is genuinely absent
 import polars as pl
-import requests
 
 from pipeline_sandbox.new_sources import _common
 from pipeline_sandbox.new_sources.abp_inspector_reports import scan_flags
-from services.fetch_report import Breaker, FetchReport, classify_body, classify_exception
+from services.fetch_report import Breaker, FetchReport
 from services.http_engine import (
-    RETRY_BACKOFF_BASE,
     RETRY_MAX_ATTEMPTS,
-    RETRY_STATUS_FORCELIST,
     polite_headers,
     session,
 )
 from services.parquet_io import save_parquet
+from services.pdf_acquisition import download_pdf as _shared_download_pdf
+from services.pdf_acquisition import extract_text as _shared_extract_text
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SANDBOX = PROJECT_ROOT / "data" / "_sandbox" / "dail_new_sources"
@@ -259,164 +258,27 @@ def download_pdf(
     max_attempts: int = RETRY_MAX_ATTEMPTS,
     refresh: bool = False,
 ) -> dict:
-    """Stream one PDF to `dest` atomically, under a byte cap and a wall-clock deadline.
-
-    Deliberately NOT services/http_engine.download_file: that helper streams correctly but has no
-    byte cap, and its curl fallback reads the whole body into memory, which re-introduces exactly
-    the RAM risk the streaming leg avoids. This keeps the engine's session, headers and retry
-    constants and owns only the loop. Two transports in one ingest is a real cost — do not "tidy"
-    this back onto _common.fetch, which has no retry and calls r.content.
-
-    `delay` is slept before EVERY attempt, retries included: the retry backoff is a fault-recovery
-    interval, not a politeness interval, and the caller-side sleep this replaced spaced only the
-    first GET of each document. `max_attempts` lets the caller clamp a document to the request
-    budget it has left, so --limit bounds requests rather than documents.
-
-    An already-downloaded `dest` is served from disk with NO request unless `refresh` — that is
-    what makes an OCR back-fill of a retained PDF genuinely offline. `fetched_at` is then the
-    file's mtime, not now, because the bytes were fetched then and not now.
-
-    Returns a dict: ok, error_class, http_status, sha256, bytes, attempts, from_cache, fetched_at,
-    source_last_modified.
-    """
-    out = {
-        "ok": False,
-        "error_class": None,
-        "http_status": None,
-        "sha256": None,
-        "bytes": 0,
-        "attempts": 0,
-        "from_cache": False,
-        "fetched_at": _now_iso(),
-        "source_last_modified": None,
-    }
-    headers = polite_headers(extra={"Accept": "application/pdf,*/*;q=0.8", "Accept-Language": "en-IE,en;q=0.9"})
-    tmp = dest.with_name(dest.name + ".part")
-    dest.parent.mkdir(parents=True, exist_ok=True)
-
-    if dest.exists() and not refresh:
-        # Hashed in chunks, never read whole: an 80 MB body held as bytes is the RAM risk this
-        # whole function is shaped to avoid.
-        digest = hashlib.sha256()
-        total = 0
-        with dest.open("rb") as fh:
-            for chunk in iter(lambda: fh.read(1 << 16), b""):
-                digest.update(chunk)
-                total += len(chunk)
-        out.update(
-            ok=True,
-            sha256=digest.hexdigest(),
-            bytes=total,
-            from_cache=True,
-            fetched_at=datetime.fromtimestamp(dest.stat().st_mtime, UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        )
-        return out
-
-    for attempt in range(1, max_attempts + 1):
-        if delay > 0:
-            time.sleep(delay)  # per REQUEST, retries included — see the docstring
-        out["attempts"] = attempt
-        started = time.monotonic()
-        try:
-            with session.get(url, headers=headers, timeout=TIMEOUTS, stream=True, allow_redirects=True) as r:
-                out["http_status"] = r.status_code
-                if r.status_code in RETRY_STATUS_FORCELIST and attempt < max_attempts:
-                    # The fault-recovery backoff is a LOCAL. Rebinding `delay` here replaced the
-                    # operator's politeness spacing with a server-chosen one for the rest of the
-                    # document: `Retry-After: 0` is a digit string, so it disabled the only brake
-                    # in the stack outright, and with no header `--delay 5` collapsed to 0.5s —
-                    # speeding up exactly when the server signalled distress. The top-of-loop sleep
-                    # already spaces this retry by `delay`, so top up to the longer of the two and
-                    # never sleep both.
-                    retry_after = r.headers.get("retry-after", "")
-                    backoff = float(retry_after) if retry_after.isdigit() else RETRY_BACKOFF_BASE * 2 ** (attempt - 1)
-                    if backoff > delay:
-                        time.sleep(backoff - delay)
-                    continue
-                r.raise_for_status()
-                out["source_last_modified"] = r.headers.get("last-modified")
-                declared = r.headers.get("content-length")
-                if declared and declared.isdigit() and int(declared) > max_bytes:
-                    # Pre-flight refusal: the connection closes without consuming the body.
-                    out["error_class"] = "oversize"
-                    out["bytes"] = int(declared)
-                    return out
-                digest = hashlib.sha256()
-                total = 0
-                head = b""
-                with tmp.open("wb") as fh:
-                    for chunk in r.iter_content(1 << 16):
-                        if not chunk:
-                            continue
-                        total += len(chunk)
-                        if total > max_bytes:  # Content-Length can be absent or lie
-                            out["error_class"] = "oversize"
-                            out["bytes"] = total
-                            tmp.unlink(missing_ok=True)
-                            return out
-                        if time.monotonic() - started > DOWNLOAD_DEADLINE_S:
-                            out["error_class"] = "download_deadline"
-                            tmp.unlink(missing_ok=True)
-                            return out
-                        if len(head) < 2048:
-                            head += chunk[: 2048 - len(head)]
-                        digest.update(chunk)
-                        fh.write(chunk)
-                # A 200 is not a PDF: a WAF interstitial arrives with the same status code.
-                body_class = classify_body(head, expected_magic=b"%PDF")
-                if body_class is not None:
-                    out["error_class"] = body_class
-                    tmp.unlink(missing_ok=True)
-                    return out
-                tmp.replace(dest)
-                out.update(ok=True, sha256=digest.hexdigest(), bytes=total)
-                return out
-        except requests.RequestException as exc:
-            error_class, status = classify_exception(exc)
-            out["error_class"] = error_class
-            out["http_status"] = status if status is not None else out["http_status"]
-            tmp.unlink(missing_ok=True)
-            # Permanent 4xx (403 and 404 stay DISTINCT in the report) never retries.
-            if status is not None and 400 <= status < 500:
-                return out
-            if attempt < max_attempts:
-                time.sleep(RETRY_BACKOFF_BASE * 2 ** (attempt - 1))
-                continue
-            return out
-    # Retry budget spent on 429/5xx: name the status rather than reporting a bare failure.
-    if out["error_class"] is None:
-        out["error_class"] = f"http_{out['http_status']}" if out["http_status"] else "unknown"
-    return out
+    """Compatibility wrapper retaining ABP headers/session/timeout seams."""
+    return _shared_download_pdf(
+        url,
+        dest,
+        max_bytes=max_bytes,
+        delay=delay,
+        max_attempts=max_attempts,
+        refresh=refresh,
+        session=session,
+        headers=polite_headers(extra={"Accept": "application/pdf,*/*;q=0.8", "Accept-Language": "en-IE,en;q=0.9"}),
+        timeouts=TIMEOUTS,
+        deadline_s=DOWNLOAD_DEADLINE_S,
+    )
 
 
 # ---------------------------------------------------------------- extract
 
 
 def extract_text(path: Path, max_pages: int = MAX_PDF_PAGES) -> tuple[str, int, int, int, bool]:
-    """→ (text, page_count, pages_read, image_only_pages, truncated).
-
-    Same rule as abp_inspector_reports.extract_pdf:231-246 — pages joined with a form feed, a page
-    counts as image-only when it carries an image but under 50 characters — with two deliberate
-    differences for this corpus: the file is opened BY PATH (an 80 MB body held as bytes alongside
-    fitz's page cache is the RAM risk here, and that helper takes bytes), and the page walk is
-    capped so a 2,000-page photomontage volume cannot run the box out of memory.
-
-    `pages_read` is returned SEPARATELY from `page_count` because scan_flags divides img_only by
-    the page count it is given: feeding it the untruncated 900 while img_only could only ever
-    reach 400 records is_scanned=False on a fully-scanned volume. The caller passes pages_read to
-    scan_flags and keeps page_count for the row's disclosure column.
-    """
-    with fitz.open(path) as doc:
-        n_pages = doc.page_count
-        take = min(n_pages, max_pages)
-        texts, img_only = [], 0
-        for i in range(take):
-            page = doc[i]
-            t = page.get_text()
-            if len(t.strip()) < 50 and page.get_images():
-                img_only += 1
-            texts.append(t)
-        return "\f".join(texts), n_pages, take, img_only, take < n_pages
+    """Compatibility wrapper for the maintained shared native text extractor."""
+    return _shared_extract_text(path, max_pages)
 
 
 def _winocr_run():
@@ -561,8 +423,12 @@ def save_misses(rows: dict[str, tuple[str, str, int | None]]) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Bounded EIAR-NIS document text extract (fitz first, winocr only where needed)")
-    ap.add_argument("--kind", choices=("scoping", "eiar"), default="scoping", help="which slice of the index (default scoping)")
+    ap = argparse.ArgumentParser(
+        description="Bounded EIAR-NIS document text extract (fitz first, winocr only where needed)"
+    )
+    ap.add_argument(
+        "--kind", choices=("scoping", "eiar"), default="scoping", help="which slice of the index (default scoping)"
+    )
     ap.add_argument(
         "--limit",
         type=int,
@@ -571,10 +437,23 @@ def main() -> None:
         f"costs 1 GET plus up to {RETRY_MAX_ATTEMPTS - 1} retries, all of which spend this budget. "
         "Cached documents and PDFs already on disk are free",
     )
-    ap.add_argument("--force-large", action="store_true", help=f"permit --limit above {MAX_LIMIT}, or --delay below {MIN_DELAY_S}s")
-    ap.add_argument("--max-mb", type=int, default=MAX_DOC_MB, help=f"per-document byte cap in MB (default {MAX_DOC_MB})")
-    ap.add_argument("--delay", type=float, default=DELAY_S, help=f"seconds before EVERY request, retries included (default {DELAY_S}) — the http engine adds none")
-    ap.add_argument("--no-delay", action="store_true", help="required to actually run with --delay 0; prints a warning and removes the only rate limit in the stack")
+    ap.add_argument(
+        "--force-large", action="store_true", help=f"permit --limit above {MAX_LIMIT}, or --delay below {MIN_DELAY_S}s"
+    )
+    ap.add_argument(
+        "--max-mb", type=int, default=MAX_DOC_MB, help=f"per-document byte cap in MB (default {MAX_DOC_MB})"
+    )
+    ap.add_argument(
+        "--delay",
+        type=float,
+        default=DELAY_S,
+        help=f"seconds before EVERY request, retries included (default {DELAY_S}) — the http engine adds none",
+    )
+    ap.add_argument(
+        "--no-delay",
+        action="store_true",
+        help="required to actually run with --delay 0; prints a warning and removes the only rate limit in the stack",
+    )
     ap.add_argument(
         "--ocr-limit",
         type=int,
@@ -583,8 +462,14 @@ def main() -> None:
         "cache hits and on-disk PDFs cost the publisher nothing but rasterising costs RAM here, so "
         "the back-fill needs its own ceiling",
     )
-    ap.add_argument("--no-ocr", action="store_true", help="skip the OCR pass; needs_ocr rows are recorded, not extracted")
-    ap.add_argument("--ocr-only", action="store_true", help="back-fill OCR from RETAINED PDFs only; never enters the fetch branch, so the run is offline")
+    ap.add_argument(
+        "--no-ocr", action="store_true", help="skip the OCR pass; needs_ocr rows are recorded, not extracted"
+    )
+    ap.add_argument(
+        "--ocr-only",
+        action="store_true",
+        help="back-fill OCR from RETAINED PDFs only; never enters the fetch branch, so the run is offline",
+    )
     ap.add_argument("--refresh", action="store_true", help="ignore the text cache and re-fetch/re-extract")
     ap.add_argument("--dry-run", action="store_true", help="report the queue and write nothing; no request is made")
     args = ap.parse_args()
@@ -599,11 +484,15 @@ def main() -> None:
     if args.delay < 0:
         ap.error(f"--delay cannot be negative (got {args.delay}); it is the only rate limit in this stack")
     if args.delay == 0 and not args.no_delay:
-        ap.error("--delay 0 removes the only rate limit against a live public site; pass --no-delay as well if that is deliberate")
+        ap.error(
+            "--delay 0 removes the only rate limit against a live public site; pass --no-delay as well if that is deliberate"
+        )
     if 0 < args.delay < MIN_DELAY_S and not args.force_large:
         ap.error(f"--delay {args.delay} is below the {MIN_DELAY_S}s floor; pass --force-large if that is deliberate")
     if args.delay == 0:
-        print(f"[delay] WARNING: --no-delay — requests will be issued back to back against {PUBLISHER_NAME}. There is no other rate limit.")
+        print(
+            f"[delay] WARNING: --no-delay — requests will be issued back to back against {PUBLISHER_NAME}. There is no other rate limit."
+        )
     if args.ocr_only and args.refresh:
         ap.error("--ocr-only and --refresh contradict: --refresh forces a re-fetch, --ocr-only forbids any request")
     if args.ocr_only and args.no_ocr:
@@ -620,9 +509,13 @@ def main() -> None:
         for u, (_case, error_class, _status) in misses.items()
         if error_class == "http_404" or error_class.startswith("parse_")
     }
-    print(f"[queue] {queue.height} eligible documents  cached_misses={len(misses)} (permanent 404/parse failures skipped: {len(permanent)})")
+    print(
+        f"[queue] {queue.height} eligible documents  cached_misses={len(misses)} (permanent 404/parse failures skipped: {len(permanent)})"
+    )
     if args.dry_run:
-        print(f"[dry-run] would spend at most {args.limit} requests on at most {args.limit} new documents; nothing written, no request made")
+        print(
+            f"[dry-run] would spend at most {args.limit} requests on at most {args.limit} new documents; nothing written, no request made"
+        )
         return
 
     TEXT_CACHE.mkdir(parents=True, exist_ok=True)
@@ -630,13 +523,17 @@ def main() -> None:
     if not args.no_ocr:
         free = _free_mb()
         if free is not None and free < RAM_FLOOR_MB:
-            print(f"[ocr] DISABLED: {free} MB free < {RAM_FLOOR_MB} MB floor — refusing to start rather than dying mid-batch")
+            print(
+                f"[ocr] DISABLED: {free} MB free < {RAM_FLOOR_MB} MB floor — refusing to start rather than dying mid-batch"
+            )
         else:
             try:
                 ocr = _winocr_run()
                 print(f"[ocr] winocr ready (sequential, {OCR_DPI} dpi, <={OCR_MAX_PAGES} pages/doc, free={free} MB)")
             except Exception as exc:  # noqa: BLE001 — a pruned venv is the expected cause, not a bug
-                print(f"[ocr] DISABLED: winocr unavailable ({type(exc).__name__}) — did `uv run --locked` prune the ocr extra?")
+                print(
+                    f"[ocr] DISABLED: winocr unavailable ({type(exc).__name__}) — did `uv run --locked` prune the ocr extra?"
+                )
 
     report = FetchReport("abp_doc_text_extract")
     breaker = Breaker()
@@ -782,7 +679,9 @@ def main() -> None:
                 )
                 if breaker.tripped:
                     print("[breaker] 3 consecutive failures on www.pleanala.ie — stopping the fetch loop")
-                    report.record_breaker_trip(publisher_id=PUBLISHER_ID, publisher_name=PUBLISHER_NAME, files_skipped=0)
+                    report.record_breaker_trip(
+                        publisher_id=PUBLISHER_ID, publisher_name=PUBLISHER_NAME, files_skipped=0
+                    )
                 continue
 
             # -- fitz first
@@ -885,7 +784,9 @@ def main() -> None:
                 "n_pages": meta.get("n_pages"),
                 "n_chars": len(body),
                 "extraction_method": meta.get("extraction_method"),
-                "confidence": "low" if meta.get("extraction_method") == "winocr" else ("high" if len(body) > 2000 else "low"),
+                "confidence": "low"
+                if meta.get("extraction_method") == "winocr"
+                else ("high" if len(body) > 2000 else "low"),
                 # Body text is never written as 'public' — detect-and-quarantine, no redactor exists.
                 "privacy_tier": TIER_WITH_TEXT if body else TIER_INDEX_ONLY,
                 "source_document_hash": meta.get("source_document_hash"),
@@ -914,7 +815,9 @@ def main() -> None:
         f"from_disk={counts['from_disk']} ocr={counts['ocr']} (back-filled offline: {counts['ocr_backfilled']}) "
         f"oversize={counts['oversize']} failed={counts['failed']} skipped_permanent={counts['skipped_permanent']}"
     )
-    print(f"[privacy] rows with >=1 personal-data pattern hit: {counts['privacy_hits']} of {len(rows)} (quarantined for review, not redacted)")
+    print(
+        f"[privacy] rows with >=1 personal-data pattern hit: {counts['privacy_hits']} of {len(rows)} (quarantined for review, not redacted)"
+    )
     if not rows:
         print("[write] no rows this run")
         return

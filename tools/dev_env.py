@@ -26,11 +26,13 @@ import shutil
 import struct
 import subprocess
 import sys
+import sysconfig
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+PRIVATE_SITING_PROJECT = ROOT / "planning" / "product"
 DEFAULT_ENV_ROOT = ROOT / ".uv-envs"
 ENV_ROOT_VAR = "DAIL_ENV_ROOT"
 PROFILE_VAR = "DAIL_ENV_PROFILE"
@@ -39,15 +41,28 @@ UV_EXECUTABLE_VAR = "UV_EXECUTABLE"
 
 @dataclass(frozen=True)
 class Profile:
-    extras: tuple[str, ...]
+    extras: tuple[str, ...] = ()
     groups: tuple[str, ...] = ("dev",)
+    project: Path = ROOT
+    only_groups: bool = False
+    no_install_project: bool = False
 
 
 PROFILES: dict[str, Profile] = {
     "public": Profile(("pipeline", "api", "mcp")),
-    "siting": Profile(("pipeline", "api", "mcp", "siting")),
+    # The private engine has an independent project and lock. Keep its named environment
+    # under the monorepo for operator convenience, but resolve it from that project rather
+    # than from the root package's superficially similar ``siting`` extra.
+    "siting": Profile(
+        groups=("siting-engine", "siting-ci", "siting-test"),
+        project=PRIVATE_SITING_PROJECT,
+        only_groups=True,
+        no_install_project=True,
+    ),
     # Keep the model edge separate: deterministic planning work must not acquire an SDK,
     # tokenizer or API-key-shaped runtime just by selecting the standard Siting profile.
+    # The private project has no corresponding model group yet, so this remains a root-project
+    # profile rather than pretending to be a private-lock superset.
     "siting-ai": Profile(("pipeline", "api", "mcp", "siting", "siting-ai")),
 }
 
@@ -91,9 +106,15 @@ def python_request() -> str:
 
 def uv_profile_args(profile: str) -> tuple[str, ...]:
     spec = PROFILES[profile]
-    args: list[str] = ["--locked", "--python", python_request()]
+    args: list[str] = []
+    if spec.project != ROOT:
+        args.extend(("--project", str(spec.project)))
+    args.extend(("--locked", "--python", python_request()))
+    if spec.no_install_project:
+        args.append("--no-install-project")
+    group_flag = "--only-group" if spec.only_groups else "--group"
     for group in spec.groups:
-        args.extend(("--group", group))
+        args.extend((group_flag, group))
     for extra in spec.extras:
         args.extend(("--extra", extra))
     return tuple(args)
@@ -106,6 +127,16 @@ def profile_environment(profile: str, override: str | Path | None = None) -> dic
     env[PROFILE_VAR] = profile
     env["VIRTUAL_ENV"] = str(path)
     env["PATH"] = str(environment_bin(path)) + os.pathsep + env.get("PATH", "")
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(ROOT) + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
+    if os.name == "nt" and not env.get("PROCESSOR_ARCHITECTURE"):
+        architecture = {
+            "win-amd64": "AMD64",
+            "win-arm64": "ARM64",
+            "win32": "x86",
+        }.get(sysconfig.get_platform().lower())
+        if architecture:
+            env["PROCESSOR_ARCHITECTURE"] = architecture
     env.setdefault("PYTHONUTF8", "1")
     env.setdefault("PYTHONIOENCODING", "utf-8")
     return env
@@ -249,6 +280,37 @@ def _environment_probe(python: Path) -> tuple[int, dict[str, object] | None, str
         return 1, None, f"invalid interpreter probe output: {result.stdout!r}"
 
 
+def _dependency_check(
+    profile: str,
+    python: Path,
+    *,
+    env_root: str | Path | None = None,
+    no_cache: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    """Check the selected environment without assuming its lock installs ``pip``."""
+
+    uv = uv_executable()
+    if not uv:
+        return subprocess.CompletedProcess(
+            ("uv", "pip", "check"),
+            127,
+            "",
+            "uv executable was not found on PATH, via UV_EXECUTABLE, or in the per-user .local/bin location",
+        )
+    command = [uv, "pip", "check", "--python", str(python)]
+    if no_cache:
+        command.append("--no-cache")
+    return subprocess.run(
+        command,
+        cwd=ROOT,
+        env=profile_environment(profile, env_root),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
 def doctor_profile(profile: str, *, env_root: str | Path | None = None, no_cache: bool = False) -> int:
     path = environment_path(profile, env_root)
     python = environment_python(path)
@@ -273,25 +335,19 @@ def doctor_profile(profile: str, *, env_root: str | Path | None = None, no_cache
             print("FAIL [wrong_architecture] development environments must use 64-bit Python")
             failures += 1
 
-    if check_profile(profile, env_root=env_root, no_cache=no_cache) != 0:
+    profile_check = check_profile(profile, env_root=env_root, no_cache=no_cache)
+    if profile_check != 0:
         failures += 1
 
-    if probe_rc == 0:
-        pip_check = subprocess.run(
-            [str(python), "-m", "pip", "check"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        pip_output = (pip_check.stdout or pip_check.stderr).strip()
-        if pip_check.returncode:
-            print(pip_output)
-            print("FAIL [broken_dependencies] pip check found an inconsistent installed environment")
+    if probe_rc == 0 and profile_check == 0:
+        dependency_check = _dependency_check(profile, python, env_root=env_root, no_cache=no_cache)
+        dependency_output = (dependency_check.stdout or dependency_check.stderr).strip()
+        if dependency_check.returncode:
+            print(dependency_output)
+            print("FAIL [broken_dependencies] uv pip check found an inconsistent installed environment")
             failures += 1
         else:
-            print(f"OK pip_check: {pip_output or 'no broken requirements found'}")
+            print(f"OK dependency_check: {dependency_output or 'no broken requirements found'}")
 
     if failures:
         print(f"VERDICT UNSTABLE ({failures} failure(s))")

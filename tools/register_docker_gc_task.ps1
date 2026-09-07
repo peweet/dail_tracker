@@ -1,6 +1,6 @@
 <#
 Registers the weekly Docker disk reclaim (report + prune of unreferenced images,
-week-old build cache, anonymous volumes). Runs Sundays 04:00 local and catches up
+all unused build cache, anonymous volumes). Runs Sundays 04:00 local and catches up
 after sleep. Re-run this script to update the registration.
 
 It deliberately does NOT compact docker_data.vhdx: that needs `wsl --shutdown`,
@@ -29,7 +29,7 @@ $action = New-ScheduledTaskAction -Execute $python -Argument "`"$script`" --recl
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 4:00am
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1)
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Weekly Docker disk reclaim: prunes unreferenced images, week-old build cache and anonymous volumes. Never compacts the vhdx (that needs wsl --shutdown) and never removes named volumes.' | Out-Null
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Weekly Docker disk reclaim: prunes unreferenced images, all unused build cache and anonymous volumes. Never compacts the vhdx (that needs wsl --shutdown) and never removes named volumes.' | Out-Null
 $registered = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
 if ($registered.State -eq 'Disabled') {
     throw "Scheduled task '$taskName' was registered disabled."

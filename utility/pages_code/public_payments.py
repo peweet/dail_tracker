@@ -486,8 +486,17 @@ def _render_supplier_quarters(lines: pd.DataFrame, quarters: pd.DataFrame, *, ke
     )
 
 
+def _return_to_register() -> None:
+    """Leave a profile cleanly instead of relying on a dead button return value."""
+    st.query_params.clear()
+    st.session_state["pp_section"] = "Browse the register"
+    st.rerun()
+
+
 def _render_publisher_profile(publisher_id: str) -> None:
-    back_button("← All public-body payments", "?")
+    if back_button("← All public-body payments", key="pp_publisher_back"):
+        _return_to_register()
+        return
     res = fetch_publisher_lines_result(publisher_id, order_by="value", limit=2000)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
@@ -527,7 +536,9 @@ def _render_publisher_profile(publisher_id: str) -> None:
 
 
 def _render_supplier_profile(supplier_norm: str) -> None:
-    back_button("← All public-body payments", "?")
+    if back_button("← All public-body payments", key="pp_supplier_back"):
+        _return_to_register()
+        return
     res = fetch_supplier_lines_result(supplier_norm, order_by="recent", limit=2000)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
@@ -767,7 +778,9 @@ def _render_category_profile(category: str) -> None:
     """Drill-down for one spend category: tier totals (never blended), the bodies that drove it,
     and the named vendors paid/ordered — each linking to its Company dossier. Vendors are shown
     as published (CRO surfaced but NOT operator-merged)."""
-    back_button("← What the money buys", "?")
+    if back_button("← All public-body payments", key="pp_category_back"):
+        _return_to_register()
+        return
     cats = fetch_categories_result()
     rows = cats.data[cats.data["spend_category"] == category] if cats.ok else pd.DataFrame()
     if rows.empty:
@@ -867,6 +880,16 @@ def _render_category_profile(category: str) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+def _register_caveat_html() -> str:
+    """The one-screen qualifier; detail remains in the count and provenance disclosures."""
+    return (
+        '<div class="pr-caveat"><strong>Ordered or paid.</strong> '
+        "Each line is an <em>ordered</em> commitment or <em>paid</em> payment. We total only "
+        "<em>sum-safe</em> lines and never add them to contract awards. A line is a procurement "
+        "record, not evidence of wrongdoing. See “How is this total counted?” below.</div>"
+    )
+
+
 @dt_page
 def public_payments_page() -> None:
     params = st.query_params
@@ -904,16 +927,7 @@ def public_payments_page() -> None:
         "semi-states, health and education bodies — including the HSE and Tusla. Who they "
         "ordered from or paid, and how much.",
     )
-    st.html(
-        '<div class="pr-caveat"><strong>Ordered or paid — not a single "spend" figure.</strong> '
-        "Each line is a purchase-order commitment (<em>ordered</em>) or an actual payment "
-        "(<em>paid</em>) a public body published itself. Totals only ever add up the "
-        "<em>sum-safe</em> value (explained below the headline). These figures are a "
-        "different register from eTenders / TED contract awards and are <strong>never added to "
-        "them</strong>. VAT treatment varies by publisher and is unknown for most sources, so "
-        "cross-publisher totals do not share a confirmed VAT basis. A line is a procurement "
-        "record, not evidence of influence or wrongdoing.</div>"
-    )
+    st.html(_register_caveat_html())
     _stats_strip(stats, cov)
     # Go-deeper entry cards (Money nav declutter Phase 1; upgraded in Phase 3 to
     # in-page SECTION OPENERS, doc/archive/MONEY_NAV_DECLUTTER_PLAN.md). Follow the Money and

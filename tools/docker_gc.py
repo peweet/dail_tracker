@@ -17,7 +17,10 @@ Safety boundary for `--reclaim` (the part that runs unattended):
     to remove an image any container (even a stopped one) still references, and the
     24h filter protects a build from earlier today. Images are reproducible from
     source, so deleting one is never data loss.
-  * `docker builder prune -f --filter until=168h` — build cache older than a week.
+  * `docker builder prune --all -f` — all unused build cache, after image pruning.
+    Pruning images can expose their layers as newly timestamped cache, so an age filter
+    here would preserve the exact stale storage this command is meant to reclaim.
+    Unused cache only affects rebuild time; Docker keeps cache used by an active build.
   * `docker volume prune -f` (no `-a`) — anonymous volumes only, Docker's own default.
     Named-but-unused volumes are left alone deliberately: unlike an image, a volume can
     hold real data with no container currently pointing at it (a torn-down compose
@@ -35,6 +38,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -105,6 +109,17 @@ def vhdx_size_mb() -> float | None:
     return None
 
 
+def host_free_mb() -> float | None:
+    """Free space on the volume that contains Docker's VHDX, if it is present."""
+    for path in VHDX_CANDIDATES:
+        if path.exists():
+            try:
+                return shutil.disk_usage(path).free / (1024 * 1024)
+            except OSError:
+                return None
+    return None
+
+
 def _fmt_gb(mb: float) -> str:
     return f"{mb / 1024:.1f}GB"
 
@@ -126,6 +141,9 @@ def print_report(rows: dict[str, dict] | None) -> None:
         accounted = sum(r["size_mb"] for r in rows.values())
         bloat = vhdx - accounted
         print(f"docker_data.vhdx on disk: {_fmt_gb(vhdx)} ({_fmt_gb(bloat)} beyond what Docker itself accounts for)")
+        host_free = host_free_mb()
+        if host_free is not None:
+            print(f"host drive free: {_fmt_gb(host_free)}")
         if bloat > 20 * 1024:
             print(
                 "vhdx is >20GB larger than Docker's own accounting — pruning alone won't shrink "
@@ -133,11 +151,12 @@ def print_report(rows: dict[str, dict] | None) -> None:
             )
 
 
-#: Deletes nothing a running (or recently-stopped) container references, and the age
-#: filters protect anything touched in the lookback window — see module docstring.
+#: The image age filter protects an in-progress day's build; the builder pass then
+#: removes every cache record Docker says is unused. Neither command removes a running
+#: (or recently-stopped) container's image — see the module docstring.
 RECLAIM_COMMANDS = (
     ("image prune", ("docker", "image", "prune", "-a", "-f", "--filter", "until=24h")),
-    ("builder prune", ("docker", "builder", "prune", "-f", "--filter", "until=168h")),
+    ("builder prune", ("docker", "builder", "prune", "--all", "-f")),
     ("volume prune", ("docker", "volume", "prune", "-f")),
 )
 

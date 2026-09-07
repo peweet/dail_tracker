@@ -20,3 +20,18 @@ def test_conventions_ratchet_holds(capsys):
     rc = check_conventions.main()
     out = capsys.readouterr().out
     assert rc == 0, f"convention violations:\n{out}"
+
+
+def test_parquet_scan_skips_nested_environment_but_checks_product_source(tmp_path, monkeypatch):
+    product = tmp_path / "planning" / "product"
+    library = product / ".venv" / "Lib" / "site-packages" / "example.py"
+    library.parent.mkdir(parents=True)
+    library.write_text("frame.write_parquet('library.parquet')", encoding="utf-8")
+    source = product / "core" / "example.py"
+    source.parent.mkdir()
+    source.write_text("frame.write_parquet('product.parquet')", encoding="utf-8")
+    monkeypatch.setattr(check_conventions, "ROOT", tmp_path)
+    monkeypatch.setattr(check_conventions, "EXTRACTOR_DIRS", ())
+    violations = check_conventions._raw_parquet_outside_extractors()
+    assert len(violations) == 1
+    assert violations[0].startswith("planning/product/core/example.py")

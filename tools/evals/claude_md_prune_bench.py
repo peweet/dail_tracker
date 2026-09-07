@@ -83,7 +83,7 @@ TRIMMED = """# CLAUDE.md — Dail Tracker
 
 - Logic firewall: pages (`utility/pages_code/`) hold no business logic — queries go through `utility/data_access/`.
 - Convention ratchet (`tools/check_conventions.py`): extractors use `services/http_engine`, `coverage_io.save_coverage`, `parquet_io.save_parquet`, `extract_runner.run_extractor`; pages import formatters from `ui/format.py` and use `@dt_page`.
-- Tests: `.venv/Scripts/python -m pytest -q` (fast: `-m "not integration and not sql and not sources and not bronze"`).
+- Tests: `.venv/Scripts/python -m pytest -q` (fast: `-m "not integration and not sql and not sources and not bronze and not layers and not slow and not crosshair"`).
 """
 
 

@@ -118,6 +118,69 @@ BASELINE_RAW_COVERAGE = {
 #     model library-familiarity bias (Twist & Harman et al., Findings of ACL
 #     2026, arXiv:2503.17181): under pressure a code model reaches for the
 #     familiar library, and pandas/polars look interchangeable at a glance.
+# R13: polars row iteration above the runbook threshold. Row-materialising calls (iter_rows /
+#      to_dicts) and per-row Python callbacks (map_elements) build one Python object per row and
+#      forfeit the parallelism polars would otherwise apply -- the data is columnar
+#      ["Row iteration is not optimal as the underlying data is stored in columnar form", the
+#      polars DataFrame.iter_rows docs]. Owner rule 2026-08-30: permitted ONLY on a frame bounded
+#      to <= 100,000 rows (an arbitrary line, chosen so the rule is machine-checkable rather than
+#      re-argued per site).
+#
+#      THE NEGATIVE LOOKAHEAD IS THE WHOLE RULE. A bare `.iter_rows(` regex flags every
+#      group_by().len().iter_rows() -- a handful of rows, exempt by construction -- and that noise
+#      would make the rule unenforceable. Same-line group_by / value_counts / head / limit /
+#      unique / first are treated as bounded and skipped. A multi-line chain still slips through;
+#      the frozen baseline below is the backstop, not the regex.
+#
+#      Migrate via tools/row_iteration_runbook.yaml and prove it with tools/row_iteration_ab.py,
+#      which refuses to report a speedup unless the output is BYTE-identical (Arrow IPC bytes).
+RE_ROW_ITERATION = re.compile(
+    r"^(?!.*(?:group_by|value_counts|\.head\(|\.limit\(|\.unique\(|\.first\(\)))"
+    r".*\.(?:iter_rows|to_dicts|map_elements)\(",
+    re.MULTILINE,
+)
+# Frozen 2026-08-30: 37 files, 87 unbounded hits. This set may only SHRINK -- a file that stops
+# offending must be removed from it, which the existing stale-baseline check enforces.
+BASELINE_ROW_ITERATION: set[str] = {
+    "_paid_flag_clean.py",
+    "cbi_registers_extract.py",
+    "corporate_receiver_enrich.py",
+    "cro_corporate_xref_enrichment.py",
+    "cso_pxstat_extract.py",
+    "derelict_sites_levy_extract.py",
+    "diary_build_ocr_queue.py",
+    "diary_entry_classify.py",
+    "diary_lobbying_overlap.py",
+    "diary_merge_depts.py",
+    "diary_org_match.py",
+    "diary_promote_gold.py",
+    "etenders_live_tenders_extract.py",
+    "housing_construction_pipeline_extract.py",
+    "hsa_comah_extract.py",
+    "judiciary_bench_extract.py",
+    "judiciary_diary_link.py",
+    "la_afs_capital_extract.py",
+    "la_afs_extract.py",
+    "legal_diary_extract.py",
+    "legal_diary_openview_extract.py",
+    "local_authority_arv_extract.py",
+    "news_mentions_extract.py",
+    "persist_judiciary_data.py",
+    "procurement_etenders_extract.py",
+    "procurement_hse_tusla_parser.py",
+    "procurement_la_payments_extract.py",
+    "procurement_la_seed.py",
+    "procurement_nphdb_parser.py",
+    "procurement_payments_consolidate.py",
+    "si_legislation_directory_extract.py",
+    "sipo_candidate_expenses_aggregate.py",
+    "sipo_donations_paddle_etl.py",
+    "sipo_expenses_paddle_etl.py",
+    "sipo_promote_to_gold.py",
+    "ted_enrich.py",
+    "ted_ireland_winner_history_extract.py",
+}
+
 RE_PANDAS_IMPORT = re.compile(r"^\s*(?:import pandas\b|from pandas\b)", re.MULTILINE)
 BASELINE_PANDAS_IMPORT: set[str] = set()
 
@@ -142,6 +205,13 @@ EXTRACTOR_RULES = [
         RE_PANDAS_IMPORT,
         BASELINE_PANDAS_IMPORT,
         "Polars for ETL; pandas only in the UI layer (CLAUDE.md never-break rule)",
+    ),
+    (
+        "row-iteration",
+        RE_ROW_ITERATION,
+        BASELINE_ROW_ITERATION,
+        "polars row iteration is an anti-pattern above 100k rows -- eliminate it with expressions "
+        "(tools/row_iteration_runbook.yaml; prove byte-identical with tools/row_iteration_ab.py)",
     ),
 ]
 
@@ -374,12 +444,28 @@ def _raw_parquet_outside_extractors() -> list[str]:
         root = ROOT / dirname
         if not root.exists():  # planning/product is overlay-tracked; absent in CI checkouts
             continue
-        for py in sorted(root.rglob("*.py")):
+        ignored_dirs = {
+            "sandbox",
+            "pipeline_sandbox",
+            "test",
+            "__pycache__",
+            ".tmp",
+            "tmp",
+            ".venv",
+            ".uv-envs",
+            "node_modules",
+        }
+        source_files = []
+        for directory, subdirs, filenames in root.walk():
+            # Prune dependency and scratch trees before opening or enumerating their files.
+            subdirs[:] = sorted(name for name in subdirs if name not in ignored_dirs)
+            source_files.extend(directory / name for name in filenames if name.endswith(".py"))
+        for py in sorted(source_files):
             rel = py.relative_to(ROOT).as_posix()
             parts = set(rel.split("/"))
             # ".tmp" skips release-staging copies (e.g. planning/product/.tmp/
             # release-*/), which mirror source files but are build artifacts.
-            if parts & {"sandbox", "pipeline_sandbox", "test", "__pycache__", ".tmp"}:
+            if parts & ignored_dirs:
                 continue
             if rel in PARQUET_SCAN_EXEMPT or rel in BASELINE_RAW_PARQUET_REPO:
                 continue

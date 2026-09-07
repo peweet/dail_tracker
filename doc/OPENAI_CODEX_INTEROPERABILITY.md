@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-08-24
+updated: 2026-08-30
 supersedes: []
 read_when: auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project
 key: REFERENCE|LIVE|infra
@@ -119,11 +119,15 @@ siting-ai = ["openai>=2.53,<3", "tiktoken>=0.12,<1"]
 ```
 
 The OpenAI client is therefore not a dependency of the public Dáil Tracker runtime.
-For a complete private Siting development environment, use:
+For the root-project model SDK and diagnostics, use:
 
 ```powershell
 py -3.12 tools/dev_env.py sync siting-ai
 ```
+
+This is not a private-lock-backed complete Siting environment: the deterministic private
+engine uses `tools/dev_env.py sync siting`, and `planning/product` needs its own locked AI
+group before those two profiles can be combined safely.
 
 Keep `OPENAI_API_KEY` in the user's environment or the deployment secret store; do
 not put it in `.env` files that might be committed, test fixtures, source code, or

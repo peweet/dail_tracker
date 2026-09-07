@@ -78,8 +78,8 @@ def test_unknown_non_residential_component_is_refused(bogus):
 
 def test_non_residential_components_mirror_pins_equal_to_the_engine():
     try:
-        from planning.product.core.assistant import NON_RESIDENTIAL_COMPONENTS as ASSISTANT_COMPONENTS
-        from planning.product.core.engine import NON_RESIDENTIAL_COMPONENTS
+        from planning.product.core.evaluation.engine import NON_RESIDENTIAL_COMPONENTS
+        from planning.product.core.narratives.assistant import NON_RESIDENTIAL_COMPONENTS as ASSISTANT_COMPONENTS
     except ImportError:
         pytest.skip("planning/product is private and not installed in this checkout")
     from mcp_server import server
@@ -113,8 +113,8 @@ def test_valid_vocabulary_is_not_refused_by_the_guard():
     try/except ImportError, which keeps the public tree pushable without moving the test.
     """
     try:
-        from planning.product.core.assistant import DEV_TYPES
-        from planning.product.core.engine import USE_CLASSES
+        from planning.product.core.evaluation.engine import USE_CLASSES
+        from planning.product.core.narratives.assistant import DEV_TYPES
     except ImportError:
         pytest.skip("planning/product is private and not installed in this checkout")
 

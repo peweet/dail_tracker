@@ -1,0 +1,51 @@
+# Regenerate requirements.txt on Dependabot branches, so a version bump does not land as a red PR.
+#
+# WHY THIS EXISTS. CI's `deps` job regenerates requirements.txt from uv.lock and diffs it against
+# the committed copy (ci.yml "requirements.txt is a current export of uv.lock"). Dependabot updates
+# pyproject.toml and uv.lock but never regenerates that export, so EVERY Dependabot PR failed the
+# deps job on a diff of pinned versions it had itself just changed. Observed on the 2026-08-28
+# pandas 3.0.5 and python-deps group PRs, and on the 2026-08-27 uv update PRs.
+#
+# The export cannot simply be deleted: it is the app-runtime dependency list Streamlit Cloud reads.
+# So the duplicated state has to be maintained, and maintaining it by hand on a bot's PR is what
+# was failing.
+#
+# ⚠ THE uv VERSION PIN IS LOAD-BEARING and must match ci.yml. `uv export` output is only
+# byte-stable within a version, and CI compares bytes — a drifting pin here would regenerate a
+# file that CI then rejects, turning this workflow into the very failure it exists to prevent.
+name: Dependabot export sync
+
+on:
+  push:
+    branches: ["dependabot/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  sync-export:
+    # Only ever act on the bot's own branches. The trigger already restricts to dependabot/**, and
+    # this second check means a human branch pushed under that prefix cannot get a write-scoped
+    # commit from this workflow.
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.16"   # pin: MUST match ci.yml, or the export bytes differ
+      - name: Regenerate the runtime export from the updated lock
+        run: uv export --frozen --no-hashes --no-emit-project --no-default-groups -o requirements.txt
+      - name: Commit only when the export actually changed
+        run: |
+          if git diff --quiet -- requirements.txt; then
+            echo "requirements.txt already matches the lock — nothing to do."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements.txt
+          git commit -m "Regenerate requirements.txt from the updated uv.lock"
+          git push

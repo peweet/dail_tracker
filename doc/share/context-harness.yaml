@@ -1,0 +1,1275 @@
+# Shareable inventory, not executable agent configuration.
+schema_version: '1.0'
+title: Context harness techniques and adaptation inventory
+prepared_on: '2026-09-06'
+language: en
+companion: context-harness.md
+purpose: Explain reusable techniques so another developer can select what fits their own stack.
+scope:
+  basis: Inspected public repository working-tree source and selected official documentation.
+  source_revision: 522dd59b41140430d15563747f5ff22161685418
+  working_tree: Dirty before this export; revision alone does not reproduce inspected source.
+  implementation_payload_included: false
+  private_product_source_included: false
+  credentials_or_personal_memory_included: false
+  intended_use: Read and adapt; do not load the entire guide into every agent prompt.
+status_definitions:
+  implemented: Mechanism exists in inspected source; does not imply every client activates it.
+  optional: Available mechanism whose usefulness or activation depends on the workflow.
+  historical: A dated measurement or decision, not a fresh benchmark.
+  proposed: Suggested adaptation; not claimed to be installed here.
+priority_definitions:
+  foundation: Start here in most repositories.
+  scaling: Add when repeated navigation or coordination cost is visible.
+  specialist: Adopt for the relevant stack or measured failure mode.
+categories:
+- instructions
+- retrieval
+- tools
+- memory
+- coordination
+- verification
+- evaluation
+- engineering
+techniques:
+- id: T01
+  title: Layered repository instructions
+  category: instructions
+  status: implemented
+  priority: foundation
+  mechanism: Put project-wide invariants and routing in root AGENTS.md; put subsystem-specific rules in nested AGENTS.md
+    files.
+  implementation: The root routes API, UI, SQL, extraction, MCP and private-product work to the relevant paths.
+    CLAUDE.md is a configured compatibility fallback, not the shared canonical entry point.
+  value: A new agent can find the applicable rules without inheriting a large personal prompt or reading unrelated
+    subsystems.
+  applies_when: Any repository used by more than one session, developer or coding-agent client.
+  adaptation: Write a short root router with setup, ownership, forbidden failure modes and verification commands;
+    add local guidance only where rules differ.
+  caveats:
+  - Instruction discovery and merge precedence are client-specific; verify what a fresh session actually receives.
+  - Prose is guidance, not filesystem permissions or an executable safety boundary.
+  acceptance: From root and a nested directory, confirm the agent identifies the correct instructions and commands.
+  evidence:
+  - AGENTS.md
+  - mcp_server/AGENTS.md
+  - .codex/config.toml
+- id: T02
+  title: Five-part task and result contract
+  category: instructions
+  status: implemented
+  priority: foundation
+  mechanism: Use Objective, Scope, Invariants, Acceptance and Result contract for reusable task packets.
+  implementation: Shared prompts and project roles use bounded packets; reviews ask for an evidence-bearing verdict
+    with severity, source location, consequence and required action.
+  value: Makes the task assessable and limits wandering, unowned edits and vague claims of success.
+  applies_when: Delegating work, starting a substantial change or requesting independent review.
+  adaptation: Name allowed files and the observable acceptance seam; require commands and observed results, including
+    NOT RUN limitations.
+  caveats:
+  - A well-formed packet does not prove the implementation or acceptance test is correct.
+  - Keep the brief proportional to the task; routine edits do not need a project-length plan.
+  acceptance: A fresh reviewer can determine scope and pass criteria from the packet alone.
+  evidence:
+  - AGENTS.md
+  - doc/AGENT_HARNESS.md
+  - tools/check_agent_context.py
+- id: T03
+  title: Progressive disclosure of skills and prompts
+  category: instructions
+  status: implemented
+  priority: foundation
+  mechanism: Show small capability descriptions first and load the full instructions only for a relevant task.
+  implementation: Project skills live under .agents/skills; reusable prompt and role files are checked against a
+    600-word ceiling. That ceiling does not apply to all documentation or every AGENTS.md file.
+  value: Preserves attention for the actual task while making specialist workflows available on demand.
+  applies_when: A setup has multiple skills, task templates or specialist subsystems.
+  adaptation: Give each skill a precise trigger and non-trigger, a short entry point and separate supporting references.
+  caveats:
+  - Installed skill catalogs themselves consume context; a large collection can become a second prompt dump.
+  - Use current client documentation for skill discovery rather than assuming every editor uses the same directories.
+  acceptance: A representative task selects the relevant skill without opening unrelated skill bodies.
+  evidence:
+  - .agents/skills/tdd/SKILL.md
+  - tools/check_agent_context.py
+- id: T04
+  title: Generated documentation map with currency metadata
+  category: instructions
+  status: implemented
+  priority: scaling
+  mechanism: Generate a compact index from document metadata, including domain, status, updated date and read-when
+    guidance.
+  implementation: tools/build_doc_index.py reads root doc Markdown plus selected stale or superseded archive files.
+    It estimates tokens from UTF-8 bytes divided by four and checks generated-index drift.
+  value: Helps an agent choose a small relevant document and avoid treating obsolete plans as current implementation.
+  applies_when: Documentation has grown large enough that filenames alone are insufficient.
+  adaptation: Define a small front-matter schema and generate the map; require explicit LIVE, STALE or SUPERSEDED
+    state and a replacement link when relevant.
+  caveats:
+  - A declared LIVE status is an editorial assertion, not a runtime test.
+  - Byte-based token estimates are rough and language-dependent; this generator does not recursively index every
+    documentation subdirectory.
+  acceptance: Change a tracked document heading or routing field and confirm the index check notices drift.
+  evidence:
+  - tools/build_doc_index.py
+  - doc/INDEX.md
+- id: T05
+  title: Section maps and bounded source reads
+  category: instructions
+  status: implemented
+  priority: foundation
+  mechanism: Put a generated map at the top of very large modules, then read only the relevant line span.
+  implementation: tools/section_map.py targets Python files at approximately 1500 lines and accounts for the map
+    shifting subsequent line numbers.
+  value: Avoids spending most of a context window just locating a function in a large file.
+  applies_when: A repository contains large legacy modules or generated-looking files that cannot immediately be
+    split.
+  adaptation: Generate navigation maps or use AST outlines; retain enough surrounding context to understand imports,
+    shared state and callers.
+  caveats:
+  - The current --check verifies map presence, not that every recorded range is current.
+  - Regenerate maps after substantial edits; a stale range is a navigation hint, not evidence.
+  acceptance: Locate a known late-file function without reading the whole module and verify the recorded span against
+    source.
+  evidence:
+  - tools/section_map.py
+  - AGENTS.md
+- id: T06
+  title: Scoped ripgrep and deliberate exclusions
+  category: retrieval
+  status: implemented
+  priority: foundation
+  mechanism: Discover filenames before opening content, scope text searches to relevant trees and hide bulky generated
+    artifacts from ordinary searches.
+  implementation: .rgignore excludes common corpus, database, image, PDF, log and output paths while allowing selected
+    metadata. AGENTS.md recommends rg --files and scoped rg -n.
+  value: Reduces noise, runtime and accidental context flooding without needing a search service.
+  applies_when: Every repository; especially data-heavy monorepos.
+  adaptation: Maintain exclusions for the actual tree and override only a known path when the task needs it.
+  caveats:
+  - An excluded or untracked file can exist even if search finds nothing.
+  - Ignore files are not access-control mechanisms.
+  acceptance: Default discovery omits bulky test corpora but an explicit bounded lookup of a known artifact remains
+    possible.
+  evidence:
+  - .rgignore
+  - AGENTS.md
+- id: T07
+  title: Metadata-first repository discovery
+  category: retrieval
+  status: implemented
+  priority: scaling
+  mechanism: Answer where a concept lives using small metadata records before searching full bodies.
+  implementation: search_project combines dataset fact-card metadata, documentation index records, SQL view descriptions
+    and Python module or symbol metadata, with optional content spans.
+  value: Routes broad questions to the appropriate evidence surface instead of making the agent infer data contracts
+    from incidental code.
+  applies_when: 'A repository has multiple kinds of authoritative information: source, schemas, datasets and design
+    records.'
+  adaptation: Return kind, name, path and why; provide a next-step tool for each kind, such as outline, dependency
+    lookup or dataset description.
+  caveats:
+  - Metadata ranking is a lexical heuristic; it is distinct from the content FTS5 BM25 ranking.
+  - Missing metadata or indexing exclusions can make relevant material invisible.
+  - The metadata index is cached in process; it is not rebuilt from the filesystem for every search.
+  acceptance: Known dataset-shape questions route to fact cards and known implementation questions route to source
+    spans.
+  evidence:
+  - mcp_server/server.py
+  - mcp_server/code_index.py
+  - mcp_server/fts_index.py
+- id: T08
+  title: SQLite FTS5 with BM25 for repository chunks
+  category: retrieval
+  status: implemented
+  priority: scaling
+  mechanism: Store source chunks in a local FTS5 virtual table and rank matching chunks using SQLite's bm25 function.
+  implementation: The chunks table indexes header and body; path, span and kind are UNINDEXED provenance fields.
+    The derived cache lives at .cache/project_fts.sqlite. The schema uses SQLite's default tokenizer rather than
+    an explicitly configured Porter tokenizer.
+  value: Provides useful lexical retrieval without an embedding service, vector database or separate search daemon.
+  applies_when: Questions share identifiers, domain vocabulary or phrases with source and documentation.
+  adaptation: Check the actual Python SQLite build supports FTS5, store exact spans, bind query parameters and return
+    a small ranked result set.
+  caveats:
+  - SQLite bm25 sorts best matches by numerically smaller values; do not copy a descending-score convention from
+    another engine.
+  - Lexical retrieval can miss synonyms, alternate terminology and language-specific morphology.
+  - FTS5 is a capability of the linked SQLite build; it is not guaranteed by merely having Python installed.
+  - The current query preprocessor accepts only ASCII letters, digits and underscores; some SQLite search errors
+    are suppressed into an empty result list.
+  acceptance: A tiny real fixture returns the intended chunk first and a punctuation-heavy query does not produce
+    SQL or MATCH-parser failures.
+  evidence:
+  - mcp_server/fts_index.py
+  - test/mcp_server/test_fts_index.py
+- id: T09
+  title: Structure-aware chunks with truthful spans
+  category: retrieval
+  status: implemented
+  priority: scaling
+  mechanism: Chunk by syntax and headings, then window oversized bodies while preserving scope information and exact
+    source locations.
+  implementation: Python chunks retain decorators, top-level gaps, signatures and class context. Classes over 150
+    lines split structurally and by methods. Markdown uses level-one to level-three headings. BODY_CAP is a 4000-character
+    target, not a model-token ceiling.
+  value: Retrieved evidence stays understandable and late sections of a long function are not silently lost.
+  applies_when: File-level search produces large follow-up reads or naive fixed windows disconnect methods from
+    their context.
+  adaptation: Preserve path, inclusive line span, symbol or heading and body; include enough scope in the searchable
+    header for disambiguation.
+  caveats:
+  - A single oversized physical line can exceed a target window cap; never truncate it while claiming the full line
+    is indexed.
+  - Parsing can fail on unsupported syntax or bad encodings; return the error and a bounded fallback where implemented.
+  acceptance: Search for a unique marker in the tail of a long method and verify that the returned snippet and span
+    actually cover it.
+  evidence:
+  - mcp_server/fts_index.py
+  - test/mcp_server/test_fts_index.py
+- id: T10
+  title: Incremental index refresh and versioned cache invalidation
+  category: retrieval
+  status: implemented
+  priority: scaling
+  mechanism: Re-index changed files, remove deleted sources, invalidate old extraction schemas and report refresh
+    failures.
+  implementation: Repository FTS fingerprints use nanosecond mtime plus file size; schema version 4 governs stored
+    chunks and import edges. A files table, meta table and errors table support refresh accounting.
+  value: Keeps retrieved locations tied to the current tree without rebuilding every unchanged source on every request.
+  applies_when: Agents frequently edit files while a persistent search process is running.
+  adaptation: Refresh before using cached spans and surface read, parse and scan errors; bump the extraction version
+    when chunking semantics change.
+  caveats:
+  - mtime plus size is a cheap change detector, not a cryptographic content identity.
+  - Same-size content rewritten with preserved timestamps can evade that detector; use hashes for stricter reproducibility.
+  - A search cache is disposable and must not become the only copy of evidence.
+  - SQLite refresh commits transactionally; it does not publish a temporary database with an atomic file rename.
+  - The server wrapper throttles content refresh to at most once per 120 seconds per process when memory scope is
+    unchanged; recent edits can temporarily leave cached spans stale.
+  acceptance: Cover add, modify, delete, invalid syntax, encoding failure and schema migration with small fixture
+    repositories.
+  evidence:
+  - mcp_server/fts_index.py
+  - mcp_server/code_index.py
+  - test/mcp_server/test_fts_index.py
+- id: T11
+  title: Explicit search admission and memory namespaces
+  category: retrieval
+  status: implemented
+  priority: foundation
+  mechanism: Decide which sources may enter an index before ranking, and separate repository knowledge from personal
+    assistant memory.
+  implementation: Public source scans admit Git-tracked allowed files and exclude dot, private, generated and sandbox
+    trees. Public memory uses kind=memory; personal memory needs explicit kind=external_memory and returns a separate
+    memory://external/ namespace.
+  value: Prevents a public navigation endpoint from casually mixing private source or workstation notes into ordinary
+    results.
+  applies_when: Public and private repositories coexist, or local engineering memory contains sensitive material.
+  adaptation: Centralize scan policy, canonicalize paths, test traversal and link behavior and fail visibly if the
+    approved file inventory cannot be obtained.
+  caveats:
+  - Search admission is one layer; filesystem and tool authorization still matter.
+  - An explicit external-memory request does not make old notes current or suitable for redistribution.
+  - Git-root detection currently fails in the inspected ambient checkout and produces an empty source inventory;
+    this can look like no match rather than a clearly labeled unavailable state.
+  acceptance: Public searches exclude private and untracked fixture files; an unavailable source inventory does
+    not silently widen the scan.
+  evidence:
+  - mcp_server/code_index.py
+  - mcp_server/fts_index.py
+  - mcp_server/server.py
+  - test/mcp_server/test_code_index.py
+- id: T12
+  title: Structural navigation beyond text matching
+  category: retrieval
+  status: implemented
+  priority: scaling
+  mechanism: Use Python ASTs, semantic references and SQL parsing to answer structural questions that keyword search
+    cannot establish.
+  implementation: code_outline returns definitions and spans; py_deps exposes imports; py_refs supports targeted
+    references; view_deps and column_deps report SQL dependencies and provenance with parse-mode limitations.
+  value: Helps assess the effect of a rename, a dependency change or a new SQL view before editing callers blindly.
+  applies_when: Refactoring, API changes, SQL registration changes and data-lineage questions.
+  adaptation: Keep output bounded and distinguish exact parsed edges from fallback or unresolved analysis.
+  caveats:
+  - Dynamic imports, generated SQL, monkey-patching and runtime dispatch can escape static analysis.
+  - No reference found is not proof that a public API is unused.
+  acceptance: Small fixtures cover alias imports, nested scopes, CTEs and view-order risks; unknown cases remain
+    visibly unknown.
+  evidence:
+  - mcp_server/code_index.py
+  - mcp_server/py_refs.py
+  - mcp_server/sql_index.py
+  - test/mcp_server/test_py_refs.py
+  - test/mcp_server/test_sql_index.py
+- id: T13
+  title: Dataset fact cards and grain-aware descriptions
+  category: retrieval
+  status: implemented
+  priority: specialist
+  mechanism: Expose dataset purpose, row grain, columns, provenance and currency through a compact metadata interface.
+  implementation: describe_dataset and related MCP metadata routes use fact cards rather than making the agent load
+    whole parquet files. Repository rules distinguish monetary grains and prohibit invalid totals.
+  value: Makes the meaning of a row and a measure explicit before the agent joins or sums data.
+  applies_when: Data products, analytics, ETL and repositories containing large generated datasets.
+  adaptation: Define grain, key fields, unit, source, refresh date, coverage and forbidden aggregations for each
+    critical dataset.
+  caveats:
+  - A fact card can become stale; validate it against the pipeline contract and current artifact when accuracy requires
+    it.
+  - Similar column names do not establish compatible grains or valid entity joins.
+  acceptance: A shape query returns bounded metadata, and a contract test rejects a deliberately invalid aggregation
+    or join.
+  evidence:
+  - mcp_server/server.py
+  - services/data_contracts.py
+  - doc/DATA_GRAINS.md
+  - AGENTS.md
+- id: T14
+  title: DuckDB full-text indexes for data corpora
+  category: retrieval
+  status: implemented
+  priority: specialist
+  mechanism: Build a derived full-text database for an application corpus and use match_bm25 to retrieve relevant
+    records with their provenance.
+  implementation: mcp_server/text_fts.py materializes speech, question and council-minutes tables in .cache/text_fts.duckdb
+    with Porter stemming, lowercase normalization, English stopwords and explicit provenance columns. The configured
+    ignore expression preserves ASCII letters and digits.
+  value: Supports topic relevance across a whole corpus while keeping the analytical data stack and source-record
+    links available.
+  applies_when: The application already uses DuckDB and needs relevance search across substantial text collections.
+  adaptation: Treat the FTS extension and derived database as separately versioned dependencies; define rebuild
+    behavior and provision the extension before an offline deployment.
+  caveats:
+  - This is separate from the repository's SQLite FTS5 cache; the two APIs and score conventions are not interchangeable.
+  - This implementation preserves digits; punctuation, case and stemming still make lexical matching different from
+    exact identifier lookup.
+  - Do not assume the newest upstream extension options are supported by the locally pinned build.
+  - Freshness uses row count plus maximum date, checked once per process and corpus; same-count edits with an unchanged
+    maximum date can be missed.
+  - Rebuild drops FTS dependencies and replaces the table before indexing succeeds; it does not preserve the previous-good
+    cache atomically.
+  - Search errors are structured; there is no SQLite fallback for these DuckDB corpus tools.
+  acceptance: Verify known-item recall, digit tokens, refresh detection, failure reporting, detailed provenance
+    and actual server transport separately.
+  evidence:
+  - mcp_server/text_fts.py
+  - test/mcp_server/test_text_fts.py
+  - tools/evals/app_retrieval_recall.py
+- id: T15
+  title: Route exact identifiers, relevance and completeness separately
+  category: retrieval
+  status: implemented
+  priority: foundation
+  mechanism: 'Match the retrieval method to the question: exact lookup for IDs, ranked search for topics, complete
+    filtered feeds or counts for exhaustive questions.'
+  implementation: MCP speech and question search tools distinguish topic relevance from member-specific complete
+    feeds; evaluation probes explicitly test numeric identifier limitations.
+  value: Prevents top-k search results from being mistaken for every relevant record or a verified absence.
+  applies_when: A system mixes entity lookup, natural-language search and analytical totals.
+  adaptation: Expose separate query modes and return truncation, filters and coverage information; preserve exact
+    identifiers outside a prose tokenizer.
+  caveats:
+  - Top-k relevance is not an exhaustive result set or a completeness guarantee.
+  - BM25 scores are not probabilities, confidence grades or proof that a claim is true.
+  acceptance: A query for every record uses a complete feed, and a query for a numeric reference still works if
+    the prose tokenizer discards digits.
+  evidence:
+  - mcp_server/server.py
+  - mcp_server/text_fts.py
+  - tools/evals/app_retrieval_recall.py
+- id: T16
+  title: Small always-loaded MCP navigation surface
+  category: tools
+  status: implemented
+  priority: scaling
+  mechanism: Keep a small navigation toolset immediately visible and make the wider domain catalog eligible for
+    client-side deferral.
+  implementation: The six named navigation tools are search_project, code_outline, py_deps, py_refs, view_deps and
+    column_deps. A static checker enforces names, read-only annotations and description budgets.
+  value: Makes discovery cheap without forcing every domain schema into every session.
+  applies_when: An MCP server has many domain tools and the client supports deferred discovery.
+  adaptation: Start with a few tools covering find, outline, references and metadata; measure whether the client
+    actually defers the rest.
+  caveats:
+  - anthropic/alwaysLoad is client-specific metadata, not a universal MCP loading guarantee.
+  - The current ceilings are 80 tools, 55000 catalog-description characters, 8 always-loaded tools, 6000 always-loaded-description
+    characters and 2000 characters per tool; the exact allowed navigation set contains six.
+  acceptance: The catalog check rejects an unintended always-loaded domain tool and an oversized description.
+  evidence:
+  - mcp_server/AGENTS.md
+  - tools/check_mcp_catalog.py
+  - mcp_server/server.py
+- id: T17
+  title: Tool descriptions as a tested interface
+  category: tools
+  status: implemented
+  priority: foundation
+  mechanism: Treat names, argument schemas, descriptions, result shapes and failure behavior as the agent-facing
+    API.
+  implementation: MCP guidance requires bounded structured results and concise defaults with explicit detailed modes
+    for provenance-heavy responses; shared query logic is reused behind tools.
+  value: Improves tool selection and prevents a model from needing to guess undocumented response semantics.
+  applies_when: Building MCP tools, internal APIs or callable agent utilities.
+  adaptation: Explain when to use the tool, what the result covers, what absence means and how to obtain citation
+    fields.
+  caveats:
+  - readOnlyHint communicates intent; it does not enforce read-only OS permissions.
+  - Result limits should preserve errors and provenance, rather than blindly truncating all output.
+  acceptance: Exercise success, no-match, unavailable, invalid input and detailed-provenance responses through the
+    real public seam.
+  evidence:
+  - mcp_server/AGENTS.md
+  - mcp_server/server.py
+  - test/mcp_server/test_mcp_server_smoke.py
+- id: T18
+  title: Cheap startup and real transport probes
+  category: tools
+  status: implemented
+  priority: scaling
+  mechanism: Defer heavy imports and verify that a tool server can actually initialize over its intended transport.
+  implementation: MCP guidance requires lazy data-stack imports and shared capped connections. Session status checks
+    can perform a real stdio initialization probe, beyond parsing configuration and compiling source. Hook behavior
+    is conditional on successful client invocation.
+  value: Distinguishes a valid-looking configuration from a reachable server and avoids repeated process startup
+    exhausting memory.
+  applies_when: Local tool servers start once per agent session or rely on native data libraries.
+  adaptation: Keep stdout protocol-clean, put diagnostics on stderr, bound startup and probe timeouts and verify
+    environment/path expansion with the actual launcher.
+  caveats:
+  - A successful initialize response does not prove every tool or dataset works.
+  - Direct Python calls do not exercise subprocess startup or MCP serialization. In this snapshot, registered Codex
+    hook launch commands depend on the failing Git-root lookup, so those commands do not establish active enforcement.
+  acceptance: Test config parsing, module import, handshake and one representative tool invocation as separately
+    reported layers.
+  evidence:
+  - mcp_server/server.py
+  - mcp_server/resource_policy.py
+  - tools/hooks/session_context.py
+  - services/runtime_env.py
+- id: T19
+  title: Durable lessons in portable repository files
+  category: memory
+  status: implemented
+  priority: foundation
+  mechanism: Store mandatory rules in AGENTS.md, small trigger-keyed lessons in a discovery index and supporting
+    evidence in curated repository memory cards.
+  implementation: tools/discoveries.py searches compact JSONL lessons and resolves public cards before private or
+    workstation compatibility locations. memory/README.md defines promotion and currency expectations.
+  value: Makes useful experience survive sessions and providers without requiring a transcript archive in every
+    prompt.
+  applies_when: The same traps, commands or decisions repeatedly need to be rediscovered.
+  adaptation: Capture one lesson per card with a date, trigger vocabulary, evidence, caveats and a next verification
+    step.
+  caveats:
+  - Some historical detail cards remain workstation-only; a portable one-line index does not make their supporting
+    files portable.
+  - Do not automatically promote raw transcripts or personal memory into shared project truth.
+  acceptance: A new clone can find a selected mandatory lesson and its supporting evidence without the author's
+    home directory.
+  evidence:
+  - tools/discoveries.py
+  - memory/README.md
+  - AGENTS.md
+- id: T20
+  title: Small, relevant, deduplicated memory hints
+  category: memory
+  status: implemented
+  priority: scaling
+  mechanism: Inject only a few short lessons whose trigger terms match the current request, with session deduplication
+    and output caps.
+  implementation: discovery_hint.py selects at most two rows, caps discovery text at 320 characters per row and
+    skips prompts below 20 characters. A broader compatibility hook matrix registers it; the inspected Codex TOML
+    does not register UserPromptSubmit.
+  value: Makes remembered lessons actionable without turning every prompt into a memory dump.
+  applies_when: Developers have curated lessons but agents routinely fail to consult the index.
+  adaptation: Use task vocabulary, avoid generic triggers and measure irrelevant-hint rates as well as useful recall.
+  caveats:
+  - A keyword match is not proof that a lesson applies; inspect the underlying evidence when material.
+  - Hook payload names, trust and lifecycle differ across clients.
+  - A 1200-token discovery-hook cap mentioned in older documentation is not established by the inspected current
+    registration; do not treat it as an active limit.
+  acceptance: Relevant hints appear once, unrelated short prompts stay quiet and the output respects a measured
+    cap.
+  evidence:
+  - tools/hooks/discovery_hint.py
+  - .codex/config.toml
+  - memory/README.md
+  - .codex/hooks.json
+- id: T21
+  title: Memory currency and explicit closeout
+  category: memory
+  status: optional
+  priority: scaling
+  mechanism: Assess stale or corrected knowledge and record whether a substantive session produced a durable lesson.
+  implementation: memory_gc.py reports age, links, correction markers and orphans; archival is explicit. Closeout
+    accepts promoted, already-captured or no-durable-delta with a meaningful note. Current turn threshold is 500
+    in both session_closeout.py and closeout_gate.py.
+  value: Keeps the knowledge base useful while allowing a complete session to produce no new permanent rule.
+  applies_when: Long-running project memory has accumulated duplicates, outdated claims or repeatedly unrecorded
+    fixes.
+  adaptation: Prefer reporting and human curation; separate handoff state from enduring rules and verify facts before
+    reusing old measurements.
+  caveats:
+  - Older interoperability documentation says 20 turns; the inspected current code says 500.
+  - Currency bands are prioritization heuristics, not proof that a card is true; the legacy memory tool contains
+    workstation-specific assumptions.
+  acceptance: Corrected and orphaned fixture cards are flagged; a meaningful no-durable-delta closeout is accepted
+    without manufacturing a lesson.
+  evidence:
+  - tools/memory_gc.py
+  - tools/session_closeout.py
+  - tools/hooks/closeout_gate.py
+  - memory/README.md
+- id: T22
+  title: Separate hard guards from advisory nudges
+  category: tools
+  status: implemented
+  priority: foundation
+  mechanism: Use deterministic blocking for concrete harmful operations and bounded, rate-limited advice for style
+    or efficiency.
+  implementation: Read and memory-pressure guards coexist with advisory flood and routing hints. SessionStart context
+    is bounded to 1600 characters and status failures must not break a session. Hook behavior is conditional on
+    successful client invocation.
+  value: Avoids both silent high-impact failures and a noisy harness that interrupts harmless work.
+  applies_when: Adding lifecycle hooks or agent policy checks.
+  adaptation: Define the exact blocked seam, supported payload shapes, failure policy and escape/repair procedure;
+    test with each intended client.
+  caveats:
+  - A guard implemented as a client hook only covers the tools and payloads the hook actually receives.
+  - Do not present a configured hook as active until its trust and invocation have been checked. In this snapshot,
+    registered Codex hook launch commands depend on the failing Git-root lookup, so those commands do not establish
+    active enforcement.
+  acceptance: A real forbidden action is rejected with a useful reason, while ordinary bounded work stays quiet.
+  evidence:
+  - tools/hooks/guard_data_reads.py
+  - tools/hooks/guard_memory.py
+  - tools/hooks/flood_warn.py
+  - tools/hooks/session_context.py
+- id: T23
+  title: Prevent data and output floods at the seam
+  category: tools
+  status: implemented
+  priority: foundation
+  mechanism: Block raw reads of heavy data and guide large source reads toward slices, metadata or bounded analytical
+    queries.
+  implementation: guard_data_reads.py recognizes data paths and database suffixes; a 64000-byte threshold catches
+    large unbounded source reads, with image exceptions. flood_warn.py issues a rate-limited advisory after roughly
+    8000 output characters.
+  value: Prevents an accidental dump from consuming the useful context for an entire task.
+  applies_when: Data files, long logs, huge modules or broad shell output are common.
+  adaptation: Return counts, aggregates and bounded snippets; preserve an artifact on disk for detailed inspection
+    instead of printing everything.
+  caveats:
+  - Bytes and characters are rough text-budget proxies; image size in bytes is not a token estimate.
+  - A shell or another client may bypass a read-tool hook; combine good query interfaces with applicable permissions.
+  acceptance: Heavy fixture data is refused, a bounded source span succeeds and a flood warning does not repeat
+    on every call.
+  evidence:
+  - tools/hooks/guard_data_reads.py
+  - tools/hooks/flood_warn.py
+  - .rgignore
+- id: T24
+  title: Bounded agents with one integration owner
+  category: coordination
+  status: implemented
+  priority: scaling
+  mechanism: Keep one captain responsible for scope and integration; delegate independent read-only discovery or
+    review, and tightly scope any writer.
+  implementation: Project policy defines scout, reviewer and worker roles, fresh five-part briefs, one writer per
+    checkout and waiting for requested results before completion.
+  value: Gains independent analysis without letting agents race on the same files or silently expand scope.
+  applies_when: There are genuinely independent research, implementation or verification tracks.
+  adaptation: Delegate a bounded question with exact paths and a result contract; keep coupled decisions and integration
+    in the primary thread.
+  caveats:
+  - More agents multiply startup context, memory use and coordination cost.
+  - A review request is read-only; fixing its findings is a distinct authorized write task.
+  acceptance: Each agent can name its owned paths and role, and final integration accounts for every requested result
+    and disagreement.
+  evidence:
+  - AGENTS.md
+  - tools/hooks/guard_subagent_spawn.py
+  - tools/check_agent_context.py
+- id: T25
+  title: Receipt-backed cross-session handoffs
+  category: coordination
+  status: optional
+  priority: specialist
+  mechanism: Bind a bounded handoff packet to a source snapshot and stable task key; track acceptance, delivery
+    and recovery explicitly.
+  implementation: sidecar-handoff supports template, snapshot, validate, queue, status and recover flows. accepted_unconsumed
+    differs from delivered; the target owns integrated, verified and closed states.
+  value: Avoids duplicate dispatch and false completion claims when work crosses session boundaries or a queue operation
+    is interrupted.
+  applies_when: A real long-running workflow needs independent read-only help across sessions.
+  adaptation: Keep packets outside the source worktree, name exact read paths and require recovery from ambiguous
+    receipts before retrying.
+  caveats:
+  - Session size alone is not a reason to dispatch sidecars; use native compaction for one coupled task.
+  - A queue receipt proves acceptance, not that work reached the target or was verified.
+  acceptance: Interrupt a fixture queue/receipt operation and confirm an ambiguous claim becomes recovery_required
+    instead of silently resending.
+  evidence:
+  - tools/sidecar_handoff.py
+  - test/tools/test_sidecar_handoff.py
+  - AGENTS.md
+- id: T26
+  title: Explicit repository roots and worktree ownership
+  category: coordination
+  status: implemented
+  priority: foundation
+  mechanism: Determine the authoritative Git root and preserve pre-existing staged, unstaged and untracked work
+    before editing.
+  implementation: Root guidance distinguishes the public repository from an authoritative nested private repository
+    and rejects use of a retired overlay to decide cleanliness; roots_status.py exposes root state.
+  value: Prevents accidental staging into the wrong repository and avoids deleting or resetting another task's work.
+  applies_when: Monorepos, nested repositories, multiple worktrees or concurrent sessions share a workspace.
+  adaptation: Record the root and writer at task start; use explicit working directories and targeted diffs, and
+    check nested repositories separately.
+  caveats:
+  - A parent repository's status does not establish a nested repository is clean.
+  - Worktree creation and parallel writes need explicit integration ownership; private nested layouts may require
+    stricter rules.
+  acceptance: A fixture nested-repository change is reported under its actual owner, and unrelated dirty files survive
+    the task unchanged.
+  evidence:
+  - AGENTS.md
+  - tools/roots_status.py
+  - test/tools/test_roots_status.py
+- id: T27
+  title: One canonical development command surface
+  category: verification
+  status: implemented
+  priority: foundation
+  mechanism: Wrap existing checks with stable task names so humans, agents and CI use the same verification vocabulary.
+  implementation: tools/dev.py exposes verify, check, preflight, test lanes and targeted policy checks. Commands
+    specify a locked dev/pipeline/api/mcp dependency profile; agent-context and sidecar-handoff can run with stdlib
+    only.
+  value: Reduces command drift and makes it clear what a reported pass actually covered.
+  applies_when: A repository has several test, lint, contract and integration entry points.
+  adaptation: Wrap existing checks rather than creating duplicate policies; distinguish quick iteration from broader
+    pre-release checks.
+  caveats:
+  - check is not every CI or deployment gate; Docker delivery and SQL-data tests have separate requirements.
+  - A friend's stack should use its own package manager and lane names, not copy Python extras it does not need.
+  acceptance: The documented command list matches executable tasks and a fresh development environment can run the
+    focused lane.
+  evidence:
+  - tools/dev.py
+  - tools/dev_env.py
+  - AGENTS.md
+- id: T28
+  title: Changed-file-aware verification with an inspectable plan
+  category: verification
+  status: implemented
+  priority: scaling
+  mechanism: Select checks conservatively from committed, staged, unstaged and untracked changes, while keeping
+    selection separate from execution.
+  implementation: verify_changed.py has explicit ChangeSet, CheckSpec and VerificationPlan models and a --plan mode.
+    It inspects test syntax without importing changed tests merely to route them.
+  value: Makes focused verification faster while showing which risks and evidence scopes were selected.
+  applies_when: Full local suites are too expensive for every small edit.
+  adaptation: Write the selection policy as a pure function, test file-to-check mappings and report why each check
+    is included.
+  caveats:
+  - The selection policy can miss a dependency; sensitive shared modules should broaden coverage.
+  - Git discovery failure must not be treated as a clean or unchanged tree.
+  acceptance: Representative source, test, schema and policy changes produce the intended plan, including separate
+    external-source lanes.
+  evidence:
+  - tools/verify_changed.py
+  - test/tools/test_verify_changed.py
+- id: T29
+  title: Success receipts bound to effective inputs
+  category: verification
+  status: implemented
+  priority: scaling
+  mechanism: Reuse a successful verification result only when its effective source and execution identity still
+    match.
+  implementation: Verification fingerprints include Git/worktree state, content hashes, interpreter/runtime details,
+    check commands and policy inputs; failed runs are not cached. --no-cache explicitly reruns the checks.
+  value: Avoids both redundant test runs and stale green receipts after an implementation or environment change.
+  applies_when: Agents repeatedly verify unchanged intermediate states.
+  adaptation: Hash actual files and relevant policy/environment inputs; record command, exit status and evidence
+    scope with the receipt.
+  caveats:
+  - Cache validity is only as strong as the inputs included in the fingerprint.
+  - After a repair or dependency-profile bootstrap, repository policy requires a no-cache verification run.
+  acceptance: A source edit, interpreter change or policy change invalidates success; a failure never creates a
+    reusable green receipt.
+  evidence:
+  - tools/verify_changed.py
+  - test/tools/test_verify_changed.py
+  - AGENTS.md
+- id: T30
+  title: Test the observable seam before changing behavior
+  category: verification
+  status: implemented
+  priority: foundation
+  mechanism: Name an externally observable contract, demonstrate one focused failure, make the smallest change and
+    then record a passing result.
+  implementation: Root policy and the TDD skill require exact red and green evidence and distinguish UI/API fakes
+    from real lower-layer data contracts.
+  value: Establishes why the change is needed and prevents tests that merely mirror the new implementation.
+  applies_when: Behavioral changes and bug fixes with a clear contract.
+  adaptation: Use small real fixtures or an existing lower-layer seam, keep refactoring separate and make ambiguous
+    contract changes explicit.
+  caveats:
+  - A final passing tree cannot prove test-first chronology; record the observed failing node and cause.
+  - Do not manufacture behavior tests for a documentation-only or similarly low-impact edit.
+  acceptance: The recorded test fails for the intended reason before the production change and passes after it.
+  evidence:
+  - AGENTS.md
+  - .agents/skills/tdd/SKILL.md
+  - test/tools/test_tdd_policy.py
+- id: T31
+  title: Evidence-scoped test lanes and honest handoffs
+  category: verification
+  status: implemented
+  priority: foundation
+  mechanism: Separate deterministic checks from local-data, external-source, slow, stress and symbolic-execution
+    checks.
+  implementation: The fast lane excludes integration, sql, sources, bronze, layers, slow and crosshair markers.
+    Explicit commands run relevant integration, source and slow suites.
+  value: Preserves fast iteration without misrepresenting a mocked or partial check as end-to-end assurance.
+  applies_when: Tests vary greatly in cost, infrastructure needs or determinism.
+  adaptation: Report the seam, command, result and evidence scope; use PASS, FAIL and NOT RUN rather than a vague
+    tested label.
+  caveats:
+  - Test markers are routing metadata and need validation themselves.
+  - A deterministic pass cannot prove a live upstream service, fresh installation or customer deployment works.
+  acceptance: A handoff makes unrun lanes explicit and a live-source change selects the source lane deliberately.
+  evidence:
+  - tools/dev.py
+  - tools/verify_changed.py
+  - AGENTS.md
+- id: T32
+  title: Cleanroom harness evaluation with protected answer keys
+  category: evaluation
+  status: implemented
+  priority: specialist
+  mechanism: Compare harness variants in the same controlled source environment while withholding evaluator code
+    and expected answers from the agent workspace.
+  implementation: harness_bench.py and cleanroom.py support repeated ON/OFFCLEAN comparisons, external holdout tasks
+    and manifests recording source, task and harness identity. A local cleanroom excludes Git metadata and scorer
+    paths.
+  value: Reduces benchmark leakage and makes differences attributable to the intervention more plausibly than ad
+    hoc screenshots do.
+  applies_when: Deciding whether prompt, retrieval or hook changes justify their operating cost.
+  adaptation: Use no-cost preflight first; pin provider/model settings, holdout version, runtime and task distribution;
+    retain per-attempt outcomes and errors.
+  caveats:
+  - A filesystem copy is not an OS sandbox; strict holdouts require isolation from host answer keys.
+  - Benchmark-only trust interventions must not become general permission grants.
+  acceptance: The agent workspace cannot read the scorer through ordinary repository paths, and every attempt records
+    its effective evaluation inputs.
+  evidence:
+  - tools/evals/harness_bench.py
+  - tools/evals/cleanroom.py
+  - tools/evals/provider_adapter.py
+  - doc/AGENT_HARNESS.md
+- id: T33
+  title: Measure accuracy, tokens and latency independently
+  category: evaluation
+  status: historical
+  priority: foundation
+  mechanism: Evaluate multiple outcomes together and retain regressions instead of announcing a single headline
+    improvement.
+  implementation: The 2026-08-05 public smoke report records equal mean accuracy of 0.978 in both arms, 14/15 perfect
+    attempts per arm, 28.3 percent fewer tool calls and 65.3 percent greater total elapsed time with the harness
+    enabled.
+  value: Prevents a token saving from being mistaken for a correctness or user-experience improvement.
+  applies_when: Assessing any claimed harness optimization.
+  adaptation: Measure repeated tasks, median and tail latency, errors, usage and task success; distinguish public
+    smoke tasks from private held-out implementation tasks.
+  caveats:
+  - This is a historical report from a different source revision, not a rerun during this export.
+  - Five public tasks with three repeats per arm do not establish general superiority.
+  - Token counts are not dollar cost when the provider does not report pricing or billing.
+  acceptance: The report includes sample size, intervention, source snapshot, failures and latency regressions alongside
+    any savings.
+  evidence:
+  - doc/AGENT_HARNESS_MEASUREMENT_2026_08_05.md
+  - tools/evals/harness_bench.py
+- id: T34
+  title: Separate tool-discovery recall from application retrieval recall
+  category: evaluation
+  status: implemented
+  priority: scaling
+  mechanism: Test both whether the correct tool is discoverable and whether that tool retrieves the intended evidence.
+  implementation: tool_retrieval_recall.py scores a real tools/list catalog with a BM25 surrogate at K=1,3,5. app_retrieval_recall.py
+    tests project, speech, question and precedent retrieval and distinguishes direct from MCP transport.
+  value: Localizes a miss to catalog wording, query routing, corpus indexing or transport instead of blaming the
+    model indiscriminately.
+  applies_when: Agents choose the wrong tool or search appears unreliable.
+  adaptation: Include known-item probes, independent natural-language queries, malformed input, negative cases and
+    identifier queries; report corpus coverage separately.
+  caveats:
+  - A surrogate BM25 catalog test does not measure the client's closed tool-search implementation.
+  - Authoring queries after seeing descriptions or sampling phrases from the target text can make recall optimistic.
+  acceptance: A failure report identifies the gold tool or record, its rank, the tested transport and the query-set
+    construction method.
+  evidence:
+  - tools/evals/tool_retrieval_recall.py
+  - tools/evals/app_retrieval_recall.py
+  - tools/evals/tool_retrieval_queries.json
+- id: T35
+  title: Keep deterministic data transformations outside presentation
+  category: engineering
+  status: implemented
+  priority: specialist
+  mechanism: Give ETL and registered query layers ownership of business meaning; make UI components render defined
+    contracts.
+  implementation: Repository rules use Polars for ETL, pandas for presentation, reusable query modules and a Streamlit
+    logic firewall. Missing analytical views should be surfaced explicitly rather than improvised in UI code.
+  value: Prevents agents from fixing a display by silently redefining a measure or duplicating business logic in
+    a page.
+  applies_when: Data applications, dashboards and APIs share the same domain logic.
+  adaptation: Define columns, grain, error states and allowed transformations at the query seam; enforce the separation
+    with a scoped checker.
+  caveats:
+  - Static checks have parsing and coverage limits; use real contract tests below the presentation seam.
+  - A technology-specific firewall should be adapted to the friend's actual framework.
+  acceptance: A view contract is reusable from UI and API, and a deliberately misplaced transformation is caught
+    by the appropriate check.
+  evidence:
+  - tools/check_streamlit_logic_firewall.py
+  - utility/pages_code/AGENTS.md
+  - sql_views/AGENTS.md
+  - AGENTS.md
+- id: T36
+  title: Atomic artifact writes with semantic quality guards
+  category: engineering
+  status: implemented
+  priority: specialist
+  mechanism: Write a complete replacement beside the destination, validate it and replace the canonical artifact
+    only after success.
+  implementation: services/parquet_io.py centralizes parquet compression and atomic publication; callers may opt
+    into a min_rows floor. The convention uses zstd level 3, statistics and 128000-row groups.
+  value: Protects the last good artifact from crashes and protects against valid but unexpectedly tiny outputs when
+    a row floor is supplied.
+  applies_when: ETL, derived search databases, manifests and reports overwrite shared artifacts.
+  adaptation: Define what makes an output complete, use a same-filesystem temporary destination and retain previous-good
+    behavior on failure.
+  caveats:
+  - Atomic replacement prevents partial publication, not semantically wrong data.
+  - Row floors are opt-in and must allow legitimate bootstrap or scoped outputs under explicit rules.
+  acceptance: Inject a write failure and a below-floor frame; both leave the previous artifact intact.
+  evidence:
+  - services/parquet_io.py
+  - AGENTS.md
+- id: T37
+  title: Deterministic policy ratchets outside prompts
+  category: engineering
+  status: implemented
+  priority: foundation
+  mechanism: Convert recurring, mechanically detectable regressions into checks that run independently of the model's
+    willingness to follow prose.
+  implementation: The repository checks conventions, untracked imports, dependency declarations, actual imports,
+    data contracts, catalog budgets and instruction packets. AST-scanner guidance documents false-positive and false-negative
+    risks.
+  value: Makes critical invariants enforceable and reduces repeated review of the same preventable mistake.
+  applies_when: The same defect has occurred repeatedly and has a clear mechanical signature.
+  adaptation: Start with a narrow rule and adversarial fixtures; distinguish parsing, declaration checks and actual
+    subprocess import execution.
+  caveats:
+  - A scanner passing does not prove all dynamic behavior is safe or correct.
+  - Do not expand a ratchet into arbitrary style policing without an observed failure mode.
+  acceptance: A realistic violating fixture fails for the intended reason and representative valid variants remain
+    accepted.
+  evidence:
+  - tools/check_conventions.py
+  - tools/check_no_untracked_imports.py
+  - tools/check_imports_execute.py
+  - doc/AST_SCANNER_FAILURE_MODES.md
+- id: T38
+  title: Aggregate session telemetry for improvement decisions
+  category: evaluation
+  status: optional
+  priority: specialist
+  mechanism: Summarize token usage, tool counts and repeated exploration patterns to find where the harness wastes
+    effort.
+  implementation: token_ledger.py and the session-token hook extract aggregate usage and discovery candidates from
+    provider-specific transcript formats; they do not need to print entire conversations.
+  value: Replaces guesses about context cost with measured candidates for better routing, smaller output or a durable
+    lesson.
+  applies_when: Repeated sessions are expensive and the user has authorized access to the relevant telemetry.
+  adaptation: Normalize provider usage fields, parameterize transcript roots and retain only the minimum useful
+    aggregates.
+  caveats:
+  - The legacy scanner contains a workstation-specific transcript path and is not portable as-is.
+  - Provider usage definitions differ; cache reads, uncached input and output must remain separate.
+  acceptance: A small synthetic transcript fixture yields expected aggregate counts without exposing raw conversation
+    bodies.
+  evidence:
+  - tools/token_ledger.py
+  - tools/hooks/session_token_ledger.py
+  - tools/evals/provider_adapter.py
+- id: T39
+  title: Resource caps before native imports
+  category: engineering
+  status: implemented
+  priority: specialist
+  mechanism: Apply native thread limits before loading memory-heavy libraries and bound expensive concurrency using
+    observed resource costs.
+  implementation: services/runtime_env.py runs before NumPy/pandas imports, uses environment setdefault values and
+    records whether it ran in time. MCP resource policy and a heavy-command guard address multi-session pressure.
+  value: Prevents several individually reasonable processes from exhausting RAM or creating excessive native threads
+    together.
+  applies_when: Multiple Python agents, test processes, analytical servers or OCR jobs share a workstation.
+  adaptation: Measure the actual host, apply caps before imports and leave an explicit per-job override for workloads
+    that benefit from parallelism.
+  caveats:
+  - Source comments contain dated measurements from one host; do not copy them as expected savings on another machine.
+  - Windows-specific memory probes and architecture handling need platform-specific substitutes elsewhere.
+  acceptance: A subprocess confirms caps precede NumPy import, an existing explicit override survives and the guard
+    only blocks measured heavy commands under its resource floor.
+  evidence:
+  - services/runtime_env.py
+  - mcp_server/resource_policy.py
+  - tools/hooks/guard_memory.py
+  - test/test_runtime_env.py
+- id: T40
+  title: Keep current implementation, historical evidence and proposals distinct
+  category: verification
+  status: implemented
+  priority: foundation
+  mechanism: Attach source, date, scope and uncertainty to consequential claims and resolve disagreements against
+    current authoritative evidence.
+  implementation: AGENTS.md, documentation status metadata and harness reports explicitly distinguish focused tests,
+    live checks, archived plans and source-backed decisions.
+  value: Prevents a confident but stale memory, comment or generated report from becoming a false current fact.
+  applies_when: Every substantial handoff, especially when copying a setup between projects.
+  adaptation: Record file hashes for an export, label examples as examples and state exactly what was inspected
+    or run.
+  caveats:
+  - A commit ID is insufficient when the working tree is dirty; record the inspected file identities as well.
+  - A technique being present in source does not prove adoption, activation, effectiveness or clean-machine portability.
+  acceptance: A friend can separate installed mechanisms, dated benchmark results and proposed adaptations without
+    access to the original conversation.
+  evidence:
+  - AGENTS.md
+  - doc/AGENT_HARNESS.md
+  - doc/AGENT_HARNESS_MEASUREMENT_2026_08_05.md
+- id: T41
+  title: Context-pressure reminders and selective constraint refresh
+  category: memory
+  status: optional
+  priority: specialist
+  mechanism: Observe long-session context pressure and remind the agent to compact or refresh a few critical constraints.
+  implementation: context_tripwire.py has advisory thresholds at 200000 and 400000 tokens. constraint_reinjection.py
+    begins selected reminders at 40000 tokens and uses an 80000-token interval thereafter.
+  value: Helps preserve task boundaries when a long interaction has accumulated substantial tool output.
+  applies_when: A client exposes suitable usage events and long coupled tasks show actual instruction drift.
+  adaptation: Prefer native compaction with a short durable handoff; measure reminder usefulness before enabling
+    a cadence.
+  caveats:
+  - These thresholds are local choices and the reinjection cadence is not a demonstrated optimum.
+  - Scripts present in a compatibility hook matrix are not proof that the current client activates them.
+  acceptance: A synthetic usage stream triggers each reminder only at the intended interval and ordinary short sessions
+    stay quiet.
+  evidence:
+  - tools/hooks/context_tripwire.py
+  - tools/hooks/constraint_reinjection.py
+  - .codex/hooks.json
+- id: T42
+  title: Provider-neutral evaluation adapters
+  category: evaluation
+  status: implemented
+  priority: specialist
+  mechanism: Normalize provider attempts into a shared result contract while preserving provider-specific errors
+    and usage fields.
+  implementation: provider_adapter.py supports the evaluation harness without making model-provider SDK behavior
+    the repository's source of truth.
+  value: Lets a team compare or migrate agent runtimes with less rewriting of task definitions and result analysis.
+  applies_when: Evaluations run against multiple coding-agent clients or model providers.
+  adaptation: Keep tasks, expectations and scorer logic separate from transport; record the actual provider, model,
+    reasoning settings and infrastructure per attempt.
+  caveats:
+  - Equal-shaped outputs do not imply equal token accounting, tool permissions, caching or billing.
+  - Model aliases and SDK interfaces change; pin or resolve versions explicitly for a reproducible run.
+  acceptance: Synthetic success, failure and incomplete-usage records from each adapter preserve meaning in the
+    normalized attempt schema.
+  evidence:
+  - tools/evals/provider_adapter.py
+  - tools/evals/harness_bench.py
+adoption_plan:
+- phase: 1
+  name: Small portable foundation
+  technique_ids:
+  - T01
+  - T02
+  - T05
+  - T06
+  - T17
+  - T19
+  - T26
+  - T27
+  - T30
+  - T31
+  - T40
+  exit_condition: A fresh session can locate relevant instructions, make one bounded change and report meaningful
+    verification.
+- phase: 2
+  name: Better retrieval when navigation cost warrants it
+  technique_ids:
+  - T04
+  - T07
+  - T08
+  - T09
+  - T10
+  - T11
+  - T12
+  - T15
+  - T16
+  - T18
+  exit_condition: A representative independent query set finds the intended evidence with bounded output and visible
+    failure states.
+- phase: 3
+  name: Memory and coordination when repetition warrants them
+  technique_ids:
+  - T03
+  - T20
+  - T21
+  - T22
+  - T23
+  - T24
+  - T25
+  - T28
+  - T29
+  exit_condition: Hints are relevant, ownership is explicit and interrupted handoffs cannot silently duplicate work.
+- phase: 4
+  name: Specialist data and evaluation controls
+  technique_ids:
+  - T13
+  - T14
+  - T32
+  - T33
+  - T34
+  - T35
+  - T36
+  - T37
+  - T38
+  - T39
+  - T41
+  - T42
+  exit_condition: Stack-specific benefits are measured on realistic tasks and limitations are recorded.
+non_defaults:
+- Do not add embeddings, a vector database or a learned reranker without measured lexical-retrieval misses.
+- Do not use a literal multi-pattern matcher as a substitute for relevance search or an ordered classifier.
+- Do not add an always-on agent service, scheduler or second task ledger solely because the session is long.
+- Do not copy installed plugin lists, model aliases, local absolute paths or private configuration into another
+  machine blindly.
+- Do not bulk-copy personal memories or transcript archives into shared repository context.
+- Do not treat read-only annotations, ignore files or prose rules as a substitute for real authorization boundaries.
+official_references:
+- id: sqlite_fts5
+  title: SQLite FTS5 documentation
+  url: https://www.sqlite.org/fts5.html
+  use: FTS5 capability, MATCH syntax, tokenizer choices and ascending bm25 score convention.
+- id: duckdb_fts
+  title: DuckDB FTS extension upstream repository
+  url: https://github.com/duckdb/duckdb-fts
+  use: Extension API and version-dependent indexing behavior; upstream main is not the pinned local release.
+- id: codex_instructions
+  title: Official OpenAI custom instructions documentation
+  url: https://learn.chatgpt.com/docs/agent-configuration/agents-md
+  use: Client instruction discovery and nesting behavior.
+- id: codex_skills
+  title: Official OpenAI skills documentation
+  url: https://learn.chatgpt.com/docs/build-skills
+  use: Progressive disclosure of skill metadata and SKILL.md bodies.
+- id: codex_mcp
+  title: Official OpenAI MCP documentation
+  url: https://learn.chatgpt.com/docs/extend/mcp?surface=cli
+  use: MCP transports and client-specific configuration.
+verification:
+  artifact_checks:
+    status: PASS
+    yaml_parse_and_unique_keys: PASS
+    technique_count: 42
+    markdown_yaml_catalog_parity: PASS
+    adoption_plan_ids: PASS
+    source_paths_and_sha256_count: 68
+    source_paths_and_sha256: PASS
+    embedded_python_example: PASS; executed against SQLite FTS5 in memory
+    embedded_yaml_and_json_examples: PASS; parsed
+    markdown_lint: PASS; rumdl check doc/share/context-harness.md
+    privacy_scan: PASS for user-home paths, local username, common secret patterns and private source payloads;
+      not a formal DLP certification
+    independent_review:
+      verdict: PASS
+      scope: Targeted read-only document review of correctness, portability, privacy and source distinctions.
+      minor_finding_closed: Added explicit conditional-invocation caveats for Codex hooks whose Git-root launch
+        prerequisite fails in this snapshot.
+      not_established:
+      - live hook enforcement
+      - live MCP handshake
+      - clean-machine installation
+      - full application correctness
+  retrieval_source_tests:
+    command: uv run pytest -q test/mcp_server/test_fts_index.py test/mcp_server/test_text_fts.py test/mcp_server/test_code_index.py
+      test/mcp_server/test_sql_index.py
+    passed: 44
+    failed: 6
+    elapsed_seconds: 55.59
+    scope: Existing focused tests; not a full application or live MCP pass.
+    failure_cause: Ambient Git root detection reports that the checkout is not a work tree; code-index admission
+      fails closed and returns no tracked source.
+    failed_nodes:
+    - test/mcp_server/test_code_index.py::test_outline_file_shape
+    - test/mcp_server/test_code_index.py::test_outline_captures_signature_and_decorators
+    - test/mcp_server/test_code_index.py::test_outline_directory_mode
+    - test/mcp_server/test_code_index.py::test_outline_concise_mode_is_names_and_spans_only
+    - test/mcp_server/test_code_index.py::test_build_code_index_covers_repo_and_skips_env
+    - test/mcp_server/test_code_index.py::test_search_project_finds_code
+    dependency_bootstrap_reported: false
+  live_repository_mcp: Requested but did not return before cancellation; no live result claimed.
+  firstmate_advisory: Requested for Public Signal and SpecPlan but did not return before cancellation.
+  full_application_suite: NOT RUN; this export changes documentation only.
+  new_paid_model_benchmark: NOT RUN.
+  clean_machine_installation: NOT RUN.
+  focused_verification_plan:
+    command: uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify --plan
+    status: BLOCKED
+    cause: Ambient Git diff reports that this operation must be run in a work tree.
+    scope: Inspection-only plan attempt; no verification checks were executed by this command.
+source_files:
+- path: .agents/skills/tdd/SKILL.md
+  sha256: 824afa0c370934b2b872e884e49d9b2220c33330e3e80f6bbc9a8943829e6a01
+- path: .codex/config.toml
+  sha256: ed76f37a348040f9810f6cad72c1891f2d8a8e9dc42653e7323cdb41f2c8022b
+- path: .codex/hooks.json
+  sha256: 866899a6f3d4141a90021996e6909aee5170584cc68e963a1b9808024d0d84fc
+- path: .rgignore
+  sha256: 1f48deda0a29a9dcf981f403bab4f2ee9cdf6c6cac9c75ca2866e572c82f1bcd
+- path: AGENTS.md
+  sha256: db60a0e129f20c115d35c05ebcf3e60728e5136cf6bf6f507ba7beb3e441adbe
+- path: doc/AGENT_HARNESS.md
+  sha256: 52432e50fe065f5a8a63d305b2e091d2c3cd1ce9ae202505bc3977fb93e33f91
+- path: doc/AGENT_HARNESS_MEASUREMENT_2026_08_05.md
+  sha256: fdba0e4dd186276ffe80d445505743b48090aea10c381f38ead78d1b53de5284
+- path: doc/AST_SCANNER_FAILURE_MODES.md
+  sha256: 3311b07f25f470ad87a85c20d8a6f11304b1d8f721f55f108b8947cee2ed9043
+- path: doc/DATA_GRAINS.md
+  sha256: 9ee9019fc7b302bad04c3bc2d70e61d6480862f6dc968325afbcc4ce1e8ea5e0
+- path: doc/INDEX.md
+  sha256: 9b284ca583402953bd9ee0403524a4d6f564693770cb2d4c04a7fb9e76a35315
+- path: mcp_server/AGENTS.md
+  sha256: b102942708564f55e41d9f6306e11080dd9667e38aa1785ce1ba2a4249aa164b
+- path: mcp_server/code_index.py
+  sha256: b3a24c09b3b7903dbb08ce3e4ac90645500fc55e432f2c42da74bdc0c5b77190
+- path: mcp_server/fts_index.py
+  sha256: 6f3a21507f12a648b2df42ec41b93c6604d5f5489eba781eb6081be9bbad740a
+- path: mcp_server/py_refs.py
+  sha256: 0a2c81fcbeea4eebe8942a653ae5fdbbc849853c2c6dd87619033a8fd5ea003e
+- path: mcp_server/resource_policy.py
+  sha256: 537d09615efc8c93b142aafc58f82540e37f6cca83c32eee8d7da9581f23b9f1
+- path: mcp_server/server.py
+  sha256: 02dda5f1e68fce039004cd613204f43723c4deedfff5e35c119d3df7278e0774
+- path: mcp_server/sql_index.py
+  sha256: acd933a8487b740985716d7c3b35d09c30f00f104c619fdf002b2efc1a0006fa
+- path: mcp_server/text_fts.py
+  sha256: ccfe86c49b605062ff5cddf5fc4be5869197927d9f9e2e4bded552a83c617264
+- path: memory/README.md
+  sha256: cd7c396781123ebeb619f21d03b51d935130e5128960a50d74f8153959958144
+- path: services/data_contracts.py
+  sha256: 41984bbbbb39cd8f46f23dce93818777b248c1da2503f34d85897a43d97e0511
+- path: services/parquet_io.py
+  sha256: fed1767127b51b385c2f5a3c57fe7b5a601a37beea7d1ca279e66369c8dc06af
+- path: services/runtime_env.py
+  sha256: 4d8b93f9bdf1db73d13212d801f56aa2c5dcda54f1db6e5e40a02f7f75bf7c26
+- path: sql_views/AGENTS.md
+  sha256: 5ca5f35eab5ab553d3d4809ccc213b907d30f12e751dfa06d401dce3d2233cfa
+- path: test/mcp_server/test_code_index.py
+  sha256: f4c9f65f82a9bb7a8c8ba8392ee4e5777ecd239d471108901c0c12bd96310d57
+- path: test/mcp_server/test_fts_index.py
+  sha256: 2002f5708431a056709fe4a1ade8b0bbeb6bdeb23e3ef617bea59b9c48593c84
+- path: test/mcp_server/test_mcp_server_smoke.py
+  sha256: ae0e74acc6f0a685d022fb176f3060a21e3b293bdaada8d442aeaa6fe3c9fb7a
+- path: test/mcp_server/test_py_refs.py
+  sha256: 345fcd91b1e9385f67651e3ad4700f51bfef6d00cdcdc06702be0f20be5b77a2
+- path: test/mcp_server/test_sql_index.py
+  sha256: 19158ce4ecc90d3270d958584a0c955cd83a034a9fed1df59b21fa0005017b93
+- path: test/mcp_server/test_text_fts.py
+  sha256: 91504f896f3e476be8aa329c5ac1c0783edd8b60e5bec23b8b242d5fe2304f64
+- path: test/test_runtime_env.py
+  sha256: b7eed96867406a1189891130b6ae21b50c1322e86d78299baca33ea7a574a892
+- path: test/tools/test_roots_status.py
+  sha256: 0e77d9f6579088d7a9eba481fdb4d34a310638350cad8f2243143f5121889262
+- path: test/tools/test_sidecar_handoff.py
+  sha256: 9ff702d4c61df7905b21740c658351f4a0996733de93c14494d87258b9d19f55
+- path: test/tools/test_tdd_policy.py
+  sha256: 0d578fb11f1b6d52e803b16ab0355fdd658e08c1e4bf966821e712d95b45750f
+- path: test/tools/test_verify_changed.py
+  sha256: a63d4dec8090211e74d64c8974077e8ebac976c26558be7307ae04e48786ec1e
+- path: tools/build_doc_index.py
+  sha256: e3e6f69a567d453a5bbb774de72cd22da7c746ad1a771d4905fbbdc5670efe1b
+- path: tools/check_agent_context.py
+  sha256: 46ffc77591fdc127f4a507ca3de8c4322a3103ddc3ae0a391914a0e8a8eb1c0a
+- path: tools/check_conventions.py
+  sha256: d4ff596c20be449b99b2163bd3d59bb7ee92b1a119e413a3f65a00099ae8d194
+- path: tools/check_imports_execute.py
+  sha256: d3278509fb8f35d23b2e8d21e2a51d84f69ed86588af389277850a410b5b51f4
+- path: tools/check_mcp_catalog.py
+  sha256: 08297edf7b2138fc0f7d5021122c1cf91d3a06ad2bb4fbcb985d3ff83799989f
+- path: tools/check_no_untracked_imports.py
+  sha256: 64ba0efa551bbbb480108bdf2409a6e8900ee8e8e51d45d25e3f83196d110b20
+- path: tools/check_streamlit_logic_firewall.py
+  sha256: 141cab591d4a25304f7c0016944129a7eeb7dbc27498f8b5a24358e45015e2b3
+- path: tools/dev.py
+  sha256: 1f0931a863c6ff76cb42be002f2b7e13d8333a010319d93410feb0972cc9d283
+- path: tools/dev_env.py
+  sha256: d74f87fcaf22a79613142668f16bcc2027acb55d226ea7fb982f861ed42a1a73
+- path: tools/discoveries.py
+  sha256: c95a881db6fdad894f010da4c02fb39da192bae5eca80070a2e9d6dc94de93b7
+- path: tools/evals/app_retrieval_recall.py
+  sha256: ca68b9d168d8e731ea0f298fdd2b3ffccbfc06f0fc19d6918fde4765f1a4dfcb
+- path: tools/evals/cleanroom.py
+  sha256: 0e37e863786d09e9d475eefda61014695d971399c990a1e7ea1cad2c6b9104ea
+- path: tools/evals/harness_bench.py
+  sha256: ae3f2fbb96d3d2ebc60c6b32d3c024a0988d58492c2361408ce9657a8ebd853b
+- path: tools/evals/provider_adapter.py
+  sha256: 99173bed6a9d55ea47e77df57f921c5239544305e20557f2b078b26a9d2aaa08
+- path: tools/evals/tool_retrieval_queries.json
+  sha256: b08dbe9a6a15e467666a47349a4e3cfbdc69ef4f4c8a11a8f2a61f4e26add8ec
+- path: tools/evals/tool_retrieval_recall.py
+  sha256: ae20592d8e7e46fb7e78b8511e78780356f3184dafa5eee219f9c71ddaf2fb91
+- path: tools/hooks/closeout_gate.py
+  sha256: 0922f6c65b7f0b6d46f16d513cfa4e74e47b5c2e24615d06e4193c141859cc28
+- path: tools/hooks/constraint_reinjection.py
+  sha256: 23064a57cbd4264571741d29b6e19167e269098a26a5ed105f18c4e55d5a7d18
+- path: tools/hooks/context_tripwire.py
+  sha256: fc0548119b4d7323eeb56af8ac446954b443b3ea8ce27ef0983542a01ab14380
+- path: tools/hooks/discovery_hint.py
+  sha256: eaeedfa0f16af3e61b6659af9dbeae750f3675a90a8f890a3c983feaa17da87a
+- path: tools/hooks/flood_warn.py
+  sha256: 84420225e73e22e0fd375f4cf0e9b28a76026976f45e1bc95191ce4ef094ce72
+- path: tools/hooks/guard_data_reads.py
+  sha256: c11c5a8d809214b8b1ea0f918d6fd8cf8fe2a2edf3ffe60a52a1c74f522b282d
+- path: tools/hooks/guard_memory.py
+  sha256: 9e4b99a10b38a04cedbbeaaff8db26a8a01b5fa602dc90a81e4d63c546a69f93
+- path: tools/hooks/guard_subagent_spawn.py
+  sha256: b0e0a7b1abc1ad151f9ce18c67fa2632b07c17f440ac9ba31e24362c39d730bd
+- path: tools/hooks/session_context.py
+  sha256: 7435fd879c26a1e1d0b8cce8e472f371d84c53761973cc59e2ef8c081e9f3761
+- path: tools/hooks/session_token_ledger.py
+  sha256: 202a252e479bcbd08137562dea286706381e2adc8a06ec5550818b55b77bd8bc
+- path: tools/memory_gc.py
+  sha256: c2ba431464745f6989267d823267bfee57f159b7b879b837550accb9a627fce8
+- path: tools/roots_status.py
+  sha256: 1ea9969eaf2363a0e0360028d1f08952177a089933546060b591c0a71e29002b
+- path: tools/section_map.py
+  sha256: d6eb660c0845dd120f9a36ccd4502baac8605bf9fbe3b133092525df882c3b56
+- path: tools/session_closeout.py
+  sha256: e21a153851c329e92bbb1a1b045454d8f7c87b3ff528bbd8980be4020e5b2358
+- path: tools/sidecar_handoff.py
+  sha256: 29b982170bd86c6daf4d44f15a7663cb19be790e6e756604186b3eb7dc1bf9c0
+- path: tools/token_ledger.py
+  sha256: a5d890a01c1bee750ba6ef5be1b8b3d20e3b49383cbe36c8ee9adc085c392c64
+- path: tools/verify_changed.py
+  sha256: 2f0a002dce3ac895de429d848e51c1a4f7a67186607d98a54498adaaa4364252
+- path: utility/pages_code/AGENTS.md
+  sha256: a4070891ebeb5eaa0cc15fbb871aef9d35d95dc62605830f93ad72647a82ec43

@@ -15,18 +15,46 @@ def test_profiles_do_not_share_an_environment(tmp_path: Path) -> None:
     assert dev_env.environment_path("siting-ai", tmp_path) == (tmp_path / "siting-ai").resolve()
 
 
-def test_siting_profile_is_a_superset_of_public() -> None:
+def test_siting_profile_targets_the_private_locked_runtime(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(dev_env, "uv_executable", lambda: "uv")
+
+    def run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(dev_env.subprocess, "run", run)
+
+    assert dev_env._run_uv("check", "siting", env_root=tmp_path).returncode == 0
+
+    assert captured["cwd"] == dev_env.ROOT
+    assert captured["command"] == [
+        "uv",
+        "sync",
+        "--project",
+        str(dev_env.ROOT / "planning" / "product"),
+        "--locked",
+        "--python",
+        dev_env.python_request(),
+        "--no-install-project",
+        "--only-group",
+        "siting-engine",
+        "--only-group",
+        "siting-ci",
+        "--only-group",
+        "siting-test",
+        "--check",
+    ]
+
+
+def test_siting_ai_remains_a_separate_root_model_edge() -> None:
     public = set(dev_env.PROFILES["public"].extras)
-    siting = set(dev_env.PROFILES["siting"].extras)
-    assert public < siting
-    assert siting - public == {"siting"}
-
-
-def test_siting_ai_profile_adds_only_the_optional_model_edge() -> None:
-    siting = set(dev_env.PROFILES["siting"].extras)
     siting_ai = set(dev_env.PROFILES["siting-ai"].extras)
-    assert siting < siting_ai
-    assert siting_ai - siting == {"siting-ai"}
+    assert public < siting_ai
+    assert siting_ai - public == {"siting", "siting-ai"}
+    assert dev_env.PROFILES["siting-ai"].project == dev_env.ROOT
 
 
 def test_profile_arguments_are_locked_and_explicit() -> None:
@@ -59,6 +87,43 @@ def test_uv_failure_classifies_missing_executable_as_setup_failure() -> None:
     failure = dev_env.classify_uv_failure("uv executable was not found on PATH")
     assert failure.kind == "uv_unavailable"
     assert "not evaluated" in failure.summary
+
+
+def test_doctor_uses_uv_dependency_check_for_a_pipless_profile(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+    profile_python = dev_env.environment_python((tmp_path / "siting").resolve())
+
+    monkeypatch.setattr(
+        dev_env,
+        "_environment_probe",
+        lambda _python: (0, {"executable": str(profile_python), "version": "3.12.0", "bits": 64}, ""),
+    )
+    monkeypatch.setattr(dev_env, "check_profile", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(dev_env, "uv_executable", lambda: "uv")
+
+    def run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, "All dependencies are compatible", "")
+
+    monkeypatch.setattr(dev_env.subprocess, "run", run)
+
+    assert dev_env.doctor_profile("siting", env_root=tmp_path) == 0
+    assert captured["command"] == ["uv", "pip", "check", "--python", str(profile_python)]
+    assert captured["cwd"] == dev_env.ROOT
+    assert captured["env"][dev_env.PROFILE_VAR] == "siting"
+
+
+def test_profile_environment_restores_windows_machine_and_repository_import_root(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(dev_env.os, "name", "nt")
+    monkeypatch.delenv("PROCESSOR_ARCHITECTURE", raising=False)
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    monkeypatch.setattr(dev_env.sysconfig, "get_platform", lambda: "win-amd64")
+
+    env = dev_env.profile_environment("siting", tmp_path)
+
+    assert env["PROCESSOR_ARCHITECTURE"] == "AMD64"
+    assert env["PYTHONPATH"] == str(dev_env.ROOT)
 
 
 def test_uv_discovery_uses_the_standard_per_user_install_when_path_is_stale(monkeypatch, tmp_path: Path) -> None:

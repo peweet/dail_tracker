@@ -22,6 +22,9 @@ def test_canonical_task_surface_contains_required_checks():
         "ui-contracts",
         "doc-index",
         "test-fast",
+        "test-integration",
+        "test-slow",
+        "test-sources",
         "mutation-data-contracts",
     } <= set(dev.task_names())
 
@@ -31,6 +34,33 @@ def test_mutation_pilot_is_opt_in_not_a_check_gate():
     assert "mutation-data-contracts" not in dev.CHECK_TASKS
     command = dev.commands_for("mutation-data-contracts")
     assert command == ((dev.PYTHON, "tools/run_mutation_pilot.py"),)
+
+
+def test_slow_contracts_have_an_explicit_non_fast_task():
+    assert "test-slow" in dev.task_names()
+    assert "test-slow" not in dev.CHECK_TASKS
+    command = dev.commands_for("test-slow")
+    assert command == ((dev.PYTHON, "-m", "pytest", "-q", "-m", "slow or crosshair"),)
+
+
+def test_preflight_covers_the_explicit_slow_ci_lane():
+    assert "test-slow" in dev.PREFLIGHT_TASKS
+    assert dev.commands_for("test-slow")[0] in dev.commands_for("preflight")
+
+
+def test_integration_task_enables_the_local_contract_environment(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(dev.subprocess, "run", run)
+
+    assert dev.run_task("test-integration") == 0
+    assert captured["command"] == dev.commands_for("test-integration")[0]
+    assert captured["env"]["DAIL_INTEGRATION_TESTS"] == "1"
 
 
 def test_check_expands_to_each_fast_gate():

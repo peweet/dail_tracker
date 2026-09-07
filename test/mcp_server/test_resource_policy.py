@@ -352,6 +352,7 @@ def test_deadline_does_not_fire_when_nothing_is_running(fresh_activity, monkeypa
     assert resource_policy.enforce_call_deadline() is False
 
 
+@pytest.mark.slow
 def test_deadline_interrupts_an_overrunning_call(fresh_activity, monkeypatch):
     monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "1")
     hits = []
@@ -394,6 +395,7 @@ def test_interrupt_all_reaches_registered_connections_and_survives_bad_ones():
         resource_policy._LIVE_CONNECTIONS.discard(broken)
 
 
+@pytest.mark.slow
 def test_interrupting_a_connection_does_not_reach_its_cursor():
     """The defect that made the first deadline useless, pinned as a property of DuckDB.
 
@@ -460,6 +462,7 @@ def test_cur_registers_the_cursor_not_only_the_connection(monkeypatch):
         monkeypatch.setattr(server, "_CONN", None, raising=False)
 
 
+@pytest.mark.slow
 def test_deadline_interrupts_once_per_call_not_once_per_poll(fresh_activity, monkeypatch):
     """34 log lines for one stuck call was the first version's behaviour."""
     monkeypatch.setenv("DAIL_MCP_CALL_TIMEOUT_SECONDS", "1")
@@ -474,6 +477,7 @@ def test_deadline_interrupts_once_per_call_not_once_per_poll(fresh_activity, mon
     assert hits == [1], "one stuck call must produce exactly one interrupt"
 
 
+@pytest.mark.slow
 def test_a_real_duckdb_query_is_actually_abortable():
     """The mechanism the whole deadline rests on: interrupt from another thread ends
     the query, so the worker thread returns instead of running to completion."""

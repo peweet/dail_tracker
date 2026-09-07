@@ -130,7 +130,6 @@ from ui.components import (
     find_a_td_filter,
     field_label,
     filter_bar,
-    glossary_strip,
     hide_sidebar,
     member_card_html,
     dt_page,
@@ -1257,6 +1256,15 @@ def _dail_filter_options(df: pd.DataFrame) -> list[str]:
 def _render_browse(conn) -> None:
     df = _member_list_all(conn)
 
+    st.html(
+        '<div class="dt-hero">'
+        '<p class="dt-kicker">MEMBER OVERVIEW</p>'
+        '<h1 class="mo-browse-h1">Browse members</h1>'
+        '<p class="dt-dek">Find a member\'s accountability profile: attendance, votes by policy '
+        "area, payments, lobbying, and legislation.</p>"
+        "</div>"
+    )
+
     # House scope — Dáil (default) or Seanad. Keeps the list, labels and glossary
     # coherent: a mixed 236-member list with a "TDs" heading would mislead.
     house = (
@@ -1265,7 +1273,7 @@ def _render_browse(conn) -> None:
             options=["Dáil", "Seanad"],
             default="Dáil",
             key="mo_browse_house",
-            label_visibility="collapsed",
+            label_visibility="visible",
         )
         or "Dáil"
     )
@@ -1273,24 +1281,6 @@ def _render_browse(conn) -> None:
     term = "Senator" if is_seanad else "TD"
     terms = "Senators" if is_seanad else "TDs"
     place_word = "panel" if is_seanad else "constituency"
-
-    st.html(
-        '<div class="dt-hero">'
-        '<p class="dt-kicker">MEMBER OVERVIEW</p>'
-        f'<h1 class="mo-browse-h1">Browse all {_h(terms)}</h1>'
-        f'<p class="dt-dek">Pick a {_h(term)} to open their accountability profile: '
-        "attendance, votes by policy area, payments, lobbying, and legislation.</p>"
-        "</div>"
-    )
-    glossary_strip(
-        [
-            (
-                term,
-                "Seanadóir, a member of the Seanad (Senate)" if is_seanad else "Teachta Dála, a member of the Dáil",
-            ),
-            ("Accountability profile", "attendance, votes, payments, lobbying, and legislation in one place"),
-        ]
-    )
 
     if df.empty:
         empty_state("No member data", "Run the pipeline to generate attendance parquet files.")
@@ -1302,64 +1292,6 @@ def _render_browse(conn) -> None:
     # Default OFF → only sitting members (the page's original behaviour). When on,
     # former TDs/Senators (back as far as the registers parse cleanly) join the
     # list and the Dáil + year filters appear.
-    has_current_flag = "is_current" in df.columns
-    has_historic = has_current_flag and (~df["is_current"].astype(bool)).any()
-    include_historic = False
-    if has_historic:
-        include_historic = st.toggle(
-            f"Include former {terms}",
-            value=False,
-            key="mo_browse_historic",
-            help=f"Show {terms} from past terms. Interest declarations go back to the "
-            "earliest cleanly-parsed register; scanned years are omitted.",
-        )
-    if has_current_flag and not include_historic:
-        df = df[df["is_current"].astype(bool)].reset_index(drop=True)
-    elif include_historic and {"dails_served", "served_from_year"} <= set(df.columns):
-        fcol1, fcol2 = st.columns(2)
-        with fcol1:
-            dail_opts = _dail_filter_options(df)
-            dail_pick = (
-                st.pills(
-                    f"{'Seanad' if is_seanad else 'Dáil'} term",
-                    options=dail_opts,
-                    default="All",
-                    key="mo_browse_dail",
-                    label_visibility="collapsed",
-                    help="Filter to members who served in a given term.",
-                )
-                or "All"
-            )
-        with fcol2:
-            yr_lo = int(pd.to_numeric(df["served_from_year"], errors="coerce").min() or 2011)
-            yr_hi = _CURRENT_YEAR
-            year_choices = ["All years"] + [str(y) for y in range(yr_hi, yr_lo - 1, -1)]
-            year_sel = st.selectbox(
-                "Year served",
-                options=year_choices,
-                index=0,
-                key="mo_browse_year",
-                label_visibility="collapsed",
-            )
-        if dail_pick != "All":
-            # Term membership resolved in SQL (list_contains over dails_served);
-            # here it's just an isin() filter on the approved key column.
-            df = df[df["unique_member_code"].astype(str).isin(_member_codes_for_dail(conn, dail_pick))]
-        if year_sel != "All years":
-            y = int(year_sel)
-            frm = pd.to_numeric(df["served_from_year"], errors="coerce")
-            to = pd.to_numeric(df["served_to_year"], errors="coerce").fillna(_CURRENT_YEAR)
-            df = df[(frm <= y) & (to >= y)]
-        df = df.reset_index(drop=True)
-
-    # v_member_registry is unique on unique_member_code (verified on the
-    # silver parquet: 176 rows / 176 distinct codes). The page-side
-    # drop_duplicates that used to live here was defensive against a
-    # historical pipeline gap that no longer exists.
-    # Search box only — no helper dropdown. The card grid below is the result
-    # list and every card is a link, so the dropdown duplicated navigation
-    # while its combobox read as a second, broken search box (typing or
-    # deleting text in it never changed the grid).
     member_names = df["member_name"].dropna().astype(str).tolist()
     search, _ = find_a_td_filter(
         member_names,
@@ -1369,18 +1301,65 @@ def _render_browse(conn) -> None:
         show_picker=False,
     )
 
-    # Multi-select pills: pick any combination of parties (e.g. Fianna Fáil +
-    # Fine Gael). No selection = all parties, so the explicit "All parties"
-    # pill is gone — clearing the pills restores the full list.
-    party_options = _party_pill_options(df)
-    selected_parties = st.pills(
-        "Party",
-        options=party_options,
-        selection_mode="multi",
-        key="mo_browse_party",
-        label_visibility="collapsed",
-        help="Pick one or more parties; leave empty to show every party.",
-    )
+    has_current_flag = "is_current" in df.columns
+    has_historic = has_current_flag and (~df["is_current"].astype(bool)).any()
+    include_historic = False
+    selected_parties = []
+    with st.expander("Refine the list", expanded=False):
+        if has_historic:
+            include_historic = st.toggle(
+                f"Include former {terms}",
+                value=False,
+                key="mo_browse_historic",
+                help=f"Show {terms} from past terms. Interest declarations go back to the "
+                "earliest cleanly-parsed register; scanned years are omitted.",
+            )
+        if has_current_flag and not include_historic:
+            df = df[df["is_current"].astype(bool)].reset_index(drop=True)
+        elif include_historic and {"dails_served", "served_from_year"} <= set(df.columns):
+            fcol1, fcol2 = st.columns(2)
+            with fcol1:
+                dail_opts = _dail_filter_options(df)
+                dail_pick = (
+                    st.pills(
+                        f"{'Seanad' if is_seanad else 'Dáil'} term",
+                        options=dail_opts,
+                        default="All",
+                        key="mo_browse_dail",
+                        label_visibility="collapsed",
+                        help="Filter to members who served in a given term.",
+                    )
+                    or "All"
+                )
+            with fcol2:
+                yr_lo = int(pd.to_numeric(df["served_from_year"], errors="coerce").min() or 2011)
+                yr_hi = _CURRENT_YEAR
+                year_choices = ["All years"] + [str(y) for y in range(yr_hi, yr_lo - 1, -1)]
+                year_sel = st.selectbox(
+                    "Year served",
+                    options=year_choices,
+                    index=0,
+                    key="mo_browse_year",
+                    label_visibility="collapsed",
+                )
+            if dail_pick != "All":
+                df = df[df["unique_member_code"].astype(str).isin(_member_codes_for_dail(conn, dail_pick))]
+            if year_sel != "All years":
+                y = int(year_sel)
+                frm = pd.to_numeric(df["served_from_year"], errors="coerce")
+                to = pd.to_numeric(df["served_to_year"], errors="coerce").fillna(_CURRENT_YEAR)
+                df = df[(frm <= y) & (to >= y)]
+            df = df.reset_index(drop=True)
+
+        party_options = _party_pill_options(df)
+        selected_parties = st.pills(
+            "Party",
+            options=party_options,
+            selection_mode="multi",
+            key="mo_browse_party",
+            label_visibility="collapsed",
+            help="Pick one or more parties; leave empty to show every party.",
+        )
 
     filtered = df.copy()
     if selected_parties:

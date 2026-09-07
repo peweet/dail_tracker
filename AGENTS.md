@@ -61,6 +61,26 @@ is unavailable or not applicable.
 - After any repair, or after the dev runner bootstraps/repairs its dependency profile, run `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify --no-cache`. `verify --plan` remains an inspection-only exemption and does not execute or bootstrap.
 - Keep private-release verification gates serial; do not bypass or parallelize them.
 
+## Test-first change protocol
+
+For a behaviour change or bug fix, name the observable seam before changing production code.
+Proceed when it is explicit; ask the user only when the seam is **ambiguous or contract-changing**.
+
+- **Red:** add one focused test or contract check, run it, and record the exact failing node and
+  isolated reason. Use a small real fixture, real query result, or existing lower-layer contract
+  where appropriate; never build a fixture from production parquet.
+- **Green:** make the smallest change that passes, then record the exact green command and result.
+- **Refactor:** refactor only after green; keep a substantial refactor separately reviewable.
+- Use fakes at UI/API seams to exercise rendering, transport, unavailable, and error states, while
+  retaining real query/data-contract coverage below that seam. Do not mock the contract being proved.
+- At handoff, report the seam, red evidence, green evidence, and any focused, mocked, manual, or
+  `NOT RUN` limitation. A final tree cannot prove chronology by itself.
+
+The default fast lane is deterministic and excludes integration, external-source, large-data,
+slow/stress, and symbolic-execution tests. Run those lanes explicitly when their seam changes.
+Use `tools/dev.py test-integration`, `tools/dev.py test-sources`, or `tools/dev.py test-slow`
+as the evidence scope requires.
+
 ## Routing
 
 | Work | Start with | Local guidance |

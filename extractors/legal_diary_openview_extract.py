@@ -278,10 +278,26 @@ def run(args) -> int:
             pl.Field("plaintiff_kind", pl.Utf8),
         ]
     )
-    cases = (
+    # `parties()` is DETERMINISTIC in raw_case, and this feed repeats each case line across every
+    # sitting it appears in — 785,897 gold rows over 12,290 distinct case titles (63.95x) on
+    # 2026-08-30. Anonymising per DISTINCT line and joining back therefore does the same work ~64x
+    # less often: measured 38.2x faster (5,022ms -> 132ms on 160,000 rows) with a frame-equality
+    # assertion against the per-row form, at a conservative 40x repetition.
+    #
+    # ⚠ THE JOIN KEY IS THE UNREDACTED raw_case AND MUST STAY INSIDE THIS EXPRESSION. It is dropped
+    # immediately below (see the `forbidden` guard); nothing derived from it may outlive `cases`.
+    # `parties()` cannot be vectorised into a polars expression — it splits, anonymises per segment
+    # and classifies — so uniquing is the only lever here, not a native op.
+    _anonymised = (
         audit.filter(~pl.col("protected"))
+        .select("raw_case")
+        .unique()
         .with_columns(pl.col("raw_case").map_elements(parties, return_dtype=_pd).alias("_p"))
         .unnest("_p")
+    )
+    cases = (
+        audit.filter(~pl.col("protected"))
+        .join(_anonymised, on="raw_case", how="left")
         .filter(pl.col("case_anonymised").str.len_chars() > 2)
         .with_columns(pl.lit(SOURCE_NAME).alias("source"))
         .select(

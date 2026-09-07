@@ -70,7 +70,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import shapely
 
-from services.geojson_wkb import geojson_geometries_to_wkb
+from services.geometry import geojson_to_wkb, wkb_bounds
 from services.http_engine import fetch_json
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet_stream
@@ -199,7 +199,7 @@ def _fetch_county(county: str | None) -> list[tuple]:
     """Every parcel in one county as (wkb, sp_id, county, area_m2).
 
     Geometries are collected across every HTTP page first, then converted to WKB in ONE DuckDB
-    round trip via `services.geojson_wkb.geojson_geometries_to_wkb` — not parsed one feature at
+    round trip via `services.geometry.geojson_to_wkb` — not parsed one feature at
     a time. `PAGE=1000`, so per-page batching would mean ~331 DuckDB round trips for Dublin
     instead of one, and DuckDB's per-call overhead is large enough to be worth amortizing that
     way. One behavioural difference from the old per-feature `shapely.geometry.shape()` loop: a
@@ -231,7 +231,7 @@ def _fetch_county(county: str | None) -> list[tuple]:
         if len(feats) < PAGE:
             break
         offset += PAGE
-    wkb = geojson_geometries_to_wkb(geoms)
+    wkb = geojson_to_wkb(geoms)
     return [(w, *a) for w, a in zip(wkb, attrs, strict=True)]
 
 
@@ -248,6 +248,50 @@ def _outward_f32(vals: np.ndarray, *, toward_pos: bool) -> np.ndarray:
     return np.nextafter(f32, np.float32(np.inf if toward_pos else -np.inf))
 
 
+def _repair_invalid(df: pl.DataFrame) -> pl.DataFrame:
+    """Repair self-intersecting parcels so the GeoParquet write contract can accept them.
+
+    ⚠ WITHOUT THIS THE EXTRACTOR CANNOT COMPLETE A RUN. Tailte's published geometry contains
+    ring self-intersections — 6 of the first 30,000 Carlow parcels, measured 2026-08-29 — and
+    `services.parquet_io.save_parquet_stream(geoparquet=True)` deep-validates every write, so a
+    single invalid parcel fails the whole county with "invalid geometries must be repaired or
+    quarantined before conversion". Verified by writing one bowtie among ten good parcels.
+
+    Repair, not quarantine: the contract's own wording allows either, and a dropped parcel is a
+    hole in a title index that a map click then reports as "no parcel here" — silently wrong in a
+    way a repaired boundary is not. This mirrors what the planning ingest already does
+    (`planning_applications_ingest._polygonal_geometry` repairs and flags `geometry_repaired`).
+
+    Only INVALID rows are touched. Validity is tested with a vectorized `shapely.is_valid` over
+    the whole array, and the repair runs on the handful that fail — the DuckDB path measured 0.14x
+    for this shape of work (already-vectorized shapely beats a per-row byte handoff), so this
+    deliberately stays on shapely. See services/geometry.py on when each engine wins.
+
+    A repair can change the geometry type (a bowtie becomes a MultiPolygon; a degenerate ring
+    becomes a Point), so non-polygonal results are dropped rather than written — a Point in a
+    parcel layer would satisfy the contract while being meaningless as a title boundary.
+    """
+    geometries = shapely.from_wkb(df["wkb"].to_numpy())
+    invalid = ~shapely.is_valid(geometries)
+    invalid_count = int(invalid.sum())
+    if not invalid_count:
+        return df
+
+    repaired = shapely.make_valid(geometries[invalid])
+    polygonal = np.isin(shapely.get_type_id(repaired), (3, 6))  # Polygon, MultiPolygon
+    wkb = df["wkb"].to_list()
+    for position, geometry, keep in zip(np.flatnonzero(invalid), repaired, polygonal, strict=True):
+        wkb[int(position)] = shapely.to_wkb(geometry) if keep else None
+
+    dropped = invalid_count - int(polygonal.sum())
+    LOG.warning(
+        "repaired %d invalid parcel geometry(ies)%s",
+        invalid_count - dropped,
+        f"; dropped {dropped} that did not repair to a polygon" if dropped else "",
+    )
+    return df.with_columns(pl.Series("wkb", wkb, dtype=pl.Binary)).filter(pl.col("wkb").is_not_null())
+
+
 def _to_table(rows: list[tuple]) -> pa.Table:
     """Hilbert-sorted arrow table with OUTWARD-rounded f32 bbox columns.
 
@@ -256,7 +300,8 @@ def _to_table(rows: list[tuple]) -> pa.Table:
     over-select. See PointScopedLayerStore in planning/product/core/layers.py.
     """
     df = pl.DataFrame(rows, schema=["wkb", "sp_id", "county", "area_m2"], orient="row")
-    bounds = shapely.bounds(shapely.from_wkb(df["wkb"].to_numpy()))
+    df = _repair_invalid(df)
+    bounds = wkb_bounds(df["wkb"])
     order = sort_order((bounds[:, 0] + bounds[:, 2]) / 2, (bounds[:, 1] + bounds[:, 3]) / 2)
     df, bounds = df[order], bounds[order]
     df = df.with_columns(
@@ -268,7 +313,7 @@ def _to_table(rows: list[tuple]) -> pa.Table:
 
     # Verify the superset invariant on the SORTED frame, before anything reaches disk — the
     # same refuse-to-write guard as planning/product/tools/build_point_scoped_layers.py:102.
-    sorted_bounds = shapely.bounds(shapely.from_wkb(df["wkb"].to_numpy()))
+    sorted_bounds = wkb_bounds(df["wkb"])
     ok = (
         (df["bbox_minx"].to_numpy() <= sorted_bounds[:, 0]).all()
         and (df["bbox_miny"].to_numpy() <= sorted_bounds[:, 1]).all()
@@ -319,7 +364,7 @@ def fetch_county_part(county: str | None, *, refresh: bool = False) -> Path | No
 
 
 def assemble(counties: list[str | None]) -> Path:
-    """Stream every county part into one Morton-ordered parquet, then replace DEST atomically.
+    """Stream every county part into one Hilbert-ordered parquet, then replace DEST atomically.
 
     Refuses when any county's part is missing and when the total is under ROW_FLOOR — the same
     two guarantees as before, but a refusal now costs nothing: the parts stay, and the next run

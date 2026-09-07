@@ -2,9 +2,11 @@
 """Run conservative verification selected from the current Git change set.
 
 The verifier deliberately treats selection and execution as separate layers:
-``build_checks`` is a pure policy function, while the Git/filesystem helpers only
-discover state and persist successful receipts.  This keeps the risk rules easy to
-unit-test and makes ``--plan`` useful to both people and coding agents.
+``build_checks`` is a unit-testable policy function. It inspects pytest syntax
+without importing changed tests to route explicitly marked contracts, while the
+Git/filesystem helpers discover state and persist successful receipts. This keeps
+the risk rules easy to test and makes ``--plan`` useful to both people and coding
+agents.
 
 Examples::
 
@@ -21,6 +23,7 @@ unstaged, and untracked files are included either way.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -39,10 +42,18 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_ROOT = ROOT / ".cache" / "verify-changed"
 POLICY_VERSION = "2026-08-07.2"
-FAST_MARKERS = "not integration and not sql and not sources and not bronze and not layers"
+FAST_MARKERS = (
+    "not integration and not sql and not sources and not bronze and not layers and not slow and not crosshair"
+)
+SLOW_MARKERS = "slow or crosshair"
+INTEGRATION_MARKERS = "integration"
+SOURCES_MARKERS = "sources"
+SQL_MARKERS = "sql"
 NON_SOURCE_PREFIXES = ("logs/", ".cache/verify-changed/")
 DETERMINISTIC_LOCAL = "deterministic local"
 LOCAL_PIPELINE_OUTPUT = "requires local pipeline output"
+EXTERNAL_SOURCE = "requires external source availability"
+SPECIAL_TEST_MARKERS = frozenset({"integration", "sources", "slow", "crosshair", "sql"})
 
 
 class GitError(RuntimeError):
@@ -161,6 +172,32 @@ ROOT_SCRIPT_TEST_TARGETS: Mapping[str, str] = {
     "seanad_refresh.py": "test/seanad",
 }
 
+# Python helpers under ``test/fixtures`` are support code, not pytest modules.
+# Map each one to the contracts that prove its observable behaviour instead of
+# passing a non-test file to pytest and accepting ``no tests collected``.
+FIXTURE_HELPER_TEST_TARGETS: Mapping[str, tuple[str, ...]] = {
+    "test/fixtures/payments/_generate_expected.py": (
+        "test/tools/test_tdd_policy.py",
+        "test/payments/test_payments_golden.py",
+    ),
+}
+
+TDD_POLICY_INPUTS = frozenset(
+    {
+        "AGENTS.md",
+        "pyproject.toml",
+        "test/conftest.py",
+        "tools/dev.py",
+        "tools/verify_changed.py",
+        "tools/health_check.ps1",
+        ".github/workflows/ci.yml",
+        "test/pipeline/test_truthfulness.py",
+        "test/mcp_server/test_resource_policy.py",
+        "test/payments/test_payments_golden.py",
+        "test/fixtures/payments/_generate_expected.py",
+    }
+)
+
 DEPENDENCY_FILES = frozenset({"pyproject.toml", "uv.lock", "requirements.txt"})
 MCP_CONFIG_FILES = frozenset({".mcp.json", ".vscode/mcp.json"})
 NO_VERIFICATION_PREFIXES = ("logs/", "doc/archive/", "memory/")
@@ -209,11 +246,140 @@ def _python_check(key: str, python: str, script: str, reason: str, *args: str) -
 
 
 def _pytest_check(key: str, python: str, targets: Sequence[str], reason: str) -> CheckSpec:
+    return _pytest_marker_check(key, python, FAST_MARKERS, targets, reason)
+
+
+def _pytest_marker_check(
+    key: str,
+    python: str,
+    markers: str,
+    targets: Sequence[str],
+    reason: str,
+    *,
+    env: tuple[tuple[str, str], ...] = (),
+    evidence_scope: str = DETERMINISTIC_LOCAL,
+) -> CheckSpec:
     return CheckSpec(
         key,
-        (python, "-m", "pytest", "-q", "-m", FAST_MARKERS, *targets),
+        (python, "-m", "pytest", "-q", "-m", markers, *targets),
         reason,
+        env,
+        evidence_scope,
     )
+
+
+def _test_files_for_target(target: str) -> tuple[Path, ...]:
+    """Return test modules beneath a focused target without leaving the repo."""
+    target_path = (ROOT / target).resolve()
+    try:
+        target_path.relative_to(ROOT)
+    except ValueError:
+        return ()
+
+    if target_path.is_file():
+        return (target_path,) if target_path.name.startswith("test_") else ()
+    if target_path.is_dir():
+        return tuple(sorted(target_path.rglob("test_*.py")))
+    return ()
+
+
+def _read_test_tree(path: Path) -> ast.Module | None:
+    try:
+        return ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        return None
+
+
+def _pytest_marker_names(node: ast.AST) -> frozenset[str]:
+    """Read ``pytest.mark.<name>`` attributes without evaluating Python."""
+
+    found: set[str] = set()
+    for candidate in ast.walk(node):
+        if not isinstance(candidate, ast.Attribute) or candidate.attr not in SPECIAL_TEST_MARKERS:
+            continue
+        marker = candidate.value
+        if (
+            isinstance(marker, ast.Attribute)
+            and marker.attr == "mark"
+            and isinstance(marker.value, ast.Name)
+            and marker.value.id == "pytest"
+        ):
+            found.add(candidate.attr)
+    return frozenset(found)
+
+
+def _marker_groups(marker_names: Iterable[str]) -> frozenset[str]:
+    groups: set[str] = set()
+    marker_set = set(marker_names)
+    if marker_set.intersection({"slow", "crosshair"}):
+        groups.add("slow")
+    if "integration" in marker_set:
+        groups.add("integration")
+    if "sources" in marker_set:
+        groups.add("sources")
+    if "sql" in marker_set:
+        groups.add("sql")
+    return frozenset(groups)
+
+
+def _module_marker_groups(tree: ast.Module) -> frozenset[str]:
+    marker_names: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+            marker_value = node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets = (node.target,)
+            marker_value = node.value
+        else:
+            continue
+        if marker_value is not None and any(
+            isinstance(target, ast.Name) and target.id == "pytestmark" for target in targets
+        ):
+            marker_names.update(_pytest_marker_names(marker_value))
+    return _marker_groups(marker_names)
+
+
+def _special_test_groups(target: str) -> frozenset[str]:
+    """Return explicit non-fast groups declared in a focused pytest target."""
+
+    found: set[str] = set()
+    for path in _test_files_for_target(target):
+        tree = _read_test_tree(path)
+        if tree is None:
+            continue
+        found.update(_pytest_marker_names(tree))
+
+    return _marker_groups(found)
+
+
+def _test_file_has_fast_case(path: Path) -> bool:
+    """Whether a test module contains a case not covered by a non-fast marker."""
+
+    tree = _read_test_tree(path)
+    if tree is None:
+        return False
+    module_groups = _module_marker_groups(tree)
+    if module_groups:
+        return False
+
+    def has_fast_case(nodes: list[ast.stmt], inherited_groups: frozenset[str]) -> bool:
+        for node in nodes:
+            if isinstance(node, ast.ClassDef):
+                class_groups = inherited_groups | _marker_groups(_pytest_marker_names(node))
+                if has_fast_case(node.body, class_groups):
+                    return True
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+                function_groups = inherited_groups | _marker_groups(_pytest_marker_names(node))
+                if not function_groups:
+                    return True
+        return False
+
+    return has_fast_case(tree.body, module_groups)
+
+
+def _target_has_fast_test_case(target: str) -> bool:
+    return any(_test_file_has_fast_case(path) for path in _test_files_for_target(target))
 
 
 def _is_doc_only_path(path: str) -> bool:
@@ -331,7 +497,7 @@ def _focused_test_target(path: str, *, exists: bool) -> str | None:
     }:
         return "test/tools/test_agent_context.py"
     if path.startswith("test/"):
-        return path if exists and p.suffix == ".py" else None
+        return path if exists and p.suffix == ".py" and p.name.startswith("test_") else None
     if path.startswith("planning/civic/extractors/"):
         return "test/planning"
     if path.startswith("tools/"):
@@ -393,8 +559,13 @@ def build_checks(
             _python_check("expected-failures", py, "tools/check_expected_failures.py", "full verification"),
             _pytest_check("pytest-fast", py, (), "full fast test lane"),
             CheckSpec(
+                "pytest-slow",
+                (py, "-m", "pytest", "-q", "-m", SLOW_MARKERS),
+                "full timing, stress, and symbolic-execution lane",
+            ),
+            CheckSpec(
                 "pytest-sql",
-                (py, "-m", "pytest", "-q", "-m", "sql"),
+                (py, "-m", "pytest", "-q", "-m", SQL_MARKERS),
                 "full SQL contract lane",
                 (("DAIL_INTEGRATION_TESTS", "1"),),
                 LOCAL_PIPELINE_OUTPUT,
@@ -522,6 +693,16 @@ def build_checks(
             )
         )
 
+    if TDD_POLICY_INPUTS.intersection(paths):
+        checks.append(
+            _pytest_check(
+                "pytest-tdd-policy",
+                py,
+                ("test/tools/test_tdd_policy.py",),
+                "test-first protocol or lane policy changed",
+            )
+        )
+
     if any(_is_mcp_related(path) for path in paths):
         checks.append(_python_check("mcp-catalog", py, "tools/check_mcp_catalog.py", "MCP surface changed"))
 
@@ -542,7 +723,7 @@ def build_checks(
         checks.append(
             CheckSpec(
                 "pytest-sql",
-                (py, "-m", "pytest", "-q", "-m", "sql"),
+                (py, "-m", "pytest", "-q", "-m", SQL_MARKERS),
                 "SQL view, registry, contract test, or committed gold changed",
                 (("DAIL_INTEGRATION_TESTS", "1"),),
                 LOCAL_PIPELINE_OUTPUT,
@@ -552,11 +733,31 @@ def build_checks(
     focused_targets: set[str] = set()
     needs_fast = dependency_change
     for path in python_paths:
+        fixture_targets = FIXTURE_HELPER_TEST_TARGETS.get(path)
+        if fixture_targets:
+            focused_targets.update(fixture_targets)
+            continue
         target = _focused_test_target(path, exists=path in existing)
         if target is None:
             needs_fast = True
         else:
             focused_targets.add(target)
+
+    special_targets: dict[str, set[str]] = {
+        "slow": set(),
+        "integration": set(),
+        "sources": set(),
+        "sql": set(),
+    }
+    fast_targets: set[str] = set()
+    for target in focused_targets:
+        target_groups = _special_test_groups(target)
+        for group in target_groups:
+            special_targets[group].add(target)
+        if _target_has_fast_test_case(target):
+            fast_targets.add(target)
+        elif not target_groups:
+            needs_fast = True
 
     # Non-document/config/data changes without a specific gate also fail safe.
     specifically_handled = {
@@ -579,14 +780,61 @@ def build_checks(
     if "test/conftest.py" in paths or len(focused_targets) > 10:
         needs_fast = True
 
+    if special_targets["slow"]:
+        checks.append(
+            _pytest_marker_check(
+                "pytest-slow-focused",
+                py,
+                SLOW_MARKERS,
+                tuple(sorted(special_targets["slow"])),
+                "changed target contains timing, stress, or symbolic contracts",
+            )
+        )
+    if special_targets["integration"]:
+        checks.append(
+            _pytest_marker_check(
+                "pytest-integration-focused",
+                py,
+                INTEGRATION_MARKERS,
+                tuple(sorted(special_targets["integration"])),
+                "changed target contains local pipeline-output or locally held-fixture contracts",
+                env=(("DAIL_INTEGRATION_TESTS", "1"),),
+                evidence_scope=LOCAL_PIPELINE_OUTPUT,
+            )
+        )
+    if special_targets["sources"]:
+        checks.append(
+            _pytest_marker_check(
+                "pytest-sources-focused",
+                py,
+                SOURCES_MARKERS,
+                tuple(sorted(special_targets["sources"])),
+                "changed target contains real upstream-source contracts",
+                evidence_scope=EXTERNAL_SOURCE,
+            )
+        )
+
+    if special_targets["sql"] and not any(check.key == "pytest-sql" for check in checks):
+        checks.append(
+            _pytest_marker_check(
+                "pytest-sql-focused",
+                py,
+                SQL_MARKERS,
+                tuple(sorted(special_targets["sql"])),
+                "changed target contains SQL contracts outside the global SQL routing",
+                env=(("DAIL_INTEGRATION_TESTS", "1"),),
+                evidence_scope=LOCAL_PIPELINE_OUTPUT,
+            )
+        )
+
     if needs_fast:
         checks.append(_pytest_check("pytest-fast", py, (), "broad or unmapped change; fail-safe fast lane"))
-    elif focused_targets:
+    elif fast_targets:
         checks.append(
             _pytest_check(
                 "pytest-focused",
                 py,
-                tuple(sorted(focused_targets)),
+                tuple(sorted(fast_targets)),
                 "tests mirrored to changed source areas",
             )
         )

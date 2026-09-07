@@ -165,6 +165,8 @@ jobs:
       #   sql — runs in its own `sql-contracts` job below (against committed gold).
       #   sources — external network. Source-URL health runs on a schedule via
       #     .github/workflows/nightly.yml (pdf_endpoint_check.py), not here.
+      #   layers — the siting layer cache is intentionally unavailable in the public job.
+      #   slow / crosshair — run in the explicit `slow-contracts` job below.
       # Coverage is a BACKSLIDE RATCHET, not a target. The floor sits just under the
       # measured figure (40% at time of writing) so ordinary churn doesn't flap the build,
       # while a change that deletes or bypasses a meaningful chunk of tested code fails the
@@ -177,8 +179,21 @@ jobs:
       # (extractors ~32%, iris ~28%). RAISE the floor when a tree genuinely improves; never
       # lower it to turn a red build green.
       - run: >-
-          uv run pytest -m "not integration and not sql and not sources and not bronze" -v
+          uv run pytest -m "not integration and not sql and not sources and not bronze and not layers and not slow and not crosshair" -v
           --cov --cov-report=term-missing:skip-covered --cov-fail-under=38
+
+  slow-contracts:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra pipeline --extra api --extra mcp --group dev
+      - name: Run timing, stress, and symbolic-execution contracts outside the fast lane
+        run: uv run pytest -m "slow or crosshair" -q
 
   # Build what users actually install, run it away from the source checkout,
   # and boot the API image. Source-tree tests cannot catch missing wheel or

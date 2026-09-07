@@ -133,6 +133,7 @@ def test_no_negative_taa_amounts(con):
 # ── external validation — official Oireachtas API (skips when offline) ─────────
 
 
+@pytest.mark.sources
 def test_dail_divisions_match_official_api(con):
     """Our division tallies must equal the official Oireachtas open-data API for a
     fixed settled sitting day. SKIPS (never fails) when the API is unreachable, so

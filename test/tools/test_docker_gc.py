@@ -60,12 +60,18 @@ def test_reclaim_never_removes_named_volumes():
     assert "-a" not in volume_cmd and "--all" not in volume_cmd
 
 
-def test_reclaim_commands_are_age_filtered():
-    """Both prune commands must carry an `until=` filter so a build from earlier today,
-    or a cache entry from this week, survives an unattended run."""
+def test_reclaim_prunes_all_unused_builder_cache_after_image_prune():
+    """An image prune can turn its layers into freshly timestamped build cache.
+
+    The builder pass therefore has to remove *all unused* cache after the image pass;
+    an age filter would preserve the exact stale layers the cleanup just exposed.
+    """
     commands = dict(docker_gc.RECLAIM_COMMANDS)
     assert any(a.startswith("until=") for a in commands["image prune"])
-    assert any(a.startswith("until=") for a in commands["builder prune"])
+    assert "--all" in commands["builder prune"]
+    assert not any(a.startswith("until=") for a in commands["builder prune"])
+    labels = [label for label, _ in docker_gc.RECLAIM_COMMANDS]
+    assert labels.index("image prune") < labels.index("builder prune")
 
 
 def test_reclaim_never_shuts_down_wsl():
@@ -95,6 +101,7 @@ def test_session_note_fires_above_threshold(monkeypatch, tmp_path):
     cache = tmp_path / "logs" / "docker_disk_cache.json"
     cache.parent.mkdir(parents=True)
     cache.write_text(json.dumps({"reclaimable_gb": 101.4, "vhdx_gb": 152.6}), encoding="utf-8")
+    monkeypatch.setattr(docker_gc, "df_report", lambda timeout=4.0: None)
     note = session_context._docker_disk_note()
     assert "101 GB reclaimable" in note
     assert "153 GB on disk" in note
@@ -105,7 +112,75 @@ def test_session_note_silent_below_threshold(monkeypatch, tmp_path):
     cache = tmp_path / "logs" / "docker_disk_cache.json"
     cache.parent.mkdir(parents=True)
     cache.write_text(json.dumps({"reclaimable_gb": 2.0, "vhdx_gb": 12.0}), encoding="utf-8")
+    monkeypatch.setattr(docker_gc, "df_report", lambda timeout=4.0: None)
     assert session_context._docker_disk_note() == ""
+
+
+def test_session_note_refreshes_metrics_instead_of_trusting_cache(monkeypatch, tmp_path):
+    """A fresh cache must not hide Docker growth that happened after the last session."""
+    monkeypatch.setattr(session_context, "REPO", tmp_path)
+    cache = tmp_path / "logs" / "docker_disk_cache.json"
+    cache.parent.mkdir(parents=True)
+    cache.write_text(json.dumps({"reclaimable_gb": 2.0, "vhdx_gb": 12.0}), encoding="utf-8")
+    monkeypatch.setattr(
+        docker_gc,
+        "df_report",
+        lambda timeout=4.0: {"Build Cache": {"reclaimable_mb": 31 * 1024}},
+    )
+    monkeypatch.setattr(docker_gc, "vhdx_size_mb", lambda: 12 * 1024)
+
+    note = session_context._docker_disk_note()
+
+    assert "31 GB reclaimable" in note
+    assert json.loads(cache.read_text(encoding="utf-8"))["reclaimable_gb"] == 31.0
+
+
+def test_session_note_fires_when_docker_host_drive_is_critically_low(monkeypatch, tmp_path):
+    """Host free space is the actual capacity boundary, not the VHDX size alone."""
+    monkeypatch.setattr(session_context, "REPO", tmp_path)
+    monkeypatch.setattr(
+        docker_gc,
+        "df_report",
+        lambda timeout=4.0: {"Images": {"reclaimable_mb": 2 * 1024}},
+    )
+    monkeypatch.setattr(docker_gc, "vhdx_size_mb", lambda: 12 * 1024)
+    monkeypatch.setattr(docker_gc, "host_free_mb", lambda: 12 * 1024, raising=False)
+
+    note = session_context._docker_disk_note()
+
+    assert "12 GB free" in note
+
+
+def test_session_note_does_not_invent_zero_free_space_when_host_probe_fails(monkeypatch, tmp_path):
+    monkeypatch.setattr(session_context, "REPO", tmp_path)
+    monkeypatch.setattr(
+        docker_gc,
+        "df_report",
+        lambda timeout=4.0: {"Images": {"reclaimable_mb": 2 * 1024}},
+    )
+    monkeypatch.setattr(docker_gc, "vhdx_size_mb", lambda: 12 * 1024)
+    monkeypatch.setattr(docker_gc, "host_free_mb", lambda: None)
+
+    assert session_context._docker_disk_note() == ""
+
+
+def test_session_note_preserves_last_known_vhdx_when_live_probe_is_unavailable(monkeypatch, tmp_path):
+    monkeypatch.setattr(session_context, "REPO", tmp_path)
+    cache = tmp_path / "logs" / "docker_disk_cache.json"
+    cache.parent.mkdir(parents=True)
+    cache.write_text(json.dumps({"reclaimable_gb": 2.0, "vhdx_gb": 152.6}), encoding="utf-8")
+    monkeypatch.setattr(
+        docker_gc,
+        "df_report",
+        lambda timeout=4.0: {"Images": {"reclaimable_mb": 2 * 1024}},
+    )
+    monkeypatch.setattr(docker_gc, "vhdx_size_mb", lambda: None)
+    monkeypatch.setattr(docker_gc, "host_free_mb", lambda: None)
+
+    note = session_context._docker_disk_note()
+
+    assert "153 GB on disk" in note
+    assert json.loads(cache.read_text(encoding="utf-8"))["vhdx_gb"] == 152.6
 
 
 def test_session_note_silent_when_docker_absent(monkeypatch, tmp_path):

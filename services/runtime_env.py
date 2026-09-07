@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import os
 import sys
+import sysconfig
 
 #: Environment variables read by the threading layers NumPy/SciPy/scikit-learn ship with.
 #: OpenBLAS is the one that costs memory here; the rest are capped for consistency so a
@@ -55,6 +56,21 @@ OVERRIDE_VAR = "DAIL_BLAS_THREADS"
 applied_in_time: bool = True
 
 
+def restore_windows_x64_architecture_metadata() -> None:
+    """Restore architecture metadata stripped from some Windows child processes.
+
+    Polars checks ``platform.machine()`` before its native module loads. On this
+    Windows x64 host that value is derived from ``PROCESSOR_ARCHITECTURE``, which
+    can be absent in sandboxed child processes. Restore it from Python's build
+    target before Polars imports so Polars can run its ordinary CPUID validation;
+    do not bypass that validation with ``POLARS_SKIP_CPU_CHECK``.
+    """
+    if os.name != "nt" or os.environ.get("PROCESSOR_ARCHITECTURE"):
+        return
+    if sysconfig.get_platform().lower() == "win-amd64":
+        os.environ["PROCESSOR_ARCHITECTURE"] = "AMD64"
+
+
 def cap_blas_threads(threads: int | str | None = None) -> int:
     """Pin the BLAS thread count for this process. Returns the value applied.
 
@@ -76,4 +92,5 @@ def cap_blas_threads(threads: int | str | None = None) -> int:
     return value
 
 
+restore_windows_x64_architecture_metadata()
 cap_blas_threads()

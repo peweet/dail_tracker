@@ -48,12 +48,12 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 import polars as pl
-import shapely
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.coverage_io import save_coverage  # noqa: E402
 from services.extract_runner import run_extractor  # noqa: E402
+from services.geometry import points_to_wkb, wkb_centroids  # noqa: E402
 from services.http_engine import fetch_bytes, polite_headers  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
@@ -209,6 +209,96 @@ def geocode_unmatched(df: pl.DataFrame) -> pl.DataFrame:
     return pl.DataFrame(out_rows)
 
 
+_CURATED = ROOT / "data" / "_meta" / "hsa_comah_curated_coordinates.csv"
+
+
+def apply_curated_overlay(df: pl.DataFrame) -> pl.DataFrame:
+    """Owner-reviewed coordinate overlay — highest precedence, provenance per row.
+
+    Two methods: `epa_regcd` resolves the pin from the co-located EPA licensed facility
+    (data-anchored, refreshes with that layer); `manual` takes lat/lon from the CSV with a
+    source note. Added 2026-09-04 after the Gensys/Huntstown case study: a town-centroid
+    geocode put a lower-tier establishment ~3.3 km from its real site and a production
+    report understated the hazard distance ~2.5x. The overlay is deliberately small and
+    reviewed — never bulk-generated (the address-token join probe collapsed 5 of 6 hits
+    onto a shared-estate proxy).
+    """
+    if not _CURATED.exists():
+        return df
+    curated = pl.read_csv(_CURATED)
+    epa = pl.read_parquet(_EPA_LAYER)
+    epa_lons, epa_lats = wkb_centroids(epa["wkb"].to_list())
+    by_reg = {r["RegCD"]: (x, y) for r, x, y in zip(epa.iter_rows(named=True), epa_lons, epa_lats, strict=True)}
+    pins: dict[str, dict] = {}
+    for c in curated.iter_rows(named=True):
+        key = (c["establishment"] or "").strip().lower()
+        if c["method"] == "epa_regcd":
+            pt = by_reg.get(c["epa_reg_cd"])
+            if pt is None:
+                LOG.warning("curated overlay: EPA RegCD %s not in layer — row skipped", c["epa_reg_cd"])
+                continue
+            pins[key] = {
+                "lon": pt[0],
+                "lat": pt[1],
+                "note": f"curated: EPA facility {c['epa_reg_cd']} — {c['source']}",
+            }
+        elif c["method"] == "manual" and c["lat"] is not None and c["lon"] is not None:
+            pins[key] = {"lon": c["lon"], "lat": c["lat"], "note": f"curated: {c['source']}"}
+        else:
+            LOG.warning("curated overlay: row for %r has no usable method/coords — skipped", c["establishment"])
+    if not pins:
+        return df
+    out_rows = []
+    applied = set()
+    for r in df.iter_rows(named=True):
+        row = dict(r)
+        key = (row["establishment"] or "").strip().lower()
+        pin = pins.get(key)
+        if pin is not None:
+            row["lon"], row["lat"] = pin["lon"], pin["lat"]
+            row["geocode_source"] = "curated"
+            row["geocode_precision"] = "site"
+            row["geocode_note"] = pin["note"]
+            applied.add(key)
+        out_rows.append(row)
+    LOG.info("curated overlay: %d of %d pins applied", len(applied), len(pins))
+    unapplied = set(pins) - applied
+    if unapplied:
+        # Fail loudly, never warn-only: an unapplied pin means the HSA renamed the
+        # establishment (or the CSV has a typo) and the curated fix would silently lapse
+        # back to a town centroid — enumerated gates fail open otherwise.
+        raise SystemExit(f"curated overlay pins matched no register row: {sorted(unapplied)}")
+    return pl.DataFrame(out_rows)
+
+
+# Quality ratchet (2026-09-04, deterministic gate from the Gensys/Huntstown case study).
+# These are the committed baselines; a run may only IMPROVE on them. If the HSA publishes
+# new establishments that geocode to town grade, the run fails loudly and a human either
+# adds curated pins or raises the baseline in a reviewed change — never silently ships a
+# worse register. Floors, not snapshots: better values pass without edits.
+_MAX_UPPER_TIER_TOWN = 15
+_MAX_UNGEOCODED = 3
+
+
+def enforce_quality(df: pl.DataFrame) -> None:
+    upper_town = df.filter((pl.col("tier") == "upper") & (pl.col("geocode_precision") == "town")).height
+    ungeocoded = df.filter(pl.col("lat").is_null()).height
+    if upper_town > _MAX_UPPER_TIER_TOWN:
+        raise SystemExit(
+            f"quality ratchet: {upper_town} upper-tier town-precision rows "
+            f"(baseline {_MAX_UPPER_TIER_TOWN}) — add curated pins or review the baseline"
+        )
+    if ungeocoded > _MAX_UNGEOCODED:
+        raise SystemExit(f"quality ratchet: {ungeocoded} ungeocoded rows (baseline {_MAX_UNGEOCODED})")
+    LOG.info(
+        "quality ratchet OK: %d upper-tier town rows (<=%d), %d ungeocoded (<=%d)",
+        upper_town,
+        _MAX_UPPER_TIER_TOWN,
+        ungeocoded,
+        _MAX_UNGEOCODED,
+    )
+
+
 def _fetch_page(url: str) -> str:
     data = fetch_bytes(url, headers=polite_headers(browser=True))
     if not data:
@@ -275,16 +365,18 @@ def match_epa(df: pl.DataFrame) -> pl.DataFrame:
     """Best-token-overlap name match against EPA licensed facilities; county must agree."""
     epa = pl.read_parquet(_EPA_LAYER)
     facilities = []
-    for r in epa.iter_rows(named=True):
-        pt = shapely.from_wkb(r["wkb"]).centroid
+    # Centroids for the whole layer in one pass rather than one shapely call per row; bit-exact
+    # against shapely's .centroid on this layer (max abs delta 0.0, 2026-08-29).
+    epa_lons, epa_lats = wkb_centroids(epa["wkb"].to_list())
+    for r, pt_x, pt_y in zip(epa.iter_rows(named=True), epa_lons, epa_lats, strict=True):
         facilities.append(
             {
                 "name_tokens": _tokens(r["Name"] or ""),
                 "blob": _norm((r["Name"] or "") + " " + (r["Address"] or "")),
                 "reg": r["RegCD"],
                 "epa_name": r["Name"],
-                "lon": pt.x,
-                "lat": pt.y,
+                "lon": pt_x,
+                "lat": pt_y,
             }
         )
     county_re = re.compile(r"co\.?\s+([a-z]+)|county\s+([a-z]+)", re.I)
@@ -328,6 +420,8 @@ def main() -> None:
     df = match_epa(register)
     n_join = df.filter(pl.col("lat").is_not_null()).height
     df = geocode_unmatched(df)
+    df = apply_curated_overlay(df)
+    enforce_quality(df)
     n_geo = df.filter(pl.col("lat").is_not_null()).height
     n_addr = df.filter(pl.col("geocode_precision") == "address").height
     n_town = df.filter(pl.col("geocode_precision") == "town").height
@@ -350,10 +444,9 @@ def main() -> None:
 
     save_parquet(df, _OUT_REGISTER)
     spatial = df.filter(pl.col("lat").is_not_null())
+    # Batched via services.geometry — see the note in epa_licensed_facilities_extract.to_wkb_frame.
     spatial = spatial.with_columns(
-        pl.struct(["lon", "lat"])
-        .map_elements(lambda s: shapely.to_wkb(shapely.Point(s["lon"], s["lat"])), return_dtype=pl.Binary)
-        .alias("wkb")
+        pl.Series("wkb", points_to_wkb(spatial["lon"].to_numpy(), spatial["lat"].to_numpy()), dtype=pl.Binary)
     ).drop("lon", "lat")
     save_parquet(spatial, _OUT_LAYER, geoparquet=True, source_crs="EPSG:4326_XY")
     save_coverage(

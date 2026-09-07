@@ -6,6 +6,7 @@ from datetime import date
 
 import polars as pl
 
+from extractors import procurement_award_payment_candidates as mod
 from extractors.procurement_award_payment_candidates import LINK_STATES, build_shadow_candidates, build_summary
 
 
@@ -270,3 +271,55 @@ def test_lifecycle_provenance_and_no_score_contract() -> None:
     summary = build_summary(rows)
     assert summary["contract_attribution_permitted"] is False
     assert summary["contains_confidence_score"] is False
+
+
+# ── vectorized predicates must mean EXACTLY what the row-wise originals meant ──
+
+
+def _reference_contains(haystack: str, needle: str, minimum: int) -> bool:
+    """The pre-2026-08-30 `map_elements` body, kept verbatim as the oracle."""
+    return bool(needle) and len(needle) >= minimum and needle in haystack
+
+
+def _reference_token(tokens: list[str], needle: str, minimum: int) -> bool:
+    return bool(needle) and len(needle) >= minimum and needle in tokens
+
+
+def test_contains_dynamic_matches_the_row_wise_original_including_edges():
+    # Replaced by a native polars expression for a measured 15.3x; these are the edge cases where
+    # a "faster equivalent" usually stops being equivalent — null and empty needles, a needle at
+    # exactly the length threshold, and regex metacharacters that must stay literal.
+    cases = [
+        ("abcdefghijklmnop", "cdefghijklm", 12),
+        ("abcdefghijklmnop", "abcdefghijkl", 12),  # exactly minimum length
+        ("abcdefghijklmnop", "abcdefghijk", 12),  # one short of minimum
+        ("abcdefghijklmnop", "", 12),
+        ("abcdefghijklmnop", None, 12),
+        ("a.c(def)ghijklmn", "a.c(def)ghij", 12),  # regex metacharacters, must be literal
+        ("", "abcdefghijkl", 12),
+    ]
+    frame = pl.DataFrame(
+        {"h": [c[0] for c in cases], "n": [c[1] for c in cases]},
+        schema={"h": pl.String, "n": pl.String},
+    )
+    got = frame.with_columns(mod._contains_dynamic("h", "n", minimum_needle_length=12).alias("v"))["v"].to_list()
+    assert got == [_reference_contains(h, n or "", m) for h, n, m in cases]
+
+
+def test_has_dynamic_token_matches_the_row_wise_original_including_edges():
+    # list.contains is EXACT membership — the substring case below is the one that must stay False,
+    # and is the whole reason this predicate exists (see the tender-ID substring test above).
+    cases = [
+        (["abcdef", "ghijkl"], "abcdef", 6),
+        (["abcdefxx", "ghijkl"], "abcdef", 6),  # substring of a token, NOT a member
+        (["abcdef"], "abc", 6),  # below minimum length
+        (["abcdef"], "", 6),
+        (["abcdef"], None, 6),
+        ([], "abcdef", 6),
+    ]
+    frame = pl.DataFrame(
+        {"t": [c[0] for c in cases], "n": [c[1] for c in cases]},
+        schema={"t": pl.List(pl.String), "n": pl.String},
+    )
+    got = frame.with_columns(mod._has_dynamic_token("t", "n", minimum_needle_length=6).alias("v"))["v"].to_list()
+    assert got == [_reference_token(t, n or "", m) for t, n, m in cases]

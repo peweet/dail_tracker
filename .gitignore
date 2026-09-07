@@ -8,6 +8,10 @@
 
 # Local auxiliary Git worktrees never belong in repository history.
 .worktrees/
+# Local agent scratch directories can carry workstation-only ACLs.
+/.codex_tmp_*/
+# Local interface critiques may describe the separately versioned private product.
+/.impeccable/
 # Default ignored files
 /shelf/
 /workspace.xml
@@ -840,3 +844,16 @@ node_modules/
 
 # Rebuildable spatial selection indexes beside the local cadastral snapshots.
 /data/silver/parquet/cadastre/_land_selection/
+
+# Professionals-harvest ledgers written by planning/product/sandbox/professionals: private run state, never published.
+planning/_*_done.txt
+# Local harvest state and accidental command-redirection files.
+/planning/*_done_*.txt
+/planning/*.csv.lock
+/planning/ie_national.jsonl
+/planning/DATE
+/planning/cd
+/planning/powershell
+/planning/python
+/python
+/rmdir

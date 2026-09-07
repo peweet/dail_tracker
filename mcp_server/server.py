@@ -2110,7 +2110,7 @@ def siting_decision_documents(
     returns an honest unavailable_reason, never an empty success. Surfaces decision docs only —
     the scanned file also holds third-party submissions, so never use this as a people-search."""
     try:
-        from planning.product.core import decision_docs as _dd
+        from planning.product.core.precedent import decision_docs as _dd
     except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed (public clone)
         return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
 
@@ -2345,7 +2345,7 @@ SITING_USE_CLASSES = (
     "general_manufacturing",
     "data_centre",
 )
-# Mirror of planning.product.core.engine.NON_RESIDENTIAL_COMPONENTS (2026-08-27 scheme-mix
+# Mirror of planning.product.core.evaluation.engine.NON_RESIDENTIAL_COMPONENTS (2026-08-27 scheme-mix
 # build); pinned equal by test_mcp_siting_vocabulary. Declared components of a residential-led
 # scheme — undeclared keeps the zoning-objective mix node silent, so the same typo-becomes-
 # omission trap as use_class applies and the same closed-vocabulary guard runs below.
@@ -2482,10 +2482,10 @@ def siting_check(
     # anyway. The try/except is also what tools/check_no_untracked_imports.py exempts.
     try:
         from planning.product.api.serialize import serialize_result
-        from planning.product.core import engine as _engine
-        from planning.product.core.layers import make_store
-        from planning.product.core.process_capacity import ProcessCapacity
-        from planning.product.core.seveso_inventory import InventoryLine
+        from planning.product.core.evaluation import engine as _engine
+        from planning.product.core.evaluation.process_capacity import ProcessCapacity
+        from planning.product.core.evaluation.seveso_inventory import InventoryLine
+        from planning.product.core.layer_store.layers import make_store
     except Exception:  # noqa: BLE001 — private overlay may be absent from a public checkout
         return {"error": "Siting check is unavailable."}
     try:

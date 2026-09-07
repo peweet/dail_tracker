@@ -10,6 +10,7 @@ Run:  pytest test/utility/test_public_payments_page.py -v
 
 from __future__ import annotations
 
+import inspect
 import sys
 import warnings
 from pathlib import Path
@@ -92,6 +93,35 @@ def test_semantics_label():
 def test_href_builders():
     assert pp._publisher_href("HSE 1").startswith("?publisher=")
     assert pp._supplier_href("acme ltd").startswith("?supplier=")
+
+
+def test_register_caveat_is_compact_and_keeps_the_money_boundaries():
+    html = pp._register_caveat_html()
+    plain = html.replace("<strong>", "").replace("</strong>", "").replace("<em>", "").replace("</em>", "")
+    assert len(plain) < 500
+    for phrase in ("ordered", "paid", "sum-safe", "contract awards", "not evidence of wrongdoing"):
+        assert phrase in plain.lower()
+    assert "VAT treatment" not in plain
+    assert "VAT treatment" in inspect.getsource(pp._provenance_footer)
+
+
+@pytest.mark.parametrize(
+    ("renderer", "identifier", "fetcher"),
+    [
+        ("_render_publisher_profile", "p1", "fetch_publisher_lines_result"),
+        ("_render_supplier_profile", "acme ltd", "fetch_supplier_lines_result"),
+        ("_render_category_profile", "Office accommodation", "fetch_categories_result"),
+    ],
+)
+def test_profile_back_returns_to_the_register_before_fetching(monkeypatch, renderer, identifier, fetcher):
+    returned = []
+    monkeypatch.setattr(pp, "back_button", lambda *args, **kwargs: True)
+    monkeypatch.setattr(pp, "_return_to_register", lambda: returned.append(True), raising=False)
+    monkeypatch.setattr(pp, fetcher, lambda *args, **kwargs: pytest.fail("profile data was fetched after Back"))
+
+    getattr(pp, renderer)(identifier)
+
+    assert returned == [True]
 
 
 # ── card / pill builders ─────────────────────────────────────────────────────

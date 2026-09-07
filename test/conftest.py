@@ -91,7 +91,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 def pytest_configure(config):
     config.addinivalue_line(
         "markers",
-        "integration: requires pipeline output files to exist (run pipeline.py first)",
+        "integration: needs real local pipeline output or a locally held fixture",
     )
     config.addinivalue_line(
         "markers",
@@ -104,4 +104,12 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers",
         "sql: requires pipeline output; executes DuckDB SQL views",
+    )
+    config.addinivalue_line(
+        "markers",
+        "slow: timing, thread, or stress check; run explicitly outside the fast lane",
+    )
+    config.addinivalue_line(
+        "markers",
+        "crosshair: symbolic-execution check; seconds not milliseconds",
     )
