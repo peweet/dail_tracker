@@ -161,23 +161,25 @@ def _from_rzlpa02() -> pl.DataFrame:
 
 
 def _from_fj() -> pl.DataFrame:
-    # National rows only: the discrete table's county rows are published EXTREMES (a highest
-    # or lowest county), not county averages — placing them beside averages would misread.
+    # National rows plus republished county AVERAGES (scope "county"). Published EXTREMES
+    # (scope "county_extreme" — a highest or lowest county) stay out: placing an extreme
+    # beside averages would misread.
     df = pl.read_parquet(_GOLD / "fj_land_price_report.parquet")
-    national = df.filter(pl.col("scope") == "national").with_columns(
+    avg = df.filter(pl.col("scope").is_in(["national", "county"])).with_columns(
         pl.col("year").cast(pl.Int32),
         pl.col("eur_per_acre").alias("value_eur"),
         pl.lit("agri_all").alias("land_class"),
+        pl.col("scope").alias("geo_level"),  # "national" | "county"
     )
-    return _rows(
-        national,
-        source="fj_compilation",
-        method="Irish Farmers Journal transaction compilation — free-tier republished national "
-        "figures only; county tables paywalled",
-        geo_level="national",
-        measure="compilation_average",
-        unit="eur_per_acre",
-    )
+    return avg.with_columns(
+        pl.lit("fj_compilation").alias("source"),
+        pl.lit(
+            "Irish Farmers Journal transaction compilation — free-tier republished figures "
+            "only (per-row source URLs in fj_land_price_report); full county tables paywalled"
+        ).alias("method"),
+        pl.lit("compilation_average").alias("measure"),
+        pl.lit("eur_per_acre").alias("unit"),
+    ).select(SCHEMA)
 
 
 def build() -> pl.DataFrame:

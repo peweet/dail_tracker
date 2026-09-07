@@ -36,7 +36,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 CSV = _ROOT / "data" / "_meta" / "fj_land_price_report.csv"
 OUT = _ROOT / "data" / "gold" / "parquet" / "fj_land_price_report.parquet"
 
-SCOPES = ("national", "county_extreme")
+SCOPES = ("national", "county", "county_extreme")
 
 
 def load() -> pl.DataFrame:
@@ -77,7 +77,7 @@ def main() -> int:
         return 1
     LOG.info("fj_land_price_report: %d rows, valid", df.height)
     if not args.dry_run:
-        save_parquet(df, OUT, min_rows=4)
+        save_parquet(df, OUT, min_rows=8)
         LOG.info("wrote %s", OUT.relative_to(_ROOT))
     return 0
 

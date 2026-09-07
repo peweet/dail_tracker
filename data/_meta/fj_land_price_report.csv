@@ -9,12 +9,18 @@
 # only "+3% / EUR 361/ac"); deriving the level from the percentage is forbidden — add the row
 # when a source publishes it. NOTE: the REA Land Price Survey's EUR 13,232 (2025) is a
 # DIFFERENT compiler and must not be entered here.
-# 2024-report figures (EUR 12,515 national, Leitrim lowest) circulate in search summaries but
-# no citable free article was found this session — they are NOT entered; add them with a real
-# URL when found or when the report is licensed.
-# scope: national = whole-market average; county_extreme = a published highest/lowest county.
+# 2024-report rows sourced 2026-09-08 from an auctioneer's republication (keenanauctioneers.com)
+# of the Journal's 18th-edition report: national EUR 12,515 (+5%), Meath EUR 17,669 (2023:
+# 14,321), Louth EUR 17,270. NOT entered from that page: "Monaghan EUR 12,515" (identical to
+# the national figure — a suspect duplication) and Cavan (published only as a range).
+# scope: national = whole-market average; county = a republished county average;
+# county_extreme = a published highest/lowest county.
 year,scope,geo,measure,eur_per_acre,source_url
 2022,national,Ireland,sale_all_farmland,12288,https://www.thejournal.ie/farmland-prices-hit-highest-level-since-celtic-tiger-according-to-a-new-report-6020891-Mar2023/
 2023,national,Ireland,sale_all_farmland,11925,https://www.rte.ie/news/business/2024/0314/1437800-widening-gap-in-farmland-market-as-average-price-drops/
+2024,national,Ireland,sale_all_farmland,12515,https://keenanauctioneers.com/land-price-report-2024/
 2023,county_extreme,Dublin,sale_all_farmland_highest_county,38023,https://www.rte.ie/news/business/2024/0314/1437800-widening-gap-in-farmland-market-as-average-price-drops/
 2023,county_extreme,Mayo,sale_all_farmland_lowest_county,6284,https://www.rte.ie/news/business/2024/0314/1437800-widening-gap-in-farmland-market-as-average-price-drops/
+2023,county,Meath,sale_all_farmland,14321,https://keenanauctioneers.com/land-price-report-2024/
+2024,county,Meath,sale_all_farmland,17669,https://keenanauctioneers.com/land-price-report-2024/
+2024,county,Louth,sale_all_farmland,17270,https://keenanauctioneers.com/land-price-report-2024/
