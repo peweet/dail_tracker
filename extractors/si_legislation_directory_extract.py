@@ -39,13 +39,16 @@ import sys
 import time
 from pathlib import Path
 
-import polars as pl
-from bs4 import BeautifulSoup
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import services.runtime_env  # noqa: E402, F401 — set native thread caps before Polars
+
 import contextlib  # noqa: E402
 
+import polars as pl  # noqa: E402
+from bs4 import BeautifulSoup  # noqa: E402
+
+from services.coverage_io import save_coverage  # noqa: E402
 from services.http_engine import fetch_bytes as http_fetch_bytes  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
@@ -75,24 +78,37 @@ def hr(t: str) -> None:
     print(f"\n{'=' * 70}\n{t}\n{'=' * 70}")
 
 
-def fetch(url: str, cache_name: str | None = None, *, force: bool = False) -> str:
-    if cache_name and not force:
-        cp = CACHE_DIR / cache_name
-        if cp.exists() and cp.stat().st_size > 500:
-            return cp.read_text(encoding="utf-8", errors="ignore")
-    body = http_fetch_bytes(url, headers=HDRS, timeout=30, validate=lambda payload: bool(payload.strip()))
-    if body is None:
-        raise RuntimeError(f"failed to fetch {url}")
+def fetch(url: str, cache_name: str | None = None, *, force: bool = False, offline: bool = False) -> str:
+    """Accept only directory content; a cached or downloaded error page is a miss."""
+    cp = CACHE_DIR / cache_name if cache_name else None
+    if cp is not None and cp.exists() and (not force or offline):
+        cached = cp.read_text(encoding="utf-8", errors="replace")
+        if _valid_directory_html(cached, url):
+            return cached
+    if offline:
+        raise RuntimeError(f"missing or invalid directory cache for {url}")
+    body = http_fetch_bytes(
+        url,
+        headers=HDRS,
+        timeout=30,
+        validate=lambda payload: _valid_directory_html(payload.decode("utf-8", errors="replace"), url),
+    )
+    if body is None or not _valid_directory_html(body.decode("utf-8", errors="replace"), url):
+        raise RuntimeError(f"failed to fetch valid directory content from {url}")
     txt = body.decode("utf-8", errors="replace")
-    if cache_name:
+    if cp is not None:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        (CACHE_DIR / cache_name).write_text(txt, encoding="utf-8")
+        part = cp.with_name(cp.name + ".part")
+        try:
+            part.write_text(txt, encoding="utf-8")
+            part.replace(cp)
+        finally:
+            part.unlink(missing_ok=True)
         time.sleep(0.35)  # polite only on real fetch
     return txt
 
 
-def range_urls(year: int, *, force_index: bool = False) -> tuple[list[str], str | None]:
-    html = fetch(f"{BASE}/si{year}.html", f"si{year}_index.html", force=force_index)
+def _index_entries(html: str, year: int) -> tuple[list[str], str | None]:
     soup = BeautifulSoup(html, "html.parser")
     upd = UPDATED_TO.search(soup.get_text(" ", strip=True))
     urls = []
@@ -100,6 +116,34 @@ def range_urls(year: int, *, force_index: bool = False) -> tuple[list[str], str 
         if re.search(rf"si{year}_\d+-\d+\.html$", a["href"]):
             urls.append(a["href"].split("/")[-1])
     return sorted(set(urls)), (upd.group(1) if upd else None)
+
+
+def _valid_directory_html(html: str, url: str) -> bool:
+    match = re.search(r"/si(\d{4})(?:_(\d+)-(\d+))?\.html$", url)
+    if not match:
+        return False
+    year = int(match.group(1))
+    if match.group(2) is None:
+        names, updated_to = _index_entries(html, year)
+        if not names or not updated_to:
+            return False
+        ranges = sorted(tuple(map(int, re.search(r"_(\d+)-(\d+)\.html$", name).groups())) for name in names)
+        next_number = 1
+        for start, end in ranges:
+            if start != next_number or end < start:
+                return False
+            next_number = end + 1
+        return True
+    text = BeautifulSoup(html, "html.parser").get_text(" ", strip=True).lower()
+    if "how affected" not in text or "affecting provision" not in text:
+        return False
+    rows = parse_table(html, year, url, None)
+    return bool(rows) and all(int(match.group(2)) <= row["si_number"] <= int(match.group(3)) for row in rows)
+
+
+def range_urls(year: int, *, force_index: bool = False, offline: bool = False) -> tuple[list[str], str | None]:
+    html = fetch(f"{BASE}/si{year}.html", f"si{year}_index.html", force=force_index, offline=offline)
+    return _index_entries(html, year)
 
 
 def derive_state(how: str) -> str:
@@ -241,6 +285,16 @@ def _merge_years(new_df: pl.DataFrame, crawl_years: list[int]) -> pl.DataFrame:
     crawled = set(crawl_years)
     if OUT_PARQUET.exists():
         old = pl.read_parquet(OUT_PARQUET)
+        replaced = old.filter(pl.col("si_year").is_in(list(crawled)))
+        missing = (
+            replaced.join(new_df.select("si_year", "si_number"), on=["si_year", "si_number"], how="anti")
+            if new_df.height
+            else replaced
+        )
+        if missing.height:
+            raise RuntimeError(
+                f"refresh would remove {missing.height} previously retained SI identities; refusing publication"
+            )
         kept = old.filter(~pl.col("si_year").is_in(list(crawled)))
         merged = pl.concat([kept, new_df], how="diagonal_relaxed") if new_df.height else kept
     else:
@@ -289,23 +343,28 @@ def main() -> None:
     rows: list[dict] = []
     updated_map: dict[int, str | None] = {}
     for year in crawl_years:
-        try:
-            names, upd = range_urls(year, force_index=not args.offline)
-            updated_map[year] = upd
-            # Re-crawl this year's range pages when its directory date moved
-            # (or we've no prior record). Offline always trusts the cache.
-            changed = (not args.offline) and (str(upd) != str(prior.get(str(year))))
-            for name in names:
-                html = fetch(f"{BASE}/{name}", name, force=changed)
-                rows += parse_table(html, year, f"{BASE}/{name}", upd)
-            print(f"  {year}: {len(names)} pages, updated_to={upd} [{'refetched' if changed else 'cache'}]")
-        except Exception as e:
-            print(f"  {year}: ERROR {e!r}")
+        # Publication is all-or-nothing for the requested sweep. A failed index,
+        # bucket or parse must leave both retained facts and freshness dates alone.
+        names, upd = range_urls(year, force_index=not args.offline, offline=args.offline)
+        changed = (not args.offline) and (upd is None or str(upd) != str(prior.get(str(year))))
+        year_rows: list[dict] = []
+        for name in names:
+            html = fetch(f"{BASE}/{name}", name, force=changed, offline=args.offline)
+            parsed = parse_table(html, year, f"{BASE}/{name}", upd)
+            if not parsed:
+                raise RuntimeError(f"no SI rows in {name}; refusing partial refresh")
+            year_rows.extend(parsed)
+        if not year_rows:
+            raise RuntimeError(f"no SI rows for {year}; refusing empty refresh")
+        rows.extend(year_rows)
+        updated_map[year] = upd
+        print(f"  {year}: {len(names)} pages, updated_to={upd} [{'refetched' if changed else 'validated cache'}]")
 
     new_df = pl.DataFrame(rows).unique(subset=["si_year", "si_number"], keep="first") if rows else pl.DataFrame()
     df = _merge_years(new_df, crawl_years)
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
-    save_parquet(df, OUT_PARQUET)
+    previous_rows = pl.scan_parquet(OUT_PARQUET).select(pl.len()).collect().item() if OUT_PARQUET.exists() else 1
+    save_parquet(df, OUT_PARQUET, min_rows=previous_rows)
     hr("WROTE PARQUET (merged)")
     print(f"{OUT_PARQUET}  ({df.height:,} rows; crawled {len(crawl_years)} year(s), {new_df.height:,} rows refreshed)")
 
@@ -355,7 +414,7 @@ def main() -> None:
         "caveat": "Discovery/indexing only — verify the official eISB entry before legal reliance. "
         "Whole vs provision-level revocation is heuristic from the 'How Affected' column.",
     }
-    OUT_COVERAGE.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    save_coverage(cov, OUT_COVERAGE)
     print(f"\nwrote coverage: {OUT_COVERAGE}")
 
     hr("SAMPLES: whole-revoked + partially_revoked + amended")
