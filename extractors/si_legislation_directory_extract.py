@@ -41,7 +41,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+# isort: off
 import services.runtime_env  # noqa: E402, F401 — set native thread caps before Polars
+
+# isort: on
 
 import contextlib  # noqa: E402
 
