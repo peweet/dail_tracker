@@ -1,18 +1,18 @@
 {
   "link_version": "1.2.0",
-  "generated_at": "2026-09-05T08:52:51.592913+00:00",
-  "judge_court_pairs": 8903,
+  "generated_at": "2026-09-08T19:45:52.939461+00:00",
+  "judge_court_pairs": 8904,
   "matched_pairs": 5922,
   "match_methods": {
-    "no-candidate": 1623,
-    "roster-notice": 4,
-    "honorific-conflict": 219,
-    "surname-bench-wide": 1163,
-    "exact": 159,
-    "honorific-other-person": 87,
     "surname-court": 4600,
+    "honorific-other-person": 87,
     "office-title": 649,
-    "ambiguous": 399
+    "roster-notice": 4,
+    "no-candidate": 1624,
+    "exact": 159,
+    "ambiguous": 399,
+    "honorific-conflict": 219,
+    "surname-bench-wide": 1163
   },
   "unmatched": [
     {
@@ -11136,6 +11136,11 @@
       "match_method": "no-candidate"
     },
     {
+      "judge": "Mr Justice Richard Humphries",
+      "court": "High Court",
+      "match_method": "no-candidate"
+    },
+    {
       "judge": "Mr Justice Rory Mulchay",
       "court": "High Court",
       "match_method": "no-candidate"
@@ -14923,12 +14928,12 @@
   ],
   "row_level": {
     "cases": {
-      "rows_with_judge": 12525,
-      "rows_matched": 11579
+      "rows_with_judge": 12571,
+      "rows_matched": 11616
     },
     "schedule": {
-      "rows_with_judge": 2685,
-      "rows_matched": 2509
+      "rows_with_judge": 2711,
+      "rows_matched": 2533
     }
   },
   "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."
