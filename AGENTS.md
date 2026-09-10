@@ -12,6 +12,13 @@ This file is the portable, tool-neutral entry point for work in this repository.
 3. Use `rg --files` and scoped `rg -n` searches. The tracked `.rgignore` hides bulky generated data and artifacts from default searches.
 4. Use `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify` for focused, changed-file-aware verification. Use the same command with `check` before a broad handoff. The runner repairs a bare invocation once, but specifying the profile avoids a bootstrap re-exec.
 
+For a build, transfer, ingest, test gate, or release step expected to run longer than five
+minutes or outlive one task, register it with `python tools/dev.py job-status start ...`.
+Use a separate job id and artifact for each operation: a local NLC derivative build, an SCP
+transfer, and a remote verification are not one job. Only the named owner updates it. Status
+reports must quote the latest observation time, measured current/total when available, ETA or
+`unknown`, and the evidence used; process existence or a changing file alone is not progress.
+
 Before re-deriving a known project trap, run `uv run python tools/discoveries.py <topic>`. For a source file over roughly 1,500 lines, read its leading `SECTION MAP` first and then open only the relevant span.
 
 ## Pi Firstmate preflight
@@ -31,6 +38,23 @@ is unavailable or not applicable.
 - Put a concise, trigger-keyed lesson in `tools/discoveries.jsonl` and supporting evidence in `memory/<slug>.md`. The configured Codex `UserPromptSubmit` hook may inject up to two matching one-liners; inspect and trust it once with `/hooks`.
 - For a deeper workstation-local lookup, use `search_project(query, kind="external_memory")` explicitly. `kind="memory"` searches checked-in public cards only. External memory is excluded from ordinary project search and may be stale; verify every path, number, and implementation claim against the current tree.
 - Local Codex Memories and imported Claude memories are supplemental personal context. Never make them the only copy of a repository invariant, decision, or verification command.
+
+## Git ownership and closeout
+
+- The task's sole writer owns commit closeout for its intended files unless the user explicitly
+  reserves that action. A normal implementation should not end by silently leaving the user to
+  discover and commit finished work.
+- Before staging, run `python tools/dev.py roots` and name the exact repo and checkout. In a Codex
+  worktree, never assume the first checkout printed by Git is the current task's checkout.
+- Use `python tools/dev.py roots --repo <public|siting|public-signal> --checkout <path> --commit`
+  with one `--path` per intended file or bounded directory. The command refuses unrelated staged
+  paths and never uses `git add -A`.
+- Commit and push are separate responsibilities. Report the commit SHA after a successful commit.
+  Push only when the user or the selected repository's release instructions explicitly authorize
+  it; otherwise give one precise sentence naming the repo, checkout/branch, commit, and remaining
+  push command or blocker.
+- If the selected nested repo is absent from the current checkout, stop rather than writing the
+  same paths into the public parent. Hand off to its actual checkout and state that boundary.
 
 ## Subagent policy
 

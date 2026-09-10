@@ -18,6 +18,7 @@ def test_canonical_task_surface_contains_required_checks():
         "conventions",
         "mcp-catalog",
         "agent-context",
+        "job-status",
         "sidecar-handoff",
         "ui-contracts",
         "doc-index",
@@ -164,3 +165,31 @@ def test_sidecar_handoff_is_stdlib_only_and_forwards_arguments(monkeypatch):
 
     assert dev._reexec_in_dev_profile(["sidecar-handoff", "template"]) is None
     assert dev.commands_for("sidecar-handoff", ("template",)) == ((dev.PYTHON, "tools/sidecar_handoff.py", "template"),)
+
+
+def test_job_status_is_stdlib_only_and_forwards_arguments(monkeypatch):
+    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
+    monkeypatch.setattr(
+        dev.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected bootstrap")),
+    )
+
+    assert dev._reexec_in_dev_profile(["job-status", "show", "--active"]) is None
+    assert dev.commands_for("job-status", ("show", "--active")) == (
+        (dev.PYTHON, "tools/job_status.py", "show", "--active"),
+    )
+
+
+def test_roots_status_is_stdlib_only_and_forwards_arguments(monkeypatch):
+    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
+    monkeypatch.setattr(
+        dev.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected bootstrap")),
+    )
+
+    assert dev._reexec_in_dev_profile(["roots", "--repo", "public"]) is None
+    assert dev.commands_for("roots", ("--repo", "public")) == (
+        (dev.PYTHON, "tools/roots_status.py", "--repo", "public"),
+    )

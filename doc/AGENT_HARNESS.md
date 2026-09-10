@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-08-05
+updated: 2026-08-28
 supersedes: []
 read_when: changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -53,6 +53,8 @@ instructions, but shared prompt packs do not route to it directly.
 | Hidden eval answer key | The ON benchmark could read its own scorer and Git history | ON and OFFCLEAN use the same ephemeral cwd without `.git`, `tools/evals`, scorer tests, or private product overlay; strict secrecy still requires host isolation |
 | Mutable ground truth | The awards row count was frozen in scorer source | The scorer reads the current fact card at evaluation time |
 | Repeated/versioned evaluation | The benchmark documented `n=1` and omitted a run manifest | `--repeat N`, aggregate rows, commit/dirty state, harness/task hashes, model/provider settings, platform, and an infrastructure label are emitted |
+| Measured long-job status | NLC derivative builds, SCP transfers, and remote verification were reported from different tasks without one owner or measured observation | `tools/job_status.py` keeps separate append-only jobs with owner, artifact, snapshot, phase, current/total, ETA or unknown, evidence, and terminal state |
+| Checkout-safe Git closeout | An action command could select the primary checkout from a Codex worktree and stage every dirty path | `tools/roots_status.py` actions now require one repo, exact checkout, and explicit paths; unrelated staged paths fail closed and push remains separate |
 | Private holdouts | Public smoke tasks alone are gameable | `--tasks-file` accepts structured holdouts only from outside the repository; expected answers are never copied into agent cwd |
 | Cross-provider result normalization | Already implemented by `provider_adapter.py` | Retained; attempt rows now include normalized usage, tools, provider, model, and errors |
 | Source/data tiering | Already encoded in dataset fact cards, money grains, documentation status, and memory currency bands | Retained; no second taxonomy added |
@@ -62,7 +64,7 @@ instructions, but shared prompt packs do not route to it directly.
 
 | Proposal | Decision |
 |---|---|
-| Persistent active-task state file | Deferred. There is no autonomous long-running runner that consumes it; a second task ledger would drift from plans, Git, and the existing closeout ledger. |
+| General persistent active-task state file | Still deferred. The adopted job registry is narrower: it records measured external work that can outlive a turn, not plans, agent tasks, or product decisions. |
 | Managed async-agent service | Rejected for now. Existing bounded local subagents cover observed work; no latency, recovery, or throughput evidence justifies service infrastructure. |
 | Broad tool result-envelope rewrite | Deferred. MCP tools already have typed schemas and catalog checks; changing every result would be a breaking client migration without a measured failure. |
 | Blanket terse-output truncation | Rejected. Existing flood/read guards target the real context risks; unconditional truncation would hide diagnostic and provenance evidence. |

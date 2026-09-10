@@ -37,14 +37,13 @@ WHY "ON NO REMOTE" AND NOT "AHEAD OF UPSTREAM"
     Stale refs make it OVER-report, never under-report — the safe direction for a
     guard whose job is to stop work being lost.
 
-ACTING, NOT JUST REPORTING (added 2026-08-28)
+ACTING, NOT JUST REPORTING (added 2026-08-28, narrowed after worktree audit)
     For a long time this script could only tell you all three roots were dirty; it
-    could not do anything about it. So every session ended with the same manual
-    three-times-over dance in three different command forms (`git ...`,
-    `git -C planning/product ...`, `git -C apps/public-signal ...`), and the layout
-    knowledge lived in CLAUDE.md prose that each new agent had to re-read — and that
-    a Codex session never reads at all. `--commit` and `--push` put the layout in the
-    tool instead of in your head.
+    could not do anything about it. `--commit` and `--push` put the multi-root layout
+    in the tool instead of in your head, but an action must name one repo and one
+    checkout. A commit must also name its intended paths. This is essential in a
+    Codex worktree: Git lists the primary checkout first, so an implicit "primary"
+    action can otherwise mutate a different task's files. `git add -A` is never used.
 
     `--push` is deliberately NOT implied by `--commit`. Publishing is a separate,
     explicit act, and the two are kept apart so reviewing what was committed can
@@ -55,11 +54,13 @@ ACTING, NOT JUST REPORTING (added 2026-08-28)
     next root — the guards, not this script, decide what is safe to commit.
 
 Usage:
-    python tools/roots_status.py                       # human-readable report
-    python tools/roots_status.py --quiet               # only print problems
-    python tools/roots_status.py --commit -m "..."     # stage+commit every dirty root
-    python tools/roots_status.py --push                # push every root with unpublished work
-    python tools/roots_status.py --commit -m "..." --dry-run
+    python tools/roots_status.py
+    python tools/roots_status.py --repo siting
+    python tools/roots_status.py --repo public --checkout . --commit \
+        --path tools/example.py --path test/tools/test_example.py -m "Fix example"
+    python tools/roots_status.py --repo siting --checkout planning/product --push
+    python tools/roots_status.py --repo public --checkout . --commit \
+        --path tools/example.py -m "Fix example" --dry-run
 
 Exit code 0 when every checkout is clean and published (or every requested action
 succeeded), 1 otherwise.
@@ -71,14 +72,14 @@ import argparse
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 ROOT = Path(__file__).resolve().parents[1]
 
-ROOTS: tuple[tuple[str, Path], ...] = (
-    ("dail_tracker (public)", ROOT),
-    ("planning/product (private)", ROOT / "planning" / "product"),
-    ("apps/public-signal (private)", ROOT / "apps" / "public-signal"),
+ROOTS: tuple[tuple[str, str, Path], ...] = (
+    ("public", "dail_tracker (public)", ROOT),
+    ("siting", "planning/product (private)", ROOT / "planning" / "product"),
+    ("public-signal", "apps/public-signal (private)", ROOT / "apps" / "public-signal"),
 )
 
 
@@ -219,90 +220,152 @@ def _report_checkout(checkout: CheckoutStatus) -> None:
         print(f"      {where}{checkout.behind} commit(s) behind remote")
 
 
-def commit_root(status: RootStatus, message: str, *, dry_run: bool) -> int:
-    """Stage and commit the PRIMARY checkout of one root. Returns a problem count.
+def _normalise_action_paths(paths: list[str]) -> tuple[str, ...]:
+    normalised: list[str] = []
+    for raw in paths:
+        value = raw.replace("\\", "/").strip().rstrip("/")
+        windows = PureWindowsPath(value)
+        posix = PurePosixPath(value)
+        if (
+            not value
+            or value in {".", "*", "**"}
+            or windows.is_absolute()
+            or windows.drive
+            or posix.is_absolute()
+            or ".." in posix.parts
+            or any(char in value for char in "*?[")
+        ):
+            raise ValueError(f"--path must be one bounded relative file or directory, got {raw!r}")
+        normalised.append(posix.as_posix())
+    return tuple(dict.fromkeys(normalised))
 
-    Worktrees are deliberately NOT committed. They are real checkouts holding real work (see the
-    2026-08-14 note above), but committing them under a message written for the primary checkout
-    is how work gets mislabelled — they are reported and left alone.
-    """
-    primary = next((c for c in status.checkouts if c.is_primary), None)
-    if primary is None or not primary.dirty_count:
-        return 0
+
+def _selected(path: str, selections: tuple[str, ...]) -> bool:
+    normalised = path.replace("\\", "/").strip("/")
+    return any(normalised == item or normalised.startswith(item + "/") for item in selections)
+
+
+def _staged_paths(checkout: Path) -> tuple[str, ...]:
+    return tuple(line for line in _run(checkout, "diff", "--cached", "--name-only").splitlines() if line.strip())
+
+
+def commit_checkout(checkout: CheckoutStatus, message: str, paths: list[str], *, dry_run: bool) -> int:
+    """Stage only declared paths in one exact checkout and commit its index."""
+    selections = _normalise_action_paths(paths)
+    staged_elsewhere = [path for path in _staged_paths(checkout.path) if not _selected(path, selections)]
+    if staged_elsewhere:
+        print("      REFUSED: the checkout already has staged paths outside this task:")
+        for path in staged_elsewhere[:20]:
+            print(f"        {path}")
+        return 1
+
+    scoped = _run(checkout.path, "status", "--short", "--", *selections).splitlines()
+    if not any(line.strip() for line in scoped):
+        print("      REFUSED: none of the declared paths has a change to commit")
+        return 1
 
     if dry_run:
-        print(f"      would stage and commit {primary.dirty_count} change(s)")
-        for line in _run(primary.path, "status", "--short").splitlines()[:20]:
+        print(f"      would stage and commit only {len(selections)} declared path(s) in {checkout.path}")
+        for line in scoped[:20]:
             print(f"        {line}")
         return 0
 
-    code, output = _run_checked(primary.path, "add", "-A")
+    code, output = _run_checked(checkout.path, "add", "--", *selections)
     if code != 0:
         print(f"      STAGE FAILED: {output.splitlines()[0] if output else 'git add failed'}")
         return 1
 
-    code, output = _run_checked(primary.path, "commit", "-m", message)
+    staged = _staged_paths(checkout.path)
+    staged_elsewhere = [path for path in staged if not _selected(path, selections)]
+    if staged_elsewhere:
+        print("      REFUSED AFTER STAGE: Git index contains paths outside this task")
+        return 1
+    if not staged:
+        print("      REFUSED: declared paths produced no staged change")
+        return 1
+
+    code, output = _run_checked(checkout.path, "commit", "-m", message)
     if code != 0:
         # The overwhelmingly likely cause is this root's own pre-commit/commit-msg guard. Print
         # its reason verbatim — a summarised hook message is useless for acting on.
         print("      COMMIT REJECTED (this root's hooks, or nothing to commit):")
         for line in output.splitlines():
             print(f"        {line}")
-        _run_checked(primary.path, "reset")  # leave the index as we found it
+        print("      Intended paths remain staged for inspection; unrelated paths were not touched.")
         return 1
 
-    print(f"      committed {primary.dirty_count} change(s): {_run(primary.path, 'rev-parse', '--short', 'HEAD')}")
+    print(f"      committed {len(staged)} file(s): {_run(checkout.path, 'rev-parse', '--short', 'HEAD')}")
     return 0
 
 
-def push_root(status: RootStatus, *, dry_run: bool) -> int:
-    """Push the primary checkout when it holds commits that exist on no remote."""
-    primary = next((c for c in status.checkouts if c.is_primary), None)
-    if primary is None or not primary.unpublished:
+def push_checkout(checkout: CheckoutStatus, *, dry_run: bool) -> int:
+    """Push one explicitly selected checkout when it holds unpublished commits."""
+    if not checkout.unpublished:
         return 0
-    if primary.label.startswith("detached at"):
+    if checkout.label.startswith("detached at"):
         print("      SKIPPED: detached HEAD — push it by hand, deliberately")
         return 1
 
     if dry_run:
-        print(f"      would push {primary.unpublished} commit(s) to origin {primary.label}")
+        print(f"      would push {checkout.unpublished} commit(s) from {checkout.path} to origin {checkout.label}")
         return 0
 
-    code, output = _run_checked(primary.path, "push", "origin", f"HEAD:{primary.label}")
+    code, output = _run_checked(checkout.path, "push", "origin", f"HEAD:{checkout.label}")
     if code != 0:
         print("      PUSH REJECTED (this root's pre-push guard, or the remote):")
         for line in output.splitlines():
             print(f"        {line}")
         return 1
-    print(f"      pushed {primary.unpublished} commit(s) to origin/{primary.label}")
+    print(f"      pushed {checkout.unpublished} commit(s) to origin/{checkout.label}")
     return 0
+
+
+def _action_checkout(status: RootStatus, requested: Path) -> CheckoutStatus | None:
+    target = requested.resolve()
+    return next((checkout for checkout in status.checkouts if checkout.path.resolve() == target), None)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quiet", action="store_true", help="only print roots with a problem")
+    parser.add_argument("--repo", choices=tuple(root[0] for root in ROOTS), help="limit status or action to one repo")
+    parser.add_argument(
+        "--checkout",
+        type=Path,
+        help="exact checkout to act on; defaults to the selected repo path in this checkout",
+    )
     parser.add_argument(
         "--commit",
         action="store_true",
-        help="stage and commit every dirty root (requires -m); each root's own hooks still apply",
+        help="stage declared --path values and commit one selected repo/checkout (requires -m)",
+    )
+    parser.add_argument(
+        "--path", action="append", default=[], help="intended relative file/directory; repeat as needed"
     )
     parser.add_argument("-m", "--message", help="commit message used for every root committed")
     parser.add_argument(
         "--push",
         action="store_true",
-        help="push every root holding commits that exist on no remote; never implied by --commit",
+        help="push the explicitly selected repo/checkout; never implied by --commit",
     )
     parser.add_argument("--dry-run", action="store_true", help="print what --commit/--push would do")
     args = parser.parse_args()
 
     if args.commit and not args.message:
-        parser.error("--commit requires -m/--message; a shared message must still say what changed")
+        parser.error("--commit requires -m/--message")
+    if args.commit and not args.path:
+        parser.error("--commit requires at least one explicit --path")
     if args.message and not args.commit:
         parser.error("-m/--message only applies with --commit")
+    if args.path and not args.commit:
+        parser.error("--path only applies with --commit")
 
     acting = args.commit or args.push
+    if acting and not args.repo:
+        parser.error("--commit/--push require exactly one --repo")
     problems = 0
-    for label, path in ROOTS:
+    roots = [root for root in ROOTS if args.repo is None or root[0] == args.repo]
+    for alias, label, path in roots:
         status = check_root(label, path)
         if not status.exists:
             print(f"[MISSING] {label}: no .git at {path}")
@@ -318,26 +381,34 @@ def main() -> int:
         for checkout in status.checkouts:
             _report_checkout(checkout)
 
-        if acting and not args.dry_run:
-            # The exit code must describe the state we LEAVE the root in, not the one we found:
-            # a root that was dirty and is now committed and pushed is not a problem.
+        if acting:
+            requested = args.checkout or path
+            checkout = _action_checkout(status, requested)
+            if checkout is None:
+                print(f"      REFUSED: {requested.resolve()} is not a checkout of {alias}")
+                problems += 1
+                continue
             failures = 0
             if args.commit:
-                failures += commit_root(status, args.message, dry_run=False)
+                failures += commit_checkout(checkout, args.message, args.path, dry_run=args.dry_run)
             if args.push:
-                # Re-read: the commit above changes what is unpublished.
-                failures += push_root(check_root(label, path), dry_run=False)
-            refreshed = check_root(label, path)
-            root_problems = sum(_problems(c) for c in refreshed.checkouts) + failures
-        elif acting:
-            if args.commit:
-                commit_root(status, args.message, dry_run=True)
-            if args.push:
-                push_root(status, dry_run=True)
+                refreshed_status = check_root(label, path)
+                refreshed_checkout = _action_checkout(refreshed_status, requested)
+                if refreshed_checkout is None:
+                    failures += 1
+                else:
+                    failures += push_checkout(refreshed_checkout, dry_run=args.dry_run)
+            # Other worktrees stay visible above, but their unrelated state does not make
+            # an explicitly scoped action fail. The action result belongs to this checkout.
+            root_problems = failures
         problems += root_problems
 
     if problems == 0 and not args.quiet:
-        print("All roots clean and pushed.")
+        if acting:
+            qualifier = "dry-run validated" if args.dry_run else "completed"
+            print(f"Selected checkout action {qualifier}; unrelated reported state was not changed.")
+        else:
+            print("All roots clean and pushed.")
     return 1 if problems else 0
 
 

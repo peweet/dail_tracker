@@ -155,3 +155,96 @@ def test_deleted_worktree_directory_is_flagged_not_crashed(repo_with_remote: Pat
 def test_clean_published_repo_has_no_problems(repo_with_remote: Path) -> None:
     status = rs.check_root("r", repo_with_remote)
     assert sum(rs._problems(c) for c in status.checkouts) == 0
+
+
+def test_commit_checkout_stages_only_declared_paths(repo_with_remote: Path) -> None:
+    intended = repo_with_remote / "intended.txt"
+    unrelated = repo_with_remote / "unrelated.txt"
+    intended.write_text("intended", encoding="utf-8")
+    unrelated.write_text("unrelated", encoding="utf-8")
+    checkout = rs.check_root("r", repo_with_remote).checkouts[0]
+
+    assert rs.commit_checkout(checkout, "Commit intended", ["intended.txt"], dry_run=False) == 0
+
+    assert _git(repo_with_remote, "show", "--format=", "--name-only", "HEAD") == "intended.txt"
+    assert _git(repo_with_remote, "status", "--short") == "?? unrelated.txt"
+
+
+def test_commit_checkout_refuses_unrelated_staged_paths(repo_with_remote: Path) -> None:
+    intended = repo_with_remote / "intended.txt"
+    unrelated = repo_with_remote / "unrelated.txt"
+    intended.write_text("intended", encoding="utf-8")
+    unrelated.write_text("unrelated", encoding="utf-8")
+    _git(repo_with_remote, "add", "unrelated.txt")
+    checkout = rs.check_root("r", repo_with_remote).checkouts[0]
+
+    assert rs.commit_checkout(checkout, "Commit intended", ["intended.txt"], dry_run=False) == 1
+    assert _git(repo_with_remote, "diff", "--cached", "--name-only") == "unrelated.txt"
+    assert _git(repo_with_remote, "status", "--short", "--", "intended.txt") == "?? intended.txt"
+
+
+def _run_cli(monkeypatch, capsys, root: Path, *args: str) -> tuple[int, str]:
+    monkeypatch.setattr(rs, "ROOTS", (("public", "temporary public", root),))
+    monkeypatch.setattr(sys, "argv", ["roots_status.py", *args])
+    code = rs.main()
+    return code, capsys.readouterr().out
+
+
+def test_cli_refuses_a_checkout_outside_the_selected_root(
+    repo_with_remote: Path, tmp_path: Path, monkeypatch, capsys
+) -> None:
+    outside = tmp_path / "outside"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(outside)], check=True)
+
+    code, output = _run_cli(
+        monkeypatch,
+        capsys,
+        repo_with_remote,
+        "--repo",
+        "public",
+        "--checkout",
+        str(outside),
+        "--commit",
+        "--path",
+        "missing.txt",
+        "-m",
+        "must refuse",
+    )
+
+    assert code == 1
+    assert "REFUSED:" in output
+    assert "is not a checkout of public" in output
+
+
+def test_cli_commit_targets_the_explicit_worktree(repo_with_remote: Path, tmp_path: Path, monkeypatch, capsys) -> None:
+    wt = tmp_path / "side"
+    _git(repo_with_remote, "worktree", "add", "-q", "-b", "side", str(wt))
+    (wt / "intended.txt").write_text("intended", encoding="utf-8")
+    (wt / "unrelated.txt").write_text("unrelated", encoding="utf-8")
+
+    code, output = _run_cli(
+        monkeypatch,
+        capsys,
+        repo_with_remote,
+        "--repo",
+        "public",
+        "--checkout",
+        str(wt),
+        "--commit",
+        "--path",
+        "intended.txt",
+        "-m",
+        "Commit intended worktree path",
+    )
+
+    assert code == 0
+    assert "Selected checkout action completed" in output
+    assert _git(wt, "show", "--format=", "--name-only", "HEAD") == "intended.txt"
+    assert _git(wt, "status", "--short") == "?? unrelated.txt"
+    assert _git(repo_with_remote, "log", "-1", "--format=%s") == "base.txt"
+
+
+@pytest.mark.parametrize("value", [".", "../outside", "C:/outside", "*.py"])
+def test_commit_paths_must_be_bounded(value: str) -> None:
+    with pytest.raises(ValueError, match="bounded relative"):
+        rs._normalise_action_paths([value])

@@ -54,7 +54,7 @@ DEV_PROFILE_MODULES = (
     "polars",
     "sqlglot",
 )
-STDLIB_TASKS = frozenset({"agent-context", "sidecar-handoff"})
+STDLIB_TASKS = frozenset({"agent-context", "job-status", "roots", "sidecar-handoff"})
 
 
 @dataclass(frozen=True)
@@ -124,6 +124,10 @@ TASKS: dict[str, Task] = {
     "sidecar-handoff": Task(
         "Validate, queue, or confirm a cross-session Codex handoff",
         ((PYTHON, "tools/sidecar_handoff.py"),),
+    ),
+    "job-status": Task(
+        "Record or inspect measured status for a long-running build, transfer, or gate",
+        ((PYTHON, "tools/job_status.py"),),
     ),
     "ui-contracts": Task(
         "Check live frontend URL, style, markup, API, and machine-readable contracts",
