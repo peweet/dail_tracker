@@ -27,6 +27,17 @@ def _connection() -> duckdb.DuckDBPyConnection:
         )
         """
     )
+    # Derive all fixture dates in one DuckDB transaction so they share one CURRENT_DATE snapshot,
+    # then commit before the cursor-backed query helpers read the fixture.
+    conn.execute("BEGIN TRANSACTION")
+    end_dates = conn.execute(
+        """
+        SELECT CURRENT_DATE + INTERVAL 1 MONTH,
+               CURRENT_DATE + INTERVAL 3 MONTH,
+               CURRENT_DATE + INTERVAL 96 MONTH
+        """
+    ).fetchone()
+    assert end_dates is not None
     rows = [
         # A single-winner contract ending soonest — must lead the default ordering.
         (
@@ -42,7 +53,7 @@ def _connection() -> duckdb.DuckDBPyConnection:
             "2024-01-01",
             24.0,
             None,
-            "2026-09-01",
+            end_dates[0],
             "conclusion_plus_duration",
             2024,
         ),
@@ -60,7 +71,7 @@ def _connection() -> duckdb.DuckDBPyConnection:
             "2024-01-01",
             36.0,
             2,
-            "2026-11-01",
+            end_dates[1],
             "explicit_end_date",
             2024,
         ),
@@ -78,7 +89,7 @@ def _connection() -> duckdb.DuckDBPyConnection:
             "2024-01-01",
             120.0,
             None,
-            "2034-01-01",
+            end_dates[2],
             "conclusion_plus_duration",
             2024,
         ),
@@ -87,6 +98,7 @@ def _connection() -> duckdb.DuckDBPyConnection:
         "INSERT INTO v_procurement_expiring_contracts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows,
     )
+    conn.commit()
     return conn
 
 
@@ -107,7 +119,7 @@ def test_frameworks_only_narrows_without_changing_the_window_or_order():
 
 def test_the_window_still_bounds_the_framework_filter():
     """frameworks_only must AND with months_ahead, never replace it — otherwise a framework
-    ending in 2034 would appear in a '24 months' list."""
+    ending about 96 months ahead would appear in a '24 months' list."""
     conn = _connection()
     try:
         near = expiring_contracts(conn, months_ahead=24, frameworks_only=True)
