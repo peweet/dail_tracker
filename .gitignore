@@ -27,6 +27,7 @@
 # (member_votes.jsonl, data/_meta/la_councillors.csv) are already tracked, so the
 # promote's test guard did not skip in CI and crashed on this one instead.
 !pipeline_sandbox/council_minutes/councillors_roster.csv
+!pipeline_sandbox/council_minutes/council_coverage.csv
 *.xml
 *.json
 # Static-analysis policy, not generated application data. CI must see the same
@@ -38,6 +39,7 @@
 # file that had sat untracked in the tree since August. Same class of miss as the
 # doc/source_pdfs note below — a blanket rule hiding a load-bearing input.
 !tools/evals/tool_retrieval_queries.json
+!tools/hooks/mcp_reviewed_tools.json
 !tools/baselines/source_fidelity_baseline.json
 *.xlsx
 *.pdf

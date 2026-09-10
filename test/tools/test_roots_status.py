@@ -58,6 +58,8 @@ def repo_with_remote(tmp_path: Path) -> Path:
     repo = tmp_path / "work"
     subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
     _git(repo, "remote", "add", "origin", str(bare))
+    _git(repo, "config", "user.name", "roots-status-test")
+    _git(repo, "config", "user.email", "roots-status-test@example.invalid")
     _commit(repo, "base.txt")
     _git(repo, "push", "-q", "-u", "origin", "main")
     return repo

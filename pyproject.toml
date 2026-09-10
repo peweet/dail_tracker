@@ -57,6 +57,7 @@ Issues = "https://github.com/peweet/dail_tracker/issues"
 # lean.
 pipeline = [
     "polars>=1.39,!=1.41.0",  # 1.41.0 (+ polars-runtime-32) was yanked upstream
+    "pyshp>=2.3,<4",          # ZIP-only DAFM and council Shapefiles at INGEST only
     "shapely>=2.1",           # GeoParquet validation requires Shapely M-coordinate support
     "pyproj>=3.6",            # GeoParquet validation verifies the explicit OGC:CRS84 PROJJSON contract
     "PyMuPDF>=1.25",

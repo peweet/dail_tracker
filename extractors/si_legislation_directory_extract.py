@@ -131,12 +131,21 @@ def _valid_directory_html(html: str, url: str) -> bool:
         if not names or not updated_to:
             return False
         ranges = sorted(tuple(map(int, re.search(r"_(\d+)-(\d+)\.html$", name).groups())) for name in names)
-        next_number = 1
-        for start, end in ranges:
-            if start != next_number or end < start:
-                return False
-            next_number = end + 1
-        return True
+        if any(start < 2000 <= end for start, end in ranges):
+            return False
+        primary = [(start, end) for start, end in ranges if start < 2000]
+        supplemental = [(start, end) for start, end in ranges if start >= 2000]
+
+        def contiguous(parts: list[tuple[int, int]], first: int) -> bool:
+            next_number = first
+            for start, end in parts:
+                if start != next_number or end < start:
+                    return False
+                next_number = end + 1
+            return bool(parts)
+
+        allowed_supplement = year == 2024 and supplemental == [(2001, 2004)]
+        return contiguous(primary, 1) and (not supplemental or allowed_supplement)
     text = BeautifulSoup(html, "html.parser").get_text(" ", strip=True).lower()
     if "how affected" not in text or "affecting provision" not in text:
         return False

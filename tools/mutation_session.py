@@ -107,6 +107,14 @@ def pin_interpreter(config: Path) -> bool:
     return True
 
 
+def _source_hash(path: Path) -> str:
+    """Hash decoded UTF-8 source after universal-newline normalization."""
+
+    with path.open("r", encoding="utf-8", newline=None) as handle:
+        canonical = handle.read()
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def assert_baseline(harness: Path) -> None:
     """Refuse to measure anything until the UNMUTATED harness passes.
 
@@ -145,7 +153,7 @@ def assert_fresh(target: Path) -> None:
         if not source.is_file():
             stale.append(f"{match['path']} no longer exists")
             continue
-        current = hashlib.sha256(source.read_bytes()).hexdigest()
+        current = _source_hash(source)
         if current != match["hash"]:
             stale.append(f"{match['path']} has changed since this copy was made")
     if stale:
@@ -267,7 +275,7 @@ def rehash(name: str) -> list[str]:
 
         def _refresh(match: re.Match[str], *, _target_path: str = target_path) -> str:
             source = ROOT / match["path"]
-            current = hashlib.sha256(source.read_bytes()).hexdigest()
+            current = _source_hash(source)
             updated.append(f"{_target_path}: {match['path']} @ sha256:{current}")
             return f"# COPIED-FROM: {match['path']} @ sha256:{current}"
 

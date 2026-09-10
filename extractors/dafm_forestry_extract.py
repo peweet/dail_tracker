@@ -110,7 +110,7 @@ def _to_wgs84(prj_wkt: str) -> Transformer | None:
 
 
 def build(name: str, url: str) -> pl.DataFrame:
-    blob = fetch_bytes(url, headers=polite_headers(), timeout=300, validate=lambda b: b[:2] == b"PK")
+    blob = fetch_bytes(url, headers=polite_headers(browser=True), timeout=300, validate=lambda b: b[:2] == b"PK")
     if blob is None:
         raise RuntimeError(f"{name}: download failed")
     reader, prj = _read_shapefile(blob)

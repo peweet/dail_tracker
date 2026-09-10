@@ -15,6 +15,22 @@ INDEX = """<html><title>Irish Statute Book</title><p>Updated to 24 August 2026</
 <a href="si2025_1-50.html">1-50</a><a href="si2025_51-100.html">51-100</a></html>"""
 
 
+def test_index_validation_accepts_official_2000_series_supplement_without_allowing_primary_gaps():
+    complete = """<html><p>Updated to 5 September 2026</p>
+    <a href="si2024_1-50.html">1-50</a>
+    <a href="si2024_51-100.html">51-100</a>
+    <a href="si2024_101-150.html">101-150</a>
+    <a href="si2024_2001-2004.html">2001-2004</a></html>"""
+    missing_primary_page = complete.replace('<a href="si2024_51-100.html">51-100</a>', "")
+
+    assert directory._valid_directory_html(complete, f"{directory.BASE}/si2024.html")
+    assert not directory._valid_directory_html(missing_primary_page, f"{directory.BASE}/si2024.html")
+    assert not directory._valid_directory_html(complete.replace("si2024", "si2025"), f"{directory.BASE}/si2025.html")
+    assert not directory._valid_directory_html(
+        complete.replace("2001-2004", "2001-2005"), f"{directory.BASE}/si2024.html"
+    )
+
+
 def table(number=1, how="Not affected"):
     return f"""<html><table><tr><th>No.</th><th>Title</th><th>How Affected</th>
 <th>Affecting Provision</th></tr><tr><td>{number}</td><td>Example rules</td>

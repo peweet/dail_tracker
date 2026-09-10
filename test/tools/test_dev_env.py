@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -115,7 +116,9 @@ def test_doctor_uses_uv_dependency_check_for_a_pipless_profile(monkeypatch, tmp_
 
 
 def test_profile_environment_restores_windows_machine_and_repository_import_root(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(dev_env.os, "name", "nt")
+    # Replace only this module's platform seam. Mutating the process-wide os.name changes
+    # pathlib's flavour on Linux and makes the test order-dependent.
+    monkeypatch.setattr(dev_env, "os", SimpleNamespace(name="nt", environ=os.environ, pathsep=os.pathsep))
     monkeypatch.delenv("PROCESSOR_ARCHITECTURE", raising=False)
     monkeypatch.delenv("PYTHONPATH", raising=False)
     monkeypatch.setattr(dev_env.sysconfig, "get_platform", lambda: "win-amd64")

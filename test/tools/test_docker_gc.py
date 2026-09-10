@@ -201,9 +201,11 @@ def test_compact_reports_elevation_cleanly(monkeypatch, capsys, tmp_path):
 
     def _run(cmd, *a, **k):
         if cmd and cmd[0] == "diskpart":
-            # 4-arg form is how Windows raises it: (errno, strerror, filename, winerror).
-            # A 2-arg OSError sets .errno instead and would NOT reproduce the real shape.
-            raise OSError(22, "elevation required", None, 740)
+            # Linux does not populate OSError.winerror from the Windows 4-argument shape.
+            # Set it explicitly so the fake exercises the portable elevation branch.
+            error = OSError(22, "elevation required", None, 740)
+            error.winerror = 740
+            raise error
         return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
     monkeypatch.setattr(docker_gc.subprocess, "run", _run)

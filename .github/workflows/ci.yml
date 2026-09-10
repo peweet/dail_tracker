@@ -263,7 +263,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra pipeline --group dev
+      - run: uv sync --frozen --extra pipeline --extra mcp --group dev
       # Guard against a silent all-skip pass: if the committed gold is ever
       # re-gitignored, the contract tests would skip and the job would go falsely
       # green. Fail loudly instead.

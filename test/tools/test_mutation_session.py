@@ -137,13 +137,24 @@ def test_a_copy_matching_its_declared_source_hash_passes(tmp_path, monkeypatch):
     monkeypatch.setattr(session, "ROOT", tmp_path)
     source = tmp_path / "real_module.py"
     source.write_text("def f():\n    return 1\n", encoding="utf-8")
-    import hashlib
-
-    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    digest = session._source_hash(source)
     target = tmp_path / "x_target.py"
     target.write_text(f'# COPIED-FROM: real_module.py @ sha256:{digest}\n"""copy"""\n', encoding="utf-8")
 
     session.assert_fresh(target)  # must not raise
+
+
+def test_copy_hash_is_stable_across_crlf_and_lf(tmp_path, monkeypatch):
+    monkeypatch.setattr(session, "ROOT", tmp_path)
+    source = tmp_path / "real_module.py"
+    source.write_bytes(b"def f():\r\n    return 1\r\n")
+    digest = session._source_hash(source)
+    target = tmp_path / "x_target.py"
+    target.write_text(f'# COPIED-FROM: real_module.py @ sha256:{digest}\n"""copy"""\n', encoding="utf-8")
+
+    session.assert_fresh(target)
+    source.write_bytes(b"def f():\n    return 1\n")
+    session.assert_fresh(target)
 
 
 def test_a_copy_whose_source_has_changed_since_raises(tmp_path, monkeypatch):
