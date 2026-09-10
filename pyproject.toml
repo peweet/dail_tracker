@@ -111,10 +111,10 @@ siting = [
     "pyproj>=3.6",       # CRS repair at INGEST only (dublin_city_rps: published GeoJSON is Irish Grid
                          # mis-projected as ITM, 2026-07-30) — the runtime layer store stays shapely-only
     "pyshp>=2.3,<4",     # ZIP-only council Shapefiles at INGEST only (for example Dublin City Z15)
-    "pyreqwest>=0.12,<0.13",  # SpecPlan HTTP transport: Rust-backed pooled client behind services/http_engine.py
+    "pyreqwest>=0.12,<0.14",  # SpecPlan HTTP transport: Rust-backed pooled client behind services/http_engine.py
     "deflate==0.9.0",         # exact bundled libdeflate build for profile-selected deterministic customer ZIPs; no zlib fallback
     "zlib-ng==1.0.0",         # exact bundled zlib-ng build for profile-selected deterministic reviewer ZIPs; no zlib fallback
-    "pikepdf==10.7.1",        # QPDF-backed private PDF-pack assembly; pypdf remains the delivery-firewall parser
+    "pikepdf==10.13.0.post1",        # QPDF-backed private PDF-pack assembly; pypdf remains the delivery-firewall parser
     # NOTE: siting-native (the bounded PyO3 junction kernel) is deliberately NOT declared here.
     # It lives at planning/product/native/siting_native, which is gitignored — a path source in
     # this PUBLIC pyproject made every `uv` command exit 2 on a clean checkout ("Distribution not
@@ -123,7 +123,7 @@ siting = [
     #   uv pip install --no-deps planning/product/native/siting_native
     # and verify with `python tools/dev.py siting-native` — `uv sync` prunes it, same as paddle.
     # CI-enforced offline contract checks; imported only by focused private tests, never by report/API delivery.
-    "jsonschema-rs==0.51.0",
+    "jsonschema-rs==0.55.0",
     "selectolax==0.4.11",
     "ezdxf>=1.3,<2",     # DXF R2010 CAD export (planning/product/core/gis_dxf.py) — pure Python, no native deps
     "osmium>=3.6",       # OSM .pbf streaming at INGEST only (ingest/planning_osm_roads_geofabrik.py builds
