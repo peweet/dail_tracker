@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-08T20:50:03+00:00",
+  "generated_utc": "2026-09-10T09:20:01+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 245,
   "facts": {
@@ -893,6 +893,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 11339
     },
     "cso_aea02": {
@@ -919,6 +922,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4817
     },
     "cso_aea03": {
@@ -945,6 +951,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4746
     },
     "cso_aea05": {
@@ -971,6 +980,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4030
     },
     "cso_aea08": {
@@ -997,6 +1009,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4705
     },
     "cso_aea09": {
@@ -1023,6 +1038,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4856
     },
     "cso_aja01": {
@@ -1049,6 +1067,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 8312
     },
     "cso_aja05": {
@@ -1075,6 +1096,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 5392
     },
     "cso_aja07": {
@@ -1101,6 +1125,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3732
     },
     "cso_aja08": {
@@ -1127,6 +1154,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4457
     },
     "cso_aja09": {
@@ -1153,6 +1183,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4197
     },
     "cso_aja10": {
@@ -1179,6 +1212,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3616
     },
     "cso_ajm01": {
@@ -1205,6 +1241,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 59832
     },
     "cso_ajm05": {
@@ -1231,6 +1270,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 16956
     },
     "cso_ajm07": {
@@ -1257,6 +1299,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 5990
     },
     "cso_ajm08": {
@@ -1283,6 +1328,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 8560
     },
     "cso_ajm09": {
@@ -1309,6 +1357,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 7767
     },
     "cso_ajm10": {
@@ -1335,6 +1386,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4844
     },
     "cso_aqa04": {
@@ -1361,6 +1415,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 5685
     },
     "cso_aqa06": {
@@ -1391,6 +1448,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 17413
     },
     "cso_ara02": {
@@ -1458,6 +1518,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 11993
     },
     "cso_ava33": {
@@ -1488,6 +1551,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 7199
     },
     "cso_ava42": {
@@ -1518,6 +1584,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 184863,
       "grain": "one row per (census year, electoral division, livestock type)",
       "purpose": "Census of Agriculture 2020 farms-with-livestock at ED grain \u2014 joinable to osi_electoral_divisions; land-competition context (dairy density), never a price"
@@ -1550,6 +1619,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 172957,
       "grain": "one row per (census year, electoral division, crop type)",
       "purpose": "Census of Agriculture 2020 land utilisation at ED grain \u2014 tillage/grass mix around a site; never a price"
@@ -1742,6 +1814,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3739
     },
     "cso_gca15": {
@@ -1768,6 +1843,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3986
     },
     "cso_gca16": {
@@ -1798,6 +1876,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 5522
     },
     "cso_gca17": {
@@ -1824,6 +1905,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3319
     },
     "cso_gca18": {
@@ -1850,6 +1934,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3262
     },
     "cso_gca19": {
@@ -1880,6 +1967,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4683
     },
     "cso_gca20": {
@@ -1906,6 +1996,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3571
     },
     "cso_gca21": {
@@ -1936,6 +2029,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 5272
     },
     "cso_gca22": {
@@ -1962,6 +2058,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4152
     },
     "cso_gca23": {
@@ -1988,6 +2087,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4283
     },
     "cso_gfa01": {
@@ -2634,6 +2736,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 5408,
       "grain": "one row per (STATISTIC, year, NUTS3 region)",
       "money_grain": "land_value",
@@ -2701,6 +2806,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4830,
       "grain": "one row per (STATISTIC, year, NUTS3 region, RZLT status)",
       "money_grain": "land_value",
@@ -2735,6 +2843,9 @@
         "UNIT": "String",
         "VALUE": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4692,
       "grain": "one row per (STATISTIC, year, purchaser-or-vendor, participant type)",
       "money_grain": "land_value",
@@ -3057,6 +3168,9 @@
         2018,
         2026
       ],
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 4961851
     },
     "dafm_coillte_clearfell_licences": {
@@ -3098,6 +3212,9 @@
       "year_span": [
         2018,
         2025
+      ],
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
       "size_bytes": 8555565
     },
@@ -3141,6 +3258,9 @@
         2018,
         2025
       ],
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 9572365
     },
     "dafm_forest_road_polygons": {
@@ -3180,6 +3300,9 @@
       "year_span": [
         2018,
         2023
+      ],
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
       "size_bytes": 540748
     },
@@ -3221,6 +3344,9 @@
         2018,
         2026
       ],
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 1068318
     },
     "dafm_private_felling_licences": {
@@ -3260,6 +3386,9 @@
       "year_span": [
         2018,
         2026
+      ],
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
       "size_bytes": 16439265
     },
@@ -3310,6 +3439,9 @@
       "year_span": [
         2020,
         2026
+      ],
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
       "size_bytes": 1339227
     },
@@ -4010,6 +4142,9 @@
         "eur_per_acre": "Float64",
         "source_url": "String"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3051,
       "grain": "one row per (year, scope, geo, measure) with a per-row source URL",
       "money_grain": "land_value",
@@ -5348,6 +5483,9 @@
         "measure": "String",
         "eur_per_acre": "Float64"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 2346,
       "grain": "one row per (year, geo, measure)",
       "money_grain": "land_value",
@@ -6224,6 +6362,9 @@
         "unit": "String",
         "value_eur": "Float64"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 9838,
       "grain": "one row per (source, year, geo, land_class, measure, unit)",
       "money_grain": "land_value",
@@ -8187,6 +8328,9 @@
         "eur_per_acre": "Float64",
         "pct_change_published": "Float64"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 2199,
       "grain": "one row per (year, province, land use)",
       "money_grain": "land_value",
@@ -8213,6 +8357,9 @@
         "quality": "String",
         "eur_per_acre": "Float64"
       },
+      "read_by": [
+        "no runtime reader found \u2014 untrack candidate (review before removing)"
+      ],
       "size_bytes": 3002,
       "grain": "one row per (survey_year, county, plot-size band, quality)",
       "money_grain": "land_value",
@@ -8482,7 +8629,7 @@
     "si_current_state": {
       "file": "data/gold/parquet/si_current_state.parquet",
       "layer": "gold",
-      "rows": 8730,
+      "rows": 10015,
       "columns": [
         "si_id",
         "si_year",
@@ -8516,7 +8663,7 @@
       "read_by": [
         "read by legislation/legislation_si_amendments.sql, legislation/legislation_si_current_state.sql"
       ],
-      "size_bytes": 211151
+      "size_bytes": 236953
     },
     "si_lrc_enrichment_summary": {
       "file": "data/gold/parquet/si_lrc_enrichment_summary.parquet",

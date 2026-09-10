@@ -19,9 +19,23 @@ import extractors.councillors_promote_to_gold as promote
 ROOT = Path(__file__).parents[2]
 SBX = ROOT / "pipeline_sandbox" / "council_minutes"
 
+
+def _complete_corpus_available() -> bool:
+    records = promote._jsonl(SBX / "meetings_clean.jsonl")
+    if not records:
+        return False
+    for record in records:
+        text_path = str(record.get("text_path") or "").strip()
+        if not text_path or not (SBX / text_path).is_file():
+            return False
+    return True
+
+
 pytestmark = pytest.mark.skipif(
-    not (SBX / "member_votes.jsonl").exists() or not (ROOT / "data" / "_meta" / "la_councillors.csv").exists(),
-    reason="council-minutes sandbox or gold roster absent",
+    not (SBX / "member_votes.jsonl").exists()
+    or not _complete_corpus_available()
+    or not (ROOT / "data" / "_meta" / "la_councillors.csv").exists(),
+    reason="complete council-minutes sandbox corpus or gold roster absent",
 )
 
 
