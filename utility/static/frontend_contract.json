@@ -817,9 +817,9 @@
       }
     ],
     "shared_stylesheet": {
-      "bytes": 255573,
+      "bytes": 249003,
       "path": "utility/static/dailtracker.css",
-      "sha256": "9857a979d36b708ab2938da37d3afb90c516f8a46630d4e21bc8b6d9f4cfd8f5"
+      "sha256": "abbd033236c64e2262ca8be28109bb234116b51db8e6d7c4c3abb92dd9e96cda"
     },
     "styled_classes": [
       "amt",

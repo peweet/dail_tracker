@@ -39,6 +39,13 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _canonical_text_bytes(path: Path) -> bytes:
+    """Return UTF-8 text with checkout-specific newlines normalized to LF."""
+
+    with path.open("r", encoding="utf-8", newline=None) as source:
+        return source.read().encode("utf-8")
+
+
 def _routing_contract() -> dict[str, Any]:
     routes = [
         {
@@ -81,7 +88,7 @@ def _routing_contract() -> dict[str, Any]:
 
 
 def _styling_contract() -> dict[str, Any]:
-    shared_bytes = class_contract.CSS_FILE.read_bytes()
+    shared_bytes = _canonical_text_bytes(class_contract.CSS_FILE)
     per_module, emitted, dynamic, defined = class_contract.collect()
     styled = emitted & defined
     unstyled = sorted(name for name in emitted - defined if not class_contract.is_framework(name))

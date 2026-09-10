@@ -31,13 +31,23 @@ def test_frontend_contract_is_framework_neutral_and_complete() -> None:
         assert route["path"].startswith("/")
 
     stylesheet = ROOT / manifest["styling"]["shared_stylesheet"]["path"]
-    payload = stylesheet.read_bytes()
+    payload = contract._canonical_text_bytes(stylesheet)
     assert manifest["styling"]["shared_stylesheet"]["sha256"] == hashlib.sha256(payload).hexdigest()
     assert manifest["styling"]["shared_stylesheet"]["bytes"] == len(payload)
 
     serialized = json.dumps(manifest)
     assert "session_state" not in serialized
     assert "app.py line" not in serialized
+
+
+def test_contract_text_hashing_is_stable_across_checkout_line_endings(tmp_path: Path) -> None:
+    stylesheet = tmp_path / "example.css"
+    stylesheet.write_bytes(b".example {\r\n  color: red;\r\n}\r\n")
+    crlf = contract._canonical_text_bytes(stylesheet)
+    stylesheet.write_bytes(b".example {\n  color: red;\n}\n")
+
+    assert contract._canonical_text_bytes(stylesheet) == crlf
+    assert crlf == b".example {\n  color: red;\n}\n"
 
 
 def test_frontend_contract_check_fails_closed_on_drift(tmp_path: Path, monkeypatch, capsys) -> None:
