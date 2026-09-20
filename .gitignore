@@ -859,3 +859,15 @@ planning/_*_done.txt
 /planning/python
 /python
 /rmdir
+
+# Professionals-harvest downloaded planning files, one directory per council, written by
+# planning/product/sandbox/professionals/harvest.py. ~866 MB of council-served PDFs across 24
+# councils on 2026-09-20 — raw source documents, rebuildable by re-running the lane, and
+# effectively permanent once pushed to the public remote. Anchored so a directory named
+# _files_* elsewhere in the tree is unaffected.
+/planning/_files_*/
+
+# Local run artifacts (verification matrices, diagnostic dumps, capture output) — 867 MB on
+# 2026-09-20. Anchored to the repo root: no tracked directory named artifacts exists, and the
+# nested private repos keep their own.
+/artifacts/
