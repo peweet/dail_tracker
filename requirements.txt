@@ -4,7 +4,7 @@ altair==6.3.0
     # via
     #   dail-tracker
     #   streamlit
-anyio==4.15.1
+anyio==4.13.0
     # via
     #   starlette
     #   streamlit
@@ -12,15 +12,11 @@ attrs==26.1.0
     # via
     #   jsonschema
     #   referencing
-blinker==1.9.0
-    # via streamlit
-cachetools==7.2.0
-    # via streamlit
-certifi==2026.7.22
+certifi==2026.5.20
     # via requests
-charset-normalizer==3.5.1
+charset-normalizer==3.4.7
     # via requests
-click==8.5.0
+click==8.4.1
     # via
     #   streamlit
     #   uvicorn
@@ -28,15 +24,11 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via click
 duckdb==1.5.5
     # via dail-tracker
-gitdb==4.0.12
-    # via gitpython
-gitpython==3.1.62
-    # via streamlit
 h11==0.16.0
     # via uvicorn
 httptools==0.8.0
     # via streamlit
-idna==3.20
+idna==3.16
     # via
     #   anyio
     #   requests
@@ -52,7 +44,7 @@ jsonschema-specifications==2025.9.1
     # via jsonschema
 markupsafe==3.0.3
     # via jinja2
-narwhals==2.26.0
+narwhals==2.21.2
     # via
     #   altair
     #   plotly
@@ -62,7 +54,7 @@ numpy==2.5.3
     #   pandas
     #   pydeck
     #   streamlit
-packaging==26.3
+packaging==26.2
     # via
     #   altair
     #   plotly
@@ -71,23 +63,23 @@ pandas==2.3.3
     # via
     #   dail-tracker
     #   streamlit
-pillow==12.3.0
+pillow==12.2.0
     # via streamlit
 plotly==6.7.0
     # via dail-tracker
-protobuf==7.36.2
+protobuf==7.35.0
     # via streamlit
 pyarrow==24.0.0
     # via
     #   dail-tracker
     #   streamlit
-pydeck==0.9.3
+pydeck==0.9.2
     # via streamlit
 python-dateutil==2.9.0.post0
     # via pandas
-python-multipart==0.0.32
+python-multipart==0.0.30
     # via streamlit
-pytz==2026.3.post1
+pytz==2026.2
     # via pandas
 referencing==0.37.0
     # via
@@ -95,34 +87,30 @@ referencing==0.37.0
     #   jsonschema-specifications
 requests==2.34.2
     # via streamlit
-rpds-py==2026.6.3
+rpds-py==2026.5.1
     # via
     #   jsonschema
     #   referencing
 six==1.17.0
     # via python-dateutil
-smmap==5.0.3
-    # via gitdb
-starlette==1.6.0
+starlette==1.2.1
     # via streamlit
 streamlit==1.64.0
     # via dail-tracker
-tenacity==9.1.4
-    # via streamlit
 toml==0.10.2
     # via streamlit
-typing-extensions==4.16.0
+typing-extensions==4.15.0
     # via
     #   altair
     #   anyio
     #   referencing
     #   starlette
     #   streamlit
-tzdata==2026.4
+tzdata==2026.2
     # via pandas
-urllib3==2.8.0
+urllib3==2.7.0
     # via requests
-uvicorn==0.53.0
+uvicorn==0.48.0
     # via streamlit
 watchdog==6.0.0 ; sys_platform != 'darwin'
     # via streamlit
