@@ -354,6 +354,23 @@ def _pin_resolves(ref: str, known_refs: set[str], known_repo_digests: set[str]) 
     return ref in known_refs or ref in known_repo_digests
 
 
+def _pin_repository(ref: str) -> str | None:
+    """Return the repository part of a pinned reference, or ``None`` if it has none.
+
+    ``repo@sha256:<manifest>`` and ``repo:tag`` both reduce to ``repo``. A registry port
+    (``host:5000/repo``) must not be mistaken for a tag separator, so only a colon after
+    the last slash separates a tag. A bare image ID has no repository at all.
+    """
+
+    if re.fullmatch(r"(sha256:)?[0-9a-f]{12,64}", ref):
+        return None
+    candidate = ref.split("@", 1)[0]
+    colon = candidate.find(":", candidate.rfind("/") + 1)
+    if colon != -1:
+        candidate = candidate[:colon]
+    return candidate or None
+
+
 def _disk_free_bytes(path: str) -> int | None:
     try:
         return shutil.disk_usage(path).free
@@ -430,11 +447,41 @@ def reclaim(
     known_refs = {image["ref"] for image in images} | {image["id"] for image in images}
     known_repo_digests = {repo_digest for image in images for repo_digest in image.get("repo_digests", ())}
     dangling_pins = sorted(ref for ref in pinned if not _pin_resolves(ref, known_refs, known_repo_digests))
-    if dangling_pins:
-        sources = "; ".join(
-            f"{ref} ({', '.join(Path(source).name for source in pinned[ref])})" for ref in dangling_pins
+    #
+    # Two very different things reach this point, and treating them alike made the tool
+    # unrunnable on the real deployment host (2026-09-23: every run aborted on the
+    # `node:...` build-arg base image, so the retention policy had never once executed and
+    # thirteen engine tags had accumulated).
+    #
+    #   LOST   - the host holds other images in that repository, so this is a repository we
+    #            keep locally and the pinned tag or digest has gone missing. That is the
+    #            2026-08-24 incident: a rollback target deleted out from under a live pin,
+    #            with no registry copy to re-pull. Still fatal.
+    #   FOREIGN - the host holds NO image in that repository. Nothing local was lost,
+    #            because nothing local was ever there: `pilot.env` carries build arguments
+    #            (`NODE_IMAGE`) beside runtime pins, and the web image is built in CI, not
+    #            here. Report it; do not refuse to collect garbage over it.
+    #
+    # A pin with no derivable repository (a bare image ID) fails closed as LOST.
+    known_repositories = {image["repository"] for image in images}
+    lost_pins: list[str] = []
+    foreign_pins: list[str] = []
+    for ref in dangling_pins:
+        repository = _pin_repository(ref)
+        target = lost_pins if repository is None or repository in known_repositories else foreign_pins
+        target.append(ref)
+
+    def _with_sources(refs: Sequence[str]) -> str:
+        return "; ".join(f"{ref} ({', '.join(Path(source).name for source in pinned[ref])})" for ref in refs)
+
+    if lost_pins:
+        raise DockerGCError(f"configured image pin does not resolve on this host: {_with_sources(lost_pins)}")
+    if foreign_pins:
+        print(
+            "DOCKER_GC_WARN pinned image is absent and this host keeps no image in its repository, "
+            f"so nothing local was lost: {_with_sources(foreign_pins)}",
+            file=sys.stderr,
         )
-        raise DockerGCError(f"configured image pin does not resolve on this host: {sources}")
 
     mode = "APPLY" if apply_changes else "DRY-RUN"
     scope = ",".join(repositories) if repositories else "all repositories (dry-run only)"
@@ -489,6 +536,7 @@ def reclaim(
         "images_in_use": len(in_use),
         "pinned_refs": sorted(pinned),
         "dangling_pins": dangling_pins,
+        "dangling_pins_foreign": foreign_pins,
         "candidates": [image["ref"] for image in removable],
         "removed": removed,
         "failed": failed,

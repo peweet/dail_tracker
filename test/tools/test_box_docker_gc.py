@@ -83,6 +83,17 @@ def _select(images, **overrides):
     return gc.select_removable(images, **kwargs)
 
 
+def _aged(repository: str, tag: str, *, days: float, image_id: str = "aaaaaaaaaaaa") -> dict:
+    """Like ``_image`` but aged from the REAL clock, for tests that go through reclaim().
+
+    ``reclaim()`` reads ``datetime.now(UTC)`` itself, so an image aged from the frozen NOW
+    would drift past ``keep_max_age_days`` as the calendar moves and the test would rot.
+    """
+    image = _image(repository, tag, age_days=0, image_id=image_id)
+    image["created"] = datetime.now(UTC) - timedelta(days=days)
+    return image
+
+
 def _reclaim_kwargs(**overrides) -> dict:
     """A full, valid reclaim() call, so the argument-guard tests below assert the guard
     rather than a TypeError.
@@ -196,6 +207,60 @@ def test_unresolved_deployment_pin_fails_closed_before_selection(tmp_path, monke
     monkeypatch.setattr(gc, "in_use_image_ids", lambda: set())
     monkeypatch.setattr(gc, "pinned_image_refs", lambda _env_files: {repo_digest: ["pilot.env"]})
     monkeypatch.setattr(gc, "list_images", lambda: [image])
+
+    with pytest.raises(gc.DockerGCError, match="configured image pin.*does not resolve"):
+        gc.reclaim(**_reclaim_kwargs(receipt=tmp_path / "receipt.json"))
+
+
+def test_pin_repository_reduces_every_reference_shape():
+    assert gc._pin_repository("redline-review-engine:git-5c40e5e") == "redline-review-engine"
+    assert (
+        gc._pin_repository(f"ghcr.io/peweet/redline-review-web@sha256:{MANIFEST_DIGEST}")
+        == "ghcr.io/peweet/redline-review-web"
+    )
+    assert gc._pin_repository("registry.example:5000/team/app:v2") == "registry.example:5000/team/app"
+    assert gc._pin_repository("node") == "node"
+    # A bare image ID has no repository, so it must fail closed rather than look foreign.
+    assert gc._pin_repository(SHORT_ID) is None
+    assert gc._pin_repository(FULL_ID) is None
+
+
+def test_pin_into_a_repository_this_host_does_not_keep_warns_and_collects(tmp_path, monkeypatch, capsys):
+    """pilot.env carries BUILD arguments beside runtime pins.
+
+    `NODE_IMAGE` names the base image the web build uses in CI; the deployment host holds
+    no `node` image and never did. Refusing to collect garbage over it is what left the
+    host with thirteen engine tags and a retention policy that had never run (2026-09-23).
+    """
+    node_pin = f"node:22.23.2-bookworm-slim@sha256:{MANIFEST_DIGEST}"
+    # reclaim() reads the real clock, so age these from it rather than from the frozen NOW.
+    stale = _aged("redline-review-engine", "git-old", days=90)
+    live = _aged("redline-review-engine", "git-new", days=10, image_id="bbbbbbbbbbbb")
+
+    monkeypatch.setattr(gc, "_disk_free_bytes", lambda _path: 100)
+    monkeypatch.setattr(gc, "in_use_image_ids", lambda: set())
+    monkeypatch.setattr(gc, "pinned_image_refs", lambda _env_files: {node_pin: ["pilot.env", "pilot.previous.env"]})
+    monkeypatch.setattr(gc, "list_images", lambda: [stale, live])
+
+    receipt = tmp_path / "receipt.json"
+    assert gc.reclaim(**_reclaim_kwargs(receipt=receipt)) == 0
+
+    assert "DOCKER_GC_WARN" in capsys.readouterr().err
+    payload = json.loads(receipt.read_text(encoding="utf-8"))
+    assert payload["dangling_pins_foreign"] == [node_pin]
+    # keep=1 retains the newest; the run still reaches a verdict instead of aborting.
+    assert payload["candidates"] == [stale["ref"]]
+
+
+def test_pin_lost_from_a_repository_this_host_keeps_still_fails_closed(tmp_path, monkeypatch):
+    """The 2026-08-24 incident: a rollback target deleted while a live pin still named it."""
+    lost = "redline-review-engine:git-952965b"
+    held = _aged("redline-review-engine", "git-new", days=10)
+
+    monkeypatch.setattr(gc, "_disk_free_bytes", lambda _path: 100)
+    monkeypatch.setattr(gc, "in_use_image_ids", lambda: set())
+    monkeypatch.setattr(gc, "pinned_image_refs", lambda _env_files: {lost: ["pilot.env"]})
+    monkeypatch.setattr(gc, "list_images", lambda: [held])
 
     with pytest.raises(gc.DockerGCError, match="configured image pin.*does not resolve"):
         gc.reclaim(**_reclaim_kwargs(receipt=tmp_path / "receipt.json"))
