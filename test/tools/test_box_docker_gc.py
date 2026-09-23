@@ -212,6 +212,36 @@ def test_unresolved_deployment_pin_fails_closed_before_selection(tmp_path, monke
         gc.reclaim(**_reclaim_kwargs(receipt=tmp_path / "receipt.json"))
 
 
+def test_keep_slots_are_deterministic_when_timestamps_tie():
+    """Safety property 1: a dry run must predict its own --apply.
+
+    `sorted` is stable, so images sharing a CreatedAt to the second used to inherit
+    whatever order `docker images` emitted, and the last keep-N slot moved between
+    invocations. Observed on the deployment host 2026-09-23: a dry run retained
+    redline-review-engine:git-3274ea7 and the --apply eleven minutes later removed it,
+    from the same image set under the same policy.
+    """
+    same = NOW - timedelta(days=5)
+    tags = ["git-aaa", "git-bbb", "git-ccc", "git-ddd", "git-eee"]
+    verdicts = set()
+    for rotation in range(len(tags)):
+        order = tags[rotation:] + tags[:rotation]
+        images = []
+        for tag in order:
+            image = _image("redline-review-engine", tag, age_days=0, image_id=f"id{tag}")
+            image["created"] = same
+            images.append(image)
+        removable, _ = _select(images, keep=2, min_age_days=1)
+        verdicts.add(tuple(sorted(image["ref"] for image in removable)))
+    assert len(verdicts) == 1, f"keep-N verdict depends on input order: {verdicts}"
+    # keep=2 of five identically-dated tags, tie-broken on ref descending.
+    assert verdicts.pop() == (
+        "redline-review-engine:git-aaa",
+        "redline-review-engine:git-bbb",
+        "redline-review-engine:git-ccc",
+    )
+
+
 def test_pin_repository_reduces_every_reference_shape():
     assert gc._pin_repository("redline-review-engine:git-5c40e5e") == "redline-review-engine"
     assert (

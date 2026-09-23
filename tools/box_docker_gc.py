@@ -279,7 +279,14 @@ def select_removable(
     retained: list[dict[str, Any]] = []
 
     for repository_images in by_repository.values():
-        ordered = sorted(repository_images, key=lambda item: item["created"], reverse=True)
+        # Tie-broken on ref, and that is load-bearing, not tidiness. `sorted` is stable, so
+        # images sharing a CreatedAt to the second kept whatever order `docker images`
+        # happened to emit, and which one took the last keep-N slot changed between
+        # invocations. On 2026-09-23 a dry run retained redline-review-engine:git-3274ea7
+        # and the --apply eleven minutes later, same policy and same image set, removed it:
+        # the two receipts differ by exactly that one ref. A dry run that does not predict
+        # the apply forfeits this tool's first safety property.
+        ordered = sorted(repository_images, key=lambda item: (item["created"], item["ref"]), reverse=True)
         # A keep-N slot exists to preserve a plausible ROLLBACK TARGET, so it is not
         # granted unconditionally. Two things disqualify an image from taking one: an
         # experiment-shaped tag, which nobody rolls back to, and age past the rollback
@@ -316,7 +323,7 @@ def select_removable(
             else:
                 removable.append(image)
 
-    removable.sort(key=lambda item: item["created"])
+    removable.sort(key=lambda item: (item["created"], item["ref"]))
     return removable, retained
 
 
