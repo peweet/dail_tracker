@@ -222,6 +222,9 @@ def apply_curated_overlay(df: pl.DataFrame) -> pl.DataFrame:
     report understated the hazard distance ~2.5x. The overlay is deliberately small and
     reviewed — never bulk-generated (the address-token join probe collapsed 5 of 6 hits
     onto a shared-estate proxy).
+
+    A row may carry the register `address` it pins. One name can cover several sites
+    (Calor Teoranta has four), so a name-only row that matches more than one site fails.
     """
     if not _CURATED.exists():
         return df
@@ -229,46 +232,71 @@ def apply_curated_overlay(df: pl.DataFrame) -> pl.DataFrame:
     epa = pl.read_parquet(_EPA_LAYER)
     epa_lons, epa_lats = wkb_centroids(epa["wkb"].to_list())
     by_reg = {r["RegCD"]: (x, y) for r, x, y in zip(epa.iter_rows(named=True), epa_lons, epa_lats, strict=True)}
-    pins: dict[str, dict] = {}
+    return apply_pins(df, curated_pins(curated, by_reg))
+
+
+def _pin_key(text: object) -> str:
+    return " ".join(str(text or "").split()).lower()
+
+
+def curated_pins(curated: pl.DataFrame, by_reg: dict[str, tuple[float, float]]) -> list[dict]:
+    pins = []
     for c in curated.iter_rows(named=True):
-        key = (c["establishment"] or "").strip().lower()
+        base = {
+            "label": c["establishment"],
+            "name": _pin_key(c["establishment"]),
+            "address": _pin_key(c.get("address")) or None,
+        }
         if c["method"] == "epa_regcd":
             pt = by_reg.get(c["epa_reg_cd"])
             if pt is None:
                 LOG.warning("curated overlay: EPA RegCD %s not in layer — row skipped", c["epa_reg_cd"])
                 continue
-            pins[key] = {
-                "lon": pt[0],
-                "lat": pt[1],
-                "note": f"curated: EPA facility {c['epa_reg_cd']} — {c['source']}",
-            }
+            pins.append(
+                {**base, "lon": pt[0], "lat": pt[1], "note": f"curated: EPA facility {c['epa_reg_cd']} — {c['source']}"}
+            )
         elif c["method"] == "manual" and c["lat"] is not None and c["lon"] is not None:
-            pins[key] = {"lon": c["lon"], "lat": c["lat"], "note": f"curated: {c['source']}"}
+            pins.append({**base, "lon": c["lon"], "lat": c["lat"], "note": f"curated: {c['source']}"})
         else:
             LOG.warning("curated overlay: row for %r has no usable method/coords — skipped", c["establishment"])
+    return pins
+
+
+def apply_pins(df: pl.DataFrame, pins: list[dict]) -> pl.DataFrame:
     if not pins:
         return df
-    out_rows = []
-    applied = set()
-    for r in df.iter_rows(named=True):
-        row = dict(r)
-        key = (row["establishment"] or "").strip().lower()
-        pin = pins.get(key)
-        if pin is not None:
-            row["lon"], row["lat"] = pin["lon"], pin["lat"]
-            row["geocode_source"] = "curated"
-            row["geocode_precision"] = "site"
-            row["geocode_note"] = pin["note"]
-            applied.add(key)
-        out_rows.append(row)
-    LOG.info("curated overlay: %d of %d pins applied", len(applied), len(pins))
-    unapplied = set(pins) - applied
-    if unapplied:
-        # Fail loudly, never warn-only: an unapplied pin means the HSA renamed the
-        # establishment (or the CSV has a typo) and the curated fix would silently lapse
-        # back to a town centroid — enumerated gates fail open otherwise.
-        raise SystemExit(f"curated overlay pins matched no register row: {sorted(unapplied)}")
-    return pl.DataFrame(out_rows)
+    rows = [dict(r) for r in df.iter_rows(named=True)]
+    claimed: set[int] = set()
+    problems = []
+    for pin in pins:
+        hits = [
+            i
+            for i, r in enumerate(rows)
+            if _pin_key(r["establishment"]) == pin["name"]
+            and (pin["address"] is None or _pin_key(r["address"]) == pin["address"])
+        ]
+        # Fail loudly, never warn-only: an unmatched pin means the HSA renamed the
+        # establishment (or the CSV has a typo) and the fix would silently lapse; an
+        # ambiguous one would move every site sharing the name onto one point.
+        if not hits:
+            problems.append(f"{pin['label']!r} matched no register row")
+        elif len(hits) > 1:
+            problems.append(f"{pin['label']!r} matches {len(hits)} register sites — add the register address")
+        elif hits[0] in claimed:
+            problems.append(f"{pin['label']!r} claims a register row another pin already set")
+        else:
+            claimed.add(hits[0])
+            rows[hits[0]].update(
+                lon=pin["lon"],
+                lat=pin["lat"],
+                geocode_source="curated",
+                geocode_precision="site",
+                geocode_note=pin["note"],
+            )
+    if problems:
+        raise SystemExit("curated overlay: " + "; ".join(problems))
+    LOG.info("curated overlay: %d of %d pins applied", len(claimed), len(pins))
+    return pl.DataFrame(rows)
 
 
 # Quality ratchet (2026-09-04, deterministic gate from the Gensys/Huntstown case study).
@@ -277,23 +305,34 @@ def apply_curated_overlay(df: pl.DataFrame) -> pl.DataFrame:
 # adds curated pins or raises the baseline in a reviewed change — never silently ships a
 # worse register. Floors, not snapshots: better values pass without edits.
 _MAX_UPPER_TIER_TOWN = 15
+# Address grade is watched too: Circle K Galway sat at address grade with no gate looking at it.
+_MAX_UPPER_TIER_ADDRESS = 12
 _MAX_UNGEOCODED = 3
 
 
 def enforce_quality(df: pl.DataFrame) -> None:
-    upper_town = df.filter((pl.col("tier") == "upper") & (pl.col("geocode_precision") == "town")).height
+    upper = df.filter(pl.col("tier") == "upper")
+    upper_town = upper.filter(pl.col("geocode_precision") == "town").height
+    upper_address = upper.filter(pl.col("geocode_precision") == "address").height
     ungeocoded = df.filter(pl.col("lat").is_null()).height
     if upper_town > _MAX_UPPER_TIER_TOWN:
         raise SystemExit(
             f"quality ratchet: {upper_town} upper-tier town-precision rows "
             f"(baseline {_MAX_UPPER_TIER_TOWN}) — add curated pins or review the baseline"
         )
+    if upper_address > _MAX_UPPER_TIER_ADDRESS:
+        raise SystemExit(
+            f"quality ratchet: {upper_address} upper-tier address-precision rows "
+            f"(baseline {_MAX_UPPER_TIER_ADDRESS}) — add curated pins or review the baseline"
+        )
     if ungeocoded > _MAX_UNGEOCODED:
         raise SystemExit(f"quality ratchet: {ungeocoded} ungeocoded rows (baseline {_MAX_UNGEOCODED})")
     LOG.info(
-        "quality ratchet OK: %d upper-tier town rows (<=%d), %d ungeocoded (<=%d)",
+        "quality ratchet OK: %d upper-tier town rows (<=%d), %d upper-tier address rows (<=%d), %d ungeocoded (<=%d)",
         upper_town,
         _MAX_UPPER_TIER_TOWN,
+        upper_address,
+        _MAX_UPPER_TIER_ADDRESS,
         ungeocoded,
         _MAX_UNGEOCODED,
     )
