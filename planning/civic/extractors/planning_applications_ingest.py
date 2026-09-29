@@ -45,6 +45,7 @@ from shapely.errors import ShapelyError
 from shapely.geometry import shape
 
 from planning.civic.acquisition import AcquisitionError, ArcGISStagedCollector
+from planning.civic.register_supplement import SUPPLEMENT_NAME, merge_into
 from services.coverage_io import save_coverage
 from services.extract_runner import run_extractor
 from services.geometry import polygonal_geometries
@@ -751,8 +752,16 @@ def main() -> None:
         point_candidate = candidate_dir / out_name
         site_candidate = candidate_dir / site_out_name
         coverage_candidate = candidate_dir / coverage_name
+        supplement_stats = None
         if point_result is not None:
             collector.assemble(point_result, point_candidate)
+            if not args.authority:
+                # Re-apply council-published rows (register_supplement.py) so a national refresh
+                # never silently drops the councils the national feed has stopped carrying.
+                merged_candidate = candidate_dir / f"merged_{out_name}"
+                supplement_stats = merge_into(point_candidate, OUT / SUPPLEMENT_NAME, merged_candidate)
+                if supplement_stats is not None:
+                    point_candidate = merged_candidate
         if site_result is not None:
             collector.assemble(
                 site_result,
@@ -823,6 +832,7 @@ def main() -> None:
                     "sites": site_result.retained_count if site_result else None,
                 },
                 "authority_counts": {"points": point_counts, "sites": site_counts},
+                "council_supplement": supplement_stats,
                 "consistency_limitations": sorted(
                     {item for result in results for item in result.consistency_limitations}
                 ),
