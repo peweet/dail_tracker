@@ -856,6 +856,8 @@ planning/_*_done.txt
 /planning/*_done_*.txt
 /planning/*.csv.lock
 /planning/ie_national.jsonl
+# Superseded professionals ledgers renamed aside at the repo root (e.g. professionals.csv.stale-20260904).
+/professionals.csv.stale-*
 /planning/DATE
 /planning/cd
 /planning/powershell
