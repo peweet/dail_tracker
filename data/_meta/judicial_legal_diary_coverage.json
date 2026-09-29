@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-09-08T19:45:51.946482+00:00",
+  "generated_at": "2026-09-29T19:45:18.163809+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -208,11 +208,11 @@
       "cases": 279
     },
     {
-      "file": "2026-09-02.docx",
+      "file": "2026-09-02.r02.docx",
       "diary_date": "2026-09-02",
-      "sha256": "cfe10bb71fa4a9da",
-      "sessions": 19,
-      "cases": 71
+      "sha256": "1db815c3df731d88",
+      "sessions": 14,
+      "cases": 84
     },
     {
       "file": "2026-09-03.docx",
@@ -236,11 +236,81 @@
       "cases": 35
     },
     {
-      "file": "2026-09-10.docx",
+      "file": "2026-09-10.r02.docx",
       "diary_date": "2026-09-10",
-      "sha256": "e8a58854f92375bc",
-      "sessions": 5,
-      "cases": 19
+      "sha256": "ded4f28c9f26bc0e",
+      "sessions": 23,
+      "cases": 42
+    },
+    {
+      "file": "2026-09-11.docx",
+      "diary_date": "2026-09-11",
+      "sha256": "35adc9719e5c7612",
+      "sessions": 51,
+      "cases": 369
+    },
+    {
+      "file": "2026-09-15.docx",
+      "diary_date": "2026-09-15",
+      "sha256": "27811072549f3c0b",
+      "sessions": 42,
+      "cases": 383
+    },
+    {
+      "file": "2026-09-17.docx",
+      "diary_date": "2026-09-17",
+      "sha256": "f90c556c77554292",
+      "sessions": 33,
+      "cases": 330
+    },
+    {
+      "file": "2026-09-21.docx",
+      "diary_date": "2026-09-21",
+      "sha256": "ee3c567123e7a288",
+      "sessions": 60,
+      "cases": 546
+    },
+    {
+      "file": "2026-09-22.docx",
+      "diary_date": "2026-09-22",
+      "sha256": "b7deea00ff8777b9",
+      "sessions": 52,
+      "cases": 426
+    },
+    {
+      "file": "2026-09-23.docx",
+      "diary_date": "2026-09-23",
+      "sha256": "b8e0126e06392234",
+      "sessions": 24,
+      "cases": 69
+    },
+    {
+      "file": "2026-09-25.docx",
+      "diary_date": "2026-09-25",
+      "sha256": "6ec10d7545989126",
+      "sessions": 21,
+      "cases": 49
+    },
+    {
+      "file": "2026-09-28.docx",
+      "diary_date": "2026-09-28",
+      "sha256": "590bc140d3013464",
+      "sessions": 44,
+      "cases": 410
+    },
+    {
+      "file": "2026-09-29.docx",
+      "diary_date": "2026-09-29",
+      "sha256": "b26f8e1ee08bbd07",
+      "sessions": 52,
+      "cases": 461
+    },
+    {
+      "file": "2026-09-30.docx",
+      "diary_date": "2026-09-30",
+      "sha256": "606aa7424f381031",
+      "sessions": 25,
+      "cases": 130
     },
     {
       "file": "2026-10-20.docx",
@@ -250,31 +320,31 @@
       "cases": 313
     }
   ],
-  "n_days": 35,
-  "tier_a_sessions": 2711,
-  "tier_b_counts": 1557,
-  "case_lines_parsed": 19045,
-  "cases_dropped_protected": 3028,
-  "cases_kept_anonymised": 15984,
+  "n_days": 45,
+  "tier_a_sessions": 3128,
+  "tier_b_counts": 1804,
+  "case_lines_parsed": 22254,
+  "cases_dropped_protected": 3362,
+  "cases_kept_anonymised": 18809,
   "drop_reasons": {
-    "asylum": 1857,
-    "minor": 528,
-    "child and family": 393,
+    "asylum": 2039,
+    "minor": 545,
+    "child and family": 517,
     "family law": 151,
+    "custody": 35,
     "guardian": 25,
-    "custody": 25,
     "adoption": 22,
     "ward of court": 13,
-    "in camera": 7,
+    "in camera": 8,
     "childcare": 4,
     "tusla": 2,
     "special education": 1
   },
   "plaintiff_kinds": {
-    "individual": 10179,
-    "state-prosecutor": 3135,
-    "organisation": 2450,
-    "state-body": 220
+    "individual": 12099,
+    "state-prosecutor": 3402,
+    "organisation": 3020,
+    "state-body": 288
   },
   "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."
 }
