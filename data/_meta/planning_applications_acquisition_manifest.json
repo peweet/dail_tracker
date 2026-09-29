@@ -1,0 +1,63 @@
+{
+  "schema": "dail-planning-acquisition-manifest/1",
+  "started_utc": "2026-09-29T19:28:42.093854+00:00",
+  "finished_utc": "2026-09-29T19:32:39.201534+00:00",
+  "scope": "national",
+  "authority": null,
+  "layers": [
+    "points"
+  ],
+  "checkpoint_dir": "data\\silver\\parquet\\dail-planning-points-20260929",
+  "checkpoint_reused_pages": 0,
+  "checkpoint_fetched_pages": 255,
+  "source_identity": {
+    "points": "56e1973dca9a5ec74b16e98664f4c1392075bcde498ebc35d9f4122f6cc68792"
+  },
+  "counts": {
+    "points": 508547,
+    "sites": null
+  },
+  "authority_counts": {
+    "points": {
+      "Dun Laoghaire Rathdown County Council": 38780,
+      "Donegal County Council": 21742,
+      "Laois County Council": 8072,
+      "Roscommon County Council": 6449,
+      "Wexford County Council": 17982,
+      "Kerry County Council": 13269,
+      "Waterford City and County Council": 10150,
+      "Meath County Council": 16947,
+      "South Dublin County Council": 33291,
+      "Cork County Council": 127896,
+      "Leitrim County Council": 2127,
+      "Westmeath County Council": 6197,
+      "Cork City Council": 6763,
+      "Offaly County Council": 6730,
+      "Tipperary County Council": 14917,
+      "Galway City Council": 3472,
+      "Mayo County Council": 11410,
+      "Sligo County Council": 4648,
+      "Dublin City Council": 24879,
+      "Clare County Council": 11084,
+      "Fingal County Council": 20335,
+      "Monaghan County Council": 6218,
+      "Kildare County Council": 15851,
+      "Wicklow County Council": 13971,
+      "Kilkenny County Council": 8871,
+      "Limerick County Council": 12835,
+      "Carlow County Council": 4626,
+      "Louth County Council": 10743,
+      "Cavan County Council": 6329,
+      "Galway County Council": 19074,
+      "Longford County Council": 2889
+    },
+    "sites": {}
+  },
+  "consistency_limitations": [],
+  "artifacts": {
+    "planning_applications_silver.parquet": {
+      "path": "C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\data\\silver\\parquet\\planning_applications_silver.parquet",
+      "sha256": "7f005550553b902bd12d17769e0cd073758a953063ef8b43fffc0d90236481f1"
+    }
+  }
+}

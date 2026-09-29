@@ -1,0 +1,48 @@
+{
+  "schema": "dail-planning-council-supplement-coverage/1",
+  "generated_utc": "2026-09-29T20:01:04.592925+00:00",
+  "source": "https://planningapi.agileapplications.ie/api/application/search",
+  "councils": {
+    "Dublin City Council": {
+      "window": [
+        "2026-06-29",
+        "2026-09-29"
+      ],
+      "fetched": 1742,
+      "kept": 969,
+      "excluded": {
+        "compliance_submission": 594,
+        "not_a_planning_application": 179
+      },
+      "kept_without_coordinates": 3,
+      "national_last_received": "2026-07-30"
+    },
+    "Cork City Council": {
+      "window": [
+        "2025-10-04",
+        "2026-09-29"
+      ],
+      "fetched": 740,
+      "kept": 740,
+      "excluded": {},
+      "kept_without_coordinates": 24,
+      "national_last_received": "2025-11-04"
+    }
+  },
+  "supplement_rows": 1709,
+  "merge": {
+    "national_rows": 508547,
+    "authorities": {
+      "Cork City Council": {
+        "supplement_rows": 740,
+        "already_national": 6,
+        "added": 734
+      },
+      "Dublin City Council": {
+        "supplement_rows": 969,
+        "already_national": 351,
+        "added": 618
+      }
+    }
+  }
+}
