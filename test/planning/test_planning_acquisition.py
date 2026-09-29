@@ -173,6 +173,58 @@ def test_point_adapter_keeps_transform_schema_when_source_page_is_all_null(tmp_p
     assert "OBJECTID" not in frame.columns
 
 
+def _capped_source(ids, cap, *, ignore_window=False):
+    """A source whose returnIdsOnly stops at `cap` IDs, as IrishPlanningApplications L0 did on 2026-09-29."""
+    request, calls = _source(ids=ids)
+    window = re.compile(r"OBJECTID >= (\d+) AND OBJECTID <= (\d+)")
+
+    def capped(url, params):
+        if params.get("outStatistics"):
+            calls.append((url, dict(params)))
+            return {"features": [{"attributes": {"OID_MIN": min(ids), "OID_MAX": max(ids)}}]}
+        if params.get("returnIdsOnly") == "true":
+            calls.append((url, dict(params)))
+            match = window.search(params["where"])
+            selected = list(ids)
+            if match:
+                low, high = int(match.group(1)), int(match.group(2))
+                # ignore_window: the server answers every window with the first IDs, whatever was asked.
+                selected = list(ids)[: high - low + 1] if ignore_window else [i for i in ids if low <= i <= high]
+            if len(selected) > cap:
+                return {"objectIds": selected[:cap], "exceededTransferLimit": True}
+            return {"objectIds": selected}
+        return request(url, params)
+
+    return capped, calls
+
+
+def test_capped_id_inventory_is_rebuilt_from_objectid_windows(tmp_path):
+    ids = tuple(range(1, 8))
+    request, calls = _capped_source(ids, cap=4)
+    with acquisition.ArcGISStagedCollector(request, tmp_path, page_size=2) as collector:
+        result = collector.collect_layer(
+            "https://example.test/FeatureServer/0", layer_name="points", transform=lambda rows: pl.DataFrame(rows)
+        )
+    assert result.complete is True
+    assert result.expected_count == result.fetched_count == 7
+    windows = [p["where"] for _, p in calls if p.get("returnIdsOnly") == "true" and "OBJECTID >=" in p["where"]]
+    one_pass = [f"(1=1) AND OBJECTID >= {lo} AND OBJECTID <= {min(lo + 1, 7)}" for lo in (1, 3, 5, 7)]
+    # Once to plan the pull, once more in the pre-publication revalidation of the same inventory.
+    assert windows == one_pass * 2
+
+
+def test_window_returning_ids_outside_its_range_fails_closed(tmp_path):
+    request, _ = _capped_source(tuple(range(1, 8)), cap=4, ignore_window=True)
+    with (
+        acquisition.ArcGISStagedCollector(request, tmp_path, page_size=2) as collector,
+        pytest.raises(acquisition.AcquisitionError, match="outside the requested window"),
+    ):
+        collector.collect_layer(
+            "https://example.test/FeatureServer/0", layer_name="points", transform=lambda rows: pl.DataFrame(rows)
+        )
+    assert not list(tmp_path.glob("*.parquet"))
+
+
 def test_collector_request_seam_preserves_metadata_and_query_urls(monkeypatch):
     seen = []
 

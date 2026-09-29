@@ -475,6 +475,9 @@ data/gold/parquet/speeches_fact_full.parquet
 # regenerable from the bronze PDFs, thousands of files; NEVER commit. Explicit ignore so
 # the .attempt/.txt files (not caught by the *.json type rule) can't leak in either.
 data/silver/sipo_candidate/
+# planning_applications_ingest.py checkpoints (mkdtemp under OUT; staged pages + acquisition.sqlite3)
+# — regenerable working state, left behind by every run; NEVER commit.
+data/silver/parquet/dail-planning-*/
 # amalgamated AFS silver fact (afs_amalgamated_extract.py) — read by the afs_*.sql views
 !data/silver/parquet/
 !data/silver/parquet/afs_amalgamated_divisions.parquet

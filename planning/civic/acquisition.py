@@ -36,6 +36,8 @@ from services.parquet_io import save_parquet
 LOG = logging.getLogger(__name__)
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _DB_NAME = "acquisition.sqlite3"
+# Fail closed on a sparse OBJECTID span rather than issue thousands of window requests.
+_MAX_ID_WINDOWS = 1000
 
 
 class AcquisitionError(RuntimeError):
@@ -281,6 +283,62 @@ class ArcGISStagedCollector:
             "current_version": response.get("currentVersion"),
         }
 
+    def _oid_range(self, url: str, where: str, field: str) -> tuple[int, int]:
+        stats = [
+            {"statisticType": "min", "onStatisticField": field, "outStatisticFieldName": "oid_min"},
+            {"statisticType": "max", "onStatisticField": field, "outStatisticFieldName": "oid_max"},
+        ]
+        response = self._call(
+            url + "/query",
+            {"f": "json", "where": where, "returnGeometry": "false", "outStatistics": json.dumps(stats)},
+        )
+        features = response.get("features")
+        if not isinstance(features, list) or len(features) != 1 or not isinstance(features[0].get("attributes"), dict):
+            raise AcquisitionError(f"{url} OBJECTID range: malformed statistics response")
+        attrs = {str(key).lower(): value for key, value in features[0]["attributes"].items()}
+        bounds = (attrs.get("oid_min"), attrs.get("oid_max"))
+        for value in bounds:
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise AcquisitionError(f"{url} OBJECTID range: invalid bound {value!r}")
+        return bounds[0], bounds[1]
+
+    def _windowed_ids(self, url: str, where: str, field: str, capped: dict[str, Any]) -> list[int]:
+        """Rebuild a transfer-limited ID inventory from OBJECTID windows narrower than the cap.
+
+        ArcGIS caps returnIdsOnly per response (IrishPlanningApplications Layer 0 stopped at
+        400,000 of 508,547 on 2026-09-29). OBJECTIDs are unique integers, so a window spanning
+        fewer values than the cap cannot itself be truncated; each window is still strict-checked,
+        and an ID outside its window fails closed (a server ignoring the where clause).
+        """
+        cap = len(capped.get("objectIds") or [])
+        if cap < 2:
+            raise AcquisitionError(f"{url} returnIdsOnly: truncated OBJECTID inventory with no usable cap")
+        low, high = self._oid_range(url, where, field)
+        width = cap // 2
+        if (high - low) // width + 1 > _MAX_ID_WINDOWS:
+            raise AcquisitionError(f"{url}: OBJECTID span {low}-{high} needs more than {_MAX_ID_WINDOWS} windows")
+        ids: list[int] = []
+        for start in range(low, high + 1, width):
+            end = min(start + width - 1, high)
+            context = f"{url} returnIdsOnly {start}-{end}"
+            window = _strict_ids(
+                self._call(
+                    url + "/query",
+                    {
+                        "f": "json",
+                        "where": f"({where}) AND {field} >= {start} AND {field} <= {end}",
+                        "returnIdsOnly": "true",
+                        "returnGeometry": "false",
+                    },
+                ),
+                context,
+            )
+            if window and (window[0] < start or window[-1] > end):
+                raise AcquisitionError(f"{context}: OBJECTID outside the requested window")
+            ids.extend(window)
+        LOG.info("%s: ID inventory rebuilt from OBJECTID windows of %d (server cap %d)", url, width, cap)
+        return ids
+
     def _inventory(self, url: str, where: str, field: str) -> tuple[list[int], int]:
         params = {
             "f": "json",
@@ -288,7 +346,11 @@ class ArcGISStagedCollector:
             "returnIdsOnly": "true",
             "returnGeometry": "false",
         }
-        ids = _strict_ids(self._call(url + "/query", params), f"{url} returnIdsOnly")
+        response = self._call(url + "/query", params)
+        if _transfer_limited(response):
+            ids = self._windowed_ids(url, where, field, response)
+        else:
+            ids = _strict_ids(response, f"{url} returnIdsOnly")
         count_response = self._call(
             url + "/query",
             {"f": "json", "where": where, "returnCountOnly": "true", "returnGeometry": "false"},
