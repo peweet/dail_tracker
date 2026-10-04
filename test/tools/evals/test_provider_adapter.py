@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -103,6 +104,39 @@ def test_codex_command_is_noninteractive_scoped_and_reproducible(tmp_path):
     assert 'web_search="disabled"' in rendered
     assert 'model_reasoning_effort="high"' in rendered
     assert 'mcp_servers.dail-tracker.disabled_tools=["search_speeches"]' in rendered
+
+
+@pytest.mark.parametrize("project_settings", [False, True])
+def test_codex_project_skill_loading_follows_project_settings(tmp_path, project_settings):
+    skill_dirs = []
+    for name in ("local-navigation", "local-verification"):
+        skill_dir = tmp_path / ".agents" / "skills" / name
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            f"---\nname: {name}\ndescription: Inspect project evidence.\n---\nRead bounded source spans.\n",
+            encoding="utf-8",
+        )
+        skill_dirs.append(skill_dir)
+    (tmp_path / ".agents" / "skills" / "not-a-skill").mkdir()
+
+    command = adapter.build_codex_command(
+        adapter.EvalRequest(prompt="inspect", cwd=tmp_path, project_settings=project_settings),
+        executable="codex",
+        model=None,
+    )
+    skill_override = next(
+        (
+            tomllib.loads(command[index + 1])["skills"]["config"]
+            for index, value in enumerate(command[:-1])
+            if value == "--config" and command[index + 1].startswith("skills.config=")
+        ),
+        None,
+    )
+
+    if project_settings:
+        assert skill_override is None
+    else:
+        assert skill_override == [{"path": str(path.resolve()), "enabled": False} for path in skill_dirs]
 
 
 def test_codex_read_only_mcp_tools_are_explicitly_enabled(tmp_path):

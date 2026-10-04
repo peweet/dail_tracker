@@ -28,3 +28,13 @@ whether to refine its query or retrieve more evidence.
 Limits: FTS independence uses a fake at the search transport seam; ranking runs against
 a small metadata fixture. Payload/parse-count improvements do not prove lower model token
 use, fewer model rounds, client-side deferral or billing savings. Those require a live trial.
+
+Related skill boundary: admitting a portable `.agents/skills` file also admits it
+to the benchmark's shared cleanroom. Codex's OFF condition previously disabled
+AGENTS instructions, MCP and execpolicy rules without disabling repository skills.
+It now emits per-folder `skills.config` overrides with `enabled=false` for immediate
+checkout skill folders; ON discovery is preserved. The paired parameterized
+`test_codex_project_skill_loading_follows_project_settings` failed for OFF before
+the repair and passed in both modes afterwards; all 29 adapter tests passed.
+This controls automatic project discovery only. Manual reads and host-scoped
+skills remain outside the shared-checkout boundary; no paid/live activation was tested.

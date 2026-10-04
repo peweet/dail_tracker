@@ -404,6 +404,19 @@ def build_codex_command(
     if not request.project_settings:
         _append_config(command, "project_doc_max_bytes", 0)
         _append_config(command, "project_doc_fallback_filenames", [])
+        # Skills load independently of AGENTS.md and execpolicy .rules. Disable
+        # the copied checkout's skill folders in an OFF arm without changing ON.
+        project_skills = sorted((cwd / ".agents" / "skills").glob("*/SKILL.md"))
+        if project_skills:
+            _append_config(
+                command,
+                "skills.config",
+                [
+                    {"path": str(skill.parent.resolve()), "enabled": False}
+                    for skill in project_skills
+                    if skill.is_file()
+                ],
+            )
     if request.sandbox == "read-only" or not request.project_settings:
         # Prevent a project config from silently adding an MCP server to an OFF arm.
         _append_config(command, "mcp_servers", {})

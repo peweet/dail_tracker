@@ -123,6 +123,13 @@ in the actual client before attributing any token or latency benefit to the skil
 Keep future routing skills tied to repeated tasks, with short descriptions and
 conditional references/scripts rather than copying large manuals into every body.
 
+The Codex benchmark's OFF condition explicitly disables immediate skill folders
+under the copied checkout's `.agents/skills` through `skills.config`. AGENTS byte
+limits and `--ignore-rules` do not disable skills. ON retains normal discovery;
+strict read-only Claude already supplies `skills=[]`. This controls automatic
+project-skill loading, not manual file reads or user/admin/system skills. The
+shared cleanroom remains a cwd boundary rather than complete host isolation.
+
 | Technique | Use here |
 |---|---|
 | Programmatic tool orchestration | Batch predictable read-only work and filter intermediate results in code. Adaptive search still needs judgment after each relevant result. |
