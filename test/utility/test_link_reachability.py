@@ -90,7 +90,7 @@ _LINK_CONTRACTS = [
         "id": "authority_profile_url",
         "source": [
             ("v_procurement_incumbency", "contracting_authority"),
-            ("v_procurement_supplier_dependency", "top_authority"),
+            ("v_procurement_supplier_dependency", "top_authority_profile_key"),
         ],
         "resolver": [("v_procurement_authority_summary", "contracting_authority")],
     },
@@ -184,6 +184,17 @@ def test_clickable_ids_resolve(conn, contract):
         f"  resolver views: {resolver_views}\n"
         f"  first dead ids: {dead_ends[:10]}"
     )
+
+
+def test_dependency_authority_link_uses_profile_key_and_fails_closed():
+    from utility.pages_code.procurement._shared import _authority_link
+
+    linked = _authority_link("Raw & Authority", profile_key="Canonical Buyer", cross_page=True)
+    assert "authority=Canonical%20Buyer" in linked
+    assert "Raw &amp; Authority" in linked
+
+    assert _authority_link("Raw & Authority", profile_key=None, cross_page=True) == "Raw &amp; Authority"
+    assert "authority=Raw%20%26%20Authority" in _authority_link("Raw & Authority", cross_page=True)
 
 
 # ── Constituency → local-government council link ────────────────────────────────

@@ -74,7 +74,10 @@ SELECT
     -- buyer_authority is the display/rollup identity: client where known, else the
     -- contracting authority. Both raw columns stay visible for provenance.
     "Name of Client Contracting Authority"       AS client_authority,
-    COALESCE("Name of Client Contracting Authority", "Contracting Authority") AS buyer_authority,
+    COALESCE(
+        NULLIF(NULLIF(TRIM("Name of Client Contracting Authority"), ''), 'NULL'),
+        "Contracting Authority"
+    )                                           AS buyer_authority,
     "Agreement Owner"                            AS agreement_owner,
     "Platform"                                   AS platform,
     TRY_STRPTIME("Tender Submission Deadline", '%d/%m/%Y')::DATE AS submission_deadline,

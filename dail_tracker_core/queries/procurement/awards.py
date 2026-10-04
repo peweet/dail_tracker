@@ -347,13 +347,16 @@ def cpv_summary(
 def awards_for_authority(
     conn: duckdb.DuckDBPyConnection, contracting_authority: str, *, year: int | None = None
 ) -> QueryResult:
-    """Every award made BY one contracting authority, newest first."""
+    """Every award attributed to one canonical buyer authority, newest first."""
     sql = (
         "SELECT tender_id, supplier, supplier_norm, supplier_class, name_truncated,"
         " cpv_code, cpv_description, tender_title, category_label, procedure_type,"
         " contract_duration_months, n_bids_received, ted_can_link, ted_notice_link, etenders_notice_url,"
         " competition_type, award_date, value_eur, value_kind, value_safe_to_sum"
-        " FROM v_procurement_awards WHERE contracting_authority = ?"
+        " FROM v_procurement_awards"
+        " WHERE buyer_authority = ?"
+        " AND contracting_authority IS NOT NULL"
+        " AND contracting_authority NOT IN ('', 'NULL')"
     )
     params: list = [contracting_authority]
     if year is not None:

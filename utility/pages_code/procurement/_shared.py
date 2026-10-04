@@ -28,6 +28,7 @@ _TOP = 60  # cards shown per non-paginated tab (views are pre-ordered DESC)
 _SUP_PAGE = 24  # supplier cards per page (multiple of 3 for the grid)
 _AWARD_PAGE = 25  # award rows per page on a supplier profile
 _LIVE_PAGE = 24  # open-tender cards per page (multiple of 3 for the grid)
+_AUTHORITY_PROFILE_KEY_UNSET = object()
 
 
 def render_procurement_sources_and_licences() -> None:
@@ -77,14 +78,22 @@ def _authority_href(authority, *, cross_page: bool = False) -> str:
     return f"?authority={urllib.parse.quote(str(authority))}"
 
 
-def _authority_link(authority, *, cross_page: bool = False) -> str:
+def _authority_link(
+    authority,
+    *,
+    cross_page: bool = False,
+    profile_key=_AUTHORITY_PROFILE_KEY_UNSET,
+) -> str:
     """The authority name as a clickable buyer-dossier link (escaped). Used inside plain
     award rows (NOT rows already wrapped in clickable_card_link — no nested anchors)."""
     name = _coalesce(authority)
     if not name:
         return "—"
+    target = authority if profile_key is _AUTHORITY_PROFILE_KEY_UNSET else profile_key
+    if not _coalesce(target):
+        return _esc(name)
     return entity_link_html(
-        _authority_href(authority, cross_page=cross_page),
+        _authority_href(target, cross_page=cross_page),
         name,
         css_class="pr-auth-link",
         aria_label=f"View awards made by {name}",

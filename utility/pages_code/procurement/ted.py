@@ -470,7 +470,7 @@ def _render_supplier_relationships_panel(supplier_norm: str, *, cross_page: bool
             f"<strong>{_n(drow.get('awards_from_top_authority')):,}</strong> of its "
             f"<strong>{_n(drow.get('total_awards')):,}</strong> recorded awards "
             f"({float(share):g}%) came from "
-            f"<strong>{_authority_link(drow.get('top_authority'), cross_page=cross_page)}</strong>{cp}."
+            f"<strong>{_authority_link(drow.get('top_authority'), profile_key=drow.get('top_authority_profile_key'), cross_page=cross_page)}</strong>{cp}."
         )
     if parts:
         st.html(

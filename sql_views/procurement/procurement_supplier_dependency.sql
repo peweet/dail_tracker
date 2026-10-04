@@ -15,7 +15,28 @@
 -- Grain: one row per supplier_norm with ≥5 awards (company-class population). Award
 -- counts are the dependency measure (values are ceilings and would distort shares).
 CREATE OR REPLACE VIEW v_procurement_supplier_dependency AS
-WITH pairs AS (
+WITH raw_authority_profiles AS (
+    SELECT
+        "Contracting Authority" AS raw_authority,
+        COALESCE(
+            NULLIF(NULLIF(TRIM("Name of Client Contracting Authority"), ''), 'NULL'),
+            "Contracting Authority"
+        ) AS profile_key
+    FROM read_parquet('data/gold/parquet/procurement_awards.parquet')
+    WHERE "Contracting Authority" IS NOT NULL
+      AND "Contracting Authority" NOT IN ('', 'NULL')
+),
+authority_profile_map AS (
+    SELECT
+        raw_authority,
+        MIN(profile_key) AS profile_key
+    FROM raw_authority_profiles
+    WHERE profile_key IS NOT NULL
+      AND profile_key NOT IN ('', 'NULL')
+    GROUP BY raw_authority
+    HAVING COUNT(DISTINCT profile_key) = 1
+),
+pairs AS (
     SELECT
         supplier_norm,
         ANY_VALUE(supplier)              AS supplier,
@@ -36,13 +57,17 @@ ranked AS (
         n,
         SUM(n) OVER (PARTITION BY supplier_norm)                       AS total_awards,
         COUNT(*) OVER (PARTITION BY supplier_norm)                     AS n_authorities,
-        ROW_NUMBER() OVER (PARTITION BY supplier_norm ORDER BY n DESC) AS rk
+        ROW_NUMBER() OVER (
+            PARTITION BY supplier_norm
+            ORDER BY n DESC, contracting_authority ASC NULLS LAST
+        ) AS rk
     FROM pairs
 )
 SELECT
     supplier_norm,
     supplier,
     contracting_authority                                     AS top_authority,
+    authority_profile_map.profile_key                         AS top_authority_profile_key,
     contracting_authority ILIKE '%office of government procurement%'
         OR contracting_authority ILIKE '%education procurement service%'
                                                               AS top_authority_is_central_purchasing,
@@ -51,5 +76,7 @@ SELECT
     n_authorities,
     ROUND(100.0 * n / total_awards, 1)                        AS top_authority_share_pct
 FROM ranked
+LEFT JOIN authority_profile_map
+    ON authority_profile_map.raw_authority = ranked.contracting_authority
 WHERE rk = 1 AND total_awards >= 5
 ORDER BY top_authority_share_pct DESC, total_awards DESC;

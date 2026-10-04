@@ -229,7 +229,7 @@ def dependency_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str)
     no concentration-risk language."""
     return _run(
         conn,
-        "SELECT top_authority, top_authority_is_central_purchasing, awards_from_top_authority,"
+        "SELECT top_authority, top_authority_profile_key, top_authority_is_central_purchasing, awards_from_top_authority,"
         " total_awards, n_authorities, top_authority_share_pct"
         " FROM v_procurement_supplier_dependency WHERE supplier_norm = ?",
         [supplier_norm],
@@ -244,7 +244,7 @@ def dependency_top(
     mechanics, not a bilateral relationship — the panel would otherwise be all OGP)."""
     return _run(
         conn,
-        "SELECT supplier, supplier_norm, top_authority, awards_from_top_authority,"
+        "SELECT supplier, supplier_norm, top_authority, top_authority_profile_key, awards_from_top_authority,"
         " total_awards, n_authorities, top_authority_share_pct"
         " FROM v_procurement_supplier_dependency"
         " WHERE total_awards >= ? AND top_authority_share_pct >= ?"

@@ -327,7 +327,7 @@ def _render_patterns() -> None:
         cards = []
         for r in dep.data.head(12).itertuples():
             supplier = company_link_html(r.supplier_norm, r.supplier, css_class="pr-auth-link")
-            buyer = _authority_link(r.top_authority)
+            buyer = _authority_link(r.top_authority, profile_key=r.top_authority_profile_key)
             name_html = (
                 f"<span>{supplier}</span>"
                 f'<span class="pr-sub">{_n(r.awards_from_top_authority):,} of '
