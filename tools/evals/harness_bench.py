@@ -19,7 +19,7 @@ JSON task file outside this repository with ``--tasks-file``; the evaluator read
 its expected structured answers, but that file is never copied into agent cwd.
 
 Run:
-    python tools/evals/harness_bench.py --repeat 3 offclean on
+    python tools/evals/harness_bench.py --repeat 4 offclean on
     python tools/evals/harness_bench.py --tasks-file C:/private/holdout.json on
 
 The script emits one metadata row, one row per task attempt, and aggregate rows.
@@ -54,6 +54,7 @@ from tools.evals.provider_adapter import EvalRequest, dail_tracker_mcp, run_eval
 
 PROJ = str(PROJ_PATH)
 VARIANTS = ("off", "offclean", "on")
+CACHE_POLICY = "provider-managed-uncontrolled"
 PREFLIGHT_REQUIRED_FILES = (
     "AGENTS.md",
     ".codex/config.toml",
@@ -242,9 +243,47 @@ def _git_value(*args: str) -> str:
     return completed.stdout.strip() if completed.returncode == 0 else "unknown"
 
 
-def run_manifest(tasks: dict[str, dict[str, Any]], *, repeats: int, cleanroom: dict | None) -> dict[str, Any]:
+def ordered_attempts(
+    task_ids: list[str],
+    variants: list[str],
+    *,
+    repeats: int,
+    order_policy: str = "balanced",
+) -> list[tuple[int, str, str]]:
+    """Return a deterministic task/variant plan with counterbalanced ordering."""
+
+    if not task_ids or not variants:
+        return []
+    if order_policy not in {"balanced", "fixed"}:
+        raise ValueError("order_policy must be 'balanced' or 'fixed'")
+    plan: list[tuple[int, str, str]] = []
+    if order_policy == "fixed":
+        for repeat_index in range(1, repeats + 1):
+            plan.extend((repeat_index, task_id, variant) for variant in variants for task_id in task_ids)
+        return plan
+    for repeat_index in range(1, repeats + 1):
+        for task_position, task_id in enumerate(task_ids):
+            offset = (repeat_index - 1 + task_position) % len(variants)
+            task_variants = variants[offset:] + variants[:offset]
+            plan.extend((repeat_index, task_id, variant) for variant in task_variants)
+    return plan
+
+
+def run_manifest(
+    tasks: dict[str, dict[str, Any]],
+    *,
+    repeats: int,
+    cleanroom: dict | None,
+    variants: list[str] | None = None,
+    selected_tasks: list[str] | None = None,
+    order_policy: str = "balanced",
+) -> dict[str, Any]:
+    selected_tasks = list(tasks) if selected_tasks is None else list(selected_tasks)
+    variants = list(VARIANTS) if variants is None else list(variants)
+    selected_task_records = {task_id: tasks[task_id] for task_id in selected_tasks}
     task_fingerprint = {
-        task_id: {key: value for key, value in task.items() if key != "expected"} for task_id, task in tasks.items()
+        task_id: {key: value for key, value in task.items() if key != "expected"}
+        for task_id, task in selected_task_records.items()
     }
     return {
         "type": "eval_run",
@@ -254,7 +293,10 @@ def run_manifest(tasks: dict[str, dict[str, Any]], *, repeats: int, cleanroom: d
         "source_dirty": bool(_git_value("status", "--porcelain", "--untracked-files=no")),
         "harness_sha256": _sha256(Path(__file__).read_bytes()),
         "task_suite_sha256": _sha256(json.dumps(task_fingerprint, sort_keys=True).encode("utf-8")),
-        "task_ids": list(tasks),
+        "task_ids": selected_tasks,
+        "variants": variants,
+        "order_policy": order_policy,
+        "cache_policy": CACHE_POLICY,
         "repeats": repeats,
         "provider_override": os.environ.get("DAIL_EVAL_PROVIDER", "auto"),
         "model_override": os.environ.get("DAIL_EVAL_MODEL", "provider-default"),
@@ -272,6 +314,76 @@ def run_manifest(tasks: dict[str, dict[str, Any]], *, repeats: int, cleanroom: d
     }
 
 
+def _reported_fields(usage: dict[str, Any], reported_fields: frozenset[str] | None) -> set[str]:
+    return set(usage) if reported_fields is None else set(reported_fields)
+
+
+def _reported_number(usage: dict[str, Any], fields: set[str], names: tuple[str, ...]) -> int | None:
+    for name in names:
+        if name not in fields or name not in usage:
+            continue
+        value = usage[name]
+        if type(value) is not int or value < 0:
+            return None
+        return value
+    return None
+
+
+def cache_observation(
+    usage: dict[str, Any],
+    *,
+    provider: str | None,
+    reported_fields: frozenset[str] | None = None,
+) -> dict[str, Any]:
+    """Normalize provider cache signals without treating missing fields as zero."""
+
+    fields = _reported_fields(usage, reported_fields)
+    read_reported = bool({"cache_read_input_tokens", "cached_input_tokens"}.intersection(fields))
+    creation_reported = "cache_creation_input_tokens" in fields
+    cache_read = _reported_number(usage, fields, ("cache_read_input_tokens", "cached_input_tokens"))
+    cache_creation = _reported_number(usage, fields, ("cache_creation_input_tokens",))
+
+    def observation(state: str, *, ratio: float | None = None) -> dict[str, Any]:
+        return {
+            "state": state,
+            "cache_read_input_tokens": int(cache_read) if cache_read is not None else None,
+            "cache_creation_input_tokens": int(cache_creation) if cache_creation is not None else None,
+            "cache_ratio": ratio,
+        }
+
+    if provider == "codex":
+        # Codex's native input_tokens includes cached tokens.  The adapter also
+        # adds normalized raw_input_tokens/input_tokens keys, so only use the
+        # raw value when native input_tokens presence authorizes it.
+        if "input_tokens" not in fields:
+            return observation("unknown")
+        input_tokens = (
+            _reported_number(usage, {"raw_input_tokens"}, ("raw_input_tokens",))
+            if "raw_input_tokens" in usage
+            else _reported_number(usage, fields, ("input_tokens",))
+        )
+    else:
+        input_tokens = _reported_number(usage, fields, ("input_tokens",))
+    if input_tokens is None or not read_reported:
+        return observation("unknown")
+    if cache_read is None:
+        return observation("unknown")
+    if creation_reported and cache_creation is None:
+        return observation("unknown")
+    if provider == "codex" and cache_read > input_tokens:
+        cache_read = None
+        return observation("unknown")
+    if provider == "claude" and input_tokens < 0:
+        return observation("unknown")
+    state = "reuse_reported" if cache_read > 0 else "no_reuse_reported"
+    if provider == "claude" and not creation_reported:
+        return observation(state)
+    denominator = input_tokens if provider == "codex" else input_tokens + cache_read + (cache_creation or 0)
+    if denominator <= 0:
+        return observation("unknown")
+    return observation(state, ratio=round(cache_read / denominator, 6))
+
+
 async def run_task(
     task_id: str,
     task: dict[str, Any],
@@ -280,6 +392,8 @@ async def run_task(
     cwd: Path,
     repeat_index: int,
     run_id: str,
+    execution_index: int | None = None,
+    execution_position: int | None = None,
 ) -> dict[str, Any]:
     on = variant == "on"
     started_at = time.perf_counter()
@@ -308,6 +422,13 @@ async def run_task(
 
     calls = result.tool_names if result else []
     answer = parse_answer(result.final_text if result else "")
+    usage = result.usage if result else {}
+    reported_fields = getattr(result, "usage_reported_fields", None) if result else None
+    observation = cache_observation(
+        usage,
+        provider=getattr(result, "provider", None) if result else None,
+        reported_fields=reported_fields,
+    )
     row: dict[str, Any] = {
         "type": "attempt",
         "run_id": run_id,
@@ -322,7 +443,16 @@ async def run_task(
         "sequence": calls,
         "provider": result.provider if result else None,
         "model": result.model if result else None,
-        "usage": result.usage if result else {},
+        "usage": usage,
+        "usage_reported_fields": sorted(reported_fields) if reported_fields is not None else None,
+        "cache_observation_state": observation["state"],
+        "cache_read_input_tokens_observed": observation["cache_read_input_tokens"],
+        "cache_creation_input_tokens_observed": observation["cache_creation_input_tokens"],
+        "cache_reuse_ratio": observation["cache_ratio"],
+        "reasoning_effort": getattr(result, "reasoning_effort", None) if result else None,
+        "observed_utc": datetime.now(UTC).isoformat(),
+        "execution_index": execution_index,
+        "execution_position": execution_position,
         "elapsed_seconds": round(time.perf_counter() - started_at, 3),
     }
     if error:
@@ -365,6 +495,42 @@ def summary_rows(attempts: list[dict[str, Any]], run_id: str) -> list[dict[str, 
                 **{
                     f"{key}_total": sum(int(row.get("usage", {}).get(key, 0)) for row in selected) for key in usage_keys
                 },
+                "cache_observation_count": sum(
+                    row.get("cache_observation_state") in {"reuse_reported", "no_reuse_reported"} for row in selected
+                ),
+                "cache_observation_coverage": (
+                    round(
+                        sum(
+                            row.get("cache_observation_state") in {"reuse_reported", "no_reuse_reported"}
+                            for row in selected
+                        )
+                        / len(selected),
+                        3,
+                    )
+                    if any(
+                        row.get("cache_observation_state") in {"reuse_reported", "no_reuse_reported"}
+                        for row in selected
+                    )
+                    else 0.0
+                ),
+                "cache_read_input_tokens_observed_total": (
+                    sum(
+                        int(row["cache_read_input_tokens_observed"])
+                        for row in selected
+                        if row.get("cache_read_input_tokens_observed") is not None
+                    )
+                    if any(row.get("cache_read_input_tokens_observed") is not None for row in selected)
+                    else None
+                ),
+                "cache_creation_input_tokens_total": (
+                    sum(
+                        int(row["cache_creation_input_tokens_observed"])
+                        for row in selected
+                        if row.get("cache_creation_input_tokens_observed") is not None
+                    )
+                    if any(row.get("cache_creation_input_tokens_observed") is not None for row in selected)
+                    else None
+                ),
             }
         )
     return rows
@@ -402,6 +568,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("selectors", nargs="*", help="variants and/or task ids")
     parser.add_argument("--repeat", type=_positive_int, default=1)
+    parser.add_argument("--order", choices=("balanced", "fixed"), default="balanced")
     parser.add_argument("--tasks-file", type=Path, help="private holdout JSON outside the repository")
     parser.add_argument("--preflight", action="store_true", help="validate isolation and wiring without provider calls")
     parser.add_argument(
@@ -432,37 +599,56 @@ async def main(argv: list[str] | None = None) -> None:
     if needs_cleanroom:
         with prepare_cleanroom(PROJ_PATH) as clean_path:
             clean_meta = preflight_report(clean_path)
-            manifest = run_manifest(tasks, repeats=args.repeat, cleanroom=clean_meta)
+            manifest = run_manifest(
+                {task_id: tasks[task_id] for task_id in selected_tasks},
+                repeats=args.repeat,
+                cleanroom=clean_meta,
+                variants=variants,
+                selected_tasks=selected_tasks,
+                order_policy=args.order,
+            )
             print(json.dumps(manifest, ensure_ascii=False), flush=True)
-            for repeat_index in range(1, args.repeat + 1):
-                for variant in variants:
-                    cwd = PROJ_PATH if variant == "off" else clean_path
-                    for task_id in selected_tasks:
-                        row = await run_task(
-                            task_id,
-                            tasks[task_id],
-                            variant,
-                            cwd=cwd,
-                            repeat_index=repeat_index,
-                            run_id=manifest["run_id"],
-                        )
-                        attempts.append(row)
-                        print(json.dumps(row, ensure_ascii=False), flush=True)
-    else:
-        manifest = run_manifest(tasks, repeats=args.repeat, cleanroom=None)
-        print(json.dumps(manifest, ensure_ascii=False), flush=True)
-        for repeat_index in range(1, args.repeat + 1):
-            for task_id in selected_tasks:
+            for execution_position, (repeat_index, task_id, variant) in enumerate(
+                ordered_attempts(selected_tasks, variants, repeats=args.repeat, order_policy=args.order),
+            ):
+                cwd = PROJ_PATH if variant == "off" else clean_path
                 row = await run_task(
                     task_id,
                     tasks[task_id],
-                    "off",
-                    cwd=PROJ_PATH,
+                    variant,
+                    cwd=cwd,
                     repeat_index=repeat_index,
                     run_id=manifest["run_id"],
+                    execution_index=execution_position + 1,
+                    execution_position=execution_position,
                 )
                 attempts.append(row)
                 print(json.dumps(row, ensure_ascii=False), flush=True)
+    else:
+        manifest = run_manifest(
+            {task_id: tasks[task_id] for task_id in selected_tasks},
+            repeats=args.repeat,
+            cleanroom=None,
+            variants=variants,
+            selected_tasks=selected_tasks,
+            order_policy=args.order,
+        )
+        print(json.dumps(manifest, ensure_ascii=False), flush=True)
+        for execution_position, (repeat_index, task_id, variant) in enumerate(
+            ordered_attempts(selected_tasks, variants, repeats=args.repeat, order_policy=args.order),
+        ):
+            row = await run_task(
+                task_id,
+                tasks[task_id],
+                variant,
+                cwd=PROJ_PATH,
+                repeat_index=repeat_index,
+                run_id=manifest["run_id"],
+                execution_index=execution_position + 1,
+                execution_position=execution_position,
+            )
+            attempts.append(row)
+            print(json.dumps(row, ensure_ascii=False), flush=True)
 
     for row in summary_rows(attempts, manifest["run_id"]):
         print(json.dumps(row, ensure_ascii=False), flush=True)

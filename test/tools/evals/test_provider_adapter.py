@@ -237,6 +237,31 @@ def test_codex_jsonl_parser_normalizes_text_tools_and_usage():
     assert not result.is_error
 
 
+def test_codex_usage_presence_does_not_turn_missing_cache_into_reported_zero():
+    missing = adapter.parse_codex_jsonl(
+        json.dumps({"type": "turn.completed", "usage": {"input_tokens": 100, "output_tokens": 2}})
+        + "\n"
+        + json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "ok"}}),
+        model="gpt-test",
+        reasoning_effort="medium",
+    )
+    explicit_zero = adapter.parse_codex_jsonl(
+        json.dumps(
+            {
+                "type": "turn.completed",
+                "usage": {"input_tokens": 100, "cached_input_tokens": 0, "output_tokens": 2},
+            }
+        )
+        + "\n"
+        + json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "ok"}}),
+        model="gpt-test",
+        reasoning_effort="medium",
+    )
+    assert missing.usage["cache_read_input_tokens"] == 0
+    assert missing.usage_reported_fields == frozenset({"input_tokens", "output_tokens"})
+    assert explicit_zero.usage_reported_fields == frozenset({"input_tokens", "cached_input_tokens", "output_tokens"})
+
+
 def test_codex_runner_uses_stdin_without_shell_and_records_cli_limitations(tmp_path):
     captured = {}
     stdout = "\n".join(

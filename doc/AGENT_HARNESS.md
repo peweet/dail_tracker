@@ -158,6 +158,27 @@ Sources: [Codex IDE commands](https://learn.chatgpt.com/docs/developer-commands?
 
 ## Operating the benchmark
 
+The default `--order balanced` runs variants together for each selected task and
+rotates the first variant by task position and repeat. With two variants, each
+task reverses its order on the next repeat. Use an even repeat count for a paired
+comparison; with more variants, use a multiple of the variant count. Task order
+follows the task dictionary, not selector argument order. `--order fixed` restores
+the historical repeat, variant, task nesting for reproduction.
+
+Manifests record the selected tasks and variants, schedule policy, and
+`cache_policy: provider-managed-uncontrolled`. Attempts record execution order,
+UTC observation time, resolved model/reasoning, original usage-field presence,
+and `cache_observation_state`: `unknown`, `no_reuse_reported`, or `reuse_reported`.
+Missing cache counters remain unknown; explicit zero is an observation. Codex
+cache ratios use total input before normalization, while Claude input, cache reads,
+and cache creation are disjoint. Missing denominator components leave the ratio
+null. Summaries include observation coverage and nullable observed totals; legacy
+zero-filled usage totals are retained for compatibility and are not coverage evidence.
+
+These are attempt-wide usage observations. Starting a new process or chat does not
+prove a cold provider cache, and alternating order does not isolate every source of
+latency. Do not flush unrelated local caches or send synthetic warming requests.
+
 Validate the tracked prompt, role, and hook contracts without bootstrapping the full dependency
 profile:
 
@@ -174,7 +195,7 @@ No-cost wiring and isolation check:
 Public smoke comparison:
 
 ```powershell
-.venv\Scripts\python tools/evals/harness_bench.py --repeat 3 offclean on
+.venv\Scripts\python tools/evals/harness_bench.py --repeat 4 offclean on
 ```
 
 The ON arm marks only its validated ephemeral cleanroom as trusted and uses Codex's
@@ -212,3 +233,61 @@ Codex loads the bounded SessionStart hook from tracked `.codex/config.toml`. Aft
 changing the hook, review and trust its exact definition once with `/hooks`; until that trust
 step, Codex deliberately skips the project command hook. Claude's `.claude/` configuration
 remains workstation-local by repository policy.
+
+## Local editor telemetry
+
+Keep client measurements separate: Copilot OTel, Codex response records, and the
+Claude SessionEnd ledger have different scopes. Codex's bounded report above is
+content-free; the older Claude `token_ledger.py` and `token_week_review.py` also print
+prompt snippets. The Claude ledger contains completed-session snapshots, combines
+fresh input and cache creation, and is not an event-window or billing ledger.
+
+Copilot OTel settings have application scope in the installed extension. Configure
+them in local VS Code User Settings, with an absolute local file destination:
+
+```json
+{
+  "github.copilot.chat.otel.enabled": true,
+  "github.copilot.chat.otel.exporterType": "file",
+  "github.copilot.chat.otel.outfile": "<absolute-local-path>/copilot.jsonl",
+  "github.copilot.chat.otel.captureContent": false,
+  "github.copilot.chat.agentDebugLog.fileLogging.enabled": true,
+  "github.copilot.chat.agentDebugLog.fileLogging.maxRetainedSessionLogs": 5,
+  "github.copilot.chat.agentDebugLog.fileLogging.maxSessionLogSizeMB": 20
+}
+```
+
+Back up the original settings and exclude these keys from Settings Sync for a local
+pilot. Reload the window, perform a representative task, then open **Developer:
+Open Agent Debug Logs** and its Summary view. Use Cache Explorer when reported
+reuse and latency warrant investigating changes between requests. Configuration
+on disk is not proof of activation: confirm new telemetry records after reload.
+Managed policy and environment overrides can change the effective settings.
+
+OTel content capture off and debug logging are separate controls. Debug logs can
+contain prompts and source; keep them local and disable file logging after the
+diagnostic sample. The five-session/20-MB bounds apply to debug logs, not the OTel
+outfile. Archive that append-only outfile after the sample and disable OTel when
+the pilot ends. Do not commit or upload either raw log stream.
+
+The installed Copilot file exporter interleaves raw SDK spans, logs, and metrics.
+They are not three independent sources of token spend: `invoke_agent` spans may
+aggregate child `chat` calls, and logs/metrics can repeat those measurements.
+Validate a captured schema before building a parser, deduplicate request/span
+identities, and avoid adding parent and child usage together. Retain provider
+semantics and missing-field coverage when computing cache ratios.
+
+Independent Codex and Claude extensions are not configured by Copilot's OTel
+settings. Codex OTel routing belongs in user-level `~/.codex/config.toml`; do not
+add a collector endpoint without a running consumer. Existing response records
+provide a local Codex token baseline without enabling a new export service.
+
+Compare one setting at a time with fixed tasks, model, reasoning, tools, and
+acceptance checks. Record correctness, elapsed time, input/cache/output tokens,
+tool calls, errors, and rework. Keep cache-key, breakpoint, search/execution
+subagent, and reasoning-effort experiments separate from instrumentation. A higher
+cache ratio alone is not evidence of a better harness.
+
+Sources: [VS Code OTel](https://code.visualstudio.com/docs/agents/guides/monitoring-agents),
+[Cache Explorer](https://code.visualstudio.com/docs/agents/agent-troubleshooting/cache-explorer),
+and [Codex configuration](https://developers.openai.com/codex/config-reference).

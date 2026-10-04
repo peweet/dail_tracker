@@ -105,6 +105,10 @@ class EvalResult:
     tool_calls: list[EvalToolCall] = field(default_factory=list)
     cost_usd: float | None = None
     usage: dict[str, Any] = field(default_factory=dict)
+    # Native usage keys received from the provider.  The normalized ``usage``
+    # mapping remains backward-compatible and may contain synthesized zeros;
+    # this field lets consumers distinguish those zeros from reported values.
+    usage_reported_fields: frozenset[str] | None = None
     num_turns: int | None = None
     is_error: bool = False
     error: str | None = None
@@ -494,10 +498,30 @@ def _tool_call_from_item(item: Mapping[str, Any]) -> EvalToolCall | None:
     return None
 
 
+_CODEX_USAGE_COUNT_FIELDS = (
+    "input_tokens",
+    "cached_input_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+    "output_tokens",
+    "reasoning_output_tokens",
+)
+
+
 def _normalize_codex_usage(raw: Mapping[str, Any]) -> dict[str, Any]:
+    for usage_field in _CODEX_USAGE_COUNT_FIELDS:
+        if usage_field in raw and (type(raw[usage_field]) is not int or raw[usage_field] < 0):
+            raise ValueError(f"{usage_field} must be a nonboolean nonnegative integer")
+    if (
+        "cached_input_tokens" in raw
+        and "cache_read_input_tokens" in raw
+        and raw["cached_input_tokens"] != raw["cache_read_input_tokens"]
+    ):
+        raise ValueError("conflicting cache counters")
+
     usage = dict(raw)
     raw_input = int(raw.get("input_tokens") or 0)
-    cached = int(raw.get("cached_input_tokens") or raw.get("cache_read_input_tokens") or 0)
+    cached = raw.get("cached_input_tokens", raw.get("cache_read_input_tokens", 0))
     # Claude reports fresh and cached classes separately; Codex reports cached
     # tokens as a subset of input_tokens.  Normalize to the former so the old
     # cost-of-change summation does not double-count cached input.
@@ -522,6 +546,7 @@ def parse_codex_jsonl(
 
     final_text = ""
     usage: dict[str, Any] = {}
+    usage_reported_fields: frozenset[str] | None = None
     tool_calls: list[EvalToolCall] = []
     seen_tool_items: set[str] = set()
     diagnostics: list[str] = []
@@ -546,9 +571,16 @@ def parse_codex_jsonl(
         if event_type == "turn.started":
             turns += 1
         elif event_type == "turn.completed":
+            usage = {}
+            usage_reported_fields = None
             raw_usage = event.get("usage")
             if isinstance(raw_usage, Mapping):
-                usage = _normalize_codex_usage(raw_usage)
+                usage_reported_fields = frozenset(str(key) for key in raw_usage)
+                try:
+                    usage = _normalize_codex_usage(raw_usage)
+                except ValueError as exc:
+                    usage = {}
+                    diagnostics.append(f"invalid Codex usage: {exc}")
         elif event_type in {"turn.failed", "error"}:
             errors.append(_error_text(event))
 
@@ -584,6 +616,7 @@ def parse_codex_jsonl(
         final_text=final_text,
         tool_calls=tool_calls,
         usage=usage,
+        usage_reported_fields=usage_reported_fields,
         num_turns=turns or None,
         is_error=bool(errors),
         error="; ".join(dict.fromkeys(filter(None, errors))) or None,
@@ -759,6 +792,7 @@ async def run_claude(
     final_text = ""
     cost: float | None = None
     usage: dict[str, Any] = {}
+    usage_reported_fields: frozenset[str] | None = None
     turns: int | None = None
     is_error = False
     error: str | None = None
@@ -783,6 +817,9 @@ async def run_claude(
                     turns = getattr(message, "num_turns", None)
                     raw_usage = getattr(message, "usage", None)
                     usage = dict(raw_usage) if raw_usage else {}
+                    usage_reported_fields = (
+                        frozenset(str(key) for key in raw_usage) if isinstance(raw_usage, Mapping) else None
+                    )
                     is_error = bool(getattr(message, "is_error", False))
                     if is_error:
                         error = result_text or "Claude Agent SDK reported an error"
@@ -800,6 +837,7 @@ async def run_claude(
         tool_calls=tool_calls,
         cost_usd=cost,
         usage=usage,
+        usage_reported_fields=usage_reported_fields,
         num_turns=turns,
         is_error=is_error,
         error=error,
