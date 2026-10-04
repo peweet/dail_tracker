@@ -417,7 +417,10 @@ known_first_party = [
 #   (planning/product/native/siting_native). Declaring it here as a path source took CI
 #   red for 12 days; it is now installed manually into the local venv and verified by
 #   `python tools/dev.py siting-native`. Never re-add it to an extra.
-DEP001 = ["camelot", "dail_native", "paddleocr", "siting_native"]
+#   torch/sentence_transformers/model2vec/huggingface_hub: opt-in council retrieval
+#   experiment only. The pinned runtime lives in an isolated venv
+#   (tools/evals/requirements-council-pilot.txt), outside normal app/dev/CI profiles.
+DEP001 = ["camelot", "dail_native", "paddleocr", "siting_native", "torch", "sentence_transformers", "model2vec", "huggingface_hub"]
 # DEP002 — declared but "unused": all three are correct declarations deptry can't see.
 #   uvicorn/ocrmypdf are CLI-invoked (`uvicorn api.main:app`), never imported;
 #   dail-tracker is the `all` extra's self-reference.
