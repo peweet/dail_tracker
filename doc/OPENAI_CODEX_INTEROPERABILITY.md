@@ -181,10 +181,10 @@ compatibility settings:
 
 - `project_doc_fallback_filenames = ["CLAUDE.md"]` allows legacy nested Claude
   guidance to act only as a migration fallback. Native `AGENTS.md` takes precedence.
-- The public `dail-tracker` MCP server is enabled and its private Siting tools are
-  disabled.
-- The private `siting` MCP server has the Siting dependencies and an allow-list of its
-  own tools, but is disabled by default. A clean public clone will neither install
+- Repository MCP servers default to off. Opt in for one session:
+  `codex -c 'mcp_servers.dail-tracker.enabled=true'`; its private Siting tools stay disabled.
+- Both private Siting aliases, `siting_private` and `siting-private`, are disabled
+  by default. A clean public clone will neither install
   private geospatial dependencies nor surface private tools.
 - The environment supplied to each MCP server sets UTF-8 and native-library thread
   caps, keeping a normal Codex session from changing the data-service constraints.
@@ -192,8 +192,10 @@ compatibility settings:
   `codex.exe` and `claude.exe` as agent sessions when applying its memory-pressure
   policy, rather than assuming that only the original agent is active.
 
-Enable the Siting MCP server only from a private configuration/profile that has the
-private overlay and external layer data. Do not simply flip its `enabled` setting in a
+The session-start health check launches MCP only with `DAIL_SKIP_MCP_PROBE=0`.
+
+Enable a Siting MCP server only from a private configuration/profile that has the
+private nested repository and external layer data. Do not simply flip its `enabled` setting in a
 public clone and assume it is a usable or safe deployment.
 
 ### 5. Durable lessons are accessible without tying truth to a model vendor

@@ -89,9 +89,18 @@ def _probe_repo(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(module, "REPO", tmp_path)
     monkeypatch.setattr(module.shutil, "which", lambda _: str(executable))
-    monkeypatch.delenv("DAIL_SKIP_MCP_PROBE", raising=False)
+    monkeypatch.setenv("DAIL_SKIP_MCP_PROBE", "0")
     monkeypatch.setattr(module.time, "time", lambda: 1000)
     return module
+
+
+def test_default_mcp_note_never_starts_server(tmp_path, monkeypatch):
+    module = _probe_repo(tmp_path, monkeypatch)
+    monkeypatch.delenv("DAIL_SKIP_MCP_PROBE", raising=False)
+    monkeypatch.setattr(module, "_mcp_connect_probe", lambda *_: pytest.fail("default hook started MCP"))
+
+    assert "probe skipped" in module._mcp_note()
+    assert not (tmp_path / "logs").exists()
 
 
 def test_probe_targets_dail_tracker_and_reuses_labeled_success(tmp_path, monkeypatch):

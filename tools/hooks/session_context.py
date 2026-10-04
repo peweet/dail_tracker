@@ -84,7 +84,7 @@ def _heartbeat_note() -> str:
 
 
 def _mcp_note() -> str:
-    """MCP health: dail-tracker config lint + code compile + a real stdio probe.
+    """MCP health: config lint + code compile, with an opt-in stdio probe.
 
     Hardened 2026-07-25 after `${workspaceFolder}` in .mcp.json (VS Code syntax Claude
     Code never expands) left the server unable to connect for 8 days while this note
@@ -94,7 +94,7 @@ def _mcp_note() -> str:
          file (relative paths resolve against the repo root, matching Claude Code's
          behaviour), and its own ${...} placeholders are rejected;
       2. every mcp_server/*.py compiles;
-      3. unless DAIL_SKIP_MCP_PROBE=1, probe .mcp.json's dail-tracker entry. A recent
+      3. only when DAIL_SKIP_MCP_PROBE=0, probe .mcp.json's dail-tracker entry. A recent
          result can be reused for 60s (success) or 15s (failure), explicitly labeled
          as cached advisory evidence, never proof of the current client connection.
     """
@@ -136,8 +136,8 @@ def _mcp_note() -> str:
                 compile(p.read_text(encoding="utf-8"), str(p), "exec")
             except Exception as exc:  # noqa: BLE001 — name the file, keep the session alive
                 return f"MCP: server code BROKEN ({p.name}: {type(exc).__name__}) — /mcp will fail"
-        if os.environ.get("DAIL_SKIP_MCP_PROBE") == "1":
-            return "MCP: config+code OK (probe skipped; if tools are missing, /mcp)"
+        if os.environ.get("DAIL_SKIP_MCP_PROBE") != "0":
+            return "MCP: config+code OK (probe skipped; explicit probe: DAIL_SKIP_MCP_PROBE=0)"
         if target is None:
             return "MCP: dail-tracker stdio config MISSING (check .mcp.json and /mcp)"
         return _cached_mcp_probe(*target)

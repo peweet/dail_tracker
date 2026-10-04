@@ -29,7 +29,11 @@ requesting more detail. See [efficient tool use](doc/AGENT_HARNESS.md#efficient-
 
 ## Pi Firstmate preflight
 
-When Pi Firstmate is available, invoke it proactively as an advisory check for a
+Local MCP servers are opt-in. Keep their disabled defaults and start or enable a
+named server only when the user explicitly requests its use. Use shell navigation
+while repository MCP servers are disabled; do not enable them for a preflight.
+
+When Pi Firstmate is explicitly enabled, invoke it proactively as an advisory check for a
 task that could benefit from an independent public-signal or implementation
 specification review. Ask it to check both **Public Signal** and **SpecPlan**,
 then use its findings as evidence rather than authority: verify material claims

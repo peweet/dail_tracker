@@ -164,10 +164,11 @@ live in `.codex/config.toml`, not `.mcp.json`:
 
 - `CLAUDE.md` is configured as a fallback filename only when a directory has no `AGENTS.md`, so
   tracked Siting guidance remains available during migration without overriding native Codex files.
-- `dail-tracker` is enabled and excludes private Siting tools.
-- `siting` installs both MCP and geospatial extras, filters to Siting tools, and is disabled by
-  default so a clean public clone remains lean. Enable it only in a workspace that has the private
-  overlay and external layer data.
+- MCP servers default to off. Opt in per session:
+  `codex -c 'mcp_servers.dail-tracker.enabled=true'`.
+- `dail-tracker` excludes private Siting tools. Both Siting aliases require the private
+  nested repository and external layer data.
+- Session-start live probes require `DAIL_SKIP_MCP_PROBE=0`.
 
 The existing Claude configuration remains available for operators who use it. Historical Claude
 benchmarks, provider-specific analytics, and the retained Claude backend are not migration targets.

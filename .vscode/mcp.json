@@ -16,9 +16,7 @@
         "OMP_NUM_THREADS": "1",
         "MKL_NUM_THREADS": "1",
         "NUMEXPR_NUM_THREADS": "1"
-      },
-      // Auto-restart the server while iterating on it (Node/Python stdio only).
-      "dev": { "watch": "mcp_server/**/*.py" }
+      }
     }
   }
 }
