@@ -13,11 +13,14 @@ to break a session.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -81,18 +84,19 @@ def _heartbeat_note() -> str:
 
 
 def _mcp_note() -> str:
-    """MCP health: config lint + code compile + a real stdio connect probe.
+    """MCP health: dail-tracker config lint + code compile + a real stdio probe.
 
     Hardened 2026-07-25 after `${workspaceFolder}` in .mcp.json (VS Code syntax Claude
     Code never expands) left the server unable to connect for 8 days while this note
     said "config+code OK" — the old check validated config and code but never a
     connection. Checks in order of determinism:
-      1. .mcp.json parses, holds NO unexpanded ${...} placeholder, and each server's
-         command/first-arg path resolves to a real file (relative paths resolve
-         against the repo root, matching Claude Code's behaviour);
+      1. .mcp.json parses; dail-tracker's command/first-arg path resolves to a real
+         file (relative paths resolve against the repo root, matching Claude Code's
+         behaviour), and its own ${...} placeholders are rejected;
       2. every mcp_server/*.py compiles;
-      3. unless DAIL_SKIP_MCP_PROBE=1, a real handshake: spawn the server and exchange
-         an MCP `initialize` over stdio — the only proof it can actually start.
+      3. unless DAIL_SKIP_MCP_PROBE=1, probe .mcp.json's dail-tracker entry. A recent
+         result can be reused for 60s (success) or 15s (failure), explicitly labeled
+         as cached advisory evidence, never proof of the current client connection.
     """
     try:
         cfg = REPO / ".mcp.json"
@@ -103,20 +107,16 @@ def _mcp_note() -> str:
             servers = json.loads(raw).get("mcpServers", {})
         except Exception:
             return "MCP: .mcp.json UNPARSEABLE — fix it, then /mcp"
-        if "${" in raw:
-            return (
-                "MCP: .mcp.json holds an unexpanded ${...} placeholder — Claude Code "
-                "only expands env vars, so the server CANNOT connect; use relative or "
-                "absolute paths"
-            )
-        cmd_path = args = None
-        for spec in servers.values():
-            # http/sse servers connect by URL and carry no command — a path check on
-            # them reports the whole MCP layer dead over a server that never had one.
-            if spec.get("type") in ("http", "sse") or not spec.get("command"):
-                continue
-            cmd = str(spec.get("command", ""))
+        target = None
+        spec = servers.get("dail-tracker") if isinstance(servers, dict) else None
+        if isinstance(spec, dict) and spec.get("type") not in ("http", "sse") and spec.get("command"):
+            cmd = str(spec["command"])
             args = [str(a) for a in spec.get("args", [])]
+            if "${" in cmd or any("${" in arg for arg in args):
+                return (
+                    "MCP: .mcp.json dail-tracker entry holds an unexpanded ${...} placeholder — "
+                    "use relative or absolute paths"
+                )
             command = Path(cmd)
             if command.is_absolute() or command.parent != Path("."):
                 cmd_path = command if command.is_absolute() else REPO / command
@@ -130,18 +130,73 @@ def _mcp_note() -> str:
                     ap = Path(a) if Path(a).is_absolute() else REPO / a
                     if not ap.is_file():
                         return f"MCP: server script NOT FOUND ({a})"
+            target = (cmd_path, args)
         for p in sorted((REPO / "mcp_server").glob("*.py")):
             try:
                 compile(p.read_text(encoding="utf-8"), str(p), "exec")
             except Exception as exc:  # noqa: BLE001 — name the file, keep the session alive
                 return f"MCP: server code BROKEN ({p.name}: {type(exc).__name__}) — /mcp will fail"
-        import os
-
-        if os.environ.get("DAIL_SKIP_MCP_PROBE") == "1" or cmd_path is None:
+        if os.environ.get("DAIL_SKIP_MCP_PROBE") == "1":
             return "MCP: config+code OK (probe skipped; if tools are missing, /mcp)"
-        return _mcp_connect_probe(cmd_path, args or [])
+        if target is None:
+            return "MCP: dail-tracker stdio config MISSING (check .mcp.json and /mcp)"
+        return _cached_mcp_probe(*target)
     except Exception:
         return ""
+
+
+def _cached_mcp_probe(cmd_path: Path, args: list[str]) -> str:
+    """Reuse a short-lived probe; cache I/O failures do not suppress probing.
+
+    Negative probe results are intentionally cached for 15 seconds.
+    """
+    cache_path = REPO / "logs" / "mcp_probe_cache.json"
+    fingerprint = None
+    try:
+        digest = hashlib.sha256()
+        digest.update(str(REPO.resolve()).encode())
+        digest.update(json.dumps([str(cmd_path), args]).encode())
+        paths = [
+            REPO / ".mcp.json",
+            REPO / ".codex/config.toml",
+            REPO / "uv.lock",
+            REPO / "pyproject.toml",
+            Path(__file__),
+            *sorted((REPO / "mcp_server").rglob("*.py")),
+        ]
+        for path in paths:
+            digest.update(str(path).encode())
+            digest.update(path.read_bytes() if path.is_file() else b"<missing>")
+        for path in (cmd_path, REPO / ".venv/pyvenv.cfg"):
+            stat = path.stat() if path.exists() else None
+            digest.update(str((stat.st_size, stat.st_mtime_ns) if stat else None).encode())
+        fingerprint = digest.hexdigest()
+        cached = json.loads(cache_path.read_text(encoding="utf-8"))
+        age = time.time() - cached["captured_at"]
+        note = cached["note"]
+        ttl = 60 if "handshake OK" in note else 15
+        if cached.get("schema") == 1 and cached.get("fingerprint") == fingerprint and 0 <= age < ttl:
+            return f"MCP: cached .mcp.json dail-tracker probe ({int(age)}s old): {note.removeprefix('MCP: ')}"
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        pass
+    note = _mcp_connect_probe(cmd_path, args)
+    temporary = None
+    try:
+        if fingerprint is not None:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=cache_path.parent, prefix="mcp-probe-", suffix=".tmp", delete=False
+            ) as stream:
+                temporary = Path(stream.name)
+                json.dump({"schema": 1, "captured_at": time.time(), "fingerprint": fingerprint, "note": note}, stream)
+            os.replace(temporary, cache_path)
+    except OSError:
+        pass
+    finally:
+        if temporary is not None:
+            with contextlib.suppress(OSError):
+                temporary.unlink(missing_ok=True)
+    return note
 
 
 def _mcp_connect_probe(cmd_path: Path, args: list[str]) -> str:

@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-08-28
+updated: 2026-10-04
 supersedes: []
 read_when: changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -36,6 +36,55 @@ are not acceptance evidence.
 Repository `AGENTS.md` plus the nearest nested `AGENTS.md` are the provider-neutral guidance
 entry point. `CLAUDE.md` remains a compatibility fallback and may contain provider-specific
 instructions, but shared prompt packs do not route to it directly.
+
+## Cross-session sidecars
+
+Read this procedure before dispatching a cross-session sidecar. The original session
+remains captain, integration owner, and sole writer; sidecars are read-only scouts or
+reviewers with exact read paths. They never mark their own work integrated or verified.
+
+- Before dispatch, run `python tools/dev.py roots`, choose one stable task key from objective, scope, source snapshot, and role, and check that the same task is not already active or complete.
+- Create the packet in a temporary file outside the source worktree with `python tools/dev.py sidecar-handoff template`; bind it with `sidecar-handoff snapshot --root <worktree> --read-path <bounded-relative-path>` (repeat read paths), then validate or queue it with the same `--source-root`.
+- A queue receipt means `accepted_unconsumed`, not delivered. Run `sidecar-handoff status` to confirm `delivered`; the target alone owns `integrated`, `verified`, and `closed`.
+- An ambiguous queue or receipt-write outcome keeps an exact recovery claim and reports `recovery_required`. Inspect the target first, then use `sidecar-handoff recover --resolution accepted|failed`; never delete or bypass a claim blindly.
+- Never resend blindly. Use `supersedes: <handoff-id>` only for a corrected packet with the same task key; otherwise create a genuinely different bounded task.
+
+## Codex context and usage
+
+Run `python tools/codex_token_usage.py --days 7` from the checkout to inspect its
+recent Codex usage. `--format json` includes cache writes, reasoning output, model,
+provider, event time bounds, and diagnostics; `--scope root` or `subagent` narrows the
+report. The default scan caps are 200 files and 64 MiB; `--max-files` and `--max-mb`
+can raise them deliberately. A partial scan is labeled. The report is read-only and
+prints aggregates, never transcript content. Session files under `CODEX_HOME/sessions`
+are the default; `--sessions-dir` can select an archive explicitly.
+
+Only modern per-response `token_usage_record.payload.usage` contributes to totals.
+Cumulative snapshots are counted as ignored coverage, and conflicting duplicate
+response identities are excluded. Input already includes cached input; reasoning is
+a subset of output. Neither cache percentage nor raw token counts estimate plan
+consumption or billing. Existing `token_ledger.py`, `token_trend.py`, and
+`token_week_review.py` remain Claude-specific and have different transcript scopes.
+
+In the IDE, use `/status` to inspect context, `/ide-context` to control automatic
+editor context, and `/compact` when continuing a long task. Keep useful same-task
+history; use fresh chats for unrelated objectives. Cache reuse does not make
+irrelevant context free. Do not issue synthetic keep-warm prompts.
+
+SessionStart output stays capped at 1,600 characters. Its `.mcp.json` dail-tracker
+handshake is cached for 60 seconds after success or 15 seconds after failure. Cache
+hits include their age and are advisory, not proof of a live client connection.
+Config/source/launcher changes, corrupt entries, and future timestamps invalidate
+the cache. `DAIL_SKIP_MCP_PROBE=1` bypasses both probe and cache.
+
+The Codex TOML currently registers SessionStart, agent-spawn validation, and Stop.
+The broader `.codex/hooks.json` compatibility matrix does not establish live Codex
+hook activation. In particular, use `tools/discoveries.py` directly unless `/hooks`
+confirms discovery-hint injection.
+
+Sources: [Codex IDE commands](https://learn.chatgpt.com/docs/developer-commands?surface=ide),
+[prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching), and
+[skill configuration](https://learn.chatgpt.com/docs/config-file/config-reference).
 
 ## Implemented controls
 

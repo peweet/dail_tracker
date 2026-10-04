@@ -10,7 +10,7 @@ This file is the portable, tool-neutral entry point for work in this repository.
    and must not be used to decide whether the private product is clean.
 2. Route the task with the table below; read only the files needed for that area.
 3. Use `rg --files` and scoped `rg -n` searches. The tracked `.rgignore` hides bulky generated data and artifacts from default searches.
-4. Use `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify` for focused, changed-file-aware verification. Use the same command with `check` before a broad handoff. The runner repairs a bare invocation once, but specifying the profile avoids a bootstrap re-exec.
+4. Use the full-profile `verify` command under Verification for focused checks, and `check` before a broad handoff. Specifying the profile avoids a bootstrap re-exec.
 
 For a build, transfer, ingest, test gate, or release step expected to run longer than five
 minutes or outlive one task, register it with `python tools/dev.py job-status start ...`.
@@ -35,7 +35,7 @@ is unavailable or not applicable.
 ## Durable project knowledge
 
 - Put rules that must apply on every run in this file or the nearest nested `AGENTS.md`.
-- Put a concise, trigger-keyed lesson in `tools/discoveries.jsonl` and supporting evidence in `memory/<slug>.md`. The configured Codex `UserPromptSubmit` hook may inject up to two matching one-liners; inspect and trust it once with `/hooks`.
+- Put a concise, trigger-keyed lesson in `tools/discoveries.jsonl` and supporting evidence in `memory/<slug>.md`. Discovery hints are registered in the compatibility hook matrix, not the current Codex TOML; use `tools/discoveries.py` unless `/hooks` confirms live injection.
 - For a deeper workstation-local lookup, use `search_project(query, kind="external_memory")` explicitly. `kind="memory"` searches checked-in public cards only. External memory is excluded from ordinary project search and may be stale; verify every path, number, and implementation claim against the current tree.
 - Local Codex Memories and imported Claude memories are supplemental personal context. Never make them the only copy of a repository invariant, decision, or verification command.
 
@@ -71,11 +71,7 @@ is unavailable or not applicable.
 
 - Session size alone is not a reason to parallelize: use `/compact` when the work is still one tightly coupled evidence chain. Do not fill idle slots without a distinct independent lane.
 - Keep the original session as captain, integration owner, and sole writer. Cross-session sidecars are read-only scouts or reviewers with exact read paths; they never mark their own work integrated or verified.
-- Before dispatch, run `python tools/dev.py roots`, choose one stable task key from objective, scope, source snapshot, and role, and check that the same task is not already active or complete.
-- Create the packet in a temporary file outside the source worktree with `python tools/dev.py sidecar-handoff template`; bind it with `sidecar-handoff snapshot --root <worktree> --read-path <bounded-relative-path>` (repeat read paths), then validate or queue it with the same `--source-root`.
-- A queue receipt means `accepted_unconsumed`, not delivered. Run `sidecar-handoff status` to confirm `delivered`; the target alone owns `integrated`, `verified`, and `closed`.
-- An ambiguous queue or receipt-write outcome keeps an exact recovery claim and reports `recovery_required`. Inspect the target first, then use `sidecar-handoff recover --resolution accepted|failed`; never delete or bypass a claim blindly.
-- Never resend blindly. Use `supersedes: <handoff-id>` only for a corrected packet with the same task key; otherwise create a genuinely different bounded task.
+- Before dispatch, read [the cross-session sidecar procedure](doc/AGENT_HARNESS.md#cross-session-sidecars) for task deduplication, source snapshots, delivery confirmation, and recovery rules.
 
 ### Review, test, and repair contract
 
