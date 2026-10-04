@@ -59,7 +59,6 @@ RUNTIME_DIR_NAMES = (
     "debates",
     "dail_tracker_core",
     "extractors",
-    "ida",
     "iris",
     "legal",
     "legislation",

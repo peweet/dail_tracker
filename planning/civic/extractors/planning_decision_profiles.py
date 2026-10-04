@@ -72,6 +72,9 @@ OFFSET = 0.0005  # ~55 m generalisation — shrinks giant polygons, keeps contai
 PAGE = 2000  # every layer above serves maxRecordCount 2000 (checked 2026-09-29)
 # Same floor the register ingest applies to its site layer; the profile is one row per register point.
 MIN_PROFILE_ROWS = 450_000
+# Receipt summaries are expected to be small, but keep row materialisation fail-closed if the
+# grouping cardinality ever grows unexpectedly.
+RECEIPT_ROW_LIMIT = 100_000
 
 # Only what the profile and the receipt read — the silver register carries 38 columns.
 SOURCE_COLS = [
@@ -216,6 +219,13 @@ def _iso(value) -> str | None:
     return value.isoformat() if value is not None else None
 
 
+def _bounded_receipt_rows(frame: pl.DataFrame):
+    """Materialise only a receipt summary whose complete row count is bounded."""
+    if frame.height > RECEIPT_ROW_LIMIT:
+        raise ValueError(f"receipt summary has {frame.height} rows; limit is {RECEIPT_ROW_LIMIT}")
+    return frame.head(RECEIPT_ROW_LIMIT).iter_rows(named=True)
+
+
 def _authority_completeness(df: pl.DataFrame) -> list[dict]:
     """Per-council depth and fill, read straight from the register — no threshold inferred.
 
@@ -243,10 +253,10 @@ def _authority_completeness(df: pl.DataFrame) -> list[dict]:
         .sort("PlanningAuthority", "year")
     )
     by_authority: dict[str, dict[str, int]] = {}
-    for row in years.iter_rows(named=True):
+    for row in _bounded_receipt_rows(years):
         by_authority.setdefault(row["PlanningAuthority"], {})[str(row["year"])] = row["len"]
     out = []
-    for row in per.iter_rows(named=True):
+    for row in _bounded_receipt_rows(per):
         out.append(
             {
                 "planning_authority": row["PlanningAuthority"],

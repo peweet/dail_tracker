@@ -138,6 +138,24 @@ def test_runtime_discovery_covers_orchestrators_packages_and_pipeline_tools() ->
     assert "utility/pages_code/body.py" in discovered
 
 
+def test_runtime_discovery_excludes_local_research_and_its_dependency_cache(tmp_path, monkeypatch) -> None:
+    from tools.migration import scan_cloud_readiness as scanner
+
+    for relative in (
+        "extractors/live.py",
+        "ida/research/corpus.py",
+        "ida/research/.uv-cache/vendor.py",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('import requests\nrequests.get("https://example.test")\n', encoding="utf-8")
+    monkeypatch.setattr(scanner, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(scanner, "RUNTIME_DIRS", tuple(tmp_path / name for name in scanner.RUNTIME_DIR_NAMES))
+
+    discovered = {path.relative_to(tmp_path).as_posix() for path in scanner.discover_runtime_files()}
+    assert discovered == {"extractors/live.py"}
+
+
 def test_transport_exemption_is_reported_with_rationale() -> None:
     result = runtime_resilience([PROJECT_ROOT / "services" / "http_engine.py"])
     exemption = result["transport_exemptions"]["services/http_engine.py"]

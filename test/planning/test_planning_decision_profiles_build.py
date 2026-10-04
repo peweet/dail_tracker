@@ -144,3 +144,18 @@ def test_authority_completeness_reports_depth_without_a_threshold():
     }
     assert leitrim["received_year_counts"] == {"2024": 1}
     assert leitrim["n_decided"] == 1
+
+
+def test_authority_completeness_refuses_oversize_receipt_summary(monkeypatch):
+    df = profiles._decision_fields(
+        _register(
+            [
+                ("Cork City Council", "Granted", D(2012, 6, 1), D(2012, 8, 1), None, ""),
+                ("Leitrim County Council", "Granted", D(2024, 1, 5), D(2024, 3, 1), None, ""),
+            ]
+        )
+    )
+    monkeypatch.setattr(profiles, "RECEIPT_ROW_LIMIT", 1)
+
+    with pytest.raises(ValueError, match="receipt summary has 2 rows; limit is 1"):
+        profiles._authority_completeness(df)

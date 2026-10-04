@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-10T09:20:01+00:00",
+  "generated_utc": "2026-10-04T14:03:53+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 245,
   "facts": {
@@ -5536,7 +5536,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 15984,
+      "rows": 19286,
       "columns": [
         "diary_date",
         "court",
@@ -5574,12 +5574,12 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_legal_diary_cases.sql, judiciary/judiciary_plaintiff_league.sql"
       ],
-      "size_bytes": 181133
+      "size_bytes": 208121
     },
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 1557,
+      "rows": 1831,
       "columns": [
         "diary_date",
         "court",
@@ -5601,7 +5601,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 8801
+      "size_bytes": 10129
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -5690,7 +5690,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 2711,
+      "rows": 3185,
       "columns": [
         "diary_date",
         "court",
@@ -5716,7 +5716,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 18342
+      "size_bytes": 20557
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -5920,7 +5920,7 @@
     "judiciary_diary_judge_map": {
       "file": "data/gold/parquet/judiciary_diary_judge_map.parquet",
       "layer": "gold",
-      "rows": 8904,
+      "rows": 8911,
       "columns": [
         "judge",
         "court",
@@ -5940,7 +5940,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_judge_sittings.sql"
       ],
-      "size_bytes": 57575
+      "size_bytes": 57322
     },
     "judiciary_nominations": {
       "file": "data/gold/parquet/judiciary_nominations.parquet",
