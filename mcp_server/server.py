@@ -1770,6 +1770,8 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
     checked-in public cards under `memory/`. Workstation-local assistant memory is
     excluded by default and requires explicit `kind='external_memory'`; those results use a separate `memory://external/` namespace. Repository source scanning includes only Git-tracked public source and excludes dot, private, sandbox and generated trees. Use this as the first
     move on any "which dataset/view/doc/module covers …?" question, before Grep/Glob.
+    `count`, `metadata_total`, `metadata_returned`, and `metadata_truncated` describe
+    lexical metadata matches only; `content_spans` are a separate FTS result surface.
     v2: the reply may also carry `content_spans` — BM25-ranked AST/heading CHUNKS with
     path + line span + snippet, so you Read only that span instead of the whole file."""
     q_tokens = _tokens(query)
@@ -1816,6 +1818,9 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
 
     scored.sort(key=lambda r: (-r["_s"], r["kind"], r["name"]))
     top = scored[: max(1, min(limit, 50))]
+    metadata_total = len(scored)
+    metadata_returned = len(top)
+    metadata_truncated = metadata_total > metadata_returned
     for r in top:
         r.pop("_s", None)
 
@@ -1845,10 +1850,20 @@ def search_project(query: str, kind: str = "", limit: int = 12) -> dict:
             "query": query,
             "count": 0,
             "results": [],
+            "metadata_total": metadata_total,
+            "metadata_returned": metadata_returned,
+            "metadata_truncated": metadata_truncated,
             "hint": "no metadata match — try a broader term or Grep the source tree",
         }
     else:
-        out = {"query": query, "count": len(top), "results": top}
+        out = {
+            "query": query,
+            "count": len(top),
+            "results": top,
+            "metadata_total": metadata_total,
+            "metadata_returned": metadata_returned,
+            "metadata_truncated": metadata_truncated,
+        }
     if spans:
         out.update(
             content_spans=spans, content_source_scope=_FTS_REPORT.get("source_scope", "git-tracked public files")
@@ -1874,7 +1889,8 @@ def code_outline(path: str, limit: int = 200, response_format: str = "detailed")
     'dail_tracker_core/queries') for a per-module summary + subpackage list. Locating
     ONE known symbol's span? Use
     response_format='concise' (name + span lines only, ~80% smaller on big files).
-    `limit` is clamped to 200 definitions, with nested symbols counting toward the cap.
+    For a directory, `limit` counts returned modules and is clamped to 80; for a file,
+    it counts definitions and is clamped to 200, with nested symbols counting toward the cap.
     Workflow: search_project(query, kind='code') to find the
     module → code_outline(path) to find the def → Read(path, offset, limit) ONLY that
     span. Source is parsed with stdlib ast — never executed, bodies never returned."""

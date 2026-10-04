@@ -460,8 +460,9 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
     """Outline one .py file, or a directory as a per-module summary. Returns {error} dicts
     (never raises) so the MCP wrapper can pass the result straight through.
     response_format='concise' drops imports/signatures/docstrings — name + span only.
-    File responses are hard-capped at ``OUTLINE_DEFINITION_CAP`` definitions, counting
-    nested classes/functions/methods as well as top-level definitions."""
+    Directory responses use ``limit`` as a module cap (maximum 80). File responses are
+    hard-capped at ``OUTLINE_DEFINITION_CAP`` definitions, counting nested
+    classes/functions/methods as well as top-level definitions."""
     if response_format not in ("concise", "detailed"):
         return {"error": f"response_format must be 'concise' or 'detailed', got {response_format!r}"}
     target = _resolve(repo, path)
@@ -492,8 +493,9 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
             if resolved.is_file() and DEFAULT_SCAN_POLICY.allows(requested_rel) and DEFAULT_SCAN_POLICY.allows(rel):
                 files.append(resolved)
         files.sort()
+        cap = max(1, min(limit, 80))
         modules = []
-        for py in files[:80]:
+        for py in files[:cap]:
             try:
                 tree, n_lines = _parse(py)
             except (OSError, UnicodeError, LookupError, SyntaxError, tokenize.TokenError) as exc:
@@ -522,9 +524,15 @@ def outline(repo: Path, path: str, limit: int = 200, response_format: str = "det
             ):
                 subpackages.append(candidate.name)
         subpackages.sort()
-        out = {"path": path, "modules": modules, "subpackages": subpackages}
-        if len(files) > 80:
-            out["truncated"] = f"{len(files) - 80} more files — outline them directly"
+        out = {
+            "path": path,
+            "modules": modules,
+            "subpackages": subpackages,
+            "module_count": len(files),
+            "returned_modules": len(modules),
+        }
+        if len(files) > cap:
+            out["truncated"] = f"{len(files) - cap} more files — outline them directly"
         return out
 
     if target.suffix != ".py":

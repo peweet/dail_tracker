@@ -10,6 +10,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -218,6 +219,48 @@ def test_outline_enforces_scan_policy_for_explicit_files_and_subpackages(tmp_pat
         assert "excluded by repository scan policy" in code_index.outline(repo, f"public/{name}")["error"]
 
 
+def test_outline_directory_limit_is_module_bound_and_skips_omitted_parses(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for name in ("zeta.py", "alpha.py", "gamma.py", "beta.py", "delta.py"):
+        (repo / name).write_text(f'"""{name}"""\ndef {name.removesuffix(".py")}():\n    pass\n', encoding="utf-8")
+
+    parsed: list[str] = []
+    real_parse = code_index._parse
+
+    def recording_parse(path):
+        parsed.append(path.name)
+        return real_parse(path)
+
+    monkeypatch.setattr(code_index, "_parse", recording_parse)
+    limited = code_index.outline(repo, ".", limit=3)
+
+    assert [module["name"] for module in limited["modules"]] == ["alpha.py", "beta.py", "delta.py"]
+    assert limited["module_count"] == 5
+    assert limited["returned_modules"] == 3
+    assert limited["truncated"] == "2 more files — outline them directly"
+    assert parsed == ["alpha.py", "beta.py", "delta.py"]
+
+    defaulted = code_index.outline(repo, ".")
+    assert defaulted["module_count"] == 5
+    assert defaulted["returned_modules"] == 5
+    assert "truncated" not in defaulted
+
+
+def test_outline_directory_default_cap_is_80_modules(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for index in range(81):
+        (repo / f"module_{index:02d}.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    out = code_index.outline(repo, ".")
+
+    assert out["module_count"] == 81
+    assert out["returned_modules"] == 80
+    assert len(out["modules"]) == 80
+    assert out["truncated"] == "1 more files — outline them directly"
+
+
 def test_outline_limit_budgets_nested_definitions_and_keeps_parent_shell(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -289,6 +332,49 @@ def test_search_project_rejects_unknown_kind():
     assert "error" in out
     assert "memory" in out["allowed"]
     assert "external_memory" in out["allowed"]
+
+
+def test_search_project_reports_lexical_metadata_counts_independently_of_fts(monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    metadata = [
+        {"kind": "doc", "name": "alpha guide", "path": "doc/alpha.md", "desc": "", "haystack": "alpha"},
+        {"kind": "code", "name": "alpha module", "path": "alpha.py", "desc": "", "haystack": "alpha"},
+        {"kind": "doc", "name": "beta guide", "path": "doc/beta.md", "desc": "", "haystack": "beta"},
+    ]
+    monkeypatch.setattr(server, "_project_index", lambda: metadata)
+    monkeypatch.setattr(server, "_fts_ready", lambda **_kwargs: True)
+    monkeypatch.setattr(
+        server,
+        "fts_index",
+        SimpleNamespace(
+            search=lambda *_args, **_kwargs: [{"path": "doc/fts-only.md", "span": "1-2", "snippet": "alpha"}] * 5
+        ),
+    )
+
+    bounded = server.search_project("alpha", limit=1)
+    assert bounded["count"] == 1
+    assert len(bounded["results"]) == 1
+    assert len(bounded["content_spans"]) == 5
+    assert bounded["metadata_total"] == 2
+    assert bounded["metadata_returned"] == 1
+    assert bounded["metadata_truncated"] is True
+
+    all_hits = server.search_project("alpha", limit=12)
+    assert all_hits["count"] == 2
+    assert len(all_hits["results"]) == 2
+    assert all_hits["metadata_total"] == 2
+    assert all_hits["metadata_returned"] == 2
+    assert all_hits["metadata_truncated"] is False
+
+    zero = server.search_project("missing", limit=1)
+    assert zero["count"] == 0
+    assert zero["results"] == []
+    assert len(zero["content_spans"]) == 5
+    assert zero["metadata_total"] == 0
+    assert zero["metadata_returned"] == 0
+    assert zero["metadata_truncated"] is False
 
 
 def test_json_peek_rejects_prefix_sibling_escape(tmp_path, monkeypatch):

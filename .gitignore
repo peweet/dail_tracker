@@ -339,6 +339,12 @@ data/gold/
 # Claude Code & AI tooling
 .claude/
 .agents/
+# One portable tool-routing skill; all other workstation customizations stay local.
+!.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/repo-navigation/
 
 # === Agent-customization config — committed deliberately (portable, no secrets) ===
 # The blanket *.json rule (top of file) swallows these. They use ${workspaceFolder}
@@ -347,6 +353,7 @@ data/gold/
 # doc/AGENT_CUSTOMIZATION_PLAN.md.
 # NOTE on what stays LOCAL by this repo's convention: the whole .claude/ tree
 # (settings, rules, skills, agents) and .vscode/settings.json are ignored above.
+# .agents/ is local except the explicitly admitted repo-navigation skill above.
 # Root AGENTS.md and CLAUDE.md are portable project guidance and stay tracked.
 !.vscode/mcp.json
 !.mcp.json

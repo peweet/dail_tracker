@@ -1,0 +1,14 @@
+interface:
+  display_name: "Repository Navigation"
+  short_description: "Find source evidence through bounded MCP tools"
+  default_prompt: "Use $repo-navigation to locate the source evidence for this Dail Tracker question."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "dail-tracker"
+      description: "Configured read-only Dail Tracker navigation server"
+      transport: "stdio"
+
+policy:
+  allow_implicit_invocation: true

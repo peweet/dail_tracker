@@ -85,6 +85,68 @@ When migrating a local ignored matrix, back it up and remove only the duplicated
 other protection hooks. Registration and old trust metadata are not proof of live
 execution. Review changed definitions with `/hooks` and confirm an invocation.
 
+## Efficient tool use
+
+Plan retrieval around the decision it must support. Batch independent read-only lookups
+when their arguments are already known; keep dependent discovery, mutations and approval
+steps sequential. In a code orchestration tool, inspect every result and emit the selected
+fields, relevant source spans and errors. Printing a complete tool catalogue or every
+intermediate response defeats the context benefit of batching.
+
+Use `search_project` to locate a topic, then `code_outline(..., response_format='concise')`
+for symbol spans and a bounded read for the needed implementation. Directory outlines now
+honour `limit` as a module count, capped at 80; file outlines count definitions, capped at
+200. Directory responses expose `module_count`, `returned_modules` and an omission marker.
+Only returned modules are parsed. Search responses expose `metadata_total`,
+`metadata_returned` and `metadata_truncated`: these count lexical metadata matches, while
+`content_spans` remain a separate FTS surface. Narrow the query or kind when the result is
+limited. If an index call stalls or is unavailable and the path is known, inspect that
+source directly rather than repeating the same call.
+
+Reuse verified findings while inputs remain current. After an edit, source refresh or
+scope change, revalidate the affected evidence. Existing verification receipts already
+invalidate on the Git/worktree fingerprint; do not introduce a cache keyed only by commit
+or elapsed time. For long-running work, use completion notifications and incremental log
+output, with waits sized to expected work and timely user updates. Repeated successful
+calls can still be necessary, so an identical signature alone must not block execution.
+
+Common techniques and their status here:
+
+The portable [`repo-navigation` skill](../.agents/skills/repo-navigation/SKILL.md)
+routes public repository questions to specific MCP tools and bounded source reads.
+Its description distinguishes discovery from already-known source spans; the body
+loads only when used. `agents/openai.yaml` declares the existing `dail-tracker`
+dependency without provisioning a server or granting permissions. Codex discovers
+`.agents/skills` natively and VS Code supports that project location. Other existing
+`.agents` and `.claude` customizations remain local. Confirm discovery and invocation
+in the actual client before attributing any token or latency benefit to the skill.
+Keep future routing skills tied to repeated tasks, with short descriptions and
+conditional references/scripts rather than copying large manuals into every body.
+
+| Technique | Use here |
+|---|---|
+| Programmatic tool orchestration | Batch predictable read-only work and filter intermediate results in code. Adaptive search still needs judgment after each relevant result. |
+| Progressive tool and skill loading | Six navigation tools carry always-load metadata; domain tools remain eligible for deferral. Actual client loading must be observed, not inferred from server annotations. Load detailed skill instructions only for the current task. |
+| Compaction and small handoffs | At completed phases retain the goal, decisions, exact files, verification and unresolved questions; check that evidence survives the checkpoint. |
+| Bounded delegation | Batch related scouting questions, reuse the returned evidence and preserve independent review where needed. Every child has its own context cost. |
+| Deterministic acceptance and recovery | Keep correctness gates outside model prose. After a repeated failure, inspect the cause before retrying; change inputs only with evidence. |
+| Task-specific model/effort routing | Evaluate narrow tasks separately before adopting a lower-effort route. Maintain required reviewer roles and quality checks. |
+
+Evaluate one intervention at a time on repeated, counterbalanced tasks. Compare correctness,
+evidence completeness, total/uncached input, output/reasoning tokens, elapsed time and tool
+calls per successful task. The benchmark records tool sequences, but does not yet distinguish
+avoidable repeated work, internal calls inside code batches or model round trips. Add those
+measurements before claiming a reduction in polling or reasoning overhead. Local payload and
+parse-count regressions prove the navigation boundary, not general model-call savings.
+
+Skill loading references: [Codex skill discovery and progressive disclosure](https://learn.chatgpt.com/docs/build-skills),
+[VS Code skill locations and invocation](https://code.visualstudio.com/docs/agent-customization/agent-skills).
+
+Sources: [OpenAI programmatic tool calling](https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling),
+[OpenAI tool search](https://developers.openai.com/api/docs/guides/tools-tool-search),
+[OpenAI cache measurement](https://developers.openai.com/api/docs/guides/agents-api/observability#prompt-caching),
+and [Anthropic context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents).
+
 ## Post-mortem and reuse
 
 After a confirmed failure/repair, recurring correction, or expensive investigation:

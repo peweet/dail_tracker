@@ -21,6 +21,12 @@ reports must quote the latest observation time, measured current/total when avai
 
 Before re-deriving a known project trap, run `uv run python tools/discoveries.py <topic>`. For a source file over roughly 1,500 lines, read its leading `SECTION MAP` first and then open only the relevant span.
 
+Batch independent read-only lookups and return only the relevant fields or source spans.
+Keep dependent operations and mutations sequential. Reuse findings until their inputs or
+files change. For background work, prefer completion notifications and new log output over
+repeated status queries. Use explicit navigation limits and inspect omission markers before
+requesting more detail. See [efficient tool use](doc/AGENT_HARNESS.md#efficient-tool-use).
+
 ## Pi Firstmate preflight
 
 When Pi Firstmate is available, invoke it proactively as an advisory check for a
@@ -116,6 +122,9 @@ as the evidence scope requires.
 | Canonical development commands | `tools/dev.py` | run `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py list` |
 
 When the configured `dail-tracker` MCP server is available, prefer `search_project`, `code_outline`, `py_refs`, `view_deps`, `column_deps`, and `describe_dataset` for broad discovery. Otherwise use narrowly scoped `rg`. After two or three unsuccessful index calls, inspect the specific source span directly.
+
+For unfamiliar public repository questions, use `$repo-navigation` or read its
+[tool-routing instructions](.agents/skills/repo-navigation/SKILL.md) on demand.
 
 ## Repository invariants
 
