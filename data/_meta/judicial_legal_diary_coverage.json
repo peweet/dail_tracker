@@ -1,6 +1,6 @@
 {
-  "parser_version": "1.1.1",
-  "generated_at": "2026-10-01T19:45:49.570928+00:00",
+  "parser_version": "1.1.2",
+  "generated_at": "2026-10-04T14:48:42.992493+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -336,7 +336,7 @@
   ],
   "n_days": 47,
   "tier_a_sessions": 3185,
-  "tier_b_counts": 1831,
+  "tier_b_counts": 1327,
   "case_lines_parsed": 22893,
   "cases_dropped_protected": 3524,
   "cases_kept_anonymised": 19286,

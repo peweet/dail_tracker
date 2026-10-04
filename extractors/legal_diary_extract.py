@@ -7,7 +7,7 @@ Judge -> Time -> List -> case lines) into three privacy-tiered outputs.
 PRIVACY MODEL (agreed 2026-06-05 — see memory project_judiciary_feature_validation):
   Tier A  schedule : judge sitting-sessions (court x courtroom x judge x list x time).
                      Names ONLY public officials in their public function -> safe in clear.
-  Tier B  counts   : per-session item counts -> aggregate density, no party data.
+  Tier B  counts   : per-date/court/judge/list item counts -> aggregate density, no party data.
   Tier C  cases    : individual cases, made publishable by:
       1. DROPPING statutory in-camera categories entirely (minors / family / wards /
          special care / childcare / asylum) — never parsed into the kept set, never linked;
@@ -63,7 +63,7 @@ from services.parquet_io import save_parquet  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-PARSER_VERSION = "1.1.1"  # 1.1.1: '&'->'and' in protected-key match (Child & Family Agency drop)
+PARSER_VERSION = "1.1.2"  # 1.1.2: roll session counts up to the declared judge/list grain
 SOURCE_NAME = "Courts Service Legal Diary"
 SOURCE_URL = "https://legaldiary.courts.ie/"
 
@@ -753,6 +753,16 @@ def _resolve_inputs(args) -> list[Path]:
     return []
 
 
+def build_list_counts(schedule: pl.DataFrame) -> pl.DataFrame:
+    """Combine courtroom/time sessions at the published date/court/judge/list grain."""
+    return (
+        schedule.group_by(["diary_date", "court", "judge", "list_type"])
+        .agg(pl.col("n_items").sum())
+        .filter(pl.col("n_items") > 0)
+        .sort(["diary_date", "n_items", "court", "judge", "list_type"], descending=[False, True, False, False, False])
+    )
+
+
 def run(args) -> int:
     for d in (GOLD_PARQUET_DIR, SANDBOX_PARQUET_DIR, META_DIR):
         d.mkdir(parents=True, exist_ok=True)
@@ -829,11 +839,7 @@ def run(args) -> int:
     save_parquet(sched_df, GOLD_PARQUET_DIR / "judicial_legal_diary_schedule.parquet")
 
     # ---- Tier B: counts ----
-    counts_df = (
-        sched_df.select(["diary_date", "court", "judge", "list_type", "n_items"])
-        .filter(pl.col("n_items") > 0)
-        .sort(["diary_date", "n_items"], descending=[False, True])
-    )
+    counts_df = build_list_counts(sched_df)
     save_parquet(counts_df, GOLD_PARQUET_DIR / "judicial_legal_diary_counts.parquet")
 
     # ---- audit (RAW, sandbox only) ----

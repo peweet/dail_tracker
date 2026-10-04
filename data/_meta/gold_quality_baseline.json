@@ -539,16 +539,16 @@
       "sentinels": {}
     },
     "judicial_legal_diary_cases.parquet": {
-      "rows": 15194,
+      "rows": 19286,
       "all_null_cols": [],
-      "dup_rows": 3625,
+      "dup_rows": 4515,
       "encoding": {},
       "sentinels": {}
     },
     "judicial_legal_diary_counts.parquet": {
-      "rows": 1469,
+      "rows": 1327,
       "all_null_cols": [],
-      "dup_rows": 188,
+      "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },

@@ -1191,7 +1191,7 @@
       ]
     },
     "judicial_legal_diary_cases.parquet": {
-      "rows": 15194,
+      "rows": 19286,
       "columns": [
         "diary_date",
         "court",
@@ -1209,7 +1209,7 @@
       ]
     },
     "judicial_legal_diary_counts.parquet": {
-      "rows": 1469,
+      "rows": 1327,
       "columns": [
         "diary_date",
         "court",

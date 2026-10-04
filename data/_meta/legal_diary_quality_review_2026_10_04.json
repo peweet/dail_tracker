@@ -1,0 +1,27 @@
+{
+  "schema": "dail-legal-diary-quality-review/1",
+  "reviewed_on": "2026-10-04",
+  "case_grain": "Anonymised source-listing occurrences, not unique case identities",
+  "case_rows": 19286,
+  "matched_sources": 47,
+  "source_multiset_matches": 47,
+  "unmatched_gold_rows": 0,
+  "extra_reconstructed_rows": 0,
+  "projected_duplicate_rows": 4515,
+  "projected_duplicate_groups": 1749,
+  "distinct_raw_text_collision_rows": 4000,
+  "distinct_raw_text_collision_groups": 1538,
+  "repeated_raw_text_projected_rows": 515,
+  "repeated_raw_text_projected_groups": 211,
+  "case_action": "Preserve all source occurrences; accept the measured privacy-projection duplicate baseline. No deduplication.",
+  "count_grain": "diary_date,court,judge,list_type",
+  "old_count_rows": 1831,
+  "count_rows": 1327,
+  "preserved_items": 17801,
+  "count_action": "Sum courtroom/time session n_items at the declared SQL list grain; retain Tier A sessions.",
+  "source_evidence": "All 47 coverage source hashes resolved to retained DOCX bytes. The real parser and anonymisation projection reproduced each gold source multiset exactly. This proves extraction fidelity, not that repeated source listings represent different proceedings.",
+  "parquet_sha256": {
+    "judicial_legal_diary_cases.parquet": "0cf03fd89f490d975adc5a35559aef3b3f4661c459feceaf0b06e234c053da7e",
+    "judicial_legal_diary_counts.parquet": "a28009fab651f111a7d7fa0e054bd80be24d43878af11be9fca6ecbe9d913a92"
+  }
+}
