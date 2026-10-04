@@ -77,14 +77,47 @@ hits include their age and are advisory, not proof of a live client connection.
 Config/source/launcher changes, corrupt entries, and future timestamps invalidate
 the cache. `DAIL_SKIP_MCP_PROBE=1` bypasses both probe and cache.
 
-The Codex TOML currently registers SessionStart, agent-spawn validation, and Stop.
-The broader `.codex/hooks.json` compatibility matrix does not establish live Codex
-hook activation. In particular, use `tools/discoveries.py` directly unless `/hooks`
-confirms discovery-hint injection.
+The tracked Codex TOML registers SessionStart, agent-spawn validation, bounded
+UserPromptSubmit discovery hints, and Stop. Codex also loads `hooks.json` beside
+active config layers: it is not merely a fallback. Keep each handler in one place.
+When migrating a local ignored matrix, back it up and remove only the duplicated
+`session_context.py`, `discovery_hint.py`, and `closeout_gate.py` handlers; retain
+other protection hooks. Registration and old trust metadata are not proof of live
+execution. Review changed definitions with `/hooks` and confirm an invocation.
+
+## Post-mortem and reuse
+
+After a confirmed failure/repair, recurring correction, or expensive investigation:
+
+1. Assess one lesson that could prevent the next repeated investigation.
+2. If useful, save a short trigger-keyed discovery and an evidence card under
+   `memory/`; include the cause, remedy, verification, and remaining limits.
+3. Record `promoted`, `already-captured`, or `no-durable-delta` using
+   `python tools/session_closeout.py --record <full-session-id> <outcome> --note "..."`.
+   Notes name the evidence or existing lesson. Identical records are idempotent;
+   later distinct lessons in the same session remain recordable.
+4. Reuse matching discoveries on later prompts: at most two, once per session,
+   within a script-enforced 1,000-character total. TOML additionally sets a
+   500-token spill threshold; `additionalContextLimit` measures approximate tokens,
+   not characters. Full cards are retrieved only when needed.
+
+This is an agent closeout duty, not automatic model-generated reflection. The Stop
+hook is a once-per-session backstop after 500 Stop invocations and stops updating
+its counter after firing. It validates the review structure, not its insight.
+The pending list separately deduplicates the historical **Claude** ledger using
+500 assistant messages. Codex has no equivalent pending-ledger coverage here;
+an empty list must not be presented as evidence that every Codex task was reviewed.
+Legacy 12-character session IDs match full IDs only when unambiguous.
+
+Regression evidence covers stale Windows architecture caching, malformed reviews,
+duplicate ledger rows, full/legacy identity, repeated records, and bounded hints.
+The concrete Windows lesson is
+[`memory/polars_windows_platform_cache.md`](../memory/polars_windows_platform_cache.md).
 
 Sources: [Codex IDE commands](https://learn.chatgpt.com/docs/developer-commands?surface=ide),
 [prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching), and
-[skill configuration](https://learn.chatgpt.com/docs/config-file/config-reference).
+[skill configuration](https://learn.chatgpt.com/docs/config-file/config-reference), and
+[Codex hooks](https://learn.chatgpt.com/docs/hooks).
 
 ## Implemented controls
 

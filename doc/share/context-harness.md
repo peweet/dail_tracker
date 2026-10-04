@@ -2,6 +2,8 @@
 
 Prepared 6 September 2026. Companion inventory: [context-harness.yaml](context-harness.yaml).
 
+Sections T20 and T21 were amended on 4 October 2026 for verified hook and closeout repairs. Other sections and the original source hashes retain their September snapshot scope.
+
 This guide explains how a real, evolving Python and data-product repository gives coding agents useful context, tools, boundaries and verification. It is intended for another developer to select the pieces that fit their own environment. The transferable design is more important than the particular editor, model or directory names.
 
 The setup combines short repository instructions, targeted retrieval, curated lessons, bounded tools, explicit agent ownership and deterministic checks. BM25 and FTS5 are useful parts of that arrangement, but search only helps if the indexed sources are appropriate, the results preserve provenance and the agent knows which follow-up operation to use.
@@ -905,7 +907,7 @@ Category: memory. Status: implemented. Adoption priority: scaling.
 
 **Mechanism.** Inject only a few short lessons whose trigger terms match the current request, with session deduplication and output caps.
 
-**Current implementation.** discovery_hint.py selects at most two rows, caps discovery text at 320 characters per row and skips prompts below 20 characters. A broader compatibility hook matrix registers it; the inspected Codex TOML does not register UserPromptSubmit.
+**Current implementation.** As amended on 2026-10-04, discovery_hint.py emits at most two complete findings, caps discovery text at 320 characters per row and total context at 1000 characters, and marks only emitted findings as seen. The tracked Codex TOML registers UserPromptSubmit with a separate 500-token spill threshold. Codex merges adjacent hooks.json and TOML; register each handler once and confirm trust and actual invocation.
 
 **Why it is useful.** Makes remembered lessons actionable without turning every prompt into a memory dump.
 
@@ -917,7 +919,7 @@ Category: memory. Status: implemented. Adoption priority: scaling.
 
 - A keyword match is not proof that a lesson applies; inspect the underlying evidence when material.
 - Hook payload names, trust and lifecycle differ across clients.
-- A 1200-token discovery-hook cap mentioned in older documentation is not established by the inspected current registration; do not treat it as an active limit.
+- The character cap is enforced in the script; additionalContextLimit is an approximate token spill threshold. Registration and stored trust metadata do not prove live client execution.
 
 **Adoption check.** Relevant hints appear once, unrelated short prompts stay quiet and the output respects a measured cap.
 
@@ -929,7 +931,7 @@ Category: memory. Status: optional. Adoption priority: scaling.
 
 **Mechanism.** Assess stale or corrected knowledge and record whether a substantive session produced a durable lesson.
 
-**Current implementation.** memory_gc.py reports age, links, correction markers and orphans; archival is explicit. Closeout accepts promoted, already-captured or no-durable-delta with a meaningful note. Current turn threshold is 500 in both session_closeout.py and closeout_gate.py.
+**Current implementation.** memory_gc.py reports age, links, correction markers and orphans; archival is explicit. As amended on 2026-10-04, closeout validates and deduplicates reviews, preserves full new session IDs and accepts promoted, already-captured or no-durable-delta with an evidenced note. Milestone lesson capture is the primary practice; the one-time reminder counts 500 Stop invocations, while the Claude pending ledger selects 500 assistant messages.
 
 **Why it is useful.** Keeps the knowledge base useful while allowing a complete session to produce no new permanent rule.
 
@@ -939,7 +941,7 @@ Category: memory. Status: optional. Adoption priority: scaling.
 
 **Caveats.**
 
-- Older interoperability documentation says 20 turns; the inspected current code says 500.
+- The pending ledger does not cover Codex sessions. A review record alone does not save a reusable lesson; promotion requires a discovery entry and evidence card.
 - Currency bands are prioritization heuristics, not proof that a card is true; the legacy memory tool contains workstation-specific assumptions.
 
 **Adoption check.** Corrected and orphaned fixture cards are flagged; a meaningful no-durable-delta closeout is accepted without manufacturing a lesson.

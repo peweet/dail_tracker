@@ -101,3 +101,13 @@ def test_codex_roles_and_bounded_session_hook_are_portable():
 def test_doc_index_is_current(monkeypatch):
     monkeypatch.setattr(doc_index.sys, "argv", ["build_doc_index.py", "--check"])
     assert doc_index.main() == 0
+
+
+def test_codex_discovery_hook_is_portable_and_bounded():
+    config = tomllib.loads((ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"))
+    handlers = [hook for group in config["hooks"].get("UserPromptSubmit", []) for hook in group["hooks"]]
+    hints = [hook for hook in handlers if "discovery_hint.py" in hook["command"]]
+    assert len(hints) == 1
+    assert hints[0]["additionalContextLimit"] == 500
+    assert hints[0]["timeout"] <= 10
+    assert "tools/hooks/discovery_hint.py" in hints[0]["command_windows"]

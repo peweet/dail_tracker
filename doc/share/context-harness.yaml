@@ -2,6 +2,10 @@
 schema_version: '1.0'
 title: Context harness techniques and adaptation inventory
 prepared_on: '2026-09-06'
+amendments:
+- date: '2026-10-04'
+  techniques: [T20, T21]
+  basis: Hook and closeout repairs verified locally; other sections and source hashes retain their original snapshot scope.
 language: en
 companion: context-harness.md
 purpose: Explain reusable techniques so another developer can select what fits their own stack.
@@ -479,17 +483,18 @@ techniques:
   priority: scaling
   mechanism: Inject only a few short lessons whose trigger terms match the current request, with session deduplication
     and output caps.
-  implementation: discovery_hint.py selects at most two rows, caps discovery text at 320 characters per row and
-    skips prompts below 20 characters. A broader compatibility hook matrix registers it; the inspected Codex TOML
-    does not register UserPromptSubmit.
+  implementation: As amended on 2026-10-04, discovery_hint.py emits at most two complete findings, caps discovery
+    text at 320 characters per row and total context at 1000 characters, and marks only emitted findings as seen.
+    The tracked Codex TOML registers UserPromptSubmit with a separate 500-token spill threshold. Codex merges
+    adjacent hooks.json and TOML; register each handler once and confirm trust and actual invocation.
   value: Makes remembered lessons actionable without turning every prompt into a memory dump.
   applies_when: Developers have curated lessons but agents routinely fail to consult the index.
   adaptation: Use task vocabulary, avoid generic triggers and measure irrelevant-hint rates as well as useful recall.
   caveats:
   - A keyword match is not proof that a lesson applies; inspect the underlying evidence when material.
   - Hook payload names, trust and lifecycle differ across clients.
-  - A 1200-token discovery-hook cap mentioned in older documentation is not established by the inspected current
-    registration; do not treat it as an active limit.
+  - The character cap is enforced in the script; additionalContextLimit is an approximate token spill threshold.
+    Registration and stored trust metadata do not prove live client execution.
   acceptance: Relevant hints appear once, unrelated short prompts stay quiet and the output respects a measured
     cap.
   evidence:
@@ -503,16 +508,18 @@ techniques:
   status: optional
   priority: scaling
   mechanism: Assess stale or corrected knowledge and record whether a substantive session produced a durable lesson.
-  implementation: memory_gc.py reports age, links, correction markers and orphans; archival is explicit. Closeout
-    accepts promoted, already-captured or no-durable-delta with a meaningful note. Current turn threshold is 500
-    in both session_closeout.py and closeout_gate.py.
+  implementation: memory_gc.py reports age, links, correction markers and orphans; archival is explicit. As amended
+    on 2026-10-04, closeout validates and deduplicates reviews, preserves full new session IDs and accepts promoted,
+    already-captured or no-durable-delta with an evidenced note. Milestone lesson capture is the primary practice;
+    the one-time reminder counts 500 Stop invocations, while the Claude pending ledger selects 500 assistant messages.
   value: Keeps the knowledge base useful while allowing a complete session to produce no new permanent rule.
   applies_when: Long-running project memory has accumulated duplicates, outdated claims or repeatedly unrecorded
     fixes.
   adaptation: Prefer reporting and human curation; separate handoff state from enduring rules and verify facts before
     reusing old measurements.
   caveats:
-  - Older interoperability documentation says 20 turns; the inspected current code says 500.
+  - The pending ledger does not cover Codex sessions. A review record alone does not save a reusable lesson;
+    promotion requires a discovery entry and evidence card.
   - Currency bands are prioritization heuristics, not proof that a card is true; the legacy memory tool contains
     workstation-specific assumptions.
   acceptance: Corrected and orphaned fixture cards are flagged; a meaningful no-durable-delta closeout is accepted

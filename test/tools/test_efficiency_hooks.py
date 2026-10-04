@@ -268,7 +268,8 @@ def test_discovery_hint_caps_rows_and_fails_open(tmp_path, monkeypatch, capsys):
     hint = _load("discovery_hint")
     rows = tmp_path / "discoveries.jsonl"
     rows.write_text(
-        "\n".join(
+        "[]\n"
+        + "\n".join(
             json.dumps(
                 {
                     "id": f"lesson-{index}",
@@ -296,6 +297,125 @@ def test_discovery_hint_caps_rows_and_fails_open(tmp_path, monkeypatch, capsys):
     assert context.count("\n-") == hint.MAX_ROWS
     assert "lesson-2" not in context
 
+    assert (
+        _run(
+            hint,
+            {"prompt": "Review the planning evidence for this proposal.", "session_id": uuid.uuid4().hex},
+            monkeypatch,
+        )
+        == 0
+    )
+    # A repeated prompt in the original session is suppressed by its marker.
+    sid = uuid.uuid4().hex
+    payload = {"prompt": "Review the planning evidence for this proposal.", "session_id": sid}
+    assert _run(hint, payload, monkeypatch) == 0
+    capsys.readouterr()
+    assert _run(hint, payload, monkeypatch) == 0
+    assert "lesson-2" in capsys.readouterr().out
+    assert _run(hint, payload, monkeypatch) == 0
+    assert capsys.readouterr().out == ""
+
     monkeypatch.setattr(sys, "stdin", io.StringIO("not json{{"))
     assert hint.main() == 0
     assert capsys.readouterr().out == ""
+
+
+def test_discovery_hint_rejects_malformed_payload_and_bounds_full_context(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    rows = tmp_path / "discoveries.jsonl"
+    rows.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "id": "long-" + ("x" * 120),
+                    "trigger": ["alpha beta"],
+                    "discovery": "lesson " + ("y" * 500),
+                    "memory": "z" * 400,
+                }
+            )
+            for _ in range(3)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(hint, "DATA", str(rows))
+    sid_a = "a" * 12 + "A" * 20
+    sid_b = "a" * 12 + "B" * 20
+
+    assert hint._seen_path(sid_a) != hint._seen_path(sid_b)
+    marker_dir = tmp_path / "markers"
+    marker_dir.mkdir()
+    monkeypatch.setattr(hint, "_seen_path", lambda session: str(marker_dir / f"{session}.json"))
+    assert _run(hint, [], monkeypatch) == 0
+    assert capsys.readouterr().out == ""
+    assert _run(hint, {"prompt": {}, "session_id": sid_a}, monkeypatch) == 0
+    assert capsys.readouterr().out == ""
+    assert _run(hint, {"prompt": "alpha beta needs review", "session_id": 42}, monkeypatch) == 0
+    assert capsys.readouterr().out == ""
+
+    assert _run(hint, {"prompt": "alpha beta needs review", "session_id": sid_a}, monkeypatch) == 0
+    payload = json.loads(capsys.readouterr().out)
+    context = payload["hookSpecificOutput"]["additionalContext"]
+    assert len(context) <= hint.MAX_CONTEXT_CHARS
+    assert all(len(line) <= hint.MAX_LINE_CHARS + 150 for line in context.splitlines()[1:])
+
+
+def test_discovery_hint_skips_malformed_trigger_and_reaches_next_valid_row(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    rows = tmp_path / "discoveries.jsonl"
+    rows.write_text(
+        "\n".join(
+            [
+                json.dumps({"id": "trigger123", "trigger": 123, "discovery": "bad row"}),
+                json.dumps({"id": "valid-row", "trigger": ["alpha beta"], "discovery": "valid finding"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(hint, "DATA", str(rows))
+
+    assert _run(hint, {"prompt": "alpha beta needs review", "session_id": uuid.uuid4().hex}, monkeypatch) == 0
+    output = capsys.readouterr().out
+    assert "valid-row" in output and "trigger123" not in output
+
+
+def test_discovery_hint_does_not_mark_overflow_rows_seen(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    rows = tmp_path / "discoveries.jsonl"
+    rows.write_text(
+        "\n".join(
+            [
+                json.dumps({"id": "x" * 950, "trigger": ["alpha beta"], "discovery": "f" * 320, "memory": "first"}),
+                json.dumps({"id": "second-row", "trigger": ["alpha beta"], "discovery": "s" * 320, "memory": "second"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(hint, "DATA", str(rows))
+    monkeypatch.setattr(hint, "_detail_label", lambda _slug: "d" * hint.MAX_DETAIL_CHARS)
+    marker_dir = tmp_path / "markers"
+    marker_dir.mkdir()
+    monkeypatch.setattr(hint, "_seen_path", lambda session: str(marker_dir / f"{session}.json"))
+    payload = {"prompt": "alpha beta needs review", "session_id": uuid.uuid4().hex}
+
+    assert _run(hint, payload, monkeypatch) == 0
+    capsys.readouterr()
+    assert _run(hint, payload, monkeypatch) == 0
+    assert "second-row" in capsys.readouterr().out
+
+
+def test_discovery_hint_skips_invalid_cost_bands(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    path = tmp_path / "discoveries.jsonl"
+    rows = [
+        {"id": f"invalid-{i}", "trigger": ["alpha beta"], "discovery": "malformed band", "cost_band": band}
+        for i, band in enumerate(([], {}, 42, True))
+    ]
+    rows.append({"id": "valid-row", "trigger": ["alpha beta"], "discovery": "valid lesson", "cost_band": None})
+    path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(hint, "DATA", str(path))
+    assert _run(hint, {"prompt": "alpha beta needs review", "session_id": uuid.uuid4().hex}, monkeypatch) == 0
+    output = capsys.readouterr().out
+    assert "valid-row" in output and "invalid-" not in output

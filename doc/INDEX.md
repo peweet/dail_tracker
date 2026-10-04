@@ -3,7 +3,7 @@
 
 # doc/ index
 
-75 docs · ~365.9k tokens total · 32 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+75 docs · ~366.5k tokens total · 32 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -15,7 +15,7 @@
 | [DATA_LIMITATIONS.md](DATA_LIMITATIONS.md) | data | 12.2k | 2026-07-17 | before citing any dataset's completeness, scope, or coverage of a person/topic — check known caveats and silent-failure risks first |
 | [JOIN_MAP.md](JOIN_MAP.md) | data | 1.7k | 2026-07-14 | before attempting any cross-register association/join between datasets (ORG name-norm or PERSON anagram key) |
 | [AST_SCANNER_FAILURE_MODES.md](AST_SCANNER_FAILURE_MODES.md) | engineering | 7.3k | 2026-08-04 | auditing an AST-based code scanner, contract extractor, repository indexer, or migration ratchet for false positives and false negatives |
-| [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 3.3k | 2026-10-04 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
+| [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 3.8k | 2026-10-04 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
 | [AGENT_HARNESS_MEASUREMENT_2026_08_05.md](AGENT_HARNESS_MEASUREMENT_2026_08_05.md) | infra | 1.0k | 2026-08-05 | deciding whether the current agent harness improves correctness or efficiency |
 | [CI_CD.md](CI_CD.md) | infra | 5.3k | 2026-08-24 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [CODEX_WINDOWS_SANDBOX_RECOVERY.md](CODEX_WINDOWS_SANDBOX_RECOVERY.md) | infra | 1.3k | 2026-08-26 | Codex Windows commands fail before process startup with apply deny-read ACLs, CreateProcess, or helper_unknown_error |
@@ -25,7 +25,7 @@
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-08-14 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 5.0k | 2026-08-21 | the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub and object storage |
 | [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md) | infra | 2.6k | 2026-08-30 | setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile |
-| [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.9k | 2026-08-30 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
+| [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 7.0k | 2026-10-04 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
 | [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.5k | 2026-08-30 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |

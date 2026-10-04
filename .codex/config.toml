@@ -24,6 +24,16 @@ timeout = 15
 statusMessage = "Loading bounded project status"
 additionalContextLimit = 1600
 
+[[hooks.UserPromptSubmit]]
+
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/discovery_hint.py"'
+command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/discovery_hint.py) }"'
+timeout = 10
+statusMessage = "Looking up bounded project lessons"
+additionalContextLimit = 500
+
 [[hooks.PreToolUse]]
 matcher = "^(Agent|spawn_agent)$"
 

@@ -69,6 +69,16 @@ def restore_windows_x64_architecture_metadata() -> None:
         return
     if sysconfig.get_platform().lower() == "win-amd64":
         os.environ["PROCESSOR_ARCHITECTURE"] = "AMD64"
+        # Python 3.14+ exposes the cache reset publicly. CPython 3.12/3.13 do
+        # not, so clear their private uname cache to make platform.machine()
+        # observe the metadata restored above.
+        import platform
+
+        invalidate_caches = getattr(platform, "invalidate_caches", None)
+        if callable(invalidate_caches):
+            invalidate_caches()
+        else:
+            setattr(platform, "_uname_cache", None)  # noqa: B010 - CPython 3.12/3.13 fallback
 
 
 def cap_blas_threads(threads: int | str | None = None) -> int:

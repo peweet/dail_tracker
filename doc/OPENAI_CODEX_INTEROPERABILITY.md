@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-08-30
+updated: 2026-10-04
 supersedes: []
 read_when: auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project
 key: REFERENCE|LIVE|infra
@@ -224,12 +224,17 @@ lookup appear to work.
 
 The Codex `UserPromptSubmit` hook calls
 [`tools/hooks/discovery_hint.py`](../tools/hooks/discovery_hint.py). It selects at
-most two short matching discovery lines and has a 1,200-token additional-context cap;
+most two findings once per session, capped at 1,000 characters by the script, with
+a separate 500-token additional-context spill threshold in the tracked TOML;
 it does not inject full memory cards or absolute workstation paths. The `Stop` hook
-calls [`tools/hooks/closeout_gate.py`](../tools/hooks/closeout_gate.py). After 20
-assistant turns, a missing closeout produces one blocking prompt per session; a valid
+calls [`tools/hooks/closeout_gate.py`](../tools/hooks/closeout_gate.py). After 500
+Stop invocations, a missing closeout produces one blocking prompt per session; a valid
 record uses `promoted`, `already-captured`, or `no-durable-delta` with a meaningful
 note. Review and trust those two project hooks once in Codex with `/hooks`.
+Codex loads both TOML and adjacent `hooks.json`; remove duplicate handlers from
+an old local matrix without removing unrelated protections. Milestone capture,
+review identity, and the Claude-only pending-list limit are documented in the
+[post-mortem procedure](AGENT_HARNESS.md#post-mortem-and-reuse).
 
 Codex personal Memories are enabled for recall but automatic generation is disabled:
 

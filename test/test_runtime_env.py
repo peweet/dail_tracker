@@ -106,6 +106,34 @@ def test_polars_runtime_imports_and_collects_in_a_fresh_process():
     assert out.returncode == 0, out.stderr
 
 
+def test_polars_runtime_imports_after_platform_machine_was_primed():
+    """Restoring the Windows arch env also invalidates platform's cached uname."""
+    if os.name != "nt":
+        pytest.skip("the architecture metadata repair is Windows-specific")
+    code = (
+        "import os, platform;"
+        "os.environ.pop('PROCESSOR_ARCHITECTURE', None);"
+        "platform.machine();"
+        "import services.runtime_env;"
+        "import polars as pl;"
+        "result = pl.DataFrame({'value': [1]}).lazy().select(pl.col('value') + 1).collect();"
+        "assert result.to_dict(as_series=False) == {'value': [2]}"
+    )
+    env = os.environ.copy()
+    env.pop("PROCESSOR_ARCHITECTURE", None)
+    env.pop("POLARS_SKIP_CPU_CHECK", None)
+    env["POLARS_FORCE_PKG"] = "32"
+    out = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(REPO),
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+    )
+    assert out.returncode == 0, out.stderr
+
+
 def test_cap_actually_reduces_committed_memory():
     """The whole point: capped pandas must cost far less commit than uncapped.
 

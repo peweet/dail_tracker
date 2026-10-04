@@ -51,7 +51,10 @@ def test_blocks_once_at_turns_min_then_stays_silent(tmp_path, monkeypatch, capsy
     err = capsys.readouterr().err
     assert rc == 2
     assert "closeout" in err.lower()
-    assert sid[:12] in err
+    assert sid in err
+    assert "Stop invocations" in err
+    assert "1/38" not in err
+    assert len(err) <= 1000
 
     # ignoring it and trying to stop again does not re-block
     assert _run(cg, {"session_id": sid}, monkeypatch) == 0
@@ -70,7 +73,17 @@ def test_already_recorded_session_never_blocks(tmp_path, monkeypatch, capsys):
     cg = _load("closeout_gate")
     reviews = tmp_path / "closeout_reviews.jsonl"
     sid = uuid.uuid4().hex
-    reviews.write_text(json.dumps({"session": sid[:12], "outcome": "no-durable-delta"}) + "\n", encoding="utf-8")
+    reviews.write_text(
+        json.dumps(
+            {
+                "session": sid[:12],
+                "outcome": "no-durable-delta",
+                "note": "checked the session for durable deltas and repeat questions",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(cg, "REVIEWS", reviews)
 
     for _ in range(cg.TURNS_MIN + 5):
@@ -89,3 +102,32 @@ def test_fails_open_on_garbage(monkeypatch, capsys):
     monkeypatch.setattr(sys, "stdin", io.StringIO("not json{{"))
     assert cg.main() == 0
     assert capsys.readouterr().err == ""
+
+
+def test_gated_session_does_not_write_counter_again(tmp_path, monkeypatch, capsys):
+    cg = _load("closeout_gate")
+    sid = uuid.uuid4().hex
+    counter = tmp_path / "counter"
+    gated = tmp_path / "gated"
+    counter.write_text("500", encoding="utf-8")
+    gated.write_text("1", encoding="utf-8")
+    monkeypatch.setattr(cg, "_counter_path", lambda _sid: str(counter))
+    monkeypatch.setattr(cg, "_gated_path", lambda _sid: str(gated))
+
+    assert _run(cg, {"session_id": sid}, monkeypatch) == 0
+    assert counter.read_text(encoding="utf-8") == "500"
+    assert capsys.readouterr().err == ""
+
+
+def test_gate_markers_use_full_session_and_repository_identity(tmp_path, monkeypatch):
+    cg = _load("closeout_gate")
+    prefix = "a" * 64
+    sid_a = prefix + "A"
+    sid_b = prefix + "B"
+    assert cg._counter_path(sid_a) != cg._counter_path(sid_b)
+
+    monkeypatch.setattr(cg, "REPO", str(tmp_path / "repo-a"))
+    path_a = cg._counter_path("same-session")
+    monkeypatch.setattr(cg, "REPO", str(tmp_path / "repo-b"))
+    path_b = cg._counter_path("same-session")
+    assert path_a != path_b

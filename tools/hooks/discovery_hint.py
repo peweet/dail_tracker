@@ -23,6 +23,7 @@ same heaviness rule as session_context.py's _discoveries_note.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -40,6 +41,9 @@ from tools.discoveries import resolve_memory  # noqa: E402 - standalone hook pat
 MAX_ROWS = 2  # per the design note: 1-2 rows max, or it becomes prompt noise
 MIN_PROMPT_CHARS = 20  # below this it's "yes"/"ok"/a path — nothing to match on
 MAX_LINE_CHARS = 320  # cap a runaway one-liner rather than flood the prompt
+MAX_CONTEXT_CHARS = 1000
+MAX_DISPLAY_ID_CHARS = 64
+MAX_DETAIL_CHARS = 96
 _BAND_RANK = {"high": 0, "med": 1, "low": 2}
 
 
@@ -54,10 +58,27 @@ def _load_rows() -> list[dict]:
                 o = json.loads(line)
             except Exception:
                 continue
-            if str(o.get("id", "")).startswith("_"):
+            if not isinstance(o, dict):
                 continue
-            if o.get("discovery") and o.get("trigger"):
-                rows.append(o)
+            row_id = o.get("id")
+            discovery = o.get("discovery")
+            triggers = o.get("trigger")
+            if (
+                not isinstance(row_id, str)
+                or not row_id.strip()
+                or row_id.startswith("_")
+                or not isinstance(discovery, str)
+                or not discovery.strip()
+                or not isinstance(triggers, list)
+                or not triggers
+                or any(not isinstance(trigger, str) or not trigger.strip() for trigger in triggers)
+                or (o.get("cost_band") is not None and not isinstance(o["cost_band"], str))
+            ):
+                continue
+            o["id"] = row_id.strip()
+            o["discovery"] = discovery.strip()
+            o["trigger"] = [trigger.strip() for trigger in triggers]
+            rows.append(o)
     return rows
 
 
@@ -145,7 +166,8 @@ def _match(prompt_lc: str, row: dict) -> int:
 
 
 def _seen_path(session: str) -> str:
-    return os.path.join(tempfile.gettempdir(), f"dail_discovery_hint_{session[:12]}.json")
+    marker_key = hashlib.sha256(f"{REPO}\0{session}".encode()).hexdigest()
+    return os.path.join(tempfile.gettempdir(), f"dail_discovery_hint_{marker_key}.json")
 
 
 def _load_seen(session: str) -> set[str]:
@@ -166,7 +188,10 @@ def _save_seen(session: str, seen: set[str]) -> None:
 
 def _detail_label(slug: str) -> str:
     """Return a truthful, portable detail reference for an indexed lesson."""
-    detail = resolve_memory(slug)
+    try:
+        detail = resolve_memory(slug)
+    except Exception:
+        return ""
     if detail is None:
         return ""
     try:
@@ -183,34 +208,57 @@ def main() -> int:
         payload = json.loads(sys.stdin.read() or "{}")
     except Exception:
         return 0
-    prompt = str(payload.get("prompt") or "")
+    if not isinstance(payload, dict):
+        return 0
+    prompt = payload.get("prompt")
+    session = payload.get("session_id") or payload.get("sessionId")
+    if not isinstance(prompt, str) or not isinstance(session, str) or not session.strip():
+        return 0
+    session = session.strip()
     if len(prompt) < MIN_PROMPT_CHARS or prompt.lstrip().startswith("/"):
         return 0
-    session = str(payload.get("session_id") or payload.get("sessionId") or "nosession")
 
     try:
         rows = _load_rows()
     except Exception:
         return 0
     prompt_lc = prompt.lower()
-    scored = [(r, _match(prompt_lc, r)) for r in rows]
+    scored = []
+    for row in rows:
+        try:
+            scored.append((row, _match(prompt_lc, row)))
+        except Exception:
+            continue
     hits = [(r, s) for r, s in scored if s > 0]
     if not hits:
         return 0
-    hits.sort(key=lambda rs: (-rs[1], _BAND_RANK.get(rs[0].get("cost_band"), 3)))
+    try:
+        hits.sort(key=lambda rs: (-rs[1], _BAND_RANK.get(rs[0].get("cost_band"), 3)))
+    except Exception:
+        return 0
 
     seen = _load_seen(session)
-    picked = [r for r, _ in hits if r["id"] not in seen][:MAX_ROWS]
-    if not picked:
-        return 0
-    _save_seen(session, seen | {r["id"] for r in picked})
-
+    header = "[discovery-index] Cached finding(s) matching this prompt — read before re-deriving:\n"
     lines = []
-    for r in picked:
-        one = str(r["discovery"])[:MAX_LINE_CHARS]
-        label = _detail_label(str(r.get("memory", "")))
-        lines.append(f"- {r['id']}: {one}" + (f" ({label})" if label else ""))
-    ctx = "[discovery-index] Cached finding(s) matching this prompt — read before re-deriving:\n" + "\n".join(lines)
+    emitted_ids = set()
+    for row, _ in hits:
+        if row["id"] in seen or len(lines) >= MAX_ROWS:
+            continue
+        try:
+            display_id = row["id"][:MAX_DISPLAY_ID_CHARS]
+            one = row["discovery"][:MAX_LINE_CHARS]
+            label = _detail_label(str(row.get("memory", "")))[:MAX_DETAIL_CHARS]
+            line = f"- {display_id}: {one}" + (f" ({label})" if label else "")
+        except Exception:
+            continue
+        if len(header) + sum(len(existing) + 1 for existing in lines) + len(line) > MAX_CONTEXT_CHARS:
+            continue
+        lines.append(line)
+        emitted_ids.add(row["id"])
+    if not lines:
+        return 0
+    _save_seen(session, seen | emitted_ids)
+    ctx = header + "\n".join(lines)
     print(
         json.dumps(
             {

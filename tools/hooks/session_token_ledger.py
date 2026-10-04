@@ -118,7 +118,8 @@ def main() -> int:
         # Skip empty/trivial sessions -- no assistant turn means nothing to record.
         if row["turns"] == 0:
             return 0
-        row["session"] = str(payload.get("session_id") or payload.get("sessionId") or path.stem)[:12]
+        session = payload.get("session_id") or payload.get("sessionId")
+        row["session"] = session.strip() if isinstance(session, str) and session.strip() else path.stem
         row["reason"] = str(payload.get("reason") or "")
         row["ts"] = datetime.now().isoformat(timespec="seconds")
         LEDGER.parent.mkdir(parents=True, exist_ok=True)

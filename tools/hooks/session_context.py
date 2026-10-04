@@ -576,7 +576,7 @@ def _closeout_note() -> str:
         n = len(pending())
         if not n:
             return ""
-        return f"{n} session(s) awaiting closeout — `python tools/session_closeout.py`"
+        return f"{n} Claude ledger session(s) awaiting closeout — `python tools/session_closeout.py`"
     except Exception:
         return ""
 
