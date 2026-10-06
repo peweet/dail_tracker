@@ -57,3 +57,20 @@ order confounding but does not establish cache isolation, billing savings, or
 general task-quality improvement. Use live smoke results only for their tested
 scope. Copilot's local OTel file can repeat usage across parent spans, child spans,
 logs, and metrics; do not sum those streams indiscriminately.
+
+## Historical trial preparation, 2026-10-06
+
+Trust configuration is not activation evidence. The Git-free benchmark cleanroom
+excludes `.git`, while the tracked Windows hooks locate their root with
+`git rev-parse --show-toplevel`. Independent review confirmed exit 128 in that
+copy: the guarded hook scripts do not run. This condition cannot measure
+production hook context or cost, even when the hook-trust flag is present.
+
+Keep historical lineage and answer-key provenance evaluator-side. Hash the full
+request (or label an excerpt), the expected answers and the current source;
+`harness_bench.py`'s task-suite hash omits expected values. Its recursive scorer
+accepts extra object keys, so check exact object shape separately when required.
+Recorded tool items are not all nested calls or model round trips. Two related
+source questions are a wiring pilot, not independent evidence of general quality.
+Evidence: `artifacts/harness-history-20261006/provenance.json`, source checks and
+independent holdout review. No production benchmark behavior was changed.
