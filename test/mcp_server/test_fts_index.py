@@ -95,6 +95,18 @@ def test_or_fallback_when_and_misses(tmp_path):
     assert hits, "OR fallback must fire when the AND query has no rows"
 
 
+def test_unicode_search_preserves_accented_terms_and_confusables(tmp_path):
+    repo = _mini_repo(tmp_path)
+    (repo / "doc.md").write_text("Dáil Éireann well-being O'Connor v2_metric_Δ\n", encoding="utf-8")
+    fts_index.refresh(repo)
+
+    assert fts_index.search(repo, "Dáil Éireann", kind="doc-section")
+    assert fts_index.search(repo, "Éire", kind="doc-section") == []
+    assert fts_index.search(repo, "well-being", kind="doc-section")
+    assert fts_index.search(repo, "v2_metric_Δ", kind="doc-section")
+    assert fts_index.search(repo, "раrquet", kind="doc-section") == []
+
+
 def test_import_edges_both_directions(tmp_path):
     repo = _mini_repo(tmp_path)
     (repo / "app.py").write_text("from pkg.widgets import compute_widget_ratio\nimport os\n", encoding="utf-8")

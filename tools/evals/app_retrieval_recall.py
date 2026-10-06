@@ -43,6 +43,8 @@ from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+from mcp_server.code_index import DEFAULT_SCAN_POLICY
+
 REPO = Path(__file__).resolve().parents[2]
 CORPUS = Path(os.environ.get("ABP_CORPUS_DIR") or "c:/tmp/dail_new_sources/bronze/abp_inspector_reports")
 
@@ -63,6 +65,222 @@ PROJECT_GOLDS = [
 ]
 
 SPEECH_MEMBERS = ["Pearse Doherty", "Michael Healy-Rae", "Ivana Bacik", "Matt Carthy"]
+
+
+def _normalize_repo_path(value: object) -> str | None:
+    """Normalize separators and harmless leading ``./`` without changing case."""
+    if value is None:
+        return None
+    path = str(value).replace("\\", "/")
+    while path.startswith("./"):
+        path = path[2:]
+    if not path or path == "." or path.startswith("/") or ":/" in path[:3]:
+        return None
+    return path
+
+
+def _gold_is_eligible(gold: object) -> bool:
+    path = _normalize_repo_path(gold)
+    # The public scanner's private-tree hint is a second boundary beside the
+    # generic path policy; checking the prefix here avoids probing that tree.
+    return bool(path and not path.startswith("planning/product/") and DEFAULT_SCAN_POLICY.allows(path))
+
+
+def _classify_gold(gold: object) -> tuple[str | None, str | None]:
+    path = _normalize_repo_path(gold)
+    if gold is None:
+        return None, "missing gold path"
+    if path is None:
+        return None, "invalid repository-relative path"
+    if path.startswith("planning/product/"):
+        return path, "private tree excluded from public scan policy"
+    if not DEFAULT_SCAN_POLICY.allows(path):
+        return path, "excluded by public scan policy"
+    return path, None
+
+
+def _parse_line_span(value: object) -> tuple[int, int] | None:
+    if isinstance(value, str):
+        match = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", value)
+        if not match:
+            return None
+        start, end = (int(part) for part in match.groups())
+    elif isinstance(value, (tuple, list)) and len(value) == 2:
+        if not all(isinstance(part, int) and not isinstance(part, bool) for part in value):
+            return None
+        start, end = value
+    else:
+        return None
+    return (start, end) if 1 <= start <= end else None
+
+
+def _surface_rows(result: object, surface: str) -> list[dict]:
+    """Read one result surface, including the metadata tool's legacy ``hits`` key."""
+    if isinstance(result, list):
+        return [row for row in result if isinstance(row, dict)] if surface == "metadata" else []
+    if not isinstance(result, dict):
+        return []
+    if surface == "metadata":
+        rows = result.get("results")
+        if not rows:
+            rows = result.get("hits")
+    else:
+        rows = result.get("content_spans")
+        if not rows:
+            rows = result.get("spans")
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+def _path_match(row: dict, gold: str) -> bool:
+    return _normalize_repo_path(row.get("path")) == gold
+
+
+def _row_covers(row: dict, gold: str, expected_span: tuple[int, int] | None, *, span_aware: bool) -> bool:
+    if not _path_match(row, gold):
+        return False
+    if not span_aware:
+        return True
+    actual = _parse_line_span(row.get("span"))
+    if actual is None:
+        return False
+    if expected_span is None:
+        return True
+    return actual is not None and actual[0] <= expected_span[0] and actual[1] >= expected_span[1]
+
+
+def _rank(rows: list[dict], gold: str, expected_span: tuple[int, int] | None, *, span_aware: bool) -> int | None:
+    for position, row in enumerate(rows, 1):
+        if _row_covers(row, gold, expected_span, span_aware=span_aware):
+            return position
+    return None
+
+
+def _metrics(ranks: list[int | None]) -> dict:
+    count = len(ranks)
+    r1_hits = sum(rank == 1 for rank in ranks)
+    r5_hits = sum(rank is not None and rank <= 5 for rank in ranks)
+    reciprocal = sum(1 / rank for rank in ranks if rank is not None)
+    return {
+        "ranks": ranks,
+        "denominator": count,
+        "r1_hits": r1_hits,
+        "r5_hits": r5_hits,
+        "r1": r1_hits / count if count else None,
+        "r5": r5_hits / count if count else None,
+        "mrr": reciprocal / count if count else None,
+    }
+
+
+def _metadata_first_union(
+    metadata: list[dict], content: list[dict]
+) -> tuple[list[dict], list[list[tuple[dict, bool]]]]:
+    """Deduplicate by normalized path while retaining metadata-first ordering."""
+    rows: list[dict] = []
+    candidates: list[list[tuple[dict, bool]]] = []
+    by_path: dict[str, int] = {}
+    tagged_rows = [(row, False) for row in metadata] + [(row, True) for row in content]
+    for row, span_aware in tagged_rows:
+        path = _normalize_repo_path(row.get("path"))
+        if path is None:
+            continue
+        index = by_path.get(path)
+        if index is None:
+            by_path[path] = len(rows)
+            rows.append(row)
+            candidates.append([(row, span_aware)])
+        else:
+            candidates[index].append((row, span_aware))
+    return rows, candidates
+
+
+def evaluate_project_recall(cases: list[dict]) -> dict:
+    """Score offline project retrieval results without probing the filesystem.
+
+    Metadata and content spans remain separate collections. Golds excluded by the
+    public scan policy are disclosed and omitted from ordinary recall denominators.
+    """
+    eligible_cases: list[dict] = []
+    excluded_paths: list[str] = []
+    metadata_ranks: list[int | None] = []
+    content_ranks: list[int | None] = []
+    union_ranks: list[int | None] = []
+    excluded_reasons: list[dict] = []
+    span_expected_invalid = 0
+    audit_cases: list[dict] = []
+    for case in cases:
+        expected = case.get("expected_span")
+        expected_supplied = expected is not None
+        expected_span = _parse_line_span(expected) if expected_supplied else None
+        expected_invalid = expected_supplied and expected_span is None
+        content_expected_span = expected_span if expected_span is not None else ((0, 0) if expected_supplied else None)
+        gold, exclusion_reason = _classify_gold(case.get("gold"))
+        audit_case = {
+            "query": case.get("query"),
+            "gold": gold,
+            "eligible": exclusion_reason is None,
+            "reason": exclusion_reason,
+            "expected_span_invalid": expected_invalid,
+            "metadata_rank": None,
+            "content_rank": None,
+            "union_rank": None,
+            "either_rank": None,
+        }
+        if exclusion_reason is not None:
+            excluded_reasons.append({"gold": case.get("gold"), "path": gold, "reason": exclusion_reason})
+            excluded_paths.append(gold if gold is not None else str(case.get("gold")))
+            audit_cases.append(audit_case)
+            continue
+        if expected_supplied and expected_span is None:
+            span_expected_invalid += 1
+        result = case.get("result", {})
+        metadata = _surface_rows(result, "metadata")
+        content = _surface_rows(result, "content")
+        metadata_rank = _rank(metadata, gold, expected_span, span_aware=False)
+        content_rank = _rank(content, gold, content_expected_span, span_aware=True)
+        metadata_ranks.append(metadata_rank)
+        content_ranks.append(content_rank)
+        union, union_candidates = _metadata_first_union(metadata, content)
+        union_rank = None
+        for position, _row in enumerate(union, 1):
+            if any(
+                _row_covers(row, gold, content_expected_span, span_aware=span_aware)
+                for row, span_aware in union_candidates[position - 1]
+            ):
+                union_rank = position
+                break
+        union_ranks.append(union_rank)
+        audit_case.update(
+            metadata_rank=metadata_rank,
+            content_rank=content_rank,
+            union_rank=union_rank,
+            either_rank=min((rank for rank in (metadata_rank, content_rank) if rank is not None), default=None),
+        )
+        audit_cases.append(audit_case)
+        eligible_cases.append(case)
+
+    either_ranks = [
+        min((rank for rank in (metadata_rank, content_rank) if rank is not None), default=None)
+        for metadata_rank, content_rank in zip(metadata_ranks, content_ranks, strict=True)
+    ]
+    return {
+        "total": len(cases),
+        "eligible": len(eligible_cases),
+        "excluded": len(excluded_paths),
+        "excluded_paths": excluded_paths,
+        "excluded_reasons": excluded_reasons,
+        "span_expected_invalid": span_expected_invalid,
+        "cases": audit_cases,
+        "metadata": _metrics(metadata_ranks),
+        "content_spans": _metrics(content_ranks),
+        "union": {
+            **_metrics(union_ranks),
+            "ordering": "metadata-first, then content_spans; deduplicated by normalized path",
+        },
+        "either_surface": {
+            **_metrics(either_ranks),
+            "meaning": "coverage across independent metadata/content top-K lists; not a fused ranking",
+        },
+    }
 
 
 def _phrase_from(text: str, skip: int = 200, n: int = 10) -> str:
@@ -173,24 +391,48 @@ async def suite_precedents(session: ClientSession, n: int) -> None:
     )
 
 
-async def suite_project(session: ClientSession) -> None:
-    rows = []
+async def suite_project(session: ClientSession | None, json_path: Path | None = None) -> dict:
+    cases = []
     for query, gold in PROJECT_GOLDS:
+        if not _gold_is_eligible(gold):
+            _tick(f"project: '{query[:40]}…' excluded by public scan policy: {gold}")
+            cases.append({"query": query, "gold": gold, "result": {}})
+            continue
         res = await _call(session, "search_project", {"query": query, "limit": 12})
-        hits = res.get("hits", res.get("results", [])) if isinstance(res, dict) else []
-        pos = None
-        for i, h in enumerate(hits, 1):
-            if gold.lower() in _walk_strings(h).lower().replace("\\", "/"):
-                pos = i
-                break
-        _tick(f"project: '{query[:40]}…' rank={pos}")
-        rows.append((query, gold, pos))
-    hit1 = sum(1 for _, _, p in rows if p == 1)
-    hit5 = sum(1 for _, _, p in rows if p is not None and p <= 5)
-    print(f"\nsearch_project (authored golds, n={len(rows)}):  R@1 {hit1}/{len(rows)}  R@5 {hit5}/{len(rows)}")
-    for q, g, p in rows:
-        if p is None or p > 5:
-            print(f"  MISS '{q}' -> {g}  rank={p}")
+        cases.append({"query": query, "gold": gold, "result": res})
+    report = evaluate_project_recall(cases)
+    metadata_ranks = report["metadata"]["ranks"]
+    eligible_cases = [case for case in cases if _gold_is_eligible(case["gold"])]
+    for case, rank in zip(eligible_cases, metadata_ranks, strict=True):
+        _tick(f"project: '{case['query'][:40]}…' rank={rank}")
+    metadata = report["metadata"]
+    print(
+        f"\nsearch_project (authored golds, n={len(cases)}):  "
+        f"R@1 {metadata['r1_hits']}/{metadata['denominator']}  R@5 {metadata['r5_hits']}/{metadata['denominator']}"
+    )
+    for case, rank in zip(eligible_cases, metadata_ranks, strict=True):
+        q, g = case["query"], case["gold"]
+        if rank is None or rank > 5:
+            print(f"  MISS '{q}' -> {g}  rank={rank}")
+    for label in ("metadata", "content_spans", "union", "either_surface"):
+        metrics = report[label]
+        mrr = "unknown" if metrics["mrr"] is None else f"{metrics['mrr']:.3f}"
+        display_label = "either-surface coverage (independent lists; not fused)" if label == "either_surface" else label
+        print(
+            f"  {display_label}: R@1 {metrics['r1_hits']}/{metrics['denominator']}  "
+            f"R@5 {metrics['r5_hits']}/{metrics['denominator']}  MRR {mrr}"
+        )
+    print(
+        f"  eligibility: {report['eligible']} eligible, {report['excluded']} excluded "
+        "by public scan policy; union ordering = metadata-first, then content_spans, "
+        "deduplicated by normalized path"
+    )
+    if report["excluded_paths"]:
+        print(f"  excluded gold paths: {', '.join(report['excluded_paths'])}")
+    if json_path is not None:
+        json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"  project recall artifact -> {json_path}")
+    return report
 
 
 async def _roundtrip(
@@ -231,7 +473,7 @@ async def _run_suites(session: ClientSession | None, args) -> None:
     if args.suite in ("all", "precedents"):
         await suite_precedents(session, args.n)
     if args.suite in ("all", "project"):
-        await suite_project(session)
+        await suite_project(session, args.json)
     if args.suite in ("all", "speeches"):
         await suite_roundtrip(session, "member_speeches", "search_speeches", "search_speeches")
     if args.suite in ("all", "questions"):
@@ -243,6 +485,7 @@ async def main() -> int:
     ap.add_argument("--suite", default="all", choices=["all", "precedents", "project", "speeches", "questions"])
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--transport", default="direct", choices=["direct", "mcp"])
+    ap.add_argument("--json", type=Path, help="write the offline project-recall metrics artifact")
     args = ap.parse_args()
 
     if args.transport == "direct":

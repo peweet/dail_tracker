@@ -540,7 +540,7 @@ def deps(repo: Path, rel: str) -> dict:
 def search(repo: Path, query: str, limit: int = 8, kind: str = "") -> list[dict]:
     """BM25-ranked chunks: {kind, name(=scope header), path, span, why(=snippet)}.
     AND the terms first; if nothing survives, fall back to OR for recall."""
-    terms = re.findall(r"[a-zA-Z0-9_]+", query)
+    terms = re.findall(r"[\w]+", query.lower(), flags=re.UNICODE)
     if not terms:
         return []
     kinds = {item.strip() for item in kind.split(",") if item.strip()}

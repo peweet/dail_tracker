@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -375,6 +376,293 @@ def test_search_project_reports_lexical_metadata_counts_independently_of_fts(mon
     assert zero["metadata_total"] == 0
     assert zero["metadata_returned"] == 0
     assert zero["metadata_truncated"] is False
+
+
+def _metadata_fixture(tmp_path: Path, marker: str) -> Path:
+    repo = tmp_path / "repo"
+    (repo / "data" / "_meta").mkdir(parents=True)
+    (repo / "doc").mkdir()
+    (repo / "sql_views").mkdir()
+    (repo / "public.py").write_text(f"def {marker}():\n    return 'public'\n", encoding="utf-8")
+    (repo / "sql_views" / "v_public.sql").write_text(
+        f"-- {marker} view\nCREATE VIEW v_public AS SELECT 1;\n", encoding="utf-8"
+    )
+    (repo / "doc" / "INDEX.md").write_text(
+        f"| [{marker} guide](guides/{marker}.md) | {marker} domain | read {marker} |\n", encoding="utf-8"
+    )
+    (repo / "data" / "_meta" / "fact_cards.json").write_text(
+        f'{{"facts": {{"{marker}": {{"purpose": "{marker} purpose", "file": "data/{marker}.parquet"}}}}}}',
+        encoding="utf-8",
+    )
+    return repo
+
+
+def test_project_index_rechecks_metadata_fingerprint_after_bounded_window(tmp_path, monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    repo = _metadata_fixture(tmp_path, "first_marker")
+    monkeypatch.setattr(server, "REPO", repo)
+    monkeypatch.setattr(server, "_FACT_CARDS", repo / "data" / "_meta" / "fact_cards.json")
+    clock = [0.0]
+    monkeypatch.setattr(server, "time", SimpleNamespace(monotonic=lambda: clock[0]), raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_ROOT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_FINGERPRINT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_LAST_CHECK", 0.0, raising=False)
+
+    first = server._project_index()
+    assert any(row["name"] == "first_marker" for row in first)
+
+    (repo / "data" / "_meta" / "fact_cards.json").write_text(
+        '{"facts": {"second_marker": {"purpose": "second_marker purpose"}}}', encoding="utf-8"
+    )
+    clock[0] = 30.0
+    assert server._project_index() is first
+
+    clock[0] = 121.0
+    second = server._project_index()
+    assert second is not first
+    assert any(row["name"] == "second_marker" for row in second)
+
+    clock[0] = 242.0
+    assert server._project_index() is second
+
+
+def test_project_index_cache_is_bound_to_repo_root_and_tracks_public_file_changes(tmp_path, monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    repo_a = _metadata_fixture(tmp_path / "a", "alpha_marker")
+    repo_b = _metadata_fixture(tmp_path / "b", "beta_marker")
+    monkeypatch.setattr(server, "_FACT_CARDS", repo_a / "data" / "_meta" / "fact_cards.json")
+    monkeypatch.setattr(server, "REPO", repo_a)
+    monkeypatch.setattr(server, "_PROJECT_INDEX", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_ROOT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_FINGERPRINT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_LAST_CHECK", 0.0, raising=False)
+    clock = [10.0]
+    monkeypatch.setattr(server, "time", SimpleNamespace(monotonic=lambda: clock[0]), raising=False)
+
+    first = server._project_index()
+    assert any(row["name"] == "alpha_marker" for row in first)
+
+    original_cards = repo_a / "data" / "_meta" / "fact_cards.json"
+    alternate_cards = repo_a / "data" / "_meta" / "alternate_fact_cards.json"
+    alternate_cards.write_text(
+        original_cards.read_text(encoding="utf-8").replace("alpha_marker", "gamma_marker"), encoding="utf-8"
+    )
+    original_stat = original_cards.stat()
+    alternate_cards.touch()
+    import os
+
+    os.utime(alternate_cards, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+    assert alternate_cards.stat().st_size == original_stat.st_size
+    monkeypatch.setattr(server, "_FACT_CARDS", alternate_cards)
+    switched_cards = server._project_index()
+    assert any(row["name"] == "gamma_marker" for row in switched_cards)
+    assert not any(row["name"] == "alpha_marker" for row in switched_cards)
+
+    monkeypatch.setattr(server, "REPO", repo_b)
+    monkeypatch.setattr(server, "_FACT_CARDS", repo_b / "data" / "_meta" / "fact_cards.json")
+    second = server._project_index()
+    assert second is not first
+    assert any(row["name"] == "beta_marker" for row in second)
+
+    (repo_b / "added.py").write_text("def added_marker():\n    pass\n", encoding="utf-8")
+    clock[0] = 131.0
+    third = server._project_index()
+    assert any(row["path"] == "added.py" and "added_marker" in row["haystack"] for row in third)
+
+    (repo_b / "public.py").write_text("def edited_marker():\n    pass\n", encoding="utf-8")
+    clock[0] = 252.0
+    edited = server._project_index()
+    assert any(row["path"] == "public.py" and "edited_marker" in row["haystack"] for row in edited)
+
+    (repo_b / "added.py").unlink()
+    clock[0] = 373.0
+    deleted = server._project_index()
+    assert not any(row["path"] == "added.py" for row in deleted)
+
+
+def test_project_index_unchanged_fingerprint_avoids_scan_and_rebuild(tmp_path, monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    repo = _metadata_fixture(tmp_path, "stable_marker")
+    monkeypatch.setattr(server, "REPO", repo)
+    monkeypatch.setattr(server, "_FACT_CARDS", repo / "data" / "_meta" / "fact_cards.json")
+    clock = [0.0]
+    monkeypatch.setattr(server, "time", SimpleNamespace(monotonic=lambda: clock[0]), raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_ROOT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_FINGERPRINT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_LAST_CHECK", 0.0, raising=False)
+
+    real_build = server._build_project_index
+    real_fingerprint = server._metadata_fingerprint
+    calls = {"build": 0, "fingerprint": 0}
+
+    def build():
+        calls["build"] += 1
+        return real_build()
+
+    def fingerprint(root):
+        calls["fingerprint"] += 1
+        return real_fingerprint(root)
+
+    monkeypatch.setattr(server, "_build_project_index", build)
+    monkeypatch.setattr(server, "_metadata_fingerprint", fingerprint)
+    first = server._project_index()
+    assert calls == {"build": 1, "fingerprint": 1}
+
+    clock[0] = 30.0
+    assert server._project_index() is first
+    assert calls == {"build": 1, "fingerprint": 1}
+
+    clock[0] = 121.0
+    assert server._project_index() is first
+    assert calls == {"build": 1, "fingerprint": 2}
+
+
+def test_project_index_failed_rebuild_keeps_last_successful_state(tmp_path, monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    repo = _metadata_fixture(tmp_path, "before_marker")
+    monkeypatch.setattr(server, "REPO", repo)
+    monkeypatch.setattr(server, "_FACT_CARDS", repo / "data" / "_meta" / "fact_cards.json")
+    clock = [0.0]
+    monkeypatch.setattr(server, "time", SimpleNamespace(monotonic=lambda: clock[0]), raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_ROOT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_FINGERPRINT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_LAST_CHECK", 0.0, raising=False)
+
+    first = server._project_index()
+    old_state = (
+        server._PROJECT_INDEX,
+        server._PROJECT_INDEX_ROOT,
+        server._PROJECT_INDEX_FINGERPRINT,
+        server._PROJECT_INDEX_LAST_CHECK,
+    )
+    (repo / "data" / "_meta" / "fact_cards.json").write_text(
+        '{"facts": {"after_marker": {"purpose": "after_marker purpose"}}}', encoding="utf-8"
+    )
+    clock[0] = 121.0
+
+    def fail_rebuild():
+        raise RuntimeError("synthetic rebuild failure")
+
+    monkeypatch.setattr(server, "_build_project_index", fail_rebuild)
+    with pytest.raises(RuntimeError, match="synthetic rebuild failure"):
+        server._project_index()
+    assert server._PROJECT_INDEX is first
+    assert old_state == (
+        server._PROJECT_INDEX,
+        server._PROJECT_INDEX_ROOT,
+        server._PROJECT_INDEX_FINGERPRINT,
+        server._PROJECT_INDEX_LAST_CHECK,
+    )
+
+
+def test_project_index_latest_serialized_successful_snapshot_wins(tmp_path, monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    repo = _metadata_fixture(tmp_path, "concurrent_marker")
+    monkeypatch.setattr(server, "REPO", repo)
+    monkeypatch.setattr(server, "_FACT_CARDS", repo / "data" / "_meta" / "fact_cards.json")
+    monkeypatch.setattr(server, "_PROJECT_INDEX", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_ROOT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_FACT_CARDS", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_FINGERPRINT", None, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_LAST_CHECK", 0.0, raising=False)
+    monkeypatch.setattr(server, "_PROJECT_INDEX_REFRESH_SECS", 0, raising=False)
+    monkeypatch.setattr(server, "time", SimpleNamespace(monotonic=lambda: 0.0), raising=False)
+
+    fingerprint_calls = 0
+    build_calls = 0
+    first_build_started = threading.Event()
+    second_build_started = threading.Event()
+    second_thread_attempted = threading.Event()
+    release_first_build = threading.Event()
+    call_guard = threading.Lock()
+
+    def fingerprint(_root):
+        nonlocal fingerprint_calls
+        with call_guard:
+            fingerprint_calls += 1
+            return (("fixture", 0, fingerprint_calls),)
+
+    def build():
+        nonlocal build_calls
+        with call_guard:
+            build_calls += 1
+            call = build_calls
+        if call == 1:
+            first_build_started.set()
+            assert release_first_build.wait(timeout=2)
+            return [{"kind": "code", "name": "older_snapshot", "path": "old.py", "haystack": "older"}]
+        second_build_started.set()
+        return [{"kind": "code", "name": "newer_snapshot", "path": "new.py", "haystack": "newer"}]
+
+    monkeypatch.setattr(server, "_metadata_fingerprint", fingerprint)
+    monkeypatch.setattr(server, "_build_project_index", build)
+
+    def call_index():
+        server._project_index()
+
+    first_thread = threading.Thread(target=call_index)
+
+    def call_index_second():
+        second_thread_attempted.set()
+        call_index()
+
+    second_thread = threading.Thread(target=call_index_second)
+    first_thread.start()
+    assert first_build_started.wait(timeout=2)
+    second_thread.start()
+    assert second_thread_attempted.wait(timeout=2)
+
+    # Before the lock fix, the second build can finish while the first remains
+    # paused. With the lock, it is blocked until the first successful assignment.
+    if getattr(server, "_PROJECT_INDEX_LOCK", None) is None:
+        assert second_build_started.wait(timeout=2)
+    release_first_build.set()
+    first_thread.join(timeout=2)
+    second_thread.join(timeout=2)
+    assert not first_thread.is_alive() and not second_thread.is_alive()
+    assert server._PROJECT_INDEX[0]["name"] == "newer_snapshot"
+
+
+def test_search_project_preserves_unicode_and_identifier_tokens(monkeypatch):
+    pytest.importorskip("mcp")
+    from mcp_server import server
+
+    metadata = [
+        {
+            "kind": "code",
+            "name": "Dáil_Éireann O'Connor v2_metric_Δ",
+            "path": "public.py",
+            "desc": "well-being",
+            "haystack": "Dáil Éireann O'Connor v2_metric_Δ well-being",
+        }
+    ]
+    monkeypatch.setattr(server, "_project_index", lambda: metadata)
+    monkeypatch.setattr(server, "_fts_ready", lambda **_kwargs: False)
+
+    assert server._tokens("Dáil Éireann") == ["dáil", "éireann"]
+    assert server._tokens("Éire") == ["éire"]
+    assert server._tokens("well-being O'Connor v2_metric_Δ") == [
+        "well",
+        "being",
+        "o",
+        "connor",
+        "v2_metric_δ",
+    ]
+    assert server.search_project("Dáil Éireann")["count"] == 1
+    assert server.search_project("Éire")["count"] == 1
 
 
 def test_json_peek_rejects_prefix_sibling_escape(tmp_path, monkeypatch):

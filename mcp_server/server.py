@@ -28,152 +28,163 @@ doc/archive/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 
 
 
+
+
+
+
+
+
+
 # ── SECTION MAP ── ─────────────────────────────────────────
-# ⚠️  DO NOT READ WHOLE — ~35,744 tokens (2,898 lines after this header).
+# ⚠️  DO NOT READ WHOLE — ~39,507 tokens (3,132 lines after this header).
 #     Read this map, then jump:  Read(file, offset=<start>, limit=<n>)
 #
-#     217-234    Lazy data stack
-#     235-298    _LazyModule
-#     299-337    _unavailable
-#     338-367    _cur
-#     368-393    _release_if_idle
-#     394-402    _rows
-#     403-409    _one
-#     410-413    Members
-#     414-425    search_members
-#     426-450    get_member_record
-#     451-454    Votes
-#     455-465    list_recent_votes
-#     466-475    get_division
-#     476-479    Cross-reference: votes × Register of Members' Interests
-#     480-490    division_interest_breakdown
-#     491-554    voting_vs_interests
-#     555-558    Legislation
-#     559-569    search_legislation
-#     570-580    get_bill
-#     581-602    search_statutory_instruments
-#     603-632    circular_si_crosswalk
-#     633-636    Payments / lobbying
-#     637-643    top_payments
-#     644-651    lobbying_organisations
-#     652-658    revolving_door
-#     659-662    Ministerial diaries — who ministers meet
-#     663-675    ministerial_diary_top_organisations
-#     676-688    ministerial_diary_organisation
-#     689-698    who_ministers_meet
-#     699-736    company_influence
-#     737-755    _spine_lobbying_lookup
-#     756-792    access_to_contracts
-#     793-810    procurement_lobbying_overlap
-#     811-814    Procurement
-#     815-824    search_suppliers
-#     825-832    get_supplier
-#     833-849    procurement_competition
-#     850-853    Committees
-#     854-860    list_committees
-#     861-866    get_committee
-#     867-870    Interests (Register of Members' Interests)
-#     871-878    get_member_interests
-#     879-882    Ministerial accountability
-#     883-889    who_was_minister
-#     890-892    Parliamentary questions
-#     893-920    get_member_questions
-#     921-941    member_question_count_by_year
-#     942-945    Payments by year
-#     946-952    payments_by_year
-#     953-956    Member floor speeches
-#     957-987    member_speeches
-#     988-991    SIPO political finance (party donations + GE2024 election ex
-#     992-1010   party_donations
-#    1011-1026   party_election_spend
-#    1027-1030   Judiciary (the bench + court-system health)
-#    1031-1047   judicial_appointments
-#    1048-1060   courts_health
-#    1061-1064   Public appointments (state boards)
-#    1065-1070   public_appointments
-#    1071-1095   Charity finances
-#    1096-1141   _charity_sector_dq_flags
-#    1142-1171   charity_financials
-#    1172-1174   Corporate distress notices (Iris Oifigiúil — companies only,
-#    1175-1181   _trim_notice
-#    1182-1222   corporate_distress_notices
-#    1223-1248   corporate_repeat_distress
-#    1249-1252   Public-body payments (the realised-SPEND grain)
-#    1253-1271   public_body_payments
-#    1272-1275   Procurement — deeper cuts (authority / CPV / live tenders)
-#    1276-1283   procurement_by_authority
-#    1284-1290   procurement_by_cpv
-#    1291-1297   open_tenders
-#    1298-1301   Ministerial roll-up
-#    1302-1311   current_cabinet
-#    1312-1315   Lobbying — revolving-door individual profile
-#    1316-1331   dpo_lobbying_profile
-#    1332-1335   Corpus search: divisions by topic
-#    1336-1381   search_votes_by_topic
-#    1382-1385   Join map (the association guard — read BEFORE cross-referenc
-#    1386-1463   join_map
-#    1464-1467   Data coverage (scope guard for honest answers)
-#    1468-1492   data_coverage
-#    1493-1501   _load_fact_cards
-#    1502-1533   list_datasets
-#    1534-1551   describe_dataset
-#    1552-1568   search_project: one metadata-layer retrieval call instead of
-#    1569-1574   _memory_dir
-#    1575-1589   _fts_ready
-#    1590-1593   _tokens
-#    1594-1674   _build_project_index
-#    1675-1682   _project_index
-#    1683-1763   search_project
-#    1764-1777   code_outline
-#    1778-1799   py_deps
-#    1800-1814   py_refs
-#    1815-1876   json_peek
-#    1877-1892   view_deps
-#    1893-1905   search_speeches
-#    1906-1918   search_questions
-#    1919-1957   siting_decision_documents
-#    1958-1974   search_planning_precedents
-#    1975-1987   column_deps
-#    1988-2003   source_fetch_failures
-#    2004-2007   Procurement conduit (authoritative-source bridge + serve-vs-
-#    2008-2085   procurement_notice
-#    2086-2109   project_value_estimate
-#    2110-2112   Siting check (planning-constraint triage for a point — the c
-#    2113-2125   _brief_item
-#    2126-2219   siting_check
-#    2298-2301   Cross-register watchlist + organisation dossier (entity-cros
-#    2302-2325   cross_register_watchlist
-#    2326-2343   _org_name_key
-#    2344-2355   _org_registers
-#    2356-2404   _resolve_org_candidates
-#    2405-2472   organisation_dossier
-#    2473-2476   Local government (council accountability scorecard)
-#    2477-2520   derelict_levy_compliance
-#    2521-2567   council_scorecard
-#    2568-2571   AFS (local-authority audited accounts — the BUDGET grain)
-#    2572-2617   afs_coverage
-#    2618-2621   Housing money (national demand / supply / accommodation spen
-#    2622-2651   housing_money
-#    2652-2655   Attendance (division turnout + TAA compliance)
-#    2656-2697   attendance_ranking
-#    2698-2701   National public finance (CSO general-government)
-#    2702-2717   gov_finance_annual
-#    2718-2721   Prompts (audit templates surfaced as client slash-commands)
-#    2722-2733   audit_member
-#    2734-2743   trace_bill_sis
-#    2744-2754   procurement_lobbying_check
-#    2755-2767   audit_party_finance
-#    2768-2779   judicial_appointment_trace
-#    2780-2794   assess_procurement_award
-#    2795-2809   siting_brief
-#    2810-2816   coverage_resource
-#    2817-2829   fact_cards_resource
-#    2830-2836   fact_card_resource
-#    2837-2844   join_map_resource
-#    2845-2854   doc_index_resource
-#    2855-2862   doc_sandbox_map_resource
-#    2863-2879   data_question
-#    2880-2898   scope_check
+#     237-254    Lazy data stack
+#     255-319    _LazyModule
+#     320-378    _unavailable
+#     379-408    _cur
+#     409-434    _release_if_idle
+#     435-443    _rows
+#     444-450    _one
+#     451-454    Members
+#     455-467    search_members
+#     468-492    get_member_record
+#     493-496    Votes
+#     497-507    list_recent_votes
+#     508-518    get_division
+#     519-522    Cross-reference: votes × Register of Members' Interests
+#     523-533    division_interest_breakdown
+#     534-597    voting_vs_interests
+#     598-601    Legislation
+#     602-612    search_legislation
+#     613-623    get_bill
+#     624-645    search_statutory_instruments
+#     646-675    circular_si_crosswalk
+#     676-679    Payments / lobbying
+#     680-688    top_payments
+#     689-696    lobbying_organisations
+#     697-703    revolving_door
+#     704-707    Ministerial diaries — who ministers meet
+#     708-720    ministerial_diary_top_organisations
+#     721-733    ministerial_diary_organisation
+#     734-743    who_ministers_meet
+#     744-781    company_influence
+#     782-800    _spine_lobbying_lookup
+#     801-837    access_to_contracts
+#     838-855    procurement_lobbying_overlap
+#     856-859    Procurement
+#     860-870    search_suppliers
+#     871-879    get_supplier
+#     880-896    procurement_competition
+#     897-900    Committees
+#     901-907    list_committees
+#     908-913    get_committee
+#     914-917    Interests (Register of Members' Interests)
+#     918-925    get_member_interests
+#     926-929    Ministerial accountability
+#     930-936    who_was_minister
+#     937-940    Parliamentary questions
+#     941-968    get_member_questions
+#     969-989    member_question_count_by_year
+#     990-993    Payments by year
+#     994-1001   payments_by_year
+#    1002-1005   Member floor speeches
+#    1006-1036   member_speeches
+#    1037-1040   SIPO political finance (party donations + GE2024 election ex
+#    1041-1059   party_donations
+#    1060-1076   party_election_spend
+#    1077-1080   Judiciary (the bench + court-system health)
+#    1081-1097   judicial_appointments
+#    1098-1110   courts_health
+#    1111-1114   Public appointments (state boards)
+#    1115-1121   public_appointments
+#    1122-1146   Charity finances
+#    1147-1192   _charity_sector_dq_flags
+#    1193-1222   charity_financials
+#    1223-1225   Corporate distress notices (Iris Oifigiúil — companies only,
+#    1226-1232   _trim_notice
+#    1233-1273   corporate_distress_notices
+#    1274-1299   corporate_repeat_distress
+#    1300-1303   BAM / National Children's Hospital PQ disclosures
+#    1304-1317   nphdb_bam_disclosures
+#    1318-1321   Public-body payments (the realised-SPEND grain)
+#    1322-1340   public_body_payments
+#    1341-1344   Procurement — deeper cuts (authority / CPV / live tenders)
+#    1345-1352   procurement_by_authority
+#    1353-1360   procurement_by_cpv
+#    1361-1367   open_tenders
+#    1368-1371   Ministerial roll-up
+#    1372-1381   current_cabinet
+#    1382-1385   Lobbying — revolving-door individual profile
+#    1386-1401   dpo_lobbying_profile
+#    1402-1405   Corpus search: divisions by topic
+#    1406-1451   search_votes_by_topic
+#    1452-1455   Join map (the association guard — read BEFORE cross-referenc
+#    1456-1533   join_map
+#    1534-1537   Data coverage (scope guard for honest answers)
+#    1538-1562   data_coverage
+#    1563-1571   _load_fact_cards
+#    1572-1610   list_datasets
+#    1611-1628   describe_dataset
+#    1629-1654   search_project: one metadata-layer retrieval call instead of
+#    1655-1660   _memory_dir
+#    1661-1682   _fts_ready
+#    1683-1686   _tokens
+#    1687-1690   _metadata_fingerprint
+#    1691-1694   _build_project_index
+#    1695-1735   _project_index
+#    1736-1860   search_project
+#    1861-1877   code_outline
+#    1878-1907   py_deps
+#    1908-1922   py_refs
+#    1923-2030   json_peek
+#    2031-2046   view_deps
+#    2047-2059   search_speeches
+#    2060-2078   search_council_minutes
+#    2079-2091   search_questions
+#    2092-2130   siting_decision_documents
+#    2131-2149   search_planning_precedents
+#    2150-2162   column_deps
+#    2163-2178   source_fetch_failures
+#    2179-2182   Procurement conduit (authoritative-source bridge + serve-vs-
+#    2183-2260   procurement_notice
+#    2261-2284   project_value_estimate
+#    2285-2287   Siting check (planning-constraint triage for a point — the c
+#    2288-2357   _brief_item
+#    2358-2534   siting_check
+#    2535-2538   Cross-register watchlist + organisation dossier (entity-cros
+#    2539-2562   cross_register_watchlist
+#    2563-2580   _org_name_key
+#    2581-2592   _org_registers
+#    2593-2641   _resolve_org_candidates
+#    2642-2709   organisation_dossier
+#    2710-2713   Local government (council accountability scorecard)
+#    2714-2757   derelict_levy_compliance
+#    2758-2804   council_scorecard
+#    2805-2808   AFS (local-authority audited accounts — the BUDGET grain)
+#    2809-2854   afs_coverage
+#    2855-2858   Housing money (national demand / supply / accommodation spen
+#    2859-2888   housing_money
+#    2889-2892   Attendance (division turnout + TAA compliance)
+#    2893-2934   attendance_ranking
+#    2935-2938   National public finance (CSO general-government)
+#    2939-2954   gov_finance_annual
+#    2955-2958   Prompts (audit templates surfaced as client slash-commands)
+#    2959-2970   audit_member
+#    2971-2980   trace_bill_sis
+#    2981-2991   procurement_lobbying_check
+#    2992-3004   audit_party_finance
+#    3005-3016   judicial_appointment_trace
+#    3017-3031   assess_procurement_award
+#    3032-3046   siting_brief
+#    3047-3053   coverage_resource
+#    3054-3062   fact_cards_resource
+#    3063-3069   fact_card_resource
+#    3070-3077   join_map_resource
+#    3078-3087   doc_index_resource
+#    3088-3095   doc_sandbox_map_resource
+#    3096-3112   data_question
+#    3113-3132   scope_check
 # ── END SECTION MAP ── ─────────────────────────────────
 """
 
@@ -185,6 +196,7 @@ import json
 import re
 import sys
 import threading
+import time
 from pathlib import Path
 
 # Windows: force the stdio JSON-RPC stream to UTF-8 so Irish-language names
@@ -217,7 +229,10 @@ import services.runtime_env  # noqa: E402,F401
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
 
-from mcp_server import resource_policy  # noqa: E402
+from mcp_server import (  # noqa: E402
+    project_metadata,  # noqa: E402
+    resource_policy,  # noqa: E402
+)
 
 # ── Lazy data stack ───────────────────────────────────────────────────────────
 # Measured 2026-07-27: importing these at module scope costs 98 MB, of which only
@@ -1618,7 +1633,14 @@ def describe_dataset(name: str) -> dict:
 # and sql_views/ header comments — never parquet or page source, so it stays cheap
 # and returns small structured hits with a repo-relative path to open next.
 _PROJECT_INDEX: list[dict] | None = None
-_WORD = re.compile(r"[a-z0-9_]+")
+_PROJECT_INDEX_LOCK = threading.Lock()
+_PROJECT_INDEX_ROOT: Path | None = None
+_PROJECT_INDEX_FACT_CARDS: Path | None = None
+_PROJECT_INDEX_FINGERPRINT: tuple[tuple[str, int, int] | tuple[str, str], ...] | None = None
+# Recheck metadata at most once per 120 seconds per root, matching the content FTS cadence.
+_PROJECT_INDEX_LAST_CHECK = 0.0
+_PROJECT_INDEX_REFRESH_SECS = 120
+_WORD = re.compile(r"[\w]+", re.UNICODE)
 
 # Content FTS refresh throttle: an mtime walk is cheap but not free — at most one
 # refresh per _FTS_REFRESH_SECS per process. The external-memory dir slug follows
@@ -1662,97 +1684,52 @@ def _tokens(s: str) -> list[str]:
     return _WORD.findall((s or "").lower())
 
 
+def _metadata_fingerprint(root: Path) -> tuple[tuple[str, int, int] | tuple[str, str], ...]:
+    return project_metadata.metadata_fingerprint(root, _FACT_CARDS)
+
+
 def _build_project_index() -> list[dict]:
-    """Build the (cached) metadata index. Each entry: kind, name, path, haystack,
-    plus a short human `desc`. Cheap: reads fact_cards.json, doc/INDEX.md, and the
-    leading comment of each sql_views/*.sql (not their bodies)."""
-    idx: list[dict] = []
-
-    # 1) Datasets — from the fact cards (name + purpose + grain + columns).
-    for name, c in _load_fact_cards().items():
-        cols = c.get("columns", "")
-        desc = c.get("purpose") or c.get("grain") or ""
-        idx.append(
-            {
-                "kind": "dataset",
-                "name": name,
-                "path": c.get("file", f"data/**/{name}.parquet"),
-                "desc": desc,
-                "haystack": " ".join([name, desc, c.get("grain", ""), str(cols), c.get("money_grain", "")]),
-            }
-        )
-
-    # 2) Docs — parse the generated doc/INDEX.md table rows (title | domain | … | read when).
-    index_md = REPO / "doc" / "INDEX.md"
-    if index_md.exists():
-        with contextlib.suppress(Exception):
-            for line in index_md.read_text(encoding="utf-8").splitlines():
-                m = re.match(r"\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|(.*)$", line)
-                if not m:
-                    continue
-                title, rel, rest = m.group(1), m.group(2), m.group(3)
-                doc_path = Path("doc") / rel
-                if not code_index.DEFAULT_SCAN_POLICY.allows(doc_path):
-                    continue
-                cells = [x.strip() for x in rest.split("|")]
-                domain = cells[0] if cells else ""
-                read_when = cells[-2] if len(cells) >= 2 else ""  # last real cell before trailing ''
-                idx.append(
-                    {
-                        "kind": "doc",
-                        "name": title,
-                        "path": doc_path.as_posix(),
-                        "desc": read_when or domain,
-                        "haystack": " ".join([title, domain, read_when]),
-                    }
-                )
-
-    # 3) SQL views — the leading comment block + the CREATE VIEW name. Read only the
-    #    header (first ~15 lines), never the query body.
-    views_dir = REPO / "sql_views"
-    if views_dir.is_dir():
-        for sql in code_index.iter_repository_files(REPO, {".sql"}):
-            if not sql.relative_to(REPO).as_posix().startswith("sql_views/"):
-                continue
-            with contextlib.suppress(Exception):
-                head = []
-                view_name = ""
-                for i, ln in enumerate(sql.read_text(encoding="utf-8").splitlines()):
-                    if i > 24:
-                        break
-                    s = ln.strip()
-                    cm = re.search(r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)", s, re.I)
-                    if cm:
-                        view_name = cm.group(1)
-                        break
-                    if s.startswith("--"):
-                        head.append(s.lstrip("-").strip())
-                desc = " ".join(head)[:240]
-                rel = sql.relative_to(REPO).as_posix()
-                name = view_name or sql.stem
-                idx.append(
-                    {
-                        "kind": "sql_view",
-                        "name": name,
-                        "path": rel,
-                        "desc": desc,
-                        "haystack": f"{name} {sql.stem} {desc}",
-                    }
-                )
-
-    # 4) Code — one entry per repo .py (module path + docstring first line + def/class
-    #    names), parsed with stdlib ast; never executed, bodies never read into results.
-    with contextlib.suppress(Exception):
-        idx.extend(code_index.build_code_index(REPO))
-
-    return idx
+    return project_metadata.build_project_index(REPO, _FACT_CARDS, _load_fact_cards())
 
 
 def _project_index() -> list[dict]:
-    global _PROJECT_INDEX
-    if _PROJECT_INDEX is None:
-        _PROJECT_INDEX = _build_project_index()
-    return _PROJECT_INDEX
+    global \
+        _PROJECT_INDEX, \
+        _PROJECT_INDEX_ROOT, \
+        _PROJECT_INDEX_FACT_CARDS, \
+        _PROJECT_INDEX_FINGERPRINT, \
+        _PROJECT_INDEX_LAST_CHECK
+    with _PROJECT_INDEX_LOCK:
+        root = REPO.resolve()
+        fact_cards = _FACT_CARDS.resolve()
+        now = time.monotonic()
+        if (
+            _PROJECT_INDEX is not None
+            and root == _PROJECT_INDEX_ROOT
+            and fact_cards == _PROJECT_INDEX_FACT_CARDS
+            and now - _PROJECT_INDEX_LAST_CHECK < _PROJECT_INDEX_REFRESH_SECS
+        ):
+            return _PROJECT_INDEX
+
+        fingerprint = _metadata_fingerprint(root)
+        if (
+            _PROJECT_INDEX is not None
+            and root == _PROJECT_INDEX_ROOT
+            and fact_cards == _PROJECT_INDEX_FACT_CARDS
+            and fingerprint == _PROJECT_INDEX_FINGERPRINT
+        ):
+            _PROJECT_INDEX_LAST_CHECK = now
+            return _PROJECT_INDEX
+
+        # Assign cache state only after a complete rebuild, so a transient source error
+        # leaves the last successful index available and eligible for a later retry.
+        rebuilt = _build_project_index()
+        _PROJECT_INDEX = rebuilt
+        _PROJECT_INDEX_ROOT = root
+        _PROJECT_INDEX_FACT_CARDS = fact_cards
+        _PROJECT_INDEX_FINGERPRINT = fingerprint
+        _PROJECT_INDEX_LAST_CHECK = now
+        return _PROJECT_INDEX
 
 
 @mcp.tool(annotations=_RO, meta=_ALWAYS)
