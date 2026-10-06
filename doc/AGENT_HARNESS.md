@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-10-04
+updated: 2026-10-06
 supersedes: []
 read_when: changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -111,6 +111,33 @@ output, with waits sized to expected work and timely user updates. Repeated succ
 calls can still be necessary, so an identical signature alone must not block execution.
 
 Common techniques and their status here:
+
+Pilot A (2026-10-06) repairs source freshness and evaluation before adding retrieval
+machinery. The metadata index is bound to the resolved checkout and fact-card source.
+A lock serializes cache transitions; every 120 seconds, admitted Python/SQL paths,
+`doc/INDEX.md`, and fact-card modification times and sizes are rechecked. Unchanged
+fingerprints reuse the built index. Source identity changes invalidate it immediately.
+This is a stat fingerprint, not content hashing: edits preserving both size and timestamp
+can escape detection. Ordinary query tokens now preserve Unicode letters, numbers and
+underscores; existing FTS AND/OR fallback and name normalizers remain in place.
+
+The project-recall evaluator scores exact, case-preserving normalized paths on metadata
+and content spans separately. Content hits require a valid line span, and optional gold
+lines must be covered. Invalid expected spans cannot earn content credit. Ineligible
+golds are disclosed and excluded from denominators before any private-tree probe.
+The JSON report records each query, gold, eligibility and surface rank. A metadata-first
+deduplicated union is a labelled baseline; either-surface top-K coverage measures two
+independent lists and is not a fused top-K ranking. The authored gold set is a smoke
+check, not a held-out test of recall, answer quality, token use or useful discoveries.
+
+Run only the public-source suite without starting a local MCP server:
+`uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/evals/app_retrieval_recall.py --suite project --transport direct --json artifacts/project-recall.json`.
+Do not use the default `all` suite for a source-only check. Next, freeze held-out tasks
+from historical usage, including unfamiliar vocabulary, accented terms and identifiers.
+Measure uncached input, tool rounds, median/tail latency, correctness and source coverage.
+Try bounded aliases or result selection only if those tasks expose a gap; then separately
+trial zero-to-two sourced reference leads on research tasks, judging usefulness and
+adoption as well as cost. These later trials are proposed, not implemented by Pilot A.
 
 The portable [`repo-navigation` skill](../.agents/skills/repo-navigation/SKILL.md)
 routes public repository questions to specific MCP tools and bounded source reads.
