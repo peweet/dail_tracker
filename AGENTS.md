@@ -89,7 +89,8 @@ is unavailable or not applicable.
 - Strict Claude read-only `project_settings` is bounded workdir `AGENTS.md` guidance only; it never inherits project permissions, settings, skills, or `.claude` configuration. Codex ON cleanroom hooks are a deliberate benchmark intervention, not a general permission grant.
 - Review and verification requests are read-only: inspect the current tree and run the relevant checks, but do not author tests, repair implementation, regenerate fixtures, or apply patches.
 - Test authoring or repair is a separate write task. The captain names one worker, names its files, and gives it one worktree; do not parallelize repairs or let read-only agents use `git apply`.
-- After any repair, or after the dev runner bootstraps/repairs its dependency profile, run `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify --no-cache`. `verify --plan` remains an inspection-only exemption and does not execute or bootstrap.
+- After a public-repository repair, or after the public dev runner bootstraps/repairs its dependency profile, run `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify --no-cache`. `verify --plan` remains an inspection-only exemption and does not execute or bootstrap.
+- For private-only Siting maintenance, follow `planning/product/AGENTS.md` and the test workflow in `planning/product/README.md#verification`, using the named `siting` environment. Public `verify` reads only the public Git diff: it cannot verify private changes and can select expensive suites for unrelated public edits. Run it as well when the task changes public/shared code or its dependency profile; never substitute it for private tests.
 - Keep private-release verification gates serial; do not bypass or parallelize them.
 
 ## Test-first change protocol
@@ -142,6 +143,9 @@ For unfamiliar public repository questions, use `$repo-navigation` or read its
 - `services/runtime_env.py` must remain the first project import in memory-heavy entry points so native thread caps are applied before pandas/NumPy load.
 
 ## Verification
+
+These commands verify the public repository. Route private-only Siting work to the nested
+repository's verification guidance above; inspect its diff with `git -C planning/product`.
 
 - Focused: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify`
 - Inspect the selected checks without running them: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify --plan`
