@@ -57,6 +57,86 @@ def test_public_task_mcp_policies_are_narrow_and_no_policy_is_empty():
     assert harness_bench.PUBLIC_TASKS["memory-xbrl"]["allowed_mcp_tools"] == ["mcp__dail-tracker__search_project"]
 
 
+def test_continuity_replay_restores_only_task_context_and_never_expected_answers(tmp_path, monkeypatch):
+    external = tmp_path / "continuity.json"
+    external.write_text(
+        json.dumps(
+            {
+                "tasks": {
+                    "opaque": {
+                        "prompt": "ok approved and proceed. Return JSON objective and mode.",
+                        "scenario": "continuation-replay",
+                        "task_contract": {
+                            "objective": "Improve agent harness architecture",
+                            "scope": "Harness only",
+                            "mode": "research",
+                            "allowed_paths": ["tools"],
+                            "acceptance": ["Keep the architecture objective"],
+                            "unresolved": [],
+                        },
+                        "expected": {"objective": "SECRET-ANSWER-KEY", "mode": "research"},
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    task = harness_bench.load_private_tasks(external)["opaque"]
+    requests = []
+
+    async def fake_eval(request):
+        requests.append(request)
+        return provider_adapter.EvalResult(provider="codex", model="fake", final_text='{"mode":"research"}')
+
+    monkeypatch.setattr(harness_bench, "run_eval", fake_eval)
+    rows = []
+    for variant in ("context-off", "context-on"):
+
+        async def run_variant(selected_variant=variant):
+            return await harness_bench.run_task(
+                "opaque", task, selected_variant, cwd=tmp_path, repeat_index=1, run_id="r"
+            )
+
+        rows.append(anyio.run(run_variant))
+    assert requests[0].prompt == task["prompt"]
+    assert "Improve agent harness architecture" in requests[1].prompt
+    assert all("SECRET-ANSWER-KEY" not in request.prompt for request in requests)
+    assert requests[0].project_settings == requests[1].project_settings is False
+    assert requests[0].trusted_project_hooks == requests[1].trusted_project_hooks is False
+    assert requests[0].sandbox == requests[1].sandbox == "read-only"
+    assert requests[0].mcp_servers == requests[1].mcp_servers == {}
+    assert [row["continuity_evidence"] for row in rows] == ["synthetic-replay", "synthetic-replay"]
+
+
+def test_native_compaction_task_fails_before_provider_call(tmp_path):
+    external = tmp_path / "native.json"
+    external.write_text(
+        json.dumps(
+            {
+                "tasks": {
+                    "native": {
+                        "prompt": "Continue",
+                        "expected": {"objective": "same"},
+                        "scenario": "native-compaction",
+                        "native_required": True,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="native"):
+        harness_bench.load_private_tasks(external)
+
+
+def test_holdout_case_ids_must_not_collide_after_normalization(tmp_path):
+    external = tmp_path / "collision.json"
+    record = {"prompt": "Return JSON", "expected": {"a": 1}}
+    external.write_text(json.dumps({"tasks": {"Case-A": record, "case-a": record}}), encoding="utf-8")
+    with pytest.raises(ValueError, match="collision"):
+        harness_bench.load_private_tasks(external)
+
+
 def test_summary_reports_repeat_range_and_errors():
     attempts = [
         {

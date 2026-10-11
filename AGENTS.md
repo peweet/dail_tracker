@@ -27,6 +27,12 @@ files change. For background work, prefer completion notifications and new log o
 repeated status queries. Use explicit navigation limits and inspect omission markers before
 requesting more detail. See [efficient tool use](doc/AGENT_HARNESS.md#efficient-tool-use).
 
+For substantial public harness work, record the agreed objective, scope, mode, and acceptance
+with `python tools/task_contracts.py start`; checkpoint before a handoff or compaction.
+Use the exact session id and checkout. Short approvals continue the recorded scope; explicit
+user corrections take precedence and require a versioned amendment. This pilot state is
+advisory, not a permission grant. See [task continuity](doc/AGENT_HARNESS.md#persistent-task-contract-pilot).
+
 ## Pi Firstmate preflight
 
 Local MCP servers are opt-in. Keep their disabled defaults and start or enable a

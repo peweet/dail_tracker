@@ -41,6 +41,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 import anyio
@@ -51,9 +52,11 @@ if str(PROJ_PATH) not in sys.path:
 
 from tools.evals.cleanroom import prepare_cleanroom, validate_cleanroom  # noqa: E402
 from tools.evals.provider_adapter import EvalRequest, dail_tracker_mcp, run_eval  # noqa: E402
+from tools.task_contracts import TaskStore, render_context  # noqa: E402
 
 PROJ = str(PROJ_PATH)
 VARIANTS = ("off", "offclean", "on")
+CONTEXT_VARIANTS = ("context-off", "context-on")
 CACHE_POLICY = "provider-managed-uncontrolled"
 PREFLIGHT_REQUIRED_FILES = (
     "AGENTS.md",
@@ -67,6 +70,8 @@ PREFLIGHT_REQUIRED_FILES = (
     "tools/hooks/discovery_hint.py",
     "tools/hooks/guard_subagent_spawn.py",
     "tools/hooks/session_context.py",
+    "tools/hooks/task_context.py",
+    "tools/task_contracts.py",
 )
 
 PUBLIC_TASKS: dict[str, dict[str, Any]] = {
@@ -214,17 +219,39 @@ def load_private_tasks(path: Path) -> dict[str, dict[str, Any]]:
         if not isinstance(record.get("expected"), dict):
             raise ValueError(f"task {task_id!r} needs an expected JSON object")
         task_key = str(task_id).lower()
+        if not task_key.strip() or task_key in tasks:
+            raise ValueError("task ID collision or empty ID after normalization")
+        if record.get("native_required", False) is not False or record.get("scenario") == "native-compaction":
+            raise ValueError("native continuation/compaction is not implemented by this one-shot adapter")
         tasks[task_key] = {
             "kind": "private-exact",
             "prompt": record["prompt"],
             "expected": record["expected"],
         }
+        if "scenario" in record or "task_contract" in record:
+            if record.get("scenario") != "continuation-replay" or not isinstance(record.get("task_contract"), dict):
+                raise ValueError("continuity tasks require scenario=continuation-replay and a task_contract object")
+            contract = record["task_contract"]
+            required = {"objective", "scope", "mode", "allowed_paths", "acceptance", "unresolved"}
+            if set(contract) != required:
+                raise ValueError("task_contract must contain only the six documented task fields")
+            replay_task_context(contract, Path("."))  # validate before any provider call
+            tasks[task_key].update(scenario="continuation-replay", task_contract=contract)
         if "allowed_mcp_tools" in record:
             allowed = record["allowed_mcp_tools"]
             if not isinstance(allowed, list) or not all(isinstance(tool, str) for tool in allowed):
                 raise ValueError(f"task {task_id!r} allowed_mcp_tools must be a list of strings")
             tasks[task_key]["allowed_mcp_tools"] = list(allowed)
     return tasks
+
+
+def replay_task_context(fields: dict, cwd: Path) -> str:
+    """Exercise persisted state reloading; not a native client continuation."""
+    with TemporaryDirectory(prefix="dail-task-replay-") as directory:
+        database = Path(directory) / "state.sqlite3"
+        TaskStore(database, cwd).start(session_id="replay", owner="evaluator", **fields)
+        restored = TaskStore(database, cwd).load("replay")
+        return render_context(restored)
 
 
 def _sha256(value: bytes) -> str:
@@ -295,6 +322,7 @@ def run_manifest(
         "task_suite_sha256": _sha256(json.dumps(task_fingerprint, sort_keys=True).encode("utf-8")),
         "task_ids": selected_tasks,
         "variants": variants,
+        "continuity_evidence": "synthetic-replay" if any(v in CONTEXT_VARIANTS for v in variants) else "not-measured",
         "order_policy": order_policy,
         "cache_policy": CACHE_POLICY,
         "repeats": repeats,
@@ -400,10 +428,16 @@ async def run_task(
     result = None
     error = None
     try:
+        replay = variant in CONTEXT_VARIANTS
+        if replay and task.get("scenario") != "continuation-replay":
+            raise ValueError("context variants require an external continuation-replay task")
+        prompt = task["prompt"]
+        if variant == "context-on":
+            prompt = replay_task_context(task["task_contract"], cwd) + "\n\nContinuation message:\n" + prompt
         allowed_mcp_tools = list(task.get("allowed_mcp_tools", [])) if on else []
         result = await run_eval(
             EvalRequest(
-                prompt=task["prompt"],
+                prompt=prompt,
                 cwd=cwd,
                 claude_model="claude-sonnet-5",
                 max_turns=12,
@@ -435,6 +469,7 @@ async def run_task(
         "repeat": repeat_index,
         "task": task_id,
         "variant": variant,
+        "continuity_evidence": "synthetic-replay" if variant in CONTEXT_VARIANTS else "not-measured",
         "score": score_answer(task, answer),
         "tool_calls": len(calls),
         "mcp_calls": sum(call.startswith("mcp__") for call in calls),
@@ -570,6 +605,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--repeat", type=_positive_int, default=1)
     parser.add_argument("--order", choices=("balanced", "fixed"), default="balanced")
     parser.add_argument("--tasks-file", type=Path, help="private holdout JSON outside the repository")
+    parser.add_argument(
+        "--continuity-pair", action="store_true", help="isolate recorded context restoration; synthetic replay only"
+    )
     parser.add_argument("--preflight", action="store_true", help="validate isolation and wiring without provider calls")
     parser.add_argument(
         "--require-perfect",
@@ -583,11 +621,19 @@ async def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     tasks = load_private_tasks(args.tasks_file) if args.tasks_file else dict(PUBLIC_TASKS)
     selectors = [selector.lower() for selector in args.selectors]
-    unknown = sorted(set(selectors) - set(VARIANTS) - set(tasks))
+    all_variants = (*VARIANTS, *CONTEXT_VARIANTS)
+    unknown = sorted(set(selectors) - set(all_variants) - set(tasks))
     if unknown:
         raise SystemExit(f"unknown selector(s): {', '.join(unknown)}")
-    variants = [variant for variant in VARIANTS if variant in selectors] or ["offclean", "on"]
+    variants = [variant for variant in all_variants if variant in selectors] or (
+        list(CONTEXT_VARIANTS) if args.continuity_pair else ["offclean", "on"]
+    )
     selected_tasks = [task_id for task_id in tasks if task_id in selectors] or list(tasks)
+    if any(variant in CONTEXT_VARIANTS for variant in variants):
+        if any(variant not in CONTEXT_VARIANTS for variant in variants):
+            raise ValueError("do not mix whole-harness variants and the isolated continuity pair")
+        if any(tasks[task_id].get("scenario") != "continuation-replay" for task_id in selected_tasks):
+            raise ValueError("continuity pair requires external continuation-replay tasks")
 
     if args.preflight:
         with prepare_cleanroom(PROJ_PATH) as clean_path:

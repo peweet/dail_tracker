@@ -24,6 +24,14 @@ timeout = 15
 statusMessage = "Loading bounded project status"
 additionalContextLimit = 1600
 
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/task_context.py"'
+command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/task_context.py) }"'
+timeout = 10
+statusMessage = "Restoring the recorded task objective"
+additionalContextLimit = 2000
+
 [[hooks.UserPromptSubmit]]
 
 [[hooks.UserPromptSubmit.hooks]]
@@ -33,6 +41,14 @@ command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInt
 timeout = 10
 statusMessage = "Looking up bounded project lessons"
 additionalContextLimit = 500
+
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/task_context.py"'
+command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/task_context.py) }"'
+timeout = 10
+statusMessage = "Restoring the recorded task scope"
+additionalContextLimit = 2000
 
 [[hooks.PreToolUse]]
 matcher = "^(Agent|spawn_agent)$"

@@ -15,6 +15,16 @@ def test_cleanroom_path_filter_excludes_scorers_git_and_private_overlay():
     assert not should_copy("../answer-key.json")
 
 
+def test_cleanroom_excludes_runtime_task_state_even_if_explicitly_listed(tmp_path):
+    source = tmp_path / "source"
+    (source / "logs").mkdir(parents=True)
+    state = source / "logs/agent_task_contracts.sqlite3"
+    state.write_bytes(b"PRIVATE REAL SESSION STATE")
+    assert not should_copy("logs/agent_task_contracts.sqlite3")
+    with prepare_cleanroom(source, files=["logs/agent_task_contracts.sqlite3"]) as cleanroom:
+        assert not (cleanroom / "logs/agent_task_contracts.sqlite3").exists()
+
+
 def test_cleanroom_is_a_copy_with_a_validated_lifetime(tmp_path):
     source = tmp_path / "source"
     source.mkdir()

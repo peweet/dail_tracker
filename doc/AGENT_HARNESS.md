@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-10-06
+updated: 2026-10-11
 supersedes: []
 read_when: changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -36,6 +36,100 @@ are not acceptance evidence.
 Repository `AGENTS.md` plus the nearest nested `AGENTS.md` are the provider-neutral guidance
 entry point. `CLAUDE.md` remains a compatibility fallback and may contain provider-specific
 instructions, but shared prompt packs do not route to it directly.
+
+## Persistent task contract pilot
+
+The observed failure was objective drift: a request to improve the coding-agent harness
+became a product-validation task. More reference papers or larger prompts do not prevent
+that by themselves. `tools/task_contracts.py` now records the captain's explicit interpretation
+of user intent separately from the conversation. This is a bounded pilot for public harness
+work, not automatic task extraction or a new orchestration service.
+
+Each record contains the original objective, current objective, scope, mode, allowed relative
+paths, acceptance checks, progress, and unresolved questions. It is keyed by resolved checkout
+and exact session id. SQLite transactions append immutable revisions; updates require the
+recorded owner and expected revision. Owner names are coordination metadata, not authentication.
+The default database is ignored local state at `logs/agent_task_contracts.sqlite3`; never copy
+real session state or private holdout answers into tracked fixtures or the public cleanroom.
+
+Create a UTF-8 JSON file outside tracked source, containing these six fields:
+
+```json
+{
+  "objective": "Improve the coding-agent harness architecture",
+  "scope": "Task persistence and objective drift evaluation",
+  "mode": "implementation",
+  "allowed_paths": ["tools", "test/tools", "doc/AGENT_HARNESS.md"],
+  "acceptance": ["Resume restores the objective", "Scope amendments are explicit"],
+  "unresolved": ["Live client compaction and model quality are unverified"]
+}
+```
+
+```powershell
+python tools/task_contracts.py start --session-id <exact-id> --owner captain --input <task.json>
+python tools/task_contracts.py show --session-id <exact-id>
+python tools/task_contracts.py checkpoint --session-id <exact-id> --owner captain --revision 1 --input <progress.json>
+python tools/task_contracts.py check-action --session-id <exact-id> --action edit --path tools/task_contracts.py
+```
+
+`--checkout` selects the exact worktree; its default is the tool's checkout. `CODEX_THREAD_ID`
+can supply the session id. `checkpoint` accepts only `progress` and `unresolved`; it cannot
+expand scope. `amend` accepts changes to the six task fields and requires
+`--authorization-reference` naming the user correction or established authorization.
+It preserves the original objective. No new approval round is required when the session
+already establishes authorization. The reference is an audit claim supplied by the captain;
+the tool cannot prove the semantics of the user's words. `history` shows prior revisions;
+`complete --revision N --owner captain --evidence "..."` retires the active task. A later
+`start` creates a new task id. Completed state is omitted from continuation context.
+
+The separately bounded `task_context.py` hook reads this state on `SessionStart`
+(startup/resume/clear/compact) and `UserPromptSubmit`. It does not interpret prompts,
+rewrite the contract, or guess another session's latest task. Missing state is silent;
+unreadable state produces an explicit recovery note. Its JSON context is capped at 6,000
+characters by write-time validation. It is registered only in TOML because the adjacent
+hooks JSON can also load. Existing project status has its separate 1,600-character budget.
+[Codex documents compact-triggered SessionStart restoration](https://learn.chatgpt.com/docs/hooks#sessionstart),
+but registration and subprocess tests do not prove activation in a running client.
+
+`check-action` validates a declared action against mode and resolved file/directory boundaries,
+including symlink escape. Research and verification modes reject declared edits. Callers must
+enforce its result; it is not attached to every tool or arbitrary shell command. Host read-only
+sandboxing remains the actual write boundary. This pilot does not claim to eliminate semantic
+drift, enforce all workflow transitions, or make a locally editable record a security policy.
+
+### Continuity measurement
+
+The benchmark accepts external held-out `continuation-replay` scenarios with `prompt`,
+`task_contract` (the six fields above), and evaluator-only `expected` JSON. Use opaque case ids;
+case-normalization collisions are rejected. `--continuity-pair` compares `context-off` and
+`context-on`: both use the same cleanroom, read-only sandbox, disabled project settings/hooks,
+and no MCP. The sole intervention is adding the persisted and reloaded task context to the
+continuation prompt. The existing balanced order alternates the treatment order by repeat.
+
+```powershell
+# No model calls. Validates external task shape, state, and cleanroom wiring.
+.venv\Scripts\python tools/evals/harness_bench.py --tasks-file <external-holdout.json> --continuity-pair --preflight
+# Paid evaluation; run only when model calls are authorized.
+.venv\Scripts\python tools/evals/harness_bench.py --tasks-file <external-holdout.json> --continuity-pair --repeat 4
+```
+
+The external file shape is `{"tasks":{"opaque-id":{"scenario":"continuation-replay",
+"prompt":"...","task_contract":{...},"expected":{...}}}}`. Expected answers never enter
+provider requests or cleanroom copies. The cleanroom also excludes `logs/` even when a runtime
+file is explicitly listed, preventing real local task state from contaminating a trial.
+Manifest/attempt rows label this `synthetic-replay`.
+This intentionally compares restored context with omitted context, not a full native chat
+or general harness quality. Final JSON leaf matches measure stated decisions, not actual
+tool permission enforcement. The one-shot provider adapter cannot resume a native session;
+`native_required` and `native-compaction` scenarios fail before model calls. Native compaction,
+live hook trust/activation, and production quality uplift remain **NOT RUN** until separately
+verified. Keep held-out content outside this repository and use host isolation for strict secrecy.
+
+Implementation evidence: `test/tools/test_task_contracts.py` was first observed failing at
+collection because the task store did not exist. The focused benchmark tests then failed on
+missing restoration, unsupported native-task acceptance, and case-id overwrite. The green
+checks exercise real SQLite and subprocess hook I/O; model requests are faked. Public test
+fixtures are regression examples, not held-out model-quality evidence.
 
 ## Cross-session sidecars
 
@@ -221,6 +315,7 @@ Sources: [Codex IDE commands](https://learn.chatgpt.com/docs/developer-commands?
 |---|---|---|
 | Canonical layered guidance | Already effective; shared UI prompts bypassed it | UI prompts now load root and nested `AGENTS.md`; `CLAUDE.md` remains a fallback |
 | Fixed task and result contracts | Existing entry prompts varied and reviewers returned unstructured prose | `.github/prompts/` uses the five-section packet; reviewers use evidence-bearing verdicts |
+| Persistent task contract pilot | The architecture objective drifted into a product-validation task | Checkout/session-bound SQLite revisions, explicit amendments, bounded resume hooks, and an isolated synthetic replay experiment; live model benefit remains unmeasured |
 | Provider-neutral task packets | The UI pack named one provider | Shared prompts no longer require Claude-specific guidance |
 | Bounded subagent roles | Generic or inherited-context spawns could bypass ownership and result contracts | Tracked scout, reviewer, and worker roles plus a fail-closed `PreToolUse` hook require fresh five-part task packets |
 | Binary review rubrics | A 1–5 design score was subjective and not regression-testable | Review and critique prompts use PASS/FAIL/NOT APPLICABLE plus evidence and severity |
@@ -242,7 +337,7 @@ Sources: [Codex IDE commands](https://learn.chatgpt.com/docs/developer-commands?
 
 | Proposal | Decision |
 |---|---|
-| General persistent active-task state file | Still deferred. The adopted job registry is narrower: it records measured external work that can outlive a turn, not plans, agent tasks, or product decisions. |
+| Automatic task extraction and unrestricted workflow controller | Deferred. The explicit public harness task-contract pilot does not infer authorization, replace host permissions, or provide native continuation evaluation. The job registry remains separate measured external-work state. |
 | Managed async-agent service | Rejected for now. Existing bounded local subagents cover observed work; no latency, recovery, or throughput evidence justifies service infrastructure. |
 | Broad tool result-envelope rewrite | Deferred. MCP tools already have typed schemas and catalog checks; changing every result would be a breaking client migration without a measured failure. |
 | Blanket terse-output truncation | Rejected. Existing flood/read guards target the real context risks; unconditional truncation would hide diagnostic and provenance evidence. |

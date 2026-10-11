@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 
 MARKER = ".eval-cleanroom.json"
 EXCLUDED_PREFIXES = (
+    "logs/",  # local task state and other real-session/runtime records
     "tools/evals/",
     "test/tools/evals/",
     "planning/product/",
