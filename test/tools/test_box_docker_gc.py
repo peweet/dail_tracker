@@ -469,6 +469,51 @@ def test_digest_pinned_ref_resolves_against_exact_repo_digest():
     assert not gc._pin_resolves("ghcr.io/peweet/web@sha256:deadbeef" + "0" * 56, set(), {repo_digest})
 
 
+@pytest.mark.parametrize("repository", ["node", "registry.example:5000/team/web"])
+def test_tagged_digest_pin_resolves_against_canonical_manifest(repository):
+    repo_digest = f"{repository}@sha256:{MANIFEST_DIGEST}"
+    pin = f"{repository}:release@sha256:{MANIFEST_DIGEST}"
+
+    assert gc._pin_resolves(pin, set(), {repo_digest})
+
+
+@pytest.mark.parametrize("repository", ["node", "registry.example:5000/team/web"])
+def test_tagged_digest_pin_retains_aged_image_outside_rollback_slots(repository):
+    repo_digest = f"{repository}@sha256:{MANIFEST_DIGEST}"
+    pinned_image = _digest_image(repository, age_days=90, repo_digests=(repo_digest,))
+    newer = _image(repository, "release-new", age_days=0, image_id="bbbbbbbbbbbb")
+    pin = f"{repository}:release@sha256:{MANIFEST_DIGEST}"
+    removable, retained = _select(
+        [pinned_image, newer],
+        pinned={pin: ["/srv/redline-review/config/pilot.env"]},
+        keep=1,
+        min_age_days=3,
+    )
+
+    assert pinned_image["ref"] not in [image["ref"] for image in removable]
+    reasons = {image["ref"]: image["retained_because"] for image in retained}
+    assert "pinned by pilot.env" in reasons[pinned_image["ref"]]
+
+
+@pytest.mark.parametrize(
+    "pin",
+    [
+        f"other/repository:release@sha256:{MANIFEST_DIGEST}",
+        "registry.example:5000/team/web:release@sha256:" + "2" * 64,
+        "registry.example:5000/team/web:release@" + FULL_ID,
+    ],
+)
+def test_mismatched_tagged_digest_neither_resolves_nor_protects_another_image(pin):
+    repository = "registry.example:5000/team/web"
+    repo_digest = f"{repository}@sha256:{MANIFEST_DIGEST}"
+    old = _digest_image(repository, age_days=90, image_id=FULL_ID, repo_digests=(repo_digest,))
+    newer = _image(repository, "release-new", age_days=0, image_id="bbbbbbbbbbbb")
+
+    assert not gc._pin_resolves(pin, {old["ref"], old["id"]}, {repo_digest})
+    removable, _ = _select([old, newer], pinned={pin: ["/srv/redline-review/config/pilot.env"]}, keep=1, min_age_days=3)
+    assert old["ref"] in [image["ref"] for image in removable]
+
+
 def test_list_images_reads_repo_digests_separately_from_local_image_ids(monkeypatch):
     repository = "ghcr.io/peweet/redline-review-web"
     repo_digest = f"{repository}@sha256:{MANIFEST_DIGEST}"

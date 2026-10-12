@@ -231,6 +231,18 @@ def list_images() -> list[dict[str, Any]]:
     return images
 
 
+def _pin_aliases(ref: str) -> set[str]:
+    """Include Docker's canonical manifest reference for a tagged digest pin."""
+
+    aliases = {ref}
+    repository, separator, digest = ref.partition("@")
+    if separator and re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        tag_separator = repository.rfind(":")
+        if tag_separator > repository.rfind("/"):
+            aliases.add(f"{repository[:tag_separator]}@{digest}")
+    return aliases
+
+
 def _pin_sources_for_image(image: dict[str, Any], pinned: dict[str, list[str]] | None) -> list[str]:
     """Return deployment pin files that resolve to ``image``.
 
@@ -243,10 +255,15 @@ def _pin_sources_for_image(image: dict[str, Any], pinned: dict[str, list[str]] |
     if not pinned:
         return []
 
-    sources = [*pinned.get(image["ref"], ()), *pinned.get(image["id"], ())]
-    for repo_digest in image.get("repo_digests", ()):
-        sources.extend(pinned.get(repo_digest, ()))
-    return sorted(set(sources))
+    image_refs = {image["ref"], image["id"], *image.get("repo_digests", ())}
+    return sorted(
+        {
+            source
+            for pin, sources in pinned.items()
+            if not _pin_aliases(pin).isdisjoint(image_refs)
+            for source in sources
+        }
+    )
 
 
 def select_removable(
@@ -353,12 +370,12 @@ def _id_in_use(image_id: str, in_use: set[str]) -> bool:
 def _pin_resolves(ref: str, known_refs: set[str], known_repo_digests: set[str]) -> bool:
     """Whether a pinned reference matches an image actually present on this host.
 
-    Pins appear in three shapes: ``repo:tag``, a bare image ID, and
-    ``repo@sha256:<manifest>``. The registry manifest digest must be compared with
+    Pins include ``repo:tag``, a bare image ID, ``repo@sha256:<manifest>`` and
+    ``repo:tag@sha256:<manifest>``. The registry manifest digest must be compared with
     Docker's exact ``RepoDigests`` metadata, never with a local image/config ID.
     """
 
-    return ref in known_refs or ref in known_repo_digests
+    return not _pin_aliases(ref).isdisjoint(known_refs | known_repo_digests)
 
 
 def _pin_repository(ref: str) -> str | None:
