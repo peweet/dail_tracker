@@ -157,8 +157,13 @@ def test_hooks_are_registered_once_for_both_continuation_events():
         assert len(task_hooks) == 1
         assert "task_context.py" in task_hooks[0]["command_windows"]
         assert task_hooks[0]["additionalContextLimit"] == 2000
-    adjacent = json.loads((ROOT / ".codex/hooks.json").read_text(encoding="utf-8"))
-    assert "task_context.py" not in json.dumps(adjacent)  # both sources can load; avoid duplicate injection
+    # hooks.json is a deliberately ignored, workstation-local adjunct.  Check it
+    # when present so a developer cannot accidentally duplicate the injection,
+    # but keep this public-contract test valid in a clean checkout.
+    adjacent_path = ROOT / ".codex/hooks.json"
+    if adjacent_path.is_file():
+        adjacent = json.loads(adjacent_path.read_text(encoding="utf-8"))
+        assert "task_context.py" not in json.dumps(adjacent)
 
 
 def test_actual_symlink_escape_is_denied(tmp_path):
