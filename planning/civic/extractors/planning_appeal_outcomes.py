@@ -94,7 +94,7 @@ _APPLICATION_COLUMNS = (
 # Cases still before the Board carry a DECISION of "Case is due to be decided by <date>" — 1,383 of
 # the register's 1,580 distinct DECISION strings on 2026-07-20. They are NOT outcomes; abp_decision_expr maps
 # them to OTHER, which would pool them with withdrawn/invalid. The spine marks them `live` instead.
-_LIVE = re.compile(r"^\s*case is due to be decided", re.I)
+_LIVE = re.compile(r"^\s*case\s+(?:is\s+)?due\s+to\s+be\s+decided\b", re.I)
 # metres per degree at ~53°N — a spread/size measure only (never a distance the user is shown).
 _M_PER_DEG_LAT, _M_PER_DEG_LON = 111_320.0, 67_000.0
 # Matching constants are imported from the mutation-testable vector seam.

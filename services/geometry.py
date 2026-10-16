@@ -372,6 +372,8 @@ def wkb_centroids(raw: Sequence[bytes | None]) -> tuple[np.ndarray, np.ndarray]:
 # vectorized shapely, suspect the BOUNDARY before the engine. DuckDB's WKB parser is roughly 6x
 # faster than GEOS's; a loss almost always means Python objects are being built on one side.
 #
+# Export the geometry ENUM as text: unsigned Arrow dictionary indices cannot be converted
+# to NumPy by every supported PyArrow build.
 # ST_Extent computes the envelope in ONE vertex walk; four separate ST_XMin/ST_YMin/... calls
 # re-walk the geometry each time and measured ~1.6x slower for identical output.
 _VALIDATE_SQL = """
@@ -380,7 +382,7 @@ SELECT
     ST_IsValid(g) AS is_valid,
     ST_HasM(g) AS has_m,
     ST_HasZ(g) AS has_z,
-    ST_GeometryType(g) AS geom_type,
+    CAST(ST_GeometryType(g) AS VARCHAR) AS geom_type,
     ST_XMin(x) AS minx, ST_YMin(x) AS miny, ST_XMax(x) AS maxx, ST_YMax(x) AS maxy
 FROM (SELECT TRY(ST_GeomFromWKB(wkb)) AS g, TRY(ST_Extent(ST_GeomFromWKB(wkb))) AS x FROM _geom_wkb_in)
 """
@@ -467,7 +469,8 @@ def validate_wkb(raw: Any) -> WkbBatch:
     # costs O(rows) Python iterations and measured the whole contract at 0.47x — slower than
     # shapely — while the SQL underneath was 2.5x faster. Assign by boolean mask per DISTINCT
     # type name instead: a handful of numpy assignments regardless of row count.
-    for name in {value for value in np.unique(geom_types).tolist() if value is not None}:
+    # Missing inputs have NULL text types; exclude them before NumPy sorts distinct names.
+    for name in np.unique(geom_types[present]).tolist():
         type_names[geom_types == name] = _GEOPARQUET_TYPES.get(name.upper())
 
     finite = present & np.isfinite(bounds).all(axis=1)

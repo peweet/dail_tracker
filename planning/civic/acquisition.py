@@ -448,10 +448,16 @@ class ArcGISStagedCollector:
             )
         validation_year = validation_year or dt.date.today().year
         ids, expected_count = self._inventory(layer_url, where, oid_field)
+        out_fields = output_params.pop("outFields", "*")
+        selected_fields = {field.strip().casefold() for field in out_fields.split(",")}
+        # ArcGIS can omit both the OID property and GeoJSON id for a selective request.
+        # Keep the publisher's identifier through validation; adaptation removes it later.
+        if "*" not in selected_fields and oid_field.casefold() not in selected_fields:
+            out_fields = f"{out_fields},{oid_field}"
         request_params = {
             "f": output_params.pop("f", "json"),
             "where": where,
-            "outFields": output_params.pop("outFields", "*"),
+            "outFields": out_fields,
             "returnGeometry": output_params.pop("returnGeometry", "true"),
             "outSR": output_params.pop("outSR", "4326"),
             "resultRecordCount": self.page_size,

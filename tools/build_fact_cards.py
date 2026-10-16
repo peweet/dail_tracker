@@ -36,9 +36,14 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-import polars as pl
-
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from services import runtime_env as _runtime_env  # noqa: E402, F401, I001 -- before native imports
+
+import polars as pl  # noqa: E402
+
 META = ROOT / "data" / "_meta"
 OUT = META / "fact_cards.json"
 GRAIN_SEED_YAML = META / "fact_contracts.yaml"

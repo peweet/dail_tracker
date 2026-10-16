@@ -87,6 +87,17 @@ def test_case_status_expression_preserves_stale_target_semantics():
     assert got == expected == ["live", "decided", "live"]
 
 
+def test_current_publisher_pending_phrase_never_becomes_a_decided_case():
+    frame = pl.DataFrame(
+        {
+            "decision": ["Case due to be decided by 23/10/2026", "  Case IS due to be decided by 23/10/2026"],
+            "decided": [1_792_713_600_000, 1_792_713_600_000],
+        }
+    )
+    assert frame.select(case_status_expr("decision", "decided"))["literal"].to_list() == ["live", "live"]
+    assert [_case_status(row["decision"], row["decided"]) for row in frame.iter_rows(named=True)] == ["live", "live"]
+
+
 def test_epoch_conversion_is_utc_and_null_preserving():
     frame = pl.DataFrame({"ms": [-1, 0, 86_400_000, None]}, schema={"ms": pl.Int64})
     assert frame.select(epoch_ms_date_expr("ms"))["ms"].to_list() == [

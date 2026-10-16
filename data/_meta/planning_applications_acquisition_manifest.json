@@ -1,63 +1,78 @@
 {
   "schema": "dail-planning-acquisition-manifest/1",
-  "started_utc": "2026-09-29T19:28:42.093854+00:00",
-  "finished_utc": "2026-09-29T19:32:39.201534+00:00",
+  "started_utc": "2026-10-14T18:09:19.339896+00:00",
+  "finished_utc": "2026-10-14T18:09:28.251382+00:00",
   "scope": "national",
   "authority": null,
   "layers": [
     "points"
   ],
-  "checkpoint_dir": "data\\silver\\parquet\\dail-planning-points-20260929",
-  "checkpoint_reused_pages": 0,
-  "checkpoint_fetched_pages": 255,
+  "checkpoint_dir": "C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\planning\\product\\artifacts\\ev-sandy-national-register-refresh-20261014\\checkpoint",
+  "checkpoint_reused_pages": 255,
+  "checkpoint_fetched_pages": 0,
   "source_identity": {
-    "points": "56e1973dca9a5ec74b16e98664f4c1392075bcde498ebc35d9f4122f6cc68792"
+    "points": "709731e58331f56242afebb05c1529b24cecd3ac7ffc83ece75a75ee73ce6deb"
   },
   "counts": {
-    "points": 508547,
+    "points": 509865,
     "sites": null
   },
   "authority_counts": {
     "points": {
-      "Dun Laoghaire Rathdown County Council": 38780,
-      "Donegal County Council": 21742,
-      "Laois County Council": 8072,
-      "Roscommon County Council": 6449,
-      "Wexford County Council": 17982,
-      "Kerry County Council": 13269,
-      "Waterford City and County Council": 10150,
-      "Meath County Council": 16947,
-      "South Dublin County Council": 33291,
-      "Cork County Council": 127896,
-      "Leitrim County Council": 2127,
-      "Westmeath County Council": 6197,
+      "Clare County Council": 11127,
+      "Galway City Council": 3486,
+      "Meath County Council": 17006,
+      "Longford County Council": 2896,
+      "Westmeath County Council": 6227,
       "Cork City Council": 6763,
-      "Offaly County Council": 6730,
-      "Tipperary County Council": 14917,
-      "Galway City Council": 3472,
-      "Mayo County Council": 11410,
-      "Sligo County Council": 4648,
-      "Dublin City Council": 24879,
-      "Clare County Council": 11084,
       "Fingal County Council": 20335,
-      "Monaghan County Council": 6218,
-      "Kildare County Council": 15851,
-      "Wicklow County Council": 13971,
-      "Kilkenny County Council": 8871,
-      "Limerick County Council": 12835,
-      "Carlow County Council": 4626,
-      "Louth County Council": 10743,
-      "Cavan County Council": 6329,
-      "Galway County Council": 19074,
-      "Longford County Council": 2889
+      "Mayo County Council": 11464,
+      "Wexford County Council": 18017,
+      "Laois County Council": 8130,
+      "Limerick County Council": 12904,
+      "Dun Laoghaire Rathdown County Council": 38853,
+      "Wicklow County Council": 14024,
+      "Carlow County Council": 4642,
+      "Dublin City Council": 24879,
+      "Galway County Council": 19166,
+      "Cavan County Council": 6351,
+      "Kilkenny County Council": 8896,
+      "Offaly County Council": 6751,
+      "Sligo County Council": 4663,
+      "Cork County Council": 128029,
+      "Monaghan County Council": 6262,
+      "Roscommon County Council": 6482,
+      "Tipperary County Council": 14985,
+      "South Dublin County Council": 33331,
+      "Kerry County Council": 13339,
+      "Leitrim County Council": 2138,
+      "Waterford City and County Council": 10194,
+      "Kildare County Council": 15910,
+      "Donegal County Council": 21825,
+      "Louth County Council": 10790
     },
     "sites": {}
+  },
+  "council_supplement": {
+    "national_rows": 509865,
+    "authorities": {
+      "Cork City Council": {
+        "supplement_rows": 740,
+        "already_national": 6,
+        "added": 734
+      },
+      "Dublin City Council": {
+        "supplement_rows": 969,
+        "already_national": 351,
+        "added": 618
+      }
+    }
   },
   "consistency_limitations": [],
   "artifacts": {
     "planning_applications_silver.parquet": {
       "path": "C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\data\\silver\\parquet\\planning_applications_silver.parquet",
-      "sha256": "7f005550553b902bd12d17769e0cd073758a953063ef8b43fffc0d90236481f1"
+      "sha256": "5187cff7386caf1fe3f7371942e4df9762fdd94a5c727aa0d92e46dce3229d13"
     }
   }
 }

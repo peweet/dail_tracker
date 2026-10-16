@@ -10,6 +10,7 @@
 .worktrees/
 # Local agent scratch directories can carry workstation-only ACLs.
 /.codex_tmp_*/
+/.codex-tmp/
 # Local interface critiques may describe the separately versioned private product.
 /.impeccable/
 # Default ignored files
@@ -883,3 +884,9 @@ planning/_*_done.txt
 # 2026-09-20. Anchored to the repo root: no tracked directory named artifacts exists, and the
 # nested private repos keep their own.
 /artifacts/
+
+# Local exports may include copies of private-product source and release files.
+/output/
+# Windows-generated cache paths and an accidental command-redirection file.
+/%SystemDrive%/
+/0

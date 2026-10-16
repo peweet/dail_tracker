@@ -85,7 +85,10 @@ def case_status_expr(decision_column: str, decided_column: str) -> pl.Expr:
     """Classify a case as live using the extractor's existing two-part rule."""
     decision = pl.col(decision_column).fill_null("")
     return (
-        pl.when(pl.col(decided_column).is_null() | decision.str.contains(r"(?i)^\s*case is due to be decided"))
+        pl.when(
+            pl.col(decided_column).is_null()
+            | decision.str.contains(r"(?i)^\s*case\s+(?:is\s+)?due\s+to\s+be\s+decided\b")
+        )
         .then(pl.lit("live"))
         .otherwise(pl.lit("decided"))
     )

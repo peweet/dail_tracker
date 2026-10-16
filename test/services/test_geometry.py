@@ -205,6 +205,25 @@ def test_points_length_mismatch_raises():
 # ── validate_wkb: the GeoParquet write contract ──
 
 
+def test_validation_query_exports_plain_text_geometry_types():
+    """Unsigned Arrow ENUM dictionaries fail NumPy conversion in the ingestion image."""
+    import pyarrow as pa
+
+    raw = [shapely.to_wkb(box(-9.0, 53.0, -8.99, 53.01)), shapely.to_wkb(Point(-9.0, 53.0)), None]
+    con = geometry_module._connection_with_spatial()
+    con.register("_geom_wkb_in", pa.table({"wkb": pa.array(raw, type=pa.binary())}))
+    try:
+        output = con.execute(geometry_module._VALIDATE_SQL).to_arrow_table()
+    finally:
+        con.unregister("_geom_wkb_in")
+    assert pa.types.is_string(output.column("geom_type").type)
+    assert output.column("geom_type").to_pylist()[:2] == ["POLYGON", "POINT"]
+    batch = validate_wkb(raw)
+    assert batch.type_names.tolist() == ["Polygon", "Point", None]
+    assert batch.missing.tolist() == [False, False, True]
+    assert batch.finite.tolist() == [True, True, False]
+
+
 def test_validate_reports_types_bounds_and_missing():
     raw = [shapely.to_wkb(box(-9.0, 53.0, -8.99, 53.01)), shapely.to_wkb(Point(-9.0, 53.0)), None]
     batch = validate_wkb(raw)

@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+import sqlite3
 
 # Keep native Polars import safe in direct pytest collection on Windows.
 import services.runtime_env as _runtime_env  # noqa: F401
@@ -155,6 +157,73 @@ def test_returned_page_ids_must_match_planned_chunk(tmp_path):
         collector.collect_layer(
             "https://example.test/FeatureServer/0", layer_name="points", transform=lambda rows: pl.DataFrame(rows)
         )
+
+
+@pytest.mark.parametrize(
+    ("oid_field", "response_format", "out_fields", "expected_fields"),
+    [
+        ("OBJECTID", "geojson", "PlanningAuthority", "PlanningAuthority,OBJECTID"),
+        ("SOURCE_ROW", "json", "PlanningAuthority", "PlanningAuthority,SOURCE_ROW"),
+        ("OBJECTID", "geojson", "*", "*"),
+        ("SOURCE_ROW", "json", "PlanningAuthority,SOURCE_ROW", "PlanningAuthority,SOURCE_ROW"),
+    ],
+)
+def test_selective_fields_keep_publisher_oid_for_validation_then_drop_it(
+    tmp_path, oid_field, response_format, out_fields, expected_fields
+):
+    """ArcGIS omits both GeoJSON id and the OID property unless selected (live L1 witness, 2026-10-15)."""
+    metadata = {
+        "objectIdField": oid_field,
+        "fields": [
+            {"name": oid_field, "type": "esriFieldTypeOID"},
+            {"name": "PlanningAuthority", "type": "esriFieldTypeString"},
+        ],
+        "maxRecordCount": 2,
+        "editingInfo": {"lastEditDate": 10},
+    }
+    page_requests = []
+
+    def request(url, params):
+        if not url.endswith("/query"):
+            return metadata
+        if params.get("returnIdsOnly") == "true":
+            return {"objectIds": [1, 2]}
+        if params.get("returnCountOnly") == "true":
+            return {"count": 2}
+        page_requests.append(dict(params))
+        selected = {field.strip() for field in params["outFields"].split(",")}
+        features = []
+        for value in [1, 2]:
+            properties = {"PlanningAuthority": "Test Council"}
+            if "*" in selected or oid_field in selected:
+                properties[oid_field] = value
+            if params["f"] == "geojson":
+                feature = {"type": "Feature", "properties": properties, "geometry": None}
+                if "*" in selected or oid_field in selected:
+                    feature["id"] = value
+            else:
+                feature = {"attributes": properties, "geometry": None}
+            features.append(feature)
+        return {"features": features}
+
+    with acquisition.ArcGISStagedCollector(request, tmp_path, page_size=2) as collector:
+        result = collector.collect_layer(
+            "https://example.test/FeatureServer/1",
+            layer_name="sites",
+            output_params={"f": response_format, "outFields": out_fields},
+            transform=lambda rows: pl.DataFrame(rows),
+        )
+    assert result.complete and result.expected_count == result.fetched_count == 2
+    assert page_requests[0]["outFields"] == expected_fields
+    assert pl.read_parquet(result.page_paths[0]).columns == ["PlanningAuthority"]
+    connection = sqlite3.connect((tmp_path / "acquisition.sqlite3").as_uri() + "?mode=ro", uri=True)
+    try:
+        identity = json.loads(
+            connection.execute("SELECT identity_json FROM layers WHERE layer_name='sites'").fetchone()[0]
+        )
+    finally:
+        connection.close()
+    assert identity["request"]["outFields"] == page_requests[0]["outFields"]
 
 
 def test_point_adapter_keeps_transform_schema_when_source_page_is_all_null(tmp_path):
