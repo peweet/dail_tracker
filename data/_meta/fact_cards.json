@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-08T22:12:40+00:00",
+  "generated_utc": "2026-10-17T06:37:11+00:00",
   "note": "Metadata index of every silver/gold parquet. Read a card before scanning a fact. money facts carry never_sum_with \u2014 obey the 3-money-grain rule.",
   "count": 245,
   "facts": {
@@ -3171,7 +3171,9 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 4961851
+      "size_bytes": 4961851,
+      "grain": "one row per afforestation licence-application polygon, WGS84 wkb+bbox",
+      "purpose": "DAFM Forestry Licence Viewer extracts \u2014 forestry-market activity near a site (the demand both land reports say props up marginal land) and siting-relevant works; applications, not grants, unless the attribute says otherwise"
     },
     "dafm_coillte_clearfell_licences": {
       "file": "data/silver/parquet/dafm_coillte_clearfell_licences.parquet",
@@ -3216,7 +3218,9 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 8555565
+      "size_bytes": 8555565,
+      "grain": "one row per Coillte clearfell licence-application polygon, WGS84 wkb+bbox",
+      "purpose": "DAFM Forestry Licence Viewer extracts \u2014 forestry-market activity near a site (the demand both land reports say props up marginal land) and siting-relevant works; applications, not grants, unless the attribute says otherwise"
     },
     "dafm_coillte_thinning_licences": {
       "file": "data/silver/parquet/dafm_coillte_thinning_licences.parquet",
@@ -3261,7 +3265,9 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 9572365
+      "size_bytes": 9572365,
+      "grain": "one row per Coillte thinning licence-application polygon, WGS84 wkb+bbox",
+      "purpose": "DAFM Forestry Licence Viewer extracts \u2014 forestry-market activity near a site (the demand both land reports say props up marginal land) and siting-relevant works; applications, not grants, unless the attribute says otherwise"
     },
     "dafm_forest_road_polygons": {
       "file": "data/silver/parquet/dafm_forest_road_polygons.parquet",
@@ -3304,7 +3310,9 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 540748
+      "size_bytes": 540748,
+      "grain": "one row per forest-road licence-application polygon, WGS84 wkb+bbox",
+      "purpose": "DAFM Forestry Licence Viewer extracts \u2014 forestry-market activity near a site (the demand both land reports say props up marginal land) and siting-relevant works; applications, not grants, unless the attribute says otherwise"
     },
     "dafm_forest_road_polylines": {
       "file": "data/silver/parquet/dafm_forest_road_polylines.parquet",
@@ -3347,7 +3355,9 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 1068318
+      "size_bytes": 1068318,
+      "grain": "one row per forest-road licence-application line, WGS84 wkb+bbox",
+      "purpose": "DAFM Forestry Licence Viewer extracts \u2014 forestry-market activity near a site (the demand both land reports say props up marginal land) and siting-relevant works; applications, not grants, unless the attribute says otherwise"
     },
     "dafm_private_felling_licences": {
       "file": "data/silver/parquet/dafm_private_felling_licences.parquet",
@@ -3390,7 +3400,9 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 16439265
+      "size_bytes": 16439265,
+      "grain": "one row per private felling licence-application polygon, WGS84 wkb+bbox",
+      "purpose": "DAFM Forestry Licence Viewer extracts \u2014 forestry-market activity near a site (the demand both land reports say props up marginal land) and siting-relevant works; applications, not grants, unless the attribute says otherwise"
     },
     "dafm_reconstitution_underplanting": {
       "file": "data/silver/parquet/dafm_reconstitution_underplanting.parquet",
@@ -3443,7 +3455,9 @@
       "read_by": [
         "no runtime reader found \u2014 untrack candidate (review before removing)"
       ],
-      "size_bytes": 1339227
+      "size_bytes": 1339227,
+      "grain": "one row per reconstitution or underplanting licence-application polygon, WGS84 wkb+bbox",
+      "purpose": "DAFM Forestry Licence Viewer extracts \u2014 forestry-market activity near a site (the demand both land reports say props up marginal land) and siting-relevant works; applications, not grants, unless the attribute says otherwise"
     },
     "dail_member_interests_combined": {
       "file": "data/silver/parquet/dail_member_interests_combined.parquet",
@@ -5536,7 +5550,7 @@
     "judicial_legal_diary_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_cases.parquet",
       "layer": "gold",
-      "rows": 20802,
+      "rows": 24155,
       "columns": [
         "diary_date",
         "court",
@@ -5574,12 +5588,12 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_legal_diary_cases.sql, judiciary/judiciary_plaintiff_league.sql"
       ],
-      "size_bytes": 218356
+      "size_bytes": 241072
     },
     "judicial_legal_diary_counts": {
       "file": "data/gold/parquet/judicial_legal_diary_counts.parquet",
       "layer": "gold",
-      "rows": 1448,
+      "rows": 1638,
       "columns": [
         "diary_date",
         "court",
@@ -5601,7 +5615,7 @@
       "read_by": [
         "read by judiciary/judiciary_legal_diary_counts.sql"
       ],
-      "size_bytes": 9695
+      "size_bytes": 10356
     },
     "judicial_legal_diary_openview_cases": {
       "file": "data/gold/parquet/judicial_legal_diary_openview_cases.parquet",
@@ -5690,7 +5704,7 @@
     "judicial_legal_diary_schedule": {
       "file": "data/gold/parquet/judicial_legal_diary_schedule.parquet",
       "layer": "gold",
-      "rows": 3449,
+      "rows": 3876,
       "columns": [
         "diary_date",
         "court",
@@ -5716,7 +5730,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_sittings.sql, judiciary/judiciary_legal_diary_schedule.sql"
       ],
-      "size_bytes": 21489
+      "size_bytes": 23023
     },
     "judiciary_appointments": {
       "file": "data/gold/parquet/judiciary_appointments.parquet",
@@ -5920,7 +5934,7 @@
     "judiciary_diary_judge_map": {
       "file": "data/gold/parquet/judiciary_diary_judge_map.parquet",
       "layer": "gold",
-      "rows": 8918,
+      "rows": 8922,
       "columns": [
         "judge",
         "court",
@@ -5940,7 +5954,7 @@
       "read_by": [
         "read by judiciary/judiciary_judge_diary.sql, judiciary/judiciary_judge_sittings.sql"
       ],
-      "size_bytes": 57442
+      "size_bytes": 57437
     },
     "judiciary_nominations": {
       "file": "data/gold/parquet/judiciary_nominations.parquet",

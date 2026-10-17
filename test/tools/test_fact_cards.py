@@ -35,6 +35,15 @@ def test_every_parquet_has_a_card(cards):
     assert not missing, f"parquets without a fact card (run build_fact_cards.py): {sorted(missing)[:8]}"
 
 
+def test_every_curated_contract_resolves_to_a_public_parquet_and_card(cards):
+    contracts = set(build_fact_cards._grain_seed())
+    public_parquets = {path.stem for path in build_fact_cards.public_parquet_paths()}
+    missing_parquets = sorted(contracts - public_parquets)
+    missing_cards = sorted(contracts - set(cards))
+    assert not missing_parquets, f"curated contracts without a tracked public parquet: {missing_parquets}"
+    assert not missing_cards, f"curated contracts without a fact card: {missing_cards}"
+
+
 def test_cards_carry_rows_and_columns(cards):
     thin = [k for k, c in cards.items() if not c.get("columns") or c.get("rows") is None]
     assert not thin, f"cards missing rows/columns: {thin[:8]}"

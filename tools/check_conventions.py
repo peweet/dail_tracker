@@ -451,6 +451,8 @@ def _raw_parquet_outside_extractors() -> list[str]:
             "__pycache__",
             ".tmp",
             "tmp",
+            ".cache",
+            "artifacts",
             ".venv",
             ".uv-envs",
             "node_modules",

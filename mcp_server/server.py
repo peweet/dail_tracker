@@ -2304,7 +2304,7 @@ _SITING_DESCRIPTION = (
     "use_class may be 'wind_farm', 'solar_farm', 'intensive_agri', "
     "'quarry_extractive', 'warehouse_logistics', 'retail_leisure_community', "
     "'office_education_hospital', 'tourism_accommodation', 'pharma_chemical', "
-    "'ad_biogas_waste', 'general_manufacturing', or 'data_centre'; blank or unknown "
+    "'ad_biogas_waste', 'general_manufacturing', 'data_centre', or 'ev_charging'; blank or unknown "
     "values trigger no use-specific rule. For "
     "pharma_chemical, substance_inventory is the maximum tonnes present at one time, "
     "not annual throughput. Mark estimates with substance_inventory_source; unmatched "
@@ -2337,6 +2337,7 @@ SITING_USE_CLASSES = (
     "ad_biogas_waste",
     "general_manufacturing",
     "data_centre",
+    "ev_charging",
 )
 # Mirror of planning.product.core.evaluation.engine.NON_RESIDENTIAL_COMPONENTS (2026-08-27 scheme-mix
 # build); pinned equal by test_mcp_siting_vocabulary. Declared components of a residential-led
@@ -2385,7 +2386,7 @@ def siting_check(
     that otherwise stay silent; pass one of the canonical values exactly: 'wind_farm', 'solar_farm',
     'intensive_agri', 'quarry_extractive', 'warehouse_logistics',
     'retail_leisure_community', 'office_education_hospital', 'tourism_accommodation', 'pharma_chemical',
-    'ad_biogas_waste', 'general_manufacturing', 'data_centre'. Leave it unset for an ordinary house
+    'ad_biogas_waste', 'general_manufacturing', 'data_centre', 'ev_charging'. Leave it unset for an ordinary house
     or a use that doesn't match one of those — an unmatched or unset use_class fires nothing on
     that axis rather than guessing. `substance_inventory` (only read when use_class is
     'pharma_chemical') is an optional list of `{"name": str, "quantity_t": float, "cas": str,

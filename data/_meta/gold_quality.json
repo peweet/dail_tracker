@@ -10,6 +10,24 @@
         "reviewed_stage",
         "reviewed_utc"
       ],
+      "cso_aea01.parquet": [
+        "C02196V02652"
+      ],
+      "cso_aea02.parquet": [
+        "C02196V02652"
+      ],
+      "cso_aea03.parquet": [
+        "C02196V02652"
+      ],
+      "cso_aea05.parquet": [
+        "C02196V02652"
+      ],
+      "cso_aea08.parquet": [
+        "C02196V02652"
+      ],
+      "cso_aea09.parquet": [
+        "C02196V02652"
+      ],
       "ipas_la_profile.parquet": [
         "population_unknown_reason",
         "unknown_reason"
@@ -25,27 +43,23 @@
     "tables_with_dup_rows": {
       "cbi_xref_corporate_notices.parquet": {
         "dup_rows": 7,
-        "rows": 273
+        "rows": 280
       },
       "corporate_notices.parquet": {
-        "dup_rows": 1186,
-        "rows": 51574
+        "dup_rows": 1204,
+        "rows": 51813
       },
       "corporate_notices_enriched.parquet": {
-        "dup_rows": 1186,
-        "rows": 51574
+        "dup_rows": 1204,
+        "rows": 51813
       },
       "cro_xref_corporate_notices.parquet": {
-        "dup_rows": 830,
-        "rows": 28271
+        "dup_rows": 836,
+        "rows": 28398
       },
       "judicial_legal_diary_cases.parquet": {
-        "dup_rows": 3682,
-        "rows": 15513
-      },
-      "judicial_legal_diary_counts.parquet": {
-        "dup_rows": 197,
-        "rows": 1509
+        "dup_rows": 5757,
+        "rows": 24155
       },
       "judicial_legal_diary_openview_cases.parquet": {
         "dup_rows": 226120,
@@ -61,11 +75,11 @@
       },
       "public_appointments.parquet": {
         "dup_rows": 4,
-        "rows": 1167
+        "rows": 1169
       },
       "stateboards_roster.parquet": {
-        "dup_rows": 12,
-        "rows": 2049
+        "dup_rows": 10,
+        "rows": 2066
       }
     },
     "tables_with_encoding_artifacts": {

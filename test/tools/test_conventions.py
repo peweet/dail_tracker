@@ -27,6 +27,12 @@ def test_parquet_scan_skips_nested_environment_but_checks_product_source(tmp_pat
     library = product / ".venv" / "Lib" / "site-packages" / "example.py"
     library.parent.mkdir(parents=True)
     library.write_text("frame.write_parquet('library.parquet')", encoding="utf-8")
+    cache = product / ".cache" / "release" / "example.py"
+    cache.parent.mkdir(parents=True)
+    cache.write_text("frame.write_parquet('cache.parquet')", encoding="utf-8")
+    artifact = product / "artifacts" / "audit" / "example.py"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("frame.write_parquet('artifact.parquet')", encoding="utf-8")
     source = product / "core" / "example.py"
     source.parent.mkdir()
     source.write_text("frame.write_parquet('product.parquet')", encoding="utf-8")
