@@ -2310,6 +2310,11 @@ _SITING_DESCRIPTION = (
     "not annual throughput. Mark estimates with substance_inventory_source; unmatched "
     "substances are reported, never cleared. programme_items and process_capacity add "
     "stated scheme detail but never determine the Seveso tier, which uses inventory. "
+    "wind_generation optionally reports required proposal_scope (one of "
+    "new_generation, generation_alteration, operational_continuation, connection_only, "
+    "decommissioning, or unknown), plus optional turbine_count and "
+    "total_generating_output_mw (the generating output measure); these values are "
+    "forwarded as reported to the evaluation engine. "
     "Returns the council, exclusions, tiered site-specific and standard issues, likely "
     "reports, available layers, and not_assessed coverage gaps. This is triage, not a "
     "grant/refuse verdict: an empty result or missing layer never proves developability. "
@@ -2372,6 +2377,7 @@ def siting_check(
     floor_area_basis: str = "",
     storeys: int = 0,
     basement_levels: int = 0,
+    wind_generation: dict | None = None,
 ) -> dict:
     """Planning-constraint TRIAGE for a single point in Ireland: which planning ISSUES a proposed
     development triggers at (lat, lon), each with the governing rule quoted verbatim from the
@@ -2415,6 +2421,12 @@ def siting_check(
     `substance_inventory`. `combustion_aggregate_mw` (the whole energy centre: boilers + CHP +
     standby) makes the combustion node state which side of the 50 MW EPA Class 2.1 line and the
     1 MW MCP floor the scheme sits, instead of only asking for the figure. Set
+    `wind_generation` when the applicant reports wind-generation detail. `proposal_scope` is
+    required and must be one of 'new_generation', 'generation_alteration',
+    'operational_continuation', 'connection_only', 'decommissioning', or 'unknown';
+    `turbine_count` and `total_generating_output_mw` are optional, with the latter measured as
+    generating output in MW. The values are reported inputs and are passed through to the engine
+    unchanged.
     `floor_area_basis` to 'footprint' when `floor_area_m2` is a building footprint rather than
     gross floor area — with `storeys` the GFA is derived and the size thresholds test that; without
     storeys the figure is reported as the lower bound on GFA it is. Default ('gfa') is unchanged.
@@ -2479,10 +2491,12 @@ def siting_check(
         from planning.product.core.evaluation import engine as _engine
         from planning.product.core.evaluation.process_capacity import ProcessCapacity
         from planning.product.core.evaluation.seveso_inventory import InventoryLine
+        from planning.product.core.evaluation.wind_generation import WindGeneration
         from planning.product.core.layer_store.layers import make_store
     except Exception:  # noqa: BLE001 — private overlay may be absent from a public checkout
         return {"error": "Siting check is unavailable."}
     try:
+        wind = WindGeneration(**wind_generation) if wind_generation is not None else None
         store = make_store()
         if not tuple(store.available()):
             return {"error": "Siting check is unavailable."}
@@ -2522,6 +2536,7 @@ def siting_check(
             programme_items=programme_items or None,
             non_residential_components=non_residential_components or None,
             process_capacity=capacity,
+            wind_generation=wind,
             floor_area_basis=(floor_area_basis or "").strip() or None,
             storeys=storeys or None,
             basement_levels=basement_levels or None,
