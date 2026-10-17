@@ -1,4 +1,4 @@
-# COPIED-FROM: planning/civic/extractors/planning_appeal_outcomes.py @ sha256:1b19c8cfb0477ce7b61e7998925b6097bb8a5d41731a7b7220c240deaac28bd9
+# COPIED-FROM: planning/civic/extractors/planning_appeal_outcomes.py @ sha256:1e1cac972a39d0d66652142aae472608b7c54bf7865fd20dfad2615cc5e14cdf
 """Authoritative council-overturn metric — applications x ACP appeal decisions.
 
 Fixes the data-quality trap in the national profile (planning_decision_profiles.py): the applications
@@ -95,7 +95,7 @@ _APPLICATION_COLUMNS = (
 # Cases still before the Board carry a DECISION of "Case is due to be decided by <date>" — 1,383 of
 # the register's 1,580 distinct DECISION strings on 2026-07-20. They are NOT outcomes; abp_decision_expr maps
 # them to OTHER, which would pool them with withdrawn/invalid. The spine marks them `live` instead.
-_LIVE = re.compile(r"^\s*case is due to be decided", re.I)
+_LIVE = re.compile(r"^\s*case\s+(?:is\s+)?due\s+to\s+be\s+decided\b", re.I)
 # metres per degree at ~53°N — a spread/size measure only (never a distance the user is shown).
 _M_PER_DEG_LAT, _M_PER_DEG_LON = 111_320.0, 67_000.0
 # Matching constants are imported from the mutation-testable vector seam.

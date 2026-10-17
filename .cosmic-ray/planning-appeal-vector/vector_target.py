@@ -1,18 +1,11 @@
-# COPIED-FROM: planning/civic/extractors/planning_appeal_vector.py @ sha256:2b4f347b3c356c8438365b827324bc1bb65965152d1089a1c20cecda4cd7df6a
-"""Cosmic Ray mutation target: the whole of planning/civic/extractors/planning_appeal_vector.py.
+# COPIED-FROM: planning/civic/extractors/planning_appeal_vector.py @ sha256:9d0e698f7e8d25f2b7c5672326f91e4352247064ad0bb6e3f475ba63e5a775e0
+"""Native Polars expressions for the planning appeal-outcomes extractor.
 
-Verbatim copy of the module -- not just one function. The module's own docstring already states
-its purpose is to be the small, deterministic, mutation-testable seam for the appeal-outcomes
-extractor (network fetch, artifact writes and coverage metadata stay in planning_appeal_outcomes,
-which imports every symbol here). Every function is exercised: authority_key_expr,
-council_decision_expr, appeal_case_expr, epoch_ms_date_expr and case_status_expr by
-test/planning/test_planning_appeal_vector.py; spatial_temporal_matches (13 cases: tie-breaking,
-radius/date boundaries, empty inputs, cross-authority exclusion) by
-test/planning/test_planning_appeal_outcomes_matcher.py via the _spatial_temporal_matches wrapper
-in planning_appeal_outcomes.py. Supersedes planning-appeal-outcomes-full and
-planning-appeal-outcomes-matcher, whose *_target.py copies predate the 2026-08-14 extraction of
-this matching logic out of planning_appeal_outcomes.py -- refresh this copy from the real module
-before any re-run.
+This module is intentionally small and deterministic.  It contains the columnar
+transformations and the spatial-temporal candidate join, while network fetching,
+artifact writes, coverage metadata and product copy remain in
+``planning_appeal_outcomes``.  Keeping this seam small also makes mutation testing
+practical.
 """
 
 from __future__ import annotations
@@ -70,11 +63,33 @@ def council_decision_expr(column: str | pl.Expr) -> pl.Expr:
     )
 
 
+def abp_decision_expr(column: str | pl.Expr) -> pl.Expr:
+    """Map ABP planning-appeal vocabulary to GRANT / REFUSE / OTHER without inference."""
+    expr = pl.col(column) if isinstance(column, str) else column
+    decision = expr.fill_null("").str.to_lowercase()
+    non_substantive = decision.str.strip_chars().eq("") | decision.str.contains(
+        r"withdraw|invalid|leave to appeal|is development|contribution appeal|"
+        r"confirm the determination|set aside|determination of the local"
+    )
+    return (
+        pl.when(non_substantive)
+        .then(pl.lit("OTHER"))
+        .when(decision.str.contains(r"refuse"))
+        .then(pl.lit("REFUSE"))
+        .when(decision.str.contains(r"grant|approve|permission"))
+        .then(pl.lit("GRANT"))
+        .otherwise(pl.lit("OTHER"))
+    )
+
+
 def case_status_expr(decision_column: str, decided_column: str) -> pl.Expr:
     """Classify a case as live using the extractor's existing two-part rule."""
     decision = pl.col(decision_column).fill_null("")
     return (
-        pl.when(pl.col(decided_column).is_null() | decision.str.contains(r"(?i)^\s*case is due to be decided"))
+        pl.when(
+            pl.col(decided_column).is_null()
+            | decision.str.contains(r"(?i)^\s*case\s+(?:is\s+)?due\s+to\s+be\s+decided\b")
+        )
         .then(pl.lit("live"))
         .otherwise(pl.lit("decided"))
     )
