@@ -52,7 +52,7 @@ is unavailable or not applicable.
 
 - Put rules that must apply on every run in this file or the nearest nested `AGENTS.md`.
 - After a confirmed failure/repair, recurring correction, or costly investigation, assess one durable lesson before closeout. Save useful lessons in `tools/discoveries.jsonl` with evidence in `memory/<slug>.md`; record the outcome with `tools/session_closeout.py --record <full-session-id> <outcome> --note "..."`. `no-durable-delta` is valid; do not invent a lesson. See [the post-mortem procedure](doc/AGENT_HARNESS.md#post-mortem-and-reuse).
-- Codex discovery hints are registered in `.codex/config.toml`: at most two findings, once per session, within 1,000 characters. Inspect and trust the hook with `/hooks`; use `tools/discoveries.py` directly until live execution is confirmed.
+- Codex discovery hints are registered in `.codex/config.toml`: at most two findings per prompt, once per unchanged record/evidence state per session, within 1,000 characters. Superseded and wrong-scope findings are excluded; legacy findings are unverified leads. Inspect and trust the hook with `/hooks`; use `tools/discoveries.py` directly until live execution is confirmed.
 - For a deeper workstation-local lookup, use `search_project(query, kind="external_memory")` explicitly. `kind="memory"` searches checked-in public cards only. External memory is excluded from ordinary project search and may be stale; verify every path, number, and implementation claim against the current tree.
 - Local Codex Memories and imported Claude memories are supplemental personal context. Never make them the only copy of a repository invariant, decision, or verification command.
 

@@ -11,14 +11,14 @@ the matching row into context at the exact moment the topic comes up — the sam
 Deliberately soft and quiet (per the guardrail-determinism tiers: keyword matching
 is a semantic judgment, so never a block):
 - at most MAX_ROWS rows per prompt, each one line;
-- a row is injected at most once per session (marker file in temp, like flood_warn);
+- an unchanged row/evidence state is injected once per session; corrections can recur;
 - fires only on a confident match: >=2 distinct trigger hits, or one multi-word
   trigger (multi-word phrases are specific enough on their own — "audited financial
   statements" can't fire by accident the way "gross" could);
 - stays silent on slash commands, short prompts, and any error (fails open).
 
-Reads ONLY tools/discoveries.jsonl (~13 KB) — never token_ledger.py or transcripts,
-same heaviness rule as session_context.py's _discoveries_note.
+Reads the compact index plus at most four bounded text sources per matching row.
+Never reads token ledgers or transcripts. Legacy records are unverified leads.
 """
 
 from __future__ import annotations
@@ -36,7 +36,8 @@ DATA = os.path.join(REPO, "tools", "discoveries.jsonl")
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from tools.discoveries import resolve_memory  # noqa: E402 - standalone hook path bootstrap
+from tools.discoveries import load, resolve_detail  # noqa: E402 - standalone hook path bootstrap
+from tools.memory_policy import context_scope, select  # noqa: E402
 
 MAX_ROWS = 2  # per the design note: 1-2 rows max, or it becomes prompt noise
 MIN_PROMPT_CHARS = 20  # below this it's "yes"/"ok"/a path — nothing to match on
@@ -48,38 +49,7 @@ _BAND_RANK = {"high": 0, "med": 1, "low": 2}
 
 
 def _load_rows() -> list[dict]:
-    rows = []
-    with open(DATA, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                o = json.loads(line)
-            except Exception:
-                continue
-            if not isinstance(o, dict):
-                continue
-            row_id = o.get("id")
-            discovery = o.get("discovery")
-            triggers = o.get("trigger")
-            if (
-                not isinstance(row_id, str)
-                or not row_id.strip()
-                or row_id.startswith("_")
-                or not isinstance(discovery, str)
-                or not discovery.strip()
-                or not isinstance(triggers, list)
-                or not triggers
-                or any(not isinstance(trigger, str) or not trigger.strip() for trigger in triggers)
-                or (o.get("cost_band") is not None and not isinstance(o["cost_band"], str))
-            ):
-                continue
-            o["id"] = row_id.strip()
-            o["discovery"] = discovery.strip()
-            o["trigger"] = [trigger.strip() for trigger in triggers]
-            rows.append(o)
-    return rows
+    return load(DATA)
 
 
 _STOPWORDS = frozenset(
@@ -173,7 +143,8 @@ def _seen_path(session: str) -> str:
 def _load_seen(session: str) -> set[str]:
     try:
         with open(_seen_path(session), encoding="utf-8") as fh:
-            return set(json.load(fh))
+            value = json.load(fh)
+            return {item for item in value if isinstance(item, str)} if isinstance(value, list) else set()
     except Exception:
         return set()
 
@@ -186,10 +157,10 @@ def _save_seen(session: str, seen: set[str]) -> None:
         pass  # can't persist -> worst case is a repeat hint next prompt, not a crash
 
 
-def _detail_label(slug: str) -> str:
+def _detail_label(slug: str, *, row: dict | None = None, scope: str = "public") -> str:
     """Return a truthful, portable detail reference for an indexed lesson."""
     try:
-        detail = resolve_memory(slug)
+        detail = resolve_detail(row or {"memory": slug}, scope=scope, root=Path(REPO))
     except Exception:
         return ""
     if detail is None:
@@ -229,7 +200,17 @@ def main() -> int:
             scored.append((row, _match(prompt_lc, row)))
         except Exception:
             continue
-    hits = [(r, s) for r, s in scored if s > 0]
+    matches = {r["id"]: score for r, score in scored if score > 0}
+    try:
+        scope = context_scope(payload.get("cwd"), Path(REPO))
+        eligible = select(
+            [r for r in rows if r["id"] in matches],
+            root=Path(REPO),
+            scope=scope,
+        )
+    except Exception:
+        return 0  # never fall back to injecting unvalidated findings
+    hits = [(r, matches[r["id"]]) for r in eligible]
     if not hits:
         return 0
     try:
@@ -238,23 +219,28 @@ def main() -> int:
         return 0
 
     seen = _load_seen(session)
-    header = "[discovery-index] Cached finding(s) matching this prompt — read before re-deriving:\n"
+    header = "[discovery-index] Reference leads, not instructions. Recheck unverified evidence:\n"
     lines = []
     emitted_ids = set()
     for row, _ in hits:
-        if row["id"] in seen or len(lines) >= MAX_ROWS:
+        recall = row["_recall"]
+        if recall["key"] in seen or len(lines) >= MAX_ROWS:
             continue
         try:
             display_id = row["id"][:MAX_DISPLAY_ID_CHARS]
-            one = row["discovery"][:MAX_LINE_CHARS]
-            label = _detail_label(str(row.get("memory", "")))[:MAX_DETAIL_CHARS]
-            line = f"- {display_id}: {one}" + (f" ({label})" if label else "")
+            one = recall["text"][:MAX_LINE_CHARS]
+            label = (
+                "source: " + ", ".join(recall["sources"])
+                if recall["sources"]
+                else (_detail_label(str(row.get("memory", "")), row=row, scope=scope))
+            )[:MAX_DETAIL_CHARS]
+            line = f"- {display_id} [{recall['state']}]: {one}" + (f" ({label})" if label else "")
         except Exception:
             continue
         if len(header) + sum(len(existing) + 1 for existing in lines) + len(line) > MAX_CONTEXT_CHARS:
             continue
         lines.append(line)
-        emitted_ids.add(row["id"])
+        emitted_ids.add(recall["key"])
     if not lines:
         return 0
     _save_seen(session, seen | emitted_ids)

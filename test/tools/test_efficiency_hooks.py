@@ -233,7 +233,7 @@ def test_discovery_hint_accepts_codex_payload_and_uses_real_repo_detail(tmp_path
     )
     detail = REPO / "memory" / "afs-detail.md"
     monkeypatch.setattr(hint, "DATA", str(rows))
-    monkeypatch.setattr(hint, "resolve_memory", lambda _slug: detail)
+    monkeypatch.setattr(hint, "resolve_detail", lambda _row, **_kwargs: detail)
 
     rc = _run(
         hint,
@@ -256,7 +256,7 @@ def test_discovery_hint_accepts_codex_payload_and_uses_real_repo_detail(tmp_path
 def test_discovery_hint_does_not_expose_personal_absolute_memory_path(tmp_path, monkeypatch):
     hint = _load("discovery_hint")
     personal = tmp_path / "private" / "lesson.md"
-    monkeypatch.setattr(hint, "resolve_memory", lambda _slug: personal)
+    monkeypatch.setattr(hint, "resolve_detail", lambda _row, **_kwargs: personal)
 
     label = hint._detail_label("lesson")
 
@@ -394,7 +394,7 @@ def test_discovery_hint_does_not_mark_overflow_rows_seen(tmp_path, monkeypatch, 
         encoding="utf-8",
     )
     monkeypatch.setattr(hint, "DATA", str(rows))
-    monkeypatch.setattr(hint, "_detail_label", lambda _slug: "d" * hint.MAX_DETAIL_CHARS)
+    monkeypatch.setattr(hint, "_detail_label", lambda _slug, **_kwargs: "d" * hint.MAX_DETAIL_CHARS)
     marker_dir = tmp_path / "markers"
     marker_dir.mkdir()
     monkeypatch.setattr(hint, "_seen_path", lambda session: str(marker_dir / f"{session}.json"))
@@ -419,3 +419,152 @@ def test_discovery_hint_skips_invalid_cost_bands(tmp_path, monkeypatch, capsys):
     assert _run(hint, {"prompt": "alpha beta needs review", "session_id": uuid.uuid4().hex}, monkeypatch) == 0
     output = capsys.readouterr().out
     assert "valid-row" in output and "invalid-" not in output
+
+
+def test_discovery_hint_filters_scope_and_supersession_before_ranking(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    path = tmp_path / "discoveries.jsonl"
+    rows = [
+        {"id": "private", "scope": "private", "trigger": ["memory policy"], "discovery": "PRIVATE CLAIM"},
+        {"id": "old", "superseded_by": "new", "trigger": ["memory policy"], "discovery": "OBSOLETE CLAIM"},
+        {"id": "new", "scope": "public", "trigger": ["memory policy"], "discovery": "Current lead"},
+    ]
+    path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+    monkeypatch.setattr(hint, "DATA", str(path))
+    payload = {
+        "prompt": "Review the memory policy before proceeding.",
+        "session_id": uuid.uuid4().hex,
+        "cwd": str(REPO),
+    }
+
+    assert _run(hint, payload, monkeypatch) == 0
+    output = capsys.readouterr().out
+    assert "Current lead" in output and "unverified" in output
+    assert "PRIVATE CLAIM" not in output and "OBSOLETE CLAIM" not in output
+
+
+def test_discovery_hint_emits_a_corrected_revision_in_the_same_session(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    path = tmp_path / "discoveries.jsonl"
+    row = {"id": "lesson", "revision": 1, "trigger": ["memory policy"], "discovery": "Initial lead"}
+    path.write_text(json.dumps(row), encoding="utf-8")
+    monkeypatch.setattr(hint, "DATA", str(path))
+    monkeypatch.setattr(hint, "_seen_path", lambda _session: str(tmp_path / "seen.json"))
+    payload = {"prompt": "Review the memory policy before proceeding.", "session_id": "revision-test"}
+
+    assert _run(hint, payload, monkeypatch) == 0
+    assert "Initial lead" in capsys.readouterr().out
+    assert _run(hint, payload, monkeypatch) == 0
+    assert capsys.readouterr().out == ""
+
+    row.update(revision=2, discovery="Corrected lead")
+    path.write_text(json.dumps(row), encoding="utf-8")
+    assert _run(hint, payload, monkeypatch) == 0
+    assert "Corrected lead" in capsys.readouterr().out
+
+
+def test_discovery_hint_reports_changed_evidence_without_repeating_stale_claim(tmp_path, monkeypatch, capsys):
+    import hashlib
+
+    hint = _load("discovery_hint")
+    source = tmp_path / "evidence.md"
+    source.write_text("original evidence", encoding="utf-8")
+    row = {
+        "id": "lesson",
+        "revision": 1,
+        "scope": "public",
+        "trigger": ["memory policy"],
+        "discovery": "STALE CLAIM",
+        "verified_at": "2026-10-18T00:00:00Z",
+        "source_refs": [{"path": "evidence.md", "sha256": hashlib.sha256(source.read_bytes()).hexdigest()}],
+    }
+    path = tmp_path / "discoveries.jsonl"
+    path.write_text(json.dumps(row), encoding="utf-8")
+    monkeypatch.setattr(hint, "DATA", str(path))
+    monkeypatch.setattr(hint, "REPO", str(tmp_path))
+    monkeypatch.setattr(hint, "_seen_path", lambda _session: str(tmp_path / "seen.json"))
+    payload = {"prompt": "Review the memory policy before proceeding.", "session_id": "evidence-test"}
+    assert _run(hint, payload, monkeypatch) == 0
+    assert "STALE CLAIM" in capsys.readouterr().out
+
+    source.write_text("changed evidence", encoding="utf-8")
+    assert _run(hint, payload, monkeypatch) == 0
+    output = capsys.readouterr().out
+    assert "recheck" in output and "evidence.md" in output
+    assert "STALE CLAIM" not in output
+
+
+def test_discovery_hint_quarantines_duplicate_ids_even_if_only_one_trigger_matches(tmp_path, monkeypatch, capsys):
+    hint = _load("discovery_hint")
+    path = tmp_path / "discoveries.jsonl"
+    rows = [
+        {"id": "conflict", "trigger": ["memory policy"], "discovery": "FIRST CLAIM"},
+        {"id": "conflict", "trigger": ["different topic"], "discovery": "OTHER CLAIM"},
+        {"id": "good", "trigger": ["memory policy"], "discovery": "Useful lead"},
+    ]
+    path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+    monkeypatch.setattr(hint, "DATA", str(path))
+    payload = {"prompt": "Review the memory policy before proceeding.", "session_id": uuid.uuid4().hex}
+    assert _run(hint, payload, monkeypatch) == 0
+    output = capsys.readouterr().out
+    assert "Useful lead" in output
+    assert "FIRST CLAIM" not in output and "OTHER CLAIM" not in output
+
+
+def test_discovery_hint_never_resolves_a_private_detail_in_public_context(tmp_path, monkeypatch, capsys):
+    from tools import discoveries
+
+    hint = _load("discovery_hint")
+    private = tmp_path / "planning/product/claude/memory/private-detail.md"
+    private.parent.mkdir(parents=True)
+    private.write_text("private evidence", encoding="utf-8")
+    path = tmp_path / "discoveries.jsonl"
+    path.write_text(
+        json.dumps(
+            {"id": "legacy", "discovery": "Public lead", "trigger": ["memory policy"], "memory": "private-detail"}
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(discoveries, "ROOT", tmp_path)
+    monkeypatch.setattr(discoveries, "default_memory_roots", lambda: [tmp_path / "memory", private.parent])
+    monkeypatch.setattr(hint, "REPO", str(tmp_path))
+    monkeypatch.setattr(hint, "DATA", str(path))
+    payload = {
+        "prompt": "Review the memory policy before proceeding.",
+        "session_id": uuid.uuid4().hex,
+        "cwd": str(tmp_path),
+    }
+    assert _run(hint, payload, monkeypatch) == 0
+    assert "private-detail" not in capsys.readouterr().out
+
+
+def test_discovery_hint_public_finding_does_not_gain_private_provenance(tmp_path, monkeypatch, capsys):
+    from tools import discoveries
+
+    hint = _load("discovery_hint")
+    private = tmp_path / "planning/product/claude/memory/same.md"
+    private.parent.mkdir(parents=True)
+    private.write_text("private evidence", encoding="utf-8")
+    path = tmp_path / "discoveries.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "id": "public-row",
+                "scope": "public",
+                "discovery": "Public lead",
+                "trigger": ["memory policy"],
+                "memory": "same",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(discoveries, "ROOT", tmp_path)
+    monkeypatch.setattr(hint, "REPO", str(tmp_path))
+    monkeypatch.setattr(hint, "DATA", str(path))
+    payload = {
+        "prompt": "Review the memory policy before proceeding.",
+        "session_id": uuid.uuid4().hex,
+        "cwd": str(tmp_path / "planning/product"),
+    }
+    assert _run(hint, payload, monkeypatch) == 0
+    assert "same.md" not in capsys.readouterr().out
