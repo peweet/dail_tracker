@@ -8,9 +8,9 @@ published centrally — that limitation is recorded in the coverage note, never 
 
 Geocoding is layered and honest, never invention (per-row `geocode_source` + `geocode_precision`
 say which layer produced each point):
-  1. NAME-JOIN (`name_join`/`site`): most COMAH establishments are also EPA-licensed, so we match
-     normalised operator names against the epa_licensed_facilities layer (WFS points ingested the
-     same day) and take the facility's coordinates on a confident match.
+  1. ADDRESS-BOUND JOIN (`name_join`/`site`): candidate operator names must also have the same
+     normalized publisher site address. Ambiguous or different addresses remain unresolved;
+     name overlap and a shared county never establish that two establishments are one site.
   2. ADDRESS GEOCODE (`nominatim`/`address`, added 2026-07-31): unmatched rows are geocoded from
      the HSA-published establishment address via Nominatim (1 req/s, results cached to a sidecar
      json so re-runs are free). An address hit is the published postal address, not a surveyed
@@ -401,7 +401,12 @@ def fetch_register() -> tuple[pl.DataFrame, list[str]]:
 
 
 def match_epa(df: pl.DataFrame) -> pl.DataFrame:
-    """Best-token-overlap name match against EPA licensed facilities; county must agree."""
+    """Join only a unique name candidate with an exact, substantive publisher address.
+
+    A missed join may proceed to the separately labelled address/town geocoding. A false join
+    would promote a different establishment's coordinates to site precision, so abbreviations
+    and genuine address variations require the existing reviewed address-qualified pin route.
+    """
     epa = pl.read_parquet(_EPA_LAYER)
     facilities = []
     # Centroids for the whole layer in one pass rather than one shapely call per row; bit-exact
@@ -411,38 +416,49 @@ def match_epa(df: pl.DataFrame) -> pl.DataFrame:
         facilities.append(
             {
                 "name_tokens": _tokens(r["Name"] or ""),
-                "blob": _norm((r["Name"] or "") + " " + (r["Address"] or "")),
+                "address_key": " ".join(_norm(r["Address"] or "").split()),
                 "reg": r["RegCD"],
                 "epa_name": r["Name"],
                 "lon": pt_x,
                 "lat": pt_y,
             }
         )
-    county_re = re.compile(r"co\.?\s+([a-z]+)|county\s+([a-z]+)", re.I)
-
     matched = []
     for r in df.iter_rows(named=True):
         toks = _tokens(r["establishment"])
-        m = county_re.search(r["address"] or "")
-        county = ((m.group(1) or m.group(2)) if m else "").lower()
-        best, best_score = None, 0.0
+        address_key = " ".join(_norm(r["address"] or "").split())
+        candidates = []
+        name_candidates = []
         for f in facilities:
             if not f["name_tokens"]:
                 continue
             inter = len(toks & f["name_tokens"])
             score = inter / max(len(toks | f["name_tokens"]), 1)
-            # county gate: only enforce when the HSA address names one and the EPA blob has any
-            if county and county not in f["blob"] and inter < len(toks):
+            if score < 0.5:
                 continue
-            if score > best_score:
-                best, best_score = f, score
-        ok = best is not None and best_score >= 0.5
+            name_candidates.append(f["reg"])
+            if len(address_key.split()) >= 3 and address_key == f["address_key"]:
+                candidates.append((score, f))
+        best_score = max((score for score, _ in candidates), default=0.0)
+        best_matches = [facility for score, facility in candidates if score == best_score]
+        ok = len(best_matches) == 1
+        best = best_matches[0] if ok else None
         matched.append(
             {
                 **r,
                 "epa_reg_cd": best["reg"] if ok else None,
                 "epa_name": best["epa_name"] if ok else None,
                 "match_score": round(best_score, 3) if ok else None,
+                "epa_match_status": (
+                    "matched_publisher_address"
+                    if ok
+                    else "ambiguous_site_identity"
+                    if best_matches
+                    else "unresolved_address_identity"
+                    if name_candidates
+                    else "no_name_candidate"
+                ),
+                "epa_candidate_reg_cds": sorted(set(name_candidates)),
                 "lon": best["lon"] if ok else None,
                 "lat": best["lat"] if ok else None,
             }
@@ -499,8 +515,9 @@ def main() -> None:
             "geocoded_nominatim_address": n_addr,
             "geocoded_nominatim_town": n_town,
             "geocode_method": (
-                "layered: (1) name-join to epa_licensed_facilities (token overlap >= 0.5, "
-                "county-gated, precision=site); (2) Nominatim on the published address "
+                "layered: (1) unique address-bound join to epa_licensed_facilities (name token "
+                "overlap >= 0.5 plus exact substantive publisher address; ambiguity held, "
+                "precision=site); (2) Nominatim on the published address "
                 "(precision=address — postal address, approximate); (3) Nominatim on the "
                 "town+county tail (precision=town — TOWN CENTROID, never a site location). "
                 "Rows failing all three carry NULL geometry and are excluded from the spatial "

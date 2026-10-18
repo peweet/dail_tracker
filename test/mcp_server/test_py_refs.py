@@ -8,6 +8,7 @@ it guards the local/MCP environment.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -116,6 +117,33 @@ def test_allowed_python_paths_honours_git_ignores_and_policy(tmp_path):
     assert py_refs._allowed_python_paths(repo.resolve()) == {"public/module.py"}
 
 
+def test_refs_prunes_git_ignored_subtree_before_descent(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    excluded = repo / "public" / "ignored"
+    (excluded / "nested").mkdir(parents=True)
+    (repo / ".gitignore").write_text("public/ignored/\n", encoding="utf-8")
+    (repo / "public" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "public" / "target.py").write_text("def declared_target():\n    return 1\n", encoding="utf-8")
+    (repo / "public" / "caller.py").write_text(
+        "from public.target import declared_target\ndeclared_target()\n", encoding="utf-8"
+    )
+    (excluded / "nested" / "secret.py").write_text("PRIVATE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "public"], check=True)
+    original_scandir = os.scandir
+
+    def reject_excluded_descent(path):
+        if not isinstance(path, int) and Path(os.fsdecode(path)).resolve().is_relative_to(excluded.resolve()):
+            raise AssertionError("policy-excluded subtree was traversed")
+        return original_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", reject_excluded_descent)
+    out = py_refs.refs(repo, "public/target.py", "declared_target")
+
+    assert "error" not in out, out
+    assert "public/caller.py" in {row["path"] for row in out["references"]}
+
+
 # ── server integration (needs the optional mcp extra) ────────────────────────
 
 
@@ -138,3 +166,82 @@ def test_py_refs_tool_end_to_end():
     assert "error" not in out
     assert len(out["references"]) <= 5
     assert out["counts"]["references"] >= 3
+
+
+@pytest.mark.parametrize("suffix", ["py", "pyi"])
+def test_refs_does_not_parse_policy_excluded_imports(tmp_path, monkeypatch, suffix):
+    from jedi.inference import InferenceState
+
+    repo = tmp_path / "repo"
+    public = repo / "public"
+    excluded = repo / "pipeline_sandbox"
+    public.mkdir(parents=True)
+    excluded.mkdir()
+    (public / "__init__.py").write_text("", encoding="utf-8")
+    (public / "target.py").write_text("def declared_target():\n    return 1\n", encoding="utf-8")
+    (excluded / ("secret." + suffix)).write_text("from public.target import declared_target\n", encoding="utf-8")
+    (public / "caller.py").write_text(
+        "from public.target import declared_target as public_target\n"
+        "from pipeline_sandbox.secret import declared_target\n"
+        "public_target()\ndeclared_target()\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    original_parse = InferenceState.parse_and_get_code
+
+    def reject_excluded_parse(self, *args, **kwargs):
+        file_io = kwargs.get("file_io")
+        path = getattr(file_io, "path", kwargs.get("path"))
+        if path is not None and Path(path).resolve().is_relative_to(excluded.resolve()):
+            raise AssertionError("policy-excluded import reached the parser")
+        return original_parse(self, *args, **kwargs)
+
+    monkeypatch.setattr(InferenceState, "parse_and_get_code", reject_excluded_parse)
+    out = py_refs.refs(repo, "public/target.py", "declared_target")
+
+    assert "error" not in out, out
+    assert "public/caller.py" in {row["path"] for row in out["references"]}
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows index/filesystem case-equivalence contract")
+def test_refs_matches_git_paths_with_different_filesystem_case(tmp_path):
+    repo = tmp_path / "repo"
+    public = repo / "PUBLIC"
+    public.mkdir(parents=True)
+    (public / "__init__.py").write_text("", encoding="utf-8")
+    (public / "target.py").write_text("def declared_target():\n    return 1\n", encoding="utf-8")
+    (public / "caller.py").write_text(
+        "from PUBLIC.target import declared_target\ndeclared_target()\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    for path in sorted(public.glob("*.py")):
+        blob = (
+            subprocess.run(
+                ["git", "-C", str(repo), "hash-object", "-w", "--stdin"],
+                input=path.read_bytes(),
+                capture_output=True,
+                check=True,
+            )
+            .stdout.decode("ascii")
+            .strip()
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo),
+                "-c",
+                "core.ignorecase=false",
+                "update-index",
+                "--add",
+                "--cacheinfo",
+                f"100644,{blob},public/{path.name}",
+            ],
+            check=True,
+        )
+
+    out = py_refs.refs(repo, "public/target.py", "declared_target")
+
+    assert "error" not in out, out
+    assert "public/caller.py" in {row["path"].lower() for row in out["references"]}

@@ -36,13 +36,37 @@ def _allowed_python_paths(repo: Path) -> set[str]:
     }
 
 
-def _filtered_jedi_recurse(original, repo: Path, allowed: set[str]):
-    """Wrap Jedi's file discovery so ignored/private/sandbox files are never parsed."""
+def _filtered_jedi_recurse(original, repo: Path, allowed: set[Path]):
+    """Prune excluded directories before Jedi walks them, then filter files."""
+    allowed_directories = {parent for name in allowed for parent in Path(name).parents}
+
+    def allows_directory(folder_io):
+        try:
+            relative = Path(folder_io.path).resolve().relative_to(repo)
+        except (OSError, ValueError):
+            return True
+        return relative in allowed_directories
+
+    class PrunedFolder:
+        def __init__(self, folder_io):
+            self._folder_io = folder_io
+
+        def __getattr__(self, name):
+            return getattr(self._folder_io, name)
+
+        def walk(self):
+            for root, folders, files in self._folder_io.walk():
+                # Jedi's FolderIO propagates this same mutable list to os.walk.
+                # Preserve the list so Jedi can also apply its own exclusions.
+                folders[:] = [folder for folder in folders if allows_directory(folder)]
+                yield root, folders, files
 
     def filtered(folder_io, except_paths=()):
-        for file_io in original(folder_io, except_paths):
+        if not allows_directory(folder_io):
+            return
+        for file_io in original(PrunedFolder(folder_io), except_paths):
             try:
-                rel = Path(file_io.path).resolve().relative_to(repo).as_posix()
+                rel = Path(file_io.path).resolve().relative_to(repo)
             except (OSError, ValueError):
                 yield file_io
                 continue
@@ -50,6 +74,59 @@ def _filtered_jedi_recurse(original, repo: Path, allowed: set[str]):
                 yield file_io
 
     return filtered
+
+
+@contextlib.contextmanager
+def _guard_jedi_imports(script, repo: Path, allowed: set[Path]):
+    """Keep excluded project imports unresolved, including direct type-stub loads.
+
+    Jedi's module-resolution RPC has already read source bytes when it returns.
+    These per-Script guards prevent parsing; they are not filesystem isolation.
+    Jedi's installed inference stubs remain available as runtime dependencies.
+    """
+    import jedi
+
+    state = script._inference_state
+    worker = state.compiled_subprocess
+    runtime = Path(jedi.__file__).resolve().parent
+    original_info = worker.get_module_info
+    original_parse = state.parse_and_get_code
+
+    def allows(path):
+        resolved = Path(path).resolve()
+        try:
+            relative = resolved.relative_to(repo)
+        except ValueError:
+            return True
+        return relative in allowed or resolved.is_relative_to(runtime)
+
+    def module_info(*args, **kwargs):
+        file_io, is_package = original_info(*args, **kwargs)
+        path = getattr(file_io, "path", None)
+        if path is not None and not allows(path):
+            return None, None
+        return file_io, is_package
+
+    def parse(code=None, path=None, use_latest_grammar=False, file_io=None, **kwargs):
+        source_path = getattr(file_io, "path", path)
+        if source_path is not None and not allows(source_path):
+            # Jedi treats an unavailable stub as an unresolved import.
+            raise FileNotFoundError("module is excluded by the repository scan policy")
+        return original_parse(code=code, path=path, use_latest_grammar=use_latest_grammar, file_io=file_io, **kwargs)
+
+    missing = object()
+    overrides = ((worker, "get_module_info", module_info), (state, "parse_and_get_code", parse))
+    saved = [(instance, name, vars(instance).get(name, missing)) for instance, name, _ in overrides]
+    try:
+        for instance, name, replacement in overrides:
+            setattr(instance, name, replacement)
+        yield
+    finally:
+        for instance, name, original in reversed(saved):
+            if original is missing:
+                vars(instance).pop(name, None)
+            else:
+                setattr(instance, name, original)
 
 
 def _resolve_module(repo: Path, path: str) -> Path | None:
@@ -167,8 +244,10 @@ def refs(repo: Path, path: str, name: str, limit: int = 60) -> dict:
     target = _resolve_module(repo, path)
     if target is None:
         return {"error": f"no such module: {path}"}
-    allowed_paths = _allowed_python_paths(repo)
-    target_rel = target.relative_to(repo).as_posix()
+    # Native Path equality preserves Windows case equivalence without changing
+    # case-sensitive filesystems or the spelling displayed in returned rows.
+    allowed_paths = {Path(name) for name in _allowed_python_paths(repo)}
+    target_rel = target.relative_to(repo)
     if target_rel not in allowed_paths:
         return {"error": f"module is excluded by the repository scan policy: {path}"}
     try:
@@ -205,7 +284,8 @@ def refs(repo: Path, path: str, name: str, limit: int = 60) -> dict:
                 )
         try:
             script = jedi.Script(code=src, path=str(target), project=jedi.Project(str(repo)))
-            found = script.get_references(line, col, include_builtins=False)
+            with _guard_jedi_imports(script, repo, allowed_paths):
+                found = script.get_references(line, col, include_builtins=False)
         except Exception as e:  # noqa: BLE001 — inference trouble becomes an error row, never a crash
             return {"error": f"jedi failed: {type(e).__name__}: {e}"}
         finally:
@@ -223,13 +303,14 @@ def refs(repo: Path, path: str, name: str, limit: int = 60) -> dict:
             external += 1
             continue
         try:
-            rel = Path(n.module_path).resolve().relative_to(repo).as_posix()
+            relative = Path(n.module_path).resolve().relative_to(repo)
         except (OSError, ValueError):
             external += 1  # site-packages / stdlib — outside the repo
             continue
-        if rel not in allowed_paths:
+        if relative not in allowed_paths:
             excluded += 1
             continue
+        rel = relative.as_posix()
         row = {"path": rel, "line": n.line, "code": n.get_line_code().strip()[:_CODE_CAP]}
         (definitions if n.is_definition() else references).append(row)
 
@@ -245,7 +326,8 @@ def refs(repo: Path, path: str, name: str, limit: int = 60) -> dict:
             "files": len({r["path"] for r in references}),
             "definitions": len(definitions),
         },
-        "note": "static (jedi) — blind to getattr/importlib/string dispatch; empty is evidence, not proof",
+        "note": "static (jedi) within public scan policy; excluded project imports are unresolved; "
+        "blind to getattr/importlib/string dispatch; empty is evidence, not proof",
     }
     if len(references) > limit:
         out["counts"]["truncated_to"] = limit
