@@ -86,8 +86,10 @@ The separately bounded `task_context.py` hook reads this state on `SessionStart`
 (startup/resume/clear/compact) and `UserPromptSubmit`. It does not interpret prompts,
 rewrite the contract, or guess another session's latest task. Missing state is silent;
 unreadable state produces an explicit recovery note. Its JSON context is capped at 6,000
-characters by write-time validation. It is registered only in TOML because the adjacent
-hooks JSON can also load. Existing project status has its separate 1,600-character budget.
+characters by write-time validation. Codex registers it only in TOML because the adjacent
+hooks JSON can also load; Claude Code registers it in `.claude/settings.json` (see
+[Claude Code parity](#claude-code-parity)). Existing project status has its separate
+1,600-character budget.
 [Codex documents compact-triggered SessionStart restoration](https://learn.chatgpt.com/docs/hooks#sessionstart),
 but registration and subprocess tests do not prove activation in a running client.
 
@@ -130,6 +132,46 @@ collection because the task store did not exist. The focused benchmark tests the
 missing restoration, unsupported native-task acceptance, and case-id overwrite. The green
 checks exercise real SQLite and subprocess hook I/O; model requests are faked. Public test
 fixtures are regression examples, not held-out model-quality evidence.
+
+## Claude Code parity
+
+Added 2026-10-20. The recall-validity change (`discovery_hint.py`, `memory_policy.py`) and the
+bounded `session_context.py` already ran under Claude Code, because both clients register the
+same scripts. Two controls were Codex-only; the table records what carried over and why not the rest.
+
+| Control | Claude Code | Reason |
+|---|---|---|
+| Task context restore | `task_context.py` on `SessionStart` only | Claude saves `UserPromptSubmit` context in the transcript and replays it, and `SessionStart` fires again with source `resume` or `compact`. A per-prompt copy would re-add the same record every turn. Codex keeps both events. |
+| Session id for `task_contracts.py` | Read from `CLAUDE_CODE_SESSION_ID` when `--session-id` is absent | Hook payloads carry `session_id`. Both ids set and different (a shell started inside the other client) resolves to no id, never a guess. |
+| Subagent spawn contract | `spawn_packet_hint.py` on `Agent`, advisory | `guard_subagent_spawn.py` rejects every Claude spawn: Claude's input is `prompt`/`description`/`subagent_type`/`model`, with no `fork_turns` and different role names. Only the five-section packet carries over. |
+| Role and model pinning | Not carried over | Claude roles are `.claude/agents/*.md` frontmatter that the client enforces; rejecting `model` overrides would also reject an override the main thread passes deliberately. |
+
+The hint adds context when a prompt has no line for Objective, Scope, Invariants, Acceptance or
+Result contract, and never changes the permission decision. Set `DAIL_SPAWN_PACKET_MODE=block`
+(for example under `env` in `.claude/settings.json`) to deny with exit code 2 as the Codex guard does.
+Advisory is the default because nothing yet shows how often Claude spawns lack a packet, and a
+blocking hook that is wrong stops all delegation. Reading the first weeks of hints is the evidence
+for switching it.
+
+`.claude/` is gitignored, so the registration is per workstation and a fresh checkout needs both
+entries added to `.claude/settings.json` (the two tests that read it skip when the file is absent).
+`$CLAUDE_PROJECT_DIR/.venv/Scripts/python` is the interpreter the other hooks there already use:
+
+```json
+"SessionStart": [{"hooks": [
+  {"type": "command", "command": "\"$CLAUDE_PROJECT_DIR/.venv/Scripts/python\" \"$CLAUDE_PROJECT_DIR/tools/hooks/task_context.py\"", "timeout": 10}]}],
+"PreToolUse": [{"matcher": "Agent", "hooks": [
+  {"type": "command", "command": "\"$CLAUDE_PROJECT_DIR/.venv/Scripts/python\" \"$CLAUDE_PROJECT_DIR/tools/hooks/spawn_packet_hint.py\"", "timeout": 5}]}]
+```
+
+Add each entry to the existing `SessionStart` group and `PreToolUse` list rather than replacing them.
+
+Evidence: the Claude payload fields and the `compact` and `PreToolUse` `additionalContext`
+behaviour come from the [hooks reference](https://code.claude.com/docs/en/hooks). Regression
+tests are `test/tools/test_spawn_packet_hint.py` and the Claude cases in
+`test/tools/test_task_contracts.py`; they use real subprocess hook I/O and no model calls.
+**NOT RUN:** activation in a live Claude client (a new session must start for `SessionStart` to
+fire), the continuity benchmark against Claude, and any measure of drift or token change.
 
 ## Cross-session sidecars
 

@@ -266,6 +266,16 @@ def default_database(checkout: Path) -> Path:
     return Path(os.environ.get("DAIL_TASK_CONTRACT_DB", str(checkout / "logs/agent_task_contracts.sqlite3")))
 
 
+def session_from_environment() -> str | None:
+    """The host session id: Codex exports CODEX_THREAD_ID, Claude Code CLAUDE_CODE_SESSION_ID.
+
+    A shell launched from inside the other client can inherit both. Two different ids
+    mean the owner is unknown, so return None rather than attach to the wrong session.
+    """
+    ids = {os.environ.get(name, "").strip() for name in ("CODEX_THREAD_ID", "CLAUDE_CODE_SESSION_ID")} - {""}
+    return ids.pop() if len(ids) == 1 else None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -273,7 +283,7 @@ def main() -> int:
     )
     parser.add_argument("--checkout", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--database", type=Path)
-    parser.add_argument("--session-id", default=os.environ.get("CODEX_THREAD_ID"))
+    parser.add_argument("--session-id", default=session_from_environment())
     parser.add_argument("--owner")
     parser.add_argument("--revision", type=int)
     parser.add_argument("--input", type=Path, help="UTF-8 JSON object; never a transcript or inferred approval")

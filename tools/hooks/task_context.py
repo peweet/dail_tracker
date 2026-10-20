@@ -4,12 +4,17 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from tools.task_contracts import ContractError, TaskStore, default_database, render_context  # noqa: E402
+from tools.task_contracts import (  # noqa: E402
+    ContractError,
+    TaskStore,
+    default_database,
+    render_context,
+    session_from_environment,
+)
 
 
 def main() -> int:
@@ -20,7 +25,7 @@ def main() -> int:
         event = payload.get("hook_event_name", "SessionStart")
         if event not in {"SessionStart", "UserPromptSubmit"}:
             return 0
-        session = payload.get("session_id") or os.environ.get("CODEX_THREAD_ID")
+        session = payload.get("session_id") or session_from_environment()
         if not session:
             return 0  # never guess from another session's latest record
         checkout = Path(payload.get("cwd") or Path(__file__).resolve().parents[2]).resolve()
