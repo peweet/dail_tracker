@@ -8,14 +8,14 @@
       "sentinels": {}
     },
     "bilateral_relationships.parquet": {
-      "rows": 68137,
+      "rows": 68412,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "bill_statutory_instruments.parquet": {
-      "rows": 809,
+      "rows": 811,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -29,7 +29,7 @@
       "sentinels": {}
     },
     "cbi_xref_corporate_notices.parquet": {
-      "rows": 272,
+      "rows": 280,
       "all_null_cols": [],
       "dup_rows": 7,
       "encoding": {},
@@ -69,30 +69,30 @@
       "sentinels": {}
     },
     "committee_witness_persons.parquet": {
-      "rows": 4633,
+      "rows": 4635,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "committee_witnesses.parquet": {
-      "rows": 1784,
+      "rows": 1776,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "corporate_notices.parquet": {
-      "rows": 51396,
+      "rows": 51813,
       "all_null_cols": [],
-      "dup_rows": 1172,
+      "dup_rows": 1204,
       "encoding": {},
       "sentinels": {}
     },
     "corporate_notices_enriched.parquet": {
-      "rows": 51396,
+      "rows": 51813,
       "all_null_cols": [],
-      "dup_rows": 1172,
+      "dup_rows": 1204,
       "encoding": {},
       "sentinels": {}
     },
@@ -111,14 +111,20 @@
       "sentinels": {}
     },
     "council_ce_report_leads.parquet": {
-      "rows": 540,
-      "all_null_cols": [],
+      "rows": 6737,
+      "all_null_cols": [
+        "review_note",
+        "reviewed_by",
+        "reviewed_project_name",
+        "reviewed_stage",
+        "reviewed_utc"
+      ],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "council_ce_reports_corpus.parquet": {
-      "rows": 1726,
+      "rows": 21321,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -134,14 +140,194 @@
       "sentinels": {}
     },
     "cro_xref_corporate_notices.parquet": {
-      "rows": 28191,
+      "rows": 28398,
       "all_null_cols": [],
-      "dup_rows": 828,
+      "dup_rows": 836,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aea01.parquet": {
+      "rows": 1980,
+      "all_null_cols": [
+        "C02196V02652"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aea02.parquet": {
+      "rows": 468,
+      "all_null_cols": [
+        "C02196V02652"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aea03.parquet": {
+      "rows": 324,
+      "all_null_cols": [
+        "C02196V02652"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aea05.parquet": {
+      "rows": 180,
+      "all_null_cols": [
+        "C02196V02652"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aea08.parquet": {
+      "rows": 312,
+      "all_null_cols": [
+        "C02196V02652"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aea09.parquet": {
+      "rows": 264,
+      "all_null_cols": [
+        "C02196V02652"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aja01.parquet": {
+      "rows": 1400,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aja05.parquet": {
+      "rows": 1056,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aja07.parquet": {
+      "rows": 34,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aja08.parquet": {
+      "rows": 324,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aja09.parquet": {
+      "rows": 162,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aja10.parquet": {
+      "rows": 18,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ajm01.parquet": {
+      "rows": 16968,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ajm05.parquet": {
+      "rows": 12720,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ajm07.parquet": {
+      "rows": 460,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ajm08.parquet": {
+      "rows": 4050,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ajm09.parquet": {
+      "rows": 2106,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ajm10.parquet": {
+      "rows": 234,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aqa04.parquet": {
+      "rows": 702,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_aqa06.parquet": {
+      "rows": 4290,
+      "all_null_cols": [],
+      "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "cso_ara02.parquet": {
       "rows": 2592,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ava32.parquet": {
+      "rows": 2106,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ava33.parquet": {
+      "rows": 729,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ava42.parquet": {
+      "rows": 51150,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ava44.parquet": {
+      "rows": 30690,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -184,6 +370,76 @@
     },
     "cso_fy005.parquet": {
       "rows": 200,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca14.parquet": {
+      "rows": 30,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca15.parquet": {
+      "rows": 90,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca16.parquet": {
+      "rows": 100,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca17.parquet": {
+      "rows": 8,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca18.parquet": {
+      "rows": 23,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca19.parquet": {
+      "rows": 12,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca20.parquet": {
+      "rows": 3,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca21.parquet": {
+      "rows": 64,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca22.parquet": {
+      "rows": 69,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gca23.parquet": {
+      "rows": 184,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -253,21 +509,21 @@
       "sentinels": {}
     },
     "cso_hpm03.parquet": {
-      "rows": 794304,
+      "rows": 798336,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "cso_hpm07.parquet": {
-      "rows": 374976,
+      "rows": 376992,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "cso_hpm09.parquet": {
-      "rows": 20560,
+      "rows": 20640,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -309,21 +565,28 @@
       "sentinels": {}
     },
     "cso_pea01.parquet": {
-      "rows": 6156,
+      "rows": 6237,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "cso_pea08.parquet": {
-      "rows": 13851,
+      "rows": 15390,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "cso_pea15.parquet": {
-      "rows": 600,
+      "rows": 608,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_rzlpa01.parquet": {
+      "rows": 504,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -331,6 +594,20 @@
     },
     "cso_rzlpa02.parquet": {
       "rows": 280,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_rzlpa03.parquet": {
+      "rows": 144,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_rzlpa04.parquet": {
+      "rows": 110,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -358,14 +635,14 @@
       "sentinels": {}
     },
     "cso_wpm39.parquet": {
-      "rows": 7920,
+      "rows": 8040,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "current_dail_vote_history.parquet": {
-      "rows": 235879,
+      "rows": 236336,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -407,7 +684,7 @@
       "sentinels": {}
     },
     "delivery_method_mix.parquet": {
-      "rows": 9825,
+      "rows": 9874,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -421,14 +698,14 @@
       "sentinels": {}
     },
     "diary_company_influence.parquet": {
-      "rows": 692,
+      "rows": 696,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "distinct_orgs_per_politician.parquet": {
-      "rows": 6252,
+      "rows": 6266,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -461,6 +738,13 @@
         "entrusted_entity": 5,
         "financial_intermediary": 8
       }
+    },
+    "fj_land_price_report.parquet": {
+      "rows": 8,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
     },
     "grassroots_campaigns.parquet": {
       "rows": 454,
@@ -531,6 +815,13 @@
       "encoding": {},
       "sentinels": {}
     },
+    "ipav_farming_report.parquet": {
+      "rows": 54,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
     "isif_portfolio.parquet": {
       "rows": 213,
       "all_null_cols": [],
@@ -539,14 +830,14 @@
       "sentinels": {}
     },
     "judicial_legal_diary_cases.parquet": {
-      "rows": 24155,
+      "rows": 26902,
       "all_null_cols": [],
-      "dup_rows": 5757,
+      "dup_rows": 6519,
       "encoding": {},
       "sentinels": {}
     },
     "judicial_legal_diary_counts.parquet": {
-      "rows": 1327,
+      "rows": 1824,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -567,14 +858,14 @@
       "sentinels": {}
     },
     "judicial_legal_diary_schedule.parquet": {
-      "rows": 2540,
+      "rows": 4267,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "judiciary_appointments.parquet": {
-      "rows": 154,
+      "rows": 170,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -612,7 +903,7 @@
       "sentinels": {}
     },
     "judiciary_diary_judge_map.parquet": {
-      "rows": 8903,
+      "rows": 8926,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -625,8 +916,15 @@
       "encoding": {},
       "sentinels": {}
     },
+    "land_value_index.parquet": {
+      "rows": 1581,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
     "lobbyist_persistence.parquet": {
-      "rows": 2579,
+      "rows": 2596,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -654,21 +952,21 @@
       "sentinels": {}
     },
     "ministerial_diary_org_mentions.parquet": {
-      "rows": 7186,
+      "rows": 7198,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "ministerial_diary_org_overlap.parquet": {
-      "rows": 785,
+      "rows": 789,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "most_lobbied_politicians.parquet": {
-      "rows": 5752,
+      "rows": 5765,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -789,7 +1087,7 @@
       "sentinels": {}
     },
     "payments_full_psa.parquet": {
-      "rows": 12562,
+      "rows": 12736,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -810,7 +1108,7 @@
       "sentinels": {}
     },
     "politician_policy_exposure.parquet": {
-      "rows": 51712,
+      "rows": 51863,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -826,14 +1124,14 @@
       "sentinels": {}
     },
     "pre_tender_work_packages.parquet": {
-      "rows": 243,
+      "rows": 228,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "procurement_awards.parquet": {
-      "rows": 62763,
+      "rows": 64940,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -842,14 +1140,23 @@
       }
     },
     "procurement_lobbying_overlap.parquet": {
-      "rows": 323,
+      "rows": 324,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
+    "procurement_notices.parquet": {
+      "rows": 87427,
+      "all_null_cols": [],
+      "dup_rows": 1499,
+      "encoding": {},
+      "sentinels": {
+        "directive": 659
+      }
+    },
     "procurement_payments_fact.parquet": {
-      "rows": 429538,
+      "rows": 401624,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -858,21 +1165,35 @@
       }
     },
     "procurement_supplier_cro_match.parquet": {
-      "rows": 9992,
+      "rows": 10169,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "public_appointments.parquet": {
-      "rows": 1164,
+      "rows": 1169,
       "all_null_cols": [],
       "dup_rows": 4,
       "encoding": {},
       "sentinels": {}
     },
     "revolving_door_dpos.parquet": {
-      "rows": 1044,
+      "rows": 1046,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "scsi_agri_land_rental.parquet": {
+      "rows": 30,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "scsi_agri_land_values.parquet": {
+      "rows": 150,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -900,24 +1221,14 @@
       "sentinels": {}
     },
     "seanad_payments_full_psa_quarantine.parquet": {
-      "rows": 0,
-      "all_null_cols": [
-        "house",
-        "member_name",
-        "narrative",
-        "payment_kind",
-        "position",
-        "schema",
-        "source_pdf",
-        "taa_band_label",
-        "taa_band_raw"
-      ],
+      "rows": 60,
+      "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "si_current_state.parquet": {
-      "rows": 9930,
+      "rows": 10015,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -926,7 +1237,7 @@
       }
     },
     "si_lrc_enrichment_summary.parquet": {
-      "rows": 7764,
+      "rows": 7814,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -1106,21 +1417,21 @@
       "sentinels": {}
     },
     "stateboards_roster.parquet": {
-      "rows": 2050,
+      "rows": 2066,
       "all_null_cols": [],
-      "dup_rows": 8,
+      "dup_rows": 10,
       "encoding": {},
       "sentinels": {}
     },
     "statutory_instruments.parquet": {
-      "rows": 7764,
+      "rows": 7814,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "supplier_entity_xref.parquet": {
-      "rows": 27889,
+      "rows": 29295,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -1134,14 +1445,14 @@
       "sentinels": {}
     },
     "top_client_companies.parquet": {
-      "rows": 1994,
+      "rows": 1999,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
     "top_lobbyist_organisations.parquet": {
-      "rows": 2560,
+      "rows": 2576,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},

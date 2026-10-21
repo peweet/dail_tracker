@@ -1,13 +1,6 @@
 {
-  "n_baseline": 154,
-  "regressions": [
-    {
-      "output": "judicial_legal_diary_cases.parquet",
-      "kind": "DUP_INCREASE",
-      "baseline": 5757,
-      "now": 6344
-    }
-  ],
+  "n_baseline": 197,
+  "regressions": [],
   "summary": {
     "tables_with_all_null_cols": {
       "council_ce_report_leads.parquet": [
@@ -65,8 +58,8 @@
         "rows": 28398
       },
       "judicial_legal_diary_cases.parquet": {
-        "dup_rows": 6344,
-        "rows": 26314
+        "dup_rows": 6519,
+        "rows": 26902
       },
       "judicial_legal_diary_openview_cases.parquet": {
         "dup_rows": 226120,
