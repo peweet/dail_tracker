@@ -562,6 +562,24 @@ def _docker_disk_note() -> str:
         return ""
 
 
+def _validation_records_note() -> str:
+    """Engine-validation currency (added 2026-10-21): is the ledger in step with the saved
+    baselines, how old is the last outcome panel, how many engine/catalogue commits since.
+    Delegates to tools/check_validation_records.py --note (two stdlib sentinels + one bounded
+    git log, ~0.3 s); silent on CI and on a public-only clone; fails open like every note."""
+    try:
+        out = subprocess.run(
+            [sys.executable, str(REPO / "tools" / "check_validation_records.py"), "--note"],
+            capture_output=True,
+            text=True,
+            timeout=12,
+            cwd=str(REPO),
+        )
+        return out.stdout.strip().splitlines()[-1] if out.stdout.strip() else ""
+    except Exception:
+        return ""
+
+
 def _closeout_note() -> str:
     """Substantive sessions (ledger rows) never closed out — pull, not push: one
     count line here, the list lives in `python tools/session_closeout.py`."""
@@ -654,6 +672,7 @@ def main() -> int:
         _session_pressure_note(),
         _docker_disk_note(),
         _unvalidated_note(),
+        _validation_records_note(),
         _closeout_note(),
         _memory_currency_note(),
     ):

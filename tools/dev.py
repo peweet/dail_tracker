@@ -204,6 +204,13 @@ TASKS: dict[str, Task] = {
         "Check the private PyO3 siting kernel survived the last uv sync (local only; no-ops on CI)",
         ((PYTHON, "tools/check_native_kernel.py"),),
     ),
+    # The engine-validation ledger sat a month stale after a re-baseline (2026-10-21) because
+    # nothing ran its own `check`; this wires it, plus a measurement-debt warning, into preflight.
+    # No-ops on CI and on a public-only clone like siting-native.
+    "validation-records": Task(
+        "Validation ledger vs saved baselines + measurement-debt warning (local only; no-ops on CI)",
+        ((PYTHON, "tools/check_validation_records.py"),),
+    ),
 }
 
 CHECK_TASKS = (
@@ -238,6 +245,7 @@ PREFLIGHT_TASKS = (
     "expected-failures",
     "imports-execute",
     "gold-guards",
+    "validation-records",
 )
 
 
