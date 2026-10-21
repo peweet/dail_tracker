@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.2",
-  "generated_at": "2026-10-16T19:45:58.014983+00:00",
+  "generated_at": "2026-10-21T19:45:35.098139+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -383,26 +383,40 @@
       "cases": 1492
     },
     {
-      "file": "2026-10-20.docx",
+      "file": "2026-10-20.r02.docx",
       "diary_date": "2026-10-20",
-      "sha256": "575d329c59542533",
-      "sessions": 42,
-      "cases": 313
+      "sha256": "8d0806b2bdcb9ae6",
+      "sessions": 159,
+      "cases": 1148
+    },
+    {
+      "file": "2026-10-21.docx",
+      "diary_date": "2026-10-21",
+      "sha256": "9da6af4f271a8a54",
+      "sessions": 72,
+      "cases": 434
+    },
+    {
+      "file": "2026-10-22.docx",
+      "diary_date": "2026-10-22",
+      "sha256": "4f5a34a742ecbcb9",
+      "sessions": 71,
+      "cases": 290
     }
   ],
-  "n_days": 55,
-  "tier_a_sessions": 4007,
-  "tier_b_counts": 1698,
-  "case_lines_parsed": 29929,
-  "cases_dropped_protected": 4279,
-  "cases_kept_anonymised": 25546,
+  "n_days": 57,
+  "tier_a_sessions": 4267,
+  "tier_b_counts": 1824,
+  "case_lines_parsed": 31488,
+  "cases_dropped_protected": 4485,
+  "cases_kept_anonymised": 26902,
   "drop_reasons": {
-    "asylum": 2534,
-    "minor": 783,
-    "child and family": 675,
-    "family law": 152,
-    "guardian": 41,
-    "custody": 38,
+    "asylum": 2652,
+    "minor": 814,
+    "child and family": 717,
+    "family law": 162,
+    "guardian": 45,
+    "custody": 39,
     "adoption": 23,
     "ward of court": 15,
     "in camera": 8,
@@ -412,10 +426,10 @@
     "immigration": 1
   },
   "plaintiff_kinds": {
-    "individual": 16396,
-    "state-prosecutor": 4945,
-    "organisation": 3852,
-    "state-body": 353
+    "individual": 17165,
+    "state-prosecutor": 5349,
+    "organisation": 4018,
+    "state-body": 370
   },
   "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."
 }
