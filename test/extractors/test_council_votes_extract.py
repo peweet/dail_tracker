@@ -21,8 +21,11 @@ from extractors.council_votes_extract import (
     Coverage,
     RosterResolver,
     _corpus_meeting_date,
+    _kk_names,
+    _load_gold_roster,
     _vote_year,
     fold_initial_forms,
+    normalise_members,
     parse_cork_prose,
     parse_galway_prose,
     parse_wexford_grid,
@@ -206,6 +209,23 @@ def test_wexford_unglossed_AS_code_is_not_guessed() -> None:
     )
     assert "Maura Whelan" not in {r["member"] for r in out}
     assert cov.divisions_kept == 1  # the for/against tally still reconciles
+
+
+def test_normalise_members_does_not_merge_two_real_councillors() -> None:
+    # John Pender has too few rows to enter the vote-derived roster; the old 0.6 fold
+    # reassigned his votes to Daniel Pender. Both are on the Carlow gold roster.
+    rows = [_vrow("Carlow", "Daniel Pender") for _ in range(3)] + [_vrow("Carlow", "John Pender")]
+    out = normalise_members(rows)
+    assert [r["member"] for r in out].count("John Pender") == 1
+
+
+def test_kilkenny_names_strip_the_next_sides_count_word() -> None:
+    assert _kk_names("Pat Dunphy & Ger Frisby. Seven") == ["Pat Dunphy", "Ger Frisby"]
+
+
+def test_gold_roster_skips_lea_placeholder_rows() -> None:
+    assert "Bray East" not in _load_gold_roster("Wicklow")
+    assert "North Inner City" not in _load_gold_roster("Dublin City")
 
 
 def test_fold_skips_carlow_already_normalised() -> None:

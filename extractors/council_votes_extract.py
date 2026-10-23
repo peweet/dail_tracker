@@ -103,23 +103,26 @@ def parse_pdf(la: str, fname: str, pdf: bytes) -> list[dict]:
 
 
 def normalise_members(rows: list[dict]) -> list[dict]:
-    """Fold split/garbled names onto the council's real roster (high-frequency names)."""
-    import difflib
+    """Resolve names onto the gold roster; keep frequent unresolved names, drop fragments.
+
+    A whole-name difflib fold at cutoff 0.6 merged distinct councillors (John Pender's votes
+    went to Daniel Pender), so resolution goes through RosterResolver, which refuses ambiguity.
+    """
     from collections import Counter
 
     by_la: dict[str, Counter] = {}
     for r in rows:
         by_la.setdefault(r["local_authority"], Counter())[r["member"]] += 1
-    rosters = {la: [n for n, c in cnt.items() if c >= 3 and len(n) > 6 and " " in n] for la, cnt in by_la.items()}
+    frequent = {la: {n for n, c in cnt.items() if c >= 3 and len(n) > 6 and " " in n} for la, cnt in by_la.items()}
+    resolvers: dict[str, RosterResolver] = {}
     cleaned = []
     for r in rows:
-        roster = rosters.get(r["local_authority"], [])
-        if r["member"] in roster:
-            cleaned.append(r)
-            continue
-        match = difflib.get_close_matches(r["member"], roster, n=1, cutoff=0.6)
-        if match:
-            r = {**r, "member": match[0]}
+        la = r["local_authority"]
+        resolver = resolvers.setdefault(la, RosterResolver(la))
+        hit = resolver.full(r["member"]) or resolver.initials(r["member"])[0]
+        if hit:
+            cleaned.append({**r, "member": hit})
+        elif r["member"] in frequent.get(la, set()):
             cleaned.append(r)
         # else: drop unmatchable fragment
     return cleaned
@@ -237,11 +240,18 @@ def _load_gold_roster(la: str) -> list[str]:
     if not p.exists():
         return []
     with open(p, encoding="utf-8") as fh:
-        return [
-            r["name"].strip()
-            for r in csv.DictReader(fh)
-            if r["local_authority"] == la and " " in r["name"].strip() and not r["name"].strip().startswith(la)
-        ]
+        rows = list(csv.DictReader(fh))
+    # Placeholder rows carry an LEA name in the name column ('Bray East', 'North Inner City');
+    # the council-name prefix test alone missed those and dropped 'Clare Colleran Molloy'.
+    leas = {r["lea"].strip() for r in rows if r.get("lea", "").strip()}
+    return [
+        r["name"].strip()
+        for r in rows
+        if r["local_authority"] == la
+        and " " in r["name"].strip()
+        and r["name"].strip() not in leas
+        and not (r["name"].strip().startswith(la) and not r.get("lea", "").strip())
+    ]
 
 
 class RosterResolver:
@@ -452,6 +462,8 @@ def _kk_names(seg: str) -> list[str]:
     t = re.sub(r"\s+", " ", seg).strip()
     t = re.sub(r"^Cllrs?\.?\s*", "", t)
     t = re.sub(r"\s*(?:&|\band\b)\s*", ", ", t)
+    # The next side's count word bleeds onto the last name: '…Ger Frisby. Seven (7) absent:'.
+    t = re.sub(r"\.\s+[A-Z][a-z]+(?:[\s-][a-z]+)?\s*$", "", t)
     return [p.strip(" .;") for p in t.split(",") if re.search(r"[A-Za-zÀ-ÿ]{2,}", p)]
 
 
