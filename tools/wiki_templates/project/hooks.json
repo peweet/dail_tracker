@@ -1,0 +1,44 @@
+{
+  "_comment": "Hook wiring for the workflow package. `python tools/wiki.py setup-project --hooks` merges each entry into .claude/settings.json (which is local by repo convention) when its command is not already present. Keys are Claude Code hook events; `matcher` is omitted for events that take none.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.venv/Scripts/python\" \"$CLAUDE_PROJECT_DIR/tools/hooks/resume_context.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.venv/Scripts/python\" \"$CLAUDE_PROJECT_DIR/tools/hooks/precompact_resume.py\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.venv/Scripts/python\" \"$CLAUDE_PROJECT_DIR/tools/hooks/assertion_guard.py\"",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.venv/Scripts/python\" \"$CLAUDE_PROJECT_DIR/tools/hooks/verifier_nudge.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

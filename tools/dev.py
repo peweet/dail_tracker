@@ -211,6 +211,13 @@ TASKS: dict[str, Task] = {
         "Validation ledger vs saved baselines + measurement-debt warning (local only; no-ops on CI)",
         ((PYTHON, "tools/check_validation_records.py"),),
     ),
+    # The two-tier wiki ratchet (doc/AGENT_WORKFLOW_PLAN_2026_10_25.md): page sizes and the
+    # personal tier fail; the upkeep backlog (unvalidated customizations, pending closeouts,
+    # memory rot) is reported with the command that clears each. Local tiers SKIP on CI.
+    "wiki": Task(
+        "Two-tier wiki ratchet: page sizes, global tier present, upkeep backlog (local tiers no-op on CI)",
+        ((PYTHON, "tools/wiki.py", "status", "--strict"),),
+    ),
 }
 
 CHECK_TASKS = (
@@ -246,6 +253,7 @@ PREFLIGHT_TASKS = (
     "imports-execute",
     "gold-guards",
     "validation-records",
+    "wiki",
 )
 
 

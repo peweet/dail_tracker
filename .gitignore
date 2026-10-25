@@ -42,6 +42,7 @@
 !tools/evals/tool_retrieval_queries.json
 !tools/hooks/mcp_reviewed_tools.json
 !tools/baselines/source_fidelity_baseline.json
+!tools/wiki_templates/project/hooks.json
 *.xlsx
 *.pdf
 # doc/source_pdfs — CACHED SOURCE DOCUMENTS that LIVE extractors read as their input
