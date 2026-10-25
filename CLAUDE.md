@@ -107,5 +107,6 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
 
 - `doc/INDEX.md` — generated doc map; scan before grepping `doc/`. `doc/SANDBOX_MAP.md` — LIVE vs. experimental (`pipeline_sandbox/` = experiments; LIVE extractors are DO-NOT-DELETE).
 - `uv run python tools/discoveries.py <topic>` and tracked `memory/` notes — hints for known decisions; verify them against current source.
+- **The wiki is two tiers of small pages:** personal cross-project rules in `~/.claude/rules/` (installed by `python tools/wiki.py setup-global`), project rules/lessons/reference here. `python tools/wiki.py status` measures both and lists the upkeep backlog; the `wiki` skill says where a fact belongs.
 - `dail_tracker_core/queries/`, `sql_queries/`, `utility/data_access/` — the data-access surface.
 - Dataset schema/grain: `describe_dataset` / `list_datasets` (served from `data/_meta/fact_cards.json`) — never scan a parquet.

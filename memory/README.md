@@ -12,6 +12,7 @@ survive individual Claude Code, Codex, ChatGPT, or API sessions.
 | Evidence, history, caveats, or reproduction detail | `memory/<discovery-slug>.md` |
 | Private Siting decision history | `planning/product/claude/memory/` (legacy directory name, provider-neutral content) |
 | Personal preferences or recent working context | Local Codex Memories; never the only copy of a team rule |
+| Personal rule that holds in every project (shell traps, git habits, working style) | `~/.claude/rules/<topic>.md` — the global tier, installed from `tools/wiki_templates/global/` by `python tools/wiki.py setup-global` |
 
 Run `uv run python tools/discoveries.py <keywords>` before re-deriving a known trap.
 Codex also runs the same compact index through the project `UserPromptSubmit` hook,

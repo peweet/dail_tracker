@@ -3,7 +3,7 @@
 
 # doc/ index
 
-75 docs · ~372.1k tokens total · 32 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+76 docs · ~374.0k tokens total · 33 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -17,6 +17,7 @@
 | [AST_SCANNER_FAILURE_MODES.md](AST_SCANNER_FAILURE_MODES.md) | engineering | 7.3k | 2026-08-04 | auditing an AST-based code scanner, contract extractor, repository indexer, or migration ratchet for false positives and false negatives |
 | [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 9.4k | 2026-10-11 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
 | [AGENT_HARNESS_MEASUREMENT_2026_08_05.md](AGENT_HARNESS_MEASUREMENT_2026_08_05.md) | infra | 1.0k | 2026-08-05 | deciding whether the current agent harness improves correctness or efficiency |
+| [AGENT_WORKFLOW_PLAN_2026_10_25.md](AGENT_WORKFLOW_PLAN_2026_10_25.md) | infra | 1.9k | 2026-10-25 | changing how agent sessions work in this repo - rules, hooks, the two-tier wiki, review subagents, compaction, issue/PR flow |
 | [CI_CD.md](CI_CD.md) | infra | 5.3k | 2026-08-24 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [CODEX_WINDOWS_SANDBOX_RECOVERY.md](CODEX_WINDOWS_SANDBOX_RECOVERY.md) | infra | 1.3k | 2026-08-26 | Codex Windows commands fail before process startup with apply deny-read ACLs, CreateProcess, or helper_unknown_error |
 | [CODEX_WORKFLOW_AUDIT_2026_08_28.md](CODEX_WORKFLOW_AUDIT_2026_08_28.md) | infra | 2.5k | 2026-08-28 | auditing Codex task efficiency, planning-product ownership, long-running work, or git closeout |
@@ -97,4 +98,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-10-20 -->
+<!-- generated 2026-10-25 -->
