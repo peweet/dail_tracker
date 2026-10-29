@@ -65,6 +65,7 @@ pipeline = [
     "beautifulsoup4>=4.12",
     "flatten-json>=0.1.14",
     "jsonschema>=4.0,<5",  # validate-at-fetch of Oireachtas API envelopes (services/schema_validation.py)
+    "jsonschema-rs==0.51.0",  # cached native HTTP-JSON validation; Python retains legacy drift diagnostics
     "orjson>=3.9",         # fast JSON read/write in manifest.py, members_api_service.py, member_interests.py, wiki_data.py
     "regex>=2023.0",       # \p{Lu} unicode-property patterns in member_interests.py (stdlib re can't do these)
     "openpyxl>=3.1",       # charity_normalise.py reads the Charities Register .xlsx via load_workbook

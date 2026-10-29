@@ -46,6 +46,8 @@ def test_siting_profile_targets_the_private_locked_runtime(monkeypatch, tmp_path
         "siting-ci",
         "--only-group",
         "siting-test",
+        "--only-group",
+        "siting-acquire",
         "--check",
     ]
 

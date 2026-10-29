@@ -280,10 +280,49 @@ def scan(stale_days: int) -> dict:
     }
 
 
+def _unrecalled_before(cutoff: str) -> list[str]:
+    """Cards never recalled in any transcript, not hot-linked, carrying no safety language, and
+    last modified before ``cutoff`` (ISO date) — the archive rule the orphan∧stale bar can never
+    reach once both indexes link every card (measured 2026-10-22: 695 cards, 0 orphans, so 0
+    candidates while 615 cards had never been recalled). Reversible: --archive moves, never deletes."""
+    hot_text = (MEM / "MEMORY.md").read_text(encoding="utf-8") if (MEM / "MEMORY.md").exists() else ""
+    recall = _recall_ages()
+    # A card a HOT card still [[links]] to carries the hot card's importance (Generative-Agents'
+    # importance term, same signal link_ceiling uses) — keep it in place. Measured 2026-10-22: 77 of
+    # the 327 pre-September candidates, including feedback_cprofile_wall_time_is_not_a_cost.
+    link_re = re.compile(r"\[\[([^\]|#]+)")
+    linked_from_hot: set[str] = set()
+    for path in MEM.glob("*.md"):
+        if path.stem not in ("MEMORY", "MEMORY_COLD") and f"{path.stem}.md" in hot_text:
+            linked_from_hot |= set(link_re.findall(path.read_text(encoding="utf-8", errors="replace")))
+    out: list[str] = []
+    for path in sorted(MEM.glob("*.md")):
+        name = path.stem
+        if name in ("MEMORY", "MEMORY_COLD") or f"{name}.md" in hot_text or name in recall:
+            continue
+        if name in linked_from_hot or name.startswith("reference_"):
+            continue  # reference cards (URLs, recipes, literature) keep their value without recall
+        body = path.read_text(encoding="utf-8", errors="replace")
+        if SAFETY_RE.search(body):
+            continue
+        m = re.search(r"modified: *(20\d\d-\d\d-\d\d)", body)
+        modified = m.group(1) if m else time.strftime("%Y-%m-%d", time.localtime(path.stat().st_mtime))
+        if modified < cutoff:
+            out.append(name)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--archive", action="store_true", help="move archive_candidates into memory/archive/ (never deletes)"
+    )
+    ap.add_argument(
+        "--unrecalled-before",
+        metavar="YYYY-MM-DD",
+        default=None,
+        help="also treat cards never recalled, not hot-linked, non-safety and last modified before this date "
+        "as archive candidates (report only unless --archive)",
     )
     ap.add_argument("--stale-days", type=int, default=60)
     ap.add_argument(
@@ -300,6 +339,16 @@ def main() -> None:
     args = ap.parse_args()
 
     r = scan(args.stale_days)
+    if args.unrecalled_before:
+        extra = _unrecalled_before(args.unrecalled_before)
+        r["archive_candidates"] = sorted(set(r["archive_candidates"]) | set(extra))
+        kinds: dict[str, int] = {}
+        for n in extra:
+            kinds[n.split("_", 1)[0]] = kinds.get(n.split("_", 1)[0], 0) + 1
+        print(
+            f"unrecalled-before {args.unrecalled_before}: {len(extra)} card(s) never recalled, not hot-linked, "
+            f"non-safety, older than the cutoff — by type {kinds}"
+        )
     print(f"memory cards: {r['total']}  (indexes + archive excluded)")
     for key in ("orphans", "stale", "corrected", "archive_candidates"):
         vals = r[key]
@@ -352,7 +401,10 @@ def main() -> None:
         )
         print(f"\narchived {len(moved)} card(s) to memory/archive/ — restore by moving back")
     elif args.archive:
-        print("\nnothing meets the archive bar (orphaned AND stale AND non-safety)")
+        print(
+            "\nnothing meets the archive bar (orphaned AND stale AND non-safety; "
+            "add --unrecalled-before YYYY-MM-DD for the never-recalled rule)"
+        )
 
 
 if __name__ == "__main__":

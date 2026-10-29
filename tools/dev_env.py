@@ -54,7 +54,7 @@ PROFILES: dict[str, Profile] = {
     # under the monorepo for operator convenience, but resolve it from that project rather
     # than from the root package's superficially similar ``siting`` extra.
     "siting": Profile(
-        groups=("siting-engine", "siting-ci", "siting-test"),
+        groups=("siting-engine", "siting-ci", "siting-test", "siting-acquire"),
         project=PRIVATE_SITING_PROJECT,
         only_groups=True,
         no_install_project=True,

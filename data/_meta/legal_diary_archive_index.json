@@ -390,5 +390,26 @@
     "bytes": 106501,
     "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary October 22nd.docx",
     "revisions": 1
+  },
+  "2026-10-23": {
+    "sha256": "ac154c762f8672e7c7c0ceb1e3d7daeabbc60745221077a3ff4b39b73ff62961",
+    "filename": "2026-10-23.docx",
+    "bytes": 118039,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary October 23rd.docx",
+    "revisions": 1
+  },
+  "2026-10-27": {
+    "sha256": "c567b3b0fca938f6f20a5846ffd568a3510176e3df1b1a17e82ca02f8bd10b3b",
+    "filename": "2026-10-27.docx",
+    "bytes": 116532,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary October 27th.docx",
+    "revisions": 1
+  },
+  "2026-10-28": {
+    "sha256": "45eaea71aa5a5d7ca3df26608b1b2cea761f41b0128e12c76b16acb967ad1e69",
+    "filename": "2026-10-28.docx",
+    "bytes": 121168,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary October 28th.docx",
+    "revisions": 1
   }
 }

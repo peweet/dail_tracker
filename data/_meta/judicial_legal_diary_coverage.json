@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.2",
-  "generated_at": "2026-10-21T19:45:35.098139+00:00",
+  "generated_at": "2026-10-27T20:45:24.694884+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -402,20 +402,41 @@
       "sha256": "4f5a34a742ecbcb9",
       "sessions": 71,
       "cases": 290
+    },
+    {
+      "file": "2026-10-23.docx",
+      "diary_date": "2026-10-23",
+      "sha256": "ac154c762f8672e7",
+      "sessions": 74,
+      "cases": 403
+    },
+    {
+      "file": "2026-10-27.docx",
+      "diary_date": "2026-10-27",
+      "sha256": "c567b3b0fca938f6",
+      "sessions": 119,
+      "cases": 861
+    },
+    {
+      "file": "2026-10-28.docx",
+      "diary_date": "2026-10-28",
+      "sha256": "45eaea71aa5a5d7c",
+      "sessions": 74,
+      "cases": 578
     }
   ],
-  "n_days": 57,
-  "tier_a_sessions": 4267,
-  "tier_b_counts": 1824,
-  "case_lines_parsed": 31488,
-  "cases_dropped_protected": 4485,
-  "cases_kept_anonymised": 26902,
+  "n_days": 60,
+  "tier_a_sessions": 4534,
+  "tier_b_counts": 1949,
+  "case_lines_parsed": 33330,
+  "cases_dropped_protected": 4893,
+  "cases_kept_anonymised": 28330,
   "drop_reasons": {
-    "asylum": 2652,
-    "minor": 814,
-    "child and family": 717,
-    "family law": 162,
-    "guardian": 45,
+    "asylum": 2995,
+    "minor": 872,
+    "child and family": 720,
+    "family law": 164,
+    "guardian": 47,
     "custody": 39,
     "adoption": 23,
     "ward of court": 15,
@@ -426,10 +447,10 @@
     "immigration": 1
   },
   "plaintiff_kinds": {
-    "individual": 17165,
-    "state-prosecutor": 5349,
-    "organisation": 4018,
-    "state-body": 370
+    "individual": 18117,
+    "state-prosecutor": 5564,
+    "organisation": 4261,
+    "state-body": 388
   },
   "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."
 }

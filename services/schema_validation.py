@@ -19,6 +19,9 @@ Design notes:
     a future new endpoint) is skipped, so generic fetch_json usage is unaffected.
   - On drift we raise SchemaValidationError. The fetch path lets it propagate so
     a systematic break fails loudly rather than silently shrinking the dataset.
+  - Fresh HTTP JSON uses one compiled native validator per endpoint. Rejected
+    pages retain Python's existing diagnostic selection; direct Python-object
+    callers retain the general validator's type rules.
 """
 
 from __future__ import annotations
@@ -121,3 +124,23 @@ def validate_if_known(url: str, payload: object) -> None:
     if endpoint is None:
         return
     validate_response(endpoint, payload)
+
+
+@cache
+def _native_validator(endpoint: str):
+    """Compile each registered schema once; unrelated HTTP calls stay import-light."""
+    import jsonschema_rs
+
+    return jsonschema_rs.validator_for(_load_schema(endpoint))
+
+
+def validate_decoded_json_if_known(url: str, payload: object) -> None:
+    """Validate freshly decoded HTTP JSON with the native success path.
+
+    Callers supply JSON-decoder values, not arbitrary Python objects: native type
+    rules also accept tuples/Decimals that the general validator rejects. Rejected
+    pages use the original validator for its exact error selection, path and cause.
+    """
+    endpoint = endpoint_from_url(url)
+    if endpoint is not None and not _native_validator(endpoint).is_valid(payload):
+        validate_response(endpoint, payload)

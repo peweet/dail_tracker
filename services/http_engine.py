@@ -14,7 +14,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from services.schema_validation import validate_if_known
+from services.schema_validation import validate_decoded_json_if_known as validate_if_known
 
 logger = logging.getLogger(__name__)
 
