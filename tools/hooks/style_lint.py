@@ -120,7 +120,14 @@ COUNT_RE = re.compile(
 LEGAL_REF_RE = re.compile(
     r"\b(?:Act|Regulations?|Directive|Statutory Instrument)\s+\d{4}\b"
     r"|\bS\.?I\.?\s*(?:No\.?\s*)?\d+\s+of\s+\d{4}\b"
-    r"|\bs\.\s?\d+(?:\(\d+\))?\b",
+    r"|\bs\.\s?\d+(?:\(\d+\))?\b"
+    # Software licences (added 2026-10-25): "AGPL-3.0 requires you to publish your source" has
+    # the same shape as a statutory claim, and an unsourced one passed this hook. Family tokens
+    # that mean nothing else stand alone; names that are also products or places (MIT, BSD,
+    # Apache, CC BY) count only beside the word licence.
+    r"|\b(?:A?GPL|LGPL|MPL|SSPL|BUSL|EUPL)(?:[- ]?v?\d(?:\.\d)?)?\b"
+    r"|\b(?:MIT|BSD|Apache|CC[- ]BY(?:[- ](?:SA|NC|ND))*)[- ](?:\d(?:\.\d)?[- ])?licen[cs]e[sd]?\b"
+    r"|\blicen[cs]ed under\b",
     re.IGNORECASE,
 )
 EFFECT_RE = re.compile(

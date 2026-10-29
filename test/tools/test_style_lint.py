@@ -198,6 +198,23 @@ def test_bare_legal_mention_without_an_effect_claim_passes():
     assert r.returncode == 0, r.stderr
 
 
+def test_blocks_licence_claim_with_no_web_source():
+    """A software licence is a source of law too (an unsourced AGPL claim passed, 2026-10-25)."""
+    msg = "pgrust is AGPL-3.0, which requires anyone running it as a service to publish their source." + PAD
+    r = run(msg)
+    assert r.returncode == 2, r.stderr
+    assert "real-world assertion" in r.stderr
+
+
+def test_web_source_discharges_a_licence_claim():
+    msg = (
+        "pgrust is AGPL-3.0, which requires anyone who modifies it to publish their source"
+        " (gnu.org/licenses/agpl-3.0.txt, section 13)." + PAD
+    )
+    r = run(msg)
+    assert r.returncode == 0, r.stderr
+
+
 def test_long_reply_logs_but_never_blocks(_isolated_style_log):
     sid = "longreply" + uuid.uuid4().hex
     msg = " ".join(["word"] * 420) + "."
