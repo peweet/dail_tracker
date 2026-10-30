@@ -1,7 +1,7 @@
 """Tests for validate-at-fetch of Oireachtas API responses (DAIL-019 / DAIL-020).
 
 Three layers:
-  1. Every registered schema validates a real (trimmed) bronze sample.
+  1. Every registered native schema validator validates a real (trimmed) bronze sample.
   2. Deliberately manipulated samples (renamed/dropped keys) are rejected —
      this is the drift the validation exists to catch.
   3. The fetch path (services.http_engine.fetch_json) validates Oireachtas
@@ -17,6 +17,7 @@ import json
 import sys
 from pathlib import Path
 
+import jsonschema_rs
 import pytest
 import responses
 
@@ -31,6 +32,7 @@ from services.schema_validation import (
 
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "api"
 ENDPOINTS = ["members", "legislation", "questions", "votes", "debates"]
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "services" / "schemas"
 
 # The per-endpoint result-item wrapper key that the schema requires.
 WRAPPER_KEY = {
@@ -47,16 +49,35 @@ def _load_sample(endpoint: str) -> dict:
         return json.load(fh)
 
 
+@pytest.fixture(scope="module")
+def schema_validators():
+    """Compile each endpoint schema independently of the production wrapper.
+
+    ``validator_for`` detects the draft from each schema's ``$schema`` field.
+    Formats stay disabled to match ``jsonschema.validate`` without a format
+    checker.
+    """
+    validators = {}
+    for endpoint in ENDPOINTS:
+        with (SCHEMA_DIR / f"{endpoint}.json").open(encoding="utf-8") as fh:
+            schema = json.load(fh)
+        validators[endpoint] = jsonschema_rs.validator_for(
+            schema,
+            validate_formats=False,
+        )
+    return validators
+
+
 # ---------------------------------------------------------------------------
 # 1. Real samples validate
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("endpoint", ENDPOINTS)
-def test_real_sample_validates(endpoint: str):
+def test_real_sample_validates(endpoint: str, schema_validators):
     """A genuine recent response must pass its own schema. If this fails, the
     schema is stricter than reality, not the other way round."""
-    validate_response(endpoint, _load_sample(endpoint))
+    schema_validators[endpoint].validate(_load_sample(endpoint))
 
 
 # ---------------------------------------------------------------------------
@@ -65,26 +86,26 @@ def test_real_sample_validates(endpoint: str):
 
 
 @pytest.mark.parametrize("endpoint", ENDPOINTS)
-def test_dropped_result_count_fails(endpoint: str):
+def test_dropped_result_count_fails(endpoint: str, schema_validators):
     """Dropping head.counts.resultCount must fail — every paginator reads it to
     detect truncation, so its disappearance is the highest-value drift to catch."""
     sample = _load_sample(endpoint)
     del sample["head"]["counts"]["resultCount"]
-    with pytest.raises(SchemaValidationError):
-        validate_response(endpoint, sample)
+    with pytest.raises(jsonschema_rs.ValidationError):
+        schema_validators[endpoint].validate(sample)
 
 
 @pytest.mark.parametrize("endpoint", ENDPOINTS)
-def test_renamed_results_key_fails(endpoint: str):
+def test_renamed_results_key_fails(endpoint: str, schema_validators):
     """results -> data is the classic envelope rename."""
     sample = _load_sample(endpoint)
     sample["data"] = sample.pop("results")
-    with pytest.raises(SchemaValidationError):
-        validate_response(endpoint, sample)
+    with pytest.raises(jsonschema_rs.ValidationError):
+        schema_validators[endpoint].validate(sample)
 
 
 @pytest.mark.parametrize("endpoint", ENDPOINTS)
-def test_renamed_item_wrapper_fails(endpoint: str):
+def test_renamed_item_wrapper_fails(endpoint: str, schema_validators):
     """A renamed per-item wrapper (e.g. member -> memberData) must fail when at
     least one result is present."""
     sample = _load_sample(endpoint)
@@ -92,12 +113,12 @@ def test_renamed_item_wrapper_fails(endpoint: str):
         pytest.skip("sample has no result items to rename")
     for item in sample["results"]:
         item["_renamed"] = item.pop(WRAPPER_KEY[endpoint])
-    with pytest.raises(SchemaValidationError):
-        validate_response(endpoint, sample)
+    with pytest.raises(jsonschema_rs.ValidationError):
+        schema_validators[endpoint].validate(sample)
 
 
 @pytest.mark.parametrize("endpoint", ENDPOINTS)
-def test_new_optional_field_is_tolerated(endpoint: str):
+def test_new_optional_field_is_tolerated(endpoint: str, schema_validators):
     """A new optional field anywhere must NOT fail — the schema is loose on
     purpose so additive API changes don't page us at 4am."""
     sample = _load_sample(endpoint)
@@ -105,15 +126,15 @@ def test_new_optional_field_is_tolerated(endpoint: str):
     sample["brandNewTopLevelField"] = {"anything": True}
     if sample["results"]:
         sample["results"][0]["brandNewItemField"] = "ok"
-    validate_response(endpoint, sample)  # must not raise
+    schema_validators[endpoint].validate(sample)  # must not raise
 
 
-def test_result_count_must_be_integer():
+def test_result_count_must_be_integer(schema_validators):
     """resultCount as a string (a real way APIs drift) is rejected."""
     sample = _load_sample("members")
     sample["head"]["counts"]["resultCount"] = "174"
-    with pytest.raises(SchemaValidationError):
-        validate_response("members", sample)
+    with pytest.raises(jsonschema_rs.ValidationError):
+        schema_validators["members"].validate(sample)
 
 
 def test_unregistered_endpoint_raises():

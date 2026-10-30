@@ -411,5 +411,12 @@
     "bytes": 121168,
     "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary October 28th.docx",
     "revisions": 1
+  },
+  "2026-10-30": {
+    "sha256": "8680057565d16225e75c523f8e658a3f531c0001d4d7760b0f8cb640f2e57c80",
+    "filename": "2026-10-30.docx",
+    "bytes": 114175,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary October 30th.docx",
+    "revisions": 1
   }
 }

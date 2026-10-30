@@ -1,18 +1,18 @@
 {
   "link_version": "1.2.0",
-  "generated_at": "2026-10-27T20:45:27.722385+00:00",
-  "judge_court_pairs": 8925,
-  "matched_pairs": 6014,
+  "generated_at": "2026-10-29T20:50:05.850593+00:00",
+  "judge_court_pairs": 8926,
+  "matched_pairs": 6019,
   "match_methods": {
     "no-candidate": 1631,
-    "honorific-other-person": 217,
     "roster-notice": 4,
+    "surname-court": 4694,
     "honorific-conflict": 11,
-    "office-title": 649,
-    "surname-court": 4690,
-    "surname-bench-wide": 1154,
     "ambiguous": 399,
-    "exact": 170
+    "office-title": 649,
+    "exact": 170,
+    "surname-bench-wide": 1155,
+    "honorific-other-person": 213
   },
   "unmatched": [
     {
@@ -76,11 +76,6 @@
       "match_method": "no-candidate"
     },
     {
-      "judge": "MS JUSTICE BOLGER",
-      "court": "Central Criminal Court",
-      "match_method": "honorific-other-person"
-    },
-    {
       "judge": "MS JUSTICE O HANLON",
       "court": "Central Criminal Court",
       "match_method": "no-candidate"
@@ -89,16 +84,6 @@
       "judge": "MS JUSTICE PHELAN",
       "court": "Central Criminal Court",
       "match_method": "ambiguous"
-    },
-    {
-      "judge": "MS JUSTICE REYNOLDS",
-      "court": "Central Criminal Court",
-      "match_method": "honorific-other-person"
-    },
-    {
-      "judge": "MS JUSTICE STEWART",
-      "court": "Central Criminal Court",
-      "match_method": "honorific-other-person"
     },
     {
       "judge": "Mr Justice Edwards & Mr Justice Edwards & Ms Justice Kennedy & Ms Justice Ní Raifeartaigh",
@@ -554,11 +539,6 @@
       "judge": "MR JUSTICE KEANE",
       "court": "Court of Appeal",
       "match_method": "ambiguous"
-    },
-    {
-      "judge": "MS JUSTICE REYNOLDS",
-      "court": "Court of Appeal",
-      "match_method": "honorific-other-person"
     },
     {
       "judge": "MS Justice Donnelly & Ms Justice Ní Raifeartaigh & Ms Justice Butler",
@@ -14573,12 +14553,12 @@
   ],
   "row_level": {
     "cases": {
-      "rows_with_judge": 22601,
-      "rows_matched": 21122
+      "rows_with_judge": 22777,
+      "rows_matched": 21296
     },
     "schedule": {
-      "rows_with_judge": 4534,
-      "rows_matched": 4236
+      "rows_with_judge": 4610,
+      "rows_matched": 4310
     }
   },
   "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."
