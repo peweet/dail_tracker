@@ -37,6 +37,16 @@ WHY "ON NO REMOTE" AND NOT "AHEAD OF UPSTREAM"
     Stale refs make it OVER-report, never under-report — the safe direction for a
     guard whose job is to stop work being lost.
 
+CONTENT, NOT JUST ANCESTRY (added 2026-10-30, after two false alarms in one session)
+    "On no remote" and "uncommitted" are facts about refs, and they read as "only on
+    this machine". On 2026-10-30 a worktree showing 278 uncommitted changes held
+    1,490 files that were all byte-identical on origin/main, and a branch with two
+    commits on no remote held no change main lacked. Each count now says how much of
+    it is already on origin/main: `git cherry` for commits, a blob comparison at the
+    same path for files. These are annotations. They change no exit code, because
+    patch-id misses a change landed in another form, so a commit it calls new may
+    already be on main. Read "new" as "check this", and "none" as "safe".
+
 ACTING, NOT JUST REPORTING (added 2026-08-28, narrowed after worktree audit)
     For a long time this script could only tell you all three roots were dirty; it
     could not do anything about it. `--commit` and `--push` put the multi-root layout
@@ -82,6 +92,8 @@ ROOTS: tuple[tuple[str, str, Path], ...] = (
     ("public-signal", "apps/public-signal (private)", ROOT / "apps" / "public-signal"),
 )
 
+DEFAULT_REF = "origin/main"
+
 
 @dataclass(frozen=True)
 class CheckoutStatus:
@@ -94,6 +106,9 @@ class CheckoutStatus:
     dirty_count: int
     unpublished: int  # commits reachable from HEAD but from no remote-tracking ref
     behind: int
+    new_to_main: int = 0  # unpublished commits with no equal patch on DEFAULT_REF
+    dirty_files: int = 0  # individual files; `status --short` collapses untracked folders
+    dirty_on_main: int = 0  # of those, files byte-identical at the same path on DEFAULT_REF
 
 
 @dataclass(frozen=True)
@@ -167,6 +182,50 @@ def _unpublished(path: Path) -> int:
     return _int(_run(path, "rev-list", "--count", "HEAD", "--not", "--remotes"))
 
 
+def _has_default_ref(path: Path) -> bool:
+    return bool(_run(path, "rev-parse", "--verify", "--quiet", DEFAULT_REF))
+
+
+def _new_to_main(path: Path, unpublished: int) -> int:
+    """Commits on no remote whose patch DEFAULT_REF lacks. With no such ref, all of them."""
+    if not unpublished or not _has_default_ref(path):
+        return unpublished
+    only_here = set(_run(path, "rev-list", "HEAD", "--not", "--remotes").splitlines())
+    new = {line.split()[1] for line in _run(path, "cherry", DEFAULT_REF, "HEAD").splitlines() if line.startswith("+")}
+    return len(only_here & new)
+
+
+def _dirty_against_main(path: Path) -> tuple[int, int]:
+    """(uncommitted files, how many are byte-identical at the same path on DEFAULT_REF)."""
+    names = {
+        *_run(path, "diff", "--name-only", "HEAD").splitlines(),
+        *_run(path, "ls-files", "--others", "--exclude-standard").splitlines(),
+    }
+    if not names or not _has_default_ref(path):
+        return len(names), 0
+
+    blobs = {}
+    for line in _run(path, "ls-tree", "-r", DEFAULT_REF).splitlines():
+        meta, _, name = line.partition("\t")
+        blobs[name] = meta.split()[2]
+    present = sorted(name for name in names if name in blobs and (path / name).is_file())
+
+    # Both hashes: a blob stored with LF matches only the filtered form on an autocrlf checkout,
+    # and a blob stored with CRLF matches only the raw bytes.
+    matched: set[str] = set()
+    for extra in ((), ("--no-filters",)):
+        hashes = subprocess.run(
+            ["git", "-C", str(path), "hash-object", *extra, "--stdin-paths"],
+            input="\n".join(present),
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.split()
+        if len(hashes) == len(present):
+            matched.update(name for name, blob in zip(present, hashes, strict=True) if blobs[name] == blob)
+    return len(names), len(matched)
+
+
 def check_checkout(path: Path, *, is_primary: bool) -> CheckoutStatus:
     # A worktree whose directory was deleted without `git worktree prune` still lists
     # here; every git command below would fail against it, so say so and move on.
@@ -176,6 +235,8 @@ def check_checkout(path: Path, *, is_primary: bool) -> CheckoutStatus:
     dirty_count = len([line for line in _run(path, "status", "--short").splitlines() if line.strip()])
     behind_counts = _run(path, "rev-list", "--left-right", "--count", "@{u}...HEAD").split()
     behind = _int(behind_counts[0]) if len(behind_counts) == 2 else 0
+    unpublished = _unpublished(path)
+    dirty_files, dirty_on_main = _dirty_against_main(path) if dirty_count else (0, 0)
 
     return CheckoutStatus(
         path=path,
@@ -183,8 +244,11 @@ def check_checkout(path: Path, *, is_primary: bool) -> CheckoutStatus:
         is_primary=is_primary,
         exists=True,
         dirty_count=dirty_count,
-        unpublished=_unpublished(path),
+        unpublished=unpublished,
         behind=behind,
+        new_to_main=_new_to_main(path, unpublished),
+        dirty_files=dirty_files,
+        dirty_on_main=dirty_on_main,
     )
 
 
@@ -213,9 +277,15 @@ def _report_checkout(checkout: CheckoutStatus) -> None:
         print(f"      {where}directory is gone — run `git worktree prune`")
         return
     if checkout.dirty_count:
-        print(f"      {where}{checkout.dirty_count} uncommitted change(s)")
+        identical = (
+            f" ({checkout.dirty_on_main} of {checkout.dirty_files} file(s) already identical on {DEFAULT_REF})"
+            if checkout.dirty_on_main
+            else ""
+        )
+        print(f"      {where}{checkout.dirty_count} uncommitted change(s){identical}")
     if checkout.unpublished:
-        print(f"      {where}{checkout.unpublished} commit(s) on no remote")
+        new = checkout.new_to_main or "none"
+        print(f"      {where}{checkout.unpublished} commit(s) on no remote ({new} new to {DEFAULT_REF} by patch)")
     if checkout.behind:
         print(f"      {where}{checkout.behind} commit(s) behind remote")
 

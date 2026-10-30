@@ -159,6 +159,103 @@ def test_clean_published_repo_has_no_problems(repo_with_remote: Path) -> None:
     assert sum(rs._problems(c) for c in status.checkouts) == 0
 
 
+# ── 4. content, not just ancestry ────────────────────────────────────────────
+def _side_worktree(repo: Path, tmp_path: Path) -> Path:
+    wt = tmp_path / "side"
+    _git(repo, "worktree", "add", "-q", "-b", "side", str(wt))
+    return wt
+
+
+def _status_of(repo: Path, wt: Path):
+    status = rs.check_root("r", repo)
+    return next(c for c in status.checkouts if c.path.resolve() == wt.resolve())
+
+
+def _land_on_main(repo: Path, name: str) -> None:
+    _commit(repo, name)
+    _git(repo, "push", "-q", "origin", "main")
+
+
+def test_commit_whose_patch_is_on_main_is_not_called_new(repo_with_remote: Path, tmp_path: Path, capsys) -> None:
+    """2026-10-30: 'commits on no remote' read as unsaved work; main already had the change."""
+    wt = _side_worktree(repo_with_remote, tmp_path)
+    _commit(wt, "same_change.txt")
+    _land_on_main(repo_with_remote, "main_moved_on.txt")
+    _land_on_main(repo_with_remote, "same_change.txt")
+
+    checkout = _status_of(repo_with_remote, wt)
+    rs._report_checkout(checkout)
+
+    assert checkout.unpublished == 1
+    assert "1 commit(s) on no remote (none new to origin/main by patch)" in capsys.readouterr().out
+
+
+def test_commit_only_on_this_machine_is_called_new(repo_with_remote: Path, tmp_path: Path, capsys) -> None:
+    wt = _side_worktree(repo_with_remote, tmp_path)
+    _commit(wt, "only_here.txt")
+
+    rs._report_checkout(_status_of(repo_with_remote, wt))
+
+    assert "1 commit(s) on no remote (1 new to origin/main by patch)" in capsys.readouterr().out
+
+
+def test_pushed_branch_commits_do_not_count_as_new(repo_with_remote: Path, tmp_path: Path, capsys) -> None:
+    """A commit safe on a feature branch is unmerged, but it is not the 'only here' figure."""
+    wt = _side_worktree(repo_with_remote, tmp_path)
+    _commit(wt, "pushed_to_branch.txt")
+    _git(wt, "push", "-q", "origin", "side")
+    _commit(wt, "only_here.txt")
+
+    rs._report_checkout(_status_of(repo_with_remote, wt))
+
+    assert "1 commit(s) on no remote (1 new to origin/main by patch)" in capsys.readouterr().out
+
+
+def test_uncommitted_file_identical_on_main_is_named(repo_with_remote: Path, tmp_path: Path, capsys) -> None:
+    """The docs-persist false alarm: untracked here only because the branch predates main."""
+    wt = _side_worktree(repo_with_remote, tmp_path)
+    _land_on_main(repo_with_remote, "landed.txt")
+    (wt / "landed.txt").write_text("landed.txt", encoding="utf-8")
+    (wt / "only_here.txt").write_text("only here", encoding="utf-8")
+
+    rs._report_checkout(_status_of(repo_with_remote, wt))
+
+    assert "2 uncommitted change(s) (1 of 2 file(s) already identical on origin/main)" in capsys.readouterr().out
+
+
+def test_blob_committed_with_crlf_still_matches(repo_with_remote: Path, tmp_path: Path, capsys) -> None:
+    """A filtered hash normalises CRLF away, so a raw CRLF blob only matches its raw bytes."""
+    _git(repo_with_remote, "config", "core.autocrlf", "false")
+    wt = _side_worktree(repo_with_remote, tmp_path)
+    body = b"a\r\nb\r\n"
+    (repo_with_remote / "crlf.txt").write_bytes(body)
+    _git(repo_with_remote, "add", "crlf.txt")
+    _git(repo_with_remote, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "crlf")
+    _git(repo_with_remote, "push", "-q", "origin", "main")
+    _git(repo_with_remote, "config", "core.autocrlf", "true")
+    (wt / "crlf.txt").write_bytes(body)
+
+    rs._report_checkout(_status_of(repo_with_remote, wt))
+
+    assert "(1 of 1 file(s) already identical on origin/main)" in capsys.readouterr().out
+
+
+def test_no_default_branch_keeps_every_commit_new(tmp_path: Path, capsys) -> None:
+    """Without origin/main there is nothing to compare with, so nothing may read as safe."""
+    bare = tmp_path / "origin.git"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "trunk", str(bare)], check=True)
+    repo = tmp_path / "work"
+    subprocess.run(["git", "init", "-q", "-b", "trunk", str(repo)], check=True)
+    _git(repo, "remote", "add", "origin", str(bare))
+    _commit(repo, "base.txt")
+    _git(repo, "push", "-q", "-u", "origin", "trunk")
+    _commit(repo, "only_here.txt")
+
+    rs._report_checkout(_status_of(repo, repo))
+
+    assert "1 commit(s) on no remote (1 new to origin/main by patch)" in capsys.readouterr().out
+
+
 def test_commit_checkout_stages_only_declared_paths(repo_with_remote: Path) -> None:
     intended = repo_with_remote / "intended.txt"
     unrelated = repo_with_remote / "unrelated.txt"
