@@ -2,12 +2,13 @@
 
 ISOLATED + SANDBOX ONLY. Nothing here writes to data/gold, edits pipeline.py,
 or promotes anything. Raw caches + silver outputs land under
-``c:/tmp/dail_new_sources/`` so the repo data tree is untouched.
+``data/_sandbox/dail_new_sources/`` so the repo data tree is untouched.
 
 Provenance is attached to every row per the plan's schema:
 source_url, source_document_hash, fetched_at, source_published_date,
 source_last_modified, extraction_method, confidence, privacy_tier.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,7 +18,7 @@ from pathlib import Path
 
 import requests
 
-ROOT = Path("c:/tmp/dail_new_sources")
+ROOT = Path(__file__).resolve().parents[2] / "data" / "_sandbox" / "dail_new_sources"
 BRONZE = ROOT / "bronze"
 SILVER = ROOT / "silver"
 for _d in (BRONZE, SILVER):

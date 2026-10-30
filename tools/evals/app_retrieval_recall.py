@@ -46,7 +46,7 @@ from mcp.client.stdio import stdio_client
 from mcp_server.code_index import DEFAULT_SCAN_POLICY
 
 REPO = Path(__file__).resolve().parents[2]
-CORPUS = Path(os.environ.get("ABP_CORPUS_DIR") or "c:/tmp/dail_new_sources/bronze/abp_inspector_reports")
+CORPUS = Path(os.environ.get("ABP_CORPUS_DIR") or REPO / "data/_sandbox/dail_new_sources/bronze/abp_inspector_reports")
 
 _ALPHA = re.compile(r"[A-Za-zÀ-ÿ]{4,}")
 
