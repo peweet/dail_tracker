@@ -1,13 +1,13 @@
 #!/bin/sh
 # Versioned pre-push guard — blocks private siting IP / secrets from reaching the
 # public remote (github.com/peweet/dail_tracker). Rules live in
-# tools/check_no_private_ip.py; the CI job runs the same script.
+# tools/check_no_private_ip.py; CI runs its public path check.
 #
 # Enable on a fresh clone (one-time; core.hooksPath is local config, not cloned):
 #     git config core.hooksPath .githooks
 #
-# This only ever BLOCKS a push; it never modifies files. CI enforces the same
-# check independently, so a clone that skips the config is still covered there.
+# This only ever BLOCKS a push; it never modifies files. The Markdown content
+# check is local: it requires the private repository and cannot run in public CI.
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 for PY in "$REPO_ROOT/.venv/Scripts/python.exe" "$REPO_ROOT/.venv/Scripts/python" "$REPO_ROOT/.venv/bin/python" python3 python; do
@@ -49,6 +49,13 @@ ZERO=0000000000000000000000000000000000000000
 GATE_SHA=
 while read -r _local_ref local_sha _remote_ref remote_sha; do
   [ "$local_sha" = "$ZERO" ] && continue  # branch deletion pushes nothing
+  # Inspect every pushed ref, never a cleaned working copy or only the last ref.
+  "$PY" tools/check_no_private_ip.py --content --ref "$local_sha"
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "pre-push: committed Markdown check blocked the push (FAIL or NOT_RUN)." >&2
+    exit "$status"
+  fi
   if [ "$remote_sha" = "$ZERO" ]; then range="$local_sha"; else range="$remote_sha..$local_sha"; fi
   # shellcheck disable=SC2086  # CE_PRIVATE_PATHS is a deliberate word-split list
   hits=$(git log --name-only --format= "$range" -- $CE_PRIVATE_PATHS 2>/dev/null | sort -u)

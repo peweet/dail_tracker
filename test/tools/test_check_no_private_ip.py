@@ -106,6 +106,76 @@ def test_real_tracked_tree_is_clean() -> None:
     assert result.returncode == 0, f"leak guard flagged tracked files:\n{result.stdout}\n{result.stderr}"
 
 
+def _repo(tmp_path: Path, name: str) -> Path:
+    root = tmp_path / name
+    root.mkdir()
+    _run(["git", "init", "-q", "-b", "main"], root)
+    _run(["git", "config", "user.email", "test@example.invalid"], root)
+    _run(["git", "config", "user.name", "content-test"], root)
+    return root
+
+
+def _save_commit(root: Path, path: str, body: str) -> str:
+    target = root / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body, encoding="utf-8")
+    _run(["git", "add", "--", path], root)
+    _run(["git", "commit", "-qm", "fixture"], root)
+    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+
+
+def test_content_scan_reads_pushed_blob_not_cleaned_worktree(tmp_path, monkeypatch):
+    public = _repo(tmp_path, "public")
+    private = _repo(tmp_path, "private")
+    private_sha = _save_commit(private, "core/secret_widget_engine.py", "pass\n")
+    sha = _save_commit(public, "guide.md", "See secret_widget_engine for details.\n")
+    (public / "guide.md").write_text("clean working copy\n", encoding="utf-8")
+    monkeypatch.setattr(guard, "_PROJECT_ROOT", public)
+    result = guard.scan_content(sha, private, private_sha)
+    assert result["status"] == "FAIL"
+    assert result["findings"] == [{"path": "guide.md", "line": 1}]
+    assert "secret_widget_engine" not in str(result)
+
+
+def test_content_scan_public_names_and_word_boundaries(tmp_path, monkeypatch):
+    public = _repo(tmp_path, "public")
+    private = _repo(tmp_path, "private")
+    _save_commit(private, "core/secret_widget_engine.py", "pass\n")
+    _save_commit(private, "core/public_widget_engine.py", "pass\n")
+    _save_commit(public, "public_widget_engine.py", "pass\n")
+    sha = _save_commit(public, "guide.md", "public_widget_engine secret_widget_engine_extra\n")
+    monkeypatch.setattr(guard, "_PROJECT_ROOT", public)
+    assert guard.scan_content(sha, private, "main")["status"] == "PASS"
+
+
+def test_content_scan_missing_nested_repo_is_not_run(tmp_path, monkeypatch):
+    public = _repo(tmp_path, "public")
+    sha = _save_commit(public, "guide.md", "safe\n")
+    nested = public / "nested"
+    nested.mkdir()
+    monkeypatch.setattr(guard, "_PROJECT_ROOT", public)
+    assert guard.scan_content(sha, nested, "main")["status"] == "NOT_RUN"
+
+
+def test_content_exception_is_bound_to_document_bytes(tmp_path, monkeypatch):
+    import hashlib
+
+    public = _repo(tmp_path, "public")
+    private = _repo(tmp_path, "private")
+    _save_commit(private, "core/source_coverage.py", "pass\n")
+    body = "Public column: source_coverage\n"
+    sha = _save_commit(public, "guide.md", body)
+    monkeypatch.setattr(guard, "_PROJECT_ROOT", public)
+    monkeypatch.setattr(
+        guard,
+        "CONTENT_EXCEPTIONS",
+        {"guide.md": (hashlib.sha256(body.encode()).hexdigest(), "Public column name collision")},
+    )
+    assert guard.scan_content(sha, private, "main")["status"] == "PASS"
+    changed = _save_commit(public, "guide.md", body + "Changed architecture: source_coverage\n")
+    assert guard.scan_content(changed, private, "main")["status"] == "FAIL"
+
+
 # ── 4. --all-branches must catch a leak sitting on a branch other than HEAD's ─
 def _run(cmd: list[str], cwd: Path) -> None:
     subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True)

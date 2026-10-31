@@ -8,8 +8,11 @@ not let those variables redirect ``git init`` into the source repository.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks" / "pre-push"
@@ -96,3 +99,41 @@ def test_linked_worktree_push_does_not_mutate_shared_git_config(tmp_path: Path) 
     assert _git(linked, "config", "--get", "core.bare") == "false"
     assert _git(primary, "status", "--porcelain") == ""
     assert _git(linked, "status", "--porcelain") == ""
+
+
+@pytest.mark.parametrize("content_exit", [0, 1, 2])
+def test_content_scan_receives_every_pushed_commit(tmp_path: Path, content_exit: int) -> None:
+    root = tmp_path / "repo"
+    _git(tmp_path, "init", "-q", "-b", "main", str(root))
+    _commit(root, "one.md")
+    first = _git(root, "rev-parse", "HEAD")
+    _commit(root, "two.md")
+    second = _git(root, "rev-parse", "HEAD")
+    runner = root / ".venv" / "Scripts" / "python"
+    runner.parent.mkdir(parents=True)
+    runner.write_text(
+        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALL_TRACE"\n'
+        'case "$*" in *--content*) exit "$CONTENT_EXIT";; esac\nexit 0\n',
+        encoding="utf-8",
+    )
+    runner.chmod(0o755)
+    trace = tmp_path / "calls.txt"
+    env = _clean_git_env()
+    env["CALL_TRACE"] = str(trace)
+    env["CONTENT_EXIT"] = str(content_exit)
+    env["DAIL_SKIP_PUSH_GATE"] = "1"  # fixture: exercise the IP gate, not lint in an empty project
+    zero = "0" * 40
+    lines = f"refs/heads/a {first} refs/heads/a {zero}\nrefs/heads/b {second} refs/heads/b {zero}\n"
+    shell = shutil.which("sh")
+    if shell is None:
+        git = shutil.which("git")
+        assert git is not None
+        shell = str(Path(git).resolve().parents[1] / "bin" / "sh.exe")
+    result = subprocess.run([shell, str(HOOK)], cwd=root, input=lines, text=True, capture_output=True, env=env)
+    assert result.returncode == content_exit, result.stderr
+    calls = trace.read_text(encoding="utf-8").splitlines()
+    scans = [line for line in calls if "--content" in line]
+    assert len(scans) == (1 if content_exit else 2)
+    assert any(f"--ref {first}" in line for line in scans)
+    if not content_exit:
+        assert any(f"--ref {second}" in line for line in scans)

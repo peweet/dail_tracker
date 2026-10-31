@@ -284,12 +284,67 @@ def setup_project(force: bool = False, hooks: bool = False) -> int:
     return 0
 
 
+# These are unresolved client variants, not permission for arbitrary future drift.
+# Keep them visible until the owner selects their intended contracts.
+SHARED_SKILL_EXCEPTIONS = {
+    "shape": "Dail-specific v5 brief versus generic v2 interview; preserve pending contract selection",
+    "skill-creator": "Client-specific workflow fork; preserve pending replacement/retention decision",
+}
+KNOWN_SHARED_SKILLS = {
+    "civic-ui-review",
+    "display-data",
+    "impeccable",
+    "pipeline-view",
+    "streamlit-frontend",
+    "tdd",
+    "wiki",
+    *SHARED_SKILL_EXCEPTIONS,
+}
+
+
+def check_shared_skills(report: Report) -> None:
+    other = ROOT / ".agents" / "skills"
+    if not PROJECT_SKILLS.is_dir() or not other.is_dir():
+        report.add("SKIP", "project", "shared skills: one client tree is absent")
+        return
+    left = {p.parent.name for p in PROJECT_SKILLS.glob("*/SKILL.md")}
+    right = {p.parent.name for p in other.glob("*/SKILL.md")}
+    # Check existing pairs plus deletion drift in known pairs. New client-only
+    # skills do not acquire a mirror requirement merely by being installed.
+    for name in sorted((left & right) | (KNOWN_SHARED_SKILLS & (left | right))):
+        src = PROJECT_SKILLS / name / "SKILL.md"
+        dst = other / name / "SKILL.md"
+        if not src.is_file() or not dst.is_file():
+            client = ".claude" if not src.is_file() else ".agents"
+            if name in SHARED_SKILL_EXCEPTIONS:
+                report.add(
+                    "WARN",
+                    "project",
+                    f"shared skill exception {name}: missing {client} copy; " + SHARED_SKILL_EXCEPTIONS[name],
+                )
+            else:
+                report.add("FAIL", "project", f"shared skill {name}: missing {client} copy")
+            continue
+        if src.read_bytes() == dst.read_bytes():
+            continue
+        if name in SHARED_SKILL_EXCEPTIONS:
+            report.add("WARN", "project", f"shared skill exception {name}: {SHARED_SKILL_EXCEPTIONS[name]}")
+        else:
+            report.add(
+                "FAIL",
+                "project",
+                f"shared skill {name}: .agents copy differs from .claude source",
+                "Review the difference and restore the shared contract; do not rename client paths blindly",
+            )
+
+
 def check_project_templates(report: Report) -> None:
     if not PROJECT_TEMPLATES.is_dir():
         return
     if on_ci():
         report.add("SKIP", "project", "CI: no local .claude/ tree to compare with the project templates")
         return
+    check_shared_skills(report)
     for src, dst in project_templates():
         rel = dst.relative_to(ROOT).as_posix()
         if not dst.exists():

@@ -38,6 +38,8 @@ no civic-lane path matches (none contain "siting").
 from __future__ import annotations
 
 import argparse
+import hashlib
+import os
 import re
 import subprocess
 import sys
@@ -51,6 +53,149 @@ _PROJECT_ROOT = _SCRIPT_PATH.parents[1]
 # copy of this script is ever invoked from inside that private repo (e.g. its own
 # tooling or hooks), it has nothing to check there and must not scan or error.
 _PRIVATE_NESTED_REPO_MARKER = "planning/product"
+
+# Reviewed public vocabulary collisions. Each exception is bound to exact blob bytes:
+# changing a document requires a new review, not a permanent whole-path exemption.
+# Never store private module names in this public mapping.
+CONTENT_EXCEPTIONS: dict[str, tuple[str, str]] = {
+    "doc/SOURCE_CADENCE_PROCEDURE.md": (
+        "fd9edc3a9e22331c10aabdd8d6e9cce644f868c7cb589b1f53386d18affc7793",
+        "Names the public experimental target-list CSV.",
+    ),
+    "doc/archive/BUYER_DOSSIER_DESIGN.md": (
+        "0d299a525c995ad3e76c594d3161a009a7eebe541d9b99e667962e27b290880c",
+        "Names a public coverage column and its proposed JSON field.",
+    ),
+    "doc/archive/fastapi_query_core_uncoupling_plan.md": (
+        "dafe2bb74641a538aadc84f1d83f5eedcc6acae98b98c4367f08998c764f2e88",
+        "Names a public coverage field in a historical API sketch.",
+    ),
+    "pipeline_sandbox/council_minutes/README_PROTOTYPE.md": (
+        "8b908707f3be862a6235a89c5989f0d2adfcc2c7ce4d9d6ecf997e066b62afe3",
+        "Names the public council coverage CSV.",
+    ),
+    "pipeline_sandbox/public_decisions/README.md": (
+        "e1615a6106fc8f291c0e53aaef95c02ca17c23f4fce8b61a02813367368f0bda",
+        "Names the public candidate-corpus registry CSV.",
+    ),
+}
+_MODULE_STEM = re.compile(r"[a-z]+_[a-z_]{6,}")
+
+
+def _snapshot_git(root: Path, *args: str, input_bytes: bytes | None = None) -> bytes:
+    # Hooks export GIT_DIR/GIT_INDEX_FILE. A nested repository must not inherit them.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    result = subprocess.run(
+        ["git", "-C", str(root), *args], input=input_bytes, capture_output=True, env=env, check=False
+    )
+    if result.returncode:
+        raise ValueError("Git snapshot unavailable")
+    return result.stdout
+
+
+def _commit(root: Path, ref: str) -> str:
+    return _snapshot_git(root, "rev-parse", "--verify", "--end-of-options", ref + "^{commit}").decode().strip()
+
+
+def _private_repository() -> Path:
+    # A linked public worktree may lack the nested repository. Resolve its shared
+    # primary checkout without selecting the first entry in a worktree listing.
+    common = _snapshot_git(_PROJECT_ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return Path(os.fsdecode(common).strip()).parent / _PRIVATE_NESTED_REPO_MARKER
+
+
+def scan_content(ref: str, private_repo: Path | None = None, private_ref: str = "main") -> dict:
+    """Check committed Markdown for distinctive private Python module names.
+
+    This is a partial name-disclosure check, not detection of copied source or
+    paraphrased architecture. The working tree and private token list are never published.
+    """
+    try:
+        private_repo = (private_repo or _private_repository()).resolve()
+        actual = Path(os.fsdecode(_snapshot_git(private_repo, "rev-parse", "--show-toplevel")).strip())
+        if actual.resolve() != private_repo:
+            raise ValueError("Private source must be a separate repository root")
+        public_sha = _commit(_PROJECT_ROOT, ref)
+        private_sha = _commit(private_repo, private_ref)
+        public_paths = _snapshot_git(_PROJECT_ROOT, "ls-tree", "-rz", "--name-only", public_sha).split(b"\0")
+        private_paths = _snapshot_git(private_repo, "ls-tree", "-rz", "--name-only", private_sha).split(b"\0")
+        public_stems = {Path(os.fsdecode(p)).stem for p in public_paths if p.endswith(b".py")}
+        tokens = sorted(
+            {
+                Path(os.fsdecode(p)).stem
+                for p in private_paths
+                if p.endswith(b".py") and _MODULE_STEM.fullmatch(Path(os.fsdecode(p)).stem)
+            }
+            - public_stems
+        )
+        if not tokens:
+            raise ValueError("Private source has no eligible module names")
+        env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(_PROJECT_ROOT),
+                "grep",
+                "--no-color",
+                "--full-name",
+                "-n",
+                "-z",
+                "-I",
+                "-w",
+                "-F",
+                "-f",
+                "-",
+                public_sha,
+                "--",
+                "*.md",
+            ],
+            input=("\n".join(tokens) + "\n").encode(),
+            capture_output=True,
+            env=env,
+            check=False,
+        )
+        if result.returncode not in (0, 1):
+            raise ValueError("Public document scan failed")
+        findings = []
+        exempt = set()
+        for match in re.finditer(rb"([^\0]+)\0([0-9]+)\0[^\n]*\n", result.stdout):
+            path = os.fsdecode(match[1])[len(public_sha) + 1 :]
+            if path not in exempt and path in CONTENT_EXCEPTIONS:
+                digest, reason = CONTENT_EXCEPTIONS[path]
+                blob = _snapshot_git(_PROJECT_ROOT, "show", public_sha + ":" + path)
+                if reason.strip() and hashlib.sha256(blob).hexdigest() == digest:
+                    exempt.add(path)
+            if path not in exempt:
+                findings.append({"path": path, "line": int(match[2])})
+        if result.returncode == 0 and not findings and not exempt:
+            raise ValueError("Unrecognised Git scan output")
+        return {
+            "status": "FAIL" if findings else "PASS",
+            "public_commit": public_sha,
+            "private_commit": private_sha,
+            "findings": findings,
+            "exceptions": sorted(exempt),
+        }
+    except (OSError, ValueError, UnicodeError):
+        return {
+            "status": "NOT_RUN",
+            "findings": [],
+            "reason": "Cannot verify committed Markdown; check the public ref and nested private repository/ref.",
+        }
+
+
+def _print_content_result(result: dict) -> int:
+    print(f"{result['status']} - committed Markdown private-module name check")
+    if result["status"] == "NOT_RUN":
+        print(result["reason"])
+        return 2
+    print(f"public={result['public_commit']} private={result['private_commit']}")
+    for hit in result["findings"]:
+        print(f"  {hit['path']}:{hit['line']} - review private-module reference (content withheld)")
+    for path in result["exceptions"]:
+        print(f"  reviewed public vocabulary: {path}")
+    return 1 if result["findings"] else 0
 
 
 def _running_inside_private_nested_repo() -> bool:
@@ -266,6 +411,12 @@ def find_all_branch_offenders() -> dict[str, list[tuple[str, str]]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Block private siting IP / secrets from the tracked tree.")
     ap.add_argument("--staged", action="store_true", help="scan only staged files (pre-commit use)")
+    ap.add_argument("--content", action="store_true", help="check committed Markdown; requires the nested private repo")
+    ap.add_argument("--ref", default="HEAD", help="public commit/ref to inspect with --content")
+    ap.add_argument("--private-repo", type=Path, help="explicit nested private checkout (default: primary checkout)")
+    ap.add_argument(
+        "--private-ref", default="main", help="private source revision (default: local main; never fetched)"
+    )
     ap.add_argument(
         "--all-branches",
         action="store_true",
@@ -273,6 +424,11 @@ def main() -> int:
         "(requires 'git fetch origin' first for a full view; run periodically, not per-push)",
     )
     args = ap.parse_args()
+
+    if args.content:
+        if args.staged or args.all_branches:
+            ap.error("--content cannot be combined with --staged or --all-branches")
+        return _print_content_result(scan_content(args.ref, args.private_repo, args.private_ref))
 
     if _running_inside_private_nested_repo():
         print(f"SKIPPED — running inside the private {_PRIVATE_NESTED_REPO_MARKER}/ repo, not the public root.")

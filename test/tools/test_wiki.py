@@ -170,6 +170,58 @@ def test_setup_project_hooks_creates_settings_when_absent(project, capsys):
     assert not any("not wired" in f.text for f in report.findings)
 
 
+def test_shared_skill_drift_is_a_failure(project):
+    left = project.PROJECT_SKILLS / "sample" / "SKILL.md"
+    right = project.ROOT / ".agents" / "skills" / "sample" / "SKILL.md"
+    for path, text in ((left, "canonical"), (right, "drift")):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    report = project.Report()
+    project.check_project_templates(report)
+    assert any(f.level == "FAIL" and "sample" in f.text for f in report.findings)
+    right.write_bytes(left.read_bytes())
+    report = project.Report()
+    project.check_project_templates(report)
+    assert not report.failed
+
+
+def test_absent_client_tree_and_declared_variants_do_not_fail(project):
+    report = project.Report()
+    project.check_project_templates(report)
+    assert not report.failed
+    for client, text in ((".claude", "scoped brief"), (".agents", "generic brief")):
+        path = project.ROOT / client / "skills" / "shape" / "SKILL.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    report = project.Report()
+    project.check_project_templates(report)
+    assert not report.failed
+    assert any("shape" in f.text and "exception" in f.text for f in report.findings)
+
+
+@pytest.mark.parametrize("remaining", [".claude", ".agents"])
+def test_known_shared_skill_missing_copy_fails(project, remaining):
+    for client in (".claude", ".agents"):
+        (project.ROOT / client / "skills").mkdir(parents=True, exist_ok=True)
+    path = project.ROOT / remaining / "skills" / "wiki" / "SKILL.md"
+    path.parent.mkdir()
+    path.write_text("shared", encoding="utf-8")
+    report = project.Report()
+    project.check_shared_skills(report)
+    assert report.failed
+    assert any("wiki" in f.text and "missing" in f.text for f in report.findings)
+
+
+def test_client_only_skill_does_not_require_a_mirror(project):
+    path = project.PROJECT_SKILLS / "client-only" / "SKILL.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("client-only", encoding="utf-8")
+    (project.ROOT / ".agents" / "skills").mkdir(parents=True)
+    report = project.Report()
+    project.check_shared_skills(report)
+    assert not report.failed
+
+
 def test_new_page_writes_skeletons(wiki, tmp_path, monkeypatch):
     monkeypatch.setattr(wiki, "PROJECT_RULES", tmp_path / "rules")
     monkeypatch.setattr(wiki, "PROJECT_CARDS", tmp_path / "cards")

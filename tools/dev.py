@@ -90,6 +90,10 @@ TASKS: dict[str, Task] = {
         "Block private engine/product files reaching the public remote",
         ((PYTHON, "tools/check_no_private_ip.py"),),
     ),
+    "private-doc-content": Task(
+        "Check committed Markdown against local private module names (requires private checkout)",
+        ((PYTHON, "tools/check_no_private_ip.py", "--content", "--ref", "HEAD"),),
+    ),
     # Compilation proves a file parses and check_dependency_declarations proves its packages are
     # declared; neither executes an import. This does, in subprocesses with services.runtime_env
     # imported first so the BLAS-thread cap is preserved.
@@ -249,6 +253,7 @@ PREFLIGHT_TASKS = (
     *CHECK_TASKS,
     "test-slow",
     "private-ip",
+    "private-doc-content",
     "expected-failures",
     "imports-execute",
     "gold-guards",

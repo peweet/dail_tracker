@@ -49,6 +49,14 @@ def test_preflight_covers_the_explicit_slow_ci_lane():
     assert dev.commands_for("test-slow")[0] in dev.commands_for("preflight")
 
 
+def test_preflight_checks_committed_document_content_separately_from_path_guard():
+    assert "private-doc-content" in dev.PREFLIGHT_TASKS
+    assert dev.commands_for("private-doc-content") == (
+        (dev.PYTHON, "tools/check_no_private_ip.py", "--content", "--ref", "HEAD"),
+    )
+    assert dev.commands_for("private-ip") == ((dev.PYTHON, "tools/check_no_private_ip.py"),)
+
+
 def test_integration_task_enables_the_local_contract_environment(monkeypatch):
     captured: dict[str, object] = {}
 
