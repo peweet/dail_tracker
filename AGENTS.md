@@ -82,6 +82,9 @@ is unavailable or not applicable.
 - Scouts and reviewers stay read-only, return concise evidence with file references, and never post externally or make product, legal, or commercial decisions.
 - A worker owns only the files named in its brief, preserves concurrent edits, and returns changed files plus verification evidence to the captain; it never commits, pushes, or posts externally.
 - Wait for every requested result, adjudicate disagreements against repository evidence, and report unresolved uncertainty explicitly.
+- Independently review consequential adoption and rejection decisions against the actual goal
+  and current evidence. Uncertainty remains unresolved; neither a default rejection nor a
+  majority vote establishes correctness. See [decision evidence](doc/AGENT_HARNESS.md#decision-evidence).
 - Permit at most one write-capable agent in a checkout. Parallel implementation requires separate Git worktrees and explicit integration ownership; do not improvise worktrees for the nested `planning/product` repository.
 
 ### Cross-session sidecars

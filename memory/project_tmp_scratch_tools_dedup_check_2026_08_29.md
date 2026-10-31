@@ -48,14 +48,11 @@ tests) written for one document review.
 
 ## lsprobe/detail.py — skip_duplicate (private-repo duplicate)
 
-Fully superseded by mature, tested private siting-engine code:
-`planning/product/ingest/planning_layers_freshness.py:346` (`layer_metadata`), `:354`
-(`metadata_last_edit` — same `editingInfo.lastEditDate` extraction), `:382` (`live_count`,
-filter-aware unlike `detail.py`'s unfiltered count); and
-`planning/product/ingest/layer_source_audit.py:80-88` (`_get` helper), `:138-166` (`probe()`,
-URL-liveness sweep), `:168-207` (`census()`, the national per-org/service/layer ArcGIS sweep that
-built `planning/product/rules/org_census.csv` and `council_org_registry.csv` — see
-[[siting-council-own-gis]]). Public `tools/` (root) has zero ArcGIS/FeatureServer/`f=pjson` hits,
+The dated review found equivalent private freshness and source-audit checks for
+last-edit metadata, filter-aware live counts, URL liveness and registry coverage.
+Private module and registry references are withheld from this public record;
+the original evidence remains in Git history and the private review notes.
+At the time of that review, public `tools/` (root) had zero ArcGIS/FeatureServer/`f=pjson` hits,
 confirming there's no *public*-side gap — but the private equivalent means this was never a gap
 for the public repo to fill. The other 5 files in the directory (pip.py, sweep.py, sweep2.py,
 vals.py, vals2.py) are confirmed one-offs: siting-specific org lists, a landscape-character-area

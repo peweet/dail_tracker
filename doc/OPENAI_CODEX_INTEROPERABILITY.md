@@ -91,11 +91,9 @@ The adapter uses the Responses API with these safeguards:
   data, not instructions. Generated prose remains non-citable; the deterministic
   report remains the evidence artefact.
 
-The supporting integration surfaces were made provider-neutral in
-[`planning/product/core/narrative.py`](../planning/product/core/narrative.py),
-[`planning/product/ui/data_access/siting_assistant.py`](../planning/product/ui/data_access/siting_assistant.py),
-[`planning/product/ui/pages/siting_assistant.py`](../planning/product/ui/pages/siting_assistant.py),
-and [`planning/product/tools/siting_report.py`](../planning/product/tools/siting_report.py).
+The supporting narrative, UI and report integration surfaces were made
+provider-neutral. Implementation references are retained in the private repository;
+this public document omits private module paths.
 The report tool exposes `--provider`, `--model`, and `--reasoning-effort`, so the
 same controlled choice is available outside the UI.
 
@@ -346,9 +344,6 @@ lesson retrieval, hooks, and scoped MCP indexing. These commands are safe to run
 without a paid model call:
 
 ```powershell
-# Siting OpenAI/Claude boundary, strict output parsing, and narrative integration
-.\.venv\Scripts\python.exe -m pytest planning\product\test\test_assistant.py planning\product\test\test_narrative.py -q
-
 # Codex/Claude evaluation adapter and result comparison
 .\.venv\Scripts\python.exe -m pytest test\tools\evals\test_provider_adapter.py test\tools\test_bench_compare.py -q
 
@@ -360,8 +355,9 @@ without a paid model call:
 uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py verify
 ```
 
-Use `planning/product/tools/siting_report.py --help` to confirm that `--provider`,
-`--model`, and `--reasoning-effort` are available. Do not treat a successful test run
+For private model-boundary tests and report commands, follow the private repository's
+README and named environment. Confirm provider, model and reasoning options against
+the installed command's help. Do not treat a successful test run
 as proof that a real account is authorised to make calls. A live integration smoke test
 requires an authorised key, a deliberately selected low-risk test input, and a clear
 decision about whether that request is allowed to leave the environment.

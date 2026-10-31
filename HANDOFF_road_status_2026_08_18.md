@@ -23,8 +23,8 @@ Restored, calibrated, and shipped as an advisory-tier check.
 
 ## Measurements (all this session, `one_off_house` pool n=1,693)
 
-- Fire rate **15.7%** after calibration, 52.3% un-narrowed — `tools/measure_road_status_fire_rate.py`
-- Warrant lift **1.33x** (17.4% engaged when firing vs 13.1% base) — `tools/measure_road_status_warrant.py`
+- Fire rate **15.7%** after calibration, 52.3% un-narrowed — the private calibration receipt (module reference withheld)
+- Warrant lift **1.33x** (17.4% engaged when firing vs 13.1% base) — the private warrant receipt (module reference withheld)
 - Rahard live probe: OSM way 41 m unclassified/no-ref, official L-71542 89 m, nearest numbered
   L7154 **449 m** → screen fires.
 
@@ -40,7 +40,7 @@ its `Brief.road_status` work as `ee221c3`, which closed 3 of the surfaces. I clo
 `0695c4f`. The node is now **COPIED into `access` and LEFT in `to_verify`**, not moved.
 
 Why copy rather than the advisory revert the owner asked for: the **CUSTOMER JSON**
-(`customer_json_schema.py`) has no `access` section at all — its keys are `hard_constraints`,
+(private schema reference withheld) has no `access` section at all — its keys are `hard_constraints`,
 `shaping_constraints`, `standard_requirements`, `checks_to_confirm`, `required_reports` — so
 `checks_to_confirm` was road status's ONLY home in the client deliverable, and the promotion
 emptied it with nowhere to land. Copying fixes that without touching a client-facing schema.
@@ -50,7 +50,7 @@ the check list.
 
 **2. All seven regressions closed.** Verified on a rendered pack, not just the suite: HTML/PDF
 At-a-glance now leads with road status (`_matrix_html`), `report_json.py` 8 refs,
-`narrative_packet.py` wired, `road_status_engage` has 3 readers, `decision.py` 2 refs, customer
+private narrative integration wired, `road_status_engage` has 3 readers, `decision.py` 2 refs, customer
 JSON carries DM Standard 30, and the DM Standard 30 ratchet **fails instead of skipping**.
 155 tests, 0 skipped; dryrun ALL MARKERS PASS.
 ⚠ One of those "regressions" was my own test bug: `doc["access"]["value"]` where the envelope key
@@ -79,7 +79,7 @@ refutation DID run, every single angle was cut 2-3x. Discount those 42 according
 ## Traps found (worth keeping)
 
 - **`access=private` branch is dead code.** `osm_roads` keeps only `(highway, maxspeed, name, ref,
-  wkb)` — `planning_osm_roads_geofabrik.py:43`. Four tests exercise it and pass only because the
+  wkb)` — the private roads-ingest implementation (reference withheld). Four tests exercise it and pass only because the
   stub invents the key. Tripwire test now fails the day the ingest changes.
 - **Line-based grep undercounts this corpus.** Reports are hard-wrapped at ~124 chars; "alternative
   site" is 859 by line-grep, **881** normalised. Every line-based count is a floor.
@@ -90,5 +90,5 @@ refutation DID run, every single angle was cut 2-3x. Discount those 42 according
 
 ## Gates
 
-144 tests green; `siting_report_dryrun.py` ALL MARKERS PASS (13 cases, 0 coherence errors);
-`test_node_document_traceability.py` 10/10 including new HTML/DOCX/PDF structural checks.
+144 tests green; private report dry-run ALL MARKERS PASS (13 cases, 0 coherence errors);
+private document-traceability checks 10/10 including new HTML/DOCX/PDF structural checks.

@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-10-11
+updated: 2026-10-31
 supersedes: []
 read_when: changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -374,6 +374,46 @@ Sources: [Codex IDE commands](https://learn.chatgpt.com/docs/developer-commands?
 | Cross-provider result normalization | Already implemented by `provider_adapter.py` | Retained; attempt rows now include normalized usage, tools, provider, model, and errors |
 | Source/data tiering | Already encoded in dataset fact cards, money grains, documentation status, and memory currency bands | Retained; no second taxonomy added |
 | Explicit interfaces and loud failure | Already enforced by data contracts, MCP schemas, dev tasks, and `TODO_PIPELINE_VIEW_REQUIRED` | Retained; result contracts expose unresolved work |
+
+## Local document and shared-skill checks
+
+`python tools/check_no_private_ip.py --content --ref HEAD` reads committed Markdown,
+using distinctive Python module stems from the authoritative nested private repository's
+local `main` revision, minus stems already public in the inspected commit. It never fetches
+or switches branches. A linked public worktree resolves the primary checkout's nested repo;
+`--private-repo` and `--private-ref` make another reviewed source explicit.
+
+The pre-push hook checks each non-deletion ref's tip SHA. The `private-doc-content`
+preflight task checks HEAD; neither checks uncommitted edits. A missing private checkout/ref
+is `NOT_RUN` (exit 2), findings are `FAIL` (exit 1), and both block the hook. Public CI retains
+the path guard because it lacks the private source. The local hook must be installed for
+local enforcement. This is a partial name-disclosure check, not copied-source, architecture
+or outgoing-history detection. Short, numeric and otherwise nonmatching module names are
+outside its deliberately bounded stem pattern; a pass is not a general secrecy guarantee.
+
+Diagnostics publish document locations and source SHAs, never matched private tokens.
+Reviewed public vocabulary collisions live in `CONTENT_EXCEPTIONS`, with a reason and
+SHA-256 of the entire committed document. Any edit invalidates that exception. Review every
+finding in a document before approving its exact bytes, and triage new matches in the same
+change. Token-source changes also require inspection of the exception documents.
+
+`python tools/wiki.py status --strict` compares shared `.claude/skills/*/SKILL.md` and
+`.agents/skills/*/SKILL.md` bytes locally. Drift or a missing copy of a known pair is FAIL;
+a missing client tree is SKIP. New client-only skills do not require a mirror.
+The `shape` and `skill-creator` variants are explicit WARN exceptions pending a contract
+decision. Canonical local skills remain under `.claude`; no renderer or public skill-copy
+publication is introduced. This check does not prove that a client actually loaded a skill.
+
+## Decision evidence
+
+Consequential recommendations to adopt **or reject** an owner's approach receive a fresh,
+read-only independent review. The captain supplies the actual goal, strongest case on each
+side, current source evidence and a disconfirming check. Assess fit, benefits, costs and
+alternatives separately from popularity or existence. Uncertainty stays unresolved; do not
+default to rejection or use majority vote as proof. Reconcile reviewer disagreements against
+sources, and label review unavailable when it could not run. Routine mechanical edits do not
+need a research fan-out. The portable rule is in `AGENTS.md`; local detailed guidance remains
+in the evidence rule. Prompt changes remain UNVALIDATED until their separate evaluation.
 
 ## Deliberately not implemented
 
