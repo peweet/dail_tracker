@@ -137,3 +137,38 @@ def test_content_scan_receives_every_pushed_commit(tmp_path: Path, content_exit:
     assert any(f"--ref {first}" in line for line in scans)
     if not content_exit:
         assert any(f"--ref {second}" in line for line in scans)
+
+
+def test_content_scan_rejects_an_intermediate_outgoing_commit(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    _git(tmp_path, "init", "-q", "-b", "main", str(root))
+    _commit(root, "base.md")
+    base = _git(root, "rev-parse", "HEAD")
+    _commit(root, "intermediate.md")
+    blocked = _git(root, "rev-parse", "HEAD")
+    _commit(root, "clean-tip.md")
+    tip = _git(root, "rev-parse", "HEAD")
+    runner = root / ".venv" / "Scripts" / "python"
+    runner.parent.mkdir(parents=True)
+    runner.write_text(
+        '#!/bin/sh\ncase "$*" in *"--content --ref $BLOCKED_COMMIT"*) exit 1;; esac\nexit 0\n',
+        encoding="utf-8",
+    )
+    runner.chmod(0o755)
+    env = _clean_git_env()
+    env.update(BLOCKED_COMMIT=blocked, DAIL_SKIP_PUSH_GATE="1")
+    shell = shutil.which("sh")
+    if shell is None:
+        git = shutil.which("git")
+        assert git is not None
+        shell = str(Path(git).resolve().parents[1] / "bin" / "sh.exe")
+    result = subprocess.run(
+        [shell, str(HOOK)],
+        cwd=root,
+        input=f"refs/heads/main {tip} refs/heads/main {base}\n",
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert result.returncode == 1, result.stderr
+    assert "committed Markdown check blocked" in result.stderr

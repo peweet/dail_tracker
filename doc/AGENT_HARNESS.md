@@ -383,7 +383,12 @@ local `main` revision, minus stems already public in the inspected commit. It ne
 or switches branches. A linked public worktree resolves the primary checkout's nested repo;
 `--private-repo` and `--private-ref` make another reviewed source explicit.
 
-The pre-push hook checks each non-deletion ref's tip SHA. The `private-doc-content`
+The pre-push hook checks each non-deletion ref's tip and every outgoing commit,
+including intermediate trees whose content was later removed. New-branch scans
+exclude ancestry already reachable from remote-tracking refs. Install this hook
+only in an owner checkout with the nested private repository available; an absent
+private source produces blocking `NOT_RUN`. Public-only contributors use the
+public CI gates and should not install this owner hook. The `private-doc-content`
 preflight task checks HEAD; neither checks uncommitted edits. A missing private checkout/ref
 is `NOT_RUN` (exit 2), findings are `FAIL` (exit 1), and both block the hook. Public CI retains
 the path guard because it lacks the private source. The local hook must be installed for

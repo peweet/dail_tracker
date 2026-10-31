@@ -3,7 +3,8 @@
 # public remote (github.com/peweet/dail_tracker). Rules live in
 # tools/check_no_private_ip.py; CI runs its public path check.
 #
-# Enable on a fresh clone (one-time; core.hooksPath is local config, not cloned):
+# Enable only in an owner checkout containing the nested private repository
+# (one-time; core.hooksPath is local config, not cloned):
 #     git config core.hooksPath .githooks
 #
 # This only ever BLOCKS a push; it never modifies files. The Markdown content
@@ -47,16 +48,30 @@ fi
 CE_PRIVATE_PATHS="data/gold/parquet/council_ce_report_leads.parquet pipeline_sandbox/council_minutes/ce_report_lead_reviews.csv pipeline_sandbox/council_minutes/ce_lead_recall_labels.json pipeline_sandbox/council_minutes/ce_lead_recall_gap.jsonl"
 ZERO=0000000000000000000000000000000000000000
 GATE_SHA=
+SCANNED_CONTENT=" "
 while read -r _local_ref local_sha _remote_ref remote_sha; do
+  remote_sha=$(printf '%s' "$remote_sha" | tr -d '\r')
   [ "$local_sha" = "$ZERO" ] && continue  # branch deletion pushes nothing
-  # Inspect every pushed ref, never a cleaned working copy or only the last ref.
-  "$PY" tools/check_no_private_ip.py --content --ref "$local_sha"
-  status=$?
-  if [ "$status" -ne 0 ]; then
-    echo "pre-push: committed Markdown check blocked the push (FAIL or NOT_RUN)." >&2
-    exit "$status"
+  if [ "$remote_sha" = "$ZERO" ]; then
+    range="$local_sha"
+    commits=$(git rev-list "$local_sha" --not --remotes) || exit 2
+  else
+    range="$remote_sha..$local_sha"
+    commits=$(git rev-list "$range") || exit 2
   fi
-  if [ "$remote_sha" = "$ZERO" ]; then range="$local_sha"; else range="$remote_sha..$local_sha"; fi
+  # Inspect intermediate outgoing trees as well as the tip: removing a disclosed
+  # name later in the same push does not remove its historical blob. New branches
+  # exclude already published ancestry; the tip is still checked in every case.
+  for content_sha in "$local_sha" $commits; do
+    case "$SCANNED_CONTENT" in *" $content_sha "*) continue ;; esac
+    "$PY" tools/check_no_private_ip.py --content --ref "$content_sha"
+    status=$?
+    if [ "$status" -ne 0 ]; then
+      echo "pre-push: committed Markdown check blocked the push (FAIL or NOT_RUN)." >&2
+      exit "$status"
+    fi
+    SCANNED_CONTENT="$SCANNED_CONTENT$content_sha "
+  done
   # shellcheck disable=SC2086  # CE_PRIVATE_PATHS is a deliberate word-split list
   hits=$(git log --name-only --format= "$range" -- $CE_PRIVATE_PATHS 2>/dev/null | sort -u)
   if [ -n "$hits" ]; then
