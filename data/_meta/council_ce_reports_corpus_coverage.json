@@ -1,6 +1,6 @@
 {
   "schema": "council-ce-reports-corpus/1",
-  "generated_utc": "2026-10-30T07:31:54.133246+00:00",
+  "generated_utc": "2026-10-31T07:32:46.913022+00:00",
   "source_manifest": "apps\\public-signal\\pipeline\\data\\ce_reports_manifest.jsonl",
   "input_records": 267,
   "published_documents": 232,
