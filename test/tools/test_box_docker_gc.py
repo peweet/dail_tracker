@@ -300,6 +300,33 @@ def test_explicit_env_file_extends_the_required_deployment_pin_pair(tmp_path):
     extra = tmp_path / "extra.env"
 
     assert gc.effective_env_files([extra]) == (*gc.DEFAULT_ENV_FILES, extra)
+    assert Path("/srv/redline-review/config/pilot.engine.previous.env") in gc.DEFAULT_ENV_FILES
+
+
+def test_stale_engine_named_only_by_dedicated_backup_survives_reclaim(tmp_path, monkeypatch):
+    current = tmp_path / "pilot.env"
+    legacy = tmp_path / "pilot.previous.env"
+    dedicated = tmp_path / "pilot.engine.previous.env"
+    current.write_text("SITING_ENGINE_IMAGE=redline-review-engine:git-new\n", encoding="utf-8")
+    legacy.write_text("SITING_ENGINE_IMAGE=redline-review-engine:git-new\n", encoding="utf-8")
+    dedicated.write_text("SITING_ENGINE_IMAGE=redline-review-engine:git-stale\n", encoding="utf-8")
+    env_files = (current, legacy, dedicated)
+    stale = _aged("redline-review-engine", "git-stale", days=90)
+    new = _aged("redline-review-engine", "git-new", days=10, image_id="bbbbbbbbbbbb")
+    pinned = gc.pinned_image_refs(env_files)
+    removable, retained = _select([stale, new], pinned=pinned, keep=1, min_age_days=3)
+    assert stale["ref"] not in [image["ref"] for image in removable]
+    reasons = {image["ref"]: image["retained_because"] for image in retained}
+    assert "pinned by pilot.engine.previous.env" in reasons[stale["ref"]]
+    monkeypatch.setattr(gc, "_disk_free_bytes", lambda _path: 100)
+    monkeypatch.setattr(gc, "in_use_image_ids", lambda: set())
+    monkeypatch.setattr(gc, "list_images", lambda: [stale, new])
+
+    receipt = tmp_path / "receipt.json"
+    assert gc.reclaim(**_reclaim_kwargs(receipt=receipt, env_files=env_files)) == 0
+
+    payload = json.loads(receipt.read_text(encoding="utf-8"))
+    assert payload["candidates"] == []
 
 
 def test_apply_requires_an_explicit_repository_scope(monkeypatch):

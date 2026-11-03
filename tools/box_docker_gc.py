@@ -97,10 +97,12 @@ def in_use_image_ids() -> set[str]:
 
 
 #: Deployment env files consulted for pinned image references. A ref named here is a
-#: deploy-time dependency even when no container currently runs it.
+#: deploy-time dependency even when no container currently runs it. Keep the current
+#: file, the legacy full-release rollback, and the dedicated engine rollback source.
 DEFAULT_ENV_FILES = (
     Path("/srv/redline-review/config/pilot.env"),
     Path("/srv/redline-review/config/pilot.previous.env"),
+    Path("/srv/redline-review/config/pilot.engine.previous.env"),
 )
 
 
