@@ -34,6 +34,7 @@ working machine. The backup side (what runs, how it's configured) is in
 | `data/gold/` (beyond the git slice), rest of `data/silver` | **not backed up** — regenerable | rebuild via the pipeline from bronze |
 | `dailtracker.ie` custom domain (Cloudflare Worker + DNS) | GitHub (`deploy/cloudflare/`) + your Cloudflare account | re-run the one-time setup in [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) — DNS/Worker config isn't itself a file to restore, just re-created from that doc |
 | `planning/` (including the authoritative nested `planning/product/.git` private history) | restic repo `restic_private` → Hetzner bucket **`specplan-ie-private-restic-nbg1`** | `restic restore` (below) |
+| Claude Code assistant state in `%USERPROFILE%\.claude\` — every `projects\*\memory\` dir, `skills\`, `rules\`, `CLAUDE.md` (575 memory cards + 18 skills on 2026-11-06; commercial notes, so private lane only). Not credentials, settings or transcripts | restic repo `restic_private` (same Hetzner bucket), nightly since 2026-11-06; one-off snapshots tagged `claude-config` | `restic restore` (below); restore drill from the off-site copy passed 2026-11-06 (854/854 memory files hash-identical) |
 | **The whole repo otherwise** (~3.8 GB: `.git`, the non-mirrored parts of `data/`, `pipeline_sandbox`, `doc`, `ida`, `out`, `logs`, `audit_screenshots`, `.claude`, tests, tools) | restic repo `restic_sandbox` → R2 bucket `dail-tracker-backup` | `restic restore` (below) |
 | Production authentication, waitlist and deployment configuration | verified local state stage and encrypted Restic repository `specplan-ie-private-restic-nbg1/redline-production-state` | rebuild the Hetzner VM, restore the latest encrypted state snapshot, then complete an isolated sign-in/case-reopen rehearsal |
 
@@ -225,6 +226,13 @@ restic -r C:\restore\restic_private check         # verify repo integrity
 
 Restore a single file instead of everything with
 `restic -r <repo> restore latest --target <dir> --include "*/planning/product/<file>"`.
+
+Assistant state (memory, skills, rules) on a new laptop: restore into a scratch prefix, then copy the
+`C\Users\pglyn\.claude\...` subtree back to `%USERPROFILE%\.claude\` before starting Claude Code.
+`restic -r <repo> restore latest --target C:\restore\claude --include "*/.claude/*"`. Through the rclone
+backend (`-r rclone:hetznerbackup:specplan-ie-private-restic-nbg1/restic_private`), put rclone's folder on
+PATH first: `-o rclone.program=C:\...` is split on the backslashes and fails with `exec: "C:"`. The
+restored `C\Users` wrapper dir refuses deletion until `icacls <dir> /reset /T`.
 
 ### Three Windows quirks that look like failures but are not (all hit in the 2026-08-02 drill)
 

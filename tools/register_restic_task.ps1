@@ -40,10 +40,12 @@ $action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
     -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`"" `
     -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -Daily -At 3:00am
-# Same settings rationale as register_backup_task.ps1; 2h ceiling covers a full re-upload.
+# Same settings rationale as register_backup_task.ps1. 6h, not 2h (2026-11-06): the script may
+# wait up to 2h for the data lane before restic starts, and the 11-06 run was still uploading
+# 2h20m after its start, so a 2h ceiling killed it before its result line was written.
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 2)
+    -ExecutionTimeLimit (New-TimeSpan -Hours 6)
 
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `

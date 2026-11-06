@@ -61,6 +61,23 @@ $rclog = Join-Path $root 'logs\standalone\backup_restic_to_r2.rclone.log'
 New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
 $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 Set-Location $root
+# A run killed by the Task Scheduler time limit never reaches the result line at the bottom, so
+# 2026-11-05 and 2026-11-06 left no trace at all. Log the start, and each job's outcome as it ends,
+# so a cut-short run shows how far it got.
+Add-Content $log "$stamp  start  pid=$PID"
+
+# Claude Code assistant state that exists on this laptop only (2026-11-06: 575 memory cards, 18
+# personal skills, the global rules). It holds commercial notes and box details, so it goes to
+# the PRIVATE repo/bucket only, never the public-data R2 bucket. Credentials (.claude\.credentials.json),
+# settings and session transcripts are deliberately NOT listed. Every project's memory dir is
+# picked up, so a new project's memory is covered without editing this list.
+$claudeHome  = Join-Path $env:USERPROFILE '.claude'
+$claudePaths = @()
+if (Test-Path (Join-Path $claudeHome 'projects')) {
+    $claudePaths += @(Get-ChildItem -Path (Join-Path $claudeHome 'projects') -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object { Join-Path $_.FullName 'memory' } | Where-Object { Test-Path $_ })
+}
+$claudePaths += @('skills', 'rules', 'CLAUDE.md' | ForEach-Object { Join-Path $claudeHome $_ } | Where-Object { Test-Path $_ })
 
 # A sleeping laptop can make Task Scheduler catch both daily jobs up at once,
 # even though their normal triggers are an hour apart.  The data lane is smaller
@@ -165,7 +182,7 @@ $excludeSandbox = @(
     '--exclude', "$root\.cache",
     '--exclude', "$root\.venv",
     # Re-runnable spatial benchmark scratch (68 GB, 122k files on 2026-08-27) and the GeoParquet
-    # migration's hard-linked rollback originals (35 GB) — restic would store the hard links as
+    # migration's hard-linked rollback originals (35 GB) - restic would store the hard links as
     # full copies. A dry-run that night showed 105 GiB "new" from these alone. Rolling a
     # converted layer back after _migration is retired means a re-ingest, not a byte restore.
     '--exclude', "$root\data\_sandbox\*_benchmark",
@@ -186,7 +203,7 @@ $excludePrivate = @(
 $jobs = @(
     @{ name='restic_private'; pw=$pwPrivate; remote=$remotePrivate; bucket=$bucketPrivate;
        tag='private-ip'; excl=$excludePrivate;
-       paths=@("$root\planning", "$root\.git-siting", "$root\.git-publicsignal", "$root\apps") },
+       paths=@("$root\planning", "$root\.git-siting", "$root\.git-publicsignal", "$root\apps") + $claudePaths },
     @{ name='restic_sandbox'; pw=$pwSandbox; remote=$remoteSandbox; bucket=$bucketSandbox;
        tag='whole-repo'; excl=$excludeSandbox; paths=@($root) }
 )
@@ -233,6 +250,7 @@ foreach ($job in $jobs) {
     Write-Host "Uploading $($job.name) -> $($job.remote):$($job.bucket) ..."
     & $rclone sync $repoPath "$($job.remote):$($job.bucket)/$($job.name)" @common
     if ($LASTEXITCODE -ne 0) { $failed = 1 }
+    Add-Content $log ("{0}  job={1}  upload_exit={2}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $job.name, $LASTEXITCODE)
 }
 
 $env:RESTIC_PASSWORD = $null
