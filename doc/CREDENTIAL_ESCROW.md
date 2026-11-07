@@ -2,7 +2,7 @@
 tier: PLAN
 status: LIVE
 domain: infra
-updated: 2026-08-21
+updated: 2026-11-07
 supersedes: []
 read_when: setting up or auditing the off-box copy of the credentials a restore needs, or checking whether the escrow is still complete
 key: PLAN|LIVE|infra
@@ -55,7 +55,10 @@ R2 tokens either.** Their lengths are 50/49/67/74 chars; the R2 credentials are 
 them and store each with a note saying what it opens — an unlabelled secret in a file that
 dies with the laptop is a gap whether or not anyone remembers what it was for.
 
-### Item 3 — object-storage credentials (REQUIRED, and currently laptop-only)
+### Item 3 — object-storage credentials (REQUIRED; escrowed in Bitwarden 2026-11-07)
+
+Status, 7 November 2026: the owner saved both credentials below to Bitwarden as one secure note
+[Reported — owner]. The note was not opened from a second device in the session that recorded this.
 
 The public-data R2 token lives in
 `C:\Users\pglyn\AppData\Roaming\rclone\rclone.conf`. The private Hetzner key lives in the
