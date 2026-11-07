@@ -226,6 +226,13 @@ def test_config_pins_thread_cap(relpath, expected):
     [
         "python -m pytest test/siting -q",
         "python -m pytest planning/product/test -q",
+        "py -3.12 tools/dev_env.py run siting python planning/product/tools/siting_engine_regression.py check",
+        r"& .venv\Scripts\python.exe planning\product\tools\siting_report.py --help",
+        "uv run python pipeline.py",
+        "bash planning/product/tools/siting_report.py",
+        "nohup ./planning/product/tools/siting_engine_regression.py check",
+        r"cmd /c planning\product\tools\siting_report.py",
+        "sudo -u deploy ./tools/siting_engine_backtest.py",
     ],
 )
 def test_memory_guard_blocks_heavy_command_under_the_floor(monkeypatch, command):
@@ -268,3 +275,28 @@ def test_memory_guard_allows_ordinary_commands(monkeypatch):
         type("S", (), {"read": staticmethod(lambda: json.dumps({"tool_input": {"command": "git status"}}))})(),
     )
     assert guard_memory.main() == 0, "an ordinary command must never be blocked"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rg -n 'def main' planning/product/tools/siting_engine_regression.py",
+        "sed -n '1,40p' planning/product/tools/siting_report.py",
+        "git log --oneline -- planning/product/tools/siting_engine_backtest.py",
+        "Select-String -Path planning/product/tools/siting_report.py -Pattern argparse",
+        'rg "siting_report|pipeline.py" planning/product/tools',
+    ],
+)
+def test_memory_guard_allows_reading_heavy_scripts(monkeypatch, command):
+    """Naming a harness script in a read-only command must not be refused (two such blocks, 2026-11-07)."""
+    sys.path.insert(0, str(REPO / "tools" / "hooks"))
+    import guard_memory  # type: ignore
+
+    monkeypatch.setattr(guard_memory, "sample_memory", lambda: {"free_mb": 100, "total_mb": 16000})
+    monkeypatch.setattr(guard_memory, "record", lambda entry: None)
+    monkeypatch.delenv("DAIL_SKIP_MEM_GUARD", raising=False)
+    monkeypatch.setattr(
+        "sys.stdin",
+        type("S", (), {"read": staticmethod(lambda: json.dumps({"tool_input": {"command": command}}))})(),
+    )
+    assert guard_memory.main() == 0, f"a read-only command naming a harness script was refused: {command}"

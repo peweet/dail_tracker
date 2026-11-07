@@ -56,6 +56,27 @@ HEAVY_PATTERNS = (
     (r"\bgit\s+(gc|repack)\b", "git repack over a parquet-heavy repo"),
 )
 
+#: Patterns that name a script rather than a command. They count only when an interpreter in the
+#: same shell segment runs the script, or the script is the segment's own program, so reading or
+#: searching the file (rg, sed, Select-String, git log) is never refused. Two read-only greps that
+#: named the harness files were refused on 2026-11-07 while RAM was low.
+SCRIPT_PATTERNS = frozenset(
+    {
+        r"siting_engine_(regression|backtest|calibration)",
+        r"\bpipeline\.py",
+        r"siting_report(_dryrun)?\.py",
+        r"paddleocr|ocr_run|run_ocr",
+    }
+)
+
+#: Programs that run another program: interpreters plus shells and launchers (bash X.py,
+#: cmd /c X.py, nohup ./X.py, sudo ./X.py), which the anywhere-in-text matcher used to catch.
+_INTERPRETER = re.compile(
+    r"(?:^|[\\/])(?:python[0-9.]*w?|py|uv|uvx|pytest|poetry|sh|bash|zsh|cmd|powershell|pwsh|nohup|sudo)"
+    r"(?:\.exe)?$",
+    re.IGNORECASE,
+)
+
 #: Below this much free physical RAM, a heavy command is refused. 1.5 GB is under the
 #: smallest measured heavy job (siting harness) and well under the biggest (5.4 GB), so
 #: crossing it means the job cannot fit without paging.
@@ -106,10 +127,57 @@ def _command(payload: dict) -> str:
     return ""
 
 
+def _segments(command: str) -> list[str]:
+    """Split on ;, |, ||, && and newlines outside quotes, so a quoted search pattern stays whole."""
+    parts: list[str] = []
+    current: list[str] = []
+    quote = ""
+    i = 0
+    while i < len(command):
+        ch = command[i]
+        if quote:
+            if ch == quote:
+                quote = ""
+            current.append(ch)
+        elif ch in "'\"":
+            quote = ch
+            current.append(ch)
+        elif ch in ";|\n" or command.startswith("&&", i):
+            parts.append("".join(current))
+            current = []
+            if command.startswith(("&&", "||"), i):
+                i += 1
+        else:
+            current.append(ch)
+        i += 1
+    parts.append("".join(current))
+    return parts
+
+
+def _runs(segment: str, pattern: str) -> bool:
+    """True when this shell segment executes the script that ``pattern`` names."""
+    match = re.search(pattern, segment, re.IGNORECASE)
+    if not match:
+        return False
+    head = segment[: match.start()].replace('"', " ").replace("'", " ")
+    words = head.split()
+    if not words or (len(words) == 1 and not head[-1:].isspace()):
+        return True  # the script path is the segment's own program
+    return any(_INTERPRETER.search(word) for word in words)
+
+
 def classify(command: str) -> tuple[str, str]:
-    """Return (pattern, why) for the first heavy pattern the command matches."""
+    """Return (pattern, why) for the first heavy pattern the command matches.
+
+    Script patterns need an interpreter running the script in the same shell segment (see
+    ``SCRIPT_PATTERNS``); command patterns match anywhere in the text, as before.
+    """
+    segments = _segments(command)
     for pattern, why in HEAVY_PATTERNS:
-        if re.search(pattern, command, re.IGNORECASE):
+        if pattern in SCRIPT_PATTERNS:
+            if any(_runs(segment, pattern) for segment in segments):
+                return pattern, why
+        elif re.search(pattern, command, re.IGNORECASE):
             return pattern, why
     return "", ""
 
