@@ -7,6 +7,12 @@ description: Windows + Git Bash + PowerShell 5.1 traps for tool-shell commands a
 - Commands handed to the user run in PowerShell or cmd.exe, never bash. No `\` line
   continuations, no `$VAR`, no `&&` in PowerShell 5.1. Hand over fully resolved text with no
   placeholder: it gets pasted verbatim.
+- One command per line, valid in both shells: no `;` chains and no `if ($?) { }`. The user
+  may paste into cmd.exe, which hands the whole chain to the first program as arguments
+  (2026-11-08: `git pull` failed with "unknown switch `C'" and the push never ran).
+- Quote an ssh remote command with double quotes, with no `$` and no inner quotes, so it
+  parses the same in cmd.exe and PowerShell. cmd passes single quotes through literally, and
+  the remote bash then runs the whole string as one program path.
 - "It didn't work" after a paste means check the resulting state, not re-issue the command.
   Bracketed-paste escapes can turn line one into "command not found" and run the rest in the
   wrong state.
