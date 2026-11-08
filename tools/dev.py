@@ -54,7 +54,7 @@ DEV_PROFILE_MODULES = (
     "polars",
     "sqlglot",
 )
-STDLIB_TASKS = frozenset({"agent-context", "job-status", "roots", "sidecar-handoff"})
+STDLIB_TASKS = frozenset({"agent-context", "job-status", "roots", "sidecar-handoff", "web-deps"})
 
 
 @dataclass(frozen=True)
@@ -191,6 +191,11 @@ TASKS: dict[str, Task] = {
         "Check working-tree/push status across the three git roots (dail_tracker, "
         "planning/product, apps/public-signal)",
         ((PYTHON, "tools/roots_status.py"),),
+    ),
+    "web-deps": Task(
+        "Link each planning/product worktree's web/node_modules to the store install for its "
+        "own lockfile (status | link <worktree> | unlink <worktree> | adopt <web dir>)",
+        ((PYTHON, "tools/web_node_modules.py"),),
     ),
     "backup-freshness": Task(
         "Report how stale each backup lane is, by snapshot age rather than task state",
