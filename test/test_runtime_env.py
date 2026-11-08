@@ -233,6 +233,10 @@ def test_config_pins_thread_cap(relpath, expected):
         "nohup ./planning/product/tools/siting_engine_regression.py check",
         r"cmd /c planning\product\tools\siting_report.py",
         "sudo -u deploy ./tools/siting_engine_backtest.py",
+        "npx tsc --noEmit",
+        "node node_modules/typescript/bin/tsc --noEmit --incremental false -p tsconfig.json",
+        "cd planning/product/web && npm run typecheck",
+        r".\node_modules\.bin\tsc.cmd --noEmit",
     ],
 )
 def test_memory_guard_blocks_heavy_command_under_the_floor(monkeypatch, command):
@@ -285,6 +289,10 @@ def test_memory_guard_allows_ordinary_commands(monkeypatch):
         "git log --oneline -- planning/product/tools/siting_engine_backtest.py",
         "Select-String -Path planning/product/tools/siting_report.py -Pattern argparse",
         'rg "siting_report|pipeline.py" planning/product/tools',
+        "rg -n tsc planning/product/web/package.json",
+        "Get-Content tsc_waitbar.txt -Tail 3",
+        "Test-Path web\\node_modules\\.bin\\tsc.cmd",
+        "sed -n '1,20p' planning/product/web/tsconfig.json",
     ],
 )
 def test_memory_guard_allows_reading_heavy_scripts(monkeypatch, command):

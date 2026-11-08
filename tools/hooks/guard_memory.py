@@ -54,6 +54,10 @@ HEAVY_PATTERNS = (
     (r"streamlit\s+run", "Streamlit app (pandas + layer store)"),
     (r"paddleocr|ocr_run|run_ocr", "OCR run (documented RAM-exhaustion crash in MEMORY.md)"),
     (r"\bgit\s+(gc|repack)\b", "git repack over a parquet-heavy repo"),
+    # TypeScript 7 (tsgo, Go-native, so --max-old-space-size does not bound it) over planning/product/web died
+    # "fatal error: runtime: cannot allocate memory" with 620 MB physical and 1.48 GB commit free (2026-11-08).
+    (r"\btsc(?:\.cmd|\.exe)?\b", "TypeScript 7 type check (over 1.4 GB commit, 2026-11-08)"),
+    (r"\brun\s+typecheck\b", "TypeScript 7 type check (over 1.4 GB commit, 2026-11-08)"),
 )
 
 #: Patterns that name a script rather than a command. They count only when an interpreter in the
@@ -66,14 +70,17 @@ SCRIPT_PATTERNS = frozenset(
         r"\bpipeline\.py",
         r"siting_report(_dryrun)?\.py",
         r"paddleocr|ocr_run|run_ocr",
+        r"\btsc(?:\.cmd|\.exe)?\b",
+        r"\brun\s+typecheck\b",
     }
 )
 
 #: Programs that run another program: interpreters plus shells and launchers (bash X.py,
 #: cmd /c X.py, nohup ./X.py, sudo ./X.py), which the anywhere-in-text matcher used to catch.
 _INTERPRETER = re.compile(
-    r"(?:^|[\\/])(?:python[0-9.]*w?|py|uv|uvx|pytest|poetry|sh|bash|zsh|cmd|powershell|pwsh|nohup|sudo)"
-    r"(?:\.exe)?$",
+    r"(?:^|[\\/])(?:python[0-9.]*w?|py|uv|uvx|pytest|poetry|sh|bash|zsh|cmd|powershell|pwsh|nohup|sudo"
+    r"|node|npx|npm|pnpm|yarn)"
+    r"(?:\.exe|\.cmd)?$",
     re.IGNORECASE,
 )
 
