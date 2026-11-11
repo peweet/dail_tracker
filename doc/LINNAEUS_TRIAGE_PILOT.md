@@ -116,6 +116,115 @@ A successful offline comparison can justify an advisory shadow trial. Keep evide
 links and human corrections visible, freeze each model release and review drift. A new
 runtime service or dependency adoption requires a separate measured justification.
 
+## Capture reviewed incidents and effort
+
+The local metadata CLI is
+[`tools/evals/incident_triage.py`](../tools/evals/incident_triage.py). It prepares the
+missing baseline; it does not train a model or establish corpus readiness. Run from the
+public repository root:
+
+```powershell
+python tools/evals/incident_triage.py template --output logs/linnaeus-pilot/incident-draft.json
+python tools/evals/incident_triage.py summary
+```
+
+The output directory must exist. The template refuses to replace an existing file.
+It starts as `synthetic`, `unreviewed`, with unknown family and null incident time and
+effort. Replace `incident_id` with a unique opaque alias, set the actual timezone-aware
+`incident_at`, and select the actual workflow and operation state. Set `operational`
+only for a real observed incident. Keep blocked/no-child operations distinct from
+failed operations; an exception signature alone does not settle the cause.
+
+All fields are required, but nullable fields preserve missing evidence. Version `v1`
+uses this initial label guide, subject to review against the retained evidence:
+
+| Family | Evidence needed to distinguish it |
+| --- | --- |
+| `source_access` | Source transport or access problem, supported by source/request evidence. |
+| `environment` | Local dependencies, configuration or bootstrap prevented the operation. |
+| `parsing_schema` | Observed input structure and parser/schema mismatch explain the failure. |
+| `application` | Application or test logic defect supported by investigation. |
+| `resource_admission` | Resource limits, capacity or admission controls prevented progress. |
+| `unknown` | Unresolved, mixed, disputed or insufficiently supported cause. |
+
+Set `confirmed` only when review supports a known family and cause group. It requires
+reviewer kind/alias, explicit timezone-aware `reviewed_at`, evidence and resolution
+references, and affirmative evidence-sufficiency and privacy attestations. Use
+`uncertain` when review cannot support confirmation. A useful unresolved incident can
+be retained without a confirmed resolution; it does not count as label-eligible.
+
+Use the same `cause_group_id` for retries sharing an evidenced underlying cause.
+Distinct aliases are human-attested groups, not proof of statistical independence.
+Reviewer and evidence references are opaque local aliases: lowercase letters, digits,
+dots, underscores or hyphens, at most 80 characters. Keep their mapping and supporting
+material in the existing controlled case record. Do not put names, raw logs, commands,
+URLs, customer text, secrets or resolution prose in the journal.
+
+Record actual hands-on diagnosis effort as `diagnosis_seconds`. Use `timed` for a timer
+measurement, `self_reported` for a retrospective estimate, or `unmeasured` with JSON
+`null`. Zero is accepted only as an explicitly supplied measurement or estimate; missing
+effort never becomes a zero observation. Avoid double-counting one diagnosis across
+several retries. Values must be finite and between zero and 31,536,000 seconds (one
+year) per record; this is an input guard, not an expected diagnosis duration.
+Labeling and maintenance effort, correctness, wrong turns and review
+disagreements belong in the controlled case record and the later timing study; this
+minimal journal is not the complete benchmark corpus or an ROI calculation.
+
+After filling the draft, record its first revision:
+
+```powershell
+python tools/evals/incident_triage.py record --input logs/linnaeus-pilot/incident-draft.json --expected-revision 0
+python tools/evals/incident_triage.py summary
+```
+
+The default database is ignored `logs/linnaeus-pilot/reviews.sqlite3`. To correct the
+same incident, edit the draft and submit its last recorded revision number, for example
+`--expected-revision 1`. Each successful command returns the new revision. History is
+retained; a stale revision is rejected. Summary uses only the latest revision, so
+changing a confirmation to `uncertain` removes it from eligible counts.
+
+Summary distinguishes all recorded categories from eligible labels. Eligibility requires
+an operational, human-confirmed record with the required supporting attestations;
+the operation must be `failed` or `blocked`. Synthetic, agent-confirmed and unknown
+operation records are excluded. It reports eligible incidents,
+distinct cause groups and effort availability separately. It emits no incident or
+reviewer identifiers. Timed and self-reported seconds have separate totals; interpret
+zero totals with their observation counts. An absent database returns an empty summary
+without creating one.
+
+Input is bounded to 16 KiB and rejects unsupported fields and schema versions. Shape
+validation cannot verify human identity, the truth of evidence, safe alias contents or
+permission to retain data. The local SQLite file is neither encrypted nor a tenant
+isolation mechanism; use appropriate workstation access and retention controls. Only
+reviewed non-sensitive aggregates may be published. Do not move this journal into a
+customer-facing workflow without a separate design and review.
+
+## Future commercial adoption gates
+
+Commercialization creates two plausible opportunities with separate acceptance evidence:
+
+| Opportunity | Trigger to investigate | Evidence before adoption |
+| --- | --- | --- |
+| Internal support triage and related-case retrieval | Recurring incidents impose measured diagnosis work. | Reviewed cause groups, usable retained evidence, and improvement over rules and retrieval at the Stage 4 precision, coverage and effort criteria. |
+| Document routing or quality-review queues | Manual sorting of document families or extraction problems becomes a measured bottleneck. | A separate human-reviewed corpus and taxonomy, held-out councils/templates/time periods, class-specific error costs, abstention, and a measured reduction in review work. |
+
+Start support assistance with rules and related-case retrieval when evidence permits;
+the supervised trial need not be the first useful intervention. Neither feature may
+promote a suggested category to a confirmed cause, authoritative planning conclusion
+or permission outcome. Support success does not validate document routing.
+
+Before a commercial shadow trial, name the operator, supported scope, fallback and
+rollback; establish permitted data use, retention and tenant isolation; and freeze the
+evaluation and model versions. Measure labeling, ongoing review, maintenance and
+infrastructure costs alongside saved diagnosis effort. Commercial volume alone does not
+prove benefit, and the initial inventory cannot establish a break-even point.
+
+Promote only after the held-out quality and effort gates pass and shadow corrections
+show acceptable behavior. Monitor abstention, novel cases, corrections and changing
+source/document formats. Retain the existing workflow when evidence is inconclusive.
+Library, project-distribution and input-data rights require their own review for the
+chosen commercial delivery; technical suitability does not settle those questions.
+
 ## SVM and library choice
 
 `extractors/diary_entry_classify.py` already implements a rule-first LinearSVC residual
@@ -143,3 +252,15 @@ concrete before adding a direct binding.
 The initial inventory and its dated evidence are recorded in
 [`tools/evals/LINNAEUS_TRIAGE_INVENTORY.md`](../tools/evals/LINNAEUS_TRIAGE_INVENTORY.md).
 Model comparison remains conditional on the Stage 1 gate.
+
+The capture CLI and commercial adoption gates were added on 11 November 2026. Its
+local smoke check created an unreviewed draft and reported zero stored incidents; no
+operational labels or diagnosis times were invented to populate the journal. The
+independent-label and measured-effort gaps therefore remain open.
+
+Capture verification: 19 focused tests passed, including concurrent revision conflicts,
+corrupt schema/history, bounded JSON, privacy of output and unknown-effort handling.
+Independent review and targeted Ruff lint/format checks passed. The full-profile public
+`verify --no-cache` and `check` commands stopped at lint on 31 errors in unrelated
+generated `pytest-of-pglyn/pytest-24` fixtures at 11:27 UTC; later gate stages did not run.
+These results establish focused local behavior, not full-repository or model acceptance.

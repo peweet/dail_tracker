@@ -3,7 +3,7 @@
 
 # doc/ index
 
-77 docs · ~377.2k tokens total · 34 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+77 docs · ~379.1k tokens total · 34 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -26,7 +26,7 @@
 | [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-08-14 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
 | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 5.3k | 2026-08-21 | the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub and object storage |
 | [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md) | infra | 2.6k | 2026-08-30 | setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile |
-| [LINNAEUS_TRIAGE_PILOT.md](LINNAEUS_TRIAGE_PILOT.md) | infra | 2.1k | 2026-11-11 | assessing or resuming the approved offline extraction and CI failure-triage pilot |
+| [LINNAEUS_TRIAGE_PILOT.md](LINNAEUS_TRIAGE_PILOT.md) | infra | 4.0k | 2026-11-11 | assessing or resuming the approved offline extraction and CI failure-triage pilot |
 | [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.9k | 2026-10-04 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
 | [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.5k | 2026-08-30 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
