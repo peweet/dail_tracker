@@ -311,6 +311,98 @@ def test_logged_warnings_are_capped(_isolated_style_log):
     assert len(jargon_rows) == 3
 
 
+# --- delivery-state claims (added 2026-11-13) ------------------------------
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "The release is live on both the engine and the web.",
+        "The harness is deployed and the session can be closed.",
+        "The package is installed and wired in.",
+        "The new check is now in place.",
+        "We now use the package for the nightly harness.",
+        "The fix has been shipped.",
+    ],
+)
+def test_blocks_delivery_claim_with_no_proof(claim):
+    r = run(claim + PAD)
+    assert r.returncode == 2, r.stderr
+    assert "delivery state" in r.stderr
+
+
+def test_delivery_block_reason_names_the_ladder_and_the_discharges():
+    r = run("The release is live on both the engine and the web." + PAD)
+    assert r.returncode == 2
+    for expected in ("not built", "on main, not live", "in use", "unverified", "task-outcomes.md"):
+        assert expected in r.stderr
+
+
+@pytest.mark.parametrize(
+    "para",
+    [
+        "The release is live [Verified — docker ps shows the engine image tag].",
+        "The scan is wired in (tools/dev.py:95).",
+        "The release is live, though that is unverified.",
+        "The scan is in place - see [the guard](tools/check_no_private_ip.py).",
+    ],
+)
+def test_delivery_claim_with_proof_passes(para):
+    r = run(para + PAD)
+    assert r.returncode == 0, f"should not block: {r.stderr}"
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "The fix is not live until the engine release.",
+        "The package was never installed on this machine.",
+        "Is the new engine live on the box?",
+        "If the engine is live, the probe returns a report.",
+        "Once the swap finishes the new engine will be live.",
+        "The change is on main and nothing serving runs it yet.",
+        "You were told the package was installed.",
+        "Two of the worktrees are in use by other sessions.",
+    ],
+)
+def test_non_assertions_about_delivery_pass(sentence):
+    r = run(sentence + PAD)
+    assert r.returncode == 0, f"should not block: {r.stderr}"
+
+
+def test_delivery_proof_is_paragraph_scoped():
+    msg = "The scan runs in preflight (tools/dev.py:95).\n\nThe release is live on the box." + PAD
+    r = run(msg)
+    assert r.returncode == 2
+    assert "delivery state" in r.stderr
+
+
+def test_delivery_phrase_inside_code_or_quote_is_not_a_claim():
+    msg = (
+        "The owner wrote this about the feature:\n\n"
+        "> the feature is live and we now use it\n\n"
+        "The literal `is installed` appears in the install log." + PAD
+    )
+    assert run(msg).returncode == 0
+
+
+def test_figure_and_delivery_claim_are_both_named():
+    r = run("Spending reached €1.08bn last year and the release is live." + PAD)
+    assert r.returncode == 2
+    assert "evidence grain" in r.stderr
+    assert "delivery state" in r.stderr
+
+
+def test_delivery_block_alone_does_not_trigger_the_figure_repeat_escalation():
+    sid = "delivery-" + uuid.uuid4().hex
+    msg = "The release is live on both the engine and the web." + PAD
+    assert run(msg, session_id=sid).returncode == 2
+    assert run(msg, session_id=sid).returncode == 0, "second attempt in the turn must not re-block"
+    third = run(msg, session_id=sid)
+    assert third.returncode == 2
+    assert "REPEAT" not in third.stderr
+
+
 # --- loop guard and fail-open --------------------------------------------
 
 

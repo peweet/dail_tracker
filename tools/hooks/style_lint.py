@@ -16,6 +16,13 @@ found the original check blind to the claim shape a whole week of work was using
     or memory card does NOT discharge one of these: it is [Reported] at best. Only a web
     source or an explicit admission does. Check the internet, cite the URL.
 
+A THIRD category blocks since 2026-11-13: a claim about DELIVERY STATE -- "is live", "was
+deployed", "is installed", "in place", "in use", "we now use" -- with no proof in its
+paragraph. Same discharges as a figure. Measured before it was allowed to block: on 2,461
+final replies from 21 days of transcripts it fires on 74 (3.0%). It sees an asserted state
+with no proof; it cannot see a state that was left out, which stays a self-check
+(.claude/rules/task-outcomes.md, "Delivery state").
+
 Jargon (Rule 3), sentence length (Rule 4), reply length (Rule 1) and bullet density
 (Rule 5, added 2026-08-24) are LOGGED SILENTLY to logs/style_lint_log.jsonl (demoted from
 per-reply advisory 2026-07-25; path overridable via DAIL_STYLE_LINT_LOG_PATH, which the
@@ -177,6 +184,33 @@ DISCHARGE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# A claim that something is delivered: live, deployed, installed, in place, in use.
+# Added 2026-11-13 (.claude/rules/task-outcomes.md, "Delivery state") after the owner asked
+# how well a package was implemented that had never been installed. Narrow on purpose, by
+# the same ratchet discipline as the figure check: an auxiliary verb plus a state word, so
+# a label ("NOT LIVE until the release"), a question and a plan never match. Discharged by
+# DISCHARGE_RE in the same paragraph -- the proof of the state, or the word 'unverified'.
+DELIVERY_RE = re.compile(
+    r"\b(?:is|are|was|were|it's|that's|now|already|been|got|went)\s+"
+    r"(?:now\s+|already\s+|fully\s+|all\s+|both\s+)?"
+    r"(?:live|deployed|shipped|installed|released|rolled\s+out|in\s+place"
+    r"|in\s+use(?!\s+by\b)"  # "in use by another session" means occupied, not adopted
+    r"|in\s+production|wired\s+(?:in|up))\b"
+    r"|\bwe\s+(?:now\s+|already\s+)?(?:use|run|ship|serve)\b"
+    r"|\bwe(?:\s+are|'re)\s+(?:now\s+|already\s+)?(?:using|running|shipping|serving)\b",
+    re.IGNORECASE,
+)
+# Words in the lead-up that make the sentence something other than an assertion: a
+# negation (itself a plain state statement), a condition, a plan, or reported speech.
+# Matched against the 60 characters before the delivery phrase, inside its own sentence.
+NOT_ASSERTED_RE = re.compile(
+    r"\b(?:not|never|no|nothing|none|neither|nor|cannot|\w+n't"
+    r"|until|once|when|if|unless|whether"
+    r"|will|would|should|could|might|must|to\s+be|can\s+be"
+    r"|said|says|told|claim\w*|believ\w*|assum\w*|thought|asked)\b",
+    re.IGNORECASE,
+)
+
 # Rule 3. Left column is what to say instead; these are the "not" forms.
 JARGON = (
     "has implications for",
@@ -270,6 +304,28 @@ def _unsourced_world_claims(message: str) -> list[str]:
         if WEB_SOURCE_RE.search(para) or ADMISSION_RE.search(para):
             continue
         hits.extend(m.group(0).strip() for m in LEGAL_REF_RE.finditer(_strip_noncheckable(para)))
+    return hits
+
+
+def _unproven_delivery_claims(message: str) -> list[str]:
+    """Assertions that something is live, installed, in place or in use, with no proof.
+
+    Paragraph-scoped like the figure check, and discharged by the same DISCHARGE_RE: the
+    proof of a delivery state is a citation, a band naming the check that showed it, the
+    command output, or an admission. Questions, negations, conditions, plans and reported
+    speech are not assertions and never match.
+    """
+    hits: list[str] = []
+    for para in _paragraphs(message):
+        if DISCHARGE_RE.search(para):  # checked against the RAW paragraph
+            continue
+        for sent in re.split(r"(?<=[.!?])\s+", _strip_noncheckable(para)):
+            if sent.rstrip().endswith("?"):
+                continue
+            for m in DELIVERY_RE.finditer(sent):
+                if NOT_ASSERTED_RE.search(sent[max(0, m.start() - 60) : m.start()]):
+                    continue
+                hits.append(" ".join(m.group(0).split()))
     return hits
 
 
@@ -381,13 +437,16 @@ def main() -> int:
     try:
         figures = _unprovenanced(message)
         world = _unsourced_world_claims(message)
+        states = _unproven_delivery_claims(message)
         warns = _warnings(message)[:MAX_WARNINGS]
     except Exception:
         return 0  # a regex blowup must never wedge the session
 
-    if (figures or world) and not _already_blocked_this_turn(session_id):
+    if (figures or world or states) and not _already_blocked_this_turn(session_id):
         _set_blocked(session_id)
-        hits = _bump_session_hits(session_id)
+        # The repeat counter and its escalation text are about figures and sourced claims,
+        # so a delivery-state block on its own does not bump it.
+        hits = _bump_session_hits(session_id) if (figures or world) else 0
         parts = []
         if hits >= 2:
             # ESCALATION, added 2026-08-28. Grounds: the transcript audit of that date
@@ -421,6 +480,17 @@ def main() -> int:
                 f"published fact with no external source -- {shown}. A repo file or memory card "
                 "does NOT discharge these; it is [Reported] at best, and the source of law is "
                 "the source of law. Check the internet and cite the URL, or write 'unverified'."
+            )
+        if states:
+            shown = ", ".join(dict.fromkeys(states))[:160]
+            parts.append(
+                f"Rule 2 (delivery state): {len(states)} claim(s) that something is delivered with "
+                f"no proof in the paragraph -- {shown}. Say which state it is in plain words (not "
+                "built / built, not merged / on main, not live / live / in use) and put the proof "
+                "of that state in the same paragraph: a file.py:123 citation, a markdown link to a "
+                "repo file, a band tag naming the check that showed it such as [Verified -- docker "
+                "ps shows the image tag], the command output, or the word 'unverified'. Installed "
+                "is not in use and merged is not live (.claude/rules/task-outcomes.md)."
             )
         sys.stderr.write(" ".join(parts))
         return 2
