@@ -174,8 +174,11 @@ NOT_A_DATA_CLAIM = re.compile(
 
 # Any one of these in the same paragraph discharges every figure in it.
 DISCHARGE_RE = re.compile(
-    r"(?:\b[\w./\\-]+\.(?:py|sql|md|json|ya?ml|toml|csv|parquet|txt|ps1|ipynb)[:#]L?\d+)"
-    r"|(?:\]\([^)]*\.(?:py|sql|md|json|ya?ml|toml|csv|parquet|txt|ps1|ipynb))"
+    # Code files in every language the repo holds (TypeScript, JavaScript, CSS, Rust and shell
+    # added 2026-11-14: a siting-workbench.tsx:1521 citation read as no source at all). A link
+    # must end its path at the extension, so a host such as cdn.jsdelivr.net is not a citation.
+    r"(?:\b[\w./\\-]+\.(?:py|sql|md|json|ya?ml|toml|csv|parquet|txt|ps1|ipynb|tsx?|jsx?|mjs|css|rs|sh)[:#]L?\d+)"
+    r"|(?:\]\([^)]*\.(?:py|sql|md|json|ya?ml|toml|csv|parquet|txt|ps1|ipynb|tsx?|jsx?|mjs|css|rs|sh)(?=[)#?:\s]))"
     r"|(?:\[(?:Verified|Reported|Extracted|Indicative)\s*[—\-–])"
     r"|(?:\bunverified\b|\bhaven't checked\b|\bhave not checked\b|\bnot checked\b"
     r"|\bno query (?:was )?run\b|\bdidn't verify\b|\bdid not verify\b|\bnot verified\b"

@@ -79,11 +79,26 @@ def test_block_reason_names_the_discharges():
         "Spending reached €1.08bn, though that figure is unverified.",
         "Spending reached €1.08bn but I haven't checked it this session.",
         "Spending reached €1.08bn - see [the extractor](extractors/payments.py).",
+        # Code citations in the web app's languages (2026-11-14). Each holds a count the hook
+        # flags, so it passes only when the .tsx, .ts or .sh citation discharges it.
+        "The owner set it as a 12 November decision (siting-workbench.tsx:1521).",
+        "The owner set it as a 12 November decision ([siting-workbench.tsx:1521-1526](planning/product/web/components/siting-workbench.tsx#L1521-L1526)).",
+        "The owner set it as a 12 November decision, in [the handler](planning/product/web/components/siting-workbench.tsx).",
+        "The map draws 4 layers here (lib/map-context-layers.ts:40).",
+        "The build pins 3 layers (deploy/build-engine.sh:40).",
     ],
 )
 def test_discharged_figure_passes(para):
     r = run(para + PAD)
     assert r.returncode == 0, f"should not block: {r.stderr}"
+
+
+def test_link_whose_host_merely_contains_an_extension_does_not_discharge():
+    # A repo citation's path ends at the extension. python.org once discharged a figure
+    # because "](https://www.py" matched; a CDN host must not either now that .js counts.
+    for link in ("https://www.python.org/downloads", "https://cdn.jsdelivr.net/npm/x"):
+        r = run(f"Spending reached €1.08bn per [the page]({link}).{PAD}")
+        assert r.returncode == 2, (link, r.stderr)
 
 
 def test_fenced_query_result_discharges():
