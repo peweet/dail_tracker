@@ -88,6 +88,7 @@ def main():
         out = fresh_in = cache_read = cache_create = turns = max_cr = 0
         first_prompt = ""
         pending = {}
+        seen_mids = set()  # message ids whose usage is already counted
         recent_nav = deque(maxlen=8)  # (tool_name, input+result text) — the escalation window
         with open(path, encoding="utf-8") as fh:
             for line in fh:
@@ -122,26 +123,36 @@ def main():
                                 if est > 4000:
                                     big_results.append((est, name, hint, sid))
                 elif typ == "assistant":
-                    turns += 1
+                    # One API call is written as one record per content block (thinking,
+                    # text, each tool_use), every record repeating the same usage. Count
+                    # usage once per message id; content blocks still count per record.
                     u = msg.get("usage") or {}
-                    out += u.get("output_tokens", 0) or 0
-                    fresh_in += u.get("input_tokens", 0) or 0
-                    cache_create += u.get("cache_creation_input_tokens", 0) or 0
-                    cr = u.get("cache_read_input_tokens", 0) or 0
-                    cache_read += cr
-                    max_cr = max(max_cr, cr)
-                    k = (
-                        "<100k"
-                        if cr < 100_000
-                        else "100-200k"
-                        if cr < 200_000
-                        else "200-400k"
-                        if cr < 400_000
-                        else ">400k"
-                    )
-                    b = buckets.setdefault(k, [0, 0])
-                    b[0] += 1
-                    b[1] += cr
+                    mid = msg.get("id")
+                    if u and mid is not None:
+                        if mid in seen_mids:
+                            u = {}
+                        else:
+                            seen_mids.add(mid)
+                    if u:
+                        turns += 1
+                        out += u.get("output_tokens", 0) or 0
+                        fresh_in += u.get("input_tokens", 0) or 0
+                        cache_create += u.get("cache_creation_input_tokens", 0) or 0
+                        cr = u.get("cache_read_input_tokens", 0) or 0
+                        cache_read += cr
+                        max_cr = max(max_cr, cr)
+                        k = (
+                            "<100k"
+                            if cr < 100_000
+                            else "100-200k"
+                            if cr < 200_000
+                            else "200-400k"
+                            if cr < 400_000
+                            else ">400k"
+                        )
+                        b = buckets.setdefault(k, [0, 0])
+                        b[0] += 1
+                        b[1] += cr
                     content = msg.get("content")
                     if isinstance(content, list):
                         for b2 in content:

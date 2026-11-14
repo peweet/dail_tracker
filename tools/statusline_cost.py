@@ -54,7 +54,9 @@ def main() -> int:
             return 0
 
         cache_file = Path(tempfile.gettempdir()) / f"claude_statusline_{sid}.json"
-        state = {"offset": 0, "out": 0.0, "fresh": 0.0, "cache_read": 0.0, "cost": 0.0, "turns": 0}
+        # recent_ids: one API call is written as one record per content block, each
+        # repeating the same usage, so usage is counted once per message id.
+        state = {"offset": 0, "out": 0.0, "fresh": 0.0, "cache_read": 0.0, "cost": 0.0, "turns": 0, "recent_ids": []}
         try:
             cached = json.loads(cache_file.read_text(encoding="utf-8"))
             if isinstance(cached, dict) and cached.get("offset", 0) <= path.stat().st_size:
@@ -79,6 +81,11 @@ def main() -> int:
                 u = msg.get("usage") or {}
                 if not u:
                     continue
+                mid = msg.get("id")
+                if mid is not None:
+                    if mid in state["recent_ids"]:
+                        continue
+                    state["recent_ids"] = [*state["recent_ids"], mid][-64:]
                 inp = u.get("input_tokens", 0) or 0
                 out = u.get("output_tokens", 0) or 0
                 cw = u.get("cache_creation_input_tokens", 0) or 0

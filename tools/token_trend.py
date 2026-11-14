@@ -27,6 +27,7 @@ wk = defaultdict(lambda: defaultdict(float))
 unknown_models = defaultdict(int)
 
 for f in TDIR.rglob("*.jsonl"):  # rglob: subagent transcripts live in per-session subdirs (agent-*.jsonl)
+    seen_mids = set()  # one API call = one record per content block, all repeating its usage
     for line in f.open(encoding="utf-8", errors="replace"):
         try:
             rec = json.loads(line)
@@ -42,6 +43,12 @@ for f in TDIR.rglob("*.jsonl"):  # rglob: subagent transcripts live in per-sessi
         msg = rec.get("message") or {}
         if rec.get("type") == "assistant":
             u = msg.get("usage") or {}
+            mid = msg.get("id")
+            if u and mid is not None:
+                if mid in seen_mids:
+                    u = {}
+                else:
+                    seen_mids.add(mid)
             if u:
                 w = wk[week]
                 w["turns"] += 1
