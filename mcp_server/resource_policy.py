@@ -177,6 +177,7 @@ def agent_session_count() -> int | None:
         for image_name in ("claude.exe", "codex.exe"):
             out = subprocess.run(
                 ["tasklist", "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
+                stdin=subprocess.DEVNULL,  # never inherit the JSON-RPC pipe (see code_index.py)
                 capture_output=True,
                 text=True,
                 timeout=5,

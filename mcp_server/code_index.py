@@ -110,9 +110,13 @@ def _git_visible_paths(repo: Path) -> list[PurePosixPath] | None:
     generated output, or material intentionally left outside the repository.
     """
     try:
+        # stdin=DEVNULL on every spawn: under stdio the server's stdin is the JSON-RPC
+        # pipe, and on Windows a git child that inherits it stalls until the client
+        # writes again or disconnects (test/mcp_server/test_subprocess_stdin.py).
         top = subprocess.run(
             ["git", "-C", os.fspath(repo), "rev-parse", "--show-toplevel"],
             check=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
@@ -124,6 +128,7 @@ def _git_visible_paths(repo: Path) -> list[PurePosixPath] | None:
         proc = subprocess.run(
             ["git", "-C", os.fspath(repo), "ls-files", "-z", "--cached"],
             check=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
         )
