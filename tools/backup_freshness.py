@@ -63,16 +63,22 @@ def _restic_binary() -> str | None:
     return next((str(p) for p in packages.rglob("restic*.exe")), None)
 
 
+SECRET_STORE = Path(__file__).resolve().parent / "secret_store.ps1"
+
+
 def _repo_password(repo_name: str) -> str | None:
-    """Passwords live one line BELOW their `<repo_name>` header line."""
-    password_file = BACKUP_ROOT / "restic_passwords.txt"
-    if not password_file.exists():
+    """Repository passwords live in the DPAPI store (tools/secret_store.ps1), not a text file."""
+    if not SECRET_STORE.exists():
         return None
-    lines = password_file.read_text(encoding="utf-8", errors="replace").splitlines()
-    for index, line in enumerate(lines):
-        if line.strip().startswith(repo_name) and index + 1 < len(lines):
-            return lines[index + 1].strip()
-    return None
+    command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"]
+    command += ["-File", str(SECRET_STORE), "-Name", repo_name, "-Get"]
+    try:
+        result = subprocess.run(
+            command, capture_output=True, text=True, timeout=60, check=False, stdin=subprocess.DEVNULL
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout if result.returncode == 0 and result.stdout else None
 
 
 def _newest_snapshot(repo_name: str) -> datetime | None:

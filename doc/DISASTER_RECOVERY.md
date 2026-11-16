@@ -284,10 +284,10 @@ tools\register_restic_task.ps1                # DailTracker-BackupRestic, daily 
 tools\register_legal_diary_task.ps1            # DailTracker-LegalDiary
 ```
 
-Recreate
-`C:\Users\pglyn\dail_tracker_backup\restic_passwords.txt` from your password manager
-first (format: a line starting `restic_private`, then the password on the next line;
-same for `restic_sandbox`) or the script exits 3.
+Store both restic passwords from your password manager in the DPAPI store first, or the
+script exits 3: `Get-Clipboard | powershell -File tools\secret_store.ps1 -Name restic_private -Set`,
+then the same for `restic_sandbox` (see doc/CREDENTIAL_ESCROW.md, which also covers the
+storage keys).
 
 Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` afterward
 — both should show `Ready`.
@@ -343,6 +343,6 @@ Check `Get-ScheduledTask | Where-Object {$_.TaskName -like "DailTracker-*"}` aft
   rclone mirror (where a lost credential just means minting a new R2 token), losing a
   restic password makes that repository permanently unreadable — the data is encrypted
   at rest and there is no recovery path. Both passwords must live in your password
-  manager. `C:\Users\pglyn\dail_tracker_backup\restic_passwords.txt` is the copy the
-  unattended script reads; it is ACL-restricted to your user, and it is **not** a backup
-  of the passwords — it dies with the laptop.
+  manager. The copy the unattended script reads is in the DPAPI store
+  (`tools/secret_store.ps1`, since 2026-11-16). It is readable only by your Windows user,
+  and it is **not** a backup of the passwords: it dies with the Windows profile.

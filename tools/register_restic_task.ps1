@@ -17,8 +17,9 @@ removes the human from the freshness loop, which is the whole point.
 Daily matches the rclone lane's recovery-point objective. Restic is incremental and
 deduplicating, and -StartWhenAvailable catches up after a sleeping laptop.
 
-PREREQ: C:\Users\pglyn\dail_tracker_backup\restic_passwords.txt must exist (the script
-exits 3 without it). Unattended runs cannot prompt for a password.
+PREREQ: the restic_private and restic_sandbox passwords must be in the DPAPI store
+(tools/secret_store.ps1; the script exits 3 without them). Unattended runs cannot prompt
+for a password.
 
 Re-run this script any time to update the schedule (it unregisters first).
 Remove with:  Unregister-ScheduledTask -TaskName 'DailTracker-BackupRestic' -Confirm:$false
@@ -31,9 +32,11 @@ $wrapper  = Join-Path $root 'tools\backup_restic_to_r2.ps1'
 
 if (-not (Test-Path $wrapper)) { Write-Error "Not found: $wrapper"; exit 1 }
 
-$pwFile = 'C:\Users\pglyn\dail_tracker_backup\restic_passwords.txt'
-if (-not (Test-Path $pwFile)) {
-    Write-Warning "Password file missing: $pwFile - the task will exit 3 until it exists."
+. (Join-Path $PSScriptRoot 'secret_store.ps1')
+foreach ($secret in 'restic_private', 'restic_sandbox') {
+    if (-not (Test-Path (Get-DailSecretPath $secret))) {
+        Write-Warning "Secret '$secret' missing from the DPAPI store - the task will exit 3 until it exists."
+    }
 }
 
 $action  = New-ScheduledTaskAction -Execute 'powershell.exe' `

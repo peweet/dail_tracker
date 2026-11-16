@@ -26,7 +26,9 @@ TIERING: the local repos under $backupRoot are tier 1 (fast restore, survives a 
 PREREQS (one-time):
   1. restic on PATH or at the winget location (winget install --id restic.restic)
   2. rclone `r2` and `hetznerbackup` remotes configured - see doc/DISASTER_RECOVERY.md
-  3. Both object-storage buckets created, and $pwFile populated (see doc/DISASTER_RECOVERY.md)
+  3. Both object-storage buckets created, and the restic_private / restic_sandbox passwords
+     stored with tools/secret_store.ps1 (see doc/CREDENTIAL_ESCROW.md). Since 2026-11-16 no
+     storage key or repository password sits in a plain-text file on this laptop.
 
 USAGE:
   tools/backup_restic_to_r2.ps1 -DryRun    # snapshot + check, no upload
@@ -43,11 +45,12 @@ $ErrorActionPreference = 'Stop'
 
 # --- config ---
 $backupRoot     = 'C:\Users\pglyn\dail_tracker_backup'
-$pwFile         = Join-Path $backupRoot 'restic_passwords.txt'   # ACL-restrict this file
+# Repository passwords come from the DPAPI store (tools/secret_store.ps1), not a text file.
+. (Join-Path $PSScriptRoot 'secret_store.ps1')
 # Two rclone remotes, NOT one. The existing `r2` remote remains scoped to the public-data
-# `dail-tracker-backup` bucket. The private lane uses Hetzner Object Storage and reads its
-# credentials from the existing `hetzner-backup` AWS profile, so secrets are not duplicated
-# in rclone.conf:
+# `dail-tracker-backup` bucket. The private lane uses Hetzner Object Storage. Both remotes
+# hold no keys: each reads an AWS profile (`r2`, `hetzner-backup`) whose credential_process
+# in ~/.aws/config fetches the key from the DPAPI store:
 #   rclone config create hetznerbackup s3 provider=Other env_auth=true `
 #     profile=hetzner-backup region=nbg1 endpoint=https://nbg1.your-objectstorage.com
 $remoteSandbox  = 'r2'
@@ -131,14 +134,14 @@ if (-not $rclone -and -not $SkipUpload) {
     exit 3
 }
 
-if (-not (Test-Path $pwFile)) {
-    Add-Content $log "$stamp  ERROR password file missing: $pwFile"
-    Write-Error "Password file not found: $pwFile - see doc/DISASTER_RECOVERY.md"
+try {
+    $pwPrivate = Get-DailSecret 'restic_private'
+    $pwSandbox = Get-DailSecret 'restic_sandbox'
+} catch {
+    Add-Content $log "$stamp  ERROR repository password missing: $($_.Exception.Message)"
+    Write-Error "Repository password not found - see doc/CREDENTIAL_ESCROW.md"
     exit 3
 }
-$pwLines   = Get-Content $pwFile
-$pwPrivate = $pwLines[($pwLines | Select-String -Pattern '^restic_private').LineNumber]
-$pwSandbox = $pwLines[($pwLines | Select-String -Pattern '^restic_sandbox').LineNumber]
 
 # Each job: repo dir, its password, the trees it snapshots, its destination bucket.
 # NOTE the exclusions - __pycache__ is regenerable noise; .venv would balloon the repo.

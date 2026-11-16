@@ -21,8 +21,21 @@ that data is **permanently unrecoverable** —
 there is no reset, no support ticket, no brute force. This is the one failure mode where a
 dead laptop becomes permanent loss of the product rather than an afternoon of restoring.
 
-`C:\Users\pglyn\dail_tracker_backup\restic_passwords.txt` is ACL-restricted to the owner
-and **dies with the laptop**. The password-manager copy is the real one.
+**Laptop copies (since 2026-11-16).** No repository password or storage key sits in a
+plain-text file on the laptop any more. `restic_passwords.txt`, the `[r2]` keys in
+`rclone.conf` and the two Hetzner profiles in `~/.aws/credentials` moved into the DPAPI store
+`%LOCALAPPDATA%\dail-secrets\` (`tools/secret_store.ps1`). The backup scripts read the
+passwords from it. rclone and the AWS CLI get the storage keys through `credential_process` in
+`~/.aws/config`, and `rclone.conf` holds no keys. The store stops file grabbers and secret
+scanners. It does not stop code that already runs as the owner. It **dies with the Windows
+profile**, so the password-manager copy is still the real one. The pre-migration files are
+kept, encrypted, as `orig_*` entries for rollback. `~/.aws/credentials` deliberately holds
+only a decoy `[default]` key; never call AWS with it.
+
+To re-store a secret on a rebuilt laptop, pipe it in from the password manager, for example
+`Get-Clipboard | powershell -File tools\secret_store.ps1 -Name restic_private -Set`.
+The storage-key entries (`s3_r2`, `s3_hetzner_backup`, `s3_hetzner_siting`) take the JSON
+`{"AccessKeyId":"...","SecretAccessKey":"..."}`.
 
 ## What to store — Bitwarden, two secure notes
 
@@ -34,7 +47,7 @@ the same isolation reason the two repositories exist at all.
 
 | Field | Value |
 |---|---|
-| Password | line 7 of `restic_passwords.txt` (44 chars) |
+| Password | DPAPI store entry `restic_private` (44 chars; was line 7 of `restic_passwords.txt`) |
 | Repository | `rclone:hetznerbackup:specplan-ie-private-restic-nbg1/restic_private` |
 | Local repo | `C:\Users\pglyn\dail_tracker_backup\restic_private` |
 | Covers | `planning/`, `apps/`, `.git-siting` — the siting engine and its git history |
@@ -43,12 +56,13 @@ the same isolation reason the two repositories exist at all.
 
 | Field | Value |
 |---|---|
-| Password | line 10 of `restic_passwords.txt` (44 chars) |
+| Password | DPAPI store entry `restic_sandbox` (44 chars; was line 10 of `restic_passwords.txt`) |
 | Repository | `rclone:r2:dail-tracker-backup/restic_sandbox` |
 | Local repo | `C:\Users\pglyn\dail_tracker_backup\restic_sandbox` |
 | Covers | the whole repo minus bronze/silver/raw_bq, minus the private trees above |
 
-⚠ **The four secrets on lines 1-4 of that file are NOT restic passwords, and are NOT the
+⚠ **The four secrets on lines 1-4 of the old file (now only in the encrypted
+`orig_restic_passwords_txt` store entry) are NOT restic passwords, and are NOT the
 R2 tokens either.** Their lengths are 50/49/67/74 chars; the R2 credentials are 32-char
 `access_key_id` + 64-char `secret_access_key` [Verified — redacted field-length dump of
 `rclone.conf`, 2026-08-21]. So lines 1-4 are some other unlabelled credential. Identify
@@ -60,10 +74,10 @@ dies with the laptop is a gap whether or not anyone remembers what it was for.
 Status, 7 November 2026: the owner saved both credentials below to Bitwarden as one secure note
 [Reported — owner]. The note was not opened from a second device in the session that recorded this.
 
-The public-data R2 token lives in
-`C:\Users\pglyn\AppData\Roaming\rclone\rclone.conf`. The private Hetzner key lives in the
-`hetzner-backup` profile under `C:\Users\pglyn\.aws\credentials`; the non-secret
-`[hetznerbackup]` rclone remote selects that profile. Neither credential is in the Restic password
+On the laptop both keys live in the DPAPI store (`s3_r2`, `s3_hetzner_backup`; before
+2026-11-16 they were plain text in `rclone.conf` and `~/.aws/credentials`). The non-secret
+`[r2]` and `[hetznerbackup]` rclone remotes select the `r2` and `hetzner-backup` AWS profiles,
+whose `credential_process` fetches the key. Neither credential is in the Restic password
 file or Git. Without the matching storage credential, a correctly escrowed repository password
 still restores **nothing**.
 
