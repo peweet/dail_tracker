@@ -45,6 +45,7 @@ def test_is_code_excludes_tests_docs_and_config(hook):
     assert not hook.is_code(Path(".claude/hooks/x.py"))
     assert not hook.is_code(Path("doc/PLAN.md"))
     assert not hook.is_code(Path("data/_meta/fact_cards.json"))
+    assert not hook.is_code(Path("C:/Users/x/AppData/Local/Temp/claude/a1/b2/scratchpad/probe.py"))
 
 
 def test_nudges_once_at_threshold(hook, tmp_path, monkeypatch, capsys):

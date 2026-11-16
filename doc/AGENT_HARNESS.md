@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-10-31
+updated: 2026-11-16
 supersedes: []
 read_when: changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -247,6 +247,33 @@ output, with waits sized to expected work and timely user updates. Repeated succ
 calls can still be necessary, so an identical signature alone must not block execution.
 
 Common techniques and their status here:
+
+### Reusing code-improvement decisions
+
+Before rescanning a known file, run `python tools/code_context.py show <files> --root
+<task-repo>` from the public checkout. For private main, add `--rev origin/main` and use
+the intended private worktree as the root. The stdlib CLI reads that repository's
+`tools/refactor_ledger.jsonl`, the ADRs cited in source, and tracked Markdown/discovery
+lines naming the file. `--limit` bounds entries in each section and reports omitted counts;
+long displayed evidence is explicitly truncated. `--rev` also includes verdicts in that
+worktree's ledger that have not been merged yet, labelled as working-tree verdicts.
+
+Record a decision with `python tools/code_context.py add <file> <function|-> <verdict>
+--why "..." --evidence "..." --root <task-repo>`. Verdicts include `leave`, `candidate`,
+`measure-first`, `done` and `rejected`; `-` records a whole-file or directory decision.
+Function token hashes flag changed code while ignoring comments and line wrapping.
+Freshness describes source identity, not whether a judgement or its measurements remain
+valid: recheck changed callers, dependencies, data and runtime conditions as needed.
+Whole-path verdicts detect local edits and deletion. Invalid dates, malformed rows,
+unknown revisions and paths outside the selected repository cannot silently become evidence.
+
+This reuses exact known-file evidence without another FTS5/BM25 index or an MCP server.
+Topic discovery still uses the existing search route. Tests exercise the CLI against
+small Git repositories; reduced token use and live client invocation remain unmeasured.
+Local hygiene and performance skills link to the command; the portable rule lives in
+`AGENTS.md` so it survives workstation-local skill copies.
+
+### Project retrieval pilot
 
 Pilot A (2026-10-06) repairs source freshness and evaluation before adding retrieval
 machinery. The metadata index is bound to the resolved checkout and fact-card source.

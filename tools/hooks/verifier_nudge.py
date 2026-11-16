@@ -23,7 +23,8 @@ from pathlib import Path
 THRESHOLD = 3
 _CODE_EXT = {".py", ".ts", ".tsx", ".js", ".jsx", ".sql", ".rs"}
 _TEST_NAME = re.compile(r"(^test_.*\.py$|_test\.py$|^conftest\.py$|\.test\.tsx?$|\.spec\.tsx?$)", re.I)
-_SKIP_PARTS = {"test", "tests", ".claude", "doc", "node_modules"}
+# "scratchpad": the session's throwaway scripts are not code under review.
+_SKIP_PARTS = {"test", "tests", ".claude", "doc", "node_modules", "scratchpad"}
 _STATE_DIR = Path(tempfile.gettempdir())
 
 
