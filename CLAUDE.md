@@ -64,6 +64,7 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
 | will renaming/reordering a SQL view break things? | `view_deps` | grepping `sql_views/` |
 | will renaming a **column** break views? | `column_deps(view, col)` — sqlglot lineage; `mode:'regex'` hits need a read | grepping `sql_views/` |
 | who **calls/uses** Python symbol F? (rename, signature change) | `py_refs(module, name)` — jedi call sites + import bindings; blind to `_LazyModule`/getattr | grepping the repo for the name |
+| what was decided, tried or measured about file F? (before refactoring or speeding it up) | `python tools/code_context.py show F` (engine: add `--root planning/product --rev origin/main`); record verdicts with `add` | re-reading ADRs, ledgers and memory to rebuild it |
 | who said / who's asking about topic T? | `search_speeches` / `search_questions` (BM25-ranked, corpus-wide) | ILIKE trawls via member feeds |
 | can I sum these money columns? | never-sum grain rule (above) | assuming |
 | which doc covers X? | `doc/INDEX.md` | grepping `doc/` |
