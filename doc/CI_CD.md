@@ -2,7 +2,7 @@
 tier: PLAN
 status: LIVE
 domain: infra
-updated: 2026-08-24
+updated: 2026-11-17
 supersedes: []
 read_when: changing CI/CD workflows, or checking what checks already exist before adding a new one
 key: PLAN|LIVE|infra
@@ -16,13 +16,28 @@ The goal is not to bolt on every possible check. It is to automate the things th
 
 ---
 
-## Status (updated 2026-06-21)
+## Status (updated 2026-11-17)
 
-Most of the plan below has shipped, and CI now goes well beyond the original
-phases. The live `.github/workflows/ci.yml` runs **six jobs** on every push/PR:
-`lint` (ruff check + format), `deps` (uv lock/export guard), `firewall` (logic-firewall
-check), `typecheck` (basedpyright), `test` (pytest, non-integration markers), and
-`sql-contracts` (`pytest -m sql` against committed gold). Reconciliation:
+Most of the plan below has shipped. The current `.github/workflows/ci.yml` defines
+ten jobs, `changes`, `lint`, `deps`, `firewall`, `secrets`, `typecheck`, `test`,
+`slow-contracts`, `delivery` and `sql-contracts`. Job conditions and path selection
+in that workflow determine which run. The dated phases below are historical context.
+The delivery lane checks package/container behavior, while production deployment
+remains a separate operation.
+
+Use the local commands for their recorded verification scope.
+
+- `dev.py verify --plan` inspects selected checks without running or bootstrapping them.
+- `dev.py verify --no-cache` runs focused checks in the full dependency profile.
+- `dev.py check` runs the deterministic local merge-gate approximation.
+- `dev.py preflight` adds the locally runnable pre-push checks, including slow contracts,
+  gold guards and hygiene. Use the full-profile command from `AGENTS.md` before a push.
+- `.githooks/pre-push` checks outgoing committed content for its documented static/security
+  controls. Run `check`/`preflight` for local test evidence. CI owns its separate test,
+  slow, SQL and delivery lanes.
+
+Private-only work follows its own repository guidance and gates. Keep external-source,
+artifact and browser evidence explicit when affected.
 
 | Phase | Item | Status |
 |-------|------|--------|
@@ -46,8 +61,9 @@ check), `typecheck` (basedpyright), `test` (pytest, non-integration markers), an
 set `DAIL_INTEGRATION_TESTS=1` for view tests without fixtures). The `sql` marker
 now *does* run in CI (the `sql-contracts` job runs against committed gold parquet).
 
-Still genuinely open below: **Phase 3a (pre-commit)**, Phase 3e (branch protection),
-Phase 5b (Docker), and the fully-automated end-to-end pipeline refresh (Phase 6).
+Still open in the historical plan: **Phase 3a (pre-commit)**, Phase 3e (branch protection),
+production deployment automation beyond the current delivery checks, and the fully automated
+end-to-end pipeline refresh (Phase 6). Inspect the workflow for current executable controls.
 
 ---
 

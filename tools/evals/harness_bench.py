@@ -258,6 +258,11 @@ def _sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def expected_key_identity(tasks: dict[str, dict[str, Any]], selected_tasks: list[str]) -> str:
+    expected = {task_id: tasks[task_id]["expected"] for task_id in selected_tasks if "expected" in tasks[task_id]}
+    return _sha256(json.dumps(expected, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8"))
+
+
 def _git_value(*args: str) -> str:
     completed = subprocess.run(
         ["git", "-C", PROJ, *args],
@@ -316,10 +321,14 @@ def run_manifest(
         "type": "eval_run",
         "run_id": str(uuid.uuid4()),
         "started_utc": datetime.now(UTC).isoformat(),
-        "source_revision": _git_value("rev-parse", "HEAD"),
-        "source_dirty": bool(_git_value("status", "--porcelain", "--untracked-files=no")),
+        "source_revision": cleanroom.get("source_revision") if cleanroom else _git_value("rev-parse", "HEAD"),
+        "source_dirty": cleanroom.get("source_dirty")
+        if cleanroom
+        else bool(_git_value("status", "--porcelain", "--untracked-files=all")),
+        "source_tree_sha256": cleanroom.get("source_tree_sha256") if cleanroom else None,
         "harness_sha256": _sha256(Path(__file__).read_bytes()),
         "task_suite_sha256": _sha256(json.dumps(task_fingerprint, sort_keys=True).encode("utf-8")),
+        "expected_key_identity": expected_key_identity(tasks, selected_tasks),
         "task_ids": selected_tasks,
         "variants": variants,
         "continuity_evidence": "synthetic-replay" if any(v in CONTEXT_VARIANTS for v in variants) else "not-measured",
@@ -412,6 +421,15 @@ def cache_observation(
     return observation(state, ratio=round(cache_read / denominator, 6))
 
 
+def _validate_eval_task_policy(task: dict[str, Any]) -> None:
+    kind = str(task.get("kind", "")).lower().replace("_", "-")
+    if "external-memory" in kind:
+        raise ValueError("external-memory evaluation tasks are not permitted")
+    allowed = task.get("allowed_mcp_tools", [])
+    if any("external-memory" in str(tool).lower().replace("_", "-") for tool in allowed):
+        raise ValueError("external-memory MCP access is not permitted")
+
+
 async def run_task(
     task_id: str,
     task: dict[str, Any],
@@ -423,6 +441,7 @@ async def run_task(
     execution_index: int | None = None,
     execution_position: int | None = None,
 ) -> dict[str, Any]:
+    _validate_eval_task_policy(task)
     on = variant == "on"
     started_at = time.perf_counter()
     result = None
@@ -446,7 +465,7 @@ async def run_task(
                 trusted_project_hooks=on,
                 env={"PYTHONUTF8": "1"},
                 allowed_tools=allowed_mcp_tools or None,
-                mcp_servers=dail_tracker_mcp(PROJ) if on and allowed_mcp_tools else {},
+                mcp_servers=dail_tracker_mcp(cwd, python_executable=sys.executable) if on and allowed_mcp_tools else {},
             )
         )
         if result.is_error:
@@ -470,7 +489,7 @@ async def run_task(
         "task": task_id,
         "variant": variant,
         "continuity_evidence": "synthetic-replay" if variant in CONTEXT_VARIANTS else "not-measured",
-        "score": score_answer(task, answer),
+        "score": None if error else score_answer(task, answer),
         "tool_calls": len(calls),
         "mcp_calls": sum(call.startswith("mcp__") for call in calls),
         "cost_usd": round(result.cost_usd, 4) if result and result.cost_usd is not None else None,
@@ -500,8 +519,9 @@ def summary_rows(attempts: list[dict[str, Any]], run_id: str) -> list[dict[str, 
     keys = sorted({(row["variant"], row["task"]) for row in attempts})
     for variant, task_id in keys:
         selected = [row for row in attempts if row["variant"] == variant and row["task"] == task_id]
-        scores = [float(row["score"]) for row in selected]
-        latencies = [float(row.get("elapsed_seconds", 0.0)) for row in selected]
+        successful = [row for row in selected if row.get("score") is not None and not row.get("error")]
+        scores = [float(row["score"]) for row in successful]
+        latencies = [float(row.get("elapsed_seconds", 0.0)) for row in successful]
         costs = [float(row["cost_usd"]) for row in selected if row.get("cost_usd") is not None]
         usage_keys = (
             "input_tokens",
@@ -516,19 +536,26 @@ def summary_rows(attempts: list[dict[str, Any]], run_id: str) -> list[dict[str, 
                 "run_id": run_id,
                 "variant": variant,
                 "task": task_id,
-                "n": len(scores),
-                "score_mean": round(statistics.fmean(scores), 3),
-                "score_min": min(scores),
-                "score_max": max(scores),
+                "n": len(selected),
+                "successful_n": len(successful),
+                "failure_n": len(selected) - len(successful),
+                "score_mean": round(statistics.fmean(scores), 3) if scores else None,
+                "score_min": min(scores) if scores else None,
+                "score_max": max(scores) if scores else None,
                 "error_count": sum("error" in row for row in selected),
-                "elapsed_seconds_mean": round(statistics.fmean(latencies), 3),
-                "elapsed_seconds_min": min(latencies),
-                "elapsed_seconds_max": max(latencies),
+                "elapsed_seconds_mean": round(statistics.fmean(latencies), 3) if latencies else None,
+                "elapsed_seconds_min": min(latencies) if latencies else None,
+                "elapsed_seconds_max": max(latencies) if latencies else None,
                 "tool_calls_total": sum(int(row.get("tool_calls", 0)) for row in selected),
                 "mcp_calls_total": sum(int(row.get("mcp_calls", 0)) for row in selected),
                 "cost_usd_total": round(sum(costs), 4) if costs else None,
                 **{
-                    f"{key}_total": sum(int(row.get("usage", {}).get(key, 0)) for row in selected) for key in usage_keys
+                    f"{key}_total": (
+                        sum(row["usage"][key] for row in selected)
+                        if all(type(row.get("usage", {}).get(key)) is int for row in selected)
+                        else None
+                    )
+                    for key in usage_keys
                 },
                 "cache_observation_count": sum(
                     row.get("cache_observation_state") in {"reuse_reported", "no_reuse_reported"} for row in selected
@@ -584,6 +611,8 @@ def preflight_report(cleanroom: Path) -> dict[str, Any]:
         "ok": True,
         "files_copied": metadata["files_copied"],
         "source_revision": metadata["source_revision"],
+        "source_dirty": metadata.get("source_dirty"),
+        "source_tree_sha256": metadata.get("source_tree_sha256"),
         "required_files": list(PREFLIGHT_REQUIRED_FILES),
         "scorer_excluded": not (cleanroom / "tools" / "evals").exists(),
         "git_metadata_excluded": not (cleanroom / ".git").exists(),
@@ -700,7 +729,9 @@ async def main(argv: list[str] | None = None) -> None:
         print(json.dumps(row, ensure_ascii=False), flush=True)
     if args.require_perfect:
         imperfect = [
-            f"{row['task']}/{row['variant']}={row['score']}" for row in attempts if float(row.get("score") or 0.0) < 1.0
+            f"{row['task']}/{row['variant']}={row['score']}"
+            for row in attempts
+            if row.get("error") or row.get("score") != 1.0
         ]
         if imperfect:
             raise SystemExit(f"require-perfect: score(s) below 1.0: {', '.join(imperfect)}")

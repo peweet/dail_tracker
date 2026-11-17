@@ -286,6 +286,8 @@ def _validate_mutations() -> None:
     if pending or invalid:
         raise PilotError(f"Cosmic Ray produced invalid mutation outcomes: invalid={invalid}, pending={pending}")
     active = outcomes[("NORMAL", "KILLED")] + outcomes[("NORMAL", "SURVIVED")]
+    if active == 0:
+        raise PilotError("mutation budget incomplete: no active mutants (all mutation items were filtered or empty)")
     kill_rate = 100 * outcomes[("NORMAL", "KILLED")] / active if active else 0.0
     print(
         "mutation outcomes: "

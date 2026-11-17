@@ -57,6 +57,15 @@ def test_preflight_checks_committed_document_content_separately_from_path_guard(
     assert dev.commands_for("private-ip") == ((dev.PYTHON, "tools/check_no_private_ip.py"),)
 
 
+def test_preflight_runs_the_code_hygiene_ratchet_but_check_does_not():
+    # Pre-push only: the gate compares against origin/main, which the fast iteration gate has
+    # no reason to pay for on every run. The Stop hook covers the per-session case.
+    assert "hygiene" in dev.PREFLIGHT_TASKS
+    assert "hygiene" not in dev.CHECK_TASKS
+    assert dev.commands_for("hygiene") == ((dev.PYTHON, "tools/check_code_hygiene.py", "gate"),)
+    assert dev.commands_for("hygiene")[0] in dev.commands_for("preflight")
+
+
 def test_integration_task_enables_the_local_contract_environment(monkeypatch):
     captured: dict[str, object] = {}
 

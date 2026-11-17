@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import importlib.metadata
 import json
 import os
 import platform
@@ -103,6 +104,7 @@ class CheckSpec:
             "reason": self.reason,
             "env": list(self.env),
             "evidence_scope": self.evidence_scope,
+            "cacheable": self.evidence_scope != EXTERNAL_SOURCE,
         }
 
 
@@ -214,8 +216,17 @@ def normalize_path(path: str) -> str:
 
 def is_non_source_state(path: str) -> bool:
     """Whether ``path`` is append-only/derived state, never verification input."""
-
-    return normalize_path(path).startswith(NON_SOURCE_PREFIXES)
+    normalized = normalize_path(path)
+    if normalized.startswith(NON_SOURCE_PREFIXES):
+        return True
+    if normalized.startswith(".cache/"):
+        return PurePosixPath(normalized).suffix.lower() in {".json", ".jsonl", ".db", ".sqlite", ".log"}
+    if normalized.startswith(".cosmic-ray/"):
+        name = PurePosixPath(normalized).name
+        if name == "cosmic.toml" or name == "harness.py" or name.endswith("_target.py"):
+            return False
+        return name.endswith((".sqlite", ".git-head", ".toml", ".log"))
+    return False
 
 
 def filter_verification_paths(paths: Iterable[str]) -> tuple[str, ...]:
@@ -290,22 +301,57 @@ def _read_test_tree(path: Path) -> ast.Module | None:
         return None
 
 
-def _pytest_marker_names(node: ast.AST) -> frozenset[str]:
-    """Read ``pytest.mark.<name>`` attributes without evaluating Python."""
+def _marker_path(node: ast.AST, aliases: dict[str, str]) -> str:
+    if isinstance(node, ast.Name):
+        return aliases.get(node.id, "")
+    if isinstance(node, ast.Attribute):
+        parent = _marker_path(node.value, aliases)
+        return f"{parent}.{node.attr}" if parent else ""
+    if isinstance(node, ast.Call):
+        return _marker_path(node.func, aliases)
+    return ""
 
-    found: set[str] = set()
-    for candidate in ast.walk(node):
-        if not isinstance(candidate, ast.Attribute) or candidate.attr not in SPECIAL_TEST_MARKERS:
-            continue
-        marker = candidate.value
-        if (
-            isinstance(marker, ast.Attribute)
-            and marker.attr == "mark"
-            and isinstance(marker.value, ast.Name)
-            and marker.value.id == "pytest"
-        ):
-            found.add(candidate.attr)
-    return frozenset(found)
+
+def _imported_marker_aliases(node: ast.AST) -> dict[str, str]:
+    if isinstance(node, ast.Import):
+        return {name.asname or name.name: "pytest" for name in node.names if name.name == "pytest"}
+    if isinstance(node, ast.ImportFrom) and node.module == "pytest":
+        return {name.asname or name.name: "pytest.mark" for name in node.names if name.name == "mark"}
+    return {}
+
+
+def _assignments(nodes: list[ast.stmt]):
+    for node in nodes:
+        if isinstance(node, ast.Assign):
+            yield node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            yield (node.target,), node.value
+
+
+def _marker_aliases(tree, inherited: dict[str, str] | None = None) -> dict[str, str]:
+    aliases = {"pytest": "pytest", **(inherited or {})}
+    for node in tree.body:
+        aliases.update(_imported_marker_aliases(node))
+        for targets, value in _assignments([node]):
+            path = _marker_path(value, aliases)
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    aliases.pop(target.id, None)
+                    if path:
+                        aliases[target.id] = path
+    return aliases
+
+
+def _pytest_marker_names(node: ast.AST, aliases: dict[str, str] | None = None) -> frozenset[str]:
+    """Resolve literal pytest marker paths and module-local aliases without imports."""
+    paths = {_marker_path(child, aliases or {"pytest": "pytest"}) for child in ast.walk(node)}
+    return frozenset(name for name in SPECIAL_TEST_MARKERS if f"pytest.mark.{name}" in paths)
+
+
+def _known_marker_value(value: ast.AST, aliases: dict[str, str]) -> bool:
+    if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+        return all(_known_marker_value(child, aliases) for child in value.elts)
+    return _marker_path(value, aliases).startswith("pytest.mark.")
 
 
 def _marker_groups(marker_names: Iterable[str]) -> frozenset[str]:
@@ -322,22 +368,21 @@ def _marker_groups(marker_names: Iterable[str]) -> frozenset[str]:
     return frozenset(groups)
 
 
-def _module_marker_groups(tree: ast.Module) -> frozenset[str]:
+def _module_marker_groups(tree, inherited: dict[str, str] | None = None) -> frozenset[str]:
+    aliases = _marker_aliases(tree, inherited)
     marker_names: set[str] = set()
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            targets = node.targets
-            marker_value = node.value
-        elif isinstance(node, ast.AnnAssign):
-            targets = (node.target,)
-            marker_value = node.value
-        else:
-            continue
-        if marker_value is not None and any(
-            isinstance(target, ast.Name) and target.id == "pytestmark" for target in targets
-        ):
-            marker_names.update(_pytest_marker_names(marker_value))
+    for targets, value in _assignments(tree.body):
+        if any(isinstance(target, ast.Name) and target.id == "pytestmark" for target in targets):
+            if not _known_marker_value(value, aliases):
+                raise ValueError("Unresolved pytestmark: use literal pytest marks or module-local marker aliases")
+            marker_names.update(_pytest_marker_names(value, aliases))
     return _marker_groups(marker_names)
+
+
+def _declaration_marker_groups(node, aliases: dict[str, str]) -> frozenset[str]:
+    names = {name for decorator in node.decorator_list for name in _pytest_marker_names(decorator, aliases)}
+    groups = _marker_groups(names)
+    return groups | _module_marker_groups(node, aliases) if isinstance(node, ast.ClassDef) else groups
 
 
 def _special_test_groups(target: str) -> frozenset[str]:
@@ -348,9 +393,13 @@ def _special_test_groups(target: str) -> frozenset[str]:
         tree = _read_test_tree(path)
         if tree is None:
             continue
-        found.update(_pytest_marker_names(tree))
+        aliases = _marker_aliases(tree)
+        found.update(_module_marker_groups(tree))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                found.update(_declaration_marker_groups(node, aliases))
 
-    return _marker_groups(found)
+    return frozenset(found)
 
 
 def _test_file_has_fast_case(path: Path) -> bool:
@@ -360,17 +409,18 @@ def _test_file_has_fast_case(path: Path) -> bool:
     if tree is None:
         return False
     module_groups = _module_marker_groups(tree)
+    aliases = _marker_aliases(tree)
     if module_groups:
         return False
 
     def has_fast_case(nodes: list[ast.stmt], inherited_groups: frozenset[str]) -> bool:
         for node in nodes:
             if isinstance(node, ast.ClassDef):
-                class_groups = inherited_groups | _marker_groups(_pytest_marker_names(node))
+                class_groups = inherited_groups | _declaration_marker_groups(node, aliases)
                 if has_fast_case(node.body, class_groups):
                     return True
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
-                function_groups = inherited_groups | _marker_groups(_pytest_marker_names(node))
+                function_groups = inherited_groups | _declaration_marker_groups(node, aliases)
                 if not function_groups:
                     return True
         return False
@@ -975,12 +1025,24 @@ def compute_fingerprint(
 
 
 def current_policy_identity(script: Path = Path(__file__)) -> str:
-    return f"{POLICY_VERSION}:{_hash_file(script)}"
+    # The verification policy includes the installed dependency environment.
+    return f"{POLICY_VERSION}:{_hash_file(script)}:{installed_distribution_identity()}"
+
+
+def installed_distribution_identity() -> str:
+    """Cheap stdlib metadata snapshot so dependency changes invalidate receipts."""
+    records = sorted(
+        f"{dist.metadata.get('Name', '').lower()}=={dist.version}"
+        for dist in importlib.metadata.distributions()
+        if dist.metadata.get("Name") and dist.version
+    )
+    return hashlib.sha256("\n".join(records).encode("utf-8")).hexdigest()
 
 
 def receipt_matches(receipt: Mapping[str, object], fingerprint: str, checks: Sequence[CheckSpec]) -> bool:
     return (
-        receipt.get("status") == "success"
+        all(check.evidence_scope != EXTERNAL_SOURCE for check in checks)
+        and receipt.get("status") == "success"
         and receipt.get("fingerprint") == fingerprint
         and receipt.get("policy_version") == POLICY_VERSION
         and receipt.get("checks") == [check.cache_payload() for check in checks]
@@ -1116,7 +1178,8 @@ def execute_checks(
         "checks": [check.cache_payload() for check in checks],
         "results": [asdict(result) for result in results],
     }
-    write_json_atomic(receipt_path, payload)
+    if all(check.evidence_scope != EXTERNAL_SOURCE for check in checks):
+        write_json_atomic(receipt_path, payload)
     return True, tuple(results)
 
 
@@ -1190,7 +1253,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         plan = build_plan(ROOT, requested_base=args.base, full=args.full)
         fingerprint = plan_fingerprint(plan, ROOT)
-    except (GitError, OSError) as exc:
+    except (GitError, OSError, ValueError) as exc:
         print(f"verify-changed: {exc}", file=sys.stderr)
         return 2
 

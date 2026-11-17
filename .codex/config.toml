@@ -60,6 +60,17 @@ command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInt
 timeout = 5
 statusMessage = "Validating subagent contract"
 
+[[hooks.PostToolUse]]
+matcher = "^(apply_patch|Edit|Write|MultiEdit)$"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/verifier_nudge.py"'
+command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/verifier_nudge.py) }"'
+timeout = 10
+statusMessage = "Tracking changed code for independent review"
+additionalContextLimit = 500
+
 [[hooks.Stop]]
 
 [[hooks.Stop.hooks]]
@@ -68,6 +79,13 @@ command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/closeout_gate.p
 command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/closeout_gate.py) }"'
 timeout = 10
 statusMessage = "Checking for a durable project lesson"
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/tools/hooks/code_hygiene_gate.py"'
+command_windows = 'powershell.exe -WindowStyle Hidden -NoLogo -NoProfile -NonInteractive -Command "$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -eq 0) { & (Join-Path $repo .venv/Scripts/python.exe) (Join-Path $repo tools/hooks/code_hygiene_gate.py) }"'
+timeout = 60
+statusMessage = "Checking code hygiene and current review receipts"
 
 [mcp_servers.dail-tracker]
 enabled = false

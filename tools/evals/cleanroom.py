@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -52,9 +53,9 @@ def source_revision(repo: Path) -> str:
     return completed.stdout.strip() if completed.returncode == 0 else "unknown"
 
 
-def _copy_files(source: Path, destination: Path, files: Sequence[str]) -> int:
-    count = 0
-    for relative in files:
+def _copy_files(source: Path, destination: Path, files: Sequence[str]) -> tuple[int, str]:
+    identities = {}
+    for relative in sorted(set(files)):
         if not should_copy(relative):
             continue
         src = source / relative
@@ -67,8 +68,10 @@ def _copy_files(source: Path, destination: Path, files: Sequence[str]) -> int:
         dst = destination / relative
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
-        count += 1
-    return count
+        with dst.open("rb") as copied:
+            identities[relative] = hashlib.file_digest(copied, "sha256").hexdigest()
+    digest = hashlib.sha256(json.dumps(identities, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return len(identities), digest
 
 
 def validate_cleanroom(path: Path) -> dict:
@@ -89,10 +92,17 @@ def prepare_cleanroom(source: str | Path, *, files: Sequence[str] | None = None)
     destination.mkdir()
     try:
         selected = repository_files(repo) if files is None else list(files)
-        copied = _copy_files(repo, destination, selected)
+        copied, tree_sha256 = _copy_files(repo, destination, selected)
+        status = subprocess.run(
+            ["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True,
+            check=False,
+        )
         metadata = {
             "created_utc": datetime.now(UTC).isoformat(),
             "source_revision": source_revision(repo),
+            "source_dirty": bool(status.stdout.strip()) if status.returncode == 0 else None,
+            "source_tree_sha256": tree_sha256,
             "files_copied": copied,
             "excluded_prefixes": list(EXCLUDED_PREFIXES),
         }

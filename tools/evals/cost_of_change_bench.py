@@ -180,9 +180,11 @@ async def run_one(
     final_text = result.final_text if result else ""
     selfreport = _parse_selfreport(final_text)
     usage = dict(result.usage) if result else {}
-    total_input = sum(
-        usage.get(k) or 0 for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
+    native_usage_fields = (
+        sorted(result.usage_reported_fields) if result and result.usage_reported_fields is not None else None
     )
+    input_classes = [usage.get(k) for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")]
+    total_input = sum(input_classes) if all(type(value) is int for value in input_classes) else None
     selfreport_chars = (
         sum(f.get("chars") or 0 for f in selfreport.get("files_read", [])) if isinstance(selfreport, dict) else None
     )
@@ -193,7 +195,22 @@ async def run_one(
         "model": result.model if result else model,
         "reasoning_effort": result.reasoning_effort if result else None,
         "harness": {"setting_sources": [], "disallowed_tools": DISALLOWED_TOOLS},
-        "git_head": _git(["rev-parse", "--short", ref], git_dir=git_dir),
+        "harness_sha256": hashlib.sha256(
+            Path(__file__).read_bytes()
+            + (REPO / "tools/evals/provider_adapter.py").read_bytes()
+            + str(max_turns).encode("ascii")
+        ).hexdigest(),
+        "harness_identity": hashlib.sha256(
+            json.dumps({"setting_sources": [], "disallowed_tools": DISALLOWED_TOOLS}, sort_keys=True).encode("utf-8")
+        ).hexdigest(),
+        "tool_policy_identity": hashlib.sha256(
+            json.dumps(
+                {"allowed_tools": ["Read", "Grep", "Glob", "Edit", "Write"], "disallowed_tools": DISALLOWED_TOOLS},
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest(),
+        "git_head": _git(["rev-parse", ref], git_dir=git_dir),
+        "input_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
         "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16],
         "primary_file": CANDIDATES.get(cand, (None, None))[1],
         "primary_file_loc": None,
@@ -201,7 +218,21 @@ async def run_one(
         "num_turns": result.num_turns if result else None,
         "cost_usd": result.cost_usd if result else None,
         "usage": usage,
-        "total_input_tokens": total_input or None,
+        # This orientation benchmark has no independent task-quality oracle.
+        "quality_passed": None,
+        "usage_reported_fields": native_usage_fields,
+        "usage_schema_identity": hashlib.sha256(
+            json.dumps(native_usage_fields or [], separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        if native_usage_fields is not None
+        else None,
+        "usage_field_provenance": {
+            key: (
+                "native" if native_usage_fields is not None and key in native_usage_fields else "normalized-or-unknown"
+            )
+            for key in usage
+        },
+        "total_input_tokens": total_input,
         "output_tokens": usage.get("output_tokens"),
         "reads": [c for c in tool_calls if c["tool"] == "Read"],
         "tool_sequence": [c["tool"] for c in tool_calls],

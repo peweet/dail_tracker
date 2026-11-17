@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections import Counter
 from difflib import SequenceMatcher
@@ -35,13 +36,17 @@ METRICS = ("cost_usd", "fresh_tokens", "output_tokens", "num_turns")
 
 
 def fresh_tokens(row: dict) -> int | None:
-    """The two full-price input classes — cache reads are 0.1x and dominate the flat
-    total_input_tokens, so 'fresh' is the class a refactor can actually move."""
+    """Sum observed disjoint fresh-input classes; absent counters remain unknown."""
     u = row.get("usage") or {}
-    a, b = u.get("input_tokens"), u.get("cache_creation_input_tokens")
-    if a is None and b is None:
+    if not isinstance(u, dict):
         return None
-    return (a or 0) + (b or 0)
+    reported = row.get("usage_reported_fields")
+    if reported is not None and not {"input_tokens", "cache_creation_input_tokens"}.issubset(reported):
+        return None
+    a, b = u.get("input_tokens"), u.get("cache_creation_input_tokens")
+    if type(a) is not int or type(b) is not int or a < 0 or b < 0:
+        return None
+    return a + b
 
 
 def seq_agreement(seqs: list[list[str]]) -> float | None:
@@ -60,14 +65,56 @@ def first2_modal_share(seqs: list[list[str]]) -> str | None:
     return f"{counts.most_common(1)[0][1]}/{len(seqs)}"
 
 
+def _completed(row: dict) -> bool:
+    return not row.get("is_error") and not row.get("error")
+
+
+def _metric_value(row: dict, metric: str):
+    reported = row.get("usage_reported_fields")
+    if metric == "output_tokens" and reported is not None and metric not in reported:
+        return None
+    value = fresh_tokens(row) if metric == "fresh_tokens" else row.get(metric)
+    return value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
+
+
+def _metric_stats(rows: list[dict], metric: str) -> dict | None:
+    values = [_metric_value(row, metric) for row in rows]
+    # Partial observations cannot support an arm-level metric.
+    if not values or any(value is None for value in values):
+        return None
+    return {"median": round(median(values), 4), "min": min(values), "max": max(values), "n": len(values)}
+
+
+def _per_success(rows: list[dict], metric: str, successful_n: int):
+    values = [_metric_value(row, metric) for row in rows]
+    if not successful_n or any(value is None for value in values):
+        return None
+    return sum(values) / successful_n
+
+
 def arm_stats(rows: list[dict]) -> dict:
-    out: dict = {"n": len(rows), "head": rows[0].get("git_head")}
-    for m in METRICS:
-        vals = [v for r in rows if (v := (fresh_tokens(r) if m == "fresh_tokens" else r.get(m))) is not None]
-        out[m] = (
-            {"median": round(median(vals), 4), "min": min(vals), "max": max(vals), "n": len(vals)} if vals else None
-        )
-    seqs = [r.get("tool_sequence") or [] for r in rows]
+    completed = [r for r in rows if _completed(r)]
+    successful = [r for r in completed if r.get("quality_passed") is True]
+    costs = [_metric_value(row, "cost_usd") for row in rows]
+    observed = [value for value in costs if value is not None]
+    total = sum(observed) if len(observed) == len(rows) else None
+    out: dict = {
+        "n": len(rows),
+        "successful_n": len(successful),
+        "completed_n": len(completed),
+        "failure_n": len(rows) - len(completed) + sum(r.get("quality_passed") is False for r in completed),
+        "quality_unknown_n": sum(
+            r.get("quality_passed") is not True and r.get("quality_passed") is not False for r in completed
+        ),
+        "cost_observed_n": len(observed),
+        "cost_usd_observed_total": sum(observed) if observed else None,
+        "cost_usd_spent": total,
+        "cost_per_success": _per_success(rows, "cost_usd", len(successful)),
+        "per_success": {metric: _per_success(rows, metric, len(successful)) for metric in METRICS},
+        "head": rows[0].get("git_head") if rows else None,
+    }
+    out.update({metric: _metric_stats(successful, metric) for metric in METRICS})
+    seqs = [r.get("tool_sequence") or [] for r in successful]
     out["tool_seq_agreement"] = seq_agreement(seqs)
     out["first2_modal"] = first2_modal_share(seqs)
     return out
@@ -76,6 +123,10 @@ def arm_stats(rows: list[dict]) -> dict:
 def verdict(a: dict, b: dict, metric: str) -> str:
     """DECIDABLE only when |Δmedian| exceeds both arms' spread; else NOISE. A
     single-run arm has no measurable spread, so its delta can never be DECIDABLE."""
+    if a.get("quality_unknown_n") or b.get("quality_unknown_n"):
+        return f"{metric}: INCONCLUSIVE (quality acceptance unmeasured)"
+    if a.get("failure_n") or b.get("failure_n"):
+        return f"{metric}: INCONCLUSIVE (failure-affected arms; inspect total cost per success)"
     sa, sb = a.get(metric), b.get(metric)
     if not sa or not sb:
         return f"{metric}: no data in one arm"
@@ -91,30 +142,47 @@ def verdict(a: dict, b: dict, metric: str) -> str:
     return f"{metric}: Δmedian {delta:+g}{pct} vs within-arm spread {spread:g} → {call}"
 
 
+def comparison_identity(row: dict) -> tuple | None:
+    """Full identity required before two benchmark rows are comparable."""
+    fields = (
+        "provider",
+        "model",
+        "reasoning_effort",
+        "harness_sha256",
+        "tool_policy_identity",
+        "input_sha256",
+        "usage_schema_identity",
+    )
+    values = tuple(row.get(field) for field in fields)
+    if not row.get("git_head") or any(not isinstance(value, str) or not value.strip() for value in values):
+        return None
+    return values
+
+
 def compare(rows: list[dict], candidate: str, min_runs: int) -> list[str]:
-    """Group -> latest (prompt_sha256, model) group -> last two git_head arms -> verdicts.
-    Returns printable lines (pure, for tests)."""
-    rows = [r for r in rows if r.get("candidate") == candidate and not r.get("is_error")]
-    if not rows:
-        return [f"no non-error rows for {candidate} in {LOG_PATH.name}"]
-    key = (rows[-1].get("prompt_sha256"), rows[-1].get("model"))
-    grp = [r for r in rows if (r.get("prompt_sha256"), r.get("model")) == key]
+    """Group by full experiment identity, then compare the last two git_head arms."""
+    rows = [r for r in rows if r.get("candidate") == candidate]
+    if not rows or (key := comparison_identity(rows[-1])) is None:
+        return [f"{candidate}: INCOMPARABLE (no complete latest experiment identity in {LOG_PATH.name})"]
+    grp = [r for r in rows if comparison_identity(r) == key]
     skipped = len(rows) - len(grp)
     arms: dict[str, list[dict]] = {}
     for r in grp:  # insertion order = ts order (append-only log)
         arms.setdefault(r.get("git_head"), []).append(r)
     lines = [
-        f"{candidate} | prompt {key[0]} | model {key[1]}"
-        + (f" | {skipped} row(s) under other prompt/model ignored" if skipped else "")
+        f"{candidate} | identity {key!r}"
+        + (f" | {skipped} row(s) under other experiment identity ignored" if skipped else "")
     ]
     for head, arm in arms.items():
         s = arm_stats(arm)
         lines.append(
-            f"  arm {head} n={s['n']}: "
+            f"  arm {head} n={s['n']} successful_n={s['successful_n']} failure_n={s['failure_n']} "
+            f"quality_unknown_n={s['quality_unknown_n']} spent={s['cost_usd_spent']} "
+            f"cost_per_success={s['cost_per_success']} cost_observed={s['cost_observed_n']}/{s['n']}: "
             + "  ".join(f"{m} {s[m]['median']:g} [{s[m]['min']:g}-{s[m]['max']:g}]" for m in METRICS if s[m])
             + f"  | tool_seq agreement {s['tool_seq_agreement']} first2 {s['first2_modal']}"
         )
-        if s["n"] < min_runs:
+        if s["successful_n"] < min_runs:
             lines.append(f"    ⚠ n<{min_runs} — Indicative-grade; add runs before deciding")
         if s["tool_seq_agreement"] is not None and s["tool_seq_agreement"] < 0.6:
             lines.append("    ⚠ low within-arm agreement — brief is ambiguous; rewrite it first (E4)")
@@ -123,6 +191,11 @@ def compare(rows: list[dict], candidate: str, min_runs: int) -> list[str]:
         lines.append("one arm only — run the bench again on the other git_head to compare")
         return lines
     a, b = arm_stats(arms[heads[-2]]), arm_stats(arms[heads[-1]])
+    if a["failure_n"] or b["failure_n"]:
+        lines.append("failure-affected arms: total cost and usage per accepted task include failed attempts")
+    if min(a["successful_n"], b["successful_n"]) < min_runs:
+        lines.append("INSUFFICIENT accepted repeats; no adoption verdict")
+        return lines
     lines.append(f"VERDICTS ({heads[-2]} → {heads[-1]}):")
     lines.extend("  " + verdict(a, b, m) for m in METRICS)
     if len(heads) > 2:

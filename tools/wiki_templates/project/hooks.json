@@ -39,6 +39,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.venv/Scripts/python\" \"$CLAUDE_PROJECT_DIR/tools/hooks/code_hygiene_gate.py\"",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }

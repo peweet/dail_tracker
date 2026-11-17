@@ -3,7 +3,7 @@
 
 # doc/ index
 
-77 docs · ~379.9k tokens total · 34 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+77 docs · ~381.1k tokens total · 34 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -15,10 +15,10 @@
 | [DATA_LIMITATIONS.md](DATA_LIMITATIONS.md) | data | 12.2k | 2026-07-17 | before citing any dataset's completeness, scope, or coverage of a person/topic — check known caveats and silent-failure risks first |
 | [JOIN_MAP.md](JOIN_MAP.md) | data | 1.7k | 2026-07-14 | before attempting any cross-register association/join between datasets (ORG name-norm or PERSON anagram key) |
 | [AST_SCANNER_FAILURE_MODES.md](AST_SCANNER_FAILURE_MODES.md) | engineering | 7.3k | 2026-08-04 | auditing an AST-based code scanner, contract extractor, repository indexer, or migration ratchet for false positives and false negatives |
-| [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 10.7k | 2026-11-16 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
+| [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 11.6k | 2026-11-17 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
 | [AGENT_HARNESS_MEASUREMENT_2026_08_05.md](AGENT_HARNESS_MEASUREMENT_2026_08_05.md) | infra | 1.0k | 2026-08-05 | deciding whether the current agent harness improves correctness or efficiency |
 | [AGENT_WORKFLOW_PLAN_2026_10_25.md](AGENT_WORKFLOW_PLAN_2026_10_25.md) | infra | 1.9k | 2026-10-25 | changing how agent sessions work in this repo - rules, hooks, the two-tier wiki, review subagents, compaction, issue/PR flow |
-| [CI_CD.md](CI_CD.md) | infra | 5.3k | 2026-08-24 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
+| [CI_CD.md](CI_CD.md) | infra | 5.6k | 2026-11-17 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
 | [CODEX_WINDOWS_SANDBOX_RECOVERY.md](CODEX_WINDOWS_SANDBOX_RECOVERY.md) | infra | 1.3k | 2026-08-26 | Codex Windows commands fail before process startup with apply deny-read ACLs, CreateProcess, or helper_unknown_error |
 | [CODEX_WORKFLOW_AUDIT_2026_08_28.md](CODEX_WORKFLOW_AUDIT_2026_08_28.md) | infra | 2.5k | 2026-08-28 | auditing Codex task efficiency, planning-product ownership, long-running work, or git closeout |
 | [CREDENTIAL_ESCROW.md](CREDENTIAL_ESCROW.md) | infra | 1.8k | 2026-11-07 | setting up or auditing the off-box copy of the credentials a restore needs, or checking whether the escrow is still complete |
@@ -99,4 +99,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-11-16 -->
+<!-- generated 2026-11-17 -->

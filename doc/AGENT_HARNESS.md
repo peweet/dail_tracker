@@ -2,7 +2,7 @@
 tier: REFERENCE
 status: LIVE
 domain: infra
-updated: 2026-11-16
+updated: 2026-11-17
 supersedes: []
 read_when: changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness
 key: REFERENCE|LIVE|infra
@@ -221,6 +221,22 @@ When migrating a local ignored matrix, back it up and remove only the duplicated
 other protection hooks. Registration and old trust metadata are not proof of live
 execution. Review changed definitions with `/hooks` and confirm an invocation.
 
+The portable TOML also registers code-edit tracking and the hygiene Stop check. Codex
+reports `apply_patch` with the patch in `tool_input.command`, even when an Edit/Write
+matcher alias selects it. The tracker consumes that payload and Claude's `file_path`
+events, including MultiEdit. See the [current hook contract](https://learn.chatgpt.com/docs/hooks#posttooluse).
+The Claude workflow template registers the same scripts. Keep a handler in one config
+layer per client. Confirm live invocation separately from registration and synthetic tests.
+
+Independent review uses the allowed `reviewer` role. Completion events never certify all
+edited files. Retain the actual successful result with explicit reviewed paths, content
+hashes and acceptance evidence using `tools/review_receipt.py` (see `--help`). A failed,
+partial or stale review cannot cover unreviewed or subsequently edited content. This is
+an evidence record of the review result and the exact content covered.
+The Stop hook is advisory with bounded retries; the explicit hygiene command reports
+incomplete duplicate checking as non-success. Shell edits still need explicit changed-file
+verification because arbitrary shell commands require their own changed-file accounting.
+
 ## Efficient tool use
 
 Plan retrieval around the decision it must support. Batch independent read-only lookups
@@ -335,6 +351,38 @@ calls per successful task. The benchmark records tool sequences, but does not ye
 avoidable repeated work, internal calls inside code batches or model round trips. Add those
 measurements before claiming a reduction in polling or reasoning overhead. Local payload and
 parse-count regressions prove the navigation boundary, not general model-call savings.
+
+Comparison quality comes before cost. Provider failures remain failed attempts even when
+partial output contains a correct answer. Keep their spent usage and report successful
+counts separately. Bind task and expected-result identities, provider/model/effort, tool
+policy and usage schema before comparing arms. Missing native usage remains unknown.
+Cost-of-change orientation runs have no independent quality oracle and record acceptance
+as unmeasured. Provider completion alone cannot produce an accepted-task savings verdict.
+Failure-affected arms report total spending per accepted task without a savings verdict.
+An enabled retrieval tool must use the evaluation root; launching it against the original
+checkout would reopen scorer access outside the copied workspace. Cleanroom provenance
+binds copied bytes, including visible untracked inputs, with a source-tree digest. Native
+continuation, host isolation and measured savings each require their own evidence.
+
+The tracked workflow skill templates are
+`tools/wiki_templates/project/skills/adversarial-regression/` and `harness-compare/`.
+They reuse existing tests, incident registries, receipts and comparators. The hygiene
+template keeps its short entry point separate from conditional method, structural and
+smell references. `wiki setup-project` installs those references as well as `SKILL.md`;
+local `.agents` and `.claude` copies must preserve the same contract. Static packaging
+checks validate packaging. Model behavior and token savings require an authorized held-out
+evaluation of the changed customizations.
+
+For a new feature, identify affected input contracts, deterministic behavior, jobs/retries,
+issued artifacts, download identity and browser
+journey as applicable. Reuse the selected repository's existing domain/receipt registry.
+Keep required coverage, known open defects and exploratory discovery yield separate.
+Start with a minimal regression and a neighbouring valid case, add generated properties
+for meaningful input/sequence combinations, and use a narrow mutation audit to check
+assertion sensitivity. An audit with no active mutants provides no test-quality evidence.
+Live-source checks require fresh observations; a local source fingerprint alone cannot
+make an old upstream result current. Preserve intentionally visible mutation harness
+source and provenance files when excluding generated session state from iteration plans.
 
 Skill loading references: [Codex skill discovery and progressive disclosure](https://learn.chatgpt.com/docs/build-skills),
 [VS Code skill locations and invocation](https://code.visualstudio.com/docs/agent-customization/agent-skills).

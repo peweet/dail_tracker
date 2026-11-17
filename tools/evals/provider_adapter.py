@@ -105,9 +105,8 @@ class EvalResult:
     tool_calls: list[EvalToolCall] = field(default_factory=list)
     cost_usd: float | None = None
     usage: dict[str, Any] = field(default_factory=dict)
-    # Native usage keys received from the provider.  The normalized ``usage``
-    # mapping remains backward-compatible and may contain synthesized zeros;
-    # this field lets consumers distinguish those zeros from reported values.
+    # Native usage keys received from the provider. Normalized aliases preserve
+    # missing counters as None, with native presence retained for provenance.
     usage_reported_fields: frozenset[str] | None = None
     num_turns: int | None = None
     is_error: bool = False
@@ -533,17 +532,19 @@ def _normalize_codex_usage(raw: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("conflicting cache counters")
 
     usage = dict(raw)
-    raw_input = int(raw.get("input_tokens") or 0)
-    cached = raw.get("cached_input_tokens", raw.get("cache_read_input_tokens", 0))
+    raw_input = raw.get("input_tokens")
+    cached = raw.get("cached_input_tokens", raw.get("cache_read_input_tokens"))
+    if raw_input is not None and cached is not None and cached > raw_input:
+        raise ValueError("cache tokens exceed total input")
     # Claude reports fresh and cached classes separately; Codex reports cached
     # tokens as a subset of input_tokens.  Normalize to the former so the old
     # cost-of-change summation does not double-count cached input.
     usage["raw_input_tokens"] = raw_input
-    usage["input_tokens"] = max(0, raw_input - cached)
-    usage["cache_creation_input_tokens"] = int(raw.get("cache_creation_input_tokens") or 0)
+    usage["input_tokens"] = raw_input - cached if raw_input is not None and cached is not None else None
+    usage["cache_creation_input_tokens"] = raw.get("cache_creation_input_tokens")
     usage["cache_read_input_tokens"] = cached
-    usage["output_tokens"] = int(raw.get("output_tokens") or 0)
-    usage["reasoning_output_tokens"] = int(raw.get("reasoning_output_tokens") or 0)
+    usage["output_tokens"] = raw.get("output_tokens")
+    usage["reasoning_output_tokens"] = raw.get("reasoning_output_tokens")
     return usage
 
 

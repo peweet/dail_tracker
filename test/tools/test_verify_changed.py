@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import io
 import json
 import subprocess
@@ -10,6 +11,32 @@ from pathlib import Path
 import pytest
 
 from tools import verify_changed as vc
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import pytest as pt\nSPECIAL = pt.mark.sources\npytestmark = SPECIAL",
+        "from pytest import mark as marks\npytestmark = [marks.sources]",
+    ],
+)
+def test_aliased_source_markers_keep_the_external_lane(source):
+    assert vc._module_marker_groups(ast.parse(source)) == frozenset({"sources"})
+
+
+def test_unresolved_module_markers_require_explicit_policy():
+    with pytest.raises(ValueError, match="pytestmark"):
+        vc._module_marker_groups(ast.parse("pytestmark = obtain_marks()"))
+
+
+def test_a_slow_method_does_not_hide_a_neighbouring_fast_case(tmp_path):
+    target = tmp_path / "test_mixed.py"
+    target.write_text(
+        "import pytest\nclass TestMixed:\n    @pytest.mark.slow\n"
+        "    def test_slow(self): pass\n    def test_fast(self): pass\n",
+        encoding="utf-8",
+    )
+    assert vc._test_file_has_fast_case(target)
 
 
 def _keys(checks: tuple[vc.CheckSpec, ...]) -> list[str]:
@@ -65,11 +92,35 @@ def test_append_only_logs_and_verification_cache_are_not_source_state() -> None:
         "logs/closeout_reviews.jsonl",
         ".cache/verify-changed/logs/run/check.log",
         ".cache/verify-changed/receipts/key.json",
+        ".cache/other-tool/generated.json",
+        ".cosmic-ray/session/data.sqlite",
+        ".cosmic-ray/session/runtime.toml",
+        ".cosmic-ray/session/output.log",
+        ".cosmic-ray/session/source_like.py",
+        ".cosmic-ray/session/cosmic.toml",
+        ".cosmic-ray/session/harness.py",
+        ".cosmic-ray/session/example_target.py",
     ]
-    assert vc.filter_verification_paths(paths) == ("source.py",)
+    assert vc.filter_verification_paths(paths) == (
+        ".cosmic-ray/session/cosmic.toml",
+        ".cosmic-ray/session/example_target.py",
+        ".cosmic-ray/session/harness.py",
+        ".cosmic-ray/session/source_like.py",
+        "source.py",
+    )
     changes = vc.ChangeSet(staged=tuple(paths))
-    assert changes.all_files == ("source.py",)
-    assert changes.as_dict()["staged"] == ("source.py",)
+    assert changes.all_files == (
+        ".cosmic-ray/session/cosmic.toml",
+        ".cosmic-ray/session/example_target.py",
+        ".cosmic-ray/session/harness.py",
+        ".cosmic-ray/session/source_like.py",
+        "source.py",
+    )
+    assert changes.as_dict()["staged"] == changes.all_files
+
+
+def test_unknown_untracked_source_shaped_path_remains_in_scope() -> None:
+    assert vc.filter_verification_paths(["scratch/source_like.py"]) == ("scratch/source_like.py",)
 
 
 def test_extractor_change_gets_focused_lint_tests_and_ratchets() -> None:
@@ -431,6 +482,18 @@ def test_receipt_matching_rejects_non_success_or_changed_commands() -> None:
     assert not vc.receipt_matches(receipt, "different", checks)
     changed = (vc.CheckSpec("two", ("python", "two.py"), "reason"),)
     assert not vc.receipt_matches(receipt, "abc", changed)
+
+
+def test_external_source_checks_are_explicitly_noncacheable() -> None:
+    check = vc.CheckSpec("sources", ("python", "sources.py"), "source", evidence_scope=vc.EXTERNAL_SOURCE)
+    receipt = {
+        "status": "success",
+        "fingerprint": "abc",
+        "policy_version": vc.POLICY_VERSION,
+        "checks": [check.cache_payload()],
+    }
+    assert check.cache_payload()["cacheable"] is False
+    assert not vc.receipt_matches(receipt, "abc", (check,))
 
 
 def test_execute_checks_writes_raw_logs_and_success_receipt(tmp_path: Path) -> None:

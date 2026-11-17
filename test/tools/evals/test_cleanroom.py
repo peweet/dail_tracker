@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from tools.evals.cleanroom import MARKER, prepare_cleanroom, should_copy, validate_cleanroom
@@ -44,3 +45,19 @@ def test_cleanroom_is_a_copy_with_a_validated_lifetime(tmp_path):
         assert metadata["files_copied"] == 1
 
     assert clean_path is not None and not clean_path.exists()
+
+
+def test_cleanroom_identity_binds_visible_untracked_content(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    subprocess.run(["git", "init", str(source)], check=True, capture_output=True)
+    path = source / "untracked.py"
+    path.write_text("VALUE = 1\n", encoding="utf-8")
+    with prepare_cleanroom(source) as cleanroom:
+        first = validate_cleanroom(cleanroom)
+        assert first["source_dirty"] is True
+        assert len(first["source_tree_sha256"]) == 64
+        assert (cleanroom / path.name).read_bytes() == path.read_bytes()
+    path.write_text("VALUE = 2\n", encoding="utf-8")
+    with prepare_cleanroom(source) as cleanroom:
+        assert validate_cleanroom(cleanroom)["source_tree_sha256"] != first["source_tree_sha256"]

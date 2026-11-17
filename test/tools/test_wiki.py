@@ -110,15 +110,25 @@ def test_project_templates_are_tracked_small_pages(wiki):
         assert wiki._lines(src) <= wiki.MAX_PAGE_LINES, src.name
         assert wiki._front_matter(src).get("description"), src.name
     fragment = wiki._hook_fragment()
-    assert set(fragment) == {"SessionStart", "PreCompact", "PostToolUse"}
-    assert len(wiki._commands([g for groups in fragment.values() for g in groups])) == 4
+    assert set(fragment) == {"SessionStart", "PreCompact", "PostToolUse", "Stop"}
+    assert len(wiki._commands([g for groups in fragment.values() for g in groups])) == 5
 
 
 def test_setup_project_installs_keeps_and_forces(project, capsys):
     wiki = project
     assert wiki.setup_project() == 0
     installed = {dst.relative_to(wiki.ROOT).as_posix() for _, dst in wiki.project_templates() if dst.exists()}
-    assert installed == {".claude/rules/work-queue.md", ".claude/rules/tests.md", ".claude/skills/wiki/SKILL.md"}
+    assert installed == {
+        ".claude/rules/work-queue.md",
+        ".claude/rules/tests.md",
+        ".claude/skills/wiki/SKILL.md",
+        ".claude/skills/adversarial-regression/SKILL.md",
+        ".claude/skills/harness-compare/SKILL.md",
+        ".claude/skills/code-hygiene/SKILL.md",
+        ".claude/skills/code-hygiene/references/method.md",
+        ".claude/skills/code-hygiene/references/structure.md",
+        ".claude/skills/code-hygiene/references/smells.md",
+    }
     page = wiki.PROJECT_RULES / "tests.md"
     page.write_text("---\ndescription: local edit\n---\n", encoding="utf-8")
     assert wiki.setup_project() == 0
@@ -130,6 +140,25 @@ def test_setup_project_installs_keeps_and_forces(project, capsys):
     assert wiki.setup_project(force=True) == 0
     assert "local edit" not in page.read_text(encoding="utf-8")
     assert "not wired; re-run with --hooks" in capsys.readouterr().out
+
+
+def test_setup_project_installs_conditional_skill_references(project, tmp_path, monkeypatch):
+    templates = tmp_path / "templates"
+    entry = templates / "skills" / "example" / "SKILL.md"
+    reference = entry.parent / "references" / "method.md"
+    reference.parent.mkdir(parents=True)
+    entry.write_text("---\ndescription: Example skill\n---\nRead references/method.md.\n", encoding="utf-8")
+    reference.write_text("---\ndescription: Conditional method\n---\nKeep this on demand.\n", encoding="utf-8")
+    monkeypatch.setattr(project, "PROJECT_TEMPLATES", templates)
+
+    assert project.setup_project() == 0
+    installed = project.PROJECT_SKILLS / "example" / "references" / "method.md"
+    assert installed.read_bytes() == reference.read_bytes()
+    installed.write_text("local edit", encoding="utf-8")
+    assert project.setup_project() == 0
+    assert installed.read_text(encoding="utf-8") == "local edit"
+    assert project.setup_project(force=True) == 0
+    assert installed.read_bytes() == reference.read_bytes()
 
 
 def test_merge_hooks_is_idempotent_and_joins_existing_matcher(project):
@@ -144,7 +173,7 @@ def test_merge_hooks_is_idempotent_and_joins_existing_matcher(project):
         "model": "sonnet",
     }
     fragment = wiki._hook_fragment()
-    assert wiki.merge_hooks(settings, fragment) == 4
+    assert wiki.merge_hooks(settings, fragment) == 5
     edit_group = next(g for g in settings["hooks"]["PostToolUse"] if g["matcher"] == "Edit|Write|MultiEdit")
     assert [h["command"] for h in edit_group["hooks"]][0] == "existing"
     assert len(edit_group["hooks"]) == 3
@@ -161,9 +190,9 @@ def test_merge_hooks_is_idempotent_and_joins_existing_matcher(project):
 
 def test_setup_project_hooks_creates_settings_when_absent(project, capsys):
     wiki = project
-    assert len(wiki.missing_hooks()) == 4
+    assert len(wiki.missing_hooks()) == 5
     assert wiki.setup_project(hooks=True) == 0
-    assert "4 added" in capsys.readouterr().out
+    assert "5 added" in capsys.readouterr().out
     assert wiki.missing_hooks() == []
     report = wiki.Report()
     wiki.check_project_templates(report)

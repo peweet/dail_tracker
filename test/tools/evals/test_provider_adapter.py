@@ -291,9 +291,41 @@ def test_codex_usage_presence_does_not_turn_missing_cache_into_reported_zero():
         model="gpt-test",
         reasoning_effort="medium",
     )
-    assert missing.usage["cache_read_input_tokens"] == 0
+    assert missing.usage["cache_read_input_tokens"] is None
     assert missing.usage_reported_fields == frozenset({"input_tokens", "output_tokens"})
     assert explicit_zero.usage_reported_fields == frozenset({"input_tokens", "cached_input_tokens", "output_tokens"})
+
+
+def test_partial_codex_usage_preserves_unknown_counters_and_explicit_zero():
+    partial = adapter.parse_codex_jsonl(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 100}}))
+    assert partial.usage["raw_input_tokens"] == 100
+    for key in (
+        "input_tokens",
+        "cache_read_input_tokens",
+        "cache_creation_input_tokens",
+        "output_tokens",
+        "reasoning_output_tokens",
+    ):
+        assert partial.usage[key] is None
+    zero = adapter.parse_codex_jsonl(
+        json.dumps(
+            {"type": "turn.completed", "usage": {"input_tokens": 0, "cached_input_tokens": 0, "output_tokens": 0}}
+        )
+    )
+    assert zero.usage["input_tokens"] == zero.usage["cache_read_input_tokens"] == zero.usage["output_tokens"] == 0
+
+
+def test_codex_rejects_cache_larger_than_total_input():
+    result = adapter.parse_codex_jsonl(
+        json.dumps(
+            {
+                "type": "turn.completed",
+                "usage": {"input_tokens": 100, "cached_input_tokens": 101, "cache_creation_input_tokens": 0},
+            }
+        )
+    )
+    assert result.usage == {}
+    assert any("cache tokens exceed total input" in diagnostic for diagnostic in result.diagnostics)
 
 
 def test_codex_runner_uses_stdin_without_shell_and_records_cli_limitations(tmp_path):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,6 +10,14 @@ import anyio
 import pytest
 
 from tools.evals import harness_bench, provider_adapter
+
+
+def test_answer_key_identity_binds_values_without_disclosing_them():
+    before = {"held-out": {"expected": {"state": "SECRET-A", "rows": [1, 2]}}}
+    after = {"held-out": {"expected": {"state": "SECRET-B", "rows": [1, 2]}}}
+    digest = harness_bench.expected_key_identity(before, ["held-out"])
+    assert digest != harness_bench.expected_key_identity(after, ["held-out"])
+    assert len(digest) == 64 and "SECRET" not in digest
 
 
 def test_private_task_contract_scores_expected_json_leaves():
@@ -137,6 +146,14 @@ def test_holdout_case_ids_must_not_collide_after_normalization(tmp_path):
         harness_bench.load_private_tasks(external)
 
 
+def test_summary_with_missing_token_counter_keeps_total_unknown():
+    attempts = [
+        {"variant": "on", "task": "x", "score": 1.0, "usage": {"output_tokens": 3}},
+        {"variant": "on", "task": "x", "score": 1.0, "usage": {"output_tokens": None}},
+    ]
+    assert harness_bench.summary_rows(attempts, "run")[0]["output_tokens_total"] is None
+
+
 def test_summary_reports_repeat_range_and_errors():
     attempts = [
         {
@@ -161,7 +178,6 @@ def test_summary_reports_repeat_range_and_errors():
             "usage": {"input_tokens": 20, "output_tokens": 2},
         },
     ]
-
     assert harness_bench.summary_rows(attempts, "run-1") == [
         {
             "type": "summary",
@@ -169,21 +185,23 @@ def test_summary_reports_repeat_range_and_errors():
             "variant": "on",
             "task": "x",
             "n": 2,
-            "score_mean": 0.5,
-            "score_min": 0.0,
+            "successful_n": 1,
+            "failure_n": 1,
+            "score_mean": 1.0,
+            "score_min": 1.0,
             "score_max": 1.0,
             "error_count": 1,
-            "elapsed_seconds_mean": 3.0,
+            "elapsed_seconds_mean": 2.0,
             "elapsed_seconds_min": 2.0,
-            "elapsed_seconds_max": 4.0,
+            "elapsed_seconds_max": 2.0,
             "tool_calls_total": 3,
             "mcp_calls_total": 1,
             "cost_usd_total": 0.3,
             "input_tokens_total": 30,
-            "cache_read_input_tokens_total": 0,
-            "raw_input_tokens_total": 0,
+            "cache_read_input_tokens_total": None,
+            "raw_input_tokens_total": None,
             "output_tokens_total": 6,
-            "reasoning_output_tokens_total": 0,
+            "reasoning_output_tokens_total": None,
             "cache_observation_count": 0,
             "cache_observation_coverage": 0.0,
             "cache_read_input_tokens_observed_total": None,
@@ -192,13 +210,55 @@ def test_summary_reports_repeat_range_and_errors():
     ]
 
 
+def test_provider_error_has_no_score_and_summary_separates_successes(monkeypatch, tmp_path):
+    async def fake_run_eval(_request):
+        return provider_adapter.EvalResult(
+            provider="codex",
+            model="test",
+            final_text='{"combined_figure_allowed": false}',
+            is_error=True,
+            error="timeout",
+        )
+
+    monkeypatch.setattr(harness_bench, "run_eval", fake_run_eval)
+
+    async def invoke():
+        return await harness_bench.run_task(
+            "never-sum", harness_bench.PUBLIC_TASKS["never-sum"], "off", cwd=tmp_path, repeat_index=1, run_id="run-1"
+        )
+
+    row = anyio.run(invoke)
+    assert row["score"] is None
+    summary = harness_bench.summary_rows([row], "run-1")[0]
+    assert summary["successful_n"] == 0
+    assert summary["failure_n"] == 1
+    assert summary["score_mean"] is None
+
+
+def test_require_perfect_rejects_provider_error(monkeypatch, tmp_path):
+    @contextmanager
+    def fake_cleanroom(_repo):
+        yield tmp_path
+
+    async def fake_run_eval(_request):
+        return provider_adapter.EvalResult(provider="codex", model="test", is_error=True, error="provider down")
+
+    monkeypatch.setattr(harness_bench, "prepare_cleanroom", fake_cleanroom)
+    monkeypatch.setattr(harness_bench, "preflight_report", lambda _path: {"ok": True})
+    monkeypatch.setattr(harness_bench, "run_eval", fake_run_eval)
+    with pytest.raises(SystemExit, match="require-perfect"):
+        anyio.run(harness_bench.main, ["--require-perfect", "offclean", "never-sum"])
+
+
 def test_preflight_requires_portable_agent_and_mcp_files(tmp_path):
     for relative in harness_bench.PREFLIGHT_REQUIRED_FILES:
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("configured\n", encoding="utf-8")
     (tmp_path / ".eval-cleanroom.json").write_text(
-        json.dumps({"files_copied": 5, "source_revision": "abc123"}),
+        json.dumps(
+            {"files_copied": 5, "source_revision": "abc123", "source_dirty": True, "source_tree_sha256": "copied-bytes"}
+        ),
         encoding="utf-8",
     )
 
@@ -208,6 +268,9 @@ def test_preflight_requires_portable_agent_and_mcp_files(tmp_path):
     assert report["provider_calls"] == 0
     assert report["scorer_excluded"] is True
     assert report["private_overlay_excluded"] is True
+    manifest = harness_bench.run_manifest({}, repeats=1, cleanroom=report)
+    assert manifest["source_dirty"] is True
+    assert manifest["source_tree_sha256"] == "copied-bytes"
 
 
 @pytest.mark.parametrize(("variant", "expected"), [("on", True), ("offclean", False)])
@@ -308,6 +371,47 @@ def test_harness_request_uses_only_task_mcp_policy(monkeypatch, tmp_path, task_i
         assert request.allowed_tools is None
 
 
+def test_on_mcp_server_targets_request_cleanroom_with_source_interpreter(monkeypatch, tmp_path):
+    captured = {}
+
+    async def fake_run_eval(request):
+        captured["request"] = request
+        return provider_adapter.EvalResult(
+            provider="codex", model="test", final_text='{"combined_figure_allowed": false}'
+        )
+
+    monkeypatch.setattr(harness_bench, "run_eval", fake_run_eval)
+
+    async def invoke():
+        return await harness_bench.run_task(
+            "data-shape", harness_bench.PUBLIC_TASKS["data-shape"], "on", cwd=tmp_path, repeat_index=1, run_id="run-1"
+        )
+
+    anyio.run(invoke)
+    server = captured["request"].mcp_servers["dail-tracker"]
+    assert Path(server["args"][0]).parent.parent == tmp_path
+    assert Path(server["command"]) == Path(sys.executable)
+
+
+def test_external_memory_access_is_rejected_before_provider(monkeypatch, tmp_path):
+    called = False
+
+    async def fake_run_eval(_request):
+        nonlocal called
+        called = True
+        raise AssertionError("provider should not run")
+
+    monkeypatch.setattr(harness_bench, "run_eval", fake_run_eval)
+    task = {"kind": "external-memory", "prompt": "x", "allowed_mcp_tools": []}
+    with pytest.raises(ValueError, match="external-memory"):
+
+        async def invoke():
+            return await harness_bench.run_task("external", task, "on", cwd=tmp_path, repeat_index=1, run_id="run-1")
+
+        anyio.run(invoke)
+    assert called is False
+
+
 def test_main_emits_balanced_unique_attempt_order_and_selected_manifest(monkeypatch, tmp_path, capsys):
     @contextmanager
     def fake_cleanroom(_repo):
@@ -339,6 +443,7 @@ def test_main_emits_balanced_unique_attempt_order_and_selected_manifest(monkeypa
     assert manifest["variants"] == ["off", "offclean", "on"]
     assert manifest["order_policy"] == "balanced"
     assert manifest["cache_policy"] == "provider-managed-uncontrolled"
+    assert len(manifest["expected_key_identity"]) == 64
     assert [(record["repeat"], record["task"], record["variant"]) for record in attempts] == [
         (1, "never-sum", "off"),
         (1, "never-sum", "offclean"),

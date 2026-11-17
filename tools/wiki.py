@@ -195,8 +195,9 @@ def project_templates() -> list[tuple[Path, Path]]:
     pairs: list[tuple[Path, Path]] = []
     for src in sorted((PROJECT_TEMPLATES / "rules").glob("*.md")):
         pairs.append((src, PROJECT_RULES / src.name))
-    for src in sorted((PROJECT_TEMPLATES / "skills").glob("*/SKILL.md")):
-        pairs.append((src, PROJECT_SKILLS / src.parent.name / "SKILL.md"))
+    for entry in sorted((PROJECT_TEMPLATES / "skills").glob("*/SKILL.md")):
+        for src in sorted(entry.parent.rglob("*.md")):
+            pairs.append((src, PROJECT_SKILLS / entry.parent.name / src.relative_to(entry.parent)))
     return pairs
 
 

@@ -56,7 +56,7 @@ def test_nudges_once_at_threshold(hook, tmp_path, monkeypatch, capsys):
     assert _run(hook, monkeypatch, capsys, "a/two.py", session) == ""
     assert _run(hook, monkeypatch, capsys, "test/test_two.py", session) == ""  # tests do not count
     msg = _run(hook, monkeypatch, capsys, "b/three.sql", session)
-    assert msg.startswith("[verifier]") and "3 non-test code files" in msg and "verifier" in msg
+    assert msg.startswith("[reviewer]") and "3 non-test code files" in msg and "reviewer" in msg
     assert _run(hook, monkeypatch, capsys, "c/four.py", session) == ""  # fired once per session
 
 
@@ -68,3 +68,57 @@ def test_sessions_are_independent(hook, tmp_path, monkeypatch, capsys):
         assert _run(hook, monkeypatch, capsys, name, b) == ""
     assert _run(hook, monkeypatch, capsys, "z.py", a) != ""
     assert _run(hook, monkeypatch, capsys, "w.py", b) != ""
+
+
+def test_apply_patch_records_update_add_and_move_paths(hook, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(hook, "_STATE_DIR", tmp_path)
+    session = f"patch-{uuid.uuid4().hex[:8]}"
+    payload = {
+        "tool_name": "apply_patch",
+        "tool_input": {
+            "command": "*** Begin Patch\n*** Update File: pkg/one.py\n*** Add File: pkg/two.py\n*** Move to: pkg/three.py\n*** End Patch"
+        },
+        "cwd": str(tmp_path),
+        "session_id": session,
+    }
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    assert hook.main() == 0
+    capsys.readouterr()
+    state = json.loads(hook._state_path(session).read_text(encoding="utf-8"))
+    assert state["files"] == [
+        str(tmp_path / "pkg/one.py").replace("\\", "/"),
+        str(tmp_path / "pkg/two.py").replace("\\", "/"),
+        str(tmp_path / "pkg/three.py").replace("\\", "/"),
+    ]
+
+
+def test_failed_apply_patch_does_not_record_paths(hook, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(hook, "_STATE_DIR", tmp_path)
+    session = f"failed-{uuid.uuid4().hex[:8]}"
+    payload = {
+        "tool_name": "apply_patch",
+        "tool_input": {"command": "*** Update File: pkg/fail.py"},
+        "tool_response": {"is_error": True, "error": "patch failed"},
+        "cwd": str(tmp_path),
+        "session_id": session,
+    }
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    assert hook.main() == 0
+    capsys.readouterr()
+    assert not hook._state_path(session).exists()
+
+
+def test_multiedit_records_paths_and_reaches_reviewer_threshold(hook, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(hook, "_STATE_DIR", tmp_path)
+    payload = {
+        "tool_name": "MultiEdit",
+        "tool_input": {"file_path": str(tmp_path / "one.py"), "edits": []},
+        "session_id": "multi-edit-regression",
+    }
+    for name in ("one.py", "two.py", "three.py"):
+        payload["tool_input"]["file_path"] = str(tmp_path / name)
+        monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+        assert hook.main() == 0
+    output = json.loads(capsys.readouterr().out)
+    assert "3 non-test code files" in output["hookSpecificOutput"]["additionalContext"]
+    assert len(json.loads(hook._state_path(payload["session_id"]).read_text())["files"]) == 3

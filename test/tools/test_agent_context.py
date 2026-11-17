@@ -111,3 +111,16 @@ def test_codex_discovery_hook_is_portable_and_bounded():
     assert hints[0]["additionalContextLimit"] == 500
     assert hints[0]["timeout"] <= 10
     assert "tools/hooks/discovery_hint.py" in hints[0]["command_windows"]
+
+
+def test_hygiene_registration_tracks_codex_patches_and_checks_both_clients():
+    config = tomllib.loads((ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"))
+    post = config["hooks"].get("PostToolUse", [])
+    edits = [group for group in post if "apply_patch" in group.get("matcher", "")]
+    assert any("verifier_nudge.py" in hook["command"] for group in edits for hook in group["hooks"])
+    stop = [hook for group in config["hooks"]["Stop"] for hook in group["hooks"]]
+    assert sum("code_hygiene_gate.py" in hook["command"] for hook in stop) == 1
+    fragment = json.loads((ROOT / "tools/wiki_templates/project/hooks.json").read_text(encoding="utf-8"))["hooks"]
+    assert any(
+        "code_hygiene_gate.py" in hook["command"] for group in fragment.get("Stop", []) for hook in group["hooks"]
+    )

@@ -170,6 +170,17 @@ def test_valid_mutation_outcomes_report_each_disposition(monkeypatch, capsys):
     assert "killed=7 survived=2 filtered=3 active-kill-rate=77.8%" in capsys.readouterr().out
 
 
+def test_empty_active_mutation_budget_is_incomplete(monkeypatch):
+    monkeypatch.setattr(
+        pilot,
+        "_session_outcomes",
+        lambda _session: (Counter({("SKIPPED", "NONE"): 4}), 0),
+    )
+
+    with pytest.raises(pilot.PilotError, match="no active mutants"):
+        pilot._validate_mutations()
+
+
 def test_retry_invalid_mutations_preserves_valid_and_filtered_results(monkeypatch, tmp_path):
     session = tmp_path / "session.sqlite"
     with sqlite3.connect(session) as connection:

@@ -79,6 +79,14 @@ TASKS: dict[str, Task] = {
         "Run repository convention ratchets",
         ((PYTHON, "tools/check_conventions.py"),),
     ),
+    # Diff ratchet against origin/main, no stored baseline: complexity, simplifiable patterns,
+    # unused code and new duplicate functions may not rise in the tracked files a push would
+    # carry. The Stop hook (tools/hooks/code_hygiene_gate.py) runs the same gate per session;
+    # this is the second net for work that reached a commit without passing through one.
+    "hygiene": Task(
+        "Code hygiene ratchet: complexity, duplication and unused code must not rise against origin/main",
+        ((PYTHON, "tools/check_code_hygiene.py", "gate"),),
+    ),
     # Same script as .githooks/pre-push and ci.yml. It was previously ONLY at those two points, so
     # a tracked file importing an untracked module surfaced either at push or in CI — or, locally,
     # after a ~7-minute full-suite run. It costs ~4s; there is no reason to learn this late.
@@ -264,6 +272,7 @@ PREFLIGHT_TASKS = (
     "gold-guards",
     "validation-records",
     "wiki",
+    "hygiene",
 )
 
 
