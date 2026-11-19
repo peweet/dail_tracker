@@ -93,3 +93,48 @@ def test_relative_review_path_is_resolved_from_selected_checkout(tmp_path: Path,
         session_id="s", checkout=checkout, paths=[Path("mod.py")], acceptance="MATCHES BRIEF", result="PASS"
     )
     assert list(receipt["reviewed_paths"]) == [str(checkout / "mod.py").replace("\\", "/")]
+
+
+def _issue(checkout: Path, paths: list[str], result: str, acceptance: str = "OK") -> dict:
+    args = ["--session-id", "s-1", "--checkout", str(checkout), "--acceptance", acceptance, "--result", result]
+    for path in paths:
+        args += ["--path", path]
+    assert main(args) == 0
+    return json.loads(default_output("s-1", checkout).read_text(encoding="utf-8"))
+
+
+def _name(checkout: Path, file: str) -> str:
+    return str((checkout / file).resolve()).replace("\\", "/")
+
+
+def test_a_later_pass_keeps_earlier_reviewed_files_whose_content_is_unchanged(tmp_path: Path, monkeypatch):
+    # A second receipt for one checkout replaced the first, so files a reviewer had passed lost their cover
+    # (2026-11-19). An unchanged file stays covered; one edited since its review does not.
+    monkeypatch.setattr(review_receipt, "_RECEIPT_DIR", tmp_path / "receipts")
+    monkeypatch.delenv("DAIL_REVIEW_RECEIPT", raising=False)
+    for name in ("a.py", "b.py", "c.py"):
+        (tmp_path / name).write_text(f"X = '{name}'\n", encoding="utf-8")
+    _issue(tmp_path, ["a.py", "b.py"], "PASS", "first review")
+    (tmp_path / "b.py").write_text("X = 'edited after review'\n", encoding="utf-8")
+    receipt = _issue(tmp_path, ["c.py"], "PASS", "second review")
+    assert sorted(receipt["reviewed_paths"]) == sorted([_name(tmp_path, "a.py"), _name(tmp_path, "c.py")])
+    assert receipt["acceptance"] == "second review"
+    assert receipt["carried"] == [
+        {
+            "acceptance": "first review",
+            "issued_utc": receipt["carried"][0]["issued_utc"],
+            "paths": [_name(tmp_path, "a.py")],
+        }
+    ]
+
+
+def test_a_fail_carries_nothing_and_a_pass_after_it_carries_nothing(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(review_receipt, "_RECEIPT_DIR", tmp_path / "receipts")
+    monkeypatch.delenv("DAIL_REVIEW_RECEIPT", raising=False)
+    for name in ("a.py", "c.py"):
+        (tmp_path / name).write_text(f"X = '{name}'\n", encoding="utf-8")
+    _issue(tmp_path, ["a.py"], "PASS")
+    failed = _issue(tmp_path, ["c.py"], "FAIL")
+    assert list(failed["reviewed_paths"]) == [_name(tmp_path, "c.py")] and "carried" not in failed
+    passed = _issue(tmp_path, ["c.py"], "PASS")
+    assert list(passed["reviewed_paths"]) == [_name(tmp_path, "c.py")] and "carried" not in passed

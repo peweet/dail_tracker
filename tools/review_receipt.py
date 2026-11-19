@@ -63,6 +63,48 @@ def build_receipt(
     }
 
 
+def carry_forward(receipt: dict[str, object], previous: object) -> dict[str, object]:
+    """Keep the files an earlier PASS for this session and checkout covered, while their content is unchanged.
+
+    One receipt per checkout used to be replaced outright, so a second review dropped the cover of files the
+    first had passed (2026-11-19). A file edited since its review drops out; a FAIL carries nothing and is not
+    carried from, so a failed review still withdraws every earlier PASS.
+    """
+    if receipt["result"] != "PASS" or not isinstance(previous, dict) or previous.get("result") != "PASS":
+        return receipt
+    if previous.get("session_id") != receipt["session_id"] or os.path.normcase(
+        str(previous.get("checkout", ""))
+    ) != os.path.normcase(str(receipt["checkout"])):
+        return receipt
+    reviewed = receipt["reviewed_paths"]
+    assert isinstance(reviewed, dict)
+    kept: set[str] = set()
+    for name, digest in dict(previous.get("reviewed_paths") or {}).items():
+        if name in reviewed:
+            continue
+        path = Path(name)
+        try:
+            unchanged = path.is_file() and sha256(path) == digest
+        except OSError:
+            unchanged = False
+        if unchanged:
+            reviewed[name] = digest
+            kept.add(name)
+    earlier = [row for row in previous.get("carried") or [] if isinstance(row, dict)]
+    earlier_names = {name for row in earlier for name in row.get("paths", [])}
+    own = [name for name in dict(previous.get("reviewed_paths") or {}) if name not in earlier_names]
+    generations = [
+        *earlier,
+        {"acceptance": previous.get("acceptance"), "issued_utc": previous.get("issued_utc"), "paths": own},
+    ]
+    carried = [
+        {**row, "paths": [name for name in row.get("paths", []) if name in kept]}
+        for row in generations
+        if any(name in kept for name in row.get("paths", []))
+    ]
+    return {**receipt, "carried": carried} if carried else receipt
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-id", required=True)
@@ -89,6 +131,11 @@ def main(argv: list[str] | None = None) -> int:
         output = args.output or (Path(configured) if configured else None)
         if output is None:
             output = default_output(args.session_id, args.checkout)
+        try:
+            previous = json.loads(output.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            previous = None
+        receipt = carry_forward(receipt, previous)
         output.parent.mkdir(parents=True, exist_ok=True)
         temporary = output.with_name(f"{output.name}.{os.getpid()}.tmp")
         with temporary.open("w", encoding="utf-8") as stream:
