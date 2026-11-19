@@ -138,3 +138,22 @@ def test_a_fail_carries_nothing_and_a_pass_after_it_carries_nothing(tmp_path: Pa
     assert list(failed["reviewed_paths"]) == [_name(tmp_path, "c.py")] and "carried" not in failed
     passed = _issue(tmp_path, ["c.py"], "PASS")
     assert list(passed["reviewed_paths"]) == [_name(tmp_path, "c.py")] and "carried" not in passed
+
+
+def test_a_previous_receipt_of_the_wrong_shape_gives_a_plain_receipt(tmp_path: Path, monkeypatch):
+    # Valid JSON in the wrong shape crashed the carry instead of being ignored (review, 2026-11-19).
+    monkeypatch.setattr(review_receipt, "_RECEIPT_DIR", tmp_path / "receipts")
+    monkeypatch.delenv("DAIL_REVIEW_RECEIPT", raising=False)
+    (tmp_path / "c.py").write_text("X = 1\n", encoding="utf-8")
+    output = default_output("s-1", tmp_path)
+    output.parent.mkdir(parents=True)
+    common = {"result": "PASS", "session_id": "s-1", "checkout": str(tmp_path.resolve()), "acceptance": "old"}
+    for previous in (
+        {**common, "reviewed_paths": ["a.py"]},
+        {**common, "reviewed_paths": {"a.py": 7}},
+        {**common, "reviewed_paths": {}, "carried": [{"paths": None}, "row", {"paths": [3]}]},
+        ["not", "a", "receipt"],
+    ):
+        output.write_text(json.dumps(previous), encoding="utf-8")
+        receipt = _issue(tmp_path, ["c.py"], "PASS")
+        assert list(receipt["reviewed_paths"]) == [_name(tmp_path, "c.py")] and "carried" not in receipt

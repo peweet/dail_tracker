@@ -23,6 +23,7 @@ import os
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TypedDict, cast
 
 _RECEIPT_DIR = Path(tempfile.gettempdir())
 
@@ -76,33 +77,62 @@ def carry_forward(receipt: dict[str, object], previous: object) -> dict[str, obj
         str(previous.get("checkout", ""))
     ) != os.path.normcase(str(receipt["checkout"])):
         return receipt
-    reviewed = receipt["reviewed_paths"]
-    assert isinstance(reviewed, dict)
-    kept: set[str] = set()
-    for name, digest in dict(previous.get("reviewed_paths") or {}).items():
-        if name in reviewed:
-            continue
-        path = Path(name)
-        try:
-            unchanged = path.is_file() and sha256(path) == digest
-        except OSError:
-            unchanged = False
-        if unchanged:
-            reviewed[name] = digest
-            kept.add(name)
-    earlier = [row for row in previous.get("carried") or [] if isinstance(row, dict)]
-    earlier_names = {name for row in earlier for name in row.get("paths", [])}
-    own = [name for name in dict(previous.get("reviewed_paths") or {}) if name not in earlier_names]
+    reviewed = cast(dict[str, str], receipt["reviewed_paths"])
+    earlier_paths = _string_map(previous.get("reviewed_paths"))
+    kept = {name for name, digest in earlier_paths.items() if name not in reviewed and _unchanged(name, digest)}
+    reviewed.update({name: earlier_paths[name] for name in kept})
+    earlier = _carried_rows(previous.get("carried"))
+    earlier_names = {name for row in earlier for name in row["paths"]}
+    own = [name for name in earlier_paths if name not in earlier_names]
     generations = [
         *earlier,
-        {"acceptance": previous.get("acceptance"), "issued_utc": previous.get("issued_utc"), "paths": own},
+        CarriedRow(acceptance=previous.get("acceptance"), issued_utc=previous.get("issued_utc"), paths=own),
     ]
     carried = [
-        {**row, "paths": [name for name in row.get("paths", []) if name in kept]}
+        CarriedRow(
+            acceptance=row["acceptance"],
+            issued_utc=row["issued_utc"],
+            paths=[name for name in row["paths"] if name in kept],
+        )
         for row in generations
-        if any(name in kept for name in row.get("paths", []))
+        if any(name in kept for name in row["paths"])
     ]
     return {**receipt, "carried": carried} if carried else receipt
+
+
+def _string_map(value: object) -> dict[str, str]:
+    """A previous receipt's path-to-digest map, without entries of the wrong type."""
+    if not isinstance(value, dict):
+        return {}
+    return {name: digest for name, digest in value.items() if isinstance(name, str) and isinstance(digest, str)}
+
+
+class CarriedRow(TypedDict):
+    acceptance: object
+    issued_utc: object
+    paths: list[str]
+
+
+def _carried_rows(value: object) -> list[CarriedRow]:
+    """A previous receipt's carried rows, each with a list of string paths; malformed rows are dropped."""
+    rows = value if isinstance(value, list) else []
+    return [
+        CarriedRow(
+            acceptance=row.get("acceptance"),
+            issued_utc=row.get("issued_utc"),
+            paths=[name for name in row.get("paths") or [] if isinstance(name, str)],
+        )
+        for row in rows
+        if isinstance(row, dict) and isinstance(row.get("paths") or [], list)
+    ]
+
+
+def _unchanged(name: str, digest: str) -> bool:
+    try:
+        path = Path(name)
+        return path.is_file() and sha256(path) == digest
+    except (OSError, ValueError):
+        return False
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
