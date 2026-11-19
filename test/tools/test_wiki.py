@@ -82,7 +82,15 @@ def test_ci_skips_local_tiers_and_exits_zero(wiki, monkeypatch, capsys):
     assert "SKIP [global]" in out and "SKIP [memory]" in out
 
 
-def test_project_checks_report_claude_md_and_rules(wiki):
+def test_project_checks_report_claude_md_and_rules(wiki, tmp_path, monkeypatch):
+    # .claude/ is gitignored, so a CI checkout has no installed rule pages (red on every CI run since 2026-11-07).
+    # Read the tracked templates that `wiki.py setup-project` installs; the assertions below are unchanged.
+    rules = tmp_path / "rules"
+    rules.mkdir()
+    for src, dst in wiki.project_templates():
+        if dst.parent == wiki.PROJECT_RULES:
+            (rules / dst.name).write_bytes(src.read_bytes())
+    monkeypatch.setattr(wiki, "PROJECT_RULES", rules)
     report = wiki.Report()
     wiki.check_project(report)
     texts = [f.text for f in report.findings]

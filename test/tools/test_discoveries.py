@@ -177,4 +177,5 @@ def test_cli_private_finding_resolves_private_card_when_public_slug_collides(tmp
     monkeypatch.setattr(discoveries, "ROOT", tmp_path)
     monkeypatch.setattr(discoveries, "DATA", path)
     discoveries.main(["--scope", "private", "recall"])
-    assert "planning\\product\\claude\\memory\\same.md" in capsys.readouterr().out
+    # The CLI prints native separators; compare in POSIX form so the check also holds on Linux CI.
+    assert "planning/product/claude/memory/same.md" in capsys.readouterr().out.replace("\\", "/")

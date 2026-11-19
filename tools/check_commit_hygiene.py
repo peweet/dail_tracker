@@ -32,6 +32,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 
 SWEEP_FILE_FLOOR = 15  # staged files at/above this = presumptive sweep
 SWEEP_DIR_FLOOR = 5  # distinct top-level dirs at/above this = presumptive sweep
@@ -123,21 +124,102 @@ def check_pre_commit() -> int:
     return 1
 
 
-def check_commit_msg(msg_file: str) -> int:
-    if os.environ.get("DAIL_ALLOW_LOOSE_MSG") == "1":
+# Assertion changes (added 2026-11-19). A staged diff that removes or rewrites an `assert` line in an existing test
+# is how a change gets made to pass: on 2026-11-17 an existing assertion was inverted and passed two reviews. Such a
+# commit must name each test in an `Assertion-Change: <test>: <why>` line. Only the first line of an assert is seen;
+# a line moved within one file, or within a renamed file, nets out.
+ASSERTION_TRAILER = "Assertion-Change:"
+_ASSERT_LINE = re.compile(r"\s*(assert\b|self\.assert\w*\()")  # pytest asserts and unittest assert methods
+_TEST_PATHSPECS = (":(glob)**/test_*.py", ":(glob)test/**/*.py")
+
+
+def removed_assertions(diff: str) -> list[str]:
+    """`path: assert ...` for each assert line a unified diff removes from an existing file, net of re-added lines."""
+    removed: dict[str, Counter] = {}
+    added: dict[str, Counter] = {}
+    path, in_hunk = "", False
+    for line in diff.splitlines():
+        if line.startswith("diff --git "):
+            path, in_hunk = "", False
+        elif not in_hunk and line.startswith("--- "):
+            path = line[6:].rstrip("\t") if line.startswith("--- a/") else ""
+        elif line.startswith("@@"):
+            in_hunk = True
+        elif in_hunk and path and line[:1] in ("-", "+") and _ASSERT_LINE.match(line[1:]):
+            side = removed if line[0] == "-" else added
+            side.setdefault(path, Counter())[line[1:].strip()] += 1
+    return [
+        f"{name}: {text}"
+        for name, lines in sorted(removed.items())
+        for text in sorted((lines - added.get(name, Counter())).elements())
+    ]
+
+
+def check_assertion_changes(message_lines: list[str]) -> int:
+    if _in_replay_state() or any(ln.startswith(ASSERTION_TRAILER) for ln in message_lines):
         return 0
-    with open(msg_file, encoding="utf-8", errors="replace") as fh:
-        first = next((ln for ln in fh if ln.strip() and not ln.startswith("#")), "")
-    if not is_generic_message(first):
+    diff = subprocess.run(
+        # core.quotepath=false: git would otherwise quote a non-ASCII path and the header would not parse.
+        [
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            "--cached",
+            "-U0",
+            "--no-color",
+            "--no-ext-diff",
+            "--diff-filter=MDR",
+            "--",
+            *_TEST_PATHSPECS,
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    ).stdout
+    dropped = removed_assertions(diff)
+    if not dropped:
         return 0
     print(
-        f"commit-msg: BLOCKED -- {first.strip()!r} says nothing about the change. "
-        "Mislabeled commits are what make parallel-session sweeps unrecoverable "
-        "(three live incidents 2026-08-14). Say what the commit does, or for a "
-        "deliberate exception: DAIL_ALLOW_LOOSE_MSG=1 git commit ...",
+        "commit-msg: BLOCKED -- this commit removes or rewrites existing test assertions:\n  "
+        + "\n  ".join(dropped[:10])
+        + ("\n  ..." if len(dropped) > 10 else "")
+        + "\nAn assertion is never weakened to make a change pass. If the change is deliberate, add one line per "
+        f"test to the message: {ASSERTION_TRAILER} <test>: <why the old assertion was wrong>",
         file=sys.stderr,
     )
     return 1
+
+
+def check_commit_msg(msg_file: str) -> int:
+    with open(msg_file, encoding="utf-8", errors="replace") as fh:
+        lines = [ln for ln in fh.read().splitlines() if not ln.startswith("#")]
+    first = next((ln for ln in lines if ln.strip()), "")
+    if os.environ.get("DAIL_ALLOW_LOOSE_MSG") != "1" and is_generic_message(first):
+        print(
+            f"commit-msg: BLOCKED -- {first.strip()!r} says nothing about the change. "
+            "Mislabeled commits are what make parallel-session sweeps unrecoverable "
+            "(three live incidents 2026-08-14). Say what the commit does, or for a "
+            "deliberate exception: DAIL_ALLOW_LOOSE_MSG=1 git commit ...",
+            file=sys.stderr,
+        )
+        return 1
+    return check_assertion_changes(lines)
+
+
+def _assertion_guard_selftest() -> list[str]:
+    inverted = (
+        "diff --git a/test/t.py b/test/t.py\n--- a/test/t.py\n+++ b/test/t.py\n@@ -3 +3 @@\n"
+        "-    assert verdict() == 1\n+    assert verdict() == 0\n"
+    )
+    failures = []
+    if removed_assertions(inverted) != ["test/t.py: assert verdict() == 1"]:
+        failures.append("should flag an inverted assertion")
+    if removed_assertions(inverted.replace("== 0", "== 1")):
+        failures.append("should allow an assertion moved within its file")
+    return failures
 
 
 def selftest() -> int:
@@ -166,10 +248,11 @@ def selftest() -> int:
         failures.append("should allow 3 files / 2 dirs")
     if sweep_verdict(wide, sessions=1) is not None:
         failures.append("should allow anything at 1 session")
+    failures += _assertion_guard_selftest()
     for f in failures:
         print(f"SELFTEST FAIL: {f}", file=sys.stderr)
     print(
-        f"selftest: {'FAIL' if failures else 'PASS'} ({len(bad_msgs) + len(good_msgs) + 4 - len(failures)} assertions)"
+        f"selftest: {'FAIL' if failures else 'PASS'} ({len(bad_msgs) + len(good_msgs) + 6 - len(failures)} assertions)"
     )
     return 1 if failures else 0
 
