@@ -261,6 +261,38 @@ def test_incomplete_duplicate_check_blocks_and_records_debt(hook, monkeypatch, r
     assert "DUP not checked" in capsys.readouterr().err
 
 
+def test_an_unfinished_duplicate_check_is_not_reported_as_a_regression(hook, monkeypatch, repo, capsys):
+    # 2026-11-19: the duplicate check ran out of its budget on a change a full run then found clean, and the block
+    # said "regressed against the base" with the waiver advice. It must say the check did not finish, and how to finish it.
+    edited = plain_files(repo, 1)
+    record_edits(hook, edited)
+    result = {"regressions": [], "improved": [], "checked_files": [], "notes": ["DUP not checked (budget)"]}
+    monkeypatch.setattr(hook, "_hygiene_result", lambda _: result)
+    assert stop(hook, monkeypatch) == 2
+    err = capsys.readouterr().err
+    assert "did not finish" in err and "DUP not checked" in err
+    assert "regressed against the base" not in err and "only the owner adds a waiver" not in err
+    assert "python tools/check_code_hygiene.py gate --dup-budget-seconds 600 --files" in err
+    assert f'"{str(edited[0]).replace(chr(92), "/")}"' in err
+
+
+def test_a_regression_beside_an_unfinished_duplicate_check_keeps_the_waiver_advice(hook, monkeypatch, repo, capsys):
+    target = repo / "pkg" / "mod.py"
+    target.write_text(complex_source(14), encoding="utf-8", newline="\n")
+    record_edits(hook, [target])
+    measured = hook._hygiene_result
+
+    def unfinished(files):
+        result = measured(files)
+        return {**result, "notes": [*result["notes"], "DUP not checked (budget)"]}
+
+    monkeypatch.setattr(hook, "_hygiene_result", unfinished)
+    assert stop(hook, monkeypatch) == 2
+    err = capsys.readouterr().err
+    assert "regressed against the base" in err and "C901" in err and "only the owner adds a waiver" in err
+    assert "--dup-budget-seconds 600" in err
+
+
 def test_verifier_stop_event_does_not_create_snapshot(hook, monkeypatch, repo):
     record_edits(hook, plain_files(repo, 1))
     assert fire(hook, monkeypatch, hook_event_name="SubagentStop", agent_type="verifier") == 0

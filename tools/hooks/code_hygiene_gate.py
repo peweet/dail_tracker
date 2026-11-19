@@ -6,7 +6,8 @@ One script, three events:
     PostToolUse / SubagentStop
         are advisory events only; they never credit a review.
     Stop
-        (a) hygiene: run the code-hygiene gate on the edited .py files; a regression blocks.
+        (a) hygiene: run the code-hygiene gate on the edited .py files; a regression blocks, and so
+            does a check that did not finish (the block says which, and how to finish it).
         (b) fresh eyes: edited code files not covered by a successful reviewer receipt, once
             they reach verifier_nudge.THRESHOLD, block until a matching review exists.
 
@@ -55,6 +56,14 @@ _STATE_DIR = Path(tempfile.gettempdir())
 _WAIVER_ADVICE = (
     "Simplify the code you changed until the numbers are back at or under the base, or tell the owner "
     "why the increase is warranted (only the owner adds a waiver)."
+)
+# A check that did not finish blocks like a regression (fail closed), but it is not one: on 2026-11-19 the
+# duplicate check ran out of its budget on a change a full run then found clean, and the block said "regressed".
+_UNFINISHED_HEADER = "Code hygiene check did not finish; the checks that ran found no regression:"
+_RERUN_ADVICE = (
+    "The duplicate check stopped at its {budget:g} s budget, so this stop cannot say whether duplication regressed. "
+    "Run it without that limit, from {root}:\n  {command}\n"
+    "`clean` there means nothing regressed; a regression it lists is real."
 )
 
 
@@ -192,8 +201,12 @@ def is_reviewer_event(payload: dict) -> bool:
     return False
 
 
+def _python_files(edited: list[str]) -> list[str]:
+    return [f for f in edited if f.lower().endswith(".py") and Path(f).is_file()]
+
+
 def _hygiene_result(edited: list[str]) -> dict:
-    candidates = [f for f in edited if f.lower().endswith(".py") and Path(f).is_file()]
+    candidates = _python_files(edited)
     if not candidates:
         return {"regressions": [], "improved": [], "checked_files": [], "notes": []}
     return hygiene.gate(candidates, dup_budget_seconds=DUP_BUDGET_SECONDS)
@@ -204,11 +217,20 @@ def _signature(headers: list[str], unverified: list[str]) -> str:
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()
 
 
-def _reason(detail: list[str], unverified: list[str]) -> str:
+def _rerun_advice(files: list[str]) -> str:
+    quoted = " ".join(f'"{f}"' for f in files)
+    command = f"python tools/check_code_hygiene.py gate --dup-budget-seconds 600 --files {quoted}"
+    return _RERUN_ADVICE.format(budget=DUP_BUDGET_SECONDS, root=ROOT.as_posix(), command=command)
+
+
+def _reason(detail: list[str], unverified: list[str], regressed: bool = True, rerun: list[str] | None = None) -> str:
     parts = []
     if detail:
-        parts.append("Code hygiene regressed against the base:\n" + "\n".join(detail))
-        parts.append(_WAIVER_ADVICE)
+        header = "Code hygiene regressed against the base:" if regressed else _UNFINISHED_HEADER
+        parts.append(header + "\n" + "\n".join(detail))
+        parts += [_WAIVER_ADVICE] if regressed else []
+    if rerun:
+        parts.append(_rerun_advice(rerun))
     if unverified:
         parts.append(
             f"This session edited {len(unverified)} code files no reviewer receipt covers. Run the `reviewer` "
@@ -228,13 +250,13 @@ def _log_debt(session: str, headers: list[str], unverified: list[str]) -> None:
             handle.write(json.dumps(row) + "\n")
 
 
-def _decide(session: str, state: dict, headers: list[str], unverified: list[str], detail: list[str]) -> int:
+def _decide(session: str, state: dict, headers: list[str], unverified: list[str], reason: str) -> int:
     sig = _signature(headers, unverified)
     blocks = state.setdefault("blocks", {})
     if blocks.get(sig, 0) < MAX_BLOCKS:
         blocks[sig] = blocks.get(sig, 0) + 1
         _save_state(session, state)
-        print(_reason(detail, unverified), file=sys.stderr)
+        print(reason, file=sys.stderr)
         return 2
     logged = state.setdefault("debt_logged", [])
     if sig not in logged:
@@ -242,6 +264,13 @@ def _decide(session: str, state: dict, headers: list[str], unverified: list[str]
         logged.append(sig)
         _save_state(session, state)
     return 0
+
+
+def _stop_reason(result: dict, edited: list[str], unverified: list[str], headers: list[str]) -> str:
+    unfinished_dup = any(note.startswith("DUP not checked (budget)") for note in result.get("notes", []))
+    detail = hygiene.format_result(result) if headers else []
+    rerun = _python_files(edited) if unfinished_dup else None
+    return _reason(detail, unverified, bool(result.get("regressions")), rerun)
 
 
 def handle_stop(session: str) -> int:
@@ -258,7 +287,7 @@ def handle_stop(session: str) -> int:
     headers = hygiene.regression_lines(result) + incomplete
     if not headers and not unverified:
         return 0
-    return _decide(session, state, headers, unverified, hygiene.format_result(result) if headers else [])
+    return _decide(session, state, headers, unverified, _stop_reason(result, edited, unverified, headers))
 
 
 def dispatch(payload: dict) -> int:
