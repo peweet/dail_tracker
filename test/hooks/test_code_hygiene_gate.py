@@ -273,6 +273,8 @@ def test_an_unfinished_duplicate_check_is_not_reported_as_a_regression(hook, mon
     assert "did not finish" in err and "DUP not checked" in err
     assert "regressed against the base" not in err and "only the owner adds a waiver" not in err
     assert "python tools/check_code_hygiene.py gate --dup-budget-seconds 600 --files" in err
+    # The advice names the budget the command sets; it once said "without that limit" (review 2026-11-19).
+    assert "with a 600 s budget" in err and "without that limit" not in err
     assert f'"{str(edited[0]).replace(chr(92), "/")}"' in err
 
 

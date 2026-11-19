@@ -52,6 +52,7 @@ except Exception:  # fail open: main() exits 0 when the gate or the sibling hook
 
 MAX_BLOCKS = 2
 DUP_BUDGET_SECONDS = 10
+RERUN_DUP_BUDGET_SECONDS = 600  # the budget the printed rerun command sets
 _STATE_DIR = Path(tempfile.gettempdir())
 _WAIVER_ADVICE = (
     "Simplify the code you changed until the numbers are back at or under the base, or tell the owner "
@@ -62,7 +63,7 @@ _WAIVER_ADVICE = (
 _UNFINISHED_HEADER = "Code hygiene check did not finish; the checks that ran found no regression:"
 _RERUN_ADVICE = (
     "The duplicate check stopped at its {budget:g} s budget, so this stop cannot say whether duplication regressed. "
-    "Run it without that limit, from {root}:\n  {command}\n"
+    "Run it with a {rerun_budget:g} s budget, from {root}:\n  {command}\n"
     "`clean` there means nothing regressed; a regression it lists is real."
 )
 
@@ -219,8 +220,12 @@ def _signature(headers: list[str], unverified: list[str]) -> str:
 
 def _rerun_advice(files: list[str]) -> str:
     quoted = " ".join(f'"{f}"' for f in files)
-    command = f"python tools/check_code_hygiene.py gate --dup-budget-seconds 600 --files {quoted}"
-    return _RERUN_ADVICE.format(budget=DUP_BUDGET_SECONDS, root=ROOT.as_posix(), command=command)
+    command = (
+        f"python tools/check_code_hygiene.py gate --dup-budget-seconds {RERUN_DUP_BUDGET_SECONDS:g} --files {quoted}"
+    )
+    return _RERUN_ADVICE.format(
+        budget=DUP_BUDGET_SECONDS, rerun_budget=RERUN_DUP_BUDGET_SECONDS, root=ROOT.as_posix(), command=command
+    )
 
 
 def _reason(detail: list[str], unverified: list[str], regressed: bool = True, rerun: list[str] | None = None) -> str:

@@ -158,7 +158,7 @@ def removed_assertions(diff: str) -> list[str]:
 def check_assertion_changes(message_lines: list[str]) -> int:
     if _in_replay_state() or any(ln.startswith(ASSERTION_TRAILER) for ln in message_lines):
         return 0
-    diff = subprocess.run(
+    done = subprocess.run(
         # core.quotepath=false: git would otherwise quote a non-ASCII path and the header would not parse.
         [
             "git",
@@ -178,8 +178,17 @@ def check_assertion_changes(message_lines: list[str]) -> int:
         encoding="utf-8",
         errors="replace",
         check=False,
-    ).stdout
-    dropped = removed_assertions(diff)
+    )
+    if done.returncode:
+        # An unreadable diff is not an empty one: passing here would let any removal through.
+        print(
+            "commit-msg: BLOCKED -- git could not read the staged diff, so a removed test assertion cannot be "
+            f"ruled out: {(done.stderr or '').strip()[:200] or f'exit {done.returncode}'}\n"
+            "Fix the git error and commit again.",
+            file=sys.stderr,
+        )
+        return 1
+    dropped = removed_assertions(done.stdout)
     if not dropped:
         return 0
     print(

@@ -79,3 +79,20 @@ def test_a_staged_assertion_change_needs_a_reason_in_the_message(staged_inversio
     msg = staged_inversion / "MSG"
     msg.write_text(message, encoding="utf-8")
     assert hygiene.check_commit_msg(str(msg)) == expect
+
+
+def test_a_staged_diff_git_cannot_read_blocks_instead_of_passing(tmp_path, monkeypatch, capsys):
+    # A failed `git diff` printed nothing, which read as "no assertion removed" (review 2026-11-19).
+    real_run = subprocess.run
+
+    def failing_diff(args, *rest, **kwargs):
+        if "diff" in args:
+            return subprocess.CompletedProcess(args, 128, stdout="", stderr="fatal: unable to read index")
+        return real_run(args, *rest, **kwargs)
+
+    monkeypatch.setattr(hygiene.subprocess, "run", failing_diff)
+    monkeypatch.setattr(hygiene, "_in_replay_state", lambda: False)
+    msg = tmp_path / "MSG"
+    msg.write_text("Accept the stale ladder run\n", encoding="utf-8")
+    assert hygiene.check_commit_msg(str(msg)) == 1
+    assert "unable to read index" in capsys.readouterr().err
