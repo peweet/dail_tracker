@@ -20,6 +20,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 import tools.check_code_hygiene as hygiene
+import tools.review_receipt as review_receipt
 
 HOOK = Path(__file__).resolve().parents[2] / "tools" / "hooks" / "code_hygiene_gate.py"
 SESSION = "sess-hygiene-1"
@@ -188,6 +189,68 @@ def test_receipt_lifecycle_only_credits_current_content(hook, monkeypatch, repo,
             # A fresh read after a restart must produce the same content-bound result.
             pass
         assert hook._reviewed_files(session, [str(path) for path in files]) == expected
+
+
+def second_repo(tmp_path: Path) -> Path:
+    root = (tmp_path / "repo2").resolve()
+    (root / "pkg").mkdir(parents=True)
+    git(root, "init", "-q")
+    (root / "pkg" / "base.py").write_text("Y = 1\n", encoding="utf-8")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "base")
+    return root
+
+
+def issue(hook, monkeypatch, checkout: Path, files: list[Path], result: str = "PASS") -> None:
+    """Issue a receipt with the real writer, into the directory the hook reads."""
+    monkeypatch.setattr(review_receipt, "_RECEIPT_DIR", hook._STATE_DIR)
+    args = ["--session-id", SESSION, "--checkout", str(checkout), "--acceptance", "MATCHES BRIEF", "--result", result]
+    for path in files:
+        args += ["--path", str(path)]
+    assert review_receipt.main(args) == 0
+
+
+def test_a_session_editing_two_checkouts_is_covered_by_one_receipt_each(hook, monkeypatch, repo, tmp_path, capsys):
+    # 2026-11-19: one shared receipt name meant the second checkout's receipt replaced the first's.
+    monkeypatch.delenv("DAIL_REVIEW_RECEIPT", raising=False)
+    other = second_repo(tmp_path)
+    mine, theirs = plain_files(repo, 2), plain_files(other, 2)
+    record_edits(hook, mine + theirs)
+    issue(hook, monkeypatch, repo, mine)
+    capsys.readouterr()
+    assert stop(hook, monkeypatch) == 2
+    err = capsys.readouterr().err
+    assert str(theirs[0]).replace("\\", "/") in err and str(mine[0]).replace("\\", "/") not in err
+    issue(hook, monkeypatch, other, theirs)
+    assert stop(hook, monkeypatch) == 0
+
+
+def test_a_later_fail_for_a_checkout_withdraws_its_earlier_pass(hook, monkeypatch, repo):
+    monkeypatch.delenv("DAIL_REVIEW_RECEIPT", raising=False)
+    files = plain_files(repo, 3)
+    names = [str(path) for path in files]
+
+    def write(path: Path, session: str, result: str, issued: str) -> None:
+        reviewed = {str(f).replace("\\", "/"): hook._sha256(f) for f in files}
+        body = {"schema_version": 1, "session_id": session, "checkout": str(repo), "reviewer_role": "reviewer"}
+        body.update(acceptance="MATCHES BRIEF", result=result, issued_utc=issued, reviewed_paths=reviewed)
+        path.write_text(json.dumps(body), encoding="utf-8")
+
+    write(hook._receipt_path(SESSION), SESSION, "PASS", "2026-11-19T10:00:00+00:00")
+    assert hook._reviewed_files(SESSION, names) == set(names)
+    # another session whose id shares the 12-character prefix: its newer FAIL is not this session's verdict
+    other_session = SESSION[:-1] + "2"
+    write(
+        hook._STATE_DIR / f"dail_review_receipt_{SESSION[:12]}_other.json",
+        other_session,
+        "FAIL",
+        "2026-11-19T12:00:00+00:00",
+    )
+    assert hook._reviewed_files(SESSION, names) == set(names)
+    write(
+        hook._STATE_DIR / f"dail_review_receipt_{SESSION[:12]}_later.json", SESSION, "FAIL", "2026-11-19T11:00:00+00:00"
+    )
+    assert hook._reviewed_files(SESSION, names) == set()
 
 
 def test_incomplete_duplicate_check_blocks_and_records_debt(hook, monkeypatch, repo, capsys):

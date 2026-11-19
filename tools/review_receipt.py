@@ -7,9 +7,11 @@ Manual path (after an independent reviewer has returned PASS)::
       --acceptance "MATCHES BRIEF" --result PASS --path path/to/file.py
 
 The command only records the supplied result and SHA-256 values; it does not
-run or impersonate a reviewer. Set ``DAIL_REVIEW_RECEIPT`` to the output JSON
-path consumed by ``tools/hooks/code_hygiene_gate.py`` when the default temp
-location is not suitable.
+run or impersonate a reviewer. By default each checkout gets its own receipt in
+the temp directory, so a session that edits two repositories issues one for
+each and ``tools/hooks/code_hygiene_gate.py`` reads them all. Set
+``DAIL_REVIEW_RECEIPT`` to one output JSON path when the default temp location
+is not suitable; the hook then reads only that file.
 """
 
 from __future__ import annotations
@@ -21,6 +23,15 @@ import os
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+
+_RECEIPT_DIR = Path(tempfile.gettempdir())
+
+
+def default_output(session_id: str, checkout: Path) -> Path:
+    """One receipt per session and checkout; the hook globs ``dail_review_receipt_<session[:12]>*.json``."""
+    root = os.path.normcase(str(checkout.resolve(strict=False)))
+    key = hashlib.sha256(root.encode("utf-8")).hexdigest()[:10]
+    return _RECEIPT_DIR / f"dail_review_receipt_{session_id[:12]}_{key}.json"
 
 
 def sha256(path: Path) -> str:
@@ -77,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         configured = os.environ.get("DAIL_REVIEW_RECEIPT", "").strip()
         output = args.output or (Path(configured) if configured else None)
         if output is None:
-            output = Path(tempfile.gettempdir()) / f"dail_review_receipt_{args.session_id[:12]}.json"
+            output = default_output(args.session_id, args.checkout)
         output.parent.mkdir(parents=True, exist_ok=True)
         temporary = output.with_name(f"{output.name}.{os.getpid()}.tmp")
         with temporary.open("w", encoding="utf-8") as stream:

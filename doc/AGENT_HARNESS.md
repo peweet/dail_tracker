@@ -230,7 +230,9 @@ layer per client. Confirm live invocation separately from registration and synth
 
 Independent review uses the allowed `reviewer` role. Completion events never certify all
 edited files. Retain the actual successful result with explicit reviewed paths, content
-hashes and acceptance evidence using `tools/review_receipt.py` (see `--help`). A failed,
+hashes and acceptance evidence using `tools/review_receipt.py` (see `--help`), one receipt
+per checkout: the Stop hook reads every receipt for the session, and the newest one for a
+checkout decides it. A failed,
 partial or stale review cannot cover unreviewed or subsequently edited content. This is
 an evidence record of the review result and the exact content covered.
 The Stop hook is advisory with bounded retries; the explicit hygiene command reports

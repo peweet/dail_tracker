@@ -26,6 +26,7 @@ rejected on cost, doc/AGENT_HARNESS.md). Any error, including a failed import, f
 from __future__ import annotations
 
 import contextlib
+import glob
 import hashlib
 import json
 import os
@@ -78,8 +79,36 @@ def _save_state(session: str, state: dict) -> None:
 
 
 def _receipt_path(session: str) -> Path:
+    """The configured receipt, or the session's single receipt name used before 2026-11-19."""
     configured = os.environ.get("DAIL_REVIEW_RECEIPT", "").strip()
     return Path(configured) if configured else _STATE_DIR / f"dail_review_receipt_{session[:12]}.json"
+
+
+def _receipt_paths(session: str) -> list[Path]:
+    """Every receipt for this session: one per checkout (tools/review_receipt.py), or only the configured one.
+
+    A session that edits two repositories needs a receipt for each; one shared name let the second overwrite the
+    first, so the stop could never be covered (2026-11-19).
+    """
+    if os.environ.get("DAIL_REVIEW_RECEIPT", "").strip():
+        return [_receipt_path(session)]
+    return sorted(_STATE_DIR.glob(f"dail_review_receipt_{glob.escape(session[:12])}*.json"))
+
+
+def _latest_receipts(session: str) -> list[dict]:
+    """The newest receipt for each checkout, so a later FAIL for a checkout withdraws its earlier PASS."""
+    latest: dict[str, dict] = {}
+    for path in _receipt_paths(session):
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+            key = os.path.normcase(str(Path(receipt["checkout"]).resolve(strict=False)))
+        except (OSError, KeyError, TypeError, ValueError):
+            continue
+        if receipt.get("session_id") != session:
+            continue
+        if key not in latest or str(receipt.get("issued_utc", "")) >= str(latest[key].get("issued_utc", "")):
+            latest[key] = receipt
+    return list(latest.values())
 
 
 def _sha256(path: Path) -> str:
@@ -117,18 +146,15 @@ def _reviewed_path_matches(name: str, checkout: Path, reviewed: dict) -> bool:
 
 
 def _reviewed_files(session: str, edited: list[str]) -> set[str]:
-    """Return edited paths covered by a current, successful reviewer receipt."""
-    try:
-        receipt = json.loads(_receipt_path(session).read_text(encoding="utf-8"))
-        if not isinstance(receipt, dict) or not _receipt_metadata_matches(receipt, session):
-            return set()
+    """Return edited paths covered by the current, successful reviewer receipt for their checkout."""
+    covered: set[str] = set()
+    for receipt in _latest_receipts(session):
+        reviewed = receipt.get("reviewed_paths")
+        if not _receipt_metadata_matches(receipt, session) or not isinstance(reviewed, dict):
+            continue
         checkout = Path(receipt["checkout"]).resolve(strict=False)
-        reviewed = receipt["reviewed_paths"]
-        if not isinstance(reviewed, dict):
-            return set()
-    except (OSError, KeyError, TypeError, ValueError):
-        return set()
-    return {name for name in edited if _reviewed_path_matches(name, checkout, reviewed)}
+        covered |= {name for name in edited if _reviewed_path_matches(name, checkout, reviewed)}
+    return covered
 
 
 def edited_files(session: str) -> list[str]:
@@ -186,7 +212,7 @@ def _reason(detail: list[str], unverified: list[str]) -> str:
     if unverified:
         parts.append(
             f"This session edited {len(unverified)} code files no reviewer receipt covers. Run the `reviewer` "
-            "agent, then issue a successful receipt with `python -m tools.review_receipt --help`.\n"
+            "agent, then issue a successful receipt for each checkout with `python -m tools.review_receipt --help`.\n"
             + "\n".join(f"  {f}" for f in unverified)
         )
     return "\n".join(parts)
