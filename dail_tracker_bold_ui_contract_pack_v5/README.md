@@ -74,7 +74,6 @@ utility/
 tools/
   check_streamlit_logic_firewall.py
   check_contract_shape.py
-  check_prompt_context_budget.py
 ```
 
 ## Start here
@@ -88,5 +87,5 @@ tools/
 
 Do not ask an agent to redesign the whole app in one pass.
 
-Run `python tools/check_agent_context.py` from the repository root after changing reusable
+Run `python tools/dev.py agent-context` from the repository root after changing reusable
 prompts. Use `--catalog` to inspect the generated prompt inventory and word counts.

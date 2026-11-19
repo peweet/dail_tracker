@@ -19,19 +19,19 @@ transfer, and a remote verification are not one job. Only the named owner update
 reports must quote the latest observation time, measured current/total when available, ETA or
 `unknown`, and the evidence used; process existence or a changing file alone is not progress.
 
-Before re-deriving a known project trap, run `uv run python tools/discoveries.py <topic>`. For a source file over roughly 1,500 lines, read its leading `SECTION MAP` first and then open only the relevant span.
+Before re-deriving a known project trap, run `python tools/dev.py discoveries <topic>`. For a source file over roughly 1,500 lines, read its leading `SECTION MAP` first and then open only the relevant span.
 
 Batch independent read-only lookups and return only the relevant fields or source spans.
 Keep dependent operations and mutations sequential. Reuse findings until their inputs or
 files change. For background work, prefer completion notifications and new log output over
 repeated status queries. Use explicit navigation limits and inspect omission markers before
-requesting more detail. See [efficient tool use](doc/AGENT_HARNESS.md#efficient-tool-use).
+requesting more detail. See [efficient tool use](planning/product/doc/harness/AGENT_HARNESS.md#efficient-tool-use).
 
 For substantial public harness work, record the agreed objective, scope, mode, and acceptance
-with `python tools/task_contracts.py start`; checkpoint before a handoff or compaction.
+with `python tools/dev.py task-contract start`; checkpoint before a handoff or compaction.
 Use the exact session id and checkout. Short approvals continue the recorded scope; explicit
 user corrections take precedence and require a versioned amendment. This pilot state is
-advisory, not a permission grant. See [task continuity](doc/AGENT_HARNESS.md#persistent-task-contract-pilot).
+advisory, not a permission grant. See [task continuity](planning/product/doc/harness/AGENT_HARNESS.md#persistent-task-contract-pilot).
 
 ## Pi Firstmate preflight
 
@@ -52,12 +52,12 @@ is unavailable or not applicable.
 
 - Put rules that must apply on every run in this file or the nearest nested `AGENTS.md`.
 - Before rescanning code for refactoring or performance work, run
-  `python tools/code_context.py show <files> --root <task-repo>` (add `--rev origin/main`
+  `python tools/dev.py code-context show <files> --root <task-repo>` (add `--rev origin/main`
   when inspecting private main). Reuse the recorded verdicts and cited ADR/doc spans;
   recheck changed code. Record new verdicts with `add`, including `leave` and `rejected`,
   in that repository's `tools/refactor_ledger.jsonl`.
-- After a confirmed failure/repair, recurring correction, or costly investigation, assess one durable lesson before closeout. Save useful lessons in `tools/discoveries.jsonl` with evidence in `memory/<slug>.md`; record the outcome with `tools/session_closeout.py --record <full-session-id> <outcome> --note "..."`. `no-durable-delta` is valid; do not invent a lesson. See [the post-mortem procedure](doc/AGENT_HARNESS.md#post-mortem-and-reuse).
-- Codex discovery hints are registered in `.codex/config.toml`: at most two findings per prompt, once per unchanged record/evidence state per session, within 1,000 characters. Superseded and wrong-scope findings are excluded; legacy findings are unverified leads. Inspect and trust the hook with `/hooks`; use `tools/discoveries.py` directly until live execution is confirmed.
+- After a confirmed failure/repair, recurring correction, or costly investigation, assess one durable lesson before closeout. Save useful lessons in `planning/product/tools/discoveries.jsonl` with evidence in `memory/<slug>.md`; record the outcome with `python tools/dev.py session-closeout --record <full-session-id> <outcome> --note "..."`. `no-durable-delta` is valid; do not invent a lesson. See [the post-mortem procedure](planning/product/doc/harness/AGENT_HARNESS.md#post-mortem-and-reuse).
+- Codex discovery hints are registered in `.codex/config.toml`: at most two findings per prompt, once per unchanged record/evidence state per session, within 1,000 characters. Superseded and wrong-scope findings are excluded; legacy findings are unverified leads. Inspect and trust the hook with `/hooks`; use `python tools/dev.py discoveries` directly until live execution is confirmed.
 - For a deeper workstation-local lookup, use `search_project(query, kind="external_memory")` explicitly. `kind="memory"` searches checked-in public cards only. External memory is excluded from ordinary project search and may be stale; verify every path, number, and implementation claim against the current tree.
 - Local Codex Memories and imported Claude memories are supplemental personal context. Never make them the only copy of a repository invariant, decision, or verification command.
 
@@ -89,14 +89,14 @@ is unavailable or not applicable.
 - Wait for every requested result, adjudicate disagreements against repository evidence, and report unresolved uncertainty explicitly.
 - Independently review consequential adoption and rejection decisions against the actual goal
   and current evidence. Uncertainty remains unresolved; neither a default rejection nor a
-  majority vote establishes correctness. See [decision evidence](doc/AGENT_HARNESS.md#decision-evidence).
+  majority vote establishes correctness. See [decision evidence](planning/product/doc/harness/AGENT_HARNESS.md#decision-evidence).
 - Permit at most one write-capable agent in a checkout. Parallel implementation requires separate Git worktrees and explicit integration ownership; do not improvise worktrees for the nested `planning/product` repository.
 
 ### Cross-session sidecars
 
 - Session size alone is not a reason to parallelize: use `/compact` when the work is still one tightly coupled evidence chain. Do not fill idle slots without a distinct independent lane.
 - Keep the original session as captain, integration owner, and sole writer. Cross-session sidecars are read-only scouts or reviewers with exact read paths; they never mark their own work integrated or verified.
-- Before dispatch, read [the cross-session sidecar procedure](doc/AGENT_HARNESS.md#cross-session-sidecars) for task deduplication, source snapshots, delivery confirmation, and recovery rules.
+- Before dispatch, read [the cross-session sidecar procedure](planning/product/doc/harness/AGENT_HARNESS.md#cross-session-sidecars) for task deduplication, source snapshots, delivery confirmation, and recovery rules.
 
 ### Review, test, and repair contract
 

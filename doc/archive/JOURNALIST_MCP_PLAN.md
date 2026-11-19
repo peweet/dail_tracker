@@ -282,7 +282,7 @@ block is **unservable** by every press transport — that is the enforcement poi
 ## 2.3 Tool internals
 
 **`claim_check(sentence)`** — the external twin of this session's `style_lint`:
-1. Extract figures (same FIGURE_RE family as tools/hooks/style_lint.py — the internal
+1. Extract figures (same FIGURE_RE family as planning/product/tools/hooks/style_lint.py — the internal
    linter and the press checker deliberately share one regex module so they can't
    drift).
 2. Resolve each figure's dataset via fact_cards search; unresolvable → `band:

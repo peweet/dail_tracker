@@ -131,7 +131,7 @@ def call_timeout() -> int:
 # PRESSURE_MEMORY_LIMIT if a future session profiles this and finds a better fit.
 
 #: Below this much free physical RAM, tighten. Set above guard_memory.py's 1,500 MB
-#: hard-block floor (tools/hooks/guard_memory.py) so this backs off before that
+#: hard-block floor (planning/product/tools/hooks/guard_memory.py) so this backs off before that
 #: harder guard would refuse a heavy command outright.
 PRESSURE_FLOOR_MB = 3000
 PRESSURE_IDLE_SECONDS = 180
@@ -214,7 +214,7 @@ def with_headroom() -> bool:
 def free_ram_mb() -> int | None:
     """Free physical RAM in MB, or None off-Windows or on any failure.
 
-    Same GlobalMemoryStatusEx approach as tools/hooks/guard_memory.py's
+    Same GlobalMemoryStatusEx approach as planning/product/tools/hooks/guard_memory.py's
     ``sample_memory``, duplicated rather than imported — a hook script and a server
     runtime module are different layers for what is one ctypes call.
     """

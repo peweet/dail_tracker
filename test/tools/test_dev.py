@@ -3,12 +3,13 @@ from __future__ import annotations
 import io
 import subprocess
 
+import pytest
+
 import tools.dev as dev
 
 
 def test_canonical_task_surface_contains_required_checks():
     assert {
-        "verify",
         "check",
         "lint",
         "format-check",
@@ -17,24 +18,14 @@ def test_canonical_task_surface_contains_required_checks():
         "firewall",
         "conventions",
         "mcp-catalog",
-        "agent-context",
         "job-status",
-        "sidecar-handoff",
         "ui-contracts",
         "doc-index",
         "test-fast",
         "test-integration",
         "test-slow",
         "test-sources",
-        "mutation-data-contracts",
     } <= set(dev.task_names())
-
-
-def test_mutation_pilot_is_opt_in_not_a_check_gate():
-    assert "mutation-data-contracts" in dev.task_names()
-    assert "mutation-data-contracts" not in dev.CHECK_TASKS
-    command = dev.commands_for("mutation-data-contracts")
-    assert command == ((dev.PYTHON, "tools/run_mutation_pilot.py"),)
 
 
 def test_slow_contracts_have_an_explicit_non_fast_task():
@@ -55,15 +46,6 @@ def test_preflight_checks_committed_document_content_separately_from_path_guard(
         (dev.PYTHON, "tools/check_no_private_ip.py", "--content", "--ref", "HEAD"),
     )
     assert dev.commands_for("private-ip") == ((dev.PYTHON, "tools/check_no_private_ip.py"),)
-
-
-def test_preflight_runs_the_code_hygiene_ratchet_but_check_does_not():
-    # Pre-push only: the gate compares against origin/main, which the fast iteration gate has
-    # no reason to pay for on every run. The Stop hook covers the per-session case.
-    assert "hygiene" in dev.PREFLIGHT_TASKS
-    assert "hygiene" not in dev.CHECK_TASKS
-    assert dev.commands_for("hygiene") == ((dev.PYTHON, "tools/check_code_hygiene.py", "gate"),)
-    assert dev.commands_for("hygiene")[0] in dev.commands_for("preflight")
 
 
 def test_integration_task_enables_the_local_contract_environment(monkeypatch):
@@ -136,52 +118,10 @@ def test_real_task_reexecutes_once_in_the_full_dev_profile(monkeypatch):
     assert captured["env"][dev.DEV_PROFILE_ENV] == "1"
 
 
-def test_verify_profile_bootstrap_adds_exactly_one_no_cache(monkeypatch):
-    captured: list[tuple[str, ...]] = []
-
-    def run(command, **kwargs):
-        captured.append(command)
-        return subprocess.CompletedProcess(command, 0)
-
-    monkeypatch.delenv(dev.DEV_PROFILE_ENV, raising=False)
-    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
-    monkeypatch.setattr(dev.subprocess, "run", run)
-
-    assert dev.main(["verify"]) == 0
-    assert captured[-1][-1] == "--no-cache"
-    assert captured[-1].count("--no-cache") == 1
-
-    assert dev.main(["verify", "--no-cache"]) == 0
-    assert captured[-1].count("--no-cache") == 1
-
-
 def test_available_dev_profile_does_not_reexec(monkeypatch):
     monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: True)
 
     assert dev._reexec_in_dev_profile(["test-fast"]) is None
-
-
-def test_agent_context_does_not_bootstrap_the_full_dev_profile(monkeypatch):
-    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
-    monkeypatch.setattr(
-        dev.subprocess,
-        "run",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected bootstrap")),
-    )
-
-    assert dev._reexec_in_dev_profile(["agent-context"]) is None
-
-
-def test_sidecar_handoff_is_stdlib_only_and_forwards_arguments(monkeypatch):
-    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
-    monkeypatch.setattr(
-        dev.subprocess,
-        "run",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected bootstrap")),
-    )
-
-    assert dev._reexec_in_dev_profile(["sidecar-handoff", "template"]) is None
-    assert dev.commands_for("sidecar-handoff", ("template",)) == ((dev.PYTHON, "tools/sidecar_handoff.py", "template"),)
 
 
 def test_job_status_is_stdlib_only_and_forwards_arguments(monkeypatch):
@@ -198,15 +138,31 @@ def test_job_status_is_stdlib_only_and_forwards_arguments(monkeypatch):
     )
 
 
-def test_roots_status_is_stdlib_only_and_forwards_arguments(monkeypatch):
-    monkeypatch.setattr(dev, "_dev_profile_is_available", lambda: False)
-    monkeypatch.setattr(
-        dev.subprocess,
-        "run",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected bootstrap")),
-    )
+def test_public_clone_lists_no_private_tasks(tmp_path):
+    assert dev.load_private_tasks(tmp_path / "planning" / "product" / "tools" / "dev_tasks.py") is None
 
-    assert dev._reexec_in_dev_profile(["roots", "--repo", "public"]) is None
-    assert dev.commands_for("roots", ("--repo", "public")) == (
-        (dev.PYTHON, "tools/roots_status.py", "--repo", "public"),
+
+def test_private_tasks_join_the_gates_without_replacing_public_ones(tmp_path):
+    module_path = tmp_path / "dev_tasks.py"
+    module_path.write_text(
+        "TASKS = {'extra': ('An extra private task', (('python', 'extra.py'),))}\n"
+        "STDLIB_TASKS = frozenset({'extra'})\n"
+        "CHECK_TASKS = ('extra',)\n"
+        "PREFLIGHT_TASKS = ()\n",
+        encoding="utf-8",
     )
+    module = dev.load_private_tasks(module_path)
+    assert module is not None
+    tasks, stdlib, check, preflight = dev.merge_private_tasks(
+        module, {"lint": dev.TASKS["lint"]}, frozenset(), ("lint",), ("lint",)
+    )
+    assert tasks["extra"].commands == (("python", "extra.py"),)
+    assert tasks["lint"] is dev.TASKS["lint"]
+    assert "extra" in stdlib and check == ("lint", "extra") and preflight == ("lint", "extra")
+
+    module_path.write_text(
+        "TASKS = {'lint': ('A shadow', (('python', 'x.py'),))}\nSTDLIB_TASKS = ()\nCHECK_TASKS = ()\nPREFLIGHT_TASKS = ()\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="would replace a public task"):
+        dev.merge_private_tasks(dev.load_private_tasks(module_path), {"lint": dev.TASKS["lint"]}, frozenset(), (), ())

@@ -236,7 +236,7 @@ def _page_entry_missing_dt_page(source: str, path: Path) -> list[str]:
 
 
 # ── R9: largest-file ratchet ─────────────────────────────────────────────────
-# doc/REFACTORING_TOKEN_ECONOMICS.md: an agent's cost to change a file scales
+# planning/product/doc/harness/REFACTORING_TOKEN_ECONOMICS.md: an agent's cost to change a file scales
 # with the largest file it must read, and the saving from splitting only lands
 # when the big file physically shrinks. These are the seven candidates from
 # doc/REFACTORING_CANDIDATES.md at their 2026-07-30 baseline line counts.
@@ -283,7 +283,7 @@ def _largest_file_ratchet() -> list[str]:
 # doc/REFACTORING_CANDIDATES.md §Scope (2026-07-31): a file qualifies for the
 # split-for-tokens program only at >=2,000 lines AND >=30 changes/6mo AND a
 # localizing common change — and it gets a cost-of-change bench baseline
-# (tools/evals/cost_of_change_bench.py) BEFORE anyone splits it. This watch
+# (planning/product/tools/evals/cost_of_change_bench.py) BEFORE anyone splits it. This watch
 # NOTES (advisory, never fails) any tracked source file that crosses the size
 # threshold and was not part of the 2026-07-31 assessment, so new crossers get
 # measured instead of refactored on faith. Churn is deliberately not computed

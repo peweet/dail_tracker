@@ -24,8 +24,8 @@ has been done**. The plan + probe are committed (`f0db97d`). Only drift: the cha
 `etenders_live_tenders` is now *both* a pipeline chain (line 181) and its own standalone publishing lane
 (`live_tenders_refresh.yml`) — a consolidation question (§7), not a blocker.
 
-Related: `doc/archive/CONTINUOUS_REFRESH.md` (the existing lane), `doc/DATA_BACKUP.md` /
-`doc/DISASTER_RECOVERY.md` (R2), `doc/archive/DATA_DISTRIBUTION_PLAN.md` (the git-as-CDN retirement).
+Related: `doc/archive/CONTINUOUS_REFRESH.md` (the existing lane), `planning/product/doc/runbooks/DATA_BACKUP.md` /
+`planning/product/doc/runbooks/DISASTER_RECOVERY.md` (R2), `doc/archive/DATA_DISTRIBUTION_PLAN.md` (the git-as-CDN retirement).
 
 ---
 

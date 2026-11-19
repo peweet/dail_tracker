@@ -3,7 +3,7 @@
 
 # doc/ index
 
-77 docs · ~381.1k tokens total · 34 LIVE · 31 superseded/stale · 12 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+64 docs · ~330.9k tokens total · 23 LIVE · 30 superseded/stale · 11 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -15,20 +15,9 @@
 | [DATA_LIMITATIONS.md](DATA_LIMITATIONS.md) | data | 12.2k | 2026-07-17 | before citing any dataset's completeness, scope, or coverage of a person/topic — check known caveats and silent-failure risks first |
 | [JOIN_MAP.md](JOIN_MAP.md) | data | 1.7k | 2026-07-14 | before attempting any cross-register association/join between datasets (ORG name-norm or PERSON anagram key) |
 | [AST_SCANNER_FAILURE_MODES.md](AST_SCANNER_FAILURE_MODES.md) | engineering | 7.3k | 2026-08-04 | auditing an AST-based code scanner, contract extractor, repository indexer, or migration ratchet for false positives and false negatives |
-| [AGENT_HARNESS.md](AGENT_HARNESS.md) | infra | 11.6k | 2026-11-17 | changing reusable agent prompts, hooks, subagent roles, or the coding-agent evaluation harness |
 | [AGENT_HARNESS_MEASUREMENT_2026_08_05.md](AGENT_HARNESS_MEASUREMENT_2026_08_05.md) | infra | 1.0k | 2026-08-05 | deciding whether the current agent harness improves correctness or efficiency |
-| [AGENT_WORKFLOW_PLAN_2026_10_25.md](AGENT_WORKFLOW_PLAN_2026_10_25.md) | infra | 1.9k | 2026-10-25 | changing how agent sessions work in this repo - rules, hooks, the two-tier wiki, review subagents, compaction, issue/PR flow |
 | [CI_CD.md](CI_CD.md) | infra | 5.6k | 2026-11-17 | changing CI/CD workflows, or checking what checks already exist before adding a new one |
-| [CODEX_WINDOWS_SANDBOX_RECOVERY.md](CODEX_WINDOWS_SANDBOX_RECOVERY.md) | infra | 1.3k | 2026-08-26 | Codex Windows commands fail before process startup with apply deny-read ACLs, CreateProcess, or helper_unknown_error |
-| [CODEX_WORKFLOW_AUDIT_2026_08_28.md](CODEX_WORKFLOW_AUDIT_2026_08_28.md) | infra | 2.5k | 2026-08-28 | auditing Codex task efficiency, planning-product ownership, long-running work, or git closeout |
-| [CREDENTIAL_ESCROW.md](CREDENTIAL_ESCROW.md) | infra | 1.8k | 2026-11-07 | setting up or auditing the off-box copy of the credentials a restore needs, or checking whether the escrow is still complete |
 | [CUSTOM_DOMAIN_CLOUDFLARE.md](CUSTOM_DOMAIN_CLOUDFLARE.md) | infra | 1.3k | 2026-08-01 | setting up or restoring the dailtracker.ie custom domain / Cloudflare Worker proxy (e.g. after a laptop loss, per DISASTER_RECOVERY.md) |
-| [DATA_BACKUP.md](DATA_BACKUP.md) | infra | 1.7k | 2026-08-14 | setting up or verifying the R2 backup of data/bronze and data/silver before it's lost |
-| [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) | infra | 5.3k | 2026-08-21 | the dev laptop is lost or destroyed and you need to restore a working machine, Hetzner access, or data from GitHub and object storage |
-| [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md) | infra | 2.6k | 2026-08-30 | setting up Python, diagnosing dependency drift, using Docker, or changing a runtime profile |
-| [LINNAEUS_TRIAGE_PILOT.md](LINNAEUS_TRIAGE_PILOT.md) | infra | 4.0k | 2026-11-11 | assessing or resuming the approved offline extraction and CI failure-triage pilot |
-| [OPENAI_CODEX_INTEROPERABILITY.md](OPENAI_CODEX_INTEROPERABILITY.md) | infra | 6.9k | 2026-10-04 | auditing, reproducing, or adapting this repository's OpenAI and Codex interoperability for another project |
-| [OPENAI_MODELS.md](OPENAI_MODELS.md) | infra | 2.5k | 2026-08-30 | configuring OpenAI or Codex for Dail Tracker, Siting, or the coding-agent evaluation harness |
 | [SANDBOX_MAP.md](SANDBOX_MAP.md) | infra | 1.7k | 2026-07-16 | before deleting, moving, or refactoring anything under pipeline_sandbox/ — check if it's a live wired extractor first |
 | [SOURCE_RECOVERY_RUNBOOK.md](SOURCE_RECOVERY_RUNBOOK.md) | infra | 3.8k | 2026-06-21 | a data source has broken (stale, structure-drift, fetch failure, quarantine) and you need the recovery playbook |
 | [LAND_VALUE_SOURCES_QUALITY.md](LAND_VALUE_SOURCES_QUALITY.md) | land-value | 1.4k | 2026-09-03 | using ipav_farming_report / land_value_index or any pair of land-price sources together; refreshing from a new IPAV edition |
@@ -59,7 +48,6 @@
 | [DATA_DISTRIBUTION_PLAN.md](archive/DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
 | [DUCKDB_ENGINEERING_PLAN.md](archive/DUCKDB_ENGINEERING_PLAN.md) | infra | 3.8k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |
 | [HYBRID_REFRESH_PLAN.md](archive/HYBRID_REFRESH_PLAN.md) | infra | 3.4k | 2026-07-08 | designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture |
-| [TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) | infra | 6.0k | 2026-07-31 | needing the full per-paper backing detail behind the token-optimization memory summary — read reference_token_optimization_literature_2026_07_31 in memory first |
 | [COUNCIL_TARGETING_FABLE_ASSESSMENT.md](archive/COUNCIL_TARGETING_FABLE_ASSESSMENT.md) | local-gov | 14.0k | 2026-07-09 | before scoping new county-council data work (AFS, minutes/agendas, named votes) or deciding what council data source to pursue next |
 | [JOURNALIST_MCP_PLAN.md](archive/JOURNALIST_MCP_PLAN.md) | mcp | 5.1k | 2026-07-20 | historical only — proposed 2026-07-20 for two named users (a local paper, a national data desk); no code was ever written. Re-scope before reviving. |
 | [ATTENDANCE_PARTICIPATION_REDESIGN.md](archive/ATTENDANCE_PARTICIPATION_REDESIGN.md) | members | 4.2k | 2026-06-22 | when working on the attendance/participation feature, or needing to know what shipped in the 2026-06-22 TAA-to-participation redesign |
@@ -95,8 +83,7 @@
 | [LLM_GEO_EU_RESEARCH_SCAN_2026_07_31.md](LLM_GEO_EU_RESEARCH_SCAN_2026_07_31.md) | — | 13.8k | — |  |
 | [OBSERVABILITY.md](OBSERVABILITY.md) | — | 1.7k | — |  |
 | [PUBLISHED_MINUTES_AND_CAPITAL_PIPELINE_REGISTER.md](PUBLISHED_MINUTES_AND_CAPITAL_PIPELINE_REGISTER.md) | — | 3.6k | — |  |
-| [REFACTORING_TOKEN_ECONOMICS.md](REFACTORING_TOKEN_ECONOMICS.md) | — | 2.1k | — |  |
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-11-17 -->
+<!-- generated 2026-11-19 -->

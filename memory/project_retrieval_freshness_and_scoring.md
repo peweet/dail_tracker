@@ -28,8 +28,8 @@ the pre-repair implementation. Exact nodes and commands are in the ignored task 
 under artifacts/pilot-a-retrieval-20261006/.
 
 Green: the focused command `.venv/Scripts/python.exe -m pytest -q
-test/mcp_server/test_code_index.py test/mcp_server/test_fts_index.py
-test/tools/evals/test_app_retrieval_recall.py` passed 58 tests. Independent review passed.
+test/mcp_server/test_code_index.py test/mcp_server/test_fts_index.py` plus the app-retrieval recall tests (since moved to the private repo)
+passed 58 tests. Independent review passed.
 
 Lesson: prove cache identity, invalidation, unchanged-input reuse and concurrent
 assignment at the returned-result seam. Evaluate both retrieval surfaces without

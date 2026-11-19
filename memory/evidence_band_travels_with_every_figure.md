@@ -42,4 +42,4 @@ What works:
   and again on 09-29, 2 on 2026-10-23 and 2 on 10-25. The diagnosis changed three times before
   settling on familiarity; the digit-scan pass is the only countermeasure that held.
 - The rule: `.claude/rules/evidence.md` and `.claude/rules/communication.md` Rule 2. The linter is
-  `tools/hooks/style_lint.py`.
+  `planning/product/tools/hooks/style_lint.py`.

@@ -6,7 +6,7 @@ commits the gold parquet so Streamlit Cloud redeploys). This pushes every `reten
 file in data/_meta/runtime_data_manifest.json to the `runtime/` prefix of the R2 bucket, so a
 clean checkout can rehydrate via tools/fetch_runtime_data.py. See doc/DATA_DISTRIBUTION_PLAN.md.
 
-How it differs from tools/backup_to_r2.ps1 (the append-only bronze/silver ARCHIVE):
+How it differs from planning/product/tools/backup_to_r2.ps1 (the append-only bronze/silver ARCHIVE):
   * Targets a separate `runtime/` prefix - the archive (bronze/, silver/) is never touched.
   * INCLUDES gold (the archive omits gold; git carries it today).
   * Hash-sync, NOT append-only: `rclone copy --checksum` (no --ignore-existing) so a refreshed
@@ -31,7 +31,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# --- config: keep BUCKET in sync with tools/backup_to_r2.ps1 + doc/DATA_BACKUP.md ---
+# --- config: keep BUCKET in sync with planning/product/tools/backup_to_r2.ps1 + planning/product/doc/runbooks/DATA_BACKUP.md ---
 $remote = 'r2'
 $bucket = 'dail-tracker-backup'
 $prefix = 'runtime'
@@ -53,8 +53,8 @@ if (-not $rclone) {
         Select-Object -First 1).FullName
 }
 if (-not $rclone) {
-    Add-Content $log "$stamp  ERROR rclone not found - see doc/DATA_BACKUP.md"
-    Write-Error 'rclone is not installed / not found. See doc/DATA_BACKUP.md.'
+    Add-Content $log "$stamp  ERROR rclone not found - see planning/product/doc/runbooks/DATA_BACKUP.md"
+    Write-Error 'rclone is not installed / not found. See planning/product/doc/runbooks/DATA_BACKUP.md.'
     exit 3
 }
 

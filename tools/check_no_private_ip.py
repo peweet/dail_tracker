@@ -223,7 +223,19 @@ DENY_DIR_PREFIXES: tuple[str, ...] = (
     # (see the --all-branches mode below, which doesn't close that gap either — only a
     # commit-range scan over the outgoing push would).
     "ida/",
+    # Agent-harness hooks and the wiki templates moved to the private repo on 2026-11-19, whole.
+    # Nothing public lives under either directory, so the prefix blocks a re-add even on CI, where
+    # the private registry below cannot be read.
+    "tools/hooks/",
+    "tools/wiki_templates/",
 )
+
+# ── Public paths whose content moved into the private repo ────────────────────
+#    The list lives THERE, at this path in the private repository, so this public file names none
+#    of them. The public history rewrite reads the same file. A path is blocked when the registry
+#    at the private ref or at its remote-tracking ref lists it; with no private checkout (CI, a
+#    public-only clone) the set is empty and the directory prefixes above still apply.
+WITHDRAWN_REGISTRY = "tools/withdrawn_public_paths.txt"
 
 # ── Any path containing this substring (case-insensitive) is private IP.
 #    Verified: NO civic-lane path contains "siting", so this cannot false-positive
@@ -321,15 +333,37 @@ ALLOWLIST: frozenset[str] = frozenset(
 )
 
 
-def classify(path: str) -> str | None:
+def withdrawn_paths(private_repo: Path | None = None, private_ref: str = "main") -> frozenset[str]:
+    """Public paths the private registry withdrew; empty when no private checkout can be read."""
+    try:
+        repo = (private_repo or _private_repository()).resolve()
+    except (OSError, ValueError):
+        return frozenset()
+    found: set[str] = set()
+    for ref in (private_ref, f"origin/{private_ref}"):
+        try:
+            raw = _snapshot_git(repo, "show", f"{ref}:{WITHDRAWN_REGISTRY}")
+        except (OSError, ValueError):
+            continue
+        for line in raw.decode("utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                found.add(line)
+    return frozenset(found)
+
+
+def classify(path: str, withdrawn: frozenset[str] = frozenset()) -> str | None:
     """Return a reason string if ``path`` is private/sensitive, else ``None``.
 
     ``path`` is a repo-relative POSIX path (forward slashes). The allow-list wins
-    over every deny rule so the civic lane is never flagged.
+    over every deny rule so the civic lane is never flagged. ``withdrawn`` is the
+    private registry's list of public paths whose content moved there.
     """
     p = path.replace("\\", "/").strip()
     if not p or p in ALLOWLIST:
         return None
+    if p in withdrawn:
+        return f"moved to the private repo (listed in its {WITHDRAWN_REGISTRY})"
 
     lower = p.lower()
     base = p.rsplit("/", 1)[-1]
@@ -352,11 +386,11 @@ def classify(path: str) -> str | None:
     return None
 
 
-def find_offenders(paths: list[str]) -> list[tuple[str, str]]:
+def find_offenders(paths: list[str], withdrawn: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
     """Pure function: map a list of repo-relative paths to (path, reason) offenders."""
     out: list[tuple[str, str]] = []
     for p in paths:
-        reason = classify(p)
+        reason = classify(p, withdrawn)
         if reason:
             out.append((p, reason))
     return out
@@ -390,7 +424,7 @@ def _branch_paths(branch: str) -> list[str]:
     return [p for p in res.stdout.split("\0") if p]
 
 
-def find_all_branch_offenders() -> dict[str, list[tuple[str, str]]]:
+def find_all_branch_offenders(withdrawn: frozenset[str] = frozenset()) -> dict[str, list[tuple[str, str]]]:
     """Scan every remote branch's CURRENT tree, not just the one being pushed.
 
     Deny rules only apply going forward: a branch pushed before a path was classified
@@ -402,7 +436,7 @@ def find_all_branch_offenders() -> dict[str, list[tuple[str, str]]]:
     """
     out: dict[str, list[tuple[str, str]]] = {}
     for branch in _remote_branches():
-        offenders = find_offenders(_branch_paths(branch))
+        offenders = find_offenders(_branch_paths(branch), withdrawn)
         if offenders:
             out[branch] = offenders
     return out
@@ -434,8 +468,9 @@ def main() -> int:
         print(f"SKIPPED — running inside the private {_PRIVATE_NESTED_REPO_MARKER}/ repo, not the public root.")
         return 0
 
+    withdrawn = withdrawn_paths(args.private_repo, args.private_ref)
     if args.all_branches:
-        by_branch = find_all_branch_offenders()
+        by_branch = find_all_branch_offenders(withdrawn)
         if not by_branch:
             branches = _remote_branches()
             print(f"OK — no private siting IP or secrets on any of {len(branches)} remote branches.")
@@ -455,7 +490,7 @@ def main() -> int:
         return 1
 
     paths = _git_paths(args.staged)
-    offenders = find_offenders(paths)
+    offenders = find_offenders(paths, withdrawn)
     if not offenders:
         scope = "staged" if args.staged else "tracked"
         print(f"OK — no private siting IP or secrets in the {scope} tree ({len(paths)} paths scanned).")

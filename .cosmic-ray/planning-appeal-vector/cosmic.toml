@@ -15,7 +15,7 @@
 #
 # A surviving mutant is a behaviour change no assertion in harness.py noticed — a missing test.
 # Refresh vector_target.py from the real module before any re-run, or the session audits a stale
-# copy (tools/mutation_session.py's assert_fresh() refuses to run it silently stale).
+# copy (planning/product/tools/mutation_session.py's assert_fresh() refuses to run it silently stale).
 
 [cosmic-ray]
 module-path = ".cosmic-ray/planning-appeal-vector/vector_target.py"

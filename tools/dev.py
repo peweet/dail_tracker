@@ -16,6 +16,7 @@ import sys
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -54,7 +55,7 @@ DEV_PROFILE_MODULES = (
     "polars",
     "sqlglot",
 )
-STDLIB_TASKS = frozenset({"agent-context", "job-status", "roots", "sidecar-handoff", "web-deps"})
+STDLIB_TASKS = frozenset({"job-status"})
 
 
 @dataclass(frozen=True)
@@ -78,14 +79,6 @@ TASKS: dict[str, Task] = {
     "conventions": Task(
         "Run repository convention ratchets",
         ((PYTHON, "tools/check_conventions.py"),),
-    ),
-    # Diff ratchet against origin/main, no stored baseline: complexity, simplifiable patterns,
-    # unused code and new duplicate functions may not rise in the tracked files a push would
-    # carry. The Stop hook (tools/hooks/code_hygiene_gate.py) runs the same gate per session;
-    # this is the second net for work that reached a commit without passing through one.
-    "hygiene": Task(
-        "Code hygiene ratchet: complexity, duplication and unused code must not rise against origin/main",
-        ((PYTHON, "tools/check_code_hygiene.py", "gate"),),
     ),
     # Same script as .githooks/pre-push and ci.yml. It was previously ONLY at those two points, so
     # a tracked file importing an untracked module surfaced either at push or in CI — or, locally,
@@ -128,14 +121,6 @@ TASKS: dict[str, Task] = {
     "mcp-catalog": Task(
         "Check the MCP read-only and always-loaded context budget",
         ((PYTHON, "tools/check_mcp_catalog.py"),),
-    ),
-    "agent-context": Task(
-        "Check reusable prompt contracts, budgets, and review rubrics",
-        ((PYTHON, "tools/check_agent_context.py"),),
-    ),
-    "sidecar-handoff": Task(
-        "Validate, queue, or confirm a cross-session Codex handoff",
-        ((PYTHON, "tools/sidecar_handoff.py"),),
     ),
     "job-status": Task(
         "Record or inspect measured status for a long-running build, transfer, or gate",
@@ -187,54 +172,6 @@ TASKS: dict[str, Task] = {
         "Run SQL contracts against committed gold data",
         ((PYTHON, "-m", "pytest", "-q", "-m", "sql"),),
     ),
-    "mutation-data-contracts": Task(
-        "Run the opt-in Cosmic Ray audit for data-contract business rules",
-        ((PYTHON, "tools/run_mutation_pilot.py"),),
-    ),
-    "mutation-sessions": Task(
-        "Run the copy-based Cosmic Ray sessions under baseline and false-100% gates",
-        ((PYTHON, "tools/mutation_session.py"),),
-    ),
-    "roots": Task(
-        "Check working-tree/push status across the three git roots (dail_tracker, "
-        "planning/product, apps/public-signal)",
-        ((PYTHON, "tools/roots_status.py"),),
-    ),
-    "web-deps": Task(
-        "Link each planning/product worktree's web/node_modules to the store install for its "
-        "own lockfile (status | link <worktree> | unlink <worktree> | adopt <web dir>)",
-        ((PYTHON, "tools/web_node_modules.py"),),
-    ),
-    "backup-freshness": Task(
-        "Report how stale each backup lane is, by snapshot age rather than task state",
-        ((PYTHON, "tools/backup_freshness.py"),),
-    ),
-    "docker-gc": Task(
-        "Report reclaimable Docker disk (add --reclaim to prune, --compact for the vhdx)",
-        ((PYTHON, "tools/docker_gc.py"),),
-    ),
-    "escrow-check": Task(
-        "Prove a password-manager copy of a restic password still opens its repository",
-        ((PYTHON, "tools/check_credential_escrow.py"),),
-    ),
-    "siting-native": Task(
-        "Check the private PyO3 siting kernel survived the last uv sync (local only; no-ops on CI)",
-        ((PYTHON, "tools/check_native_kernel.py"),),
-    ),
-    # The engine-validation ledger sat a month stale after a re-baseline (2026-10-21) because
-    # nothing ran its own `check`; this wires it, plus a measurement-debt warning, into preflight.
-    # No-ops on CI and on a public-only clone like siting-native.
-    "validation-records": Task(
-        "Validation ledger vs saved baselines + measurement-debt warning (local only; no-ops on CI)",
-        ((PYTHON, "tools/check_validation_records.py"),),
-    ),
-    # The two-tier wiki ratchet (doc/AGENT_WORKFLOW_PLAN_2026_10_25.md): page sizes and the
-    # personal tier fail; the upkeep backlog (unvalidated customizations, pending closeouts,
-    # memory rot) is reported with the command that clears each. Local tiers SKIP on CI.
-    "wiki": Task(
-        "Two-tier wiki ratchet: page sizes, global tier present, upkeep backlog (local tiers no-op on CI)",
-        ((PYTHON, "tools/wiki.py", "status", "--strict"),),
-    ),
 }
 
 CHECK_TASKS = (
@@ -246,7 +183,6 @@ CHECK_TASKS = (
     "conventions",
     "untracked-imports",
     "mcp-catalog",
-    "agent-context",
     "ui-contracts",
     "doc-index",
     "fixture-divergence",
@@ -270,14 +206,60 @@ PREFLIGHT_TASKS = (
     "expected-failures",
     "imports-execute",
     "gold-guards",
-    "validation-records",
-    "wiki",
-    "hygiene",
 )
 
 
+# ── private tasks ────────────────────────────────────────────────────────────
+# The harness and operations scripts (hooks, evals, hygiene and session gates, backups, box and
+# worktree tooling) live in the private repo. Its task module merges into this surface when that
+# checkout sits at planning/product/, so the commands stay `python tools/dev.py <task>` there and
+# a public-only clone runs without them.
+PRIVATE_TASKS_FILE = ROOT / "planning" / "product" / "tools" / "dev_tasks.py"
+
+
+def load_private_tasks(path: Path = PRIVATE_TASKS_FILE) -> ModuleType | None:
+    """The private checkout's task module, or None when the file is absent."""
+    if not path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location("dail_private_dev_tasks", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load the private task module at {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def merge_private_tasks(
+    module: ModuleType,
+    tasks: dict[str, Task],
+    stdlib: frozenset[str],
+    check: tuple[str, ...],
+    preflight: tuple[str, ...],
+) -> tuple[dict[str, Task], frozenset[str], tuple[str, ...], tuple[str, ...]]:
+    """Public tasks plus the private ones; a private name may never replace a public one."""
+    merged = dict(tasks)
+    for name, (description, commands) in module.TASKS.items():
+        if name in merged or name in {"verify", "check", "preflight"}:
+            raise ValueError(f"private task {name!r} would replace a public task")
+        merged[name] = Task(description, tuple(tuple(command) for command in commands))
+    private_check = tuple(module.CHECK_TASKS)
+    return (
+        merged,
+        stdlib | frozenset(module.STDLIB_TASKS),
+        (*check, *private_check),
+        (*preflight, *private_check, *module.PREFLIGHT_TASKS),
+    )
+
+
+PRIVATE = load_private_tasks()
+if PRIVATE is not None:
+    TASKS, STDLIB_TASKS, CHECK_TASKS, PREFLIGHT_TASKS = merge_private_tasks(
+        PRIVATE, TASKS, STDLIB_TASKS, CHECK_TASKS, PREFLIGHT_TASKS
+    )
+
+
 def task_names() -> tuple[str, ...]:
-    return ("verify", "check", "preflight", *TASKS)
+    return (*(("verify",) if PRIVATE is not None else ()), "check", "preflight", *TASKS)
 
 
 def commands_for(name: str, extra: tuple[str, ...] = ()) -> tuple[tuple[str, ...], ...]:
@@ -363,7 +345,8 @@ def run_task(name: str, extra: tuple[str, ...] = (), *, dry_run: bool = False) -
 
 def print_tasks() -> None:
     width = max(len(name) for name in task_names())
-    print(f"{'verify':<{width}}  Focused checks selected from the Git diff; successful states are cached")
+    if PRIVATE is not None:
+        print(f"{'verify':<{width}}  Focused checks selected from the Git diff; successful states are cached")
     print(f"{'check':<{width}}  Local approximation of the deterministic CI merge gates")
     for name, task in TASKS.items():
         print(f"{name:<{width}}  {task.description}")
@@ -395,9 +378,8 @@ def main(argv: list[str] | None = None) -> int:
         args.remove("--dry-run")
 
     if name == "verify":
-        from tools.verify_changed import main as verify_main
-
-        return verify_main(args)
+        assert PRIVATE is not None  # task_names() offers verify only with the private checkout
+        return PRIVATE.verify(args)
     return run_task(name, tuple(args), dry_run=dry_run)
 
 

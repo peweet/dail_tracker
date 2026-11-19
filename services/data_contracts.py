@@ -677,7 +677,7 @@ def collapse_tiers(components: dict[str, str]) -> tuple[str, tuple[str, ...]]:
 
     Returns ``(tier, binding)`` where ``binding`` names the component(s) sitting at the
     minimum. Shared by `assess_trust` (data records) and any other caller grading something
-    else on the same 4-band scale (e.g. memory-card currency in `tools/memory_gc.py`) —
+    else on the same 4-band scale (e.g. memory-card currency in `planning/product/tools/memory_gc.py`) —
     the vocabulary and the collapse must stay identical everywhere per the "one scale" rule
     above, so this is the single place that decides the winner.
     """

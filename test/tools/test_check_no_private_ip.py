@@ -157,6 +157,30 @@ def test_content_scan_missing_nested_repo_is_not_run(tmp_path, monkeypatch):
     assert guard.scan_content(sha, nested, "main")["status"] == "NOT_RUN"
 
 
+def test_withdrawn_public_paths_are_read_from_the_private_registry(tmp_path):
+    private = _repo(tmp_path, "private")
+    _save_commit(private, guard.WITHDRAWN_REGISTRY, "# header\ntools/example_moved_tool.py\n\ndoc/EXAMPLE.md\n")
+    withdrawn = guard.withdrawn_paths(private, "main")
+    assert withdrawn == {"tools/example_moved_tool.py", "doc/EXAMPLE.md"}
+    assert guard.classify("tools/example_moved_tool.py", withdrawn) is not None
+    assert guard.classify("tools/example_moved_tool.py") is None
+    assert guard.classify("tools/dev.py", withdrawn) is None
+    assert guard.find_offenders(["tools/dev.py", "doc/EXAMPLE.md"], withdrawn) == [
+        ("doc/EXAMPLE.md", guard.classify("doc/EXAMPLE.md", withdrawn))
+    ]
+
+
+def test_withdrawn_paths_are_empty_without_a_private_checkout(tmp_path):
+    assert guard.withdrawn_paths(tmp_path / "absent", "main") == frozenset()
+    assert guard.withdrawn_paths(_repo(tmp_path, "empty_private"), "main") == frozenset()
+
+
+def test_harness_directories_are_private_even_without_the_registry() -> None:
+    assert guard.classify("tools/hooks/any_new_hook.py") is not None
+    assert guard.classify("tools/wiki_templates/project/rules/x.md") is not None
+    assert guard.classify("tools/evals/tool_retrieval_queries.json") is None
+
+
 def test_content_exception_is_bound_to_document_bytes(tmp_path, monkeypatch):
     import hashlib
 

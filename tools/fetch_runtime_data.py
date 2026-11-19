@@ -11,7 +11,7 @@ R2 keys live under the ``runtime/`` prefix written by tools/publish_runtime_to_r
 PHASE 1 SCOPE: a manual rehydrate/verify tool (e.g. prove a clean checkout can refill its data from
 R2). It is NOT yet wired into the Dockerfile or a Streamlit Cloud cold-start hook, and credential
 handling for those environments is deferred to Phase 2 — locally it uses the same rclone ``r2``
-remote as tools/backup_to_r2.ps1.
+remote as planning/product/tools/backup_to_r2.ps1.
 
 Usage:
     python tools/fetch_runtime_data.py --dry-run    # report missing/stale vs ok; fetch nothing
@@ -45,10 +45,10 @@ R2_BUCKET = "dail-tracker-backup"
 
 
 def _resolve_rclone() -> str:
-    """Find rclone on PATH (mirrors tools/backup_to_r2.ps1's resolution intent)."""
+    """Find rclone on PATH (mirrors planning/product/tools/backup_to_r2.ps1's resolution intent)."""
     exe = shutil.which("rclone")
     if not exe:
-        raise SystemExit("rclone not found on PATH — see doc/DATA_BACKUP.md for setup.")
+        raise SystemExit("rclone not found on PATH — see planning/product/doc/runbooks/DATA_BACKUP.md for setup.")
     return exe
 
 

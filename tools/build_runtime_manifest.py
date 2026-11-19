@@ -22,7 +22,7 @@ appears in the SQL that this map doesn't cover, or if a view reads a parquet not
 
 R2 key = ``runtime/`` + path-relative-to-``data/`` — the runtime publish lane
 (tools/publish_runtime_to_r2.ps1) writes there, leaving the append-only bronze/silver archive
-(tools/backup_to_r2.ps1) untouched.
+(planning/product/tools/backup_to_r2.ps1) untouched.
 
 Usage:
     python tools/build_runtime_manifest.py            # regenerate the manifest

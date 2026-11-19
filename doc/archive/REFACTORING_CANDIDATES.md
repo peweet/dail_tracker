@@ -11,7 +11,7 @@ key: PLAN|STALE|engineering
 # Refactoring Candidates — Token-Economics Pass
 
 Status: **PLAN — nothing here is implemented.** Companion to
-`doc/REFACTORING_TOKEN_ECONOMICS.md` (the patterns P1–P5 referenced below).
+`planning/product/doc/harness/REFACTORING_TOKEN_ECONOMICS.md` (the patterns P1–P5 referenced below).
 Drafted 2026-07-30 from a churn × size scan and three structural surveys.
 
 Evidence bands: line counts and change counts are [Verified — `git ls-files | wc -l` and
@@ -82,7 +82,7 @@ low dedup yield for its churn.
 
 ## Phase 0 — measurement first (pattern P1) — **BUILT AND BASELINED 2026-07-30**
 
-- `tools/evals/cost_of_change_bench.py`: runs a frozen representative-change prompt (one per
+- the cost-of-change bench (private repo, `planning/product/tools/evals/`): runs a frozen representative-change prompt (one per
   candidate, in `tools/evals/bench_prompts/`) in a fresh claude-agent-sdk session against a
   throwaway git worktree of HEAD, records SDK-billed usage plus the article-style
   files-read self-report (tokens ≈ chars ÷ 4), appends to `logs/cost_of_change.jsonl`, and

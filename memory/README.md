@@ -8,13 +8,13 @@ survive individual Claude Code, Codex, ChatGPT, or API sessions.
 | Knowledge | Canonical location |
 | --- | --- |
 | Rule that must apply to every task | Root or nearest nested `AGENTS.md` |
-| Short lesson worth recalling by topic | One row in `tools/discoveries.jsonl` |
+| Short lesson worth recalling by topic | One row in `planning/product/tools/discoveries.jsonl` |
 | Evidence, history, caveats, or reproduction detail | `memory/<discovery-slug>.md` |
 | Private Siting decision history | `planning/product/claude/memory/` (legacy directory name, provider-neutral content) |
 | Personal preferences or recent working context | Local Codex Memories; never the only copy of a team rule |
-| Personal rule that holds in every project (shell traps, git habits, working style) | `~/.claude/rules/<topic>.md` — the global tier, installed from `tools/wiki_templates/global/` by `python tools/wiki.py setup-global` |
+| Personal rule that holds in every project (shell traps, git habits, working style) | `~/.claude/rules/<topic>.md` — the global tier, installed from `tools/wiki_templates/global/` by `python planning/product/tools/wiki.py setup-global` |
 
-Run `uv run python tools/discoveries.py <keywords>` before re-deriving a known trap.
+Run `uv run python planning/product/tools/discoveries.py <keywords>` before re-deriving a known trap.
 Codex also runs the same compact index through the project `UserPromptSubmit` hook,
 after the hook is reviewed and trusted with `/hooks`. The hook injects at most two
 matching one-line lessons and never loads an entire memory corpus into context.
@@ -48,8 +48,8 @@ directory and the discovery index.
 
 ## Recall validity and correction
 
-The discovery CLI and `UserPromptSubmit` hint hook share `tools/memory_policy.py`.
-The default scope is public. Use `python tools/discoveries.py --scope private
+The discovery CLI and `UserPromptSubmit` hint hook share one memory-policy module in the private repo (`planning/product/tools/`).
+The default scope is public. Use `python planning/product/tools/discoveries.py --scope private
 <keywords>` explicitly for private work from the public checkout. The hook includes
 private findings only when its supplied cwd is inside `planning/product/`.
 Existing `domain: siting` and private `repo_path` values also imply private scope;
@@ -85,4 +85,4 @@ emission under this policy. The two-row/1,000-character prompt budget still appl
 The policy currently covers the discovery CLI and hint hook. Direct memory-file
 reads, personal Codex Memories and MCP FTS `kind="memory"` remain separate surfaces;
 none inherit this policy automatically. See the
-[implementation plan, research and verification record](memory_recall_policy_2026_10_18.md).
+[implementation plan, research and verification record](../planning/product/claude/memory/memory_recall_policy_2026_10_18.md).

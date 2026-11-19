@@ -39,9 +39,8 @@ the commercial IP stays out of the public remote:
 so **root `git status`/`git add`/`git commit` is blind to both** — that's the point, not a bug.
 Work inside them with a normal `cd planning/product && git ...`, or the repointed global
 aliases `git siting <cmd>` / `git publicsignal <cmd>` (delegate via `git -C`, work from any
-directory). Before ending a session, run `python tools/dev.py roots` (or
-`python tools/roots_status.py`) — it reports uncommitted/unpushed state across all three roots
-in one shot, so private-repo work doesn't silently pile up uncommitted. It walks every
+directory). Before ending a session, run `python tools/dev.py roots` — it reports
+uncommitted/unpushed state across all three roots in one shot, so private-repo work doesn't silently pile up uncommitted. It walks every
 `git worktree` of each root, not just the primary checkout, and flags commits reachable from
 **no remote** rather than commits ahead of an upstream — a branch pushed with `push HEAD:main`
 leaves its own tracking ref behind and is not unpushed work.
@@ -50,6 +49,13 @@ The public remote is guarded independently: `.githooks/pre-push` runs
 `tools/check_no_private_ip.py` (same check in CI) to block engine/product files from ever
 reaching `dail_tracker`, even via `git add -f`. Don't broaden its allowlist to cover a new
 private path without checking `DENY_DIR_PREFIXES` in that script first.
+
+The agent harness and operations tooling (hooks, evals, hygiene and session gates, backup, box
+and worktree scripts) moved to `planning/product/tools/` on 2026-11-19. `tools/dev.py` merges
+that checkout's tasks (`roots`, `verify`, `wiki`, `hygiene`, `code-context`, `discoveries`, …)
+when it is present, and hooks run through `.claude/run_hook.py`, which finds each script in
+either repo. The guard also blocks every public path the private `tools/withdrawn_public_paths.txt`
+lists, so a moved file cannot come back.
 
 ## First move — route the question (reflex, not a mandate)
 
@@ -64,7 +70,7 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
 | will renaming/reordering a SQL view break things? | `view_deps` | grepping `sql_views/` |
 | will renaming a **column** break views? | `column_deps(view, col)` — sqlglot lineage; `mode:'regex'` hits need a read | grepping `sql_views/` |
 | who **calls/uses** Python symbol F? (rename, signature change) | `py_refs(module, name)` — jedi call sites + import bindings; blind to `_LazyModule`/getattr | grepping the repo for the name |
-| what was decided, tried or measured about file F? (before refactoring or speeding it up) | `python tools/code_context.py show F` (engine: add `--root planning/product --rev origin/main`); record verdicts with `add` | re-reading ADRs, ledgers and memory to rebuild it |
+| what was decided, tried or measured about file F? (before refactoring or speeding it up) | `python tools/dev.py code-context show F` (engine: add `--root planning/product --rev origin/main`); record verdicts with `add` | re-reading ADRs, ledgers and memory to rebuild it |
 | who said / who's asking about topic T? | `search_speeches` / `search_questions` (BM25-ranked, corpus-wide) | ILIKE trawls via member feeds |
 | can I sum these money columns? | never-sum grain rule (above) | assuming |
 | which doc covers X? | `doc/INDEX.md` | grepping `doc/` |
@@ -78,7 +84,7 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
 ## Token & context discipline
 
 - **Delegate broad sweeps** only when output is much smaller than input (a conclusion from bulky reading). A subagent pays its own context cost, so batch related questions into one spawn and never spawn for a bounded lookup a cheap tool answers. Scope every `Grep`/`Glob`; throwaway scripts print counts/top-N, never raw dumps.
-- **`/clear` between unrelated tasks.** Before re-deriving a known trap, run `uv run python tools/discoveries.py <topic>`. Optional local memory is supplemental and may be stale; verify every named file or flag in the current tree.
+- **`/clear` between unrelated tasks.** Before re-deriving a known trap, run `python tools/dev.py discoveries <topic>`. Optional local memory is supplemental and may be stale; verify every named file or flag in the current tree.
 - **When compacting or summarizing a session,** preserve verbatim: the modified-file list, commands still to run, and the user's requirements and errors.
 
 ## Streamlit conventions
@@ -97,7 +103,7 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
   the BLAS thread count and must stay the **first** import in every entry point — uncapped,
   `import pandas` reserves ~650 MB of commit per process on this 20-core box. Each open Claude
   session also holds ~1.2 GB (client + its own MCP server), so close surplus windows before a
-  siting run (`pytest planning/product/test` — moved from `test/siting` 2026-07-31 — commits 5.4 GB). `tools/hooks/guard_memory.py` blocks heavy
+  siting run (`pytest planning/product/test` — moved from `test/siting` 2026-07-31 — commits 5.4 GB). The memory-guard hook blocks heavy
   commands below 1.5 GB free. Measure **private bytes**, never working set — Windows trims the
   latter, which reads ~30 MB while the process commits 714 MB.
 - Canonical tasks: `uv run --locked --group dev --extra pipeline --extra api --extra mcp python tools/dev.py list`; focused verification: the same command with `verify`; deterministic local gates: the same command with `check`. **Before a push or release, use `preflight`** — `check` plus the guards that previously lived only in CI or a git hook (private-IP, expected-failures, and the three committed-gold data-contract guards). It is the CI-equivalent set minus what needs Docker (`delivery`) or a long run (`pytest -m sql`), so a red build surfaces locally in about a minute instead of after a push. `pytest --testmon` remains opt-in because its database invalidates on wide refactors.
@@ -107,7 +113,7 @@ Reach for the cheap path **first**; escalate to reading files only when it genui
 ## Where to look first
 
 - `doc/INDEX.md` — generated doc map; scan before grepping `doc/`. `doc/SANDBOX_MAP.md` — LIVE vs. experimental (`pipeline_sandbox/` = experiments; LIVE extractors are DO-NOT-DELETE).
-- `uv run python tools/discoveries.py <topic>` and tracked `memory/` notes — hints for known decisions; verify them against current source.
-- **The wiki is two tiers of small pages:** personal cross-project rules in `~/.claude/rules/` (installed by `python tools/wiki.py setup-global`), project rules/lessons/reference here. `python tools/wiki.py status` measures both and lists the upkeep backlog; the `wiki` skill says where a fact belongs.
+- `python tools/dev.py discoveries <topic>` and tracked `memory/` notes — hints for known decisions; verify them against current source.
+- **The wiki is two tiers of small pages:** personal cross-project rules in `~/.claude/rules/` (installed by `python planning/product/tools/wiki.py setup-global`), project rules/lessons/reference here. `python tools/dev.py wiki` measures both and lists the upkeep backlog; the `wiki` skill says where a fact belongs.
 - `dail_tracker_core/queries/`, `sql_queries/`, `utility/data_access/` — the data-access surface.
 - Dataset schema/grain: `describe_dataset` / `list_datasets` (served from `data/_meta/fact_cards.json`) — never scan a parquet.

@@ -58,7 +58,7 @@ push, or switch this to a PR-based publish.
 
 ### 2. Full money-flow — three steps before relying on the schedule
 1. **Add R2 secrets** (Settings → Secrets and variables → Actions). Reuse the same Cloudflare R2 token the
-   local backup uses (`tools/backup_to_r2.ps1`, bucket `dail-tracker-backup`):
+   local backup uses (`planning/product/tools/backup_to_r2.ps1`, bucket `dail-tracker-backup`):
    - `R2_ACCESS_KEY_ID`
    - `R2_SECRET_ACCESS_KEY`
    - `R2_ENDPOINT`  (e.g. `https://<accountid>.r2.cloudflarestorage.com`)

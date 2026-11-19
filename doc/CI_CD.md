@@ -309,7 +309,7 @@ The Dockerfile pins every input so a rebuild months later cannot drift underneat
 
 Only after that gate passes does **Promote the checked candidate to latest** run `docker buildx imagetools create` to tag `:latest` from the sha tag. That is a registry-side retag of the digest just checked, not a rebuild, so `:latest` can never point at an image that skipped the footprint check. A final step prints the pull line for the box.
 
-Local Docker disk management (`tools/docker_gc.py`, `tools/box_docker_gc.py`) is a separate concern — see [ENVIRONMENT_AND_DOCKER.md](ENVIRONMENT_AND_DOCKER.md).
+Local Docker disk management (`python tools/dev.py docker-gc`, and the deployment-host collector in the private repo) is a separate concern — see [ENVIRONMENT_AND_DOCKER.md](../planning/product/doc/runbooks/ENVIRONMENT_AND_DOCKER.md).
 
 ---
 

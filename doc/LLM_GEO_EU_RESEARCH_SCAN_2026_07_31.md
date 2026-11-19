@@ -20,7 +20,7 @@ deep pass on that ground, recorded in the persistent memory cards
 `reference_token_optimization_literature_2026_07_31`, and
 `reference_agent_memory_staleness_literature_2026_07_31` (memory index:
 `~/.claude/projects/c--Users-pglyn-PycharmProjects-dail-extractor/memory/MEMORY.md`), plus
-[doc/archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](archive/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) for
+[planning/product/doc/harness/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md](../planning/product/doc/harness/TOKEN_OPTIMIZATION_LITERATURE_2026_07_31.md) for
 the full prior idea inventory. This scan looks for what's genuinely new beyond that.
 
 ---
@@ -230,7 +230,7 @@ session's own follow-up code read.
 | shapely issue #2056 | `shapely.buffer()` (functional) and `geom.buffer()` (method) have different default `quad_segs` (8 vs 16) — a call-style switch silently doubles output vertex density | Not checked against every buffer call site this session; worth a grep (`buffer(` across `extractors/`, `planning/`) if buffer-heavy code is touched next, to pin `quad_segs` explicitly rather than rely on the inconsistent default. |
 | GEOS issue #330; PostGIS `ST_MakeValid` docs | `make_valid()`/`buffer(0)` repair can occasionally balloon a geometry (one reported case: 1.11 → 4205.05 area units, ~3700×) or change geometry *type* (Polygon → GeometryCollection) instead of just fixing it | **Genuine, concrete gap** — see 4c, this is the most actionable finding in Part 4. |
 | geopandas issues #955, #2171; `read_file()` full-materialization | GeoPandas-specific memory leaks (`sjoin` +9.3 GB not reclaimed) and `unary_union`-on-GeoSeries-object segfault | **Not applicable** `[Verified — pyproject.toml:83, extractor comment "runtime layer store stays shapely-only"]`: this repo has no geopandas runtime dependency at all — shapely + pyproj + polars/numpy only. These bugs live in a library this project doesn't use at runtime. |
-| GDAL issue #640 | `GDAL_CACHEMAX` sizes off *host* memory by default, not a container's cgroup limit — can OOM-kill inside Docker even when the app's own memory guard (`guard_memory.py`) looks fine | Conditional — applicable only if ETL/extraction ever runs inside the repo's `Dockerfile`. Worth a one-line check (`echo $GDAL_CACHEMAX` in the container) rather than assumed fine. |
+| GDAL issue #640 | `GDAL_CACHEMAX` sizes off *host* memory by default, not a container's cgroup limit — can OOM-kill inside Docker even when the app's own memory-guard hook looks fine | Conditional — applicable only if ETL/extraction ever runs inside the repo's `Dockerfile`. Worth a one-line check (`echo $GDAL_CACHEMAX` in the container) rather than assumed fine. |
 
 ### 4c. Extraction and cross-reference (axis order, datum, silent-wrong-answer joins)
 

@@ -16,13 +16,13 @@ documents already 403 at source. A plain backup mirror silently overwrites the
 old version with the new one. This manifest is the *detector*: run it before each
 backup and the diff tells you which source PDFs changed since last time, so a
 mutated council file is a visible event (a changed sha line) rather than a silent
-overwrite. Pair it with object versioning on the R2 bucket (see doc/DATA_BACKUP.md)
+overwrite. Pair it with object versioning on the R2 bucket (see planning/product/doc/runbooks/DATA_BACKUP.md)
 so the prior bytes are also recoverable, not just detectable.
 
 What it does NOT do
 -------------------
 It does not fetch, back up, or restore anything — it only fingerprints what is on
-disk now. The actual upload is ``tools/backup_to_r2.ps1`` (rclone). It hashes the
+disk now. The actual upload is ``planning/product/tools/backup_to_r2.ps1`` (rclone). It hashes the
 full tree every run (~9 GB ≈ a minute or two); there is deliberately no incremental
 cache to keep the tool stateless and the output trustworthy.
 
@@ -54,7 +54,7 @@ ROOTS = (BRONZE_DIR, SILVER_DIR)
 # onto it, which pathlib descends (a junction is not `is_symlink()`), so the silver scan must
 # skip it or every layer file is hashed twice under two names. The store is scanned from its
 # real location under its OLD manifest prefix, so the manifest keys match the R2 layout that
-# tools/backup_to_r2.ps1 keeps (`silver/parquet/planning_layers/`). The same excludes as that
+# planning/product/tools/backup_to_r2.ps1 keeps (`silver/parquet/planning_layers/`). The same excludes as that
 # script apply: raw upstream archives and the _ingest staging tree are public re-downloadable
 # sources and are neither backed up nor fingerprinted.
 LAYERS_DIR = DATA_DIR.parent / "planning" / "product" / "data" / "planning_layers"

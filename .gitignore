@@ -40,9 +40,9 @@
 # file that had sat untracked in the tree since August. Same class of miss as the
 # doc/source_pdfs note below — a blanket rule hiding a load-bearing input.
 !tools/evals/tool_retrieval_queries.json
-!tools/hooks/mcp_reviewed_tools.json
+!planning/product/tools/hooks/mcp_reviewed_tools.json
 !tools/baselines/source_fidelity_baseline.json
-!tools/wiki_templates/project/hooks.json
+!planning/product/tools/wiki_templates/project/hooks.json
 *.xlsx
 *.pdf
 # doc/source_pdfs — CACHED SOURCE DOCUMENTS that LIVE extractors read as their input
@@ -625,7 +625,7 @@ data/bronze/legal_diary_openview/
 # data/bronze/ is the raw-download staging tree for every ETL: PDFs + LA-procurement
 # .aspx/.ashx blobs, scraped portal HTML (stateboards / eisb_directory SI listings /
 # lrc_classlist), debate probe XML, etc. ALL of it is regenerable by re-running the
-# extractors and is mirrored off-box to Cloudflare R2 (tools/backup_to_r2.ps1 +
+# extractors and is mirrored off-box to Cloudflare R2 (planning/product/tools/backup_to_r2.ps1 +
 # data/_meta/backup_manifest.tsv drift detector — see [[project_data_backup_r2]]).
 # The runtime Streamlit app reads ONLY the committed gold/silver parquets, never bronze,
 # so none of it needs to ship to GitHub. The type rules above miss .html and odd server

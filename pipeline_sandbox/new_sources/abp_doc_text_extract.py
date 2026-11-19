@@ -34,7 +34,7 @@ EVERY DESIGN CHOICE HERE IS A BRAKE, because the corpus is ~32k documents at an 
     box OOMs on concurrent OCR, and PaddleOCR is GPU-only and crashes here. winocr only. The dpi
     is clamped per page so no single sheet exceeds OCR_MAX_PIXELS, because this corpus carries A0
     drawing sheets that a flat 200 dpi turns into a ~62 Mpx (~186 MB) pixmap; free RAM is
-    re-checked per page rather than once per run. tools/hooks/guard_memory.py does NOT gate this
+    re-checked per page rather than once per run. planning/product/tools/hooks/guard_memory.py does NOT gate this
     command — its OCR pattern is `paddleocr|ocr_run|run_ocr`, which does not match this module —
     so the RAM floor is enforced in-process here or not at all.
   * Only the applicant /publicaccess/EIAR-NIS/ tree is eligible, and only file_ext == 'pdf'
@@ -134,7 +134,7 @@ OCR_DPI = 200
 # buffer plus PIL's decoded copy inside winocr hold two more. Cap the RASTER, not just the pages.
 OCR_MAX_PIXELS = 12_000_000  # A4 at 200 dpi is 3.9 Mpx, so an ordinary page is never downsampled
 OCR_MIN_DPI = 96  # below this winocr reads nothing useful even on large-format sheets
-RAM_FLOOR_MB = 1500  # mirrors tools/hooks/guard_memory.py:58 — refuse to START rather than die mid-batch
+RAM_FLOOR_MB = 1500  # mirrors the memory-guard hook's floor — refuse to START rather than die mid-batch
 
 # --- eligibility ------------------------------------------------------------------------------
 # ALLOW-list, not a deny-list: the applicant EIAR-NIS tree only. The (?i) is INLINE rather than

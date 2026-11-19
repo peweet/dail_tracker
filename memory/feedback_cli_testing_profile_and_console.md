@@ -35,5 +35,5 @@ running any check.
 
 - `test/tools/test_dev.py` exercises the one-time profile re-exec and CP1252
   dry-run output.
-- `test/tools/test_verify_changed.py` proves captured Unicode diagnostics are
+- the private repo's verify-changed tests prove captured Unicode diagnostics are
   escaped safely on a strict CP1252 stream.

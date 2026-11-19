@@ -30,14 +30,14 @@ is git itself. Git is a poor blob channel:
 
 ## Target model — R2 is the data channel; git carries code only
 
-An R2 mirror exists ([`tools/backup_to_r2.ps1`](../../tools/backup_to_r2.ps1) — see
-[DATA_BACKUP.md](../DATA_BACKUP.md)) — but it **cannot serve the runtime set as-is**, two
+An R2 mirror exists ([`planning/product/tools/backup_to_r2.ps1`](../../planning/product/tools/backup_to_r2.ps1) — see
+[DATA_BACKUP.md](../../planning/product/doc/runbooks/DATA_BACKUP.md)) — but it **cannot serve the runtime set as-is**, two
 reasons (both verified, both easy to miss):
 
 - It is a **version-preserving archive** (`rclone sync --backup-dir`). It retains prior bytes,
   but it is still not the runtime channel: the runtime-read set needs a separate manifest,
   access policy, and fetch contract.
-- It mirrors **bronze + silver only, not gold** ([backup_to_r2.ps1:17](../../tools/backup_to_r2.ps1#L17)
+- It mirrors **bronze + silver only, not gold** ([backup_to_r2.ps1:17](../../planning/product/tools/backup_to_r2.ps1#L17)
   — gold "is backed up by `git push`"). The runtime-read set is gold-heavy (101 runtime parquet,
   ~142 MB; gold dominates).
 

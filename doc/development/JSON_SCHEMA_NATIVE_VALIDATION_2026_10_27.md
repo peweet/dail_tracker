@@ -63,7 +63,7 @@ The second command selects checks against the entire current public Git diff.
 Unrelated concurrent changes can therefore affect its result. Focused test success is
 not a full-suite, live-source, pipeline-data or release acceptance claim.
 The recorded full-profile run passed repository Ruff lint, then stopped on formatting in
-the pre-existing dirty `tools/hooks/dated_doc_hint.py`. Focused dependency declaration,
+the pre-existing dirty dated-doc hint hook (now in the private repo). Focused dependency declaration,
 lockfile consistency, source formatting and type checks passed separately.
 Independent read-only review passed, including all-five-endpoint native-success coverage
 and the current source/schema receipt hashes. No live or deployment checks were run.
