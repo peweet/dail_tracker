@@ -30,6 +30,7 @@ DERIVES:
     annual_return_overdue_flag   nard < today AND status='Normal' (s.725 path)
     accounts_overdue_flag        last_accounts_date < today − 18m AND status='Normal'
     recent_distress_flag         status_pill in (in_distress,dead) AND status_date within last 12m
+                                 (a status_date after today is a register error, never recent)
     no_registered_address_flag   company_address_1 null after the placeholder cleanse
     recent_rename_flag           company_name_eff_date within last 24m
 
@@ -153,7 +154,7 @@ def normalise(df: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
         .fill_null(False)
         .alias("accounts_overdue_flag"),
         (
-            (pl.col("company_status_date") >= pl.lit(cutoff_12m))
+            pl.col("company_status_date").is_between(pl.lit(cutoff_12m), pl.lit(today))
             & (pl.col("status_pill_value").is_in(["in_distress", "dead"]))
         )
         .fill_null(False)
