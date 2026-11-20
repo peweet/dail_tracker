@@ -21,6 +21,8 @@ DERIVES:
   the IDENTICAL company-name key. It is distinct from the TD-name rule in
   shared/normalise_join_key.py (the CRO universe is too dissimilar to share one).
 - entity_age_years: today − company_reg_date (null when reg_date is null/invalid)
+- snapshot_date: the portal's snapshot date, from the bronze file name (companies_YYYYMMDD.csv);
+  the date every answer read from this silver file is as of
 - status_pill_value: collapsed status enum for the UI
     Normal → active
     Liquidation, Strike Off Listed, Receivership → in_distress
@@ -45,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import re
 import sys
 from pathlib import Path
 
@@ -88,6 +91,21 @@ def latest_bronze_csv() -> Path:
     if not candidates:
         raise SystemExit(f"no companies_*.csv files in {BRONZE_CRO_DIR}")
     return candidates[-1]
+
+
+SNAPSHOT_NAME = re.compile(r"companies_(\d{8})\.csv$")
+
+
+def snapshot_date_of(path: Path) -> dt.date:
+    """The portal's snapshot date, from the bronze file name the poller gives it (companies_YYYYMMDD.csv).
+
+    The file's mtime is the download day, not the snapshot's: companies_20261117.csv was written on
+    20 November 2026. A file with no date in its name is refused, so silver never carries a guess.
+    """
+    match = SNAPSHOT_NAME.search(path.name)
+    if not match:
+        raise SystemExit(f"cannot read a snapshot date from {path.name}; expected companies_YYYYMMDD.csv")
+    return dt.datetime.strptime(match.group(1), "%Y%m%d").date()
 
 
 def status_pill_expr() -> pl.Expr:
@@ -196,10 +214,12 @@ def main() -> int:
     bronze_path = args.bronze or latest_bronze_csv()
     if not bronze_path.exists():
         raise SystemExit(f"bronze input not found: {bronze_path}")
-    print(f"[cro_normalise] reading {bronze_path}")
+    snapshot_date = snapshot_date_of(bronze_path)
+    print(f"[cro_normalise] reading {bronze_path} (snapshot {snapshot_date.isoformat()})")
 
     df_raw = load_bronze(bronze_path)
     df, summary = normalise(df_raw)
+    df = df.with_columns(pl.lit(snapshot_date).alias("snapshot_date"))
 
     save_parquet(df, args.silver)
 
