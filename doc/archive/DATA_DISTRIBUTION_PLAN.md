@@ -10,7 +10,7 @@ key: PLAN|LIVE|infra
 
 # Data Distribution Plan — stop using git as the data channel
 
-Sibling to [archive/SCALABILITY_PLAN.md](SCALABILITY_PLAN.md). That doc scales *serving*
+Sibling to `archive/SCALABILITY_PLAN.md` (local only, not tracked). That doc scales *serving*
 (concurrent users). This one scales the *data footprint*: the read-only parquet
 that has to reach every deployment, and the push/clone cost of carrying it in git.
 
@@ -88,7 +88,7 @@ a modeled, tested classification — `retention ∈ {runtime, lineage, dead}`:
 
 > **Two senses of "provenance" — don't conflate.** This is the *data-retention / lineage* sense.
 > It is distinct from the *user-facing verifiability* sense (where a displayed number came from),
-> which has its own well-structured tier model in [API_PROVENANCE_REVIEW.md](API_PROVENANCE_REVIEW.md)
+> which has its own well-structured tier model in `API_PROVENANCE_REVIEW.md` (local only, not tracked)
 > (T1/T2/T3). This feature deliberately uses the word **lineage** to avoid the collision.
 
 **Source of truth:** [`data/_meta/runtime_data_manifest.json`](../../data/_meta/runtime_data_manifest.json),

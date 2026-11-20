@@ -13,7 +13,7 @@ key: PLAN|LIVE|sources
 Forward-looking, honest, and explicitly **not** a claim of implementation. Every
 source here is `candidate` / `not-found` / `partial` unless a chain and output
 are cited. The implemented surface is in [`SOURCES.md`](SOURCES.md); the full
-card-level scoping notes are in [`ENRICHMENTS.md`](ENRICHMENTS.md).
+card-level scoping notes are in [`archive/ENRICHMENTS.md`](archive/ENRICHMENTS.md).
 
 > **Do not claim these are built.** In particular: C&AG reports, PAC report
 > ingestion, election results, OGP central frameworks, a general data.gov.ie

@@ -21,7 +21,7 @@ README or the enrichment wishlist.
 3. [`data/_meta/output_baseline.json`](../data/_meta/output_baseline.json) — confirms actual parquet outputs and row counts.
 4. Streamlit pages ([`utility/pages_code/`](../utility/pages_code/)) — app/product surfaces.
 5. The README may be stale.
-6. [`ENRICHMENTS.md`](ENRICHMENTS.md) is a *candidate* catalogue, not proof of implementation (see [`ROADMAP_SOURCES.md`](ROADMAP_SOURCES.md)).
+6. [`archive/ENRICHMENTS.md`](archive/ENRICHMENTS.md) is a *candidate* catalogue, not proof of implementation (see [`ROADMAP_SOURCES.md`](ROADMAP_SOURCES.md)).
 
 ---
 

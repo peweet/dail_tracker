@@ -3,7 +3,7 @@
 
 # doc/ index
 
-64 docs · ~330.9k tokens total · 23 LIVE · 30 superseded/stale · 11 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
+64 docs · ~331.0k tokens total · 23 LIVE · 30 superseded/stale · 11 unclassified. **Never read a doc whole to find out if it's relevant — scan this table, then open with `offset`/`limit` or grep the `key:` line.**
 
 ## LIVE
 
@@ -45,7 +45,7 @@
 | [SIPO_OCR_REMAINING_QUEUE.md](archive/SIPO_OCR_REMAINING_QUEUE.md) | elections | 1.0k | 2026-06-26 | before running or resuming a SIPO OCR job (candidate expenses, party national-agent returns) |
 | [REFACTORING_CANDIDATES.md](archive/REFACTORING_CANDIDATES.md) | engineering | 5.0k | 2026-07-30 | historical only — candidate list companion to REFACTORING_TOKEN_ECONOMICS.md, drafted 2026-07-30; no candidate had been implemented as of 2026-08-09. Re-scan the repo before reviving any item. |
 | [CONTINUOUS_REFRESH.md](archive/CONTINUOUS_REFRESH.md) | infra | 1.5k | 2026-07-17 | historical only — the live refresh runbook is HYBRID_REFRESH_PLAN.md; the two-lane R2 design below is DEAD (see [[project_two_lane_reconciliation_flaw_2026_07_09]]) |
-| [DATA_DISTRIBUTION_PLAN.md](archive/DATA_DISTRIBUTION_PLAN.md) | infra | 2.5k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
+| [DATA_DISTRIBUTION_PLAN.md](archive/DATA_DISTRIBUTION_PLAN.md) | infra | 2.6k | 2026-06-19 | planning or implementing the move of runtime parquet distribution from git to R2 (manifest-driven publish/fetch lane) |
 | [DUCKDB_ENGINEERING_PLAN.md](archive/DUCKDB_ENGINEERING_PLAN.md) | infra | 3.8k | 2026-07-17 | refactoring or hardening the DuckDB layer — sql_views registration, dail_tracker_core queries/connections, data_access wrappers, api routers |
 | [HYBRID_REFRESH_PLAN.md](archive/HYBRID_REFRESH_PLAN.md) | infra | 3.4k | 2026-07-08 | designing or implementing unattended/laptop-closed pipeline refresh, or the R2/WAF reconciliation architecture |
 | [COUNCIL_TARGETING_FABLE_ASSESSMENT.md](archive/COUNCIL_TARGETING_FABLE_ASSESSMENT.md) | local-gov | 14.0k | 2026-07-09 | before scoping new county-council data work (AFS, minutes/agendas, named votes) or deciding what council data source to pursue next |
@@ -86,4 +86,4 @@
 | [SOURCE_CADENCE_PROCEDURE.md](SOURCE_CADENCE_PROCEDURE.md) | — | 1.3k | — |  |
 | [URL_CONTRACT.md](URL_CONTRACT.md) | — | 2.4k | — |  |
 
-<!-- generated 2026-11-19 -->
+<!-- generated 2026-11-20 -->

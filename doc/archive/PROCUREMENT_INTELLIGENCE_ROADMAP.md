@@ -22,7 +22,7 @@ A 15-theme audit (one validation agent per point of the product feedback) plus a
 ### Load-bearing claims — independently validated
 | Claim | Verdict | Evidence |
 |---|---|---|
-| Per-supplier match confidence is computed but never shown | ✅ confirmed | `data/gold/parquet/procurement_supplier_cro_match.parquet` has `match_method` + `match_confidence` ({0.0, 0.5, 0.9}); counts **6,047 exact_unique / 400 exact_ambiguous / 3,532 no_match**. The view selects only `match_method` ([procurement_supplier_summary.sql:53](../../sql_views/procurement/procurement_supplier_summary.sql#L53)); the UI pill is binary ([procurement.py:414](../../utility/pages_code/procurement.py#L414)). |
+| Per-supplier match confidence is computed but never shown | ✅ confirmed | `data/gold/parquet/procurement_supplier_cro_match.parquet` has `match_method` + `match_confidence` ({0.0, 0.5, 0.9}); counts **6,047 exact_unique / 400 exact_ambiguous / 3,532 no_match**. The view selects only `match_method` ([procurement_supplier_summary.sql:53](../../sql_views/procurement/procurement_supplier_summary.sql#L53)); the UI pill is binary ([procurement.py:414](https://github.com/peweet/dail_tracker/blob/fd40e4c4ce6d5fcfd0995a25c9210e9e508fa78f/utility/pages_code/procurement.py#L414)). |
 | Per-buyer single-bid view exists but is unwired | ✅ confirmed | `v_procurement_competition` is referenced **nowhere** in `utility/`. |
 | Procurement has zero in-app export despite a shared helper | ✅ confirmed | `export_button` used in ~13 page/ui files; **0** download/export occurrences in `procurement.py`. Helper: [utility/ui/export_controls.py](../../utility/ui/export_controls.py). |
 | A bulk-export API is deployed but undiscoverable | ✅ confirmed | `/v1/data` + `/v1/data/{resource}` in [api/main.py:80,139](../../api/main.py#L80); exports router included. |
@@ -67,7 +67,7 @@ There is **no `supplier_class='person'`** — the privacy gate is **`public_disp
 
 ## What's already strong (do NOT rebuild)
 
-- **Search-first hero** over a 40,848-row unified corpus (5 entity kinds), both money grains, with a hard never-sum guard ([procurement.py:3278](../../utility/pages_code/procurement.py#L3278)).
+- **Search-first hero** over a 40,848-row unified corpus (5 entity kinds), both money grains, with a hard never-sum guard ([procurement.py:3278](https://github.com/peweet/dail_tracker/blob/fd40e4c4ce6d5fcfd0995a25c9210e9e508fa78f/utility/pages_code/procurement.py#L3278)).
 - **Job-phrased, shareable IA**: `_SECTION_LABELS` reads as reader questions, `?tab=`-synced. 4 of 6 target jobs are already first-class sections.
 - **Three-grain discipline** enforced in copy *and* structure: separate axes, separate labelled columns, "never added together" caveats; paid vs ordered never stacked.
 - **No-inference vocabulary** already pervasive (~80% done): "appears in both registers", "framework ceiling", "a single bid is a recorded fact, not a verdict", "may be different legal entities — confirm via the CRO number".

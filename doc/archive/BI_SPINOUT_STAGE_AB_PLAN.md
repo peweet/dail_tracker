@@ -37,7 +37,7 @@ These five primitives are the trust UI the whole paid product leans on: they are
 
 | File | Symbol / location | Action |
 |---|---|---|
-| [utility/pages_code/procurement.py](../../utility/pages_code/procurement.py) | `_value_pill` (:392) — hardcodes `pr-pill-val` + `" awarded"` | route through `money_badge` |
+| [utility/pages_code/procurement.py](https://github.com/peweet/dail_tracker/blob/631dca8769339c7fec068c8da536fa5e697a15fb/utility/pages_code/procurement.py) | `_value_pill` (:392) — hardcodes `pr-pill-val` + `" awarded"` | route through `money_badge` |
 | | `_paid_pill` (:767) + `_paid_verb` (:763) — currently emits `pr-pill-val` | repoint to existing `pr-pill-paid` / `pr-pill-ordered` |
 | | `_ted_value_pill` (:1945) — `pr-pill-val` + `" awarded (EU)"` | route through `money_badge` |
 | | inline `pr-pill-val` spans: 2107, 2684, 2770, 2948, 3026, 3384, 3414, 3492, 3617, 3674, 3698, 3726, 3751; council-card pattern to COPY at 1007–1009 (already uses paid/ordered) | reclassify |
@@ -87,7 +87,7 @@ Owner signs the string table and the chip decision. Do not invent it.
 |---|---|---|
 | [sql_views/procurement/procurement_supplier_summary.sql](../../sql_views/procurement/procurement_supplier_summary.sql) | LEFT-JOINs match parquet (:64–65), selects `c.match_method AS cro_match_method` (:53); does **not** select `match_confidence` / `n_cro` | one-line additive SELECT |
 | [sql_views/procurement/procurement_supplier_year_summary.sql](../../sql_views/procurement/procurement_supplier_year_summary.sql) | independently LEFT-JOINs same parquet (:57), selects `cro_match_method` (:51) | **same additive SELECT — required** |
-| [dail_tracker_core/queries/procurement.py](../../dail_tracker_core/queries/procurement.py) | `_SUPPLIER_COLS` (:48–53) — consumed against **both** views (v_..._summary at :73 **and** v_..._year_summary at :75) | add `match_confidence` (+ ideally `n_cro`) |
+| [dail_tracker_core/queries/procurement.py](https://github.com/peweet/dail_tracker/blob/631dca8769339c7fec068c8da536fa5e697a15fb/dail_tracker_core/queries/procurement.py) | `_SUPPLIER_COLS` (:48–53) — consumed against **both** views (v_..._summary at :73 **and** v_..._year_summary at :75) | add `match_confidence` (+ ideally `n_cro`) |
 | [utility/data_access/procurement_data.py](../../utility/data_access/procurement_data.py) | `fetch_supplier_summary_result` (:153–156) thin pass-through | **no change** |
 
 > **Load-bearing correction:** adding `match_confidence` to `_SUPPLIER_COLS` **breaks the year path** unless `procurement_supplier_year_summary.sql` also projects it — hence the two-file edit.
@@ -127,7 +127,7 @@ Owner signs the wording **and** the suppress-vs-caveat policy.
 
 **What it is.** A popover that, for a headline money figure, reports source view · live filters · sum-safety verdict · excluded-row count · caveat · source link. The popover **reports, never derives**.
 
-**Stale roadmap claim corrected:** the roadmap asserts `st.popover` is "unused anywhere." It is **now used once**, at [procurement.py](../../utility/pages_code/procurement.py):558 (`with st.popover("ⓘ How is this adjusted?")`), inside the experimental inflation note — gated local-only (line 568 renders "Experimental · local only — not shown in the published app"). So in the **published** app it is still effectively unused, and this now serves as a **working precedent** for the pattern (metadata dict → popover). No `explain_figure` helper and no `FigureProvenance` exist.
+**Stale roadmap claim corrected:** the roadmap asserts `st.popover` is "unused anywhere." It is **now used once**, at [procurement.py](https://github.com/peweet/dail_tracker/blob/631dca8769339c7fec068c8da536fa5e697a15fb/utility/pages_code/procurement.py):558 (`with st.popover("ⓘ How is this adjusted?")`), inside the experimental inflation note — gated local-only (line 568 renders "Experimental · local only — not shown in the published app"). So in the **published** app it is still effectively unused, and this now serves as a **working precedent** for the pattern (metadata dict → popover). No `explain_figure` helper and no `FigureProvenance` exist.
 
 **Exact files + symbols to touch**
 

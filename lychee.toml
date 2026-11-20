@@ -1,0 +1,19 @@
+# lychee link check: relative file links and #anchors in the repo's markdown.
+#
+# Offline only. External URLs are never fetched here: source reachability is
+# tools/build_source_health.py --check-links, which limits its own request rate.
+#
+# CI runs it in .github/workflows/ci.yml (job `links`). Locally, over tracked files only:
+#   git ls-files "*.md" | lychee --config lychee.toml --files-from -
+# A link into a deleted file in an archived doc is fixed with a GitHub permalink to the
+# commit the doc describes, never by excluding the doc.
+
+offline = true
+include_fragments = "anchor-only"
+extensions = ["md"]
+no_progress = true
+
+# Links into the private nested repo (planning/product/) and the untracked .claude/
+# folder resolve only in the owner's monorepo checkout, never in a public clone or CI.
+# planning/README.md and AGENTS.md link there on purpose. Every other local link is checked.
+exclude = ['/planning/product/', '/\.claude/']

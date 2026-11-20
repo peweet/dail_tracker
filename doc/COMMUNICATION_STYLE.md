@@ -465,7 +465,7 @@ DevSecOps pipeline in a hybrid environment."*
 ## 8. What is mechanically checkable
 
 The enforcement gradation, which mirrors
-[feedback_guardrail_determinism_tiers](../MEMORY.md). Determinism is inverse to consequence:
+the `feedback_guardrail_determinism_tiers` memory card (local, not tracked in this repo). Determinism is inverse to consequence:
 the cheap mechanical checks can be hard-enforced; the high-value semantic ones must not be.
 
 **Lintable (a Stop hook can catch these):**

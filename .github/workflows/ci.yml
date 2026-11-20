@@ -61,6 +61,23 @@ jobs:
           uv run python tools/migration/build_frontend_contract.py --check
           uv run python tools/migration/check_api_parity.py
 
+  # Markdown links: relative file links and #anchors in tracked .md files, offline
+  # (lychee.toml). External URLs are never fetched here; source reachability is
+  # tools/build_source_health.py --check-links. Added 2026-11-20 after 17 links
+  # into moved or deleted files had built up in doc/ with nothing to catch them.
+  links:
+    needs: changes
+    if: needs.changes.outputs.data_refresh_only != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: List tracked markdown
+        run: git ls-files '*.md' > "$RUNNER_TEMP/md-files.txt"
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          lycheeVersion: v0.24.2
+          args: --config lychee.toml --files-from ${{ runner.temp }}/md-files.txt
+
   # Dependency truth: pyproject.toml (human intent) → uv.lock (resolved env) →
   # requirements.txt (app-runtime export for Streamlit Cloud / pip fallback).
   # This job proves all three stay in sync: the lock is current with pyproject,

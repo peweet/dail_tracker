@@ -13,9 +13,9 @@ key: PLAN|LIVE|sources
 _Compiled 2026-06-28. This is the **implementation-level** companion to the two
 existing catalogues:_
 
-- **[`SOURCES.md`](SOURCES.md)** — what is *already implemented* (chains, outputs, API). Source of truth for "is it built?".
-- **[`ROADMAP_SOURCES.md`](ROADMAP_SOURCES.md)** — the *candidate* list at card level (status · link · joins · value · difficulty).
-- **[`archive/ENRICHMENTS.md`](archive/ENRICHMENTS.md)** — the long-form scoping cards + the parked URL audit (**archived 2026-06-28** — cited for provenance only; this plan is its live successor).
+- **[`SOURCES.md`](../SOURCES.md)** — what is *already implemented* (chains, outputs, API). Source of truth for "is it built?".
+- **[`ROADMAP_SOURCES.md`](../ROADMAP_SOURCES.md)** — the *candidate* list at card level (status · link · joins · value · difficulty).
+- **[`archive/ENRICHMENTS.md`](ENRICHMENTS.md)** — the long-form scoping cards + the parked URL audit (**archived 2026-06-28** — cited for provenance only; this plan is its live successor).
 
 This document does the next thing those three don't: it **scores, prioritises,
 and writes the actual build plans** (schemas, poll methods, join keys, GitHub
